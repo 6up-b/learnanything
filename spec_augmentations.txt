@@ -1,0 +1,568 @@
+1. Use the native SDK (that is, the forked codex source named /learnloop/)
+2. Assume single user.
+3. For attempts, scheduling and mutable state use SQLite. Markdown/YAML should be the source of truth for human authored learning content or reference. SQLite should be an event log + scheduling + computed learner state. If the user or codex should comfortably edit it and it needs to be human readable use markdown or yaml. If its a component that needs consistency, or if its history or scheduling put it in SQLite. Markdown is for narrative memory (goals.md, subject.md, notes.md, errors.md, reflection.md, sessions/*.md, long form notes, error notebooks, codex readable context, learner profile, goals). YAML is good for concept graphs, prerequisite graphs, confusable concepts, domain templates, knowledge type, concept membership, worked example meta data, difficuolty priors, cards. SQLite should be for canonical states like attempts, review schedule, FSRS state, mastery state, generated item registry, error events, session metadata, card important hashes, active/dormant status, due queue. You can also have codex read curated generated context files such as: exports/
+  current-state.md
+  due-today.yaml
+  weak-concepts.yaml
+  recent-errors.md
+  mastery-snapshot.yaml
+Due reviews, suggested session time, weak concepts, recent recurring errors, recommended next actions. Generated cards should go through an inbox to be accepted. Cards should additionally have provenance to discriminate between ai generated content and human authored content. 
+4. Use py-fsrs.
+5. A Learning Object is the stable thing being learned not the exact prompt shown on a given day. So its a durable unit of knowledge or skill that has a stable identity across multiple practice formats. 1 learning object can have many practice modes. For implementation, I would store each concrete prompt as its own YAML item linked to a parent learning_object_id. For example, 
+
+Concept:
+  Fine-Gray competing risks
+
+Learning Object:
+  Fine-Gray subdistribution hazard definition
+
+Practice Items:
+  - Define it from memory.
+  - Explain it in plain English.
+  - Contrast it with cause-specific hazard.
+  - Apply it to a bail/disposition example.
+  - Identify which statement is wrong.
+
+ Each Practice Item should have 1 primary practice_mode. 
+
+6. For mastery dimensions treat them as derived/estimated concept level state from tagget attempts. FSRS is item level memory state: difficulty, stability, retrievability. Learning Object / Concept mastery:
+  recall, schema, transfer, fluency, procedure, explanation
+  derived from attempts grouped by target_mastery_dimension + practice_mode + error type
+1 attempt should update 3 things:
+Attempt
+  ↓
+1. Practice item review_state
+   - FSRS stability/difficulty/retrievability
+
+2. Learning object mastery dimensions
+   - recall/schema/transfer/fluency/etc.
+
+3. Error model
+   - recurring error types and repair priorities
+
+Example attempt
+
+practice_item_id: pi_fg_subhazard_transfer_001
+learning_object_id: lo_fg_subhazard
+practice_mode: transfer
+target_mastery_dimension: transfer
+correctness: 0.45
+confidence: 4
+latency_seconds: 260
+hints_used: 2
+error_type: hazard_probability_confusion
+
+updates the following
+
+pi_fg_subhazard_transfer_001:
+  FSRS state gets worse / due sooner
+
+lo_fg_subhazard.transfer:
+  decreases or grows slowly
+
+lo_fg_subhazard.schema:
+  may also decrease slightly because error type suggests conceptual confusion
+
+error model:
+  hazard_probability_confusion gets stronger
+
+Each concrete prompt has its own review state (in SQL). For each Learning Object keep mastery dimensions. Each dimension is updated from attempts that target it. Here's an example but you can follow your own discretion. Maybe use some sort of weighted update. 
+
+| Practice mode          | Usually updates               |
+| ---------------------- | ----------------------------- |
+| `retrieval`            | recall                        |
+| `cloze`                | recall                        |
+| `definition`           | recall                        |
+| `worked_example`       | schema, procedure             |
+| `completion_problem`   | procedure, schema             |
+| `interleaving`         | schema, discrimination        |
+| `contrastive_question` | schema                        |
+| `transfer`             | transfer, schema              |
+| `explain_from_memory`  | explanation, schema, recall   |
+| `timed_drill`          | fluency, procedure            |
+| `diagnose_error`       | schema, transfer              |
+| `teach_back`           | explanation, schema, transfer |
+Each practice item should say which dimensions it measures. For now we can use EMA per dimension as a basic update rule unless you have a better idea. It should also be difficulty aware mastery update where hard success should raise mastery more while easy failure should lower mastery more. We should also include error aware cross dimension effects since some errors reveal weaknesses in dimensions that the item did not explicitly target. For example, 
+
+Prompt type: transfer
+Error: forgot definition
+
+should update bough transfer and recall (lower both). 
+
+Another example:
+Prompt type: retrieval
+Error: correct definition but bad application
+
+Should not heavily penalize recall but penalize schema/transfer.
+
+You can have error impact maps
+
+error_impacts:
+  recall_failure:
+    recall: -0.25
+
+  conceptual_error:
+    schema: -0.25
+    transfer: -0.10
+
+  theorem_selection_error:
+    schema: -0.30
+    transfer: -0.20
+
+  procedure_error:
+    procedure: -0.25
+    fluency: -0.05
+
+  transfer_failure:
+    transfer: -0.30
+    schema: -0.10
+
+  high_confidence_wrong:
+    schema: -0.20
+    confidence_calibration: -0.30
+
+  fluency_issue:
+    fluency: -0.25
+
+and apply cross dimensional corrections. 
+
+Additionally, make sure to flag high confidence wrong answers since it's not just a failed recall but a misconception. It should lower schema, confidence_calibration, and increase error notebook. 
+For fluency, you can compute it from number of pauses/hints, consistency across attempts, latency relative to expected time. 
+
+Layer 1: item memory
+
+Per practice item:
+
+difficulty
+stability
+retrievability
+due_at
+
+This is FSRS-like.
+
+Layer 2: object mastery
+
+Per Learning Object:
+
+recall
+schema
+procedure
+transfer
+fluency
+explanation
+confidence_calibration
+
+Derived from attempts.
+
+Layer 3: concept mastery
+
+Per Concept:
+
+weighted aggregate of object mastery
+
+Example:
+
+Concept: Fine-Gray model
+
+Objects:
+  lo_competing_risks
+  lo_subdistribution_hazard
+  lo_risk_set_modification
+  lo_coefficient_interpretation
+  lo_fine_gray_vs_cox
+
+Concept mastery = prerequisite-weighted average of these.
+
+You can us FSRS for recall like practice items, then some sort of Bayesian/IRT model for mastery dimensions and knowledge tracing over the concept graph. I would also store raw attempts forever so we can change mastery model later. 
+
+
+High recall, low transfer:
+  transfer challenge
+
+Low recall:
+  retrieval practice
+
+Low schema:
+  contrastive examples / interleaving
+
+Low procedure:
+  completion problem
+
+Low fluency:
+  timed drill
+
+High confidence wrong:
+  misconception repair
+
+Repeated same error:
+  targeted repair loop
+
+
+10. When codex writes cards they should be sent to an inbox. We additionally should have a dedicated canonical source ingestion utility that generates cards from textbook pages or other canonical resources (websites, pdfs, pictures or md files of latex + text, lecture notes) known to be correct. Taking these files should allow the user to later convert them into Learning Objects/practice items/concept graph updates/worked examples/definitions/ theorems and lemma cards/error checks/transfer prompts. 
+
+Canonical source + direct extraction:
+  auto-accept allowed
+
+Canonical source + cloze/format transform:
+  auto-accept allowed with provenance
+
+Canonical source + proof/derivation/transfer/misconception generation:
+  inbox review
+
+Noncanonical source:
+  inbox review by default
+
+Session-specific generated examples:
+  ephemeral unless promoted
+
+Additionally, 
+
+Practice generated inside a session: auto-use, not auto-save
+
+If the learner says:
+
+I don't understand this. Give me 3 more examples.
+
+Those examples can be generated immediately and used in the session.
+
+But they should not automatically become permanent cards.
+
+Store them in the attempt/session log:
+
+sessions/2026-05-12.md
+
+or SQLite as ephemeral prompts.
+
+generated_ephemeral_items (
+  id,
+  learning_object_id,
+  prompt,
+  generated_at,
+  used_in_session,
+  promoted_to_card_id
+)
+
+Later, the app can ask:
+
+This generated transfer question seemed useful. Promote it to a permanent practice item?
+
+3. Variants of already-approved cards: optionally auto-accept
+
+For mature objects, you may want automatic generation of variants.
+
+Example approved card:
+
+id: pi_bayes_direction_contrast_001
+prompt: "Distinguish P(A|B) from P(B|A) in this medical-test example."
+
+The app can auto-generate variants:
+
+weather forecast example
+legal evidence example
+drug test example
+spam filter example
+
+These can be auto-accepted if they pass validation.
+
+But I would mark them as:
+
+review_status: auto_accepted
+origin_type: ai_variant
+parent_item_id: pi_bayes_direction_contrast_001
+
+And maybe only allow a cap:
+
+max_auto_variants_per_item = 5
+
+11. Knowledge type Enum:
+
+KnowledgeType = Literal[
+    "fact",
+    "definition",
+    "formula",
+    "notation",
+    "concept",
+    "distinction",
+    "assumption",
+    "theorem",
+    "lemma",
+    "proof",
+    "proof_technique",
+    "derivation",
+    "procedure",
+    "algorithm",
+    "worked_example_pattern",
+    "model",
+    "schema",
+    "heuristic",
+    "misconception",
+    "error_pattern",
+    "case_study",
+    "application",
+    "transfer_schema",
+    "vocabulary",
+    "grammar_pattern",
+    "pronunciation",
+    "character",
+    "motor_skill",
+    "tactical_pattern",
+    "metacognitive_strategy"
+]
+
+| `knowledge_type`         | Meaning                                         | Examples                                                 |
+| ------------------------ | ----------------------------------------------- | -------------------------------------------------------- |
+| `fact`                   | Atomic stable information                       | “BDNF supports plasticity”; “The capital is Seoul”       |
+| `definition`             | Formal or verbal definition                     | eigenvector, subdistribution hazard, martingale          |
+| `formula`                | Equation or symbolic relationship               | Bayes rule, gradient update, CIF formula                 |
+| `notation`               | Meaning of symbols                              | (S(t)), (\lambda(t)), (X^\top X)                         |
+| `concept`                | General idea requiring understanding            | overfitting, hazard, vector space                        |
+| `distinction`            | Contrast between confusable ideas               | hazard vs probability, MLE vs MAP                        |
+| `assumption`             | Condition needed for a method/theorem           | independent censoring, linearity, iid                    |
+| `theorem`                | Named or important result                       | CLT, spectral theorem, Bayes theorem                     |
+| `lemma`                  | Smaller supporting result                       | technical proof step                                     |
+| `proof`                  | Full proof of a theorem/result                  | proof of Bayes rule, convergence proof                   |
+| `proof_technique`        | Reusable proof method                           | contradiction, induction, coupling, martingale argument  |
+| `derivation`             | Step-by-step derivation                         | Cox partial likelihood, gradient of loss                 |
+| `procedure`              | Method with ordered steps                       | solving normal equations, doing PCA                      |
+| `algorithm`              | Formal computational procedure                  | gradient descent, EM, Dijkstra                           |
+| `worked_example_pattern` | Reusable example template                       | diagonalizing a 2x2 matrix                               |
+| `model`                  | Statistical/ML/math model object                | logistic regression, Cox model, Fine-Gray model          |
+| `schema`                 | Abstract structure for recognizing problem type | “use Bayes when evidence reverses conditioning”          |
+| `heuristic`              | Rule of thumb or solving strategy               | check invariants, condition on first step                |
+| `misconception`          | Known wrong belief to repair                    | “hazard is a probability”                                |
+| `error_pattern`          | Recurrent mistake pattern                       | sign errors, missing centering, theorem-selection errors |
+| `case_study`             | Concrete applied example                        | bail/disposition competing-risks setup                   |
+| `application`            | Using knowledge in a domain context             | applying PCA to centered data                            |
+| `transfer_schema`        | Generalization across contexts                  | recognizing SVD/PCA/eigendecomposition relationships     |
+| `vocabulary`             | Word/phrase in language learning                | 수영장, 공부하다                                                |
+| `grammar_pattern`        | Language grammar structure                      | Korean 은/는 vs 이/가                                        |
+| `pronunciation`          | Sound/phonetic target                           | Korean tense consonants, Mandarin tones                  |
+| `character`              | Written symbol                                  | Chinese character, Hanja, Kanji                          |
+| `motor_skill`            | Physical/embodied skill                         | dance move, aim flick, piano fingering                   |
+| `tactical_pattern`       | Decision pattern in game/sport                  | rotate vs hold angle, chess fork                         |
+| `metacognitive_strategy` | Learning/self-monitoring strategy               | confidence calibration, error postmortem                 |
+12. Practice mode Enum:
+
+PracticeMode = Literal[
+    "read",
+    "observe",
+    "worked_example",
+    "annotated_example",
+    "completion_problem",
+    "retrieval",
+    "cued_recall",
+    "free_recall",
+    "recognition",
+    "cloze",
+    "multiple_choice",
+    "short_answer",
+    "explain_from_memory",
+    "teach_back",
+    "derivation_reconstruction",
+    "proof_reconstruction",
+    "procedure_execution",
+    "problem_solving",
+    "interleaving",
+    "contrastive_discrimination",
+    "error_diagnosis",
+    "misconception_repair",
+    "transfer",
+    "near_transfer",
+    "far_transfer",
+    "variant_generation",
+    "reflection",
+    "postmortem",
+    "timed_drill",
+    "fluency_drill",
+    "dictation",
+    "translation",
+    "sentence_production",
+    "pronunciation_drill",
+    "shadowing",
+    "copying",
+    "motor_imitation",
+    "external_focus_drill",
+    "scenario_simulation",
+    "walkthrough",
+    "hinted_attempt",
+    "reconstruction_after_walkthrough",
+    "self_assessment"
+]
+
+| `practice_mode`                    | Meaning                                   | Best for                                         |
+| ---------------------------------- | ----------------------------------------- | ------------------------------------------------ |
+| `read`                             | Passive source reading                    | Initial exposure                                 |
+| `observe`                          | Watch expert/model performance            | Motor skills, examples, tactical patterns        |
+| `worked_example`                   | Study full solution                       | Novices, high-load material                      |
+| `annotated_example`                | Worked example with subgoals/explanations | Schema building                                  |
+| `completion_problem`               | Fill missing steps in partial solution    | Transition from example to solving               |
+| `retrieval`                        | Recall answer from memory                 | Durable retention                                |
+| `cued_recall`                      | Recall with cue                           | Fragile/new knowledge                            |
+| `free_recall`                      | Recall with minimal cue                   | Mature knowledge                                 |
+| `recognition`                      | Identify correct answer                   | Early-stage memory, but weaker than recall       |
+| `cloze`                            | Fill in blank                             | Definitions, formulas, language                  |
+| `multiple_choice`                  | Choose answer                             | Low-friction checks, discrimination              |
+| `short_answer`                     | Produce concise answer                    | Definitions, concepts                            |
+| `explain_from_memory`              | Explain without notes                     | Concepts, schemas, transfer                      |
+| `teach_back`                       | Teach the idea to an imaginary learner    | Deep understanding                               |
+| `derivation_reconstruction`        | Rebuild derivation from memory            | Math/stats/ML                                    |
+| `proof_reconstruction`             | Rebuild proof from memory                 | Theorems, proof techniques                       |
+| `procedure_execution`              | Execute known steps                       | Algorithms, computations                         |
+| `problem_solving`                  | Solve a problem independently             | Procedure/schema/transfer                        |
+| `interleaving`                     | Mixed problem types                       | Discrimination, transfer                         |
+| `contrastive_discrimination`       | Directly compare confusable things        | MLE vs MAP, Cox vs Fine-Gray                     |
+| `error_diagnosis`                  | Identify what is wrong                    | Debugging, proof review, misconception detection |
+| `misconception_repair`             | Target a known misconception              | High-confidence wrong answers                    |
+| `transfer`                         | Apply in new context                      | Generalization                                   |
+| `near_transfer`                    | Apply to similar context                  | Early transfer                                   |
+| `far_transfer`                     | Apply to distant/novel context            | Advanced mastery                                 |
+| `variant_generation`               | Create new example/problem                | Deep schema mastery                              |
+| `reflection`                       | Explain what changed/was learned          | Metacognition                                    |
+| `postmortem`                       | Analyze failed attempt                    | Error reduction                                  |
+| `timed_drill`                      | Practice under time pressure              | Fluency, exam readiness                          |
+| `fluency_drill`                    | Fast accurate repetition                  | Definitions, formulas, language, mechanics       |
+| `dictation`                        | Hear and write/type                       | Language listening/orthography                   |
+| `translation`                      | Translate between languages               | Language production/comprehension                |
+| `sentence_production`              | Generate original sentence                | Grammar/vocabulary transfer                      |
+| `pronunciation_drill`              | Speak target sound/word                   | Pronunciation                                    |
+| `shadowing`                        | Repeat after audio                        | Language rhythm/pronunciation                    |
+| `copying`                          | Copy written form                         | Characters, notation, motor trace                |
+| `motor_imitation`                  | Imitate observed movement                 | Dance, sports, music                             |
+| `external_focus_drill`             | Cue attention to outcome/effect           | Motor learning                                   |
+| `scenario_simulation`              | Simulate applied situation                | Esports, clinical/legal/statistical cases        |
+| `walkthrough`                      | Guided step-by-step instruction           | “I don’t know / teach me” mode                   |
+| `hinted_attempt`                   | Attempt with one or more hints            | Assisted retrieval/problem solving               |
+| `reconstruction_after_walkthrough` | Re-explain after guidance                 | Converts instruction into retrieval              |
+| `self_assessment`                  | Learner rates confidence/understanding    | Calibration                                      |
+
+You can also have practice mode Enum and attempt type Enum separated. This is probably better.
+
+AttemptType = Literal[
+    "independent_attempt",
+    "hinted_attempt",
+    "dont_know",
+    "guided_walkthrough",
+    "reconstruction_after_walkthrough",
+    "skip",
+    "self_report"
+]
+
+You can also have a mastery dimension Enum.
+
+MasteryDimension = Literal[
+    "recall",
+    "recognition",
+    "schema",
+    "procedure",
+    "transfer",
+    "fluency",
+    "explanation",
+    "discrimination",
+    "calibration"
+]
+knowledge_type:
+  What kind of thing is this?
+
+practice_mode:
+  What activity tests or teaches it?
+
+attempt_type:
+  How independently did the learner engage?
+
+mastery_dimension:
+  What ability does this provide evidence for?
+
+14. Use a rubric based grader with structured output (subagent). 
+
+User answer
+   ↓
+Rubric builder
+   ↓
+Codex/LLM grader
+   ↓
+Structured JSON grade
+   ↓
+Validation
+   ↓
+Mastery update
+   ↓
+Feedback + scheduling
+
+For most free text answers, 0-4 rubric should be sufficient.
+
+0 = no meaningful answer / "I don't know"
+1 = mostly wrong, but contains a relevant fragment
+2 = partially correct, missing key idea or has serious confusion
+3 = mostly correct, minor omission/imprecision
+4 = fully correct for this prompt
+
+mapped to a numeric partial credit
+GRADE_TO_SCORE = {
+    0: 0.00,
+    1: 0.25,
+    2: 0.55,
+    3: 0.80,
+    4: 1.00,
+}
+Then for FSRS like scheduling 
+
+def score_to_fsrs_rating(score: float) -> str:
+    if score < 0.30:
+        return "again"
+    if score < 0.65:
+        return "hard"
+    if score < 0.90:
+        return "good"
+    return "easy"
+
+You can have each practice item optionally include a grading rubric. 
+
+practice_items:
+  - id: pi_fg_subhazard_define_001
+    learning_object_id: lo_fine_gray_subhazard
+    practice_mode: short_answer
+    prompt: "Define the Fine-Gray subdistribution hazard in your own words."
+    expected_answer: >
+      It models the subdistribution hazard for a target event in the presence
+      of competing risks, keeping competing-event cases in a modified risk set
+      so the model targets the cumulative incidence function.
+    mastery_weights:
+      recall: 0.45
+      schema: 0.45
+      explanation: 0.10
+    grading_rubric:
+      max_points: 4
+      criteria:
+        - id: target_event
+          points: 1
+          description: "Mentions event/cause of interest."
+        - id: competing_risks
+          points: 1
+          description: "Mentions competing risks/events."
+        - id: modified_risk_set
+          points: 1
+          description: "Explains that competing-event cases remain in a modified risk set."
+        - id: cumulative_incidence
+          points: 1
+          description: "Connects Fine-Gray to cumulative incidence rather than ordinary cause-specific hazard."
+      fatal_errors:
+        - id: says_same_as_cause_specific
+          description: "Claims Fine-Gray is the same as cause-specific Cox."
+          max_grade: 2
+        - id: treats_hazard_as_probability
+          description: "Defines hazard as a probability without qualification."
+          max_grade: 3
+
+then Codex can grade component wise. You can also have different graders by practice mode. You can have definition/short answer, explanation/teach back, derivation/proof reconstruction, transfer problem (correct concept selection, application to novel context, handling edge cases, avoiding surface form overfit), distinction/contrastive discrimination. If the user clicks "I dont know"  just log an attempt type as "dont know" with error type "recall_failure" and next action "show_answer_then_reconstruct". If the learner clicks "Walk me through" do not grade it as independent mastery either. Trigger manual review when
+grader_confidence = low
+answer is very long/ambiguous
+rubric is missing
+expected answer is weak
+math proof has subtle correctness issues
+user challenges the grade
+high-stakes/canonical card being created
+
+Low confidence grading should not heavily update mastery.
+
+Grading evidence can be stored within a SQLite table and optionally the rubric criteria results. 
+
