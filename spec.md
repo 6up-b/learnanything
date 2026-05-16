@@ -398,6 +398,11 @@ class DomainModule(Protocol):
     def error_taxonomy(self) -> ErrorTaxonomyPatch: ...
     def rubrics(self) -> list[RubricTemplate]: ...
     def evidence_mappings(self) -> list[EvidenceMapping]: ...
+    def probe_hypothesis_templates(self) -> list[CoarseHypothesisTemplate]: ...
+        # See §16 Layer 4 "Probe mode and probe-EIG". Domain templates shadow core
+        # templates from prompts/probe_hypothesis_templates.yaml on the same
+        # (knowledge_type, practice_mode) key. Return [] if the domain inherits
+        # from core unchanged.
     def scheduler_hooks(self) -> list[SchedulerHook]: ...
     def tui_panels(self) -> list[TuiPanelSpec]: ...
     def migrations(self) -> list[SqlMigration]: ...
@@ -412,9 +417,10 @@ class PracticeModeSpec(BaseModel):
     id: str                                       # "language:conversation_turn"
     domain_id: str                                # "language"
     label: str                                    # human-readable name for TUI
-    default_target_mastery_axes: list[MasteryAxis]
-    default_evidence_facets: list[EvidenceFacet]
-    default_mastery_weights: dict[MasteryAxis, float]   # must sum to 1.0
+    default_evidence_facets: list[EvidenceFamily] # primary update channel; canonical or namespaced
+    default_evidence_weights: dict[EvidenceFamily, float]   # normalized on read; need not sum to 1
+    default_axis_view_emphasis: list[MasteryAxisView]       # which derived views this mode primarily updates
+                                                            # (display/explanation hint, not an update target)
     default_grader_tier: int                      # 1 | 2 | 3 | 4 (see §15.6)
     fsrs_eligible: bool = True                    # if False, mode does not feed FSRS state
     plausible_error_types: list[str]              # which error taxonomy ids the surrogate may sample
@@ -423,14 +429,16 @@ class PracticeModeSpec(BaseModel):
 
 **Default resolution order** when an attempt is scored:
 
-1. Practice Item explicit values (`target_mastery_axes`, `evidence_facets`, `mastery_weights`) — always win.
+1. Practice Item explicit values (`evidence_facets`, `evidence_weights`) — always win.
 2. `PracticeModeSpec` defaults for the mode — used when the Practice Item omits a field.
-3. Core mode → axis table in §16 (the table shipped with LearnLoop) — used only for core modes when neither (1) nor (2) provides defaults.
+3. Core mode → evidence-family table in §16 Layer 2 (the table shipped with LearnLoop) — used only for core modes when neither (1) nor (2) provides defaults.
 4. Hard failure → `learnloop doctor` flags the Practice Item; the scheduler will not surface it.
 
-Domain modules that register namespaced modes are required to provide a `PracticeModeSpec` for each. The vault startup loader validates that `sum(default_mastery_weights.values()) == 1` and that every facet listed maps to at least one core mastery axis.
+Legacy `default_target_mastery_axes` / `default_mastery_weights` keys on existing `PracticeModeSpec` definitions are migrated at vault load by mapping each axis to its highest-weight aggregating family (per `algorithm_priors.axis_views.<axis>.families`).
 
-Domain modules do not own the global storage contract. They can add namespaced tables and files, but attempts, surprise, mastery axes, content provenance, and scheduler explanations still flow through the LearnLoop core tables.
+Domain modules that register namespaced modes are required to provide a `PracticeModeSpec` for each. The vault startup loader validates that every family listed either appears in the canonical `EvidenceFamily` set or is namespaced and ships an `aggregates_into` mapping onto one of the four `MasteryAxisView` labels.
+
+Domain modules do not own the global storage contract. They can add namespaced tables, files, and evidence families, but attempts, surprise, the LO scalar mastery, the learner θ profile, content provenance, and scheduler explanations still flow through the LearnLoop core tables.
 
 ### Domain enable / disable / purge
 
@@ -707,6 +715,10 @@ error_uncertainty_weight = 0.10
 simulator_ephemerals_enabled = true       # propose ephemeral PIs when heuristic EIG plateaus
 simulator_ephemerals_per_session_max = 3
 simulator_ephemeral_min_uncertainty = 0.3 # only fire when variance on the target belief is above this
+simulator_eig_context = "probe_phase_only"  # probe_phase_only | probe_and_posterior_modes
+                                            # MVP: probe-phase fallback only. Normal-phase simulator-EIG
+                                            # is reachable only via manual `learnloop diagnose-lo --deep`
+                                            # and `learnloop generate-diagnostic` (§11) until enabled here.
 # Later: full predictive-LM EIG pass
 deep_diagnostic_pass_enabled = false
 deep_diagnostic_candidate_pool = 20
@@ -786,14 +798,15 @@ manual_review_triggers = [
 ]
 
 [mastery]
-update_rule = "ema"                            # EMA per core axis per Learning Object
+update_rule = "scalar_ema_with_theta_profile"  # per-LO scalar EMA + per-learner θ over evidence families
+                                               # (algorithm_version >= 2.0.0; pre-2.0 used per-axis EMA)
 ema_alpha = 0.2
 difficulty_aware = true                        # hard success raises more; easy failure lowers more
-error_aware_cross_axis = true                  # apply error_impacts from error-taxonomy.yaml
+error_aware_families = true                    # apply error_impacts (family-keyed) from error-taxonomy.yaml
 flag_high_confidence_wrong = true              # mark as misconception; trigger repair loop
 fluency_signals = ["latency_vs_expected", "hints_used", "pause_count", "consistency"]
-belief_uncertainty = true                      # store uncertainty around learner-state estimates
-assume_independent_axes = false                # axes/facets can be correlated; avoid double-counting evidence
+belief_uncertainty = true                      # store uncertainty on LO scalar and θ slots
+probe_mode_enabled = true                      # per-LO probe phase before steady-state scheduling
 surprise_observation_fields = ["score_bucket", "error_type", "confidence", "latency_bucket", "hints_bucket"]
 
 [import_export]
@@ -1100,16 +1113,18 @@ attempt_types_allowed:              # see AttemptType enum
   - independent_attempt
   - hinted_attempt
   - dont_know
-target_mastery_axes:                # broad latent capabilities this item updates
-  - memory
-  - understanding
-evidence_facets:                    # lower-level evidence channels
+  - diagnostic_probe                # used during the LO's probe phase
+evidence_facets:                    # canonical EvidenceFamily ids — the primary update channel
   - recall
   - schema
   - explanation
-mastery_weights:                    # how much each axis is updated by this item
-  memory: 0.45
-  understanding: 0.55
+evidence_weights:                   # how much each declared family contributes to its θ update;
+  recall: 0.40                      # values do not need to sum to 1 (normalized on read)
+  schema: 0.35
+  explanation: 0.25
+# Legacy `target_mastery_axes` and `mastery_weights` keys are migrated automatically at vault
+# load under algorithm_version >= 2.0.0 (each axis is mapped to its highest-weight aggregating
+# family). Doctor warns on PIs whose migrated weights look thin.
 prompt: "Define the Fine-Gray subdistribution hazard in your own words."
 expected_answer: >
   It models the subdistribution hazard for a target event in the presence
@@ -1416,6 +1431,18 @@ When `focus_blocks = "pomodoro"`, deep-work blocks are 25 min with 5-min retriev
 └────────────────────────────────────────────┘
 ```
 
+When the LO is in **probe mode** (`lo_probe_state.status = in_progress`, see §16 Layer 4), the practice screen shows a probe badge in the header so the learner understands what kind of attempt this is. Probe attempts disable hints by default and suppress negative-surprise follow-ups (the first attempts on a new LO are expected to be surprising; inserting a follow-up on every probe defeats the point):
+
+```text
+┌────────────────────────────────────────────────────────────┐
+│ Concept: SVD → PCA                                         │
+│ Mode: short_answer        [DIAGNOSTIC PROBE — 2 of 3]      │
+│ Why now: first-time calibration for this LO                │
+├────────────────────────────────────────────────────────────┤
+│ Prompt: ...                                                │
+└────────────────────────────────────────────────────────────┘
+```
+
 The `Why now` line opens a scheduler explanation panel. It shows the score components that selected the item:
 
 ```text
@@ -1423,10 +1450,21 @@ Why this item?
   Forgetting risk        0.24   due today, retrievability 0.21
   Information gain       0.13   active-goal uncertainty is high
   Error uncertainty      0.09   recall failure vs schema confusion unresolved
-  Transfer gap           0.15   recall 0.86, transfer 0.38
+  Transfer gap           0.15   recall 0.86, transfer 0.38 (status: estimated)
   Recent error           0.12   missed centering assumption yesterday
   Readiness adjustment  +0.00   medium energy
   Next action            transfer
+```
+
+For a probe-mode item, the "Why now?" panel uses a different layout that emphasizes the probe purpose rather than the standard priority components:
+
+```text
+Why this item?
+  Probe mode             active   first 3 attempts on this LO
+  Discrimination at θ    0.24     item difficulty near your expected ability
+  Family coverage        schema, explanation
+  Probe attempts left    1 of 3
+  Profile update         expected ≈ 0.06 logits on θ[math_stats_ml, schema]
 ```
 
 ## Feedback screen
@@ -1561,6 +1599,8 @@ The TUI is primary, but core actions should have CLI equivalents for automation,
 learnloop init
 learnloop init --sample                            # create a demo vault with seeded data
 learnloop today                                    # opens TUI on Today's Loop
+learnloop today --include-probes                   # force probe-mode LOs into a short session (override)
+learnloop today --diagnostic                       # enroll all unscheduled active-goal LOs into probe mode
 learnloop resume                                   # resume interrupted session if one exists
 learnloop review                                   # quick CLI review (no TUI)
 learnloop readiness                                # log energy/sleep/minutes for the next session
@@ -1591,6 +1631,20 @@ learnloop review-grades                            # triage pending manual-revie
 learnloop ai status                                # codex availability state + last error + ETA
 learnloop ai login                                 # walk codex SDK auth flow
 learnloop ai recheck                               # force an immediate availability probe
+learnloop profile                                  # show current θ posterior (per domain × evidence family) with CIs
+learnloop profile --explain                        # break down which attempts moved each θ slot
+learnloop claims                                   # list active learner_claims rows
+learnloop claims wizard                            # re-run the background-claims init wizard
+learnloop claims add <scope> --level 0.8           # add a manual claim (scope = concept|lo|subject|domain id)
+learnloop probes status                            # list LOs by lo_probe_state.status
+learnloop probes status --pending                  # filter to LOs waiting to enter probe mode
+learnloop probes hypotheses <lo_id>                # dump the active HypothesisSet for an LO (debug)
+learnloop diagnose-lo <lo_id> --deep [--ephemeral|--promote-to-inbox] [--budget N]
+                                                   # manual deep-diagnostic on a mature LO; uses surrogate
+                                                   # posterior-mode hypotheses (the disabled-by-default path)
+learnloop generate-diagnostic --goal <goal_id> --budget 5 [--promote-to-inbox]
+                                                   # batch-generate diagnostics targeted at an active goal
+learnloop uncertainty --suggest-probes             # read-only: list LOs that would benefit from a probe
 learnloop domain list                              # enabled / disabled / purgeable domains
 learnloop domain enable <id>                       # add to [domains].enabled (runs migrations if needed)
 learnloop domain disable <id>                      # remove from [domains].enabled (soft; data preserved)
@@ -2798,11 +2852,133 @@ The review surface is also reachable mid-session via `learnloop review` (no argu
 
 # 16. Scheduler design
 
-The scheduler is four layers stacked. **Always store raw attempts forever** so the mastery and uncertainty models are replaceable without re-collecting data.
+The scheduler is **five layers** stacked (Layer 0 is the learner-level latent profile; Layers 1–4 are the per-item / per-LO / per-concept / elicitation layers from the original design). **Always store raw attempts forever** so the mastery and uncertainty models are replaceable without re-collecting data.
 
-FSRS answers "when is this concrete Practice Item due?" The object/concept mastery model answers "what does the learner appear to understand?" The uncertainty-aware elicitation layer answers "which next question would most reduce uncertainty about the learner's likely future answers on active goals?"
+FSRS answers "when is this concrete Practice Item due?" The object/concept mastery model answers "what does the learner appear to know about this LO?" The learner profile answers "what does the learner tend to be strong or weak at, across LOs?" The uncertainty-aware elicitation layer answers "which next question would most reduce uncertainty about the learner's likely future answers on active goals?"
 
-The core learner model uses five broad mastery axes that are designed to be closer to a basis for scheduling and UI: `memory`, `understanding`, `execution`, `generalization`, and `calibration`. They are still not guaranteed to be mathematically independent, but they are less redundant than raw facets like recall/schema/explanation. Lower-level evidence facets feed these axes.
+The belief representation is deliberately **three-tier**:
+
+```
+raw attempts + observations         (immutable; persisted forever)
+        ↓
+per-LO scalar mastery + uncertainty (single primitive belief per LO — Layer 2)
+        ↓
+per-learner θ over evidence families × domain  (Layer 0)
+        ↓
+derived axis views                  (memory / understanding / execution /
+                                     generalization / calibration —
+                                     UI and scheduler explanation only)
+```
+
+The five labels `memory`, `understanding`, `execution`, `generalization`, `calibration` survive as **derived interpretable views** over evidence — not as primitive latent parameters. Calibration is a learner-level trait, not a per-LO view. This design is informed by Hu et al., "Adaptive Elicitation of Latent Information Using Natural Language" (2025), which argues against committing to a fixed cognitive basis as the latent; LearnLoop's compromise keeps the labels for interpretability and mode selection while keeping the underlying belief state minimal and identifiable from data.
+
+## Layer 0 — Latent learner profile (per-learner θ over evidence families)
+
+LearnLoop maintains a per-vault **learner profile** `θ` — a set of latent ability parameters in logit units, one per evidence family per domain. Positive `θ[domain, family]` means the learner tends to perform above the population baseline on items in that domain that load on that evidence family; negative means below. The profile is **not** mastery — it is the learner-level fixed effect that, combined with per-LO scalar mastery, predicts performance.
+
+Empirically: a strong-math-background learner who has never seen Fine-Gray hazards has `θ[math_stats_ml, schema] ≈ +0.8` but `mastery[lo_fine_gray] ≈ prior`. The profile shortens the probe phase for that LO and seeds higher initial mastery; it does not assert mastery on it.
+
+### Canonical evidence families
+
+Eight families ship in MVP. Domain modules may register additional namespaced families (e.g. `language:pronunciation_accuracy`, `esports_overwatch:hidden_state_inference`) that must map onto one of the eight core axis labels for view aggregation (Layer 2).
+
+| Family                  | What an attempt observes                                | Default axis aggregation       |
+| ----------------------- | ------------------------------------------------------- | ------------------------------ |
+| `recall`                | Cued or free retrieval correctness                      | memory                         |
+| `recognition`           | Recognition / forced-choice correctness                 | memory                         |
+| `schema`                | Conceptual organization, prerequisite relations         | understanding                  |
+| `explanation`           | Verbal articulation, teach-back coherence               | understanding                  |
+| `procedure`             | Algorithmic / derivational step correctness             | execution                      |
+| `fluency`               | Speed and smoothness given correctness                  | execution                      |
+| `discrimination`        | Distinguishing confusable items / contrastive items     | understanding, generalization  |
+| `transfer`              | Application in novel context                            | generalization                 |
+| `calibration_accuracy`* | Confidence-accuracy correlation                         | (learner-level only)           |
+
+\* `calibration_accuracy` is a **learner-level** family. It is stored in `learner_theta` keyed on `(domain, 'calibration_accuracy', practice_mode)`, not per-LO. It updates from the joint observation of confidence and correctness on every attempt regardless of declared `evidence_facets`; it does not contribute to `mastery_axis_views`.
+
+### Storage
+
+```sql
+CREATE TABLE learner_theta (
+  id                   TEXT PRIMARY KEY,
+  domain               TEXT,         -- domain_id from [domains].enabled, or 'global'
+  evidence_family      TEXT,         -- canonical family id (see table above) or
+                                     -- namespaced like 'language:pronunciation_accuracy'
+  practice_mode        TEXT,         -- nullable; non-null only for calibration_accuracy
+  theta_mean           REAL,         -- logit units (centered: 0 = population median)
+  theta_variance       REAL,
+  evidence_count       INTEGER,      -- number of attempts contributing
+  prior_pseudo_count   REAL,         -- weight from learner_claims, separate from evidence_count
+  algorithm_version    TEXT,
+  updated_at           TEXT,
+  UNIQUE(domain, evidence_family, practice_mode)
+);
+
+CREATE TABLE learner_claims (
+  id                   TEXT PRIMARY KEY,
+  claim_type           TEXT,         -- background_familiarity | prior_coursework | self_rating
+  scope_type           TEXT,         -- concept | learning_object | subject | domain | global
+  scope_id             TEXT,         -- nullable for global claims
+  evidence_family      TEXT,         -- nullable; null means "all families in scope"
+  claimed_level        REAL,         -- 0..1 self-rating
+  prior_pseudo_count   REAL,         -- how much weight (in attempts-equivalent) this claim carries
+  source               TEXT,         -- init_wizard | manual_cli | imported
+  created_at           TEXT
+);
+```
+
+`learner_theta` is **derived** — recomputable from `practice_attempts` (raw) + `learner_claims` (raw priors). It must be rebuilt on `learnloop replay-model`. `learner_claims` is raw input and is preserved across replays.
+
+### Update rule
+
+For each completed attempt with observed `correctness` against a Practice Item declaring `evidence_facets: [f1, f2, ...]`, the profile updates one θ slot per declared family under an approximate Gaussian working prior:
+
+```python
+def update_profile(theta_mean, theta_var, observed_logit, observation_noise):
+    # observed_logit removes the parts of the score logit attributable to LO mastery and item
+    # difficulty; the residual is attributed to the learner-level family effect.
+    precision_prior  = 1.0 / theta_var
+    precision_obs    = 1.0 / observation_noise
+    new_var          = 1.0 / (precision_prior + precision_obs)
+    new_mean         = new_var * (precision_prior * theta_mean
+                                + precision_obs * observed_logit)
+    return new_mean, new_var
+```
+
+`observation_noise` is larger when `grader_confidence` is low, when the attempt is `hinted_attempt`, when latency is `unknown`, or when the attempt is `independent_attempt` rather than `diagnostic_probe`. Probe-mode attempts (Layer 4) use a smaller calibrated noise so deliberate probes move θ more than steady-state practice does.
+
+The calibration update fires on every attempt where confidence was captured, regardless of `evidence_facets`:
+
+```python
+if attempt.confidence is not None:
+    update_profile_slot(
+        domain=lo.domain,
+        family='calibration_accuracy',
+        practice_mode=pi.practice_mode,
+        observation=confidence_residual(attempt.correctness, attempt.confidence),
+        observation_noise=CALIBRATION_OBS_NOISE,
+        grader_confidence=attempt.grader_confidence,
+    )
+```
+
+### Cold-start: θ as the prior on new-LO mastery
+
+When a Learning Object first acquires any belief row, its initial scalar mastery is seeded as:
+
+```python
+def seed_initial_mastery(lo, theta):
+    base = algorithm_priors.mastery.mastery_default      # default 0.5
+    # average θ across the families this LO's evidence_facets will load on,
+    # weighted by the families declared on its representative Practice Items
+    profile_offset = average_theta_for_lo(lo, theta)
+    seeded = clip(base + LO_SEED_TRANSFER * sigmoid_logit_offset(profile_offset),
+                  0.05, 0.95)
+    return seeded
+```
+
+`LO_SEED_TRANSFER` is small (default 0.15) — θ moves the seed but does not replace evidence. After a few real attempts (Layer 2) the LO mastery dominates.
+
+This replaces the previous "flat `mastery_default = 0.5` for every LO" behavior.
 
 ## Layer 1 — Item memory (FSRS, via `py-fsrs`)
 
@@ -2842,118 +3018,254 @@ def surprise_interval_factor(bayesian_surprise, direction):
     return 1.0
 ```
 
-Negative surprise can also cap an apparent `easy` rating at `good` or `hard` when the observed error type conflicts with the score. Positive surprise lengthens intervals conservatively; repeated evidence should matter more than a single unexpectedly good answer.
-
-## Layer 2 — Learning Object mastery (axis + facet model)
-
-Per Learning Object, in `state.sqlite`:
-
-```text
-memory, understanding, execution, generalization, calibration
-```
-
-Each axis has its own stored estimate. Evidence facets are lower-level observations that update one or more axes through `mastery_weights`, domain evidence mappings, and error-impact maps. The base update rule is **difficulty-aware, error-aware EMA**:
+The raw factor is then blended toward 1.0 (no modulation) by the EIG reliability ramp (§16 Layer 4 "EIG and surprise-modulation reliability ramp"):
 
 ```python
-def update_mastery(prev, score, item_difficulty, dim_weight, grader_confidence, alpha=0.2):
+rel = eig_reliability(lo, family=primary_family(pi))
+factor = 1.0 + rel * (surprise_interval_factor(b_surprise, direction) - 1.0)
+```
+
+At low LO evidence counts the surrogate's prediction is mostly prior, so "surprise" is uninformative and the FSRS interval is left alone. As `rel` rises toward 1.0 the full surprise factor takes effect. Categorical handling (negative surprise capping an apparent `easy` rating at `good`/`hard` when the observed error type conflicts with the score) is **not** gated by `rel` — it is a discrete rule, not a magnitude. Positive surprise lengthens intervals conservatively; repeated evidence should matter more than a single unexpectedly good answer.
+
+## Layer 2 — Learning Object mastery (scalar) + derived axis views
+
+Per Learning Object, in `state.sqlite`, mastery is a **single scalar** with uncertainty — not a five-axis vector. The five labels survive as derived **views** over the scalar plus the learner profile (Layer 0).
+
+### Storage
+
+```sql
+CREATE TABLE learning_object_mastery (
+  learning_object_id   TEXT PRIMARY KEY,
+  mastery_mean         REAL,         -- 0..1 scalar; "does the learner know this LO?"
+  mastery_variance     REAL,
+  evidence_count       INTEGER,
+  last_evidence_at     TEXT,
+  algorithm_version    TEXT,
+  updated_at           TEXT
+);
+
+CREATE TABLE mastery_axis_views (
+  learning_object_id   TEXT,
+  axis                 TEXT,         -- memory | understanding | execution | generalization
+  mean                 REAL,         -- nullable when status = 'unobserved'
+  variance             REAL,         -- nullable when status = 'unobserved'
+  status               TEXT,         -- unobserved | weak_evidence | estimated | reliable
+  contributing_families_json TEXT,   -- which θ families fed this view, with weights and counts
+  algorithm_version    TEXT,
+  updated_at           TEXT,
+  PRIMARY KEY (learning_object_id, axis)
+);
+-- calibration is NOT in this table — it lives in learner_theta keyed on
+-- (domain, 'calibration_accuracy', practice_mode) and surfaces as a learner-level
+-- metric in the TUI, not a per-LO axis.
+```
+
+### Update rule (Tier 2 — LO scalar)
+
+```python
+def update_lo_mastery(prev_mean, prev_variance, score, item_difficulty,
+                     grader_confidence, hints_used, hint_policy, cold_start_factor,
+                     base_alpha=0.2):
     # difficulty-aware: hard success raises more, easy failure lowers more
     if score >= 0.65:
-        gain = score * (0.5 + item_difficulty)      # hard success amplified
+        gain = score * (0.5 + item_difficulty)
     else:
-        gain = score - (1 - item_difficulty) * 0.3  # easy failure punished more
-    effective_alpha = alpha * dim_weight * grader_confidence
-    return min(1.0, max(0.0, prev + effective_alpha * (gain - prev)))
+        gain = score - (1 - item_difficulty) * 0.3
+    eff_alpha = (base_alpha
+                 * grader_confidence
+                 * hint_policy.mastery_alpha_dampening_by_hint[hints_used]
+                 * cold_start_factor)
+    new_mean = clip(prev_mean + eff_alpha * (gain - prev_mean), 0.0, 1.0)
+    new_variance = shrink_variance(prev_variance, eff_alpha)
+    return new_mean, new_variance
 ```
 
-`dim_weight` is the practice item's `mastery_weights[axis]`. `grader_confidence` can soften updates for accepted automatic grades, but grades below `grader_confidence_floor` are held for manual review and do not update mastery until confirmed.
+Grades below `grader_confidence_floor` are held for manual review and do not update mastery until confirmed.
 
-### Axis correlation: how one attempt updates multiple axes without double-counting
+### Update rule (Tier 0 — per-learner θ over evidence families)
 
-A Practice Item declares `target_mastery_axes` and `mastery_weights`. Invariant: **`sum(mastery_weights.values()) == 1`** — `mastery_weights` is a *partition of evidence*, not a vector of independent gains. The storage layer rejects a Practice Item YAML that violates this.
+A single attempt updates **one θ slot per declared evidence family** on the Practice Item, plus a `calibration_accuracy` slot if `confidence` was captured. The update equations are in §16 "Layer 0 — Latent learner profile."
 
-For one attempt, every targeted axis is updated from the **same observed score** with its own `effective_alpha`:
+**Critical invariant:** the same single attempt cannot inflate evidence by updating "five axes." It updates the LO scalar once, plus as many θ family slots as the PI declared (typically 1–3). Cross-family correlation comes out in the aggregation step (Tier 3), not by double-counting at update time. This replaces the prior `sum(mastery_weights.values()) == 1` invariant and the additive `error_impacts` cross-axis deltas; both are no longer needed because evidence isn't being split across a fixed basis.
+
+`mastery_weights` on a Practice Item now means **evidence-family weights** — `evidence_weights: {recall: 0.6, schema: 0.4}` — and is no longer required to sum to 1. The storage layer normalizes on read. PIs authored against the old axis-keyed `mastery_weights` (e.g. `{memory: 0.45, understanding: 0.55}`) are migrated at vault load: each axis key is replaced by the family with the highest aggregation weight to that axis, and the result is renormalized. `learnloop doctor` reports migrated PIs so the author can refine.
+
+### Mode → evidence-family default map
+
+When a Practice Item omits `evidence_facets` and `evidence_weights`, fall back to:
+
+| `practice_mode`                                       | Default evidence families             |
+| ----------------------------------------------------- | ------------------------------------- |
+| `retrieval`, `cloze`, `cued_recall`, `free_recall`    | recall                                |
+| `recognition`, `multiple_choice`                      | recognition                           |
+| `short_answer`                                        | recall, schema                        |
+| `worked_example`, `annotated_example`                 | schema, procedure                     |
+| `faded_worked_example`                                | procedure, schema                     |
+| `completion_problem`                                  | procedure, schema                     |
+| `procedure_execution`                                 | procedure                             |
+| `interleaving`, `contrastive_discrimination`          | discrimination, schema                |
+| `transfer`, `near_transfer`, `far_transfer`           | transfer, schema                      |
+| `transfer_probe`                                      | transfer                              |
+| `explain_from_memory`, `teach_back`                   | explanation, schema, recall           |
+| `derivation_reconstruction`, `proof_reconstruction`   | schema, procedure                     |
+| `timed_drill`, `fluency_drill`                        | fluency, procedure                    |
+| `error_diagnosis`, `misconception_repair`             | schema, transfer, discrimination      |
+| `self_assessment`                                     | calibration_accuracy                  |
+| `disguised_retest`                                    | (inherits from underlying mode)       |
+
+The old "Core axes" column is gone — axes are derived, not declared.
+
+### Axis-view aggregation (Tier 3)
+
+After the LO mastery and θ updates commit, `mastery_axis_views` is rebuilt for the affected LO. Aggregation weights live in `algorithm_priors.yaml` and are tunable per domain:
+
+```yaml
+# additions to algorithm_priors.yaml
+axis_views:
+  memory:
+    families:
+      recall:      0.50
+      recognition: 0.20
+    use_fsrs_retrievability: true        # blend FSRS state into the view
+    fsrs_weight: 0.30
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 3
+      reliable_when_above: 8
+  understanding:
+    families:
+      schema:        0.35
+      explanation:   0.25
+      discrimination: 0.20
+    misconception_load_weight: -0.20      # active misconception load reduces the view
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 4
+      reliable_when_above: 10
+  execution:
+    families:
+      procedure: 0.60
+      fluency:   0.40
+    requires_execution_evidence: true     # if no procedure/fluency evidence exists, status = unobserved
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 3
+      reliable_when_above: 8
+  generalization:
+    families:
+      transfer:       0.65
+      discrimination: 0.35
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 3
+      reliable_when_above: 8
+```
+
+Aggregation, schematically:
 
 ```python
-effective_alpha[axis] = base_alpha
-                      * mastery_weights[axis]
-                      * grader_confidence
-                      * hint_dampening[hints_used]      # from PI.hint_policy
-                      * cold_start_factor(lo, axis)     # see Cold-start priors
+def rebuild_axis_view(lo, axis):
+    spec = config.axis_views[axis]
+    contributions = []
+    for family, weight in spec.families.items():
+        theta = learner_theta.get(lo.domain, family)
+        lo_family_count = attempt_count_on_lo_for_family(lo, family)
+        if theta is None or theta.evidence_count == 0 or lo_family_count == 0:
+            continue
+        contributions.append((family, weight, theta.mean, theta.variance, lo_family_count))
+
+    if not contributions:
+        return AxisView(axis=axis, mean=None, variance=None, status='unobserved',
+                        contributing_families=[])
+
+    lo_specific_evidence = sum(c[4] for c in contributions)
+    status = classify_status(lo_specific_evidence, spec.status_thresholds)
+
+    weighted_mean = sigmoid(sum(w * t for _, w, t, _, _ in contributions))
+    weighted_var  = sum(w**2 * v for _, w, _, v, _ in contributions)
+
+    # Blend LO scalar mastery into the view so a strong LO mastery isn't masked by a weak θ.
+    lo_mastery = learning_object_mastery[lo].mastery_mean
+    weighted_mean = blend(weighted_mean, lo_mastery,
+                          weight=spec.get('lo_mastery_blend', 0.5))
+
+    if spec.get('use_fsrs_retrievability'):
+        weighted_mean = blend(weighted_mean, fsrs_retrievability(lo),
+                              weight=spec['fsrs_weight'])
+    if spec.get('misconception_load_weight'):
+        weighted_mean += spec['misconception_load_weight'] * misconception_load(lo)
+
+    return AxisView(axis=axis, mean=clip(weighted_mean, 0, 1),
+                    variance=weighted_var, status=status,
+                    contributing_families=contributions)
 ```
 
-Each axis gets its own EMA update with the shared `gain`. The single score is split across axes by `mastery_weights`; the underlying mastery estimates can still drift apart over time as different items target different mixes. `error_impacts` (below) stacks on top of this as **additive deltas**, not EMA-style — they affect axes the item didn't even target. This two-step structure (EMA on targeted axes, additive corrections from error type) is what lets correlated axes coexist without inflating evidence.
+The four LO-level axis views all carry `status`. Calibration is **not** in this table — it surfaces as a learner-level number per `(domain, practice_mode)` read directly from `learner_theta`.
 
-### Axes and evidence facets
+### Status lifecycle
 
-| Core axis | Default evidence facets | Meaning |
-| --- | --- | --- |
-| `memory` | `recall`, `recognition` | Can the learner retrieve or recognize the target? |
-| `understanding` | `schema`, `explanation` | Can the learner organize, explain, and relate the idea? |
-| `execution` | `procedure`, `fluency` | Can the learner perform the skill accurately and smoothly? |
-| `generalization` | `transfer`, `discrimination` | Can the learner apply it in new contexts and distinguish confusable cases? |
-| `calibration` | `metacognitive_accuracy` | Does confidence match actual performance and uncertainty? |
+The `status` field on `mastery_axis_views` resolves a real bug in the prior design: a fresh LO with no transfer items shouldn't look like it has weak generalization. Status transitions are evidence-driven (per-axis thresholds tunable in `algorithm_priors.yaml.axis_views.<axis>.status_thresholds`):
 
-Domain modules may add facets such as `conversation_repair`, `pronunciation_accuracy`, `aim_smoothness`, `projectile_lead_model`, or `hidden_state_inference`, but they must map those facets into one or more core axes.
+- `unobserved` — no contributing-family attempts on this LO yet.
+- `weak_evidence` — at least one contributing-family attempt, but below the per-axis `weak_evidence_when_below` threshold.
+- `estimated` — between `weak_evidence_when_below` and `reliable_when_above`.
+- `reliable` — at or above the upper threshold.
 
-### Mode → axis/facet default map
+Schedulers consume status, not just mean. The scheduler's mode-selection rule (later in §16) distinguishes exploration from remediation by reading `status`:
 
-When a Practice Item omits `target_mastery_axes` and `evidence_facets`, fall back to:
+| Memory   | Generalization                  | Schedule                                    |
+| -------- | ------------------------------- | ------------------------------------------- |
+| strong   | `unobserved`                    | low-stakes `transfer_probe` (exploration)   |
+| strong   | low-mean, `weak_evidence`/`estimated` | `transfer` (remediation)              |
+| strong   | high-mean, `reliable`           | normal review                               |
 
-| `practice_mode`          | Core axes | Evidence facets |
-| ------------------------ | --------- | --------------- |
-| `retrieval`, `cloze`, `cued_recall`, `free_recall` | memory | recall |
-| `recognition`, `multiple_choice` | memory | recognition |
-| `short_answer`           | memory, understanding | recall, schema |
-| `worked_example`, `annotated_example` | understanding, execution | schema, procedure |
-| `faded_worked_example` | execution, understanding | procedure, schema |
-| `completion_problem`     | execution, understanding | procedure, schema |
-| `procedure_execution`    | execution | procedure |
-| `interleaving`, `contrastive_discrimination` | generalization, understanding | discrimination, schema |
-| `transfer`, `near_transfer`, `far_transfer` | generalization, understanding | transfer, schema |
-| `explain_from_memory`, `teach_back` | understanding, memory | explanation, schema, recall |
-| `derivation_reconstruction`, `proof_reconstruction` | understanding, execution | schema, procedure |
-| `timed_drill`, `fluency_drill` | execution | fluency, procedure |
-| `error_diagnosis`, `misconception_repair` | understanding, generalization | schema, transfer |
-| `self_assessment`        | calibration | metacognitive_accuracy |
+The probe-vs-remediation distinction was implicit in the old design and is now a first-class representation in the storage layer.
 
-### Error-aware cross-axis/facet updates
+### Error-aware updates (family-keyed)
 
-An error can damage axes or facets the item didn't explicitly target. The taxonomy file owns the impact map:
+An error can damage families the item didn't explicitly target. The taxonomy file owns the impact map — now keyed on **evidence families and (optionally) the LO scalar**, not on the five axes:
 
 ```yaml
 # errors/error-taxonomy.yaml
 error_impacts:
   recall_failure:
-    memory: -0.25
+    families: { recall: -0.25 }
+    lo_mastery_delta: -0.05
   conceptual_error:
-    understanding: -0.25
-    generalization: -0.10
+    families: { schema: -0.25, explanation: -0.10 }
+    lo_mastery_delta: -0.10
   theorem_selection_error:
-    understanding: -0.30
-    generalization: -0.20
+    families: { schema: -0.30, discrimination: -0.20 }
+    lo_mastery_delta: -0.10
   procedure_error:
-    execution: -0.25
+    families: { procedure: -0.25 }
+    lo_mastery_delta: -0.10
   transfer_failure:
-    generalization: -0.30
-    understanding: -0.10
-  high_confidence_wrong:                    # misconception flag
-    understanding: -0.20
-    calibration: -0.30
+    families: { transfer: -0.30, schema: -0.10 }
+    lo_mastery_delta: -0.05
+  high_confidence_wrong:                  # misconception flag
+    families: { schema: -0.20, calibration_accuracy: -0.30 }
+    lo_mastery_delta: -0.15
     # also: open repair_loop, append to errors/global-error-log.md
   fluency_issue:
-    execution: -0.25
+    families: { fluency: -0.25 }
+    lo_mastery_delta: 0.0
 ```
 
-`flag_high_confidence_wrong` triggers when `confidence >= 4` and `score < 0.30`: the item is treated as a misconception, not a recall miss. A repair-loop is scheduled (contrastive examples, then retest) and the error is logged.
+`flag_high_confidence_wrong` triggers when `confidence >= 4` and `score < 0.30`: the item is treated as a misconception, not a recall miss. A repair-loop is scheduled (contrastive examples, then retest) and the error is logged. The `calibration_accuracy` impact applies to the learner-level θ slot keyed on `(lo.domain, 'calibration_accuracy', pi.practice_mode)`, not to a per-LO axis.
+
+Family-keyed deltas apply to `learner_theta` (in logit-space units, with the same `algorithm_priors.cross_lo_propagation` magnitude scaling applied as a separate sign-preserving conversion). `lo_mastery_delta` applies directly to the LO scalar.
 
 ### Cross-LO propagation along the prerequisite DAG
 
 An attempt is logged against one Practice Item → one Learning Object, but evidence about that LO is also evidence about its prerequisites. LearnLoop propagates updates along the global concept-graph prerequisite DAG with a **bounded transitive policy**: bounded depth, geometric decay per hop, **error-type-gated** behavior, and a total-weight cap.
 
+In the three-tier model, propagation targets the **prereq's LO scalar mastery** — not its axis views. Axis views on prereqs are recomputed from scratch after the LO scalar update. The learner-level θ profile is updated **once per attempt** at the source (Layer 0) and is not separately propagated along prereq edges (the profile is per-learner, not per-LO, so propagation along the DAG would double-count).
+
 **Asymmetric success vs failure.**
 
-- **Success** (`correctness ≥ 0.65`): variance-only update on prereqs (uncertainty shrinks, means do not move). A correct PCA attempt is weak positive evidence about SVD understanding — enough to tighten the belief, not enough to raise its mean.
-- **Failure** (`correctness < 0.50`): mean *and* variance update on prereqs, with magnitude scaled by depth decay, score severity (`1 − correctness`), `grader_confidence`, the propagating axis's `mastery_weights`, hint dampening, and the error-type gate (below).
+- **Success** (`correctness ≥ 0.65`): variance-only update on prereqs' LO scalar (uncertainty shrinks, means do not move). A correct PCA attempt is weak positive evidence about SVD mastery — enough to tighten the belief, not enough to raise its mean.
+- **Failure** (`correctness < 0.50`): mean *and* variance update on prereqs' LO scalar, with magnitude scaled by depth decay, score severity (`1 − correctness`), `grader_confidence`, hint dampening, and the error-type gate (below).
 - **Borderline** (`0.50 ≤ correctness < 0.65`): variance-only update; no mean propagation.
 
 **Error-type gate.** Different error types tell us different things about upstream LOs. Failures route through a per-error gate that selects scope and magnitude. Defaults (overridable in `algorithm_priors.yaml` and per-domain):
@@ -3022,7 +3334,6 @@ raw_mean_delta = (
     * gate.mean_factor
     * depth_weight
     * severity
-    * mastery_weights[axis]
     * grader_confidence
     * hint_dampening[hints_used]
 )
@@ -3030,12 +3341,13 @@ raw_mean_delta = (
 raw_variance_delta = (
     gate.variance_factor
     * depth_weight
-    * mastery_weights[axis]
     * 0.02                                        # absolute units; variance grows
 )
 ```
 
-Compute these raw deltas for every (prereq, axis) in scope. Sum `|raw_mean_delta|` across the whole propagation set; if the total exceeds `total_propagated_weight_cap`, scale all mean deltas (and proportionally the variance deltas) down by `cap / total`. Then apply.
+Compute these raw deltas for every prereq in scope (one delta pair per prereq — there is no per-axis split, since LO mastery is scalar). Sum `|raw_mean_delta|` across the whole propagation set; if the total exceeds `total_propagated_weight_cap`, scale all mean deltas (and proportionally the variance deltas) down by `cap / total`. Then apply each delta directly to `learning_object_mastery[lo_p].mastery_mean` and `mastery_variance`.
+
+After propagation, every prereq LO's `mastery_axis_views` rows are marked dirty and recomputed lazily on next read (or eagerly in the same transaction if the prereq is in the active queue).
 
 **Successful attempts** skip the mean-delta computation and only apply `raw_variance_delta` with the *negative* sign (variance shrinks). The total-weight cap applies the same way.
 
@@ -3060,14 +3372,16 @@ CREATE TABLE attempt_propagation_events (
   source_lo_id TEXT,
   target_lo_id TEXT,
   hop_distance INTEGER,
-  axis TEXT,
   error_type TEXT,
-  mean_delta REAL,
-  variance_delta REAL,
+  mean_delta REAL,                    -- applied to target LO's mastery_mean
+  variance_delta REAL,                -- applied to target LO's mastery_variance
   applied REAL,                       -- 1.0, or <1.0 if scaled by total-weight cap
   algorithm_version TEXT,
   created_at TEXT
 );
+-- The `axis` column from the prior schema is removed: propagation acts on the
+-- target LO's scalar mastery, not on per-axis estimates. Axis views are
+-- recomputed downstream from the updated scalar.
 ```
 
 ### Fluency signal
@@ -3144,20 +3458,36 @@ P(o | z, q) =  P(score_bucket   | z, q)
             ·  P(hints_bucket   | score_bucket, z, q)
 ```
 
-**Score head.** A cumulative logistic over a learner-item logit:
+**Score head.** A cumulative logistic over a learner-item logit, decomposed into per-LO scalar mastery, per-learner θ over the PI's declared evidence families, and item difficulty:
 
 ```python
-def score_logit(z, q):
-    axis_term = sum(q.mastery_weights[a] * z.mastery[q.lo, a] for a in q.target_mastery_axes)
+def score_logit(z, q, lo):
+    # Per-LO scalar mastery (Layer 2).
+    lo_term = z.lo_mastery[lo.id].mean - 0.5
+
+    # Per-learner θ over the families this item exercises (Layer 0).
+    theta_term = 0.0
+    total_weight = 0.0
+    for family in q.evidence_facets:
+        w = q.evidence_weights.get(family, 1.0 / len(q.evidence_facets))
+        theta = z.learner_theta[lo.domain, family]
+        theta_term += w * theta.mean
+        total_weight += w
+    if total_weight > 0:
+        theta_term /= total_weight
+
     return (
-        BETA_AXIS * (axis_term - 0.5)
+        BETA_LO * lo_term
+        + BETA_THETA * theta_term
         - BETA_DIFFICULTY * (q.difficulty - 0.5)
-        - BETA_MISCONCEPTION * z.active_misconception_load(q.lo)
+        - BETA_MISCONCEPTION * z.active_misconception_load(lo.id)
     )
 
 # bucket probabilities from cumulative logistic with thresholds tuned to match
 # the 0.30 / 0.65 / 0.90 score-bucket cutpoints
 ```
+
+The five-axis terms from the prior surrogate are gone. The model predicts score from (does this learner know this LO?) × (does this learner have ability in the families this item exercises?) × (how hard is the item?). The four LO-level axis views play **no role** in the surrogate — they are display layers, not belief primitives. Default β values: `BETA_LO = 4.0`, `BETA_THETA = 1.5`, `BETA_DIFFICULTY = 3.0`, `BETA_MISCONCEPTION = 2.0`.
 
 **Error-type head.** Conditional on `score_bucket ∈ {again, hard}`, the surrogate samples an error type from the **per-learner propensity** `z.error_propensity[e]` masked to the error types that are physically plausible for the Practice Item's `practice_mode` and `knowledge_type` (e.g. `notation_error` only on items with notation). The per-learner propensity uses Dirichlet–multinomial shrinkage toward a global prior:
 
@@ -3171,11 +3501,11 @@ def posterior_propensity(observed_counts, global_prior, prior_pseudo_count):
     }
 ```
 
-**Confidence head.** Confidence tracks score weighted by `z.mastery[q.lo, "calibration"]`: a well-calibrated learner has `confidence_bucket` strongly correlated with `score_bucket`; a poorly-calibrated learner regresses to their baseline confidence distribution.
+**Confidence head.** Confidence tracks score weighted by the learner's calibration θ: `z.learner_theta[lo.domain, 'calibration_accuracy', q.practice_mode].mean`. A well-calibrated learner has `confidence_bucket` strongly correlated with `score_bucket`; a poorly-calibrated learner regresses to their baseline confidence distribution. Calibration is per-(domain, mode), not per-LO — overconfidence on proofs can coexist with good calibration on vocab.
 
-**Latency head.** Shifted log-normal centered on `expected_seconds` (or `lo.calibrated_mean_seconds`), with width modulated by `z.mastery[q.lo, "execution"]` (more execution = tighter distribution). Returns `unknown` if no calibrated mean exists.
+**Latency head.** Shifted log-normal centered on `expected_seconds` (or `lo.calibrated_mean_seconds`), with width modulated by the learner's procedure/fluency θ for the LO's domain (more execution-family ability = tighter distribution). Returns `unknown` if no calibrated mean exists.
 
-**Hints head.** Probability of asking for hint N depends on `z.mastery[q.lo, "execution"]`, `z.mastery[q.lo, "calibration"]`, and `q.difficulty`. Learners who feel uncertain ask for hints more.
+**Hints head.** Probability of asking for hint N depends on the learner's calibration and procedure/fluency θ, plus `q.difficulty`. Learners who feel uncertain ask for hints more.
 
 Parameters (`BETA_*`, bucket thresholds, latency widths, calibration slopes) are shipped in `algorithm_priors.yaml` and refined from this learner's own attempts after `prior_pseudo_count` real observations on the relevant scope.
 
@@ -3188,11 +3518,11 @@ EIG(q) = E_o [ KL( P(z | o, q) || P(z) ) ]
        = H(z) - E_o[H(z | o, q)]
 ```
 
-Both `P(o | z, q)` and the posterior update `P(z | o, q)` are computed from the surrogate, not from a language model. The expectation `E_o` ranges over the discrete joint buckets defined above (≤ 4 × |error_taxonomy_for_mode| × 3 × 4 × 3 — small enough to enumerate). `H(z)` is computed only over the belief slots scoped to active goals (variance-weighted entropy summed across axes/facets), not over the full belief tensor.
+Both `P(o | z, q)` and the posterior update `P(z | o, q)` are computed from the surrogate, not from a language model. The expectation `E_o` ranges over the discrete joint buckets defined above (≤ 4 × |error_taxonomy_for_mode| × 3 × 4 × 3 — small enough to enumerate). `H(z)` is computed only over the belief slots scoped to active goals — specifically: the LO scalar mastery for active-goal LOs plus the learner θ slots for evidence families that load on those LOs. Axis views are **not** entered into the entropy calculation (they're derived, not primitive), avoiding the double-counting risk of the prior axis-tensor formulation.
 
 MVP scores each candidate question independently and picks high-value items inside the normal queue (greedy). The scorer must be deterministic, reproducible, and runnable without Codex.
 
-Codex-simulator EIG (ephemeral diagnostic generation) does not score the existing PI pool; it proposes new items targeted at the highest-variance belief on a high-priority active-goal LO. The proposer prompt receives: the LO and its current belief means/variances, the recent attempt history for that LO, and a short list of named hypotheses to discriminate. The hypotheses are generated **locally** from the heuristic surrogate's top modes of the posterior (e.g. `{id: "memorized_no_schema", description: "Recalls but can't apply", predicted_axis_profile: {memory: 0.85, understanding: 0.35}}`); Codex is only the question proposer, not the hypothesis generator.
+Codex-simulator EIG (ephemeral diagnostic generation) does not score the existing PI pool; it proposes new items targeted at the highest-variance belief on a high-priority active-goal LO. The proposer prompt receives: the LO and its current belief means/variances (LO scalar + the θ family slots that load on it), the recent attempt history for that LO, and a short list of named hypotheses to discriminate. The hypotheses are generated **locally** from the heuristic surrogate's top modes of the posterior (e.g. `{id: "memorized_no_schema", description: "Recalls but can't apply", predicted_profile: {recall: 0.85, schema: 0.35, transfer: 0.30}}`); Codex is only the question proposer, not the hypothesis generator. Hypotheses are expressed in evidence-family space, not axis space.
 
 ### Proposer output schema and validation
 
@@ -3206,9 +3536,13 @@ class SimulatorProposedItem(BaseModel):
     prompt: str
     expected_answer: str
     target_lo_id: str                    # must be a real LO
-    target_axis: MasteryAxis             # one of the 5 core axes
-    discriminates_hypotheses: list[str]  # ≥1; ids from the local-generated hypothesis list
+    target_evidence_families: list[str]  # ≥1; from the canonical family list (Layer 0)
     practice_mode: str                   # one of the LO's eligible PracticeMode values
+    discriminates_hypotheses: list[str]  # ≥2; ids from the active HypothesisSet provided in the prompt
+    predicted_observations_by_hypothesis: dict[str, PredictedObservation]
+                                         # one entry per id in discriminates_hypotheses;
+                                         # see §16.5 PredictedObservation (score_bucket + likely_error_type)
+    rationale: str                       # one-sentence explanation of why this item separates the hypotheses
 ```
 
 **Validation:**
@@ -3216,9 +3550,13 @@ class SimulatorProposedItem(BaseModel):
 1. Schema validates (Pydantic).
 2. `target_lo_id` resolves to an active LO whose `subjects` overlap the current session's subject scope.
 3. `practice_mode` is in the eligible set for that LO (from `PracticeModeSpec` + LO's `subjects`).
-4. `discriminates_hypotheses` references at least one hypothesis from the local-generated list provided in the prompt.
-5. **Near-duplicate guard:** for each proposed item, embed `prompt` and check cosine similarity against existing PIs on `target_lo_id`. Reject items with `sim ≥ 0.85` (caller can have just been suggesting a copy of an existing item).
-6. Count is in `[1, simulator_ephemerals_per_session_max]` (default 3).
+4. `discriminates_hypotheses` references **at least two hypotheses** from the active `HypothesisSet` provided in the prompt (the one identified by `hypothesis_set_id` on the call). A single hypothesis reference is rejected — the proposer must distinguish at least one pair.
+5. `predicted_observations_by_hypothesis` contains exactly the keys in `discriminates_hypotheses` and no extras. Each entry is a valid `PredictedObservation` (§16.5).
+6. **Non-overlapping predictions:** for at least one pair `(h_i, h_j)` in `discriminates_hypotheses`, the predicted observations differ in `score_bucket` OR `likely_error_type`. Items where every referenced hypothesis predicts the same observation are rejected (they don't actually discriminate).
+7. **Hypothesis-set integrity:** every id in `discriminates_hypotheses` is present in the active `HypothesisSet`. The proposer is forbidden from inventing hypothesis ids — local code owns the hypothesis ontology.
+8. **Near-duplicate guard:** for each proposed item, embed `prompt` and check cosine similarity against existing PIs on `target_lo_id`. Reject items with `sim ≥ 0.85` (caller may just be suggesting a copy of an existing item).
+9. Count is in `[1, simulator_ephemerals_per_session_max]` (default 3).
+10. For probe-phase fallback specifically: the proposed items must collectively cover all `top_ambiguous_hypothesis_pairs` passed in the prompt (each pair appears in at least one item's `discriminates_hypotheses`).
 
 **Retry policy.** If validation fails, retry once with a constraint-patch in the prompt (same pattern as hint-author):
 
@@ -3226,12 +3564,13 @@ class SimulatorProposedItem(BaseModel):
 Your previous attempt was rejected. Issues:
 - Item 2 had similarity 0.91 to an existing Practice Item on this LO.
 - Item 3's practice_mode "transfer" is not in the eligible set; allowed: [short_answer, contrastive_discrimination, explain_from_memory].
+- Item 1 referenced only one hypothesis (H_2); needs at least two with non-overlapping predicted observations.
 Please regenerate with these constraints.
 ```
 
-A second failure means the scheduler proceeds **without** simulator-EIG ephemerals for this session — the heuristic-bucket EIG still drives the queue. The failure is logged on `agent_runs` so the learner can inspect via `learnloop ai history`.
+A second failure means the scheduler proceeds **without** simulator-EIG ephemerals for this session — `probe_eig` over the existing PI pool still picks the best available item (logged with `fallback_outcome = existing_pi_inadequate`). The failure is logged on `agent_runs` so the learner can inspect via `learnloop ai history`.
 
-Validated items become ephemeral PIs (§15.5) bound to the session. They follow the existing ephemeral lifecycle: usable immediately, surface in the end-of-session promotion sweep with rationale derived from `discriminates_hypotheses`, not persisted to the permanent pool unless the learner promotes.
+Validated items become ephemeral PIs (§15.5) bound to the session. They follow the existing ephemeral lifecycle: usable immediately, surface in the end-of-session promotion sweep with rationale derived from `discriminates_hypotheses` and `rationale`, not persisted to the permanent pool unless the learner promotes.
 
 After an attempt, LearnLoop records surprise:
 
@@ -3252,7 +3591,9 @@ The FSRS update remains grounded in the observed score. Surprise only modulates 
 
 ### Surprise follow-up insertion (negative surprise only)
 
-When `bayesian_surprise > surprise_diagnostic_threshold` with `surprise_direction = negative`, the next queue position is overridden — **not** by interrupting the current item or feedback flow, but by inserting a follow-up at position 1 of the remaining queue. The current attempt's feedback screen surfaces this transparently:
+When `bayesian_surprise > surprise_diagnostic_threshold` with `surprise_direction = negative`, the next queue position **may be** overridden — gated by `eig_reliability(lo, family)` (see "EIG and surprise-modulation reliability ramp" later in §16 Layer 4). Insertion is not an unconditional event; it is a Bernoulli draw at rate `rel`. At low evidence counts the surrogate's prediction is mostly prior, so "surprise" relative to that prior is uninformative — the follow-up is suppressed and the suppression is logged. Categorical events (`high_confidence_wrong` → misconception_repair, `error_events` logging) fire **independently** of this gate.
+
+When the gate passes, the follow-up is inserted — **not** by interrupting the current item or feedback flow, but by inserting at position 1 of the remaining queue. The current attempt's feedback screen surfaces this transparently:
 
 ```text
 ┌────────────────────────────────────────────┐
@@ -3270,7 +3611,520 @@ When `bayesian_surprise > surprise_diagnostic_threshold` with `surprise_directio
 
 The follow-up's mode is chosen by the existing `choose_next_action` logic (§16 mode selection) using the surprise signal as input, typically yielding `error_diagnosis`, `misconception_repair`, or `contrastive_discrimination`. `[Skip follow-up]` removes this one follow-up only and is not interpreted as "I disagree with the surprise signal"; it doesn't lower future follow-up sensitivity.
 
-Skipping is logged on `attempt_surprise.triggered_actions_json` as `{"follow_up_skipped": true}` so analyses can see how often inserted follow-ups are dismissed. If skip rate climbs above a threshold over a window of attempts, `learnloop doctor` flags it: the surprise threshold may be miscalibrated for this learner.
+Skipping is logged on `attempt_surprise.triggered_actions_json` as `{"follow_up_skipped": true}` so analyses can see how often inserted follow-ups are dismissed. Reliability-suppressed follow-ups (the Bernoulli gate failed) are logged separately as `attempt_surprise.suppressed_actions_json = {"low_reliability_suppressed": rel}`; they are *not* counted as skips, since the learner never saw a banner to dismiss. If user-skip rate climbs above a threshold over a window of attempts where reliability was high, `learnloop doctor` flags it: the surprise threshold may be miscalibrated for this learner. Reliability-suppression rate is reported separately and is expected to be nonzero in the first sessions on each LO.
+
+### Probe mode and probe-EIG — per-LO diagnostic phase
+
+Every Learning Object passes through a short **probe phase** before entering steady-state scheduling. The phase is per-LO, not per-vault: an LO is in probe mode independently of whether other LOs have been probed. Probe attempts serve three purposes:
+
+1. Generate calibration evidence on this learner's θ profile (Layer 0) so the surrogate's score head is informative from the first attempts on a new LO.
+2. Establish initial values for the LO's scalar mastery (Layer 2) and `mastery_axis_views.status` (Layer 3) so the scheduler can stop treating "no evidence yet" as "weak ability."
+3. Discriminate between a small set of **coarse diagnostic hypotheses** about the learner's state on this LO — picking items whose predicted-observation distribution splits posterior mass between hypotheses.
+
+The third purpose is what probe-EIG optimizes. Hypotheses are coarse alternatives like `unknown`, `surface_form_only`, `confuses_with_neighbor`, `robust_initial_grasp` — they are not claims about the learner's true latent type; they are useful enumerations for choosing informative first encounters.
+
+#### Probe hypothesis templates
+
+During just-in-time probe selection, LearnLoop uses small authored hypothesis templates keyed by `(domain, knowledge_type, practice_mode)`. These templates are not claims about the learner's true latent type. They are coarse diagnostic alternatives used to choose informative first encounters with a new LO.
+
+At scheduling time, templates are instantiated against the specific LO using its prerequisites, confusable concepts, difficulty prior, current learner θ profile, and active-goal context. The instantiated hypotheses are logged in the scheduler explanation and `elicitation_events.hypothesis_set_json` for replay and debugging, but are not stored as authoritative learner state.
+
+MVP does not generate custom per-LO hypotheses. Later versions may materialize `lo_probe_hypotheses` from posterior modes after enough evidence exists, but the MVP keeps probe selection deterministic and offline-compatible.
+
+Template location:
+
+- **Core templates** ship at `prompts/probe_hypothesis_templates.yaml` for shared `(general, knowledge_type, practice_mode)` defaults. Any domain can inherit them.
+- **Domain templates** are registered by `DomainModule.probe_hypothesis_templates()` (§4) and **shadow** core entries on the same `(knowledge_type, practice_mode)` key.
+
+Example core template entry:
+
+```yaml
+# prompts/probe_hypothesis_templates.yaml (excerpt)
+- knowledge_type: definition
+  practice_mode: short_answer
+  domain_id: general
+  template_version: "1.0.0"
+  hypotheses:
+    - id: unknown
+      label: "Doesn't know"
+      description: "No prior exposure to the concept; recall fails outright."
+      predicted_observation: { score_bucket: again, likely_error_type: recall_failure }
+      family_loading: { recall: 0.9, schema: 0.1 }
+    - id: surface_form_only
+      label: "Surface form only"
+      description: "Recognizes the name but cannot articulate the function or structure."
+      predicted_observation: { score_bucket: hard, likely_error_type: missing_condition }
+      family_loading: { recall: 0.6, schema: 0.4 }
+    - id: confuses_with_neighbor
+      label: "Confuses with neighbor"
+      description: "Confidently produces the wrong concept from a confusable set."
+      predicted_observation: { score_bucket: hard, likely_error_type: conceptual_error }
+      family_loading: { schema: 0.7, discrimination: 0.3 }
+      confusable_concept_anchors_required: true
+    - id: robust_initial_grasp
+      label: "Robust initial grasp"
+      description: "Articulates the concept correctly on first try."
+      predicted_observation: { score_bucket: good, likely_error_type: null }
+      family_loading: { recall: 0.4, schema: 0.6 }
+```
+
+#### Hypothesis instantiation
+
+When an LO transitions to `in_progress`, its hypothesis set `H` is instantiated once and cached for the duration of the probe phase. Re-probes after misconception reopen (§15.7) create a **new** `probe_phase_id` and a new instantiation:
+
+```python
+def instantiate_hypothesis_set(lo, learner_theta, active_goals, algorithm_version) -> HypothesisSet:
+    # Resolve templates: domain templates shadow core templates on (knowledge_type, practice_mode).
+    representative_modes = lo.eligible_practice_modes_for_probe()
+    templates = []
+    for mode in representative_modes:
+        resolved = resolve_templates(lo.knowledge_type, mode, lo.domain)
+        templates.extend(resolved)
+
+    hypotheses = []
+    for tmpl in templates:
+        if tmpl.confusable_concept_anchors_required and not lo.confusables:
+            continue                # skip "confuses_with_neighbor" when LO has no confusables
+        hypothesis = Hypothesis(
+            id=f"{tmpl.id}__{lo.id}",
+            template_id=tmpl.id,
+            template_version=tmpl.template_version,
+            lo_id=lo.id,
+            label=specialize_label(tmpl.label, lo),
+            description=specialize_description(tmpl.description, lo),
+            predicted_observation=tmpl.predicted_observation,
+            family_loading=tmpl.family_loading,
+            instantiation_inputs_hash=hash_instantiation_inputs(lo, learner_theta, active_goals),
+        )
+        hypotheses.append(hypothesis)
+
+    # Cap to the configured count range.
+    hypotheses = select_top_k(hypotheses,
+                              min_k=algorithm_priors.probe_eig.hypothesis_count_min,
+                              max_k=algorithm_priors.probe_eig.hypothesis_count_max,
+                              by="prior_mass_under_theta")
+    return HypothesisSet(
+        id=compute_hypothesis_set_id(algorithm_version, lo.id, lo.probe_state.probe_phase_id,
+                                     {h.template_id: h.template_version for h in hypotheses},
+                                     compute_theta_snapshot_hash(lo, learner_theta),
+                                     trigger="probe_phase_routine"),
+        lo_id=lo.id,
+        probe_phase_id=lo.probe_state.probe_phase_id,
+        algorithm_version=algorithm_version,
+        template_versions={h.template_id: h.template_version for h in hypotheses},
+        theta_snapshot_hash=compute_theta_snapshot_hash(lo, learner_theta),
+        hypotheses=hypotheses,
+        created_at=now_utc(),
+        trigger="probe_phase_routine",
+    )
+```
+
+`prior_mass_under_theta` weights hypotheses by `marginal_hypothesis_prior` (`uniform` or `weighted_by_surrogate_modes`) when more templates apply than `hypothesis_count_max`. The default is `uniform` — surrogate weighting at the start of a probe is mostly prior anyway.
+
+#### Per-LO probe state
+
+```sql
+CREATE TABLE lo_probe_state (
+  learning_object_id        TEXT PRIMARY KEY,
+  status                    TEXT,    -- pending | in_progress | complete | skipped_by_claim
+  probe_phase_id            TEXT,    -- new UUID on each transition into `in_progress`;
+                                     -- distinguishes first probe from post-misconception re-probe
+  hypothesis_set_id         TEXT,    -- the active HypothesisSet for this probe_phase_id
+  probe_attempts_completed  INTEGER,
+  probe_attempts_target     INTEGER, -- defaults from algorithm_priors; can shrink via learner_claims
+  families_converged        TEXT,    -- JSON array of evidence_family ids whose θ variance dropped below threshold
+  entered_at                TEXT,    -- when the LO first became eligible for the queue
+  completed_at              TEXT,
+  algorithm_version         TEXT
+);
+```
+
+Status lifecycle:
+
+- `pending` — LO exists but is not yet schedulable (prereqs unsatisfied or not in any active-goal scope).
+- `in_progress` — LO has entered the active queue. The next `probe_attempts_target` attempts on this LO will run with `attempt_type = diagnostic_probe`.
+- `complete` — probe budget exhausted **or** every declared evidence family for the LO has at least one converged θ slot **or** the LO scalar variance fell below threshold. Whichever fires first.
+- `skipped_by_claim` — a `learner_claims` row asserted strong prior familiarity for this LO's concept above the configured skip threshold; mastery is seeded and steady-state begins immediately. Reversed automatically if any subsequent attempt scores below `claim_skip_revert_threshold`.
+
+#### Default probe budget (in `algorithm_priors.yaml`)
+
+```yaml
+probe_mode:
+  attempts_target_default: 3            # how many probe attempts per LO before completion
+  attempts_target_with_strong_claim: 1  # if learner claimed familiarity, just one verification probe
+  variance_convergence_threshold: 0.10  # complete early if every targeted family θ variance drops below this
+  observation_noise: 0.4                # smaller noise → probe attempts move θ more than steady-state
+  steady_state_observation_noise: 1.2
+  claim_skip_threshold: 0.75            # claimed_level above which the LO starts in skipped_by_claim
+  claim_skip_revert_threshold: 0.40     # any subsequent attempt below this reverts to in_progress
+  short_session_eligible: false         # short sessions skip probe-phase work by default
+  per_session_max_new_probes: 2         # how many fresh LOs may enter probe mode in one session
+  per_session_max_probe_attempts: 6     # total probe attempts per session
+  suppress_surprise_followups: true     # probe-mode attempts don't trigger negative-surprise queue insertion
+```
+
+#### Probe-EIG: hypothesis-based item selection
+
+When the scheduler selects an item for an LO in `in_progress` probe mode, it overrides the normal priority formula. The selection rule maximizes **expected mutual information between hypothesis identity and the predicted observation**, using the LO's active `HypothesisSet`:
+
+```python
+def probe_eig_score(pi, lo, H: HypothesisSet, current_theta, lo_mastery):
+    """Higher is better. Run over the LO's eligible Practice Items.
+       Returns information gain in bits about hypothesis identity."""
+    # 1. Hypothesis prior: uniform by default, or weighted by surrogate modes.
+    prior_h = hypothesis_prior(H, mode=algorithm_priors.probe_eig.marginal_hypothesis_prior)
+
+    # 2. For each hypothesis, the predicted observation distribution over this item.
+    #    P(o | h, pi) blends the hypothesis's authored predicted_observation with the
+    #    surrogate's score head conditioned on the hypothesis's family_loading profile.
+    p_obs_given_h = {
+        h.id: predicted_observation_distribution(pi, h, current_theta, lo_mastery)
+        for h in H.hypotheses
+    }
+
+    # 3. Marginal observation distribution under the hypothesis prior.
+    marginal_o = {
+        o: sum(prior_h[h.id] * p_obs_given_h[h.id][o] for h in H.hypotheses)
+        for o in joint_observation_space(pi.practice_mode)
+    }
+
+    # 4. Expected information gain in bits about hypothesis identity.
+    H_prior = entropy(prior_h)                          # bits over hypothesis ids
+    H_cond = sum(
+        marginal_o[o] * entropy(posterior_h_given_o(prior_h, p_obs_given_h, o))
+        for o in joint_observation_space(pi.practice_mode)
+        if marginal_o[o] > 0
+    )
+    info_gain_bits = H_prior - H_cond
+
+    # 5. Mode preference and hint penalty (same intent as the prior Fisher version).
+    mode_weight = PROBE_MODE_WEIGHTS.get(pi.practice_mode, 0.5)
+    hint_penalty = 0.0 if not pi.hints else 0.05      # smaller than before; mode_weight does heavier work
+
+    return info_gain_bits * mode_weight - hint_penalty
+
+
+PROBE_MODE_WEIGHTS = {
+    "short_answer":         1.00,
+    "cued_recall":          0.90,
+    "free_recall":          0.85,
+    "explain_from_memory":  0.80,
+    "completion_problem":   0.70,
+    "cloze":                0.60,
+    "recognition":          0.40,
+    "multiple_choice":      0.30,
+    "worked_example":       0.10,   # consumes the test, doesn't measure
+    "faded_worked_example": 0.10,
+    "transfer":             0.00,   # transfer in probe mode is meaningless
+    "far_transfer":         0.00,
+    "transfer_probe":       0.50,   # OK during probe — it's the exploration variant
+}
+```
+
+`joint_observation_space(mode)` is the finite product `score_bucket × (likely_error_type_for_mode ∪ {null})` — 4 × (|taxonomy_for_mode| + 1) outcomes, small enough to enumerate. Other observation channels (confidence, latency, hints) are *not* part of the probe-EIG enumeration; they are too noisy to discriminate coarse hypotheses cleanly. They still affect θ updates as usual.
+
+The family-coverage bonus from the prior `probe_item_score` is retired. Coverage emerges naturally from hypothesis-based scoring: hypotheses with high posterior mass on a not-yet-observed family will be discriminated by items that load on that family, so the score naturally rewards those items.
+
+The probe scheduler **disables hint reveals by default** for probe attempts (`hint_policy.fsrs_rating_cap_by_hint` still applies if the learner overrides via the [Hint] button, but the surprise/profile update treats it as a hinted attempt and downweights it).
+
+#### Interaction with the standard priority score
+
+While an LO is `in_progress`, the standard priority formula in §16 "Priority score" is **bypassed** for items on that LO. Instead:
+
+1. The scheduler computes `forgetting_risk` and `active_goal_importance` to decide *whether* this LO appears in this session's queue at all (probes still compete for the per-session slot budget).
+2. If selected, the LO's specific item is chosen by `probe_eig_score` above.
+3. If no item in the existing PI pool scores above `algorithm_priors.probe_eig.min_local_score` bits, the scheduler may invoke **simulator-EIG fallback** to generate ephemeral diagnostic items targeting the same `HypothesisSet` (see "Hypothesis provider and simulator-EIG unification" below).
+4. The `cognitive_overload_risk` and `readiness_factor` modulations still apply — probe mode does **not** override readiness. Low-energy sessions still suppress probes the same way they suppress transfer.
+
+#### Per-session caps
+
+To prevent the "all my LOs entered probe mode at once" stampede after a goal update or a bulk LO import:
+
+- `per_session_max_new_probes` (default 2) — at most this many LOs may transition from `pending` → `in_progress` in a single session.
+- `per_session_max_probe_attempts` (default 6, scaled down by `available_minutes`) — total probe attempts per session, regardless of LO count.
+- Probes do **not** appear in short-session mode (§10) unless the user explicitly requests them with `learnloop today --include-probes`.
+
+The cap is enforced after the standard queue is built: probe candidates are ranked by active-goal importance and the top-N enter the queue.
+
+#### Transition to complete
+
+An LO leaves probe mode when any one of:
+
+- `probe_attempts_completed >= probe_attempts_target`, or
+- `learning_object_mastery[lo].mastery_variance < variance_convergence_threshold`, or
+- every family in the LO's declared `evidence_facets` set has at least one converged θ slot (i.e. `learner_theta[lo.domain, family].theta_variance < variance_convergence_threshold`).
+
+On completion, the LO's `lo_probe_state.status` becomes `complete`, the standard priority formula resumes, and the LO is eligible for the full EIG pool.
+
+#### Probe attempts and surprise
+
+Probe-mode attempts still record surprise the normal way. **Negative surprise follow-ups are suppressed during probe mode** — by definition, the first 2–3 attempts on a new LO are expected to be surprising; inserting a diagnostic follow-up on every probe would defeat the point. The surprise signal still updates beliefs and θ; it just doesn't trigger the queue-insertion behavior in "Surprise follow-up insertion" above. This is logged on `attempt_surprise.suppressed_actions_json = {"probe_mode_suppressed": true}`.
+
+### Probe-EIG vs normal-EIG dispatch
+
+The scheduler has **two distinct EIG objectives**, used in different LO states:
+
+| Objective    | Used when                                                      | Operates over                            |
+| ------------ | -------------------------------------------------------------- | ---------------------------------------- |
+| `probe_eig`  | `lo_probe_state.status == in_progress`                          | Coarse hypothesis identity (discrete)    |
+| `normal_eig` | `lo_probe_state.status == complete` AND `eig_reliability ≥ τ`   | Predictive observation distribution (continuous, via surrogate) |
+| `probe_eig` (fallback) | `lo_probe_state.status == complete` AND `eig_reliability < τ` | Same hypotheses as the closing probe phase, kept in cache |
+
+The third row is the substantive design choice and a behavioral change from the prior "dampened normal_EIG" model: when reliability is low post-probe, the scheduler **falls back to probe-EIG over the remaining unresolved hypotheses** rather than computing a weak `normal_eig`. This is strictly more informative — a well-defined hypothesis-discrimination problem beats a noisy entropy-reduction estimate.
+
+The cached hypothesis set from the closing probe phase is retained on `lo_probe_state.hypothesis_set_id` for as long as `eig_reliability < τ`. Once reliability crosses τ, the cache is cleared and `normal_eig` takes over. The threshold τ is `algorithm_priors.eig_reliability.fallback_to_probe_below` (default 0.40 — the LO-mastery sigmoid passes 0.40 at roughly attempt 4 under default ramp parameters).
+
+```python
+def select_eig_objective(lo, axis_views, probe_state):
+    if probe_state.status == "in_progress":
+        return ("probe_eig", probe_state.hypothesis_set_id)
+    rel = eig_reliability(lo, family=primary_family_for_lo(lo))
+    if rel < algorithm_priors.eig_reliability.fallback_to_probe_below:
+        # Still consolidating — reuse last probe's hypothesis set.
+        return ("probe_eig", probe_state.hypothesis_set_id)
+    return ("normal_eig", None)
+```
+
+Status-driven, not count-driven: the dispatch reads `lo_probe_state.status` and `eig_reliability`, both of which are deterministic functions of raw evidence. The transition is reproducible on replay.
+
+`normal_eig` is the entropy-reduction objective from "EIG scoring" earlier in §16 Layer 4 — `E_o[KL(P(z | o, q) || P(z))]` over the surrogate's predictive distribution. It is multiplied into the priority formula via `eig_reliability`, as specified in "EIG and surprise-modulation reliability ramp."
+
+### Simulator-EIG scope
+
+MVP simulator-EIG is restricted to **just-in-time probe fallback**. During the probe phase, LearnLoop first searches the existing Practice Item pool for an item that discriminates the active LO hypothesis set. If no item exceeds `algorithm_priors.probe_eig.min_local_score` bits, Codex may propose ephemeral diagnostic items against that same hypothesis set.
+
+Normal-phase simulator-EIG is **not** part of the automatic daily scheduler in MVP. Mature LOs use deterministic local scheduling: FSRS, surprise, repair loops, transfer gaps, and `normal_eig` over existing items. A manual deep-diagnostic command (§11, `learnloop diagnose-lo --deep`, `learnloop generate-diagnostic`) may invoke simulator-EIG for mature LOs, but generated items remain ephemeral unless promoted by the learner.
+
+Automatic normal-phase simulator-EIG is reserved for a later version after enough attempt history exists to evaluate whether generated diagnostics improve scheduling decisions. Config flag:
+
+```toml
+[scheduler]
+simulator_eig_context = "probe_phase_only"   # probe_phase_only | probe_and_posterior_modes
+```
+
+`probe_and_posterior_modes` is documented but not the MVP default. When enabled, simulator-EIG may fire during normal-phase scheduling under restrictive triggers (LO `evidence_status` ≥ `estimated`, posterior uncertainty above threshold despite ≥5 attempts, no local item above EIG threshold, active-goal LO, not short-session mode, Codex available, per-session generated-diagnostic cap not reached).
+
+### Hypothesis provider and simulator-EIG unification
+
+The principle:
+
+> **Simulator-EIG does not generate hypotheses. It generates candidate observations that distinguish a hypothesis set produced locally.**
+
+One active uncertainty target → one `HypothesisSet` → two item sources:
+
+```text
+1. Existing PI pool:
+   local probe_EIG chooses the most discriminating existing item.
+
+2. No adequate existing PI (best probe_eig_score < min_local_score):
+   simulator-EIG asks Codex to generate an ephemeral item discriminating the same hypotheses.
+```
+
+#### Dispatch
+
+```python
+def select_probe_item(lo, H: HypothesisSet, candidate_pool, codex_available):
+    scored = [(probe_eig_score(pi, lo, H, theta, lo_mastery), pi) for pi in candidate_pool]
+    best_score, best_pi = max(scored, default=(0.0, None))
+
+    if best_score >= algorithm_priors.probe_eig.min_local_score:
+        return ScheduledItem(pi=best_pi, source="existing_pi",
+                             expected_info_gain_bits=best_score, hypothesis_set_id=H.id)
+
+    if not codex_available or simulator_eig_disabled_for_session():
+        # No adequate item, no fallback available — pick the best existing item anyway
+        # and log the gap. Probe attempts are bounded; the next session may have better options.
+        return ScheduledItem(pi=best_pi, source="existing_pi_inadequate",
+                             expected_info_gain_bits=best_score, hypothesis_set_id=H.id)
+
+    # Simulator-EIG fallback.
+    ephemerals = call_simulator_eig_proposer(
+        lo=lo,
+        hypothesis_set=H,
+        missing_discrimination=top_ambiguous_hypothesis_pairs(H, candidate_pool),
+        constraints=eligible_practice_modes_for_lo(lo),
+    )
+    if not ephemerals:
+        return ScheduledItem(pi=best_pi, source="existing_pi_simulator_failed",
+                             expected_info_gain_bits=best_score, hypothesis_set_id=H.id)
+    return ScheduledItem(pi=ephemerals[0], source="simulator_eig",
+                         expected_info_gain_bits=score_ephemeral(ephemerals[0], H),
+                         hypothesis_set_id=H.id)
+```
+
+`top_ambiguous_hypothesis_pairs(H, candidate_pool)` identifies the hypothesis pairs that no existing item separates well — passed to Codex as the specific discrimination target rather than a vague "diagnose this LO" instruction.
+
+#### Simulator prompt structure
+
+The simulator-EIG proposer prompt is built around the hypothesis set, **not** "diagnose this LO":
+
+```text
+You are proposing 1–3 ephemeral Practice Items for LO {lo.id}: {lo.title}.
+
+Existing items cannot separate these hypotheses well:
+  H_2: "surface recall but weak schema"     (predicts hard + missing_condition)
+  H_3: "confuses with cause-specific hazard" (predicts hard + conceptual_error)
+
+Generate items whose expected observation distinguishes these hypotheses.
+For each proposed item, specify what you would predict to observe under each
+referenced hypothesis (score_bucket + likely_error_type).
+
+Constraints:
+- practice_mode ∈ {short_answer, contrastive_discrimination, explain_from_memory}
+- ≥2 referenced hypotheses with non-overlapping predicted observations
+- no near-duplicate of existing PIs on this LO (cosine sim < 0.85)
+```
+
+Hypothesis-set context (the `H` passed to the prompt) is part of `agent_runs.input_context_hash`, so replay reproduces deterministically.
+
+#### When simulator-EIG declines
+
+If Codex returns zero valid items after the one allowed retry (§16 "Proposer output schema and validation"), the scheduler proceeds with the best available existing item and logs the gap on `elicitation_events`:
+
+```sql
+-- additions logged to existing elicitation_events
+hypothesis_set_id TEXT,            -- which HypothesisSet was active
+trigger TEXT,                       -- probe_phase_local_pi_inadequate |
+                                    -- probe_phase_routine |
+                                    -- manual_deep_diagnostic_lo |
+                                    -- manual_deep_diagnostic_goal
+hypothesis_set_json TEXT,           -- full HypothesisSet serialization for replay
+fallback_outcome TEXT               -- existing_pi | existing_pi_inadequate |
+                                    -- simulator_eig | existing_pi_simulator_failed
+```
+
+`learnloop doctor` aggregates `existing_pi_inadequate` and `existing_pi_simulator_failed` counts over a window; persistent gaps suggest the PI pool needs human authoring or the hypothesis templates need refinement for that domain.
+
+#### Replay determinism
+
+`HypothesisSet` is fully derivable from raw inputs (algorithm_version, LO, probe_phase_id, learner_theta snapshot, learner_claims). Simulator-EIG calls are logged on `agent_runs` with the `HypothesisSet` as part of the input context hash, so:
+
+- The local dispatch ("did we go to simulator-EIG?") is deterministic on replay.
+- The simulator's output is **not** deterministic (Codex), but is preserved verbatim on `agent_runs` and `ephemeral_session_items`. Replay does not re-call Codex; it uses the stored output.
+- This matches the existing replay invariant for AI calls (§16 "Replayable learner model"): raw events are reproduced exactly; AI outputs are read from `agent_runs`, not regenerated.
+
+### EIG and surprise-modulation reliability ramp
+
+Probe mode handles parameter *estimation* (how to choose items that move beliefs). This subsection handles parameter *application*: how much the surrogate's predictions should drive priority and FSRS modulation while the posterior is still consolidating. The cliff problem this resolves: when `lo_probe_state.status` flips to `complete` at attempt 3, the standard priority formula instantly applies the full `information_gain_weight = 0.15` and `error_uncertainty_weight = 0.10` — but the per-LO surrogate posterior at 3 attempts is still mostly prior, and `EIG = H(z) − E_o[H(z|o)]` with `H(z)` mostly prior is chasing noise.
+
+The ramp is a per-attempt-target multiplier on EIG and surprise *magnitude*-driven uses. Categorical surprise events (misconception trigger, error_events logging) are explicitly **not** dampened — they are discrete classifications that should fire at any evidence count.
+
+#### Two independent reliability factors
+
+```python
+def eig_reliability(lo, family):
+    """Multiplier in [0, 1] on EIG and surprise-modulation magnitudes."""
+    n_lo  = learning_object_mastery[lo.id].evidence_count
+    n_th  = learner_theta[lo.domain, family].evidence_count
+
+    f_lo  = sigmoid(SLOPE_LO    * (n_lo - HALF_LO))
+    f_th  = sigmoid(SLOPE_THETA * (n_th - HALF_THETA))
+
+    # The bottleneck wins. A new LO under mature θ is gated only by f_lo;
+    # a new family with mature LO is gated only by f_th.
+    return min(f_lo, f_th)
+```
+
+`f_lo` reflects how reliable the surrogate's prediction *for this LO* is. `f_th` reflects how reliable the surrogate's *family-level prediction model* is. They're independent because a learner with 40 prior schema attempts across other LOs has a tight `θ[domain, schema]` posterior even on a brand-new LO; conversely, a learner with 30 attempts on LO_42 still has wide `θ[domain, proof_reconstruction]` if proof_reconstruction is a family they've never been observed on.
+
+Default values (in `algorithm_priors.yaml.eig_reliability`):
+
+| Constant       | Default | Effect                                                                |
+| -------------- | ------- | --------------------------------------------------------------------- |
+| `HALF_LO`      | 3.5     | At 3.5 LO attempts, `f_lo = 0.5`                                       |
+| `SLOPE_LO`     | 1.5     | Ramp from ~0.02 at n=0 to ~0.90 at n=5; ~0.32 at n=3, ~0.68 at n=4    |
+| `HALF_THETA`   | 8.0     | θ matures more slowly than per-LO posteriors — needs cross-LO evidence |
+| `SLOPE_THETA`  | 0.5     | Ramp from ~0.02 at n=0 to ~0.90 at n=12; ~0.50 at n=8                 |
+
+Implied bands at integer attempt counts on this LO (assuming mature θ):
+
+| LO evidence count | θ-family count | EIG/surprise-modulation weight                  |
+| ----------------- | -------------- | ----------------------------------------------- |
+| 0                 | any            | ~0.005 — priority is FSRS + prereq + recent errors only |
+| 1–2               | any            | 0.024–0.10 — probe scoring drives selection; standard EIG inert |
+| 3–4               | mature θ       | 0.32–0.68 — dampened EIG; surprise modulates intervals modestly |
+| 5+                | mature θ       | 0.90+ — full priority formula                    |
+| any               | < 3 family-domain attempts | dampened by θ branch regardless of LO count |
+
+The function is a smoothed version of a 4-band step function. Tests target integer points; the sigmoid is just a smoother interpolation between them. Domain overrides in `algorithm_priors.yaml.domain_overrides` can tune `HALF_*` / `SLOPE_*` per domain (language vocab → `HALF_LO = 2`; esports VOD review → `HALF_LO = 6`).
+
+#### What the ramp applies to (and what it does not)
+
+The ramp multiplies **magnitude-driven** uses of EIG and surprise. Categorical events fire regardless:
+
+```yaml
+# algorithm_priors.yaml
+eig_reliability:
+  half_lo: 3.5
+  slope_lo: 1.5
+  half_theta: 8.0
+  slope_theta: 0.5
+  applies_to:
+    - information_gain_weight       # priority-score component
+    - error_uncertainty_weight       # priority-score component
+    - surprise_interval_factor       # FSRS modulation magnitude
+    - surprise_followup_insertion    # whether to enqueue a follow-up at all
+  does_not_apply_to:
+    - high_confidence_wrong          # misconception trigger fires regardless
+    - error_events                   # categorical logging fires regardless
+    - probe_mode                     # probe selection uses Fisher-info; its own scoring
+    - forgetting_risk                # FSRS retrievability independent of LO posterior
+    - active_goal_importance         # goal weighting is exogenous
+    - recent_error_severity          # recent-error boost is based on raw events
+    - deadline_pressure              # exogenous time signal
+```
+
+This split is the load-bearing design decision. The ramp protects the scheduler from over-trusting a noisy posterior; it does **not** protect against missing a misconception in the first 2 attempts (those are exactly the cheapest moment to catch one).
+
+#### Application sites
+
+In the priority formula (see "Priority score" later in §16), the EIG-derived components are multiplied by `eig_reliability`:
+
+```python
+rel = eig_reliability(lo, family=primary_family(pi))
+priority_components.information_gain  *= rel
+priority_components.error_uncertainty *= rel
+```
+
+In FSRS modulation:
+
+```python
+factor = surprise_interval_factor(b_surprise, direction)
+# blend toward 1.0 (no modulation) when reliability is low
+factor = 1.0 + rel * (factor - 1.0)
+```
+
+In surprise follow-up insertion (§16 Layer 4 "Surprise follow-up insertion"):
+
+```python
+if b_surprise > threshold and direction == "negative":
+    if random_uniform() < rel:                 # equivalent to a Bernoulli gate at rate `rel`
+        insert_follow_up()
+    # else: surprise was recorded but no follow-up inserted; logged on
+    #       attempt_surprise.suppressed_actions_json = {"low_reliability_suppressed": rel}
+```
+
+Misconception triggering and error logging happen earlier in the attempt pipeline and bypass this gate entirely.
+
+#### Scheduler-explanation surface
+
+The "Why now?" panel surfaces the multiplier whenever reliability < 0.95, so the learner (and developers running golden tests) can see when the ramp is active:
+
+```text
+Why this item?
+  Forgetting risk        0.24
+  Information gain       0.04   (×0.32 reliability — 3 attempts on LO)
+  Error uncertainty      0.03   (×0.32 reliability)
+  Recent error           0.12
+  Transfer gap           0.15   (status: estimated)
+  Readiness adjustment  +0.00
+```
+
+The `×N reliability` annotation is added next to any priority component the ramp touched. If the θ branch is the bottleneck, the annotation says so explicitly: `(×0.18 reliability — sparse θ[math_stats_ml, schema])`.
+
+#### Replay invariant
+
+`evidence_count` on `learning_object_mastery` and `learner_theta` is derivable from raw attempts. The reliability ramp is a pure function of those counts plus `algorithm_priors.yaml.eig_reliability`, so replay reproduces the same priority ordering deterministically. Goldens at integer attempt counts pin the function's behavior; changes to `HALF_*` / `SLOPE_*` are MINOR algorithm bumps (display-only) unless they cross a status threshold that affects mode selection, in which case they are MAJOR.
 
 ### Belief staleness
 
@@ -3285,7 +4139,7 @@ def apply_staleness(mean, variance, days_since_evidence, stale_after_days):
     return mean, variance
 ```
 
-Default `stale_after_days` can vary by axis and domain: memory may stale quickly, understanding more slowly, and esports VOD-read beliefs may stale after patches, role changes, or long gaps in play.
+Default `stale_after_days` is configured per **θ evidence family** (the underlying belief slot) and per **axis view** (for UI staleness flags) in `algorithm_priors.yaml`. Memory-family slots (recall, recognition) stale quickly; schema and transfer slots more slowly; calibration_accuracy slowest. Esports VOD-read beliefs stale faster after patches, role changes, or long gaps in play (set via `domain_overrides.esports_overwatch.staleness`).
 
 ### Replayable learner model
 
@@ -3339,6 +4193,16 @@ After **3 cumulative dismissals**, the banner gains an additional nudge line: "Y
 
 **Single version, not per-component.** All derived-state pipeline components (mastery EMA, FSRS modulation, surrogate, surprise, cross-LO propagation, scheduler scoring, grader tier routing for confidence) share one `algorithm_version`. A change to any one triggers a bump per the rules above. Per-component versioning was considered and rejected: cross-component invariants (e.g. a new surrogate invalidates stored surprise even with stable mastery formula) make independent versions misleading. The single number is the truth about whether replay is needed.
 
+**v2.0.0 — three-tier latent migration + EIG reliability ramp + hypothesis-based probe-EIG.** Three complementary changes ship together: (1) demoting the five axes from primary belief state to derived views, (2) the EIG reliability ramp on `evidence_count`, and (3) hypothesis-based `probe_eig` with simulator-EIG unified on a single `HypothesisSet`. The three changes are co-dependent: the ramp needs evidence counts introduced by the migration, and `probe_eig` operates on coarse hypotheses that load on the evidence families introduced by the migration. Shipping them as one release avoids cross-version interpretation gaps. The shipped migration:
+
+1. Snapshots the old five-column `learning_object_mastery` rows into `replay_snapshots` tagged with the previous algorithm version.
+2. Seeds the new scalar `mastery_mean` from the weighted mean of the old five axes (weights from `algorithm_priors.axis_views.<axis>.lo_mastery_blend_seed` defaults) and `mastery_variance` from the max variance across axes.
+3. Seeds `learner_theta` rows from a per-attempt replay: each historical attempt's old `mastery_weights × axis_value` deltas are reattributed to the corresponding evidence family (using the prior axis→family aggregation table inverted). Families with no historical evidence start at population prior `θ.mean = 0, θ.variance = 1.0`.
+4. Rebuilds `mastery_axis_views` from the new state.
+5. Writes a `change_batches` row with `reason = algorithm_major_v2` linking every affected row; the migration is rollbackable for `[storage].purge_undo_window_days`.
+
+The migration is automatic on first vault open under v2.0.0+, gated by the standard MAJOR banner ("Recommended" emphasis, 1-strike nudge). Existing vaults with low evidence counts will see their axis views snap to `unobserved` for axes that had no real evidence under the old model — this is correct behavior, not a regression.
+
 The dismissal counter resets to 0 when replay runs or when the user explicitly accepts the new version without replay (`learnloop replay-model --accept-without-replay`, intended for cases where the user *knows* a PATCH-equivalent change is the only delta).
 
 ## SQLite tables (canonical)
@@ -3353,9 +4217,9 @@ CREATE TABLE practice_attempts (
                                      -- the full LO subjects list. Cross-subject queries walk LO membership.
   concept TEXT,                      -- vault-global concept id (LO.concept)
   practice_mode TEXT,
-  attempt_type TEXT,                 -- independent_attempt | hinted_attempt | dont_know | ...
-  target_mastery_axes TEXT,          -- JSON array
-  evidence_facets TEXT,              -- JSON array
+  attempt_type TEXT,                 -- independent_attempt | hinted_attempt | dont_know | diagnostic_probe | ...
+  evidence_facets TEXT,              -- JSON array of EvidenceFamily ids (the primary update channel)
+  evidence_weights TEXT,              -- JSON object {family: weight}; nullable, defaults to uniform
   rubric_score INTEGER,              -- 0-4
   correctness REAL,                  -- GRADE_TO_SCORE[rubric_score]
   confidence INTEGER,                -- 1-5
@@ -3395,18 +4259,80 @@ CREATE TABLE practice_item_state (
 
 CREATE TABLE learning_object_mastery (
   learning_object_id TEXT PRIMARY KEY,
-  memory REAL,
-  understanding REAL,
-  execution REAL,
-  generalization REAL,
-  calibration REAL,
+  mastery_mean REAL,                  -- scalar 0..1; "does the learner know this LO?"
+  mastery_variance REAL,
+  evidence_count INTEGER,
+  last_evidence_at TEXT,
+  algorithm_version TEXT,
   updated_at TEXT
+);
+-- The five-column per-axis layout (memory/understanding/execution/generalization/calibration)
+-- from algorithm_version <2.0.0 is migrated to this scalar form on first vault open under
+-- v2.0.0+; per-axis values move to the derived `mastery_axis_views` table.
+
+CREATE TABLE mastery_axis_views (
+  learning_object_id TEXT,
+  axis TEXT,                          -- memory | understanding | execution | generalization
+  mean REAL,                          -- nullable when status = 'unobserved'
+  variance REAL,                      -- nullable when status = 'unobserved'
+  status TEXT,                        -- unobserved | weak_evidence | estimated | reliable
+  contributing_families_json TEXT,    -- which θ families fed this view, weights and counts
+  algorithm_version TEXT,
+  updated_at TEXT,
+  PRIMARY KEY (learning_object_id, axis)
+);
+-- Derived cache; recomputable from learning_object_mastery + learner_theta + raw attempts.
+-- Calibration is NOT in this table — it lives in learner_theta keyed on
+-- (domain, 'calibration_accuracy', practice_mode).
+
+CREATE TABLE learner_theta (
+  id TEXT PRIMARY KEY,
+  domain TEXT,                        -- domain_id from [domains].enabled, or 'global'
+  evidence_family TEXT,               -- canonical family id (see §16 Layer 0) or
+                                      -- namespaced like 'language:pronunciation_accuracy'
+  practice_mode TEXT,                 -- nullable; non-null only for calibration_accuracy
+  theta_mean REAL,                    -- logit units (centered: 0 = population median)
+  theta_variance REAL,
+  evidence_count INTEGER,
+  prior_pseudo_count REAL,            -- weight from learner_claims; separate from evidence_count
+  algorithm_version TEXT,
+  updated_at TEXT,
+  UNIQUE(domain, evidence_family, practice_mode)
+);
+
+CREATE TABLE learner_claims (
+  id TEXT PRIMARY KEY,
+  claim_type TEXT,                    -- background_familiarity | prior_coursework | self_rating
+  scope_type TEXT,                    -- concept | learning_object | subject | domain | global
+  scope_id TEXT,                      -- nullable for global claims
+  evidence_family TEXT,               -- nullable; null means "all families in scope"
+  claimed_level REAL,                 -- 0..1 self-rating
+  prior_pseudo_count REAL,            -- attempts-equivalent weight this claim carries
+  source TEXT,                        -- init_wizard | manual_cli | imported
+  created_at TEXT
+);
+-- Raw input table — preserved across replays.
+
+CREATE TABLE lo_probe_state (
+  learning_object_id TEXT PRIMARY KEY,
+  status TEXT,                        -- pending | in_progress | complete | skipped_by_claim
+  probe_phase_id TEXT,                -- new UUID on each transition into `in_progress`;
+                                      -- distinguishes first probe from post-misconception re-probe
+  hypothesis_set_id TEXT,             -- active HypothesisSet for this probe_phase_id;
+                                      -- also cached post-probe while eig_reliability < fallback_to_probe_below
+  probe_attempts_completed INTEGER,
+  probe_attempts_target INTEGER,
+  families_converged TEXT,            -- JSON array of evidence_family ids
+  entered_at TEXT,
+  completed_at TEXT,
+  algorithm_version TEXT
 );
 
 CREATE TABLE concept_mastery (
   concept TEXT PRIMARY KEY,           -- concepts are vault-global; not subject-keyed
-  aggregate REAL,
-  weakest_axis TEXT,
+  aggregate REAL,                     -- prerequisite-weighted average of LO mastery_mean
+  weakest_axis_view TEXT,             -- the lowest-mean axis view among contributing LOs
+                                      -- (display only; computed from mastery_axis_views)
   updated_at TEXT
 );
 -- Per-subject aggregates are computed on read by filtering this table through
@@ -3415,9 +4341,10 @@ CREATE TABLE concept_mastery (
 CREATE TABLE learner_state_beliefs (
   id TEXT PRIMARY KEY,
   subject TEXT,
-  scope_type TEXT,                   -- learning_object | concept | error_type | misconception | calibration
+  scope_type TEXT,                   -- error_type | misconception (LO/concept beliefs now live in
+                                     -- learning_object_mastery / learner_theta / concept_mastery)
   scope_id TEXT,
-  belief_key TEXT,                    -- core axis, evidence facet, or error propensity
+  belief_key TEXT,                    -- error propensity slot (e.g. error_type id)
   mean REAL,
   variance REAL,
   evidence_count INTEGER,
@@ -3428,6 +4355,9 @@ CREATE TABLE learner_state_beliefs (
   updated_at TEXT,
   UNIQUE(subject, scope_type, scope_id, belief_key)
 );
+-- Reduced scope as of v2.0.0: LO mastery moved to learning_object_mastery,
+-- learner-level abilities moved to learner_theta. This table now holds per-learner
+-- error-type propensities and misconception activation state.
 
 CREATE TABLE error_events (
   id TEXT PRIMARY KEY,
@@ -3607,12 +4537,20 @@ CREATE TABLE elicitation_events (
   session_id TEXT,
   selected_practice_item_id TEXT,
   target_scope_json TEXT,
-  policy TEXT,                       -- heuristic_greedy_eig | simulator_ephemerals | deep_diagnostic | mcts
+  policy TEXT,                       -- heuristic_greedy_eig | probe_eig | simulator_ephemerals |
+                                     -- deep_diagnostic | mcts
   candidate_scores_json TEXT,        -- includes priority, EIG, uncertainty, readiness, load
   entropy_before REAL,
-  expected_information_gain REAL,
+  expected_information_gain REAL,    -- bits; for probe_eig this is mutual info on hypothesis identity
   expected_surprise REAL,
   selected_reason TEXT,
+  hypothesis_set_id TEXT,            -- nullable; set when policy in (probe_eig, simulator_ephemerals,
+                                     -- deep_diagnostic) — references the active HypothesisSet
+  hypothesis_set_json TEXT,          -- full HypothesisSet serialization (§16.5) for replay/debug
+  trigger TEXT,                       -- probe_phase_routine | probe_phase_local_pi_inadequate |
+                                     -- manual_deep_diagnostic_lo | manual_deep_diagnostic_goal
+  fallback_outcome TEXT,             -- existing_pi | existing_pi_inadequate | simulator_eig |
+                                     -- existing_pi_simulator_failed
   created_at TEXT
 );
 
@@ -3678,7 +4616,7 @@ CREATE INDEX idx_elicitation_events_session ON elicitation_events(session_id, se
 - All timestamps are stored as ISO-8601 UTC strings. The TUI renders them in `[student].timezone`.
 - `state.sqlite` enables foreign keys where both sides are SQL-owned. YAML-owned ids are validated by the storage layer before commits.
 - Every schema change is a numbered migration recorded in `schema_migrations`.
-- Attempt logging is atomic: `practice_attempts`, `grading_evidence`, `practice_item_state`, `learning_object_mastery`, `learner_state_beliefs`, `attempt_surprise`, `error_events`, `generated_items`, and `content_events` commit or roll back together.
+- Attempt logging is atomic: `practice_attempts`, `grading_evidence`, `practice_item_state`, `learning_object_mastery`, `learner_theta`, `lo_probe_state`, `learner_state_beliefs`, `attempt_surprise`, `attempt_propagation_events`, `error_events`, `generated_items`, and `content_events` commit or roll back together. `mastery_axis_views` is marked dirty inside the same transaction and may be recomputed lazily after commit.
 - Surprise is computed from predictions captured **before** the attempt updates mastery. The prior prediction, observed joint bucket, posterior delta, and any FSRS interval factor are stored so scheduler decisions are auditable.
 - Elicitation uses only this vault's local learner data in MVP. Any future cross-user or meta-trained model must be opt-in and represented in `agent_runs` / provenance metadata.
 - Derived learner-state tables (`practice_item_state`, `learning_object_mastery`, `concept_mastery`, `learner_state_beliefs`, `attempt_surprise`, cached scheduler explanations) must be replayable from raw attempts, observations, content state, and algorithm version.
@@ -3692,6 +4630,12 @@ CREATE INDEX idx_elicitation_events_session ON elicitation_events(session_id, se
 - `content_events` powers the TUI "Recently Added" view and makes auto-accepted canonical transforms/variants easy to inspect, edit, deactivate, or reject after the fact.
 - `agent_runs` records prompt template, prompt version, model, SDK version, context hash, and output schema for every AI-backed grading/generation/diagnosis operation.
 - `session_checkpoints` is app-managed state for crash/interruption recovery and is cleared when a session ends cleanly.
+- `learning_object_mastery` stores a single scalar `mastery_mean` + `mastery_variance` per LO — not a five-axis tensor. Per-axis estimates are derived views, materialized in `mastery_axis_views`.
+- `learner_theta` and `lo_probe_state` are derived from `practice_attempts` (raw) + `learner_claims` (raw priors). Both are dropped and recomputed on `learnloop replay-model`.
+- `learner_claims` is **raw input** (filed via the init wizard, the claims CLI, or imported), not derived. Replay does not touch it.
+- `mastery_axis_views` is a derived cache. It is rebuilt opportunistically after each attempt and fully recomputed on replay. It is safe to delete the whole table at any time; the next read or attempt repopulates it.
+- The four LO-level axis labels (`memory`, `understanding`, `execution`, `generalization`) and the learner-level `calibration` trait are **never** stored as primary belief state. They appear only in `mastery_axis_views` (the four LO-level views) and in `learner_theta` rows keyed on `calibration_accuracy` (the learner-level trait, per `(domain, practice_mode)`).
+- Changes to `axis_views` weights in `algorithm_priors.yaml` are **MINOR** algorithm bumps (they don't change the underlying θ, only the display aggregation). Changes to evidence-family lists, θ update noise, or `BETA_LO`/`BETA_THETA` are **MAJOR** bumps.
 
 ## Attempt → updates
 
@@ -3699,15 +4643,33 @@ One attempt updates the item state, mastery state, learner-state beliefs, surpri
 
 ```text
 attempt (practice_item_id=pi_x, learning_object_id=lo_x, score=0.45, confidence=4,
-         hints=2, error_type=hazard_probability_confusion)
+         hints=2, error_type=hazard_probability_confusion,
+         evidence_facets=[schema, recall])
    ↓
 1. practice_item_state[pi_x]: FSRS update via score_to_fsrs_rating(score)
-2. learning_object_mastery[lo_x]: EMA update for each target axis,
-                                  then apply error_impacts cross-axis corrections
-3. learner_state_beliefs: update means/uncertainty for target axes, evidence facets, and error propensities
-4. attempt_surprise: compare predicted vs observed joint evidence and store Bayesian surprise
-5. practice_item_state[pi_x]: modulate FSRS interval within configured bounds if surprise is high
-6. error_events: append; if high_confidence_wrong or negative surprise → open repair_loop / diagnostic follow-up
+2. learning_object_mastery[lo_x]: scalar mastery_mean / mastery_variance update
+                                  (Layer 2, "Update rule (Tier 2 — LO scalar)"),
+                                  then apply error_impacts.lo_mastery_delta
+3. learner_theta: update one slot per declared evidence_family (Layer 0
+                  update rule), with observation_noise scaled by attempt_type
+                  (probe vs steady-state) and family weight
+4. learner_theta[domain, calibration_accuracy, practice_mode]:
+   update if confidence was captured (fires every attempt)
+5. error_impacts.families: apply to learner_theta slots (logit-space deltas)
+6. attempt_propagation_events: propagate -mean_delta / +variance_delta to
+                                prereq LOs' learning_object_mastery scalars
+7. mastery_axis_views[lo_x, *]: mark dirty; recompute lazily on next read
+                                 (or eagerly when in active queue)
+8. attempt_surprise: compare predicted vs observed joint evidence and store
+                      Bayesian surprise (entropy computed over LO scalar +
+                      involved θ family slots, not axis views)
+9. practice_item_state[pi_x]: modulate FSRS interval within configured
+                               bounds if surprise is high
+10. error_events: append; if high_confidence_wrong or negative surprise
+                  → open repair_loop / diagnostic follow-up (suppressed if
+                  lo_probe_state[lo_x].status == 'in_progress')
+11. lo_probe_state[lo_x]: increment probe_attempts_completed; check
+                           transition to 'complete'
 ```
 
 Then `concept_mastery` is recomputed lazily on read or on `exports.refresh`.
@@ -3719,17 +4681,21 @@ A two-stage policy. First, the per-item priority score chooses **which** Practic
 ### Priority score (queue ordering)
 
 ```text
+rel = eig_reliability(lo, family=primary_family(pi))   # [0, 1]; see Layer 4 reliability ramp
+
 priority =
-  0.25 * forgetting_risk              # 1 - retrievability
-+ 0.15 * active_goal_importance       # from profile/goals.md + concept graph
-+ 0.15 * expected_information_gain    # uncertainty reduction over active goals
-+ 0.10 * error_type_entropy           # uncertainty over likely error mode
-+ 0.10 * recent_error_severity        # boost items in same LO/concept as recent errors
-+ 0.10 * transfer_gap                 # high recall but low transfer
-+ 0.05 * deadline_pressure            # from profile/goals.md
+  0.25 * forgetting_risk                       # 1 - retrievability
++ 0.15 * active_goal_importance                # from profile/goals.md + concept graph
++ 0.15 * expected_information_gain  * rel      # dampened until LO + θ posteriors are mature
++ 0.10 * error_type_entropy         * rel      # dampened with EIG
++ 0.10 * recent_error_severity                 # boost items in same LO/concept as recent errors
++ 0.10 * transfer_gap                          # high recall but low transfer
++ 0.05 * deadline_pressure                     # from profile/goals.md
 + 0.05 * learner_interest
-- 0.15 * cognitive_overload_risk      # session length consumed, novelty already added
+- 0.15 * cognitive_overload_risk               # session length consumed, novelty already added
 ```
+
+The reliability multiplier `rel` is applied **only** to EIG-derived components (`expected_information_gain`, `error_type_entropy`). The other components are either based on raw events (`recent_error_severity`), independent FSRS state (`forgetting_risk`), or exogenous inputs (`active_goal_importance`, `deadline_pressure`) — they are not affected by surrogate-posterior maturity. `primary_family(pi)` picks the highest-weight family in `pi.evidence_weights` (ties broken by canonical family order).
 
 ### Scheduler explanations
 
@@ -3750,6 +4716,13 @@ Every scheduled Practice Item should carry an explanation object. This is not ju
     "deadline_pressure": 0.02,
     "learner_interest": 0.03,
     "cognitive_overload_risk": -0.04
+  },
+  "eig_reliability": {
+    "value": 0.95,
+    "f_lo": 0.95,                          // 8 LO attempts
+    "f_theta": 0.97,                       // mature θ[math_stats_ml, transfer]
+    "bottleneck": "f_lo",
+    "applied_to": ["expected_information_gain", "error_type_entropy"]
   },
   "readiness_factor": 1.0,
   "target_scope": {
@@ -3794,15 +4767,16 @@ def readiness_factor(mode: str, energy: str, sleep: float) -> float:
 
 `readiness_factor` multiplies the candidate item's priority score before queue ordering. New material is gated more aggressively than review. When `available_minutes < 20` (or the user explicitly picks `short` focus pattern), the daily loop switches to **short-session mode** (§10): the queue collapses to warm-up retrieval plus one optional misconception-repair drill, the deep-work / weakness-repair / transfer blocks are skipped entirely, ephemeral diagnostic generation is suppressed, and surprise-driven diagnostic-followup interruptions are suppressed (no time for a detour). FSRS and mastery still update normally on every attempt logged.
 
-### Cold-start curriculum
+### Cold-start curriculum — replaced by probe-mode flow
 
-For a subject with zero attempts, the scheduler falls back to:
+Cold start is now handled by **per-LO probe mode** (Layer 4, "Probe mode — per-LO diagnostic phase"). The flat "mastery_default = 0.5 across axes" fallback is gone: a new LO seeds its scalar mastery from the learner's θ profile via `seed_initial_mastery` (Layer 0, "Cold-start: θ as the prior on new-LO mastery"), and the LO enters probe mode for its first 1–3 attempts depending on whether the learner has filed a `learner_claims` row for the relevant scope.
 
-1. **Difficulty prior + prerequisite order** if Learning Objects are seeded (e.g. from canonical-source ingestion). Items at the leaves of the prerequisite DAG come first.
-2. **Diagnostic mode** if requested (`learnloop today --diagnostic`): a 5-10 minute probe of likely prerequisite LOs (short_answer + recognition) seeds initial mastery values that subsequent sessions refine.
-3. **Greedy elicitation over active goals** once the first few items exist: prefer questions that distinguish between plausible learner states, such as recall failure vs schema confusion, while staying within the session's readiness budget.
+The relevant parts of the old subsection still apply:
 
-Cold-start mastery defaults are not hardcoded — they come from `algorithm_priors.yaml` (see below). The shipped default is `mastery_default = 0.5` across axes, `variance_default = 0.25`, `cold_start_alpha_factor = 0.5`, and `cold_start_alpha_attempts = 5`. Domain overrides can lower the initial mean (languages start harder, motor skills start much lower).
+- **Difficulty prior + prerequisite order** still determines which LOs are eligible to enter probe mode first when nothing else is scheduled.
+- `learnloop today --diagnostic` is still available; it now means "enroll all unscheduled active-goal LOs into probe mode for this session" (subject to `per_session_max_new_probes` and `per_session_max_probe_attempts`) rather than running a separate one-off flow.
+- The `mastery_default` / `variance_default` / `cold_start_alpha_factor` / `cold_start_alpha_attempts` parameters in `algorithm_priors.yaml` now act as **probe-phase seeds**: the default used before any probe attempt has been logged on the LO, and the dampening multiplier on the LO scalar EMA for the first `cold_start_alpha_attempts` probe-phase attempts. Domain overrides still apply (languages start harder, motor skills start much lower).
+- The init-time **background-claims wizard** (§17) writes `learner_claims` rows that lift the strong-claim path into `attempts_target_with_strong_claim = 1` or `skipped_by_claim` for LOs whose concept matches a claim.
 
 ### `algorithm_priors.yaml` — surrogate parameters, cold-start ramp, propagation defaults
 
@@ -3820,15 +4794,104 @@ mastery:
   prior_pseudo_count: 20                 # weight given to global prior in Dirichlet shrinkage
 
 surrogate:
-  beta_axis: 4.0                         # logistic weight on axis-weighted mastery term
+  beta_lo: 4.0                           # logistic weight on per-LO scalar mastery term
+  beta_theta: 1.5                        # logistic weight on per-learner θ (over PI's declared families)
   beta_difficulty: 3.0
   beta_misconception: 2.0
+  lo_seed_transfer: 0.15                 # how much θ shifts the cold-start mastery seed for a new LO
   score_bucket_thresholds: [0.30, 0.65, 0.90]
   confidence_calibration_slope: 0.7      # how strongly confidence tracks score for well-calibrated learners
   latency_log_sigma_base: 0.5
-  latency_log_sigma_execution_factor: -0.3   # tighter distribution with higher execution mastery
+  latency_log_sigma_execution_factor: -0.3   # tighter distribution as procedure/fluency θ rises
   hint_request_base: 0.15
   hint_request_difficulty_factor: 0.4
+  calibration_obs_noise: 0.5             # noise on the calibration_accuracy θ update
+
+probe_mode:
+  attempts_target_default: 3
+  attempts_target_with_strong_claim: 1
+  variance_convergence_threshold: 0.10
+  observation_noise: 0.4                 # smaller → probe attempts move θ more than steady-state
+  steady_state_observation_noise: 1.2
+  claim_skip_threshold: 0.75
+  claim_skip_revert_threshold: 0.40
+  short_session_eligible: false
+  per_session_max_new_probes: 2
+  per_session_max_probe_attempts: 6
+  suppress_surprise_followups: true
+
+eig_reliability:                         # post-probe ramp for EIG and surprise-magnitude uses
+  half_lo: 3.5                           # n_lo at which f_lo = 0.5
+  slope_lo: 1.5                          # ~0.32 at n_lo=3, ~0.68 at n_lo=4, ~0.90 at n_lo=5
+  half_theta: 8.0                        # θ matures more slowly; needs cross-LO evidence
+  slope_theta: 0.5                       # ~0.02 at n_th=0, ~0.50 at n_th=8, ~0.90 at n_th=12
+  fallback_to_probe_below: 0.40          # below this reliability post-probe, dispatch reuses
+                                         # the cached HypothesisSet and runs probe_EIG instead
+                                         # of weakened normal_EIG (§16 "Probe-EIG vs normal-EIG dispatch")
+  applies_to:
+    - information_gain_weight
+    - error_uncertainty_weight
+    - surprise_interval_factor
+    - surprise_followup_insertion
+  does_not_apply_to:
+    - high_confidence_wrong              # misconception trigger fires regardless
+    - error_events                       # categorical logging fires regardless
+    - probe_mode                         # probe selection has its own (hypothesis-based) scoring
+    - forgetting_risk                    # FSRS retrievability independent of LO posterior
+    - active_goal_importance             # exogenous goal weighting
+    - recent_error_severity              # based on raw events, not posterior
+    - deadline_pressure                  # exogenous time signal
+
+probe_eig:                               # hypothesis-based scoring during probe phase
+  min_local_score: 0.30                  # bits; below this on best existing PI, fall back to simulator-EIG
+  hypothesis_count_min: 2
+  hypothesis_count_max: 4
+  simulator_eig_required_pairs: 1        # min unresolved hypothesis pairs to request from Codex
+  marginal_hypothesis_prior: uniform     # uniform | weighted_by_surrogate_modes
+  mode_weights: # reuses PROBE_MODE_WEIGHTS from §16 Layer 4 "Probe mode"
+    inherit_from_probe_mode: true
+
+probe_hypothesis_templates:
+  # Inline core defaults live at prompts/probe_hypothesis_templates.yaml and ship with LearnLoop.
+  # Domains add their own via DomainModule.probe_hypothesis_templates() (§4) which shadow core
+  # entries on the same (knowledge_type, practice_mode) key.
+  source_paths:
+    - prompts/probe_hypothesis_templates.yaml     # core templates (general domain)
+  domain_overrides_via_module: true               # DomainModule.probe_hypothesis_templates() merged in
+
+axis_views:
+  memory:
+    families: { recall: 0.50, recognition: 0.20 }
+    use_fsrs_retrievability: true
+    fsrs_weight: 0.30
+    lo_mastery_blend: 0.50
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 3
+      reliable_when_above: 8
+  understanding:
+    families: { schema: 0.35, explanation: 0.25, discrimination: 0.20 }
+    misconception_load_weight: -0.20
+    lo_mastery_blend: 0.50
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 4
+      reliable_when_above: 10
+  execution:
+    families: { procedure: 0.60, fluency: 0.40 }
+    requires_execution_evidence: true
+    lo_mastery_blend: 0.40
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 3
+      reliable_when_above: 8
+  generalization:
+    families: { transfer: 0.65, discrimination: 0.35 }
+    lo_mastery_blend: 0.40
+    status_thresholds:
+      unobserved_when_evidence_count_below: 1
+      weak_evidence_when_below: 3
+      reliable_when_above: 8
 
 cross_lo_propagation:
   default:
@@ -3841,23 +4904,32 @@ cross_lo_propagation:
     procedure_error: { mean_factor: 0.5, variance_factor: 0.7, scope: procedural_only }
     transfer_failure: { mean_factor: 0.3, variance_factor: 0.5, scope: conceptual_only }
     high_confidence_wrong: { mean_factor: 0.7, variance_factor: 0.8, scope: all, trigger_misconception_repair: true }
-    # ... rest of the table
+    # ... rest of the table; propagation acts on target LO's scalar mastery, not per-axis
 
 staleness:
   default_stale_after_days: 30
-  per_axis:
-    memory: 14
+  per_axis_view:                         # staleness still keyed per axis view for UI staleness flags;
+    memory: 14                           # the underlying belief is the LO scalar + θ slots
     understanding: 60
     execution: 21
     generalization: 45
-    calibration: 90
+  per_theta_family:                      # θ slots stale independently
+    recall: 14
+    schema: 60
+    procedure: 30
+    fluency: 21
+    discrimination: 45
+    transfer: 60
+    calibration_accuracy: 90
 
 domain_overrides:
   language:
     mastery:
       mastery_default: 0.3               # language starts harder
     staleness:
-      per_axis: { memory: 7 }            # vocabulary fades fast
+      per_theta_family: { recall: 7 }    # vocabulary fades fast
+    eig_reliability:
+      half_lo: 2.0                       # vocab items reach reliability faster — fewer attempts needed
   esports_overwatch:
     mastery:
       mastery_default: 0.4
@@ -3865,9 +4937,13 @@ domain_overrides:
       default: { max_depth: 2 }          # mechanical/tactical prereq chains are shorter
     staleness:
       default_stale_after_days: 14       # patches and meta shifts age beliefs fast
+    eig_reliability:
+      half_lo: 6.0                       # VOD-style observations are noisier; trust the posterior later
   motor_vod:
     mastery:
       mastery_default: 0.35
+    eig_reliability:
+      half_lo: 5.0                       # motor observations are noisier than text grading
 ```
 
 Resolution: for any parameter and a given LO/attempt, the merged config is `core_defaults ← domain_overrides[lo.domain] ← lo.cross_lo_propagation_override` (the LO override applies only to propagation fields it declares).
@@ -3876,26 +4952,54 @@ Changes to `algorithm_priors.yaml` bump the `algorithm_version` (semver per D1) 
 
 ### Mode selection (after item is chosen)
 
+Mode selection now consumes the **derived axis views** (Layer 2 / Tier 3) rather than primitive axis estimates, and reads each view's `status` so the scheduler can distinguish "no transfer evidence yet" from "transfer is weak":
+
 ```python
-def choose_next_action(lo_mastery, last_attempt, repair_loop_active, surprise_threshold):
+def choose_next_action(lo, axis_views, last_attempt, repair_loop_active,
+                       surprise_threshold, probe_state):
+    # Probe mode dominates everything except an active misconception repair loop.
     if repair_loop_active:
         return "misconception_repair"
-    if last_attempt and last_attempt.get("bayesian_surprise", 0) > surprise_threshold and last_attempt.get("surprise_direction") == "negative":
+    if probe_state and probe_state.status == "in_progress":
+        return probe_mode_pick(lo, axis_views, probe_state)
+    if last_attempt and (last_attempt.get("bayesian_surprise", 0) > surprise_threshold
+                         and last_attempt.get("surprise_direction") == "negative"):
         return "error_diagnosis"
-    if lo_mastery["understanding"] < 0.4 and lo_mastery["execution"] < 0.5:
+
+    mem = axis_views["memory"]
+    und = axis_views["understanding"]
+    exe = axis_views["execution"]
+    gen = axis_views["generalization"]
+
+    # Exploration vs. remediation depends on status, not just mean.
+    if mem.mean is not None and mem.mean > 0.8:
+        if gen.status == "unobserved":
+            return "transfer_probe"           # low-stakes generalization probe
+        if gen.status in {"weak_evidence", "estimated"} and (gen.mean or 0) < 0.5:
+            return "transfer"                  # remediation
+
+    if und.mean is not None and und.mean < 0.4 \
+       and exe.status != "unobserved" and (exe.mean or 0) < 0.5:
         return "completion_problem"
-    if last_attempt and last_attempt["error_type"] == "theorem_selection_error":
+
+    if last_attempt and last_attempt.get("error_type") == "theorem_selection_error":
         return "contrastive_discrimination"
-    if last_attempt and last_attempt["score"] < 0.5 and last_attempt["hints_used"] >= 2:
-        return "walkthrough"  # begin faded-worked-example sequence; see "Fading worked-example sequence"
+    if last_attempt and last_attempt.get("score", 1.0) < 0.5 \
+       and last_attempt.get("hints_used", 0) >= 2:
+        return "walkthrough"                   # begin faded-worked-example sequence
     if last_attempt and last_attempt.get("attempt_type") == "dont_know":
         return "walkthrough"
-    if lo_mastery["memory"] > 0.8 and lo_mastery["generalization"] < 0.5:
-        return "transfer"
-    if lo_mastery["memory"] > 0.85 and lo_mastery["execution"] < 0.5:
+
+    if mem.mean is not None and mem.mean > 0.85 \
+       and exe.status != "unobserved" and (exe.mean or 0) < 0.5:
         return "fluency_drill"
+
     return "retrieval"
 ```
+
+`probe_mode_pick` returns the `practice_mode` of the highest-scoring eligible Practice Item per `probe_eig_score` against the LO's active `HypothesisSet` (defined in Layer 4 "Probe mode and probe-EIG"). Probe-mode picks are constrained to the `PROBE_MODE_WEIGHTS` set — modes with weight 0 (e.g. `transfer`, `far_transfer`) are never selected for probes. If no existing item exceeds `algorithm_priors.probe_eig.min_local_score` bits, the dispatch may fall back to simulator-EIG (see "Hypothesis provider and simulator-EIG unification").
+
+The `transfer_probe` mode is new (§16.5): it is a low-stakes generalization probe that suppresses negative-surprise follow-ups, disables hints by default, and shifts the generalization axis view from `unobserved` to `weak_evidence` or `estimated` on completion. It differs from `transfer` only in that a poor result does **not** open `misconception_repair`.
 
 ### Fading worked-example sequence
 
@@ -3938,9 +5042,11 @@ Core enums govern the generic data model. Domain modules may register additional
 knowledge_type      — What kind of thing is being learned?
 practice_mode       — What activity tests or teaches it?
 attempt_type        — How independently did the learner engage?
-mastery_axis        — Which broad latent capability is updated?
-evidence_facet      — What lower-level signal provided the evidence?
+evidence_family     — Which evidence channel did the attempt observe?  (primary update target)
+mastery_axis_view   — Which interpretable view aggregates evidence for UI?  (derived only)
 ```
+
+Note: in the three-tier belief model (§16 Layer 0/2), `evidence_family` is the **primary** update channel — each attempt updates the LO scalar mastery once plus one θ slot per declared evidence family. `mastery_axis_view` is a **derived view** label, not a stored belief primitive. This is a deliberate departure from the prior axis-as-latent design.
 
 ## `KnowledgeType`
 
@@ -4007,7 +5113,7 @@ CorePracticeMode = Literal[
     "procedure_execution", "problem_solving",
     "interleaving", "contrastive_discrimination",
     "error_diagnosis", "misconception_repair", "disguised_retest",
-    "transfer", "near_transfer", "far_transfer",
+    "transfer", "near_transfer", "far_transfer", "transfer_probe",
     "variant_generation",
     "reflection", "postmortem",
     "timed_drill", "fluency_drill",
@@ -4039,6 +5145,7 @@ A short selection of "best for" mappings:
 | `error_diagnosis`, `misconception_repair` | Debugging, proof review, repair loop |
 | `disguised_retest` | Same conceptual trap in novel framing — verify a misconception is truly repaired |
 | `transfer`, `near_transfer`, `far_transfer` | Generalization, advanced mastery |
+| `transfer_probe` | Low-stakes generalization probe when `generalization_status = unobserved`; no misconception escalation on miss |
 | `variant_generation` | Deep schema mastery |
 | `reflection`, `postmortem`, `self_assessment` | Metacognition, calibration |
 | `timed_drill`, `fluency_drill` | Fluency, exam readiness |
@@ -4056,6 +5163,7 @@ AttemptType = Literal[
     "independent_attempt",
     "hinted_attempt",
     "dont_know",
+    "diagnostic_probe",
     "guided_walkthrough",
     "reconstruction_after_walkthrough",
     "skip",
@@ -4063,41 +5171,140 @@ AttemptType = Literal[
 ]
 ```
 
-Mastery and FSRS updates depend on attempt type — see "Attempt-type handling" under Rubric-Based Grading.
+Mastery and FSRS updates depend on attempt type — see "Attempt-type handling" under Rubric-Based Grading. `diagnostic_probe` attempts (used during per-LO probe phase, §16 Layer 4 "Probe mode") use a smaller `observation_noise` when updating `learner_theta` so probes move θ more than steady-state attempts.
 
-## `MasteryAxis`
+## `EvidenceFamily` (primary update channel)
 
 ```python
-MasteryAxis = Literal[
+CoreEvidenceFamily = Literal[
+    "recall",
+    "recognition",
+    "schema",
+    "explanation",
+    "procedure",
+    "fluency",
+    "discrimination",
+    "transfer",
+    "calibration_accuracy",      # learner-level only; not aggregated into LO axis views
+]
+```
+
+Domain modules may register additional namespaced families (e.g. `language:pronunciation_accuracy`, `esports_overwatch:hidden_state_inference`) that must declare an `aggregates_into` mapping onto one of the four LO-level axis labels.
+
+Each Practice Item declares its `evidence_facets: [family, ...]` and optional `evidence_weights: {family: weight}` (weights do not need to sum to 1 — they are normalized on read). An attempt updates the LO scalar mastery once and the learner's θ slot for each declared family. Defaults come from the mode → evidence-family table in §16 Layer 2.
+
+The prior `EvidenceFacet` enum is renamed to `EvidenceFamily` to reflect its promoted role as the primary update channel. The single value `metacognitive_accuracy` is renamed to `calibration_accuracy` and elevated to learner-level scope (stored on `learner_theta`, never on a per-LO axis view).
+
+## `MasteryAxisView` (derived view label)
+
+```python
+MasteryAxisView = Literal[
     "memory",
     "understanding",
     "execution",
     "generalization",
-    "calibration",
 ]
 ```
 
-These are the stable axes used by the scheduler, dashboards, and cross-domain learner-state model.
+Four labels. `calibration` is no longer in this enum — it is a learner-level trait stored on `learner_theta` keyed on `(domain, 'calibration_accuracy', practice_mode)`.
 
-## `EvidenceFacet`
+These labels are **derived views**, not primitive belief state. They appear in:
+
+- `mastery_axis_views` (cache table; recomputable),
+- `scheduler_explanations.components` (UI surface for "Why now?"),
+- `choose_next_action` (mode selection reads axis-view mean + status).
+
+They do **not** appear in `practice_attempts`, `learner_theta`, `learning_object_mastery`, or the surrogate score head. Tooling that wrote `target_mastery_axes` or per-axis `mastery_weights` on Practice Items is migrated at vault load to evidence-family-keyed `evidence_facets` / `evidence_weights` (§16 Layer 2 "Update rule").
+
+## Hypothesis machinery (probe-EIG & simulator-EIG)
+
+These types support the unified hypothesis flow described in §16 Layer 4 "Probe mode" and "Hypothesis provider and simulator-EIG unification." The hypothesis set is a local artifact — a small list of coarse diagnostic alternatives used to choose informative items. It is not a claim about the learner's true latent type.
 
 ```python
-CoreEvidenceFacet = Literal[
-    "recall",
-    "recognition",
-    "schema",
-    "procedure",
-    "transfer",
-    "fluency",
-    "explanation",
-    "discrimination",
-    "metacognitive_accuracy",
-]
+class PredictedObservation(BaseModel):
+    score_bucket: Literal["again", "hard", "good", "easy"]
+    likely_error_type: str | None    # taxonomy id, or null
+    # MVP: only score_bucket + likely_error_type. confidence/latency/hints buckets
+    # are deferred — they bloat templates without adding much discrimination.
+
+class CoarseHypothesisTemplate(BaseModel):
+    id: str                          # stable kebab-case within (knowledge_type, practice_mode)
+    label: str                       # short human-readable name for explanations
+    description: str                 # one-line definition for debugging
+    knowledge_type: KnowledgeType
+    practice_mode: CorePracticeMode | str   # core or namespaced
+    domain_id: str = "general"       # 'general' for shared core templates; override per domain
+    template_version: str            # semver; bumps invalidate cached hypothesis_set_ids
+    predicted_observation: PredictedObservation
+    # Family-loading profile that the instantiator uses to bind θ + LO mastery → predicted score:
+    family_loading: dict[str, float]  # e.g. {recall: 0.8, schema: 0.2}; need not sum to 1
+    # Optional anchors used at instantiation (see Layer 4 "Probe mode and probe-EIG"):
+    prereq_anchors: list[str] = []
+    confusable_concept_anchors: list[str] = []
+
+class Hypothesis(BaseModel):
+    """A CoarseHypothesisTemplate instantiated against a specific LO."""
+    id: str                          # template.id + LO-instance suffix
+    template_id: str
+    template_version: str
+    lo_id: str
+    label: str                       # may be specialized vs the template label
+    description: str
+    predicted_observation: PredictedObservation
+    family_loading: dict[str, float]
+    instantiation_inputs_hash: str   # hash of (lo, prereqs, confusables, θ snapshot subset)
+
+class HypothesisSet(BaseModel):
+    id: str                          # the HypothesisSetId — see hashing rule below
+    lo_id: str
+    probe_phase_id: str              # nullable for manual deep-diagnostic contexts
+    algorithm_version: str
+    template_versions: dict[str, str]   # template_id → version actually used
+    theta_snapshot_hash: str         # scoped to the LO's evidence_facets union
+    hypotheses: list[Hypothesis]
+    created_at: str
+    trigger: Literal[
+        "probe_phase_local_pi_inadequate",
+        "manual_deep_diagnostic_lo",
+        "manual_deep_diagnostic_goal",
+        "probe_phase_routine",       # the routine case: hypotheses created at probe entry,
+                                     # used to score the existing PI pool first
+    ]
 ```
 
-Domain modules may register additional evidence facets. Each facet must map into one or more core `MasteryAxis` values.
+`HypothesisSetId` is the `HypothesisSet.id` field. It is derived deterministically so replay reproduces the same id from the same raw inputs:
 
-Each Practice Item declares its `target_mastery_axes`, optional `evidence_facets`, and optional `mastery_weights` so an attempt updates the right learner-state estimates. Defaults come from the mode → axis/facet table in §16.
+```python
+def compute_hypothesis_set_id(
+    algorithm_version: str,
+    lo_id: str,
+    probe_phase_id: str | None,
+    template_versions: dict[str, str],     # already deterministic-sorted by key
+    theta_snapshot_hash: str,
+    trigger: str,
+) -> str:
+    canonical = json.dumps({
+        "alg":     algorithm_version,
+        "lo":      lo_id,
+        "phase":   probe_phase_id or "",
+        "tmpls":   sorted(template_versions.items()),
+        "theta":   theta_snapshot_hash,
+        "trigger": trigger,
+    }, sort_keys=True, separators=(",", ":"))
+    return "hs_" + sha256(canonical.encode("utf-8"))[:16]
+
+def compute_theta_snapshot_hash(lo, learner_theta) -> str:
+    # Scoped to the LO's declared evidence_facets union, in the LO's domain.
+    # Means and variances rounded to 3 decimals so jitter doesn't churn the id.
+    relevant_slots = [
+        (family, round(t.mean, 3), round(t.variance, 3))
+        for family in lo.declared_evidence_facets_union
+        for t in learner_theta[lo.domain, family, *]
+    ]
+    return sha256(json.dumps(sorted(relevant_slots), separators=(",", ":")).encode())[:12]
+```
+
+A `HypothesisSet` is **not** stored as authoritative learner state. It is logged on `elicitation_events.hypothesis_set_json` and referenced from `scheduler_explanations`, `ephemeral_session_items.target_belief_json`, and (for simulator-EIG calls) `agent_runs.input_context_hash` so the whole flow is auditable and reproducible on replay.
 
 ---
 
@@ -4112,6 +5319,27 @@ learnloop init
 ```
 
 Codex auth is configured separately through the installed Codex runtime. LearnLoop should detect missing auth only when the user invokes an AI-backed feature; non-AI review and scheduling commands still work.
+
+After the vault scaffold is written, `init` offers a **background-claims wizard** as a final, skippable step. The wizard lets the learner check off concepts/domains they're already comfortable with; each selection writes a `learner_claims` row with `source = init_wizard`. These claims become priors on the learner θ profile (Layer 0) — they shorten subsequent per-LO probe phases rather than asserting mastery directly.
+
+```text
+┌────────────────────────────────────────────────────────────┐
+│ Background (optional — skip with Esc)                      │
+├────────────────────────────────────────────────────────────┤
+│ Pick concepts you're already comfortable with. We'll use   │
+│ these as priors, not as asserted mastery — you'll still    │
+│ probe each LO briefly, just fewer times.                   │
+│                                                             │
+│  [✓] linear algebra (general)             strong            │
+│  [✓] python                                strong            │
+│  [ ] probability                          medium            │
+│  [ ] korean grammar                       weak              │
+│                                                             │
+│ [Done] [Skip]                                              │
+└────────────────────────────────────────────────────────────┘
+```
+
+A "strong" claim contributes ~8 attempts-equivalent of pseudo-evidence; "medium" ~3; "weak" ~1. The exact mapping is in `algorithm_priors.yaml`. The wizard is re-runnable later via `learnloop claims wizard` and can be invoked again whenever a new subject is added.
 
 For development, onboarding, and screenshots:
 
@@ -4539,19 +5767,28 @@ That is the product.
 Build in this order:
 
 ```text
-1. Standalone Python package scaffold
-2. Vault layout, config loading, migrations
-3. Textual TUI shell and Today's Loop screen
-4. Domain registry + generic domain module
-5. Domain capability flags + observation template registry
-6. YAML Learning Object / Practice Item stores
-7. SQLite attempt logging + due queue
-8. FSRS + Learning Object mastery axis updates
-9. Learner-state beliefs + surprise logging + belief staleness
-10. Replayable learner model
-11. Greedy information-gain queue scoring over active goals
+1.  Standalone Python package scaffold
+2.  Vault layout, config loading, migrations
+3.  Textual TUI shell and Today's Loop screen
+4.  Domain registry + generic domain module
+5.  Domain capability flags + observation template registry
+6.  YAML Learning Object / Practice Item stores (evidence-family-keyed)
+7.  SQLite attempt logging + due queue
+8.  FSRS + per-LO scalar mastery updates (Layer 1 + Layer 2 scalar)
+9.  Learner-state beliefs + surprise logging + belief staleness
+9.5 Learner θ profile (Layer 0) + probe-mode item selection (Layer 4)
+    - learner_theta, learner_claims, lo_probe_state tables
+    - profile update from probe attempts; calibration_accuracy slot updates
+    - probe_eig_score over hypothesis sets (mutual information on hypothesis identity)
+    - hypothesis-set instantiation from probe_hypothesis_templates
+    - simulator-EIG probe-phase fallback when local PI pool inadequate
+    - init-wizard background-claims step
+    - mastery_axis_views derived-cache rebuild
+    - probe TUI badge + probe-variant "Why now?" panel
+10. Replayable learner model (covers learner_theta + lo_probe_state)
+11. Greedy information-gain queue scoring over active goals (LO scalar + θ slots)
 12. Scheduler explanations + `learnloop why`
-13. Scheduler golden tests
+13. Scheduler golden tests (include probe-mode → complete transition fixture)
 14. Error tagging, session summaries, exports refresh
 15. Change batches, rollback, session checkpoints, and `learnloop doctor`
 16. Recent auto-accepted content review
@@ -4564,6 +5801,8 @@ Build in this order:
 23. Interleaving and transfer engine
 24. Language and Overwatch domain scaffolds
 ```
+
+Step 9.5 sits before EIG/surrogate work (steps 11–12) so probes generate the calibration data that step 11's surrogate parameters need. Building EIG before probes means tuning surrogate parameters against priors-on-priors.
 
 The minimal useful version could be built around this command set:
 
@@ -4616,7 +5855,7 @@ The following decisions are now fixed for implementation:
 - Replay semantics are fixed to "drop-and-recompute current formulas, version-tagged pre-replay snapshot, diff view of the largest movers."
 - Adaptive elicitation in MVP is heuristic-bucket greedy EIG plus a narrow Codex-simulator path for ephemeral diagnostic items. Full predictive-LM EIG is a later, gated "deep diagnostic pass."
 - The authoritative content model is Learning Objects + Practice Items.
-- LearnLoop uses five stable mastery axes (`memory`, `understanding`, `execution`, `generalization`, `calibration`) plus extensible evidence facets; axes are basis-like for scheduling/UI but not assumed mathematically independent.
+- LearnLoop uses a **three-tier latent**: raw attempts → per-LO scalar mastery (Layer 2) + per-learner θ over evidence families × domain (Layer 0) → derived axis views (memory, understanding, execution, generalization). Calibration is a learner-level trait on `learner_theta` keyed on `(domain, calibration_accuracy, practice_mode)`, not a per-LO axis. The four axis labels survive as **interpretable views** for the scheduler explanation and mode selection — never as primitive belief state. This is informed by Hu et al. 2025's argument against committing to a fixed cognitive basis as the latent.
 - Adaptive elicitation influences every daily queue, with active goals as the default target set.
 - MVP uses local single-user learner-state beliefs and greedy expected-information-gain scoring.
 - Bayesian surprise is modeled over the joint observation of score, error type, confidence, latency, and hints.
@@ -4716,7 +5955,15 @@ These were proposed earlier as "new ideas worth considering" and are now first-c
 | Replayable learner model | §16 (Replayable learner model), §11 (`learnloop replay-model`), §16 SQLite table (`model_replay_runs`) |
 | Scheduler golden tests | §15.6 (Scheduler golden tests), §11 (`learnloop eval scheduler`), §4 (`evals/scheduler-goldens`) |
 | Observation templates | §15.5 (Observation templates), §11 (`learnloop observe`), §16 SQLite tables (`observation_templates`, `observation_events`) |
-| Hierarchical mastery axes + evidence facets | §16 (Layer 2), §16.5 (`MasteryAxis`, `EvidenceFacet`) |
+| Three-tier latent: per-LO scalar mastery + per-learner θ over evidence families + derived axis views | §16 Layer 0 (learner profile), Layer 2 (LO scalar + axis-view aggregation), §16.5 (`EvidenceFamily`, `MasteryAxisView`) |
+| Per-LO probe-mode diagnostic phase + background-claims init wizard | §16 Layer 4 ("Probe mode"), §17 (init wizard), §11 (`learnloop probes` / `claims`), `lo_probe_state` + `learner_claims` tables |
+| Hu et al. 2025-informed shift: latent labels demoted to interpretable views, not primitive belief state | §16 intro, §16 Layer 2 ("Axis-view aggregation"), §16.5 (note on `MasteryAxisView` being derived) |
+| Algorithm v2.0.0 migration (five-axis → scalar + θ profile) | §16 "Behavior by bump type" (v2.0.0 migration), `change_batches.reason = algorithm_major_v2` |
+| EIG and surprise-modulation reliability ramp (per-LO and per-θ-family bottleneck) | §16 Layer 4 ("EIG and surprise-modulation reliability ramp"), `algorithm_priors.eig_reliability`, priority-formula multiplier, surprise follow-up Bernoulli gate, FSRS modulation blend |
+| Hypothesis-based probe-EIG with authored `(domain, knowledge_type, practice_mode)` templates | §16 Layer 4 ("Probe mode and probe-EIG", "Probe hypothesis templates", "Hypothesis instantiation"), §16.5 (`CoarseHypothesisTemplate`, `PredictedObservation`, `HypothesisSet`), `prompts/probe_hypothesis_templates.yaml`, `DomainModule.probe_hypothesis_templates()` |
+| Probe-EIG vs normal-EIG dispatch with low-reliability fallback to probe-EIG | §16 Layer 4 ("Probe-EIG vs normal-EIG dispatch"), `algorithm_priors.eig_reliability.fallback_to_probe_below` |
+| Simulator-EIG unified on the local `HypothesisSet` (probe-phase fallback only in MVP) | §16 Layer 4 ("Simulator-EIG scope", "Hypothesis provider and simulator-EIG unification"), updated `SimulatorProposedItem` schema with `predicted_observations_by_hypothesis`, §6 `[scheduler].simulator_eig_context = "probe_phase_only"` |
+| Manual deep-diagnostic CLI commands for normal-phase simulator-EIG | §11 (`learnloop diagnose-lo --deep`, `generate-diagnostic`, `uncertainty --suggest-probes`, `probes hypotheses`) |
 | Extensible domain modules | §4 (Domain module contract), §6 (`[domains]`), §20 (`domains/registry.py`) |
 | Domain capability flags | §4 (`DomainCapabilities`), §21 MVP |
 | Language conversation tests | §4 (Language conversation domain), namespaced `language:*` practice modes |
