@@ -1,0 +1,2 @@
+AUTHORING_PROMPT_VERSION = "mvp-0.1-authoring"
+GRADING_PROMPT_VERSION = "mvp-0.1-grading"

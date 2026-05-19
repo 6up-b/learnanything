@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "learnloop"
+version = "0.1.0"
+description = "Local adaptive learning vault with deterministic scheduling and Codex-assisted authoring."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.7",
+  "ruamel.yaml>=0.18",
+  "textual>=0.80",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+learnloop = "learnloop.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/learnloop"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
