@@ -20,6 +20,7 @@ from learnloop.services.grading import (
     confidence_to_grader_confidence,
     evidence_coverage,
     grading_context_hash,
+    resolved_rubric,
     validate_codex_grading_proposal,
 )
 from learnloop.services.mastery import MasteryObservation, display_mastery, initial_mastery_state, update_mastery
@@ -277,13 +278,15 @@ def _resolve_attempt_target(vault: LoadedVault, draft: AttemptDraft):
         raise AttemptValidationError(f"{item.id} references missing Learning Object {item.learning_object_id}")
     if item.attempt_types_allowed and draft.attempt_type not in item.attempt_types_allowed:
         raise AttemptValidationError(f"{draft.attempt_type} is not allowed for {item.id}")
-    if item.grading_rubric is None:
-        raise AttemptValidationError(f"{item.id} has no inline grading_rubric")
+    try:
+        rubric = resolved_rubric(vault, item)
+    except GradingValidationError as exc:
+        raise AttemptValidationError(str(exc)) from exc
     if draft.hints_used < 0:
         raise AttemptValidationError("hints_used must be non-negative")
     if draft.latency_seconds is not None and draft.latency_seconds < 0:
         raise AttemptValidationError("latency_seconds must be non-negative")
-    return item, learning_object, item.grading_rubric
+    return item, learning_object, rubric
 
 
 def _complete_resolved_grade(

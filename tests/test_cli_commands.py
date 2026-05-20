@@ -5,6 +5,7 @@ import json
 from typer.testing import CliRunner
 
 from learnloop.cli import app
+from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault, seed_due_item
 
@@ -28,9 +29,22 @@ def test_init_add_subject_add_note(tmp_path):
 
     note = runner.invoke(
         app,
-        ["add-note", "linear-algebra", "note_svd", "SVD overview", "--body", "Notes.", "--vault", str(vault_root)],
+        [
+            "add-note",
+            "linear-algebra",
+            "note_svd",
+            "SVD overview",
+            "--body",
+            "Notes.",
+            "--source-type",
+            "canonical_source",
+            "--vault",
+            str(vault_root),
+        ],
     )
     assert note.exit_code == 0, note.output
+    loaded = load_vault(vault_root)
+    assert loaded.notes["note_svd"].source_type == "canonical_source"
 
 
 def test_core_workflow_commands_succeed(tmp_path):
@@ -75,9 +89,21 @@ def test_propose_accept_reject(tmp_path):
     first = runner.invoke(app, ["propose", "--file", str(proposal_file), "--json", *v])
     assert first.exit_code == 0, first.output
     patch_id = json.loads(first.output)["proposal_id"]
+    shown = runner.invoke(app, ["show", patch_id, "--json", *v])
+    item = json.loads(shown.output)["record"]["items"][0]
+    edited_payload = {**item["payload"], "title": "Edited imported SVD use"}
+    edit_file = tmp_path / "edited_payload.json"
+    edit_file.write_text(json.dumps(edited_payload), encoding="utf-8")
+    edit = runner.invoke(
+        app,
+        ["edit-proposal-item", patch_id, item["id"], "--file", str(edit_file), "--json", *v],
+    )
+    assert edit.exit_code == 0, edit.output
+    assert json.loads(edit.output)["proposal_item"]["edited_payload"]["title"] == "Edited imported SVD use"
 
     accept = runner.invoke(app, ["accept", patch_id, *v])
     assert accept.exit_code == 0, accept.output
+    assert load_vault(vault_root).learning_objects["lo_svd_imported"].title == "Edited imported SVD use"
 
     second = runner.invoke(app, ["propose", "--file", str(proposal_file), "--json", *v])
     second_id = json.loads(second.output)["proposal_id"]

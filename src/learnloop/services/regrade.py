@@ -13,6 +13,7 @@ from learnloop.services.grading import (
     build_grading_context,
     evidence_coverage,
     grading_context_hash,
+    resolved_rubric,
     validate_codex_grading_proposal,
 )
 from learnloop.services.mastery import MasteryObservation, initial_mastery_state, update_mastery
@@ -74,6 +75,7 @@ def _regrade_attempt(
 ) -> None:
     item = vault.practice_items[attempt["practice_item_id"]]
     learning_object = vault.learning_objects[attempt["learning_object_id"]]
+    rubric = resolved_rubric(vault, item)
     context = build_grading_context(
         vault,
         item,
@@ -137,7 +139,7 @@ def _regrade_attempt(
     observed_at = parse_utc(now)
     mastery_observation = MasteryObservation(
         rubric_score=validated.rubric_score,
-        max_points=item.grading_rubric.max_points,
+        max_points=rubric.max_points,
         evidence_coverage=evidence_coverage(item, criterion_points),
         hint_dampening=1.0,
         grader_confidence=validated.grader_confidence,
@@ -173,7 +175,7 @@ def _regrade_attempt(
         mastery_state=posterior_mastery,
         attempt_update={
             "rubric_score": validated.rubric_score,
-            "correctness": validated.rubric_score / max(item.grading_rubric.max_points, 1),
+            "correctness": validated.rubric_score / max(rubric.max_points, 1),
             "grader_confidence": validated.grader_confidence,
             "manual_review": validated.manual_review_reason is not None,
             "manual_review_reason": validated.manual_review_reason,

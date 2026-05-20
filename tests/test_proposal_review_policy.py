@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.codex.schemas import AuthoringProposalItem
+from learnloop.codex.schemas import AuthoringProposalItem, SourceRef
 from learnloop.services.proposals import evaluate_review_policy
 from learnloop.vault.loader import load_vault
 
@@ -30,6 +30,19 @@ def test_reject_route_stays_reject(tmp_path):
 def test_low_risk_create_can_auto_apply(tmp_path):
     loaded = load_vault(create_basic_vault(tmp_path / "vault").root)
     assert evaluate_review_policy(_item(), loaded) == "auto_apply"
+
+
+def test_manual_context_auto_apply_route_still_requires_review(tmp_path):
+    loaded = load_vault(create_basic_vault(tmp_path / "vault").root)
+    item = _item(source_ref_ids=["manual"])
+    assert (
+        evaluate_review_policy(
+            item,
+            loaded,
+            source_refs=[SourceRef(ref_type="manual_context", ref_id="manual")],
+        )
+        == "review_required"
+    )
 
 
 def test_modification_requires_review(tmp_path):

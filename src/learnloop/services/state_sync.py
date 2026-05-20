@@ -6,7 +6,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.services.mastery import initial_mastery_state
 from learnloop.vault.hashes import practice_item_hash
-from learnloop.vault.models import LoadedVault
+from learnloop.vault.models import ConceptEdge, Goal, LoadedVault
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ def sync_vault_state(
         deactivated_items += 1
 
     mastery_states = repository.mastery_states()
-    for learning_object_id in vault.learning_objects:
+    for learning_object_id, learning_object in vault.learning_objects.items():
         if learning_object_id in mastery_states:
             continue
         repository.upsert_mastery_state(
@@ -102,6 +102,12 @@ def sync_vault_state(
             )
         )
         created_mastery += 1
+        if learning_object.status == "active" and _active_goal_score(
+            learning_object.concept,
+            vault.goals,
+            vault.edges,
+        ) > 0:
+            _enter_initial_probe_if_possible(vault, repository, learning_object_id, clock=clock)
 
     return StateSyncResult(
         practice_item_states_created=created_items,
@@ -109,3 +115,55 @@ def sync_vault_state(
         practice_item_states_deactivated=deactivated_items,
         mastery_states_created=created_mastery,
     )
+
+
+def _enter_initial_probe_if_possible(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    clock: Clock | None,
+) -> None:
+    if repository.probe_state(learning_object_id) is not None:
+        return
+    has_local_item = any(item.learning_object_id == learning_object_id for item in vault.practice_items.values())
+    if has_local_item:
+        from learnloop.services.probes import enter_probe
+
+        enter_probe(vault, repository, learning_object_id, clock=clock)
+        return
+    repository.insert_elicitation_event(
+        {
+            "session_id": None,
+            "selected_practice_item_id": None,
+            "target_scope": {"learning_object_id": learning_object_id},
+            "policy": "probe_eig",
+            "candidate_scores": {},
+            "expected_information_gain": 0.0,
+            "selected_reason": "no existing Practice Item can probe this new active-goal Learning Object",
+            "hypothesis_set_id": None,
+            "trigger": "probe_phase_local_pi_inadequate",
+            "fallback_outcome": "existing_pi_inadequate",
+        },
+        clock=clock,
+    )
+
+
+def _active_goal_score(concept_id: str, goals: list[Goal], edges: list[ConceptEdge]) -> float:
+    reachable = _goal_reachable_concepts(goals, edges)
+    score = 0.0
+    for goal in goals:
+        if goal.status == "active" and concept_id in reachable.get(goal.id, set()):
+            score = max(score, goal.priority)
+    return score
+
+
+def _goal_reachable_concepts(goals: list[Goal], edges: list[ConceptEdge]) -> dict[str, set[str]]:
+    reachable: dict[str, set[str]] = {}
+    for goal in goals:
+        concepts = set(goal.concept_anchors)
+        for edge in edges:
+            if edge.relation_type in {"prerequisite", "part_of"} and edge.source in goal.concept_anchors:
+                concepts.add(edge.target)
+        reachable[goal.id] = concepts
+    return reachable

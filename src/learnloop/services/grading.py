@@ -54,7 +54,7 @@ def build_grading_context(
     attempt_id: str,
     learner_answer_md: str,
 ) -> GradingContext:
-    rubric = _resolved_rubric(item)
+    rubric = resolved_rubric(vault, item)
     expected_answer = item.expected_answer if isinstance(item.expected_answer, str) else json.dumps(item.expected_answer, sort_keys=True)
     return GradingContext(
         attempt_id=attempt_id,
@@ -95,7 +95,7 @@ def validate_codex_grading_proposal(
     item: PracticeItem,
     vault: LoadedVault,
 ) -> ValidatedCodexGrade:
-    rubric = _resolved_rubric(item)
+    rubric = resolved_rubric(vault, item)
     if proposal.attempt_id != attempt_id:
         raise GradingValidationError(f"Grading attempt_id {proposal.attempt_id} does not match {attempt_id}")
     if proposal.practice_item_id != item.id:
@@ -161,7 +161,10 @@ def validate_codex_grading_proposal(
     )
 
 
-def _resolved_rubric(item: PracticeItem) -> Rubric:
-    if item.grading_rubric is None:
-        raise GradingValidationError(f"{item.id} has no inline grading_rubric")
-    return item.grading_rubric
+def resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
+    rubric = vault.rubric_for_item(item)
+    if rubric is None:
+        raise GradingValidationError(
+            f"{item.id} has no grading_rubric and no default rubric for practice mode {item.practice_mode}"
+        )
+    return rubric

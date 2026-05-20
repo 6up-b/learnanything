@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import exp
 
@@ -51,6 +51,7 @@ def build_due_queue(
         and session.available_minutes <= config.scheduler.short_session_minutes
     )
     hypothesis_set_cache: dict[str, HypothesisSet | None] = {}
+    pending_followup_ids = repository.pending_followup_practice_item_ids()
 
     queue: list[ScheduledItem] = []
     probe_item_ids: dict[str, str] = {}
@@ -73,7 +74,7 @@ def build_due_queue(
                 repository, probe_state.hypothesis_set_id, hypothesis_set_cache
             )
             if hypothesis_set is not None:
-                probe_eig = probe_eig_component(hypothesis_set, item)
+                probe_eig = probe_eig_component(hypothesis_set, item, vault.rubric_for_item(item))
                 probe_item_ids[item.id] = probe_state.hypothesis_set_id
 
         components = {
@@ -98,6 +99,7 @@ def build_due_queue(
         )
 
     queue.sort(key=lambda scheduled: (-scheduled.priority, scheduled.practice_item_id))
+    queue = _insert_pending_followups(vault, queue, pending_followup_ids)
     if limit is not None:
         queue = queue[:limit]
     if persist_explanations:
@@ -109,6 +111,60 @@ def build_due_queue(
         )
         _record_probe_elicitation(repository, queue, probe_item_ids, session, clock=clock)
     return queue
+
+
+def _insert_pending_followups(
+    vault: LoadedVault,
+    queue: list[ScheduledItem],
+    pending_followup_ids: list[str],
+) -> list[ScheduledItem]:
+    if not pending_followup_ids:
+        return queue
+
+    max_priority = max((item.priority for item in queue), default=0.0)
+    by_id = {item.practice_item_id: item for item in queue}
+    followups: list[ScheduledItem] = []
+    inserted_ids: set[str] = set()
+    for index, practice_item_id in enumerate(pending_followup_ids):
+        if practice_item_id in inserted_ids:
+            continue
+        scheduled = by_id.get(practice_item_id)
+        if scheduled is None:
+            practice_item = vault.practice_items.get(practice_item_id)
+            learning_object = vault.learning_object_for_item(practice_item) if practice_item is not None else None
+            if practice_item is None or learning_object is None:
+                continue
+            scheduled = ScheduledItem(
+                practice_item_id=practice_item.id,
+                learning_object_id=learning_object.id,
+                priority=0.0,
+                components={
+                    "forgetting_risk": 0.0,
+                    "active_goal": 0.0,
+                    "recent_error": 0.0,
+                    "probe_eig": 0.0,
+                },
+                selected_mode=practice_item.practice_mode,
+                plain_english=[],
+            )
+        components = dict(scheduled.components)
+        components["negative_surprise_followup"] = 1.0
+        reasons = ["negative surprise follow-up"] + [
+            reason for reason in scheduled.plain_english if reason != "negative surprise follow-up"
+        ]
+        followups.append(
+            replace(
+                scheduled,
+                priority=max_priority + len(pending_followup_ids) - index,
+                components=components,
+                plain_english=reasons,
+            )
+        )
+        inserted_ids.add(practice_item_id)
+
+    if not followups:
+        return queue
+    return followups + [item for item in queue if item.practice_item_id not in inserted_ids]
 
 
 def _load_hypothesis_set(

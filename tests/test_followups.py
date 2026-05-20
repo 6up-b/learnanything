@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.services.followups import evaluate_negative_surprise_followup
+from learnloop.services.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -80,6 +83,34 @@ def test_negative_surprise_inserts_followup_when_item_exists(tmp_path):
     surprise = repository.latest_attempt_surprise(result.attempt_id)
     assert surprise["triggered_actions"] == ["negative_surprise_followup:pi_svd_define_002"]
     assert surprise["suppressed_actions"] == []
+    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    assert queue[0].practice_item_id == "pi_svd_define_002"
+    assert queue[0].components["negative_surprise_followup"] == 1.0
+    assert queue[0].plain_english[0] == "negative surprise follow-up"
+
+
+def test_negative_surprise_followup_stops_forcing_after_followup_attempt(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    _add_followup_item(vault_root)
+    repository = Repository(paths.sqlite_path)
+    loaded, result = _surprising_attempt(vault_root, repository)
+
+    decision = _evaluate(loaded, repository, result)
+    assert decision.triggered is True
+
+    later = FrozenClock(NOW + timedelta(days=1))
+    complete_self_graded_attempt(
+        loaded,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_002", learner_answer_md="follow-up answer"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=4),
+        clock=later,
+    )
+
+    assert repository.pending_followup_practice_item_ids() == []
+    queue = build_due_queue(loaded, repository, clock=later, persist_explanations=False)
+    assert not queue or queue[0].components.get("negative_surprise_followup") is None
 
 
 def test_negative_surprise_suppressed_when_no_suitable_item(tmp_path):

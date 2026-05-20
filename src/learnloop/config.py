@@ -52,6 +52,10 @@ startup_command = "npm run app-server"
 startup_timeout_seconds = 20
 healthcheck_timeout_seconds = 5
 auth_mode = "chatgpt"
+base_url = "http://127.0.0.1:8765"
+healthcheck_path = "/health"
+authoring_path = "/authoring-proposal"
+grading_path = "/grading-proposal"
 """
 
 
@@ -108,6 +112,10 @@ class CodexConfig(BaseModel):
     startup_timeout_seconds: int = 20
     healthcheck_timeout_seconds: int = 5
     auth_mode: str = "chatgpt"
+    base_url: str = "http://127.0.0.1:8765"
+    healthcheck_path: str = "/health"
+    authoring_path: str = "/authoring-proposal"
+    grading_path: str = "/grading-proposal"
 
 
 class LearnLoopConfig(BaseModel):

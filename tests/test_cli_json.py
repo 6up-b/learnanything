@@ -65,7 +65,7 @@ def test_review_why_attempt_show_json_contracts(tmp_path):
     attempt_id = attempt_payload["attempt"]["attempt_id"]
     assert set(attempt_payload) == {"attempt", "version"}
     assert attempt_payload["attempt"]["grading_source"] == "self"
-    assert attempt_payload["attempt"]["fallback_reason"] is None
+    assert attempt_payload["attempt"]["fallback_reason"] == "codex_missing"
 
     review = runner.invoke(app, ["review", "--vault", str(vault_root), "--json"])
     why = runner.invoke(app, ["why", "pi_svd_define_001", "--vault", str(vault_root), "--json"])

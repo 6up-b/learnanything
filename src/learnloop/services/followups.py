@@ -93,7 +93,10 @@ def _choose_followup_item(
         if record is not None:
             hypothesis_set = HypothesisSet.from_record(record)
             candidates.sort(
-                key=lambda item: (-probe_eig_component(hypothesis_set, item), item.id)
+                key=lambda item: (
+                    -probe_eig_component(hypothesis_set, item, vault.rubric_for_item(item)),
+                    item.id,
+                )
             )
             return candidates[0]
 

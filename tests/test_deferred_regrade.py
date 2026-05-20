@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import sqlite3
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from learnloop.clock import FrozenClock
 from learnloop.codex.client import GradingContext
@@ -9,6 +12,7 @@ from learnloop.codex.schemas import CriterionEvidence, GradingProposal
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.services.regrade import run_deferred_regrades
+from learnloop.services.startup import run_startup_maintenance
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -151,6 +155,38 @@ def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp
     assert agent_status == "failed"
 
 
+def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    checkout = tmp_path / "codex"
+    checkout.mkdir()
+    (checkout / "HEAD").write_text("abc123", encoding="utf-8")
+    server = _HttpRegradeServer()
+    server.start()
+    try:
+        _configure_codex(vault_root, checkout, server.base_url)
+        vault = load_vault(vault_root)
+        repository = Repository(paths.sqlite_path)
+        clock = FrozenClock(NOW)
+        sync_vault_state(vault, repository, clock=clock)
+        attempt = complete_self_graded_attempt(
+            vault,
+            repository,
+            AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="SVD is U Sigma V^T."),
+            SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+            clock=clock,
+        )
+
+        result = run_startup_maintenance(vault, repository, clock=clock)
+    finally:
+        server.stop()
+
+    assert result.codex_runtime.ready is True
+    assert result.deferred_regrades.regraded == 1
+    assert repository.fetch_practice_attempt(attempt.attempt_id)["rubric_score"] == 4
+    assert repository.fetch_grading_evidence(attempt.attempt_id)[0].grader_tier == 3
+
+
 class _RegradeClient:
     def __init__(self, *, score: int, points: float):
         self.score = score
@@ -196,3 +232,70 @@ def _ready_runtime() -> CodexRuntimeReport:
         configured_revision="abc",
         actual_revision="abc",
     )
+
+
+def _configure_codex(vault_root, checkout, base_url: str) -> None:
+    config_path = vault_root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    text = text.replace('checkout_path = "../codex"', f'checkout_path = "{checkout.as_posix()}"')
+    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
+    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
+    config_path.write_text(text, encoding="utf-8")
+
+
+class _HttpRegradeServer:
+    def __init__(self):
+        self._server = HTTPServer(("127.0.0.1", 0), self._handler())
+        self.base_url = f"http://127.0.0.1:{self._server.server_port}"
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._server.shutdown()
+        self._thread.join(timeout=5)
+        self._server.server_close()
+
+    def _handler(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                if self.path == "/health":
+                    self._json({"status": "ready"})
+                    return
+                self.send_response(404)
+                self.end_headers()
+
+            def do_POST(self):  # noqa: N802
+                length = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(length).decode("utf-8"))
+                if self.path == "/grading-proposal":
+                    self._json(
+                        {
+                            "proposal": {
+                                "attempt_id": body["context"]["attempt_id"],
+                                "practice_item_id": body["context"]["practice_item_id"],
+                                "rubric_score": 4,
+                                "criterion_evidence": [
+                                    {"criterion_id": "correctness", "points_awarded": 4, "evidence": "Correct."}
+                                ],
+                                "grader_confidence": 0.95,
+                            }
+                        }
+                    )
+                    return
+                self.send_response(404)
+                self.end_headers()
+
+            def log_message(self, *_args):
+                return
+
+            def _json(self, payload: dict) -> None:
+                raw = json.dumps(payload).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+        return Handler

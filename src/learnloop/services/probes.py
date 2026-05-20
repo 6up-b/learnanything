@@ -7,7 +7,7 @@ from math import exp, log
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import ActiveErrorEvent, Repository
 from learnloop.services.mastery import display_mastery, initial_mastery_state, sigmoid
-from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
 SCORE_BUCKETS = ("low", "mid", "high")
 Outcome = tuple[str, str | None]
@@ -229,8 +229,12 @@ def conditional_distribution(
     return distribution
 
 
-def expected_information_gain(hypothesis_set: HypothesisSet, item: PracticeItem) -> float:
-    fatal_error_ids = _fatal_error_ids(item)
+def expected_information_gain(
+    hypothesis_set: HypothesisSet,
+    item: PracticeItem,
+    rubric: Rubric | None = None,
+) -> float:
+    fatal_error_ids = _fatal_error_ids(item, rubric)
     known_error_types = hypothesis_set.known_error_types
     conditionals = {
         hypothesis.label: conditional_distribution(
@@ -261,11 +265,15 @@ def expected_information_gain(hypothesis_set: HypothesisSet, item: PracticeItem)
     return max(eig, 0.0)
 
 
-def probe_eig_component(hypothesis_set: HypothesisSet, item: PracticeItem) -> float:
+def probe_eig_component(
+    hypothesis_set: HypothesisSet,
+    item: PracticeItem,
+    rubric: Rubric | None = None,
+) -> float:
     size = len(hypothesis_set.hypotheses)
     if size <= 1:
         return 0.0
-    return expected_information_gain(hypothesis_set, item) / log(size)
+    return expected_information_gain(hypothesis_set, item, rubric) / log(size)
 
 
 def record_probe_attempt(
@@ -320,10 +328,11 @@ def _spread(distribution: dict[Outcome, float], outcomes: list[Outcome], mass: f
         distribution[outcome] += share
 
 
-def _fatal_error_ids(item: PracticeItem) -> set[str]:
-    if item.grading_rubric is None:
+def _fatal_error_ids(item: PracticeItem, rubric: Rubric | None = None) -> set[str]:
+    effective_rubric = rubric or item.grading_rubric
+    if effective_rubric is None:
         return set()
-    return {fatal_error.id for fatal_error in item.grading_rubric.fatal_errors}
+    return {fatal_error.id for fatal_error in effective_rubric.fatal_errors}
 
 
 def _decay(created_at: str | None, now: datetime) -> float:

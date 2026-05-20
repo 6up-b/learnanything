@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.services.doctor import run_doctor
 from learnloop.vault.loader import init_vault
-from learnloop.vault.yaml_io import write_yaml
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW_ISO, create_basic_vault
 
@@ -81,3 +81,19 @@ def test_doctor_reports_reference_issues_and_json_cli(tmp_path):
     assert "sql:missing_practice_item_state" not in fixed_codes
     assert "concept_edge:missing_target" in fixed_codes
     assert fixed_payload["state_sync"]["practice_item_states_created"] == 1
+
+
+def test_doctor_warns_on_unknown_yaml_key_that_looks_like_typo(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    practice_item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    practice_item = read_yaml(practice_item_path)
+    practice_item["promtp"] = "typo"
+    write_yaml(practice_item_path, practice_item)
+
+    report = run_doctor(vault_root, fix_state=True)
+
+    typo_issues = [issue for issue in report.issues if issue.code == "yaml:unknown_key_typo"]
+    assert len(typo_issues) == 1
+    assert "promtp" in typo_issues[0].message
+    assert "prompt" in typo_issues[0].message

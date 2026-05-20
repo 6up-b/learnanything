@@ -208,6 +208,7 @@ tempCodeRunnerFile.py
 
 # Local pytest temp root (see tests/conftest.py)
 .pytest_tmp/
+.pytest_tmp_run/
 
 # Agent / LLM tooling artifacts
 .claude/

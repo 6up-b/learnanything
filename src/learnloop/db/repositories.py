@@ -483,6 +483,46 @@ class Repository:
             ).fetchone()
         return _decode_surprise(row) if row is not None else None
 
+    def pending_followup_practice_item_ids(self) -> list[str]:
+        """Return negative-surprise follow-ups that have not yet been attempted.
+
+        Follow-up insertion is represented in MVP as an action recorded on
+        ``attempt_surprise``. The scheduler consumes those actions until a later
+        attempt exists for the chosen Practice Item.
+        """
+
+        pending: list[str] = []
+        seen: set[str] = set()
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT attempt_id, triggered_actions_json, created_at
+                FROM attempt_surprise
+                WHERE triggered_actions_json IS NOT NULL
+                ORDER BY created_at DESC, attempt_id DESC
+                """
+            ).fetchall()
+            for row in rows:
+                for action in _loads(row["triggered_actions_json"], []):
+                    if not isinstance(action, str) or not action.startswith("negative_surprise_followup:"):
+                        continue
+                    practice_item_id = action.split(":", 1)[1]
+                    if not practice_item_id or practice_item_id in seen:
+                        continue
+                    later_attempt = connection.execute(
+                        """
+                        SELECT 1 FROM practice_attempts
+                        WHERE practice_item_id = ? AND created_at > ?
+                        LIMIT 1
+                        """,
+                        (practice_item_id, row["created_at"]),
+                    ).fetchone()
+                    if later_attempt is not None:
+                        continue
+                    seen.add(practice_item_id)
+                    pending.append(practice_item_id)
+        return pending
+
     def update_attempt_surprise_actions(
         self,
         attempt_id: str,
@@ -1073,6 +1113,14 @@ class Repository:
             ).fetchall()
         return [_decode_proposal_item(row) for row in rows]
 
+    def proposal_item(self, item_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM proposed_patch_items WHERE id = ?",
+                (item_id,),
+            ).fetchone()
+        return _decode_proposal_item(row) if row is not None else None
+
     def pending_invalid_proposal_items(self) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -1083,6 +1131,37 @@ class Repository:
                 """
             ).fetchall()
         return [_decode_proposal_item(row) for row in rows]
+
+    def update_proposal_item_edited_payload(
+        self,
+        item_id: str,
+        *,
+        edited_payload: Mapping[str, Any],
+        validation_status: str,
+        validation_errors: list[str],
+        clock: Clock | None = None,
+    ) -> bool:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE proposed_patch_items
+                SET edited_payload_json = ?,
+                    validation_status = ?,
+                    validation_errors_json = ?,
+                    updated_at = ?
+                WHERE id = ? AND decision = 'pending'
+                """,
+                (_json(edited_payload), validation_status, _json(validation_errors), now, item_id),
+            )
+            patch_row = connection.execute(
+                "SELECT proposed_patch_id FROM proposed_patch_items WHERE id = ?",
+                (item_id,),
+            ).fetchone()
+            if patch_row is not None:
+                self._refresh_proposal_status(connection, patch_row["proposed_patch_id"], updated_at=now)
+            connection.commit()
+            return cursor.rowcount > 0
 
     def pending_proposal_items(self, patch_id: str, item_ids: list[str] | None = None) -> list[dict[str, Any]]:
         parameters: list[Any] = [patch_id]

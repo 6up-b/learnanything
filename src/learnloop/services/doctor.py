@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from difflib import get_close_matches
 from pathlib import Path
-from typing import Literal
+from types import UnionType
+from typing import Any, Literal, Union, get_args, get_origin
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from learnloop.config import LearnLoopConfig, load_config
 from learnloop.codex.runtime import CodexRuntimeReport, check_codex_runtime
@@ -12,7 +14,18 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop.services.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import DoctorIssue, LoadedVault
+from learnloop.vault.models import (
+    ConceptGraph,
+    ConceptsFile,
+    DefaultRubric,
+    DoctorIssue,
+    ErrorTypesFile,
+    GoalsFile,
+    LearningObject,
+    LoadedVault,
+    PracticeItem,
+    RelationsFile,
+)
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml
 
@@ -80,6 +93,7 @@ def run_doctor(root: Path, *, fix_state: bool = False) -> DoctorReport:
     paths = VaultPaths(vault_root, config)
     _check_layout(paths, issues)
     _check_schema_versions(paths, issues)
+    _check_unknown_yaml_keys(paths, issues)
     _check_sqlite(paths, issues)
 
     try:
@@ -166,6 +180,123 @@ def _check_yaml_schema(path: Path, issues: list[HealthIssue]) -> None:
         )
 
 
+def _check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue]) -> None:
+    yaml_models: list[tuple[Path, type[BaseModel]]] = [
+        (paths.concepts_path, ConceptsFile),
+        (paths.relations_path, RelationsFile),
+        (paths.goals_path, GoalsFile),
+        (paths.error_types_path, ErrorTypesFile),
+    ]
+    yaml_models.extend(
+        (file_path, ConceptGraph)
+        for file_path in sorted((paths.root / "subjects").glob("*/concept-graph.yaml"))
+    )
+    yaml_models.extend(
+        (file_path, LearningObject)
+        for file_path in sorted((paths.root / "subjects").glob("*/learning-objects/*.yaml"))
+    )
+    yaml_models.extend(
+        (file_path, PracticeItem)
+        for file_path in sorted((paths.root / "subjects").glob("*/practice-items/*.yaml"))
+    )
+    yaml_models.extend(
+        (file_path, DefaultRubric)
+        for file_path in sorted((paths.root / "rubrics").glob("*.yaml"))
+    )
+    for file_path, model in yaml_models:
+        _check_unknown_yaml_keys_for_file(file_path, model, issues)
+
+
+def _check_unknown_yaml_keys_for_file(
+    path: Path,
+    model: type[BaseModel],
+    issues: list[HealthIssue],
+) -> None:
+    if not path.exists():
+        return
+    try:
+        data = read_yaml(path)
+    except Exception:
+        return
+    if isinstance(data, dict):
+        _check_unknown_mapping_keys(data, model, issues, path=path, location=path.name)
+
+
+def _check_unknown_mapping_keys(
+    data: dict[str, Any],
+    model: type[BaseModel],
+    issues: list[HealthIssue],
+    *,
+    path: Path,
+    location: str,
+) -> None:
+    known = set(model.model_fields)
+    for key, value in data.items():
+        if key not in known:
+            match = get_close_matches(str(key), known, n=1, cutoff=0.82)
+            if match:
+                issues.append(
+                    _issue(
+                        "warning",
+                        "yaml:unknown_key_typo",
+                        f"{location} has unknown key {key!r}; did you mean {match[0]!r}?",
+                        path,
+                    )
+                )
+            continue
+        annotation = model.model_fields[key].annotation
+        for child_location, child_model, child_data in _iter_model_children(value, annotation, f"{location}.{key}"):
+            _check_unknown_mapping_keys(child_data, child_model, issues, path=path, location=child_location)
+
+
+def _iter_model_children(
+    value: Any,
+    annotation: Any,
+    location: str,
+) -> list[tuple[str, type[BaseModel], dict[str, Any]]]:
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if origin in {UnionType, Union}:
+        children: list[tuple[str, type[BaseModel], dict[str, Any]]] = []
+        for arg in args:
+            children.extend(_iter_model_children(value, arg, location))
+        return children
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return [(location, annotation, value)] if isinstance(value, dict) else []
+    if origin in {list, tuple} and args:
+        child_model = _model_from_annotation(args[0])
+        if child_model is None or not isinstance(value, list):
+            return []
+        return [
+            (f"{location}[{index}]", child_model, item)
+            for index, item in enumerate(value)
+            if isinstance(item, dict)
+        ]
+    if origin is dict and len(args) == 2:
+        child_model = _model_from_annotation(args[1])
+        if child_model is None or not isinstance(value, dict):
+            return []
+        return [
+            (f"{location}.{key}", child_model, item)
+            for key, item in value.items()
+            if isinstance(item, dict)
+        ]
+    return []
+
+
+def _model_from_annotation(annotation: Any) -> type[BaseModel] | None:
+    origin = get_origin(annotation)
+    if origin in {UnionType, Union}:
+        for arg in get_args(annotation):
+            model = _model_from_annotation(arg)
+            if model is not None:
+                return model
+        return None
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return annotation
+    return None
+
+
 def _check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> None:
     if not paths.sqlite_path.exists():
         issues.append(_issue("error", "sqlite:missing", "SQLite state database is missing", paths.sqlite_path))
@@ -216,10 +347,11 @@ def _check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None:
         for subject_id in vault.subjects_for_item(item):
             if subject_id not in subject_ids:
                 issues.append(_issue("error", "practice_item:missing_subject", f"{item.id} references missing subject {subject_id}", entity_id=item.id))
-        if item.grading_rubric is None:
+        rubric = vault.rubric_for_item(item)
+        if rubric is None:
             issues.append(_issue("warning", "practice_item:missing_rubric", f"{item.id} has no resolved grading rubric", entity_id=item.id))
         else:
-            for fatal_error in item.grading_rubric.fatal_errors:
+            for fatal_error in rubric.fatal_errors:
                 if fatal_error.id not in error_type_ids:
                     issues.append(_issue("warning", "rubric:unaligned_error_type", f"{item.id} fatal error {fatal_error.id} is not in errors/error_types.yaml", entity_id=item.id))
     for note in vault.notes.values():

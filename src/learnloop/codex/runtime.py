@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import subprocess
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -96,14 +99,7 @@ def check_codex_runtime(
                 message="Codex checkout revision does not match configuration.",
             )
 
-    if healthcheck is None:
-        return CodexRuntimeReport(
-            status="codex_unavailable",
-            checkout_path=str(checkout_path),
-            configured_revision=configured_revision,
-            actual_revision=actual_revision,
-            message="No Codex healthcheck transport is configured yet.",
-        )
+    healthcheck = healthcheck or default_http_healthcheck
 
     try:
         healthcheck(checkout_path, config)
@@ -130,6 +126,43 @@ def check_codex_runtime(
         actual_revision=actual_revision,
         message="Codex runtime is ready.",
     )
+
+
+def default_http_healthcheck(_checkout_path: Path, config: CodexConfig) -> None:
+    request = urllib.request.Request(
+        _url(config.base_url, config.healthcheck_path),
+        headers={"Accept": "application/json"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=config.healthcheck_timeout_seconds) as response:
+            payload = response.read(65536)
+            status_code = response.status
+    except urllib.error.HTTPError as exc:
+        if exc.code in {401, 403}:
+            raise CodexAuthRequired("Codex app-server authentication is required.") from exc
+        raise CodexHealthUnavailable(f"Codex healthcheck HTTP {exc.code}.") from exc
+    except urllib.error.URLError as exc:
+        raise CodexHealthUnavailable(str(exc.reason)) from exc
+
+    if status_code >= 400:
+        raise CodexHealthUnavailable(f"Codex healthcheck HTTP {status_code}.")
+    if not payload:
+        return
+    try:
+        data = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CodexHealthUnavailable("Codex healthcheck returned invalid JSON.") from exc
+    state = str(data.get("status") or data.get("state") or "ready").lower()
+    if state in {"ready", "ok", "healthy"}:
+        return
+    if state in {"auth_required", "unauthorized", "login_required"}:
+        raise CodexAuthRequired(data.get("message") or "Codex authentication is required.")
+    raise CodexHealthUnavailable(data.get("message") or f"Codex runtime is not ready: {state}")
+
+
+def _url(base_url: str, path: str) -> str:
+    return base_url.rstrip("/") + "/" + path.lstrip("/")
 
 
 def _resolve_checkout_path(vault_root: Path, checkout_path: str) -> Path:

@@ -8,13 +8,24 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel
 
+from learnloop.codex.client import HttpCodexClient
 from learnloop.codex.schemas import AuthoringProposal
+from learnloop.codex.runtime import check_codex_runtime
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, AttemptValidationError, SelfGradeInput, complete_self_graded_attempt
+from learnloop.services.attempts import AttemptDraft, AttemptValidationError, SelfGradeInput, complete_attempt_with_codex_fallback
 from learnloop.services.doctor import run_doctor
+from learnloop.services.followups import evaluate_negative_surprise_followup
 from learnloop.services.patches import PatchApplicationError
-from learnloop.services.proposals import accept_items, list_proposals, persist_authoring_proposal, reject_items
+from learnloop.services.proposals import (
+    accept_items,
+    edit_proposal_item,
+    generate_authoring_proposal,
+    list_proposals,
+    persist_authoring_proposal,
+    reject_items,
+)
 from learnloop.services.scheduler import SchedulerSession, build_due_queue, explain_practice_item
+from learnloop.services.startup import run_startup_maintenance
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import add_note as add_note_to_vault
 from learnloop.vault.loader import add_subject as add_subject_to_vault
@@ -119,10 +130,20 @@ def add_note(
     title: Annotated[str, typer.Argument(help="Note title.")],
     body: Annotated[str, typer.Option("--body", help="Inline note body.")] = "",
     file: Annotated[Path | None, typer.Option("--file", help="Markdown file to use as note body.")] = None,
+    source_type: Annotated[
+        str,
+        typer.Option(
+            "--source-type",
+            help="Source type: learner_note, canonical_source, or imported.",
+        ),
+    ] = "learner_note",
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
     note_body = file.read_text(encoding="utf-8") if file else body
-    path = add_note_to_vault(_root(vault), subject_id, note_id, title, note_body)
+    try:
+        path = add_note_to_vault(_root(vault), subject_id, note_id, title, note_body, source_type=source_type)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--source-type") from exc
     typer.echo(f"Added note at {path}")
 
 
@@ -159,6 +180,7 @@ def review(
     loaded = load_vault(_root(vault))
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     sync_vault_state(loaded, repository)
+    run_startup_maintenance(loaded, repository)
     queue = build_due_queue(
         loaded,
         repository,
@@ -185,6 +207,7 @@ def why(
     loaded = load_vault(_root(vault))
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     sync_vault_state(loaded, repository)
+    run_startup_maintenance(loaded, repository)
     item = explain_practice_item(loaded, repository, practice_item_id)
     if item is None:
         latest = repository.latest_scheduler_explanation(practice_item_id)
@@ -315,23 +338,75 @@ def reject(
     typer.echo(f"Rejected {count} proposal item(s).")
 
 
-@app.command()
-def propose(
-    file: Annotated[Path | None, typer.Option("--file", help="AuthoringProposal JSON/YAML file to import.")] = None,
+@app.command("edit-proposal-item")
+def edit_proposal_item_command(
+    patch_id: Annotated[str, typer.Argument(help="Proposal batch id.")],
+    item_id: Annotated[str, typer.Argument(help="Proposal item SQL id.")],
+    file: Annotated[Path, typer.Option("--file", help="YAML or JSON replacement payload.")],
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
-    if file is None:
-        message = "No Codex runtime is configured yet; pass --file to import an AuthoringProposal."
+    try:
+        payload = read_yaml(file) if file.suffix.lower() in {".yaml", ".yml"} else jsonlib.loads(file.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Edited payload must be a mapping/object")
+        item = edit_proposal_item(_root(vault), patch_id, item_id, payload)
+    except Exception as exc:
         if json_output:
-            typer.echo(_dump({"version": 1, "error": "codex_unavailable", "message": message}))
+            typer.echo(_dump({"version": 1, "error": "invalid_edit", "message": str(exc)}))
         else:
-            typer.echo(message, err=True)
+            typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump({"version": 1, "proposal_item": item}))
+    else:
+        typer.echo(f"Edited proposal item {item_id} validation_status={item['validation_status']}.")
+
+
+@app.command()
+def propose(
+    file: Annotated[Path | None, typer.Option("--file", help="AuthoringProposal JSON/YAML file to import.")] = None,
+    subjects: Annotated[str | None, typer.Option("--subjects", help="Comma-separated subject ids for Codex context.")] = None,
+    notes: Annotated[str | None, typer.Option("--notes", help="Comma-separated note ids for Codex context.")] = None,
+    instructions: Annotated[str | None, typer.Option("--instructions", help="Extra authoring instructions.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    vault_root = _root(vault)
+    if file is None:
+        loaded = load_vault(vault_root)
+        runtime = check_codex_runtime(vault_root, loaded.config.codex)
+        if not runtime.ready:
+            message = runtime.message or f"Codex runtime is {runtime.status}."
+            if json_output:
+                typer.echo(_dump({"version": 1, "error": runtime.status, "message": message}))
+            else:
+                typer.echo(message, err=True)
+            raise typer.Exit(code=1)
+        try:
+            patch_id = generate_authoring_proposal(
+                vault_root,
+                HttpCodexClient(loaded.config.codex),
+                subjects=_split_items(subjects),
+                note_ids=_split_items(notes),
+                instructions=instructions,
+                codex_revision=runtime.actual_revision,
+            )
+        except Exception as exc:
+            if json_output:
+                typer.echo(_dump({"version": 1, "error": "codex_failed", "message": str(exc)}))
+            else:
+                typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1)
+        if json_output:
+            typer.echo(_dump({"version": 1, "proposal_id": patch_id}))
+        else:
+            typer.echo(f"Persisted proposal {patch_id}.")
+        return
     try:
         raw = read_yaml(file) if file.suffix.lower() in {".yaml", ".yml"} else jsonlib.loads(file.read_text(encoding="utf-8"))
         proposal = AuthoringProposal.model_validate(raw)
-        patch_id = persist_authoring_proposal(_root(vault), proposal, provider="import")
+        patch_id = persist_authoring_proposal(vault_root, proposal, provider="import")
     except Exception as exc:
         if json_output:
             typer.echo(_dump({"version": 1, "error": "invalid_proposal", "message": str(exc)}))
@@ -365,10 +440,11 @@ def attempt(
     if item is None:
         typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
         raise typer.Exit(code=1)
+    rubric = loaded.rubric_for_item(item)
     answer_text = answer if answer is not None else typer.prompt("Answer", default="")
     points = _parse_points(criterion_points)
-    if not points and item.grading_rubric is not None:
-        for criterion in item.grading_rubric.criteria:
+    if not points and rubric is not None:
+        for criterion in rubric.criteria:
             raw = typer.prompt(f"{criterion.id} points", default="0")
             try:
                 points[criterion.id] = float(raw)
@@ -376,7 +452,8 @@ def attempt(
                 typer.echo(f"{criterion.id} points must be numeric.", err=True)
                 raise typer.Exit(code=1)
     try:
-        result = complete_self_graded_attempt(
+        runtime = check_codex_runtime(vault_root, loaded.config.codex)
+        result = complete_attempt_with_codex_fallback(
             loaded,
             repository,
             AttemptDraft(
@@ -391,6 +468,8 @@ def attempt(
                 confidence=confidence,
                 error_type=error_type,
             ),
+            runtime=runtime,
+            codex_client=HttpCodexClient(loaded.config.codex) if runtime.ready else None,
         )
     except (AttemptValidationError, ValueError) as exc:
         if json_output:
@@ -398,6 +477,17 @@ def attempt(
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
+    evaluate_negative_surprise_followup(
+        loaded,
+        repository,
+        attempt_id=result.attempt_id,
+        learning_object_id=result.learning_object_id,
+        practice_item_id=result.practice_item_id,
+        surprise_direction=result.surprise_direction,
+        bayesian_surprise=result.bayesian_surprise,
+        grader_confidence=result.grader_confidence,
+        error_event_written=bool(result.error_event_ids),
+    )
     if json_output:
         typer.echo(_dump({"version": 1, "attempt": result.as_dict()}))
         return

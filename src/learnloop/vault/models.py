@@ -110,6 +110,17 @@ class Rubric(VaultModel):
     fatal_errors: list[RubricFatalError] = Field(default_factory=list)
 
 
+class RubricAppliesTo(VaultModel):
+    practice_mode: str
+
+
+class DefaultRubric(VaultModel):
+    schema_version: int = 1
+    id: str
+    applies_to: RubricAppliesTo
+    rubric: Rubric
+
+
 class LearningObject(VaultModel):
     schema_version: int = 1
     id: str
@@ -211,6 +222,7 @@ class LoadedVault:
     subjects: dict[str, Subject] = field(default_factory=dict)
     learning_objects: dict[str, LearningObject] = field(default_factory=dict)
     practice_items: dict[str, PracticeItem] = field(default_factory=dict)
+    default_rubrics: dict[str, Rubric] = field(default_factory=dict)
     error_types: dict[str, ErrorType] = field(default_factory=dict)
     notes: dict[str, Note] = field(default_factory=dict)
     issues: list[DoctorIssue] = field(default_factory=list)
@@ -223,3 +235,6 @@ class LoadedVault:
             return item.subjects
         lo = self.learning_object_for_item(item)
         return lo.subjects if lo else []
+
+    def rubric_for_item(self, item: PracticeItem) -> Rubric | None:
+        return item.grading_rubric or self.default_rubrics.get(item.practice_mode)

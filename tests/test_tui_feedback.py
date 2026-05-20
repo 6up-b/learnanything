@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from textual.widgets import Button, Input
 
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -63,5 +64,34 @@ def test_feedback_submit_matches_cli_attempt_and_updates_state(tmp_path):
         assert attempt is not None
         assert attempt["rubric_score"] == result.rubric_score
         assert repository.fetch_grading_evidence(result.attempt_id)
+
+    asyncio.run(scenario())
+
+
+def test_feedback_screen_reads_visible_self_grade_controls(tmp_path):
+    async def scenario() -> None:
+        vault_root = tmp_path / "vault"
+        create_basic_vault(vault_root)
+
+        app = LearnLoopApp(vault_root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = app.screen
+            await today.open_practice()
+            await pilot.pause()
+            practice = app.screen
+            practice.set_answer("SVD is exactly eigendecomposition.")
+            feedback = await practice.open_feedback()
+            await pilot.pause()
+
+            feedback.query_one("#criterion-correctness", Input).value = "2"
+            feedback.query_one("#confidence-input", Input).value = "4"
+            feedback.query_one("#error-type-input", Input).value = "conceptual_slip"
+            assert feedback.query_one("#fatal-conceptual_slip", Button)
+            feedback.toggle_fatal("conceptual_slip")
+            result = feedback.submit()
+
+        assert result.rubric_score == 1
+        assert result.error_event_ids
 
     asyncio.run(scenario())

@@ -11,6 +11,7 @@ from learnloop.ids import kebab_case, snake_case
 from learnloop.vault.models import (
     ConceptGraph,
     ConceptsFile,
+    DefaultRubric,
     DoctorIssue,
     ErrorTypesFile,
     GoalsFile,
@@ -80,6 +81,24 @@ def load_vault(root: Path | None = None) -> LoadedVault:
     error_types_file = _load_yaml_model(paths.error_types_path, ErrorTypesFile, issues)
     if error_types_file:
         loaded.error_types = {error_type.id: error_type for error_type in error_types_file.error_types}
+
+    rubrics_root = vault_root / "rubrics"
+    if rubrics_root.exists():
+        for rubric_path in sorted(rubrics_root.glob("*.yaml")):
+            default_rubric = _load_yaml_model(rubric_path, DefaultRubric, issues)
+            if default_rubric is None:
+                continue
+            practice_mode = default_rubric.applies_to.practice_mode
+            if practice_mode in loaded.default_rubrics:
+                issues.append(
+                    DoctorIssue(
+                        "rubric:duplicate_default",
+                        f"Duplicate default rubric for practice mode {practice_mode}",
+                        rubric_path,
+                    )
+                )
+                continue
+            loaded.default_rubrics[practice_mode] = default_rubric.rubric
 
     subjects_root = vault_root / "subjects"
     if subjects_root.exists():
@@ -173,9 +192,10 @@ def _validate_loaded_vault(loaded: LoadedVault) -> None:
                 loaded.issues.append(DoctorIssue("learning_object:missing_subject", f"{lo_id} references missing subject {subject}", None))
     known_error_types = set(loaded.error_types)
     for item_id, item in loaded.practice_items.items():
-        if item.grading_rubric is None:
+        rubric = loaded.rubric_for_item(item)
+        if rubric is None:
             continue
-        for fatal_error in item.grading_rubric.fatal_errors:
+        for fatal_error in rubric.fatal_errors:
             if fatal_error.id not in known_error_types:
                 loaded.issues.append(
                     DoctorIssue(
@@ -271,12 +291,23 @@ def add_subject(root: Path, subject_id: str, title: str, clock: Clock | None = N
     return subject_path
 
 
-def add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, clock: Clock | None = None) -> Path:
+def add_note(
+    root: Path,
+    subject_id: str,
+    note_id: str,
+    title: str,
+    body: str,
+    *,
+    source_type: str = "learner_note",
+    clock: Clock | None = None,
+) -> Path:
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
     normalized_subject = kebab_case(subject_id)
     normalized_note = "note_" + snake_case(note_id.removeprefix("note_"))
     now = utc_now_iso(clock)
+    if source_type not in {"learner_note", "canonical_source", "imported"}:
+        raise ValueError("source_type must be learner_note, canonical_source, or imported")
     note_path = paths.note_path(normalized_subject, normalized_note)
     write_markdown_with_frontmatter(
         note_path,
@@ -286,7 +317,7 @@ def add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, c
             "subjects": [normalized_subject],
             "related_los": [],
             "related_concepts": [],
-            "source_type": "learner_note",
+            "source_type": source_type,
             "created_at": now,
             "updated_at": now,
         },
