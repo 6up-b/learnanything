@@ -24,6 +24,14 @@ Optional canonical ingestion dependencies are declared in `pyproject.toml`
 (`trafilatura`, `beautifulsoup4`, `lxml`, and `youtube-transcript-api`). They
 are installed with the editable package command above.
 
+You can also install with uv
+
+```powershell
+uv tool install git+https://github.com/6up-b/learnanything.git
+learnloop --help
+```
+To make sure live source edits are reflected immediately use --editable
+
 ## Desktop App (Tauri)
 
 The desktop GUI lives in `apps/learnloop-tauri`. It runs a Tauri shell around
