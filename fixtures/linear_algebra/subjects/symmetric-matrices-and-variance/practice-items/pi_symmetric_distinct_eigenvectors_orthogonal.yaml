@@ -1,0 +1,84 @@
+schema_version: 1
+id: pi_symmetric_distinct_eigenvectors_orthogonal
+learning_object_id: lo_spectral_theorem_symmetric_matrices
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+practice_mode: proof_explanation
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - open_text
+evidence_facets:
+  - symmetric_dot_identity
+  - eigen_equation_substitution
+  - distinct_eigenvalue_logic
+  - orthogonality_definition
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Let A be symmetric. Suppose u and v are eigenvectors with Au = lambda u 
+  and Av = mu v, where lambda != mu. Prove that u dot v = 0.
+expected_answer: Because A is symmetric, (Au) dot v = u dot (Av). Substituting 
+  the eigenvalue equations gives lambda (u dot v) = mu (u dot v). Thus (lambda -
+  mu)(u dot v) = 0. Since lambda != mu, it follows that u dot v = 0, so the 
+  eigenvectors are orthogonal.
+difficulty: 0.64
+difficulty_source: llm_estimate
+tags:
+  - symmetric-matrices
+  - eigenvectors
+  - proof
+hints:
+  - For symmetric A, compare (Au) dot v and u dot (Av).
+  - After substituting the eigenvalue equations, factor out u dot v.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.55
+transfer_distance: 0.45
+scaffold_level: 0.15
+surface_family: prove_distinct_symmetric_eigenvectors_orthogonal
+repair_targets:
+  - symmetric_dot_identity
+  - distinct_eigenvalue_logic
+  - fatal_assumes_all_eigenvectors_orthogonal
+  - fatal_omits_symmetry_condition
+grading_rubric:
+  max_points: 5
+  criteria:
+    - id: criterion_uses_symmetric_dot_identity
+      points: 1.5
+      description: Correctly uses (Au) dot v = u dot (Av) for symmetric A.
+    - id: criterion_substitutes_eigen_equations
+      points: 1.5
+      description: Substitutes Au = lambda u and Av = mu v correctly.
+    - id: criterion_distinct_eigenvalues_argument
+      points: 1.0
+      description: Uses lambda != mu to force u dot v = 0.
+    - id: criterion_orthogonality_conclusion
+      points: 1.0
+      description: States that u and v are orthogonal.
+  fatal_errors:
+    - id: fatal_assumes_all_eigenvectors_orthogonal
+      description: Assumes the conclusion without using symmetry and distinct 
+        eigenvalues.
+      max_grade: 2
+    - id: fatal_omits_symmetry_condition
+      description: Presents an argument that would incorrectly apply to any 
+        matrix.
+      max_grade: 3
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:26Z'
+updated_at: '2026-05-26T00:00:26Z'

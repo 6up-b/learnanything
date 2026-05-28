@@ -1,0 +1,78 @@
+schema_version: 1
+id: pi_apply_spectral_theorem
+learning_object_id: lo_spectral_theorem_symmetric_matrices
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - open_text
+evidence_facets:
+  - symmetry_check
+  - spectral_theorem_application
+  - orthogonal_diagonalizability_conclusion
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Determine whether A = [[2, 5], [5, -7]] is orthogonally diagonalizable. 
+  Justify your answer using the Spectral Theorem.
+expected_answer: 'Yes. The matrix is symmetric because A^T = A: its off-diagonal entries
+  are both 5. By the Spectral Theorem, a real matrix is orthogonally diagonalizable
+  if and only if it is symmetric.'
+difficulty: 0.38
+difficulty_source: llm_estimate
+tags:
+  - spectral-theorem
+  - symmetric-matrices
+hints:
+  - Compare A with A^T.
+  - The Spectral Theorem gives an if and only if criterion.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.5
+transfer_distance: 0.25
+scaffold_level: 0.2
+surface_family: classify_matrix_by_spectral_theorem
+repair_targets:
+  - symmetry_check
+  - spectral_theorem_application
+  - fatal_says_not_diagonalizable_because_negative_entry
+  - fatal_uses_invertibility_as_criterion
+grading_rubric:
+  max_points: 3
+  criteria:
+    - id: criterion_checks_symmetry
+      points: 1.0
+      description: Correctly checks that A^T = A.
+    - id: criterion_invokes_spectral_theorem
+      points: 1.0
+      description: Correctly states or applies the Spectral Theorem.
+    - id: criterion_correct_conclusion
+      points: 1.0
+      description: Concludes that the matrix is orthogonally diagonalizable.
+  fatal_errors:
+    - id: fatal_says_not_diagonalizable_because_negative_entry
+      description: Concludes the matrix is not orthogonally diagonalizable 
+        because it has negative entries or may have negative eigenvalues.
+      max_grade: 1
+    - id: fatal_uses_invertibility_as_criterion
+      description: Uses invertibility rather than symmetry as the deciding 
+        criterion.
+      max_grade: 1
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:25Z'
+updated_at: '2026-05-26T00:00:25Z'

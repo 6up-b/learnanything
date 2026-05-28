@@ -13,7 +13,7 @@ class Rating(IntEnum):
 
 
 # FSRS-6 default parameters from open-spaced-repetition/py-fsrs README
-# as observed for the 6.x scheduler line in May 2026.
+# at release v6.3.1, commit 3abe686e9c058d3f3c00bbeb92e68b71211b2b31.
 FSRS6_DEFAULT_WEIGHTS: tuple[float, ...] = (
     0.212,
     1.2931,

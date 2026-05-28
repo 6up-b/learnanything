@@ -9,6 +9,7 @@ MVP_COMMANDS = [
     "add-subject",
     "add-note",
     "propose",
+    "generate-practice",
     "proposals",
     "accept",
     "reject",
@@ -18,6 +19,8 @@ MVP_COMMANDS = [
     "show",
     "doctor",
     "today",
+    "rebuild-derived-state",
+    "recall-calibration",
 ]
 
 

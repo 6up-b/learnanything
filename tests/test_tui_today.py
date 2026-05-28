@@ -9,7 +9,7 @@ from learnloop.tui.screens.practice import PracticeScreen
 from learnloop.tui.screens.today import TodayScreen
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import create_basic_vault, seed_due_item
+from tests.helpers import begin_session, create_basic_vault, seed_due_item
 
 
 def test_today_queue_matches_scheduler_and_opens_practice(tmp_path):
@@ -25,10 +25,10 @@ def test_today_queue_matches_scheduler_and_opens_practice(tmp_path):
         app = LearnLoopApp(vault_root)
         async with app.run_test() as pilot:
             await pilot.pause()
+            today = await begin_session(app, pilot)
             assert isinstance(app.screen, TodayScreen)
             assert [item.practice_item_id for item in app.state.queue] == expected
 
-            today = app.screen
             await today.open_practice()
             await pilot.pause()
 

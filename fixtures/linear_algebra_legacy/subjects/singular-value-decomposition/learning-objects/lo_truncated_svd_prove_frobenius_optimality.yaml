@@ -1,0 +1,54 @@
+schema_version: 1
+id: lo_truncated_svd_prove_frobenius_optimality
+title: Prove and apply the Frobenius-optimality of truncated SVD
+subjects:
+  - singular-value-decomposition
+concept: concept_truncated_svd
+knowledge_type: theorem-and-application
+status: active
+contradicts:
+summary: Show that the truncated SVD minimizes Frobenius-norm error among rank-k
+  matrices, derive the tail-sum error formula, and use it to compare candidate 
+  low-rank approximations.
+prerequisites:
+  - lo_svd_parse_factorization
+  - lo_singular_values_infer_properties
+  - lo_truncated_svd_best_rank_k
+confusables: []
+difficulty_prior: 0.72
+difficulty_source: llm_estimate
+tags:
+  - proof
+  - frobenius-norm
+  - truncated-svd
+  - low-rank-approximation
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: ctx_authoring_prompt
+      path: context.instructions
+      locator: Create one LO and 3 PI with at least one proof.
+      quote: Create one LO and 3 PI with at least one proof.
+      quote_hash:
+    - ref_type: existing_entity
+      ref_id: concept_truncated_svd
+      path: context.concepts
+      locator: concept_truncated_svd
+      quote: Truncated SVD and best low-rank approximation
+      quote_hash:
+    - ref_type: existing_entity
+      ref_id: lo_truncated_svd_best_rank_k
+      path: context.learning_objects
+      locator: lo_truncated_svd_best_rank_k
+      quote: Construct and justify the best rank-k approximation with truncated 
+        SVD
+      quote_hash:
+    - ref_type: existing_entity
+      ref_id: lo_singular_values_infer_properties
+      path: context.learning_objects
+      locator: lo_singular_values_infer_properties
+      quote: Use singular values to infer matrix properties
+      quote_hash:
+created_at: '2026-05-25T01:18:37Z'
+updated_at: '2026-05-25T01:18:37Z'

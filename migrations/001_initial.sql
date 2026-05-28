@@ -85,7 +85,15 @@ CREATE TABLE content_events (
   id TEXT PRIMARY KEY,
   change_batch_id TEXT,
   event_type TEXT NOT NULL CHECK (
-    event_type IN ('created', 'updated', 'deactivated', 'regrade_disagreement', 'algorithm_version_bumped')
+    event_type IN (
+      'created',
+      'updated',
+      'deactivated',
+      'regrade_disagreement',
+      'algorithm_version_bumped',
+      'source_span_changed',
+      'source_span_removed'
+    )
   ),
   subject TEXT,
   entity_type TEXT NOT NULL CHECK (

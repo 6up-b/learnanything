@@ -1,0 +1,243 @@
+schema_version = 1
+
+[storage]
+sqlite_path = "state.sqlite"
+
+[algorithms]
+algorithm_version = "mvp-0.2"
+
+[scheduler]
+forgetting_risk_weight = 1.0
+active_goal_weight = 0.35
+recent_error_weight = 0.50
+probe_eig_weight = 0.25
+short_session_minutes = 20
+
+[scheduler.surprise]
+theta_pos = 1.5
+theta_neg = 1.5
+alpha_interval = 0.3
+f_min = 0.5
+f_max = 1.5
+epsilon_error_surprise = 0.05
+
+[scheduler.followup]
+tau_followup_nats = 0.05
+gamma_min = 0.5
+
+[mastery]
+base_observation_variance = 1.0
+sigma2_drift = 0.01
+p_max = 4.0
+
+# IRT 2PL difficulty-aware mastery update (spec_irt_difficulty.md §4).
+# enabled = false restores the legacy logit-space Kalman update bit-for-bit.
+[mastery.irt]
+enabled = true
+discrimination_default = 1.0
+difficulty_default = 0.0
+difficulty_from_prior = true
+difficulty_prior_scale = 2.5
+b_abs_max = 4.0
+p_clip = 1e-4
+mu_abs_max = 5.0
+max_logit_step = 4.0
+
+[probe]
+attempts_target_default = 3
+attempts_target_with_strong_claim = 1
+claim_skip_threshold = 0.75
+variance_convergence_threshold = 0.10
+hypothesis_set_max_size = 5
+
+# IRT difficulty-aware probe conditionals (spec_irt_difficulty.md §5).
+[probe.irt]
+theta_mastered = 2.0
+theta_unfamiliar = -2.0
+cut_mid = -1.0
+cut_high = 1.0
+unfamiliar_error_leak = 0.20
+err_low_frac = 0.80
+err_mid_frac = 0.50
+
+# Learner self-attributed misconception probe coverage (spec_irt_difficulty.md §12).
+[probe.self_tag]
+w_base = 0.5
+w_max = 0.7
+target_degree = 2.0
+promotion_threshold = 3
+
+[ingest]
+window_char_cap = 150000
+min_content_chars = 400
+default_goal_priority = 0.5
+allow_auto_captions = false
+
+[ai]
+active_provider = "codex"
+fallback_provider = ""
+timeout_seconds = 60
+
+[ai.routing]
+grading = "codex"
+canonical_ingest = "codex"
+canonical_ingest_retry = ""
+authoring = "codex"
+
+[ai.providers.codex]
+type = "codex_sdk"
+model = "gpt-5.5"
+checkout_path = "C:/Users/banan/OneDrive/Documents/thinking/learnloop/codex"
+revision = "<pinned-commit>"
+startup_command = ""
+startup_timeout_seconds = 20
+healthcheck_timeout_seconds = 5
+auth_mode = "chatgpt"
+reasoning_effort = "medium"
+reasoning_summary = "none"
+sdk_python_path = "sdk/python/src"
+sdk_codex_bin = ""
+sdk_launch_command = ""
+base_url = "http://127.0.0.1:8765"
+healthcheck_path = "/health"
+authoring_path = "/authoring-proposal"
+canonical_ingest_path = "/canonical-ingest"
+grading_path = "/grading-proposal"
+
+[ai.providers.deepseek_flash]
+type = "openai_chat"
+base_url = "https://api.deepseek.com"
+api_key_env = "DEEPSEEK_API_KEY"
+model = "deepseek-v4-flash"
+response_format = "json_object"
+thinking = "disabled"
+max_tokens = 8192
+timeout_seconds = 90
+
+[ai.providers.deepseek_pro]
+type = "openai_chat"
+base_url = "https://api.deepseek.com"
+api_key_env = "DEEPSEEK_API_KEY"
+model = "deepseek-v4-pro"
+response_format = "json_object"
+thinking = "enabled"
+reasoning_effort = "high"
+max_tokens = 16384
+timeout_seconds = 180
+
+[codex]
+provider = "sdk"
+checkout_path = "C:/Users/banan/OneDrive/Documents/thinking/learnloop/codex"
+revision = "<pinned-commit>"
+startup_command = ""
+startup_timeout_seconds = 20
+healthcheck_timeout_seconds = 5
+auth_mode = "chatgpt"
+model = "gpt-5.5"
+reasoning_effort = "medium"
+reasoning_summary = "none"
+sdk_python_path = "sdk/python/src"
+sdk_codex_bin = ""
+sdk_launch_command = ""
+base_url = "http://127.0.0.1:8765"
+healthcheck_path = "/health"
+authoring_path = "/authoring-proposal"
+canonical_ingest_path = "/canonical-ingest"
+grading_path = "/grading-proposal"
+
+# Family-keyed mastery damage per error type (spec §"Error-aware updates").
+# recall_failure is the deterministic attribution for `dont_know` attempts.
+[error_impacts]
+max_sharpening = 3.0
+
+[error_impacts.recall_failure]
+families = { recall = -0.25 }
+lo_mastery_delta = -0.05
+local_severity_gain = 0.8
+
+[error_impacts.scaffold_failure]
+families = { recall = -0.35 }
+lo_mastery_delta = -0.05
+local_severity_gain = 1.5
+
+[error_impacts.arithmetic_slip]
+families = { numeric = -0.05 }
+lo_mastery_delta = 0.0
+local_severity_gain = 0.35
+
+# Cross-LO propagation gates per error type (spec §"Error-type gate").
+[cross_lo_propagation.default]
+max_depth = 3
+hop_decay = 0.5
+total_propagated_weight_cap = 0.7
+
+[cross_lo_propagation.error_gates.recall_failure]
+mean_factor = 0.0          # forgetting a definition is not evidence prereqs are weak
+variance_factor = 0.25
+scope = "all"
+
+[cross_lo_propagation.error_gates.scaffold_failure]
+mean_factor = 0.0
+variance_factor = 0.35
+scope = "all"
+
+[cross_lo_propagation.error_gates.arithmetic_slip]
+mean_factor = 0.0
+variance_factor = 0.10
+scope = "all"
+
+[recall_coverage.severity_examples.first_dont_know]
+attempt_type = "dont_know"
+hints_used = 0
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.85
+expected_error_type = "recall_failure"
+expected_severity_band = [0.70, 0.82]
+
+[recall_coverage.severity_examples.second_same_item_dont_know]
+attempt_type = "dont_know"
+hints_used = 0
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.85
+recent_same_item_failures = 1
+expected_error_type = "recall_failure"
+expected_severity_band = [0.95, 1.00]
+
+[recall_coverage.severity_examples.second_same_facet_dont_know]
+attempt_type = "dont_know"
+hints_used = 0
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.85
+recent_same_facet_failures = 1
+expected_error_type = "recall_failure"
+expected_severity_band = [0.80, 1.00]
+
+[recall_coverage.severity_examples.hinted_dont_know]
+attempt_type = "dont_know"
+hints_used = 2
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.80
+expected_error_type = "scaffold_failure"
+expected_severity_band = [0.85, 0.95]
+
+[recall_coverage.severity_examples.arithmetic_slip]
+attempt_type = "independent_attempt"
+correctness = 0.75
+expected_correctness = 0.70
+effective_coverage = 0.85
+target_error_type = "arithmetic_slip"
+expected_error_type = "arithmetic_slip"
+expected_severity_band = [0.25, 0.35]
+
+[recall_coverage.severity_examples.ambiguous_item]
+attempt_type = "independent_attempt"
+correctness = 0.0
+expected_correctness = 0.70
+effective_coverage = 0.85
+bad_item_suspicion = 0.70
+expected_error_type = "recall_failure"
+expected_severity_band = [0.45, 0.75]

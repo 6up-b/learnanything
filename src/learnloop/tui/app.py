@@ -4,8 +4,9 @@ from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.screen import Screen
-from learnloop.tui.screens.today import TodayScreen
+from learnloop.tui.screens.start import StartScreen
 from learnloop.tui.state import TuiState
+from learnloop.tui.theme import LEARNLOOP_THEME, LEARNLOOP_VARIABLES
 from learnloop.tui.widgets import TextStatic
 
 
@@ -20,34 +21,10 @@ class ErrorScreen(Screen):
 
 
 class LearnLoopApp(App):
-    CSS = """
-    Screen {
-        padding: 1 2;
-    }
-
-    #today-layout {
-        height: 1fr;
-    }
-
-    #queue-panel {
-        width: 42%;
-        padding-right: 2;
-    }
-
-    #detail-panel {
-        width: 58%;
-    }
-
-    #queue-title,
-    #detail-title {
-        text-style: bold;
-    }
-    """
+    CSS_PATH = "learnloop.tcss"
 
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("r", "refresh", "Refresh"),
-        ("enter", "open_selected", "Practice"),
     ]
 
     def __init__(self, vault_root: Path):
@@ -56,22 +33,22 @@ class LearnLoopApp(App):
         self.state: TuiState | None = None
         self.last_attempt_result = None
 
+    def get_theme_variable_defaults(self) -> dict[str, str]:
+        # Custom theme variables must resolve at CSS-parse time, which happens
+        # before on_mount registers the theme. Without this, any sheet using
+        # $probe raises "reference to undefined variable" and the app crashes.
+        return dict(LEARNLOOP_VARIABLES)
+
+    def on_mount(self) -> None:
+        self.register_theme(LEARNLOOP_THEME)
+        self.theme = "learnloop"
+
     def get_default_screen(self) -> Screen:
         try:
             self.state = TuiState.load(self.vault_root)
         except Exception as exc:
             return ErrorScreen(str(exc))
-        return TodayScreen(self.state)
-
-    def action_refresh(self) -> None:
-        screen = self.screen
-        if isinstance(screen, TodayScreen):
-            screen.action_refresh()
-
-    def action_open_selected(self) -> None:
-        screen = self.screen
-        if isinstance(screen, TodayScreen):
-            screen.action_open_selected()
+        return StartScreen(self.state)
 
 
 def run(vault_root: Path) -> None:

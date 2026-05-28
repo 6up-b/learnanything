@@ -161,6 +161,14 @@ def _add_practice_item(vault_root, item_id: str) -> None:
             "evidence_weights": {"recall": 1.0},
             "prompt": f"Define SVD for {item_id}.",
             "expected_answer": "A matrix factorization into U, Sigma, and V transpose.",
+            "difficulty": 0.55,
+            "tags": [],
+            "hints": ["Name the three factors."],
+            "hint_policy": {
+                "max_useful_hints": 1,
+                "fsrs_rating_cap_by_hint": {"1": "good"},
+                "mastery_alpha_dampening_by_hint": {"1": 0.5},
+            },
             "grading_rubric": {
                 "max_points": 4,
                 "criteria": [{"id": "correctness", "points": 4, "description": "Correct definition."}],

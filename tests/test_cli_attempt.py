@@ -7,11 +7,12 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.db.repositories import Repository
+from learnloop.db.repositories import MasteryState, Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import create_basic_vault
+from tests.helpers import NOW_ISO, create_basic_vault
 
 
 def test_cli_attempt_json_and_show_attempt(tmp_path):
@@ -57,6 +58,39 @@ def test_cli_attempt_json_and_show_attempt(tmp_path):
     assert why_payload["components"]["active_goal"] == 0.8
 
 
+def test_cli_attempt_defaults_to_allowed_open_text_attempt_type(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    practice_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    practice_item = read_yaml(practice_path)
+    practice_item["practice_mode"] = "constructed_response"
+    practice_item["attempt_types_allowed"] = ["open_text"]
+    write_yaml(practice_path, practice_item)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "attempt",
+            "pi_svd_define_001",
+            "--vault",
+            str(vault_root),
+            "--answer",
+            "SVD is U Sigma V^T.",
+            "--criterion-points",
+            "correctness=4",
+            "--confidence",
+            "5",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    attempt_id = json.loads(result.output)["attempt"]["attempt_id"]
+    repository = Repository(paths.sqlite_path)
+    assert repository.fetch_practice_attempt(attempt_id)["attempt_type"] == "open_text"
+
+
 def test_cli_show_attempt_includes_evidence_and_surprise(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
@@ -96,6 +130,50 @@ def test_cli_show_attempt_includes_evidence_and_surprise(tmp_path):
     assert attempt_payload["record"]["surprise"]["observed_joint_bucket"]["error_type"] == "conceptual_slip"
     assert shown_error.exit_code == 0, shown_error.output
     assert json.loads(shown_error.output)["record"]["error_type"] == "conceptual_slip"
+
+
+def test_cli_attempt_passes_available_minutes_to_followup_gate(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    repository.upsert_mastery_state(
+        MasteryState(
+            learning_object_id="lo_svd_definition",
+            logit_mean=2.0,
+            logit_variance=1.0,
+            evidence_count=3,
+            last_evidence_at=NOW_ISO,
+            algorithm_version="mvp-0.1",
+            updated_at=NOW_ISO,
+        )
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "attempt",
+            "pi_svd_define_001",
+            "--vault",
+            str(vault_root),
+            "--answer",
+            "SVD is exactly eigendecomposition.",
+            "--criterion-points",
+            "correctness=1",
+            "--fatal-errors",
+            "conceptual_slip",
+            "--confidence",
+            "4",
+            "--available-minutes",
+            "0",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    attempt_id = json.loads(result.output)["attempt"]["attempt_id"]
+    surprise = repository.latest_attempt_surprise(attempt_id)
+    assert surprise["suppressed_actions"] == ["intervention_followup:no_time"]
 
 
 def test_cli_attempt_uses_codex_http_when_runtime_ready(tmp_path):
@@ -139,6 +217,7 @@ def test_cli_attempt_uses_codex_http_when_runtime_ready(tmp_path):
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
     config_path = vault_root / "learnloop.toml"
     text = config_path.read_text(encoding="utf-8")
+    text = text.replace('provider = "sdk"', 'provider = "http"')
     text = text.replace('checkout_path = "../codex"', f'checkout_path = "{checkout.as_posix()}"')
     text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
     text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')

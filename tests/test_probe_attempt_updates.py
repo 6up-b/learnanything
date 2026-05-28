@@ -35,11 +35,15 @@ def test_record_probe_attempt_completes_on_convergence(tmp_path):
     paths = create_basic_vault(vault_root)
     loaded = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
+    # Latent variance already below the convergence threshold (the mastery family
+    # is pinned down). Convergence is read off the logit variance directly, not
+    # the sigmoid-compressed display variance, so an uninformative P=1.0 must NOT
+    # converge — see test_record_probe_attempt_does_not_converge_on_uninformative_prior.
     repository.upsert_mastery_state(
         MasteryState(
             learning_object_id="lo_svd_definition",
             logit_mean=0.0,
-            logit_variance=1.0,
+            logit_variance=0.05,
             evidence_count=4,
             last_evidence_at=NOW_ISO,
             algorithm_version="mvp-0.1",
@@ -53,6 +57,34 @@ def test_record_probe_attempt_completes_on_convergence(tmp_path):
     state = repository.probe_state("lo_svd_definition")
     assert state.status == "complete"
     assert "mastery" in state.families_converged
+
+
+def test_record_probe_attempt_does_not_converge_on_uninformative_prior(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    # P=1.0 is the initial, uninformative prior: display variance is ~0.0625
+    # (below the 0.10 threshold) but the latent is wide open. The probe must keep
+    # going to its attempt target rather than converging after one attempt.
+    repository.upsert_mastery_state(
+        MasteryState(
+            learning_object_id="lo_svd_definition",
+            logit_mean=0.0,
+            logit_variance=1.0,
+            evidence_count=1,
+            last_evidence_at=NOW_ISO,
+            algorithm_version="mvp-0.1",
+            updated_at=NOW_ISO,
+        )
+    )
+    enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+
+    record_probe_attempt(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+
+    state = repository.probe_state("lo_svd_definition")
+    assert state.status == "in_progress"
+    assert state.families_converged == []
 
 
 def test_record_probe_attempt_is_noop_when_not_probing(tmp_path):

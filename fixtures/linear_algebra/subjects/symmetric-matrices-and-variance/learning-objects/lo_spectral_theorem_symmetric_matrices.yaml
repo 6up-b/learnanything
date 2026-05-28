@@ -1,0 +1,40 @@
+schema_version: 1
+id: lo_spectral_theorem_symmetric_matrices
+title: Use the Spectral Theorem for Real Symmetric Matrices
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+concept: concept_spectral_theorem_real_symmetric
+knowledge_type: theorem_application
+status: active
+contradicts:
+summary: For real matrices, being symmetric is equivalent to being orthogonally 
+  diagonalizable, so symmetric matrices have real eigenvalues and an orthonormal
+  eigenbasis.
+prerequisites:
+  - symmetric matrices
+  - orthogonal diagonalization
+  - eigenvectors
+  - orthonormal bases
+confusables:
+  - diagonalizable but not orthogonally diagonalizable
+  - having real eigenvalues without an orthonormal eigenbasis
+difficulty_prior: 0.58
+difficulty_source: llm_estimate
+tags:
+  - spectral-theorem
+  - symmetric-matrices
+  - orthogonal-diagonalization
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:25Z'
+updated_at: '2026-05-26T00:00:25Z'

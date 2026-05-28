@@ -59,6 +59,36 @@ def test_accept_cli_applies_and_show_proposal_includes_items(tmp_path):
     assert load_vault(vault_root).learning_objects["lo_svd_applications"].title == "SVD applications"
 
 
+def test_accept_cli_all_flag_applies_every_pending_item(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    _seed_agent_and_proposal(repository)
+    runner = CliRunner()
+
+    accepted = runner.invoke(app, ["accept", "patch_authoring_1", "--all", "--vault", str(vault_root)])
+
+    loaded = load_vault(vault_root)
+    assert accepted.exit_code == 0, accepted.output
+    assert "Accepted and applied 2 proposal item" in accepted.output
+    assert "lo_svd_applications" in loaded.learning_objects
+    assert "pi_svd_applications_001" in loaded.practice_items
+
+
+def test_accept_cli_rejects_all_with_items(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    runner = CliRunner()
+
+    accepted = runner.invoke(
+        app,
+        ["accept", "patch_authoring_1", "--all", "--items", "proposal_item_lo", "--vault", str(vault_root)],
+    )
+
+    assert accepted.exit_code == 1
+    assert "--all cannot be combined with --items." in accepted.output
+
+
 def test_reject_proposal_item_does_not_mutate_yaml(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)

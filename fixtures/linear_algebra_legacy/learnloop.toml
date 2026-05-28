@@ -1,0 +1,75 @@
+schema_version = 1
+
+[storage]
+sqlite_path = "state.sqlite"
+
+[algorithms]
+algorithm_version = "mvp-0.2"
+
+[scheduler]
+forgetting_risk_weight = 1.0
+active_goal_weight = 0.35
+recent_error_weight = 0.50
+probe_eig_weight = 0.25
+short_session_minutes = 20
+
+[scheduler.surprise]
+theta_pos = 1.5
+theta_neg = 1.5
+alpha_interval = 0.3
+f_min = 0.5
+f_max = 1.5
+epsilon_error_surprise = 0.05
+
+[scheduler.followup]
+tau_followup_nats = 0.3
+gamma_min = 0.5
+
+[mastery]
+base_observation_variance = 1.0
+sigma2_drift = 0.01
+p_max = 4.0
+
+[probe]
+attempts_target_default = 3
+attempts_target_with_strong_claim = 1
+claim_skip_threshold = 0.75
+variance_convergence_threshold = 0.10
+hypothesis_set_max_size = 5
+
+[codex]
+provider = "sdk"
+checkout_path = "../../../codex"
+revision = "<pinned-commit>"
+startup_command = ""
+startup_timeout_seconds = 20
+healthcheck_timeout_seconds = 5
+auth_mode = "chatgpt"
+model = "gpt-5.5"
+reasoning_effort = "medium"
+reasoning_summary = "none"
+sdk_python_path = "sdk/python/src"
+sdk_codex_bin = ""
+sdk_launch_command = ""
+base_url = "http://127.0.0.1:8765"
+healthcheck_path = "/health"
+canonical_ingest_path = "/canonical-ingest"
+authoring_path = "/authoring-proposal"
+grading_path = "/grading-proposal"
+
+# Family-keyed mastery damage per error type (spec ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§"Error-aware updates").
+# recall_failure is the deterministic attribution for `dont_know` attempts.
+[error_impacts.recall_failure]
+families = { recall = -0.25 }
+lo_mastery_delta = -0.05
+
+# Cross-LO propagation gates per error type (spec ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§"Error-type gate").
+[cross_lo_propagation.default]
+max_depth = 3
+hop_decay = 0.5
+total_propagated_weight_cap = 0.7
+
+[cross_lo_propagation.error_gates.recall_failure]
+mean_factor = 0.0          # forgetting a definition is not evidence prereqs are weak
+variance_factor = 0.25
+scope = "all"

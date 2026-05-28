@@ -1,0 +1,32 @@
+schema_version: 1
+id: lo_singular_values_infer_properties
+title: Use singular values to infer matrix properties
+subjects:
+  - singular-value-decomposition
+concept: concept_singular_values_vectors
+knowledge_type: conceptual
+status: active
+contradicts:
+summary: Relate the nonzero singular values to rank, the largest singular value 
+  to the spectral norm, and the count of zero singular values to null-space 
+  dimension.
+prerequisites:
+  - concept_svd_factorization
+confusables: []
+difficulty_prior: 0.47
+difficulty_source: llm_estimate
+tags:
+  - rank
+  - norms
+  - inference
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: ctx_task
+      path: context
+      locator:
+      quote:
+      quote_hash:
+created_at: '2026-05-21T20:51:10Z'
+updated_at: '2026-05-24T01:15:19Z'

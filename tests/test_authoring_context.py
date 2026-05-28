@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from learnloop.clock import FrozenClock
-from learnloop.services.proposals import authoring_context_hash, build_authoring_context
+from learnloop.services.proposals import authoring_context_hash, authoring_context_stats, build_authoring_context
 from learnloop.vault.loader import add_note, add_subject, load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -53,3 +53,17 @@ def test_authoring_context_includes_explicit_source_refs(tmp_path):
 
     assert "manual_svd" in context.source_ids
     assert context.instructions == "Focus on definitions."
+
+
+def test_authoring_context_stats_report_request_size(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    loaded = load_vault(vault_root)
+
+    stats = authoring_context_stats(build_authoring_context(loaded, subjects=["linear-algebra"]))
+
+    assert stats["counts"]["learning_objects"] == 1
+    assert stats["counts"]["practice_items"] == 1
+    assert stats["chars"]["output_schema"] > 0
+    assert stats["chars"]["prompt_plus_schema"] >= stats["chars"]["output_schema"]
+    assert stats["approx_tokens"]["prompt_plus_schema"] > 0

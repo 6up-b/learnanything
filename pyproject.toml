@@ -11,8 +11,13 @@ requires-python = ">=3.12"
 dependencies = [
   "pydantic>=2.7",
   "ruamel.yaml>=0.18",
-  "textual>=0.80",
+  "textual>=8.2.7",
   "typer>=0.12",
+  "trafilatura>=1.9",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.0",
+  "youtube-transcript-api>=0.6",
+  "openai>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -24,7 +29,7 @@ dev = [
 learnloop = "learnloop.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/learnloop"]
+packages = ["src/learnloop", "src/learnloop_sidecar"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

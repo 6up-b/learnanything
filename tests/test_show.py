@@ -8,6 +8,8 @@ from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.services.observations import record_observation, register_observation_template
+from learnloop.services.probes import enter_probe
 from learnloop.services.proposals import accept_items, persist_authoring_proposal
 from learnloop.codex.schemas import AuthoringProposal
 from learnloop.vault.loader import add_note, load_vault
@@ -58,6 +60,36 @@ def test_show_inspects_every_deterministic_id(tmp_path):
     apply_result = accept_items(vault_root, patch_id, [item_id])
     change_batch_id = apply_result.change_batch_ids[0]
     evidence_id = repository.fetch_grading_evidence(result.attempt_id)[0].id
+    learner_claim_id = repository.insert_learner_claim(
+        {
+            "id": "claim_show",
+            "claim_type": "self_rating",
+            "scope_type": "learning_object",
+            "scope_id": "lo_svd_definition",
+            "evidence_family": "recall",
+            "claimed_level": 0.9,
+            "prior_pseudo_count": 4.0,
+            "source": "manual_cli",
+        },
+        clock=FrozenClock(NOW),
+    )
+    hypothesis_set = enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+    observation_template_id = register_observation_template(
+        repository,
+        domain="linear-algebra",
+        version="1",
+        title="Reflection",
+        template_yaml="schema_version: 1\nfields:\n  - id: reflection\n    type: text\n",
+        clock=FrozenClock(NOW),
+    )
+    observation = record_observation(
+        loaded,
+        repository,
+        template_id=observation_template_id,
+        response={"reflection": "ok"},
+        related_learning_object_id="lo_svd_definition",
+        clock=FrozenClock(NOW),
+    )
 
     assert _show_type(vault_root, "lo_svd_definition") == "learning_object"
     assert _show_type(vault_root, "pi_svd_define_001") == "practice_item"
@@ -72,6 +104,10 @@ def test_show_inspects_every_deterministic_id(tmp_path):
     assert _show_type(vault_root, item_id) == "proposal_item"
     assert _show_type(vault_root, change_batch_id) == "change_batch"
     assert _show_type(vault_root, evidence_id) == "grading_evidence"
+    assert _show_type(vault_root, learner_claim_id) == "learner_claim"
+    assert _show_type(vault_root, hypothesis_set.id) == "hypothesis_set"
+    assert _show_type(vault_root, observation_template_id) == "observation_template"
+    assert _show_type(vault_root, observation.observation_event_id) == "observation_event"
 
 
 def test_show_attempt_includes_grading_and_surprise(tmp_path):

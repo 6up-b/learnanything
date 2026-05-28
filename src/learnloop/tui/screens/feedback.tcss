@@ -1,0 +1,139 @@
+FeedbackScreen {
+    background: $background;
+}
+
+#feedback-layout {
+    height: 1fr;
+}
+
+#feedback-title {
+    color: $primary;
+}
+
+#fb-breadcrumb {
+    height: 1;
+    display: none;
+}
+FeedbackScreen.-graded #fb-breadcrumb {
+    display: block;
+}
+
+#expected-answer {
+    color: $foreground;
+}
+
+#rubric {
+    color: $text-muted;
+}
+
+Input {
+    background: $panel;
+    border: solid $border-blurred;
+}
+Input:focus {
+    border: solid $primary;
+}
+
+/* Fatal-error toggles: active state colored via -on (set in toggle_fatal). */
+.fatal-toggle.-on {
+    background: $error-muted;
+    color: $text-error;
+    border: solid $error;
+}
+
+#fatal-summary {
+    color: $text-muted;
+}
+
+#feedback-summary {
+    color: $text-primary;
+}
+
+/* Negative-surprise follow-up banner: composed always, revealed by class. */
+#negative-surprise-banner {
+    display: none;
+    height: auto;
+}
+FeedbackScreen.-negative-surprise #negative-surprise-banner {
+    display: block;
+    border-left: thick $primary;
+    background: $primary-muted;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+/* ── results vs. form visibility ──────────────────────────────────────── */
+#results {
+    display: none;
+    height: auto;
+}
+FeedbackScreen.-graded #results {
+    display: block;
+}
+#grade-form {
+    height: auto;
+}
+FeedbackScreen.-graded #grade-form {
+    display: none;
+}
+
+#result-head { height: auto; }
+
+#score-block {
+    border: round $border-blurred;
+    padding: 0 1;
+    margin-top: 1;
+    height: auto;
+}
+
+#rubric-evidence { height: auto; }
+
+#tutor-note {
+    border-left: thick $accent;
+    background: $surface;
+    padding: 0 1;
+    margin-top: 1;
+    height: auto;
+}
+
+/* Error attribution: only when an error event was written. */
+#error-header,
+#error-attributions {
+    display: none;
+}
+FeedbackScreen.-has-errors #error-header,
+FeedbackScreen.-has-errors #error-attributions {
+    display: block;
+}
+#error-attributions {
+    border-left: thick $error;
+    background: $error 10%;
+    padding: 0 1;
+    height: auto;
+}
+
+#belief-update {
+    border: round $border-blurred;
+    padding: 0 1;
+    height: auto;
+}
+
+#next-row {
+    height: auto;
+    margin-top: 1;
+}
+#next-followup,
+#next-schedule {
+    width: 1fr;
+    border: round $border-blurred;
+    padding: 0 1;
+    height: auto;
+}
+#next-followup {
+    border-left: thick $success;
+    margin-right: 1;
+}
+
+#today-button {
+    margin-top: 1;
+}

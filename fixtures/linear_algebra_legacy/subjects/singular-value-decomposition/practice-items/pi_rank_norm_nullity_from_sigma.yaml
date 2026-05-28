@@ -1,0 +1,58 @@
+schema_version: 1
+id: pi_rank_norm_nullity_from_sigma
+learning_object_id: lo_singular_values_infer_properties
+subjects:
+  - singular-value-decomposition
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - rank-from-singular-values
+  - spectral-norm
+  - nullity
+evidence_weights: {}
+prompt: A 3 x 4 matrix A has singular values 5, 2, and 0. State rank(A), 
+  ||A||_2, and dim N(A). Briefly justify each value.
+expected_answer: rank(A) = 2, ||A||_2 = 5, and dim N(A) = 2. The rank is the 
+  number of nonzero singular values, the spectral norm is the largest singular 
+  value, and nullity is 4 - 2 = 2.
+difficulty: 0.45
+difficulty_source: llm_estimate
+tags:
+  - core-check
+  - inference
+hints:
+  - Count only the nonzero singular values.
+  - For a matrix with n columns, nullity = n - rank.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: States the correct rank.
+    - id: c2
+      points: 1.0
+      description: States the correct spectral norm.
+    - id: c3
+      points: 1.0
+      description: States the correct nullity.
+    - id: c4
+      points: 1.0
+      description: Provides a correct justification tied to singular values and 
+        matrix dimensions.
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: ctx_task
+      path: context
+      locator:
+      quote:
+      quote_hash:
+created_at: '2026-05-21T20:51:10Z'
+updated_at: '2026-05-24T01:15:19Z'

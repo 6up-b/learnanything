@@ -15,6 +15,9 @@ MVP includes:
 - Learning Object and Practice Item authoring through Codex proposals.
 - Codex-generated proposals from notes and canonical sources into proposed
   Learning Object / Practice Item patches.
+- Codex-forward canonical source ingestion for website pages, YouTube captions,
+  arXiv HTML, and textbook chapters into source-grounded Learning Objects and
+  proposal batches.
 - Codex-generated proposals that modify existing Learning Objects, Practice
   Items, and concept-graph state.
 - Codex grading with structured evidence.
@@ -81,6 +84,7 @@ learnanything/
         observations.py
         proposals.py
         scheduler.py
+        source_ingestion.py
       codex/
         client.py
         prompts.py
@@ -149,6 +153,10 @@ my-learning-vault/
     goals.md
     goals.yaml
 
+  canonical-sources/
+    ingest-log.md
+    raw/
+
   subjects/
     <subject-id>/
       subject.md
@@ -166,6 +174,7 @@ my-learning-vault/
   .learnloop/
     backups/
     session-checkpoints/
+    source-cache/
 ```
 
 MVP loader rules:
@@ -233,6 +242,12 @@ attempts_target_with_strong_claim = 1
 claim_skip_threshold = 0.75
 variance_convergence_threshold = 0.10
 hypothesis_set_max_size = 5
+
+[ingest]
+window_char_cap = 150000
+min_content_chars = 400
+default_goal_priority = 0.5
+allow_auto_captions = false
 
 [codex]
 checkout_path = "../codex"
@@ -368,6 +383,403 @@ Notes and source excerpts.
 
 Codex authoring proposals cite notes through `SourceRef` values that resolve to
 note IDs, relative paths, and optional line or heading locators.
+
+Canonical-source notes add a `canonical_source` frontmatter block. The loader
+must preserve this block even when it does not interpret every field.
+
+```yaml
+canonical_source:
+  kind: website_page              # website_page | youtube_video | arxiv_html | textbook_chapter
+  original_uri: https://example.edu/topic
+  canonical_uri: https://example.edu/topic
+  title: Source title
+  authors: []
+  retrieved_at: 2026-05-19T00:00:00Z
+  content_hash: sha256:...
+  license_hint: null
+```
+
+### Codex-Forward Canonical Source Ingester
+
+The MVP includes a `services/source_ingestion.py` pipeline behind
+`learnloop ingest`. This is a Codex-forward authoring path: LearnLoop owns
+source acquisition, normalization, hashing, validation, and writes, while Codex
+owns the semantic extraction step that turns trusted source chunks into
+Learning Objects and related proposal items.
+
+The ingester initializes external trusted material in LearnLoop by:
+
+1. normalizing the source into Markdown chunks with stable locators;
+2. registering a subject note with `source_type: canonical_source`;
+3. caching non-authoritative fetch artifacts under `.learnloop/source-cache/`;
+4. running the Codex `canonical-ingestor` role to extract atomic Learning
+   Objects, Practice Items, concept edges, and rubrics; and
+5. persisting the returned `AuthoringProposal` through the normal proposal
+   workflow.
+
+Codex never fetches URLs and never writes source files. LearnLoop fetches,
+normalizes, hashes, and registers the source first, then passes bounded chunks
+and constraints to Codex. Acceptance still goes through `learnloop accept`.
+The intended learner experience is that `learnloop ingest <source>` produces a
+usable set of source-grounded Learning Objects without a second authoring
+command, plus the Practice Items, concept edges, and rubric drafts needed to
+begin practice immediately after approval.
+
+The default user journey is source-first:
+
+1. The learner supplies a canonical source and, when useful, a target subject,
+   an existing Learning Object anchor set, or a `--goal`.
+2. LearnLoop detects or accepts the source kind, registers the canonical source
+   note, and builds bounded ingest windows of source chunks with locators.
+3. Codex propagates the source into a practice-ready proposal bundle: Learning
+   Objects first, then Practice Items, concept edges, and rubric drafts.
+4. LearnLoop validates the bundle and applies the low-risk, source-grounded
+   items immediately (auto-apply; see Routing policy), then shows a summary
+   grouped by Learning Object: which items were auto-applied and are now live,
+   and which remain `review_required`. Counts cover Practice Items, concept
+   edges, rubrics, auto-applied items, and review-required items.
+5. LearnLoop establishes goal linkage so the new Learning Objects are reachable
+   by an active goal (see Goal linkage); otherwise they would be cold and never
+   scheduled.
+6. The learner approves the remaining review-required items (the whole bundle, a
+   single Learning Object bundle, or specific items), edits drafts before
+   accepting, or rejects items. Rejecting an item that was already auto-applied
+   deactivates the created entity (see Routing policy); rejecting a still-pending
+   item is a no-op decision with no content side effect.
+
+Source-kind detection: the user-facing command defaults to
+`learnloop ingest <source> --kind auto`. An explicit `--kind` always wins;
+auto-detection runs only when `--kind` is `auto` or omitted, and resolves the
+acquisition adapter as follows:
+
+| source | detected kind |
+|---|---|
+| host `youtube.com` / `youtu.be` | `youtube_video` |
+| host `arxiv.org` (`/abs/<id>` or `/html/<id>`) | `arxiv_html` |
+| any other `http(s)://` URL | `website_page` |
+| local `.html` / `.htm` file | `website_page` |
+| local `.pdf` | fail — "PDF OCR is deferred" |
+| other / unknown binary | fail — "unsupported or inaccessible source" |
+
+A local arXiv HTML file cannot be reliably distinguished from generic HTML, so
+it requires explicit `--kind arxiv_html`. When `--learning-object` anchors are
+supplied under `--kind auto`, the ingester auto-promotes to `textbook_chapter`
+mode (the acquisition adapter is still whichever the source resolves to, normally
+the local-file/website path); textbook mode then requires a pre-existing
+`--subject`. Specialized source kinds are adapters behind the same workflow, not
+separate authoring flows. If a source can be rendered into bounded Markdown
+chunks with stable locators the ingester accepts it as canonical material;
+unsupported binary or inaccessible sources fail before Codex is called.
+
+Supported MVP source kinds:
+
+- `website_page`: accepts a URL or local HTML file. LearnLoop extracts readable
+  main text, headings, code/math blocks when present, canonical URL, title, and
+  retrieval hash. `SourceRef.locator` uses heading/paragraph anchors.
+- `youtube_video`: accepts a YouTube URL and pulls captions/transcripts only.
+  MVP does not download audio or video. Prefer human captions, fall back to
+  auto-captions when explicitly allowed, and fail with a clear error when no
+  captions are available. `SourceRef.locator` uses timestamp ranges.
+- `arxiv_html`: accepts arXiv HTML by URL or local file. Capture arXiv id,
+  version, title, authors, abstract, section headings, theorem/equation labels
+  when present, and content hash. PDF OCR is deferred.
+- `textbook_chapter`: accepts a local chapter file or URL plus one or more
+  existing Learning Object anchors. It retrieves worked examples and practice
+  problems from the chapter and maps them to the provided LOs. New LO creation
+  is allowed only as a gap proposal; practice items tied to the provided LOs
+  are the default output.
+
+Textbook chapter mode requires explicit LO constraints:
+
+```text
+learnloop ingest <source> \
+  --kind textbook_chapter \
+  --subject linear-algebra \
+  --learning-object lo_svd_definition \
+  --learning-object lo_svd_computation
+```
+
+The canonical-ingestor output is an `AuthoringProposal`. It should propose, by
+default:
+
+- atomic Learning Objects for source-defined concepts, claims, procedures,
+  definitions, facts, theorems, derivations, models, and misconceptions;
+- Practice Items tied to those Learning Objects, using source-provided
+  exercises, examples, worked problems, transcript walkthroughs, or webpage
+  questions when available;
+- generated source-linked Practice Items when the source does not obviously
+  provide enough practice material, including cloze, short-answer,
+  worked-problem, proof, transfer, and misconception-check prompts;
+- concept edges and prerequisite links;
+- rubric drafts and expected answers for each Practice Item when the source or
+  Codex-generated item gives enough support.
+
+The expected output is a practice-ready propagation bundle. A newly created
+Learning Object should normally have at least one Practice Item and one grading
+rubric draft before it is considered ready for scheduling. If Codex cannot
+produce a reasonable Practice Item or rubric for a Learning Object, it should
+still propose the Learning Object when source-grounded, but mark the bundle as
+incomplete in the proposal summary.
+
+Learning Object extraction is not optional for general canonical ingestion.
+When Codex determines that no durable Learning Object should be created, the
+proposal must explain why in its summary. Textbook-chapter ingestion is the
+exception: when explicit `--learning-object` anchors are provided, practice
+problem retrieval for those existing Learning Objects is the primary output and
+new Learning Objects are gap proposals.
+
+Codex extraction constraints:
+
+- Every created Learning Object and Practice Item must include at least one
+  source ref unless it is explicitly marked as an inferred gap.
+- Source-grounded Learning Objects should be small enough to schedule and test
+  directly; chapter-sized or section-sized summaries are invalid.
+- Generated Practice Items must identify the source span or Learning Object
+  they are derived from and explain in the rationale that no direct source
+  exercise/example was available.
+- Generated Practice Items must include an audit artifact: a deterministic
+  validation result when available, or a step-by-step solution/rubric trace when
+  deterministic validation is not available for that practice mode.
+- Codex should prefer updating or attaching to existing Learning Objects when
+  the context contains a clear match.
+- Codex may propose new concepts and edges, but LearnLoop performs collision
+  checks, source-ref resolution, and schema validation before any write.
+
+Generated Practice Item audit policy:
+
+- Deterministic validators are preferred whenever practical: exact answer
+  normalization for cloze/short-answer items, symbolic or numeric checks for
+  math/computation, parser/compiler checks for code-like items, and Lean or
+  another configured proof checker for formal proof items.
+- Lean and other domain validators are optional adapters, not core MVP
+  dependencies. If no validator is configured for the mode, Codex must provide
+  an auditable step-by-step solution, expected answer, and grading rubric.
+- Source-linked generated Practice Items may request `review_route =
+  auto_apply` when source refs resolve, schema validation passes, and the audit
+  artifact is present with status `passed` or `not_applicable_with_trace`.
+- Generated Practice Items must be `review_required` only when source refs do
+  not resolve, deterministic validation fails, the audit trace is missing, or
+  LearnLoop detects a duplicate/collision that needs human judgment.
+
+Routing policy:
+
+- Direct extraction from a registered canonical source may request
+  `review_route = auto_apply` if every item has resolvable `SourceRef`s.
+- Format transforms of a source span, such as cloze deletion or answer
+  normalization, may auto-apply with provenance.
+- Source-linked generated Practice Items, including generated transfer prompts
+  and misconception checks, may auto-apply when they pass the generated-item
+  audit policy above.
+- Textbook practice problems without source-supplied answers may auto-apply
+  when Codex supplies an auditable solution trace and rubric and validation
+  passes.
+- Generated explanations that are not concrete Practice Items remain
+  `review_required` unless they are direct source-grounded extracts.
+- Missing or stale source hashes make the proposal invalid until the source is
+  re-ingested or the learner approves the changed source.
+- Auto-apply happens immediately when the batch is persisted: source-grounded
+  Learning Objects and Practice Items go live without a second command, so
+  `learnloop ingest <source>` yields practice-ready material in one step.
+- Because eligible items are already applied, `learnloop reject --items <id>` on
+  an auto-applied ingest item compiles a `deactivate_entity` patch operation for
+  the created entity (Learning Object → `status: dormant`; Practice Item →
+  `practice_item_state.active = 0`; concept edge → deactivated) and sets the
+  proposal item decision to `rejected`. The entity's mastery/FSRS rows are
+  retained, so deactivation removes it from scheduling without discarding
+  history. Rejecting an item that is still `review_required` (never applied) has
+  no content side effect. This reuses the existing `deactivate` operation and
+  does not depend on the deferred full-rollback model.
+
+Source acquisition and normalization (LearnLoop-owned):
+
+LearnLoop owns fetching, normalization, hashing, and caching; Codex never
+performs any of these. The pipeline has three stages with a strict separation of
+concerns:
+
+1. `SourceFetcher` (the only impure stage) returns a `FetchResult(raw_bytes,
+   content_type, original_uri, retrieved_at)` — transport-level facts only. The
+   network boundary is injectable here and never exercised by unit tests.
+2. `Normalizer` is a pure function of the `FetchResult`. It runs the per-kind
+   extraction (trafilatura, BeautifulSoup) and produces a `NormalizedSource` with
+   the single Markdown document **and** the full content descriptor (`title`,
+   `authors`, `canonical_uri`, `license_hint`, plus kind-specific labels).
+   Because it is pure, `content_hash = sha256(markdown)` is independent of fetch
+   transport and reproducible from saved bytes.
+3. `Chunker` is a pure function of the Markdown (see Chunking and windowing).
+
+Per-kind tooling is lazily imported so a core install stays light and an
+unavailable adapter fails before Codex is called:
+
+- `website_page`: `trafilatura` for main-text extraction in the Normalizer;
+  `canonical_uri` comes from the HTML `<link rel="canonical">` tag (parsed from
+  the raw bytes), falling back to `original_uri`. HTML is fetched via stdlib
+  `urllib.request` (consistent with the Codex client transport).
+- `arxiv_html`: `beautifulsoup4` + `lxml` in the Normalizer to capture section
+  headings, theorem/equation labels, authors, and abstract from arXiv's HTML
+  rendering. The fetcher accepts `/abs/<id>` and canonicalizes to the
+  `/html/<id>` rendering, failing cleanly when no HTML rendering exists.
+- `youtube_video`: `youtube-transcript-api` for captions only; no audio or video
+  download. Human captions are preferred; auto-captions are used only with
+  `--allow-auto-captions` (default from `ingest.allow_auto_captions`, off), and
+  the run fails with a clear error when no usable captions are available.
+- `textbook_chapter`: reuses the `website_page`/local-file acquisition path;
+  structure comes from the supplied `--learning-object` anchors, not from
+  parsing.
+
+Normalization, chunking, locator assignment, and hashing are pure functions of
+the raw bytes and are unit-tested against saved fixtures under
+`tests/fixtures/sources/<kind>/`. If normalization yields no usable content
+(zero leaf chunks, or prose below `ingest.min_content_chars`), the ingest fails
+before Codex is called with "source produced no usable content" — this extends
+the binary/inaccessible fail-fast to fetched-but-empty sources.
+
+Two caches with distinct roles:
+
+- `.learnloop/source-cache/` is a transient, URL-keyed, git-ignored fetch cache.
+  It lets a retry skip the network before `content_hash` is known.
+- `canonical-sources/raw/` retains, alongside the registered note, the exact raw
+  bytes that produced the registered `content_hash`. Normalization and chunking
+  always reproduce from these retained bytes, so re-runs and tests are
+  reproducible without the network.
+
+Chunking and windowing:
+
+The normalized Markdown is parsed into a section tree by heading, and each leaf
+content block becomes one `SourceChunk`: a paragraph (`chunk_kind = prose`), a
+code or math block (`code` / `math`), or — for `youtube_video` — a caption
+cue-range (`caption`). A chunk carries its `locator`, `heading_path`,
+`chunk_kind`, optional native `label`, and `ordinal`. Chunk granularity is the
+grounding precision Codex can cite at, so chunks stay leaf-level; a single
+oversized block is passed whole rather than sub-split (sub-splitting would force
+synthetic ordinals whose numbering shifts when the cap changes, breaking locator
+stability).
+
+Chunks are grouped into one or more bounded **windows** at section boundaries: a
+section is never split across windows. If the whole source fits under
+`ingest.window_char_cap` (default ~150k characters) it forms a single window and
+a single `run_canonical_ingest` call. Otherwise the ingester emits one Codex call
+per window and merges the returned `AuthoringProposal`s into one proposal batch.
+Because an LO's defining span almost always lies within one section, it lands in
+exactly one window, which keeps cross-window duplication rare; when Codex does
+propose the same entity id in two windows, the later occurrence merges into the
+earlier item. A lone section that exceeds the cap is passed whole as a
+best-effort edge case.
+
+Locator and hash stability:
+
+- `content_hash` is `sha256` over the normalized Markdown document
+  (post-normalization, pre-chunk), stored as `sha256:...` in the note
+  frontmatter. It is independent of fetch transport and boilerplate.
+- Locators are content-derived and section-relative, never global byte/line
+  offsets, so edits in one section do not renumber anchors in another:
+  - `website_page` / `arxiv_html`: heading-path slug plus an ordinal within that
+    heading, e.g. `svd-definition/p3`; code and math blocks use `.../block2`.
+  - Duplicate heading slugs are disambiguated by a document-order occurrence
+    index on the heading path (`examples/p1` vs `examples-2/p1`), assigned
+    deterministically so re-fetches yield identical anchors.
+  - `arxiv_html`: prefer native labels when present (`thm:2.1`, `eq:5`, section
+    numbers), falling back to the heading-path form.
+  - `youtube_video`: a half-open caption-cue range in seconds, e.g.
+    `t=90.0-125.0`, snapped to cue boundaries so identical transcripts yield
+    identical ranges. Human-caption ranges are stable across fetches;
+    auto-caption segmentation can shift, so auto-caption locator stability is
+    best-effort.
+- Every `SourceRef.locator` Codex returns must match a `locator` present in the
+  ingest window's `chunks`. Because chunks are ephemeral context (never
+  persisted), this check runs in `services/source_ingestion.py` immediately after
+  Codex returns each window and before persistence — the only point where the
+  chunks are in hand. An item with an unmatched locator is routed through the
+  existing unresolved-source-ref channel (`services/proposals.py`): its
+  validation status becomes invalid and it is blocked from auto-apply, but it is
+  still persisted so the learner can review and fix it. This strengthens the
+  auto-apply grounding check beyond note-existence.
+
+Idempotency and re-ingest:
+
+- Each ingest run is gated by an `agent_runs` row with
+  `purpose = "canonical_ingest"` and
+  `input_context_hash = sha256(canonical_uri + content_hash + source_kind +
+  sorted(target_learning_object_ids))`. No new table is required; this reuses
+  the existing `agent_runs.input_context_hash` column and the note's
+  `content_hash` frontmatter.
+- Before calling Codex, LearnLoop looks up a completed `canonical_ingest` run
+  with the same `input_context_hash`. If one exists, the ingest is a no-op that
+  reports the prior proposal batch, so the same canonical URI and hash never
+  produce duplicate notes or duplicate proposal items. Only a completed run
+  short-circuits; a run that failed before completion is retried.
+- A run is marked completed only after Codex responds for every window and the
+  merged batch is persisted. A multi-window ingest is therefore all-or-nothing:
+  if any window's Codex call fails, the run is not completed and no partial batch
+  is persisted, so a retry re-runs the whole ingest (the fetch cache makes
+  re-fetch free).
+- On failure before completion (Codex never responded — transport error,
+  timeout, or `CodexUnavailable`), the registered canonical-source note and any
+  newly scaffolded subject are kept, not rolled back. Registration is idempotent
+  (same `canonical_uri` + `content_hash` reuses the note) and a re-run of
+  `learnloop ingest` resumes from the fetch cache. When Codex does respond — even
+  with an empty or all-invalid proposal — the run is completed and the batch is
+  persisted for auditability, so a re-run is a correct no-op.
+- A changed source yields a new `content_hash`, hence a new `input_context_hash`
+  and a new proposal batch that cites the updated hash. Its summary diffs against
+  the most recent batch for the same `canonical_uri` (added, removed, and changed
+  locators). For each already-accepted Learning Object or Practice Item grounded
+  on a locator that changed or disappeared, LearnLoop emits a durable
+  `content_events` row (`event_type = 'source_span_changed'` or
+  `'source_span_removed'`) so the staleness is visible in `learnloop show` and the
+  TUI. FSRS, mastery, and scheduling state are left untouched (no
+  auto-deactivation); the flag clears when the learner accepts the re-grounded
+  proposal for that entity. Codex, seeing the existing entities in context,
+  proposes `update`s for matched Learning Objects, which route through
+  `review_required` per the normal policy.
+
+Subject resolution and registration ordering:
+
+Subject resolution is a LearnLoop-owned write that happens during registration
+(step 2), before the `CanonicalIngestContext` is built and before any returned
+proposal is validated. This ordering is required: Learning Object creation is
+rejected during validation when `subjects[0]` is not already present in the
+vault (`services/proposals.py`).
+
+- General flow: if `--subject <id>` is supplied but absent, LearnLoop scaffolds
+  it (`subjects/<id>/subject.md` and `concept-graph.yaml`) first. If `--subject`
+  is omitted, LearnLoop derives a stable subject id by slugifying the source
+  title and registers it. If the derived slug collides with an existing subject,
+  the ingest fails with guidance ("subject '<slug>' already exists; pass
+  `--subject` to target it explicitly") rather than silently merging into an
+  unrelated subject. Either way the subject exists before extraction.
+- Textbook flow: `--subject` is required and must already exist, since its
+  `--learning-object` anchors live under it; the ingester verifies the subject
+  and every anchor before fetching and fails fast otherwise.
+- The canonical-source note is registered under the resolved subject in the same
+  step, so its canonical `SourceRef`s resolve during proposal validation.
+
+Goal linkage:
+
+A freshly created Learning Object is cold
+(`learning_object_mastery.last_evidence_at IS NULL`), and the scheduler excludes
+cold Learning Objects unless they are in a probe phase (§14.3); a probe phase
+only opens for Learning Objects an active goal reaches through its concept at
+depth-1 (§14.4). So without an active goal, ingested Learning Objects would never
+be scheduled. The ingester therefore establishes goal linkage after the batch is
+persisted, when the proposed concept set is known:
+
+- If `--goal <id>` is supplied, it must reference an active goal; the ingester
+  extends that goal's `concept_anchors` to cover the batch's concepts.
+- Otherwise, if an active goal already reaches every batch concept, it is reused
+  unchanged.
+- Otherwise the ingester creates a new active goal in `profile/goals.yaml` (`id`
+  derived from the subject slug, `title` from the source title, `status: active`,
+  `priority = ingest.default_goal_priority`).
+
+In all cases the target goal's `concept_anchors` are extended with the distinct
+`concept` ids referenced by the Learning Object items in this batch (applied and
+pending alike), so every ingested Learning Object is depth-0 reachable and
+becomes eligible for a probe phase. The linkage and any goal creation are
+reported in the ingest summary so the action is never silent.
+
+These ingestion dependencies (`trafilatura`, `beautifulsoup4`, `lxml`,
+`youtube-transcript-api`) extend the Library Commitments in section 2 and are
+imported lazily by their adapters.
 
 ### Learning Objects
 
@@ -554,8 +966,38 @@ MVP adapter surface:
 ```python
 class CodexClient(Protocol):
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal: ...
+    def run_canonical_ingest(self, context: CanonicalIngestContext) -> AuthoringProposal: ...
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal: ...
 ```
+
+`CanonicalIngestContext` is a frozen dataclass (in `codex/client.py`) with these
+fields:
+
+- `vault_root: str`
+- `source_kind: SourceKind` — `website_page | youtube_video | arxiv_html |
+  textbook_chapter`
+- `canonical_source: dict` — descriptor of the already-registered
+  canonical-source note: `id`, `path`, `canonical_uri`, `original_uri`,
+  `title`, `authors`, `content_hash`, `retrieved_at`, `license_hint`
+- `chunks: list[SourceChunk]` — each chunk carries `locator`, `text`,
+  `chunk_kind` (`prose | heading | code | math | caption`), `heading_path`,
+  optional native `label`, and `ordinal`
+- `target_subject: str | None`
+- `target_learning_object_ids: list[str]` — populated only in textbook mode
+- `concepts: list[dict]` and `learning_objects: list[dict]` — existing vault
+  entities, for attach/collision avoidance, mirroring `AuthoringContext`
+- `extraction_plan: ExtractionPlan` — ordered plan that asks Codex to create
+  atomic Learning Objects first, then attach Practice Items, concept edges, and
+  rubric drafts to those objects, with `allow_generative_practice_items` and
+  `learning_object_required` flags
+- `instructions: str | None`
+
+The plan explicitly permits source-linked generated Practice Items when the
+source lacks obvious exercises, examples, or transcript walkthroughs, and
+requires an audit artifact for auto-apply eligibility. The return type is
+intentionally the same `AuthoringProposal` used by `learnloop propose`, and the
+transport endpoint is `codex.canonical_ingest_path` (default
+`/canonical-ingest`).
 
 Tutor streaming and simulator-style generation are not part of the MVP adapter
 surface.
@@ -660,6 +1102,20 @@ class SourceRef(BaseModel):
 class TargetEntity(BaseModel):
     entity_type: EntityType
     entity_id: str
+
+class ProposalItemAudit(BaseModel):
+    audit_type: Literal[
+        "deterministic_validator",
+        "lean",
+        "symbolic_solver",
+        "numeric_check",
+        "step_by_step_trace",
+    ]
+    status: Literal["passed", "failed", "not_applicable_with_trace"]
+    summary: str
+    trace: str | None = None
+    validator_name: str | None = None
+    validator_version: str | None = None
 ```
 
 ### Authoring Proposal
@@ -682,6 +1138,7 @@ class AuthoringProposalItem(BaseModel):
     source_ref_ids: list[str]
     rationale: str
     review_route: ReviewRoute
+    audit: ProposalItemAudit | None = None
     payload: (
         LearningObjectPatchPayload
         | PracticeItemPatchPayload
@@ -699,7 +1156,9 @@ Validation rules:
 - `target` is forbidden for `create`, except when creating an edge whose
   endpoints are existing entities.
 - `review_route = auto_apply` is allowed only for direct source-grounded
-  extraction that passes schema validation and source-ref resolution.
+  extraction, source-grounded format transforms, or source-linked generated
+  Practice Items whose audit is present and passed or
+  `not_applicable_with_trace`.
 - `review_route = reject` is advisory only. LearnLoop still persists the item
   as rejected or invalid so the run is auditable.
 - Codex may propose IDs, but LearnLoop owns final collision checks and may
@@ -1015,7 +1474,7 @@ use this file plus `migrations/001_initial.sql`.
 
 A column ships in MVP DDL only if it is read or written by:
 
-`init -> propose -> accept -> attempt -> grade -> attribute error -> update FSRS/mastery -> schedule next probe`
+`init -> ingest canonical source -> propose -> accept -> attempt -> grade -> attribute error -> update FSRS/mastery -> schedule next probe`
 
 Deferred feature columns are added later through `ALTER TABLE ADD COLUMN`
 migrations. In MVP, for example:
@@ -1202,9 +1661,10 @@ Defer from MVP canonical schema:
 
 Schema inclusion rule:
 
-If a table is required for `init -> generate proposal -> accept LO/PI patch ->
-attempt -> grade -> attribute error -> update FSRS/mastery -> schedule next
-probe`, it is MVP canonical. Everything else is deferred.
+If a table is required for `init -> ingest canonical source -> generate
+proposal -> accept LO/PI patch -> attempt -> grade -> attribute error -> update
+FSRS/mastery -> schedule next probe`, it is MVP canonical. Everything else is
+deferred.
 
 ## 12. MVP Build Path
 
@@ -1231,10 +1691,13 @@ Build in this order:
    grading services.
 9. Codex proposal authoring for Learning Object, Practice Item, concept,
    concept-edge, and rubric patches through the proposal workflow.
-10. Probe-EIG: `learner_theta`, `lo_probe_state`, hypothesis templates, pool-only
+10. Codex-forward canonical source ingestion for website pages, YouTube
+    captions, arXiv HTML, and textbook chapters into source-grounded Learning
+    Objects and proposal batches.
+11. Probe-EIG: `learner_theta`, `lo_probe_state`, hypothesis templates, pool-only
     probe scoring, and coverage-gap logging. Verify against fixture vaults and
     local attempt histories so scoring pathologies are caught before broader use.
-11. Observation templates, negative-surprise follow-up insertion, and
+12. Observation templates, negative-surprise follow-up insertion, and
     `learnloop doctor` coverage expansion.
 
 Implementation rule: Textual and CLI call the same service layer. Neither
@@ -1249,6 +1712,7 @@ The MVP CLI is a first-class surface with this required command set:
 learnloop init
 learnloop add-subject
 learnloop add-note
+learnloop ingest
 learnloop propose
 learnloop proposals
 learnloop accept
@@ -1267,6 +1731,14 @@ Command responsibilities:
 - `learnloop add-subject`: add a subject view and minimal subject metadata.
 - `learnloop add-note`: add or register note/source material for later
   proposal generation.
+- `learnloop ingest <source> [--kind auto] [--subject <id>] [--learning-object
+  <lo_id> ...] [--goal <goal_id>] [--allow-auto-captions]`: normalize a website
+  page, YouTube captions, arXiv HTML, or textbook chapter into a registered
+  canonical source note, then run the Codex canonical-ingestor role to create a
+  practice-ready proposal bundle of Learning Objects, Practice Items, concept
+  edges, and rubric drafts. Source-grounded items auto-apply immediately and goal
+  linkage is established so the new Learning Objects are schedulable; remaining
+  items are left for learner approval.
 - `learnloop propose`: run Codex authoring proposal generation from selected
   notes/sources/context.
 - `learnloop proposals`: list proposal batches and item-level decisions.

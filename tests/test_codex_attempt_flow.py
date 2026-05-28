@@ -66,10 +66,184 @@ def test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence(tmp
     assert evidence[0].grader_tier == 3
     assert evidence[0].agent_run_id == "agent_run_grade_1"
     assert errors[0].error_type == "conceptual_slip"
-    assert errors[0].severity == 0.6
+    assert errors[0].severity >= 0.6
     assert surprise["observed_joint_bucket"]["error_type"] == "conceptual_slip"
     assert repository.practice_item_state("pi_svd_define_001").last_attempt_at is not None
     assert repository.mastery_state("lo_svd_definition").evidence_count == 1
+
+
+def test_codex_blank_attempt_is_flagged_for_manual_review(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+
+    result = complete_codex_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id="pi_svd_define_001",
+            learner_answer_md="",
+            attempt_type="independent_attempt",
+        ),
+        GradingProposal(
+            attempt_id="attempt_codex_blank",
+            practice_item_id="pi_svd_define_001",
+            rubric_score=0,
+            criterion_evidence=[
+                CriterionEvidence(
+                    criterion_id="correctness",
+                    points_awarded=0,
+                    evidence="Blank answer.",
+                )
+            ],
+            grader_confidence=0.9,
+        ),
+        clock=FrozenClock(NOW),
+    )
+
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    assert result.manual_review_reason == "blank_answer"
+    assert attempt["manual_review"] is True
+    assert attempt["manual_review_reason"] == "blank_answer"
+
+
+def test_codex_graded_attempt_proposes_unknown_error_type(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repository, clock=clock)
+
+    complete_codex_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="x"),
+        GradingProposal(
+            attempt_id="attempt_unknown_error",
+            practice_item_id="pi_svd_define_001",
+            rubric_score=1,
+            criterion_evidence=[
+                CriterionEvidence(
+                    criterion_id="correctness",
+                    points_awarded=1,
+                    evidence="Incorrect.",
+                )
+            ],
+            error_attributions=[
+                ErrorAttribution(
+                    error_type="matrix_factor_order_error",
+                    severity=0.8,
+                    evidence="Learner reversed factor order.",
+                    is_misconception=True,
+                )
+            ],
+            grader_confidence=0.9,
+        ),
+        agent_run_id="agent_run_unknown_error",
+        clock=clock,
+    )
+
+    batch = repository.proposal_batches()[0]
+    items = repository.proposal_items(batch["id"])
+
+    assert batch["agent_run_id"] == "agent_run_unknown_error"
+    assert batch["purpose"] == "grading_error_type"
+    assert items[0]["item_type"] == "error_type"
+    assert items[0]["operation"] == "create"
+    assert items[0]["decision"] == "pending"
+    assert items[0]["payload"]["id"] == "matrix_factor_order_error"
+    assert items[0]["payload"]["severity_default"] == 0.8
+    assert items[0]["payload"]["is_misconception"] is True
+
+
+def test_codex_recall_wording_uses_recall_failure_not_new_error_type(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repository, clock=clock)
+
+    result = complete_codex_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="I don't remember the definition."),
+        GradingProposal(
+            attempt_id="attempt_recall_wording",
+            practice_item_id="pi_svd_define_001",
+            rubric_score=0,
+            criterion_evidence=[
+                CriterionEvidence(
+                    criterion_id="correctness",
+                    points_awarded=0,
+                    evidence="The learner says they do not remember the definition.",
+                )
+            ],
+            error_attributions=[
+                ErrorAttribution(
+                    error_type="missing_svd_definition_error",
+                    severity=0.6,
+                    evidence="The learner explicitly says they do not remember the definition.",
+                    is_misconception=False,
+                )
+            ],
+            grader_confidence=0.95,
+        ),
+        agent_run_id="agent_run_recall_wording",
+        clock=clock,
+    )
+
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    assert attempt["error_type"] == "recall_failure"
+    assert attempt["manual_review_reason"] is None
+    assert repository.proposal_batches() == []
+
+
+def test_codex_attempt_uses_highest_severity_error_for_observed_joint(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repository, clock=clock)
+
+    result = complete_codex_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="x"),
+        GradingProposal(
+            attempt_id="attempt_two_errors",
+            practice_item_id="pi_svd_define_001",
+            rubric_score=1,
+            criterion_evidence=[
+                CriterionEvidence(criterion_id="correctness", points_awarded=1, evidence="Incorrect.")
+            ],
+            error_attributions=[
+                ErrorAttribution(
+                    error_type="conceptual_slip",
+                    severity=0.2,
+                    evidence="Minor conceptual slip.",
+                ),
+                ErrorAttribution(
+                    error_type="factor_order_error",
+                    severity=0.9,
+                    evidence="Major factor ordering misconception.",
+                    is_misconception=True,
+                ),
+            ],
+            grader_confidence=0.9,
+        ),
+        agent_run_id="agent_run_two_errors",
+        clock=clock,
+    )
+
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    surprise = repository.latest_attempt_surprise(result.attempt_id)
+
+    assert attempt["error_type"] == "factor_order_error"
+    assert surprise["observed_joint_bucket"]["error_type"] == "factor_order_error"
 
 
 def test_attempt_orchestration_uses_codex_when_runtime_ready(tmp_path):

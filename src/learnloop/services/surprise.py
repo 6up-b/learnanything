@@ -7,7 +7,14 @@ from math import exp, log, pi, sqrt
 from learnloop.clock import parse_utc
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ActiveErrorEvent, MasteryState
-from learnloop.services.mastery import ATTEMPT_TYPE_FACTORS, MasteryObservation, clamp, logit
+from learnloop.services.mastery import (
+    MasteryObservation,
+    clamp,
+    irt_observation,
+    logit,
+    observation_weight,
+    sigmoid,
+)
 
 
 @dataclass(frozen=True)
@@ -40,14 +47,9 @@ class SurpriseResult:
 
 
 def compute_observation_variance(observation: MasteryObservation, config: LearnLoopConfig) -> float:
-    attempt_factor = ATTEMPT_TYPE_FACTORS.get(observation.attempt_type, 1.0)
-    weight = (
-        clamp(observation.evidence_coverage, 0.0, 1.0)
-        * clamp(observation.hint_dampening, 0.0, 1.0)
-        * clamp(observation.grader_confidence, 0.0, 1.0)
-        * attempt_factor
-    )
-    return config.mastery.base_observation_variance / max(weight, 0.10)
+    """Legacy logit-space observation variance (used when IRT is disabled)."""
+
+    return config.mastery.base_observation_variance / max(observation_weight(observation), 0.10)
 
 
 def compute_surprise(
@@ -58,13 +60,24 @@ def compute_surprise(
     observed_error_type: str | None,
     prior_active_errors: list[ActiveErrorEvent],
     config: LearnLoopConfig,
+    item_a: float = 1.0,
+    item_b: float = 0.0,
 ) -> SurpriseResult:
-    observation_variance = compute_observation_variance(observation, config)
-    z_obs = logit(clamp(observation.rubric_score / max(observation.max_points, 1), 0.02, 0.98))
     prior_variance = max(prior.logit_variance, 1e-9)
     posterior_variance = max(posterior.logit_variance, 1e-9)
-    predictive_variance = max(prior_variance + observation_variance, 1e-9)
-    residual = (z_obs - prior.logit_mean) / sqrt(predictive_variance)
+    if config.mastery.irt.enabled:
+        # Probability-space standardized innovation: (y - p) / sqrt(H^2 P + R_y).
+        obs = irt_observation(item_a, item_b, prior, observation, config.mastery)
+        y = clamp(observation.rubric_score / max(observation.max_points, 1), 0.0, 1.0)
+        expected_correctness = obs.p
+        predictive_variance = max(obs.innovation_variance, 1e-9)
+        residual = (y - obs.p) / sqrt(predictive_variance)
+    else:
+        observation_variance = compute_observation_variance(observation, config)
+        z_obs = logit(clamp(observation.rubric_score / max(observation.max_points, 1), 0.02, 0.98))
+        predictive_variance = max(prior_variance + observation_variance, 1e-9)
+        residual = (z_obs - prior.logit_mean) / sqrt(predictive_variance)
+        expected_correctness = sigmoid(prior.logit_mean)
 
     predictive_surprise = 0.5 * (residual**2 + log(2 * pi * predictive_variance))
     bayesian_surprise = 0.5 * (
@@ -102,6 +115,9 @@ def compute_surprise(
         predicted_score_dist={
             "mu_z": prior.logit_mean,
             "sigma_z": sqrt(predictive_variance),
+            "b": item_b,
+            "a": item_a,
+            "expected_correctness": expected_correctness,
         },
         predicted_error_type_dist=predicted_error_dist,
         observed_joint_bucket=observed,

@@ -1,0 +1,830 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api/client";
+import type {
+  PracticeItemDetail,
+  QueueSection,
+  QueueSnapshot,
+  ScheduledItemDto,
+  SchedulerComponents,
+  SessionEndSummary,
+  SessionSnapshot
+} from "../api/dto";
+import { EmptyPlaceholder, EntityLink } from "../components/ui";
+import { BlockBar, COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, type PillColor } from "../components/term";
+import { MarkdownMath } from "../render/MarkdownMath";
+
+const HOTKEYS = "123456789abcdef";
+
+function modePillColor(mode: string): PillColor {
+  return (
+    {
+      short_answer: "purple",
+      explanation: "cyan",
+      proof: "amber",
+      worked_problem: "green",
+      transfer: "pink",
+      free_recall: "slate"
+    } as Record<string, PillColor>
+  )[mode] ?? "purple";
+}
+
+function masteryColor(mastery: number): string {
+  return mastery > 0.6 ? COLOR.green : mastery > 0.35 ? COLOR.amber : COLOR.red;
+}
+
+export function TodayScreen({
+  session,
+  gradingReady = true,
+  gradingProvider = "codex",
+  algorithmVersion,
+  onOpenPractice,
+  onPaletteEntities,
+  onEndSession,
+  onInspect,
+  onError
+}: {
+  session: SessionSnapshot | null;
+  gradingReady?: boolean;
+  gradingProvider?: string;
+  algorithmVersion: string;
+  onOpenPractice: (practiceItemId: string) => void;
+  onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
+  onEndSession: (summary: SessionEndSummary) => void;
+  onInspect: (id: string) => void;
+  onError: (message: string) => void;
+}) {
+  const [queue, setQueue] = useState<QueueSnapshot | null>(null);
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<PracticeItemDetail | null>(null);
+  const [bannerOpen, setBannerOpen] = useState(true);
+  const [ending, setEnding] = useState(false);
+  const queueRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot> } | null>(null);
+  const now = useNowMinute();
+
+  const items = useMemo(() => queue?.sections.flatMap((section) => section.items) ?? [], [queue]);
+  const flatIds = useMemo(() => items.map((item) => item.practiceItemId), [items]);
+  const focusedItem = useMemo(
+    () => items.find((item) => item.practiceItemId === focusedId) ?? items[0] ?? null,
+    [items, focusedId]
+  );
+  const followup = useMemo(() => items.find((item) => item.isFollowup) ?? null, [items]);
+
+  const dueCount = useMemo(
+    () => items.filter((item) => !item.isProbe && /due|overdue|now|followup/i.test(item.dueStatus ?? "")).length,
+    [items]
+  );
+  const probeCount = useMemo(() => items.filter((item) => item.isProbe).length, [items]);
+  const laterCount = useMemo(() => items.filter((item) => /later/i.test(item.dueStatus ?? "")).length, [items]);
+
+  useEffect(() => {
+    void refreshQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.sessionId]);
+
+  useEffect(() => {
+    onPaletteEntities?.({
+      inspectIds: unique(items.flatMap((item) => [item.practiceItemId, item.learningObjectId])),
+      practiceItemIds: unique(items.map((item) => item.practiceItemId))
+    });
+  }, [items, onPaletteEntities]);
+
+  useEffect(() => {
+    if (!focusedItem) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .openQueueItem(focusedItem.practiceItemId)
+      .then((item) => {
+        if (!cancelled) setDetail(item);
+      })
+      .catch((error) => {
+        if (!cancelled) onError(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [focusedItem?.practiceItemId, onError]);
+
+  const finishSession = useCallback(async () => {
+    if (!session || ending) return;
+    setEnding(true);
+    try {
+      const summary = await api.endSession(session.sessionId);
+      setQueue(null);
+      setDetail(null);
+      onEndSession(summary);
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setEnding(false);
+    }
+  }, [ending, onEndSession, onError, session]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      const index = focusedItem ? flatIds.indexOf(focusedItem.practiceItemId) : -1;
+      if (["j", "ArrowDown"].includes(event.key)) {
+        setFocusedId(flatIds[Math.min(flatIds.length - 1, index + 1)] ?? null);
+        event.preventDefault();
+      } else if (["k", "ArrowUp"].includes(event.key)) {
+        setFocusedId(flatIds[Math.max(0, index - 1)] ?? null);
+        event.preventDefault();
+      } else if (["Enter", "l", "ArrowRight"].includes(event.key) && focusedItem) {
+        onOpenPractice(focusedItem.practiceItemId);
+        event.preventDefault();
+      } else if (/^[1-9]$/.test(event.key)) {
+        const target = flatIds[Number(event.key) - 1];
+        if (target) {
+          setFocusedId(target);
+          onOpenPractice(target);
+          event.preventDefault();
+        }
+      } else if (event.key.toLowerCase() === "e") {
+        void finishSession();
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [finishSession, flatIds, focusedItem, onOpenPractice]);
+
+  async function refreshQueue() {
+    const input = {
+      sessionId: session?.sessionId ?? null,
+      availableMinutes: session?.availableMinutes ?? null,
+      energy: session?.energy ?? null
+    };
+    const key = JSON.stringify(input);
+    const inFlight = queueRequestRef.current;
+    const promise = inFlight?.key === key ? inFlight.promise : api.getTodayQueue(input);
+
+    queueRequestRef.current = { key, promise };
+    setQueueLoading(true);
+    try {
+      const next = await promise;
+      setQueue(next);
+      setFocusedId(next.sections.flatMap((section) => section.items)[0]?.practiceItemId ?? null);
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      if (queueRequestRef.current?.promise === promise) {
+        queueRequestRef.current = null;
+      }
+      setQueueLoading(false);
+    }
+  }
+
+  if (queueLoading && !queue) {
+    return <EmptyPlaceholder title="Loading today's queue" />;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <TodayHero
+        session={session}
+        now={now}
+        dueCount={dueCount}
+        probeCount={probeCount}
+        laterCount={laterCount}
+        queueReady={Boolean(queue?.totalItems)}
+        gradingReady={gradingReady}
+        gradingProvider={gradingProvider}
+        ending={ending}
+        onFinish={finishSession}
+      />
+
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {/* Master list */}
+        <div className="library-tree" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          {bannerOpen && followup ? (
+            <SurpriseInsertionBanner
+              followup={followup}
+              onDismiss={() => setBannerOpen(false)}
+              onOpen={(id) => {
+                setFocusedId(id);
+                onOpenPractice(id);
+              }}
+              onInspect={onInspect}
+            />
+          ) : null}
+
+          {queue?.sections.map((section) => (
+            <QueueSectionGroup
+              key={section.title}
+              section={section}
+              now={now}
+              focusedId={focusedItem?.practiceItemId ?? null}
+              hotkeyOf={(id) => HOTKEYS[flatIds.indexOf(id)] ?? "·"}
+              onSelect={setFocusedId}
+              onInspect={onInspect}
+            />
+          ))}
+
+          {queue && queue.totalItems === 0 ? (
+            <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>No scheduled items.</div>
+          ) : null}
+
+          <QueueRankingStrip algorithmVersion={algorithmVersion} />
+        </div>
+
+        {/* Detail pane */}
+        <div
+          className="ll-scroll"
+          style={{
+            width: 380,
+            flexShrink: 0,
+            borderLeft: `1px solid ${COLOR.border}`,
+            background: COLOR.bg,
+            overflowY: "auto"
+          }}
+        >
+          <QueueDetail
+            item={focusedItem}
+            detail={detail}
+            onPractice={() => focusedItem && onOpenPractice(focusedItem.practiceItemId)}
+            onInspect={onInspect}
+          />
+        </div>
+      </div>
+
+      <KeyBar
+        keys={[
+          { key: "j/k", label: "Move" },
+          { key: "enter", label: "Practice" },
+          { key: "1-9", label: "Quick open" },
+          { key: "e", label: "End session" },
+          { key: "r", label: "Refresh" }
+        ]}
+        right={{ key: "^p", label: "palette" }}
+      />
+    </div>
+  );
+}
+
+function TodayHero({
+  session: rawSession,
+  now,
+  dueCount,
+  probeCount,
+  laterCount,
+  queueReady,
+  gradingReady,
+  gradingProvider,
+  ending,
+  onFinish
+}: {
+  session: SessionSnapshot | null;
+  now: Date;
+  dueCount: number;
+  probeCount: number;
+  laterCount: number;
+  queueReady: boolean;
+  gradingReady: boolean;
+  gradingProvider: string;
+  ending: boolean;
+  onFinish: () => void;
+}) {
+  const remainingMinutes = remainingSessionMinutes(rawSession, now);
+  const session = rawSession && remainingMinutes != null ? { ...rawSession, availableMinutes: remainingMinutes } : rawSession;
+  const stats: Array<{ label: string; val: string | number; color: string }> = [
+    { label: "DUE", val: dueCount, color: COLOR.amber },
+    { label: "PROBE", val: probeCount, color: COLOR.pink },
+    { label: "LATER", val: laterCount, color: COLOR.textDim },
+    { label: "BUDGET", val: session?.availableMinutes ? `${session.availableMinutes}m` : "—", color: COLOR.green }
+  ];
+  const sep = <span style={{ color: COLOR.textFaint, margin: "0 8px" }}>·</span>;
+  const Stat = ({ value, label, color }: { value: string | number; label: string; color: string }) => (
+    <span style={{ whiteSpace: "nowrap" }}>
+      <span style={{ color, fontWeight: 600 }}>{value}</span> <span style={{ color: COLOR.textDim }}>{label}</span>
+    </span>
+  );
+
+  return (
+    <div
+      style={{
+        padding: "24px 32px 22px",
+        background: COLOR.bg,
+        borderBottom: `1px solid ${COLOR.border}`,
+        display: "flex",
+        gap: 32,
+        alignItems: "flex-end",
+        flexShrink: 0
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            color: COLOR.textFaint,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "baseline",
+            rowGap: 4
+          }}
+        >
+          <span style={{ textTransform: "uppercase", letterSpacing: "0.18em", color: COLOR.textFaint, fontSize: 11 }}>
+            today · session {session ? formatSessionNumber(session.sessionId) : "none"} · {formatHeroTime(now)}
+          </span>
+          {sep}
+          <Stat value={`${dueCount} ${dueCount === 1 ? "item" : "items"}`} label="due" color={COLOR.amber} />
+          {sep}
+          <Stat value={probeCount} label="probe" color={COLOR.pink} />
+          {sep}
+          <Stat value={session?.availableMinutes ? `${session.availableMinutes} min` : "—"} label="budget" color={COLOR.green} />
+        </div>
+
+        <div style={{ marginTop: 12, fontSize: 13, color: COLOR.textDim, lineHeight: 1.65 }}>
+          vault <span style={{ color: COLOR.green }}>● healthy</span>
+          {"  ·  "}
+          ai:{gradingProvider}{" "}
+          <span style={{ color: gradingReady ? COLOR.green : COLOR.red }}>● {gradingReady ? "ready" : "down"}</span>
+          {"  ·  "}
+          queue{" "}
+          <span style={{ color: queueReady ? COLOR.green : COLOR.textFaint }}>● {queueReady ? "ready" : "empty"}</span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, auto)", border: `1px solid ${COLOR.border}`, flexShrink: 0 }}>
+        {stats.map((s, i) => (
+          <div
+            key={s.label}
+            style={{
+              padding: "10px 16px",
+              borderRight: i < stats.length - 1 ? `1px solid ${COLOR.border}` : "none",
+              minWidth: 78,
+              textAlign: "right",
+              background: COLOR.bgElev
+            }}
+          >
+            <div style={{ fontSize: 10, color: COLOR.textFaint, letterSpacing: "0.14em" }}>{s.label}</div>
+            <div style={{ fontSize: 20, color: s.color, fontFamily: FONT_MONO, marginTop: 3, lineHeight: 1.1 }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {session ? (
+        <button
+          type="button"
+          onClick={onFinish}
+          disabled={ending}
+          style={{
+            alignSelf: "flex-end",
+            padding: "8px 14px",
+            border: `1px solid ${COLOR.borderStrong}`,
+            background: "transparent",
+            color: COLOR.textDim,
+            fontFamily: FONT_MONO,
+            fontSize: 12,
+            cursor: ending ? "default" : "pointer",
+            whiteSpace: "nowrap"
+          }}
+        >
+          {ending ? "ending…" : "finish session"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function QueueSectionGroup({
+  section,
+  now,
+  focusedId,
+  hotkeyOf,
+  onSelect,
+  onInspect
+}: {
+  section: QueueSection;
+  now: Date;
+  focusedId: string | null;
+  hotkeyOf: (id: string) => string;
+  onSelect: (id: string) => void;
+  onInspect: (id: string) => void;
+}) {
+  const isProbe = /probe/i.test(section.title);
+  const isDue = /due|now|overdue/i.test(section.title);
+  const color = isProbe ? COLOR.pink : isDue ? COLOR.amber : COLOR.textDim;
+  const mark = isProbe ? "◆" : "▸";
+
+  return (
+    <div>
+      <div style={{ padding: "20px 24px 10px", display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ color, fontFamily: FONT_MONO, fontSize: 12 }}>{mark}</span>
+        <span style={{ color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.18em" }}>
+          {section.title}
+        </span>
+        <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint, padding: "1px 7px", border: `1px solid ${COLOR.border}` }}>
+          {String(section.items.length).padStart(2, "0")}
+        </span>
+        <span style={{ flex: 1, height: 1, background: COLOR.border, opacity: 0.6 }} />
+      </div>
+      {section.items.map((item) => (
+        <QueueRow
+          key={item.practiceItemId}
+          item={item}
+          now={now}
+          focused={focusedId === item.practiceItemId}
+          hotkey={hotkeyOf(item.practiceItemId)}
+          onSelect={() => onSelect(item.practiceItemId)}
+          onInspect={onInspect}
+        />
+      ))}
+    </div>
+  );
+}
+
+function QueueRow({
+  item,
+  now,
+  focused,
+  hotkey,
+  onSelect,
+  onInspect
+}: {
+  item: ScheduledItemDto;
+  now: Date;
+  focused: boolean;
+  hotkey: string;
+  onSelect: () => void;
+  onInspect: (id: string) => void;
+}) {
+  const dueOffset = relativeDue(item, now);
+  const overdue = dueOffset.includes("ago");
+  const mastery = item.mastery;
+  const borderLeft = focused || item.isFollowup ? COLOR.amber : item.isProbe ? COLOR.pink : "transparent";
+
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        padding: "14px 24px",
+        background: focused ? COLOR.bgElev : "transparent",
+        borderLeft: `3px solid ${borderLeft}`,
+        cursor: "pointer",
+        display: "grid",
+        gridTemplateColumns: "34px 1fr 200px 130px",
+        gap: 18,
+        alignItems: "center",
+        transition: "background 100ms ease"
+      }}
+    >
+      <span
+        style={{
+          color: focused ? COLOR.amber : COLOR.textFaint,
+          fontFamily: FONT_MONO,
+          fontSize: 12,
+          fontWeight: 700,
+          textAlign: "center",
+          padding: "4px 0",
+          border: `1px solid ${focused ? COLOR.amber : COLOR.borderStrong}`,
+          background: focused ? "#241d12" : "transparent"
+        }}
+      >
+        {hotkey}
+      </span>
+
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 14,
+            color: COLOR.text,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            rowGap: 4,
+            lineHeight: 1.35
+          }}
+        >
+          <span style={{ overflowWrap: "anywhere" }}>{item.learningObjectTitle}</span>
+          {item.isProbe ? <Pill color="pink">probe</Pill> : null}
+          {item.isFollowup ? <Pill color="amber">intervention</Pill> : null}
+        </div>
+        
+        <div style={{ marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
+          <EntityLink id={item.practiceItemId} onInspect={onInspect} style={{ textDecorationColor: COLOR.textFaint }}>
+            <Meta style={{ fontSize: 11 }}>{item.practiceItemId}</Meta>
+          </EntityLink>
+          <Faint>·</Faint>
+          <Pill color={modePillColor(item.practiceMode)}>{item.practiceMode}</Pill>
+        </div>
+      </div>
+
+      <span style={{ display: "inline-flex", gap: 10, alignItems: "center", fontSize: 12 }}>
+        <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery</Faint>
+        {mastery == null ? (
+          <Faint>—</Faint>
+        ) : (
+          <>
+            <BlockBar value={mastery} width={10} color={masteryColor(mastery)} />
+            <span style={{ fontFamily: FONT_MONO, color: COLOR.text }}>{mastery.toFixed(2)}</span>
+          </>
+        )}
+      </span>
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+        <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: overdue ? COLOR.amber : item.isProbe ? COLOR.pink : COLOR.text }}>
+          {dueOffset}
+        </div>
+        <span style={{ fontSize: 10, color: COLOR.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {overdue ? "overdue" : item.isProbe ? "probe" : "scheduled"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SurpriseInsertionBanner({
+  followup,
+  onDismiss,
+  onOpen,
+  onInspect
+}: {
+  followup: ScheduledItemDto;
+  onDismiss: () => void;
+  onOpen: (id: string) => void;
+  onInspect: (id: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        margin: "18px 24px 0",
+        padding: "14px 18px",
+        border: `1px solid ${COLOR.borderStrong}`,
+        borderLeft: `3px solid ${COLOR.amber}`,
+        background: "#231a0e",
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 16
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          flexShrink: 0,
+          border: `1px solid ${COLOR.amber}`,
+          background: "#0a0a0a",
+          color: COLOR.amber,
+          fontFamily: FONT_MONO,
+          fontSize: 14,
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        +1
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, color: COLOR.amber, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+          intervention gate - diagnostic follow-up inserted
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13, color: COLOR.text, lineHeight: 1.55 }}>
+          A diagnostic follow-up on{" "}
+          <EntityLink id={followup.practiceItemId} onInspect={onInspect}>
+            {followup.learningObjectTitle}
+          </EntityLink>{" "}
+          was queued after the latest attempt crossed an intervention trigger.
+        </div>
+        <div style={{ marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, alignItems: "center" }}>
+          <span>
+            <Faint>follow-up</Faint> <Meta>{followup.practiceItemId}</Meta>
+          </span>
+          <span style={{ flex: 1 }} />
+          <span
+            onClick={() => onOpen(followup.practiceItemId)}
+            style={{
+              padding: "5px 14px",
+              border: `1px solid ${COLOR.amber}`,
+              background: "#241d12",
+              color: COLOR.amber,
+              fontFamily: FONT_MONO,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            open follow-up →
+          </span>
+        </div>
+      </div>
+      <span onClick={onDismiss} title="dismiss" style={{ color: COLOR.textFaint, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>
+        ×
+      </span>
+    </div>
+  );
+}
+
+const WHY_ROWS: Array<{ key: keyof SchedulerComponents; label: string; color: string }> = [
+  { key: "forgettingRisk", label: "forgetting_risk", color: COLOR.amber },
+  { key: "activeGoal", label: "active_goal", color: COLOR.green },
+  { key: "recentError", label: "recent_error", color: COLOR.red },
+  { key: "probeEig", label: "probe_eig", color: COLOR.pink }
+];
+
+function WhyRow({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "130px 1fr 50px", gap: 10, alignItems: "center", padding: "4px 0", fontSize: 12 }}>
+      <span style={{ color, fontFamily: FONT_MONO }}>{label}</span>
+      <div style={{ height: 6, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, width: `${Math.min(100, value * 100)}%`, background: color }} />
+      </div>
+      <span style={{ fontFamily: FONT_MONO, color, textAlign: "right" }}>{value.toFixed(2)}</span>
+    </div>
+  );
+}
+
+function QueueDetail({
+  item,
+  detail,
+  onPractice,
+  onInspect
+}: {
+  item: ScheduledItemDto | null;
+  detail: PracticeItemDetail | null;
+  onPractice: () => void;
+  onInspect: (id: string) => void;
+}) {
+  if (!item) {
+    return <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>no item selected</div>;
+  }
+  const components = detail?.scheduler?.components ?? item.components;
+  const variance = detail?.mastery?.variance ?? item.masteryVariance ?? 0.1;
+  const mastery = detail?.mastery?.mean ?? item.mastery;
+
+  return (
+    <div className = "ll-scroll" style={{ padding: "20px 22px" }}>
+      <div style={{ fontSize: 11, color: COLOR.textFaint, marginBottom: 4, fontFamily: FONT_MONO }}>
+        <EntityLink id={item.practiceItemId} onInspect={onInspect}>
+          {item.practiceItemId}
+        </EntityLink>
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 600, color: COLOR.text, lineHeight: 1.3 }}>{item.learningObjectTitle}</div>
+      <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <Pill color={modePillColor(item.practiceMode)}>{item.practiceMode}</Pill>
+        {item.isProbe ? <Pill color="pink">probe</Pill> : null}
+        {item.subject ? <Pill color="slate">{item.subject}</Pill> : null}
+      </div>
+
+      <SectionHeader>Prompt</SectionHeader>
+      <div style={{ padding: "12px 14px", background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, fontSize: 13, lineHeight: 1.6, color: COLOR.text }}>
+        {detail ? <MarkdownMath value={detail.prompt} /> : <Faint>loading…</Faint>}
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        <span
+          onClick={onPractice}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            border: `1px solid ${COLOR.amber}`,
+            background: "#241d12",
+            color: COLOR.amber,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer"
+          }}
+        >
+          start practice
+          <Faint style={{ color: COLOR.amber }}>↵</Faint>
+        </span>
+      </div>
+
+      <SectionHeader>Mastery posterior</SectionHeader>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12 }}>
+        {mastery == null ? (
+          <Faint>no evidence yet</Faint>
+        ) : (
+          <>
+            <BlockBar value={mastery} width={14} color={masteryColor(mastery)} />
+            <span style={{ fontFamily: FONT_MONO, color: COLOR.text }}>{mastery.toFixed(2)}</span>
+            <Faint>±{Math.sqrt(variance).toFixed(2)}</Faint>
+          </>
+        )}
+        <span style={{ flex: 1 }} />
+        {detail?.difficulty != null ? (
+          <>
+            <Faint>difficulty</Faint>
+            <Dim style={{ fontFamily: FONT_MONO }}>{detail.difficulty.toFixed(2)}</Dim>
+          </>
+        ) : null}
+      </div>
+
+      <SectionHeader>Why this position</SectionHeader>
+      {WHY_ROWS.map((row) => (
+        <WhyRow key={row.key} label={row.label} value={components[row.key] ?? 0} color={row.color} />
+      ))}
+      <div style={{ marginTop: 8, fontSize: 11, color: COLOR.textFaint }}>
+        <Faint>priority</Faint> <Dim style={{ fontFamily: FONT_MONO }}>{item.priority.toFixed(3)}</Dim>
+        <span style={{ margin: "0 10px" }}>·</span>
+        <Faint>full breakdown</Faint>{" "}
+        <EntityLink id={item.practiceItemId} onInspect={onInspect}>
+          <span style={{ color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2 }}>show</span>
+        </EntityLink>
+        {detail?.hints?.length ? (
+          <>
+            <span style={{ margin: "0 10px" }}>·</span>
+            <Faint>{detail.hints.length} hints available</Faint>
+          </>
+        ) : null}
+      </div>
+
+      {detail?.evidenceFacets?.length ? (
+        <>
+          <SectionHeader>Evidence facets</SectionHeader>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {detail.evidenceFacets.map((facet) => (
+              <Pill key={facet} color="cyan">
+                {facet}
+              </Pill>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+
+
+
+    </div>
+  );
+}
+
+function QueueRankingStrip({ algorithmVersion }: { algorithmVersion: string }) {
+  return (
+    <div style={{ margin: "28px 24px", padding: "14px 18px", border: `1px dashed ${COLOR.border}`, fontSize: 12, color: COLOR.textDim, lineHeight: 1.7 }}>
+      <span style={{ color: COLOR.amber, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700 }}>
+        queue ranking · priority = Σ wᵢ · componentᵢ
+      </span>
+      <div style={{ marginTop: 8, fontFamily: FONT_MONO }}>
+        forgetting_risk × 1.00 {"  +  "}active_goal × 0.35 {"  +  "}recent_error × 0.50 {"  +  "}probe_eig × 0.25
+      </div>
+      <div style={{ marginTop: 6 }}>
+        <Faint>algorithm</Faint> <Dim>{algorithmVersion}</Dim>
+        <span style={{ margin: "0 10px" }}>·</span>
+        <Faint>focus a row to see its per-component breakdown</Faint>
+      </div>
+    </div>
+  );
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function useNowMinute(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+function remainingSessionMinutes(session: SessionSnapshot | null, now: Date): number | null {
+  if (!session?.availableMinutes) return null;
+  const startedAt = new Date(session.startedAt).getTime();
+  if (Number.isNaN(startedAt)) return session.availableMinutes;
+  const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedAt) / 60_000));
+  return Math.max(0, session.availableMinutes - elapsedMinutes);
+}
+
+function formatHeroTime(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function formatSessionNumber(sessionId: string): string {
+  const matches = sessionId.match(/\d+/g);
+  const digits = matches ? matches[matches.length - 1] : undefined;
+  return digits ? digits.padStart(3, "0") : sessionId.slice(0, 6);
+}
+
+// Relative due offset ("3h ago" / "in 2h" / "now") from the item's dueAt; falls
+// back to the scheduler's coarse dueStatus when no timestamp is available.
+function relativeDue(item: ScheduledItemDto, now: Date): string {
+  if (item.isProbe && !item.dueAt) return "probe";
+  if (!item.dueAt) return item.dueStatus ?? "—";
+  const due = new Date(item.dueAt).getTime();
+  if (Number.isNaN(due)) return item.dueStatus ?? "—";
+  const diffMs = due - now.getTime();
+  const past = diffMs < 0;
+  const minutes = Math.round(Math.abs(diffMs) / 60_000);
+  const span =
+    minutes < 1
+      ? "now"
+      : minutes < 60
+        ? `${minutes}m`
+        : minutes < 60 * 24
+          ? `${Math.round(minutes / 60)}h`
+          : `${Math.round(minutes / (60 * 24))}d`;
+  if (span === "now") return "now";
+  return past ? `${span} ago` : `in ${span}`;
+}

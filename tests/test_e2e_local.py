@@ -79,10 +79,13 @@ def test_local_only_learning_loop(tmp_path):
     assert doctor.exit_code == 0, doctor.output
     assert json.loads(doctor.output)["clean"] is True
 
-    # Cold item is not scheduled before any evidence exists.
+    # Cold active LOs with local Practice Items start in probe mode so the
+    # learner can establish an initial skill estimate before ordinary review.
     first_review = runner.invoke(app, ["review", "--json", *v])
     assert first_review.exit_code == 0
-    assert json.loads(first_review.output)["items"] == []
+    first_items = json.loads(first_review.output)["items"]
+    assert [item["practice_item_id"] for item in first_items] == ["pi_svd_define_001"]
+    assert first_items[0]["components"]["probe_eig"] > 0.0
 
     attempt = runner.invoke(
         app,
@@ -136,4 +139,15 @@ def test_local_only_learning_loop(tmp_path):
     assert items[0]["components"]["recent_error"] > 0.0
 
     final_doctor = runner.invoke(app, ["doctor", "--json", *v])
-    assert json.loads(final_doctor.output)["clean"] is True
+    assert final_doctor.exit_code == 1
+    final_payload = json.loads(final_doctor.output)
+    assert final_payload["clean"] is False
+    assert {issue["code"] for issue in final_payload["issues"]} == {"sql:derived_state_rebuild_stale"}
+
+    rebuild = runner.invoke(app, ["rebuild-derived-state", "--json", *v])
+    assert rebuild.exit_code == 0, rebuild.output
+    assert json.loads(rebuild.output)["rebuild"]["replayed_attempts"] == 1
+
+    rebuilt_doctor = runner.invoke(app, ["doctor", "--json", *v])
+    assert rebuilt_doctor.exit_code == 0, rebuilt_doctor.output
+    assert json.loads(rebuilt_doctor.output)["clean"] is True

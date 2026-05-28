@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LearnLoop",
+  "version": "0.1.0",
+  "identifier": "local.learnloop.desktop",
+  "build": {
+    "beforeDevCommand": "npm run vite",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run typecheck && npm run frontend:build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LearnLoop",
+        "label": "main",
+        "width": 1380,
+        "height": 880,
+        "minWidth": 980,
+        "minHeight": 680,
+        "decorations": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all"
+  }
+}

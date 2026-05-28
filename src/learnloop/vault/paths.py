@@ -35,6 +35,10 @@ class VaultPaths:
     def error_types_path(self) -> Path:
         return self.root / "errors" / "error_types.yaml"
 
+    @property
+    def facets_path(self) -> Path:
+        return self.root / "facets.yaml"
+
     def subject_dir(self, subject_id: str) -> Path:
         return self.root / "subjects" / subject_id
 

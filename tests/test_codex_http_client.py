@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -9,7 +10,7 @@ from learnloop.codex.runtime import check_codex_runtime
 from learnloop.config import CodexConfig
 
 
-def test_http_codex_client_health_and_grading_round_trip(tmp_path):
+def test_http_codex_client_health_and_grading_round_trip(tmp_path, caplog):
     checkout = tmp_path / "codex"
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")
@@ -23,8 +24,9 @@ def test_http_codex_client_health_and_grading_round_trip(tmp_path):
         }
     )
     server.start()
+    caplog.set_level(logging.DEBUG, logger="learnloop.codex.client")
     try:
-        config = CodexConfig(checkout_path=str(checkout), revision="abc123", base_url=server.base_url)
+        config = CodexConfig(provider="http", checkout_path=str(checkout), revision="abc123", base_url=server.base_url)
 
         report = check_codex_runtime(tmp_path, config)
         proposal = HttpCodexClient(config).run_grading_proposal(
@@ -44,6 +46,21 @@ def test_http_codex_client_health_and_grading_round_trip(tmp_path):
     assert proposal.rubric_score == 4
     assert server.requests[0]["path"] == "/grading-proposal"
     assert server.requests[0]["body"]["context"]["attempt_id"] == "attempt_1"
+    request_log = _logged_event(caplog.records, "codex.http.request")
+    response_log = _logged_event(caplog.records, "codex.http.response")
+    assert request_log["purpose"] == "grading"
+    assert request_log["path"] == "/grading-proposal"
+    assert request_log["request_payload"]["context"]["learner_answer_md"] == "Answer"
+    assert response_log["response"]["proposal"]["rubric_score"] == 4
+
+
+def _logged_event(records, event: str) -> dict:
+    for record in records:
+        if record.getMessage() == event:
+            fields = getattr(record, "event_fields", None)
+            if isinstance(fields, dict):
+                return fields
+    raise AssertionError(f"missing log event {event}")
 
 
 class _CodexServer:

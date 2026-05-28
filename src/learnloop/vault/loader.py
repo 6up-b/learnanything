@@ -12,6 +12,7 @@ from learnloop.vault.models import (
     ConceptGraph,
     ConceptsFile,
     DefaultRubric,
+    EvidenceFacetsFile,
     DoctorIssue,
     ErrorTypesFile,
     GoalsFile,
@@ -82,6 +83,11 @@ def load_vault(root: Path | None = None) -> LoadedVault:
     if error_types_file:
         loaded.error_types = {error_type.id: error_type for error_type in error_types_file.error_types}
 
+    facets_file = _load_yaml_model(paths.facets_path, EvidenceFacetsFile, issues)
+    if facets_file:
+        loaded.evidence_facets = {facet.id: facet for facet in facets_file.facets}
+        loaded.facet_aliases = _facet_aliases(facets_file)
+
     rubrics_root = vault_root / "rubrics"
     if rubrics_root.exists():
         for rubric_path in sorted(rubrics_root.glob("*.yaml")):
@@ -143,6 +149,7 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
     for pi_path in sorted((subject_dir / "practice-items").glob("*.yaml")):
         practice_item = _load_yaml_model(pi_path, PracticeItem, loaded.issues)
         if practice_item:
+            practice_item = _canonicalized_practice_item_facets(loaded, practice_item)
             if practice_item.id in loaded.practice_items:
                 loaded.issues.append(DoctorIssue("practice_item:duplicate_id", f"Duplicate practice item id {practice_item.id}", pi_path))
             loaded.practice_items[practice_item.id] = practice_item
@@ -206,6 +213,84 @@ def _validate_loaded_vault(loaded: LoadedVault) -> None:
                 )
 
 
+def _facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for facet in facets_file.facets:
+        aliases[facet.id] = facet.id
+        for alias in facet.aliases:
+            aliases[alias] = facet.id
+    return aliases
+
+
+def _canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem:
+    if not loaded.facet_aliases:
+        return item
+
+    def canonical(raw: str) -> str:
+        return loaded.canonical_facet_id(raw)
+
+    evidence_facets = list(dict.fromkeys(canonical(facet) for facet in item.evidence_facets))
+    evidence_weights: dict[str, float] = {}
+    for facet, weight in item.evidence_weights.items():
+        canonical_facet = canonical(facet)
+        evidence_weights[canonical_facet] = evidence_weights.get(canonical_facet, 0.0) + float(weight)
+    criterion_facet_weights: dict[str, dict[str, float]] = {}
+    for criterion_id, weights in item.criterion_facet_weights.items():
+        mapped: dict[str, float] = {}
+        for facet, weight in weights.items():
+            canonical_facet = canonical(facet)
+            mapped[canonical_facet] = mapped.get(canonical_facet, 0.0) + float(weight)
+        criterion_facet_weights[criterion_id] = mapped
+    repair_targets = list(dict.fromkeys(canonical(facet) for facet in item.repair_targets))
+    return item.model_copy(
+        update={
+            "evidence_facets": evidence_facets,
+            "evidence_weights": evidence_weights,
+            "criterion_facet_weights": criterion_facet_weights,
+            "repair_targets": repair_targets,
+        }
+    )
+
+
+# Error types seeded into every new vault's errors/error_types.yaml.
+# `recall_failure` is the deterministic attribution for `dont_know` attempts
+# (see services/attempts.py and spec §"Attempt-type handling"); seeding it means
+# its severity and misconception flag are defined rather than falling back to
+# the loader defaults when a don't-know writes an error event.
+DEFAULT_ERROR_TYPE_SEEDS: tuple[dict[str, object], ...] = (
+    {
+        "id": "recall_failure",
+        "title": "Recall failure",
+        "description": (
+            'The learner could not retrieve the answer from memory, for example an "I don\'t know" '
+            "attempt. This is a retrieval lapse rather than a conceptual misunderstanding."
+        ),
+        "related_concepts": [],
+        "severity_default": 0.4,
+        "is_misconception": False,
+        "tags": ["recall"],
+    },
+    {
+        "id": "scaffold_failure",
+        "title": "Scaffold failure",
+        "description": "The learner could not reconstruct the answer after hints or other support.",
+        "related_concepts": [],
+        "severity_default": 0.65,
+        "is_misconception": False,
+        "tags": ["recall", "scaffold"],
+    },
+    {
+        "id": "arithmetic_slip",
+        "title": "Arithmetic slip",
+        "description": "The learner used the right concept but made a local numeric or algebraic error.",
+        "related_concepts": [],
+        "severity_default": 0.15,
+        "is_misconception": False,
+        "tags": ["calculation"],
+    },
+)
+
+
 def init_vault(root: Path, clock: Clock | None = None) -> Path:
     vault_root = root.resolve()
     vault_root.mkdir(parents=True, exist_ok=True)
@@ -243,7 +328,17 @@ def init_vault(root: Path, clock: Clock | None = None) -> Path:
     if not paths.goals_path.exists():
         write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     if not paths.error_types_path.exists():
-        write_yaml(paths.error_types_path, {"schema_version": 1, "error_types": []})
+        write_yaml(
+            paths.error_types_path,
+            {
+                "schema_version": 1,
+                "error_types": [
+                    {**seed, "created_at": now, "updated_at": now} for seed in DEFAULT_ERROR_TYPE_SEEDS
+                ],
+            },
+        )
+    if not paths.facets_path.exists():
+        write_yaml(paths.facets_path, {"schema_version": 1, "facets": []})
 
     from learnloop.db.migrate import apply_migrations
 

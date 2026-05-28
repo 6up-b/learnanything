@@ -1,0 +1,95 @@
+PracticeScreen {
+    background: $background;
+}
+#practice-scroll {
+    height: 1fr;
+}
+#breadcrumb-row {
+    height: 1;
+}
+#breadcrumb-left { width: 1fr; }
+#breadcrumb-right { width: auto; }
+
+#main-card {
+    border: solid $border-blurred;
+    background: $background;
+    padding: 1 2;
+    height: auto;
+}
+PracticeScreen #main-card {            /* focused practice card */
+    border: solid $primary;
+}
+#card-head { height: auto; }
+#card-title { width: 1fr; }
+#card-pills { width: auto; text-align: right; }
+
+#practice-prompt {
+    padding: 1 0;
+    color: $foreground;
+}
+
+#probe-panel {
+    display: none;
+    padding: 0 1;
+    margin-bottom: 1;
+    height: auto;
+}
+PracticeScreen.-probe #probe-panel {
+    display: block;
+    border-left: solid $probe;
+    background: $probe 10%;
+}
+
+#answer-row { height: auto; }
+#answer-prompt-char {
+    width: 2;
+    color: $primary;
+    text-style: bold;
+}
+#answer-input {
+    height: 6;
+    border: solid $primary;
+    background: $panel;
+}
+#answer-meta {
+    color: $text-disabled;
+    text-align: right;
+    height: 1;
+}
+
+#grading-indicator {
+    display: none;
+    color: $primary;
+    height: 1;
+}
+PracticeScreen.-submitting #grading-indicator { display: block; }
+PracticeScreen.-submitting #answer-input { text-opacity: 60%; }
+
+#submit-answer {
+    width: auto;
+    margin-top: 1;
+}
+
+#practice-hints { height: auto; }
+
+#mastery-strip {
+    background: $surface;
+    border: solid $border-blurred;
+    padding: 0 1;
+    margin-top: 1;
+    height: auto;
+}
+#attempt-row {
+    margin-top: 1;
+    height: auto;
+}
+
+#why-card {
+    border: solid $border-blurred;
+    background: $background;
+    padding: 1 2;
+    height: auto;
+}
+#why-metrics { margin-top: 1; }
+
+Rule { margin: 0; color: $border-blurred; }

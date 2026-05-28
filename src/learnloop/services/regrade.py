@@ -2,21 +2,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.ai.client import AIProviderClient
+from learnloop.ai.runtime import AIRuntimeReport
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.codex.client import CodexClient, CodexUnavailable
 from learnloop.codex.prompts import GRADING_PROMPT_VERSION
 from learnloop.codex.runtime import CodexRuntimeReport
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.services.attempts import GradeAttribution
 from learnloop.services.grading import (
     GradingValidationError,
     build_grading_context,
-    evidence_coverage,
     grading_context_hash,
     resolved_rubric,
     validate_codex_grading_proposal,
 )
-from learnloop.services.mastery import MasteryObservation, initial_mastery_state, update_mastery
+from learnloop.services.error_taxonomy import persist_unknown_error_type_proposals
+from learnloop.services.replay import replay_learning_object
 from learnloop.vault.models import LoadedVault
 
 
@@ -45,10 +48,54 @@ def run_deferred_regrades(
     limit: int | None = None,
     clock: Clock | None = None,
 ) -> DeferredRegradeResult:
+    return _run_deferred_agent_regrades(
+        vault,
+        repository,
+        runtime=runtime,
+        client=codex_client,
+        missing_client_reason="codex_client_missing",
+        grading_source="codex",
+        clock=clock,
+        limit=limit,
+    )
+
+
+def run_deferred_ai_regrades(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    runtime: AIRuntimeReport,
+    ai_client: AIProviderClient | None,
+    limit: int | None = None,
+    clock: Clock | None = None,
+) -> DeferredRegradeResult:
+    return _run_deferred_agent_regrades(
+        vault,
+        repository,
+        runtime=runtime,
+        client=ai_client,
+        missing_client_reason="ai_client_missing",
+        grading_source="ai",
+        clock=clock,
+        limit=limit,
+    )
+
+
+def _run_deferred_agent_regrades(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    runtime,
+    client: CodexClient | AIProviderClient | None,
+    missing_client_reason: str,
+    grading_source: str,
+    limit: int | None,
+    clock: Clock | None,
+) -> DeferredRegradeResult:
     if not runtime.ready:
         return DeferredRegradeResult(attempted=0, regraded=0, failed=0, skipped_reason=runtime.status)
-    if codex_client is None:
-        return DeferredRegradeResult(attempted=0, regraded=0, failed=0, skipped_reason="codex_client_missing")
+    if client is None:
+        return DeferredRegradeResult(attempted=0, regraded=0, failed=0, skipped_reason=missing_client_reason)
 
     attempted = 0
     regraded = 0
@@ -56,7 +103,15 @@ def run_deferred_regrades(
     for attempt in repository.pending_self_grade_regrade_attempts(limit=limit):
         attempted += 1
         try:
-            _regrade_attempt(vault, repository, attempt, runtime=runtime, codex_client=codex_client, clock=clock)
+            _regrade_attempt(
+                vault,
+                repository,
+                attempt,
+                runtime=runtime,
+                client=client,
+                grading_source=grading_source,
+                clock=clock,
+            )
         except (CodexUnavailable, TimeoutError, GradingValidationError, ValueError, KeyError):
             failed += 1
         else:
@@ -69,8 +124,9 @@ def _regrade_attempt(
     repository: Repository,
     attempt: dict,
     *,
-    runtime: CodexRuntimeReport,
-    codex_client: CodexClient,
+    runtime,
+    client: CodexClient | AIProviderClient,
+    grading_source: str,
     clock: Clock | None,
 ) -> None:
     item = vault.practice_items[attempt["practice_item_id"]]
@@ -87,10 +143,9 @@ def _regrade_attempt(
         {
             "id": new_ulid(),
             "purpose": "grading_regrade",
-            "provider": "codex",
+            **_agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
-            "codex_revision": runtime.actual_revision,
             "input_context_hash": grading_context_hash(context),
             "output_schema": "GradingProposal",
             "started_at": now,
@@ -98,7 +153,7 @@ def _regrade_attempt(
         }
     )
     try:
-        proposal = codex_client.run_grading_proposal(context)
+        proposal = client.run_grading_proposal(context)
         validated = validate_codex_grading_proposal(
             proposal,
             attempt_id=attempt["id"],
@@ -131,28 +186,11 @@ def _regrade_attempt(
             }
         )
 
-    prior_mastery = repository.mastery_state(learning_object.id) or initial_mastery_state(
-        learning_object.id,
-        vault.config.algorithms.algorithm_version,
-        now,
+    primary_error_type = (
+        max(validated.error_attributions, key=lambda attribution: attribution.severity).error_type
+        if validated.error_attributions
+        else None
     )
-    observed_at = parse_utc(now)
-    mastery_observation = MasteryObservation(
-        rubric_score=validated.rubric_score,
-        max_points=rubric.max_points,
-        evidence_coverage=evidence_coverage(item, criterion_points),
-        hint_dampening=1.0,
-        grader_confidence=validated.grader_confidence,
-        attempt_type=attempt["attempt_type"],
-        observed_at=observed_at,
-    )
-    posterior_mastery = update_mastery(
-        prior_mastery,
-        mastery_observation,
-        vault.config.mastery,
-        vault.config.algorithms.algorithm_version,
-    )
-    primary_error_type = validated.error_attributions[0].error_type if validated.error_attributions else None
     content_events = []
     if abs(validated.rubric_score - old_score) >= 2:
         content_events.append(
@@ -162,29 +200,81 @@ def _regrade_attempt(
                 "subject": attempt.get("subject"),
                 "entity_type": "practice_item",
                 "entity_id": item.id,
-                "origin": "codex",
+                "origin": grading_source,
                 "review_status": "accepted",
                 "summary": _disagreement_summary(old_evidence, new_evidence_rows, old_score, validated.rubric_score),
                 "created_at": now,
             }
         )
-    repository.record_deferred_regrade(
+    repository.insert_regrade_evidence(
         attempt_id=attempt["id"],
         new_evidence_rows=new_evidence_rows,
         superseded_by_evidence_id=first_new_evidence_id,
-        mastery_state=posterior_mastery,
-        attempt_update={
-            "rubric_score": validated.rubric_score,
-            "correctness": validated.rubric_score / max(rubric.max_points, 1),
-            "grader_confidence": validated.grader_confidence,
-            "manual_review": validated.manual_review_reason is not None,
-            "manual_review_reason": validated.manual_review_reason,
-            "error_type": primary_error_type,
+        clock=clock,
+    )
+    repository.update_attempt_grade(
+        attempt["id"],
+        rubric_score=validated.rubric_score,
+        correctness=validated.rubric_score / max(rubric.max_points, 1),
+        grader_confidence=validated.grader_confidence,
+        manual_review=_manual_review_reason(validated.manual_review_reason, attempt) is not None,
+        manual_review_reason=_manual_review_reason(validated.manual_review_reason, attempt),
+        error_type=primary_error_type,
+        clock=clock,
+    )
+    if content_events:
+        repository.record_content_events(content_events)
+    replay_learning_object(
+        vault,
+        repository,
+        learning_object.id,
+        error_attribution_overrides={
+            attempt["id"]: [
+                GradeAttribution(
+                    error_type=attribution.error_type,
+                    severity=attribution.severity,
+                    evidence=attribution.evidence,
+                    is_misconception=attribution.is_misconception,
+                    target_evidence_families=list(attribution.target_evidence_families or []),
+                )
+                for attribution in validated.error_attributions
+            ]
         },
-        content_events=content_events,
+    )
+    persist_unknown_error_type_proposals(
+        vault,
+        repository,
+        attributions=validated.error_attributions,
+        attempt_id=attempt["id"],
+        agent_run_id=agent_run_id,
+        related_concept_id=learning_object.concept,
         clock=clock,
     )
     repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+
+
+def _agent_run_provider_fields(client: CodexClient | AIProviderClient, runtime) -> dict[str, str | None]:
+    provider = getattr(client, "provider_name", None) or getattr(runtime, "active_provider", None) or "codex"
+    provider_type = getattr(client, "provider_type", None) or getattr(runtime, "provider_type", None)
+    model = getattr(client, "model", None) or getattr(runtime, "model", None)
+    provider_revision = getattr(runtime, "provider_revision", None) or getattr(runtime, "actual_revision", None)
+    fields = {
+        "provider": provider,
+        "provider_type": provider_type,
+        "model": model,
+        "provider_revision": provider_revision,
+    }
+    if provider == "codex" or provider_type == "codex_sdk":
+        fields["codex_revision"] = provider_revision
+    return fields
+
+
+def _manual_review_reason(existing: str | None, attempt: dict) -> str | None:
+    if existing is not None:
+        return existing
+    if attempt.get("attempt_type") != "dont_know" and not str(attempt.get("learner_answer_md") or "").strip():
+        return "blank_answer"
+    return None
 
 
 def _disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str:

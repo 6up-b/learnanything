@@ -1,0 +1,29 @@
+schema_version: 1
+id: lo_svd_parse_factorization
+title: Identify the parts of an SVD factorization
+subjects:
+  - singular-value-decomposition
+concept: concept_svd_factorization
+knowledge_type: conceptual
+status: active
+contradicts:
+summary: Given A = UΣV^T, identify which factors are orthogonal, where singular 
+  values appear, and what dimension constraints must hold.
+prerequisites: []
+confusables: []
+difficulty_prior: 0.33
+difficulty_source: llm_estimate
+tags:
+  - chapter-core
+  - recognition
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: ctx_task
+      path: context
+      locator:
+      quote:
+      quote_hash:
+created_at: '2026-05-21T20:51:10Z'
+updated_at: '2026-05-24T01:15:18Z'

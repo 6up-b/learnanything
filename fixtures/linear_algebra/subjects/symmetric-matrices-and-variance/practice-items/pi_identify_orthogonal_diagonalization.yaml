@@ -1,0 +1,80 @@
+schema_version: 1
+id: pi_identify_orthogonal_diagonalization
+learning_object_id: lo_orthogonal_diagonalization_definition
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - open_text
+evidence_facets:
+  - eigenbasis_diagonalization
+  - orthogonal_matrix_inverse
+  - factorization_reasoning
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Suppose the columns of Q form an orthonormal basis of eigenvectors for a
+  matrix A, and D is the diagonal matrix of the corresponding eigenvalues. 
+  Explain why A = QDQ^T.
+expected_answer: Since the columns of Q are an eigenbasis, A = QDQ^{-1}. Because
+  the columns are orthonormal, Q is orthogonal, so Q^{-1} = Q^T. Therefore A = 
+  QDQ^T.
+difficulty: 0.45
+difficulty_source: llm_estimate
+tags:
+  - orthogonal-diagonalization
+  - short-answer
+hints:
+  - Start with the usual diagonalization formula for an eigenbasis.
+  - What is the inverse of an orthogonal matrix?
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.2
+scaffold_level: 0.25
+surface_family: explain_factorization_from_orthonormal_eigenbasis
+repair_targets:
+  - eigenbasis_diagonalization
+  - orthogonal_matrix_inverse
+  - fatal_confuses_q_transpose_with_q
+  - fatal_ignores_orthonormality
+grading_rubric:
+  max_points: 3
+  criteria:
+    - id: criterion_eigenbasis_diagonalization
+      points: 1.0
+      description: States that an eigenbasis gives A = QDQ^{-1}.
+    - id: criterion_orthogonal_inverse
+      points: 1.0
+      description: Uses orthonormal columns to conclude Q is orthogonal and 
+        Q^{-1}=Q^T.
+    - id: criterion_final_factorization
+      points: 1.0
+      description: Correctly concludes A = QDQ^T.
+  fatal_errors:
+    - id: fatal_confuses_q_transpose_with_q
+      description: Claims Q^T = Q for every orthogonal matrix or replaces Q^{-1}
+        by Q without justification.
+      max_grade: 1
+    - id: fatal_ignores_orthonormality
+      description: Gives only ordinary diagonalization and never uses 
+        orthonormality or orthogonality.
+      max_grade: 2
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:26Z'
+updated_at: '2026-05-26T00:00:26Z'

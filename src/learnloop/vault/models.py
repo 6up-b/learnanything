@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from learnloop.attempt_types import AttemptType
 from learnloop.config import LearnLoopConfig
 
 
@@ -134,6 +135,8 @@ class LearningObject(VaultModel):
     prerequisites: list[str] = Field(default_factory=list)
     confusables: list[str] = Field(default_factory=list)
     difficulty_prior: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Provenance of difficulty_prior; non-hashed metadata (spec §6.1), not item content.
+    difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
     tags: list[str] = Field(default_factory=list)
     provenance: Provenance = Field(default_factory=Provenance)
     created_at: str
@@ -144,6 +147,7 @@ class HintPolicy(VaultModel):
     max_useful_hints: int = 0
     fsrs_rating_cap_by_hint: dict[int | str, str] = Field(default_factory=dict)
     mastery_alpha_dampening_by_hint: dict[int | str, float] = Field(default_factory=dict)
+    coverage_surface_dampening_by_hint: dict[int | str, float] = Field(default_factory=dict)
 
 
 class PracticeItem(VaultModel):
@@ -152,15 +156,23 @@ class PracticeItem(VaultModel):
     learning_object_id: str
     subjects: list[str] | None = None
     practice_mode: str
-    attempt_types_allowed: list[str] = Field(default_factory=list)
+    attempt_types_allowed: list[AttemptType] = Field(default_factory=list)
     evidence_facets: list[str] = Field(default_factory=list)
     evidence_weights: dict[str, float] = Field(default_factory=dict)
+    criterion_facet_weights: dict[str, dict[str, float]] = Field(default_factory=dict)
     prompt: str
     expected_answer: str | dict[str, Any]
     difficulty: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Provenance of difficulty; non-hashed metadata (spec §6.1), not item content.
+    difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
     tags: list[str] = Field(default_factory=list)
     hints: list[str] = Field(default_factory=list)
     hint_policy: HintPolicy = Field(default_factory=HintPolicy)
+    retrieval_demand: float | None = Field(default=None, ge=0.0, le=1.0)
+    transfer_distance: float | None = Field(default=None, ge=0.0, le=1.0)
+    scaffold_level: float | None = Field(default=None, ge=0.0, le=1.0)
+    surface_family: str | None = None
+    repair_targets: list[str] = Field(default_factory=list)
     grading_rubric: Rubric | None = None
     provenance: Provenance = Field(default_factory=Provenance)
     created_at: str
@@ -182,6 +194,19 @@ class ErrorType(VaultModel):
 class ErrorTypesFile(VaultModel):
     schema_version: int = 1
     error_types: list[ErrorType] = Field(default_factory=list)
+
+
+class EvidenceFacet(VaultModel):
+    id: str
+    title: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class EvidenceFacetsFile(VaultModel):
+    schema_version: int = 1
+    facets: list[EvidenceFacet] = Field(default_factory=list)
 
 
 class Note(VaultModel):
@@ -224,6 +249,8 @@ class LoadedVault:
     practice_items: dict[str, PracticeItem] = field(default_factory=dict)
     default_rubrics: dict[str, Rubric] = field(default_factory=dict)
     error_types: dict[str, ErrorType] = field(default_factory=dict)
+    evidence_facets: dict[str, EvidenceFacet] = field(default_factory=dict)
+    facet_aliases: dict[str, str] = field(default_factory=dict)
     notes: dict[str, Note] = field(default_factory=dict)
     issues: list[DoctorIssue] = field(default_factory=list)
 
@@ -235,6 +262,9 @@ class LoadedVault:
             return item.subjects
         lo = self.learning_object_for_item(item)
         return lo.subjects if lo else []
+
+    def canonical_facet_id(self, facet_id: str) -> str:
+        return self.facet_aliases.get(facet_id, facet_id)
 
     def rubric_for_item(self, item: PracticeItem) -> Rubric | None:
         return item.grading_rubric or self.default_rubrics.get(item.practice_mode)

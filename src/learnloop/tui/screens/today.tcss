@@ -1,0 +1,75 @@
+TodayScreen {
+    background: $background;
+}
+
+#today-scroll {
+    height: 1fr;
+}
+
+#today-header { height: auto; }
+#today-status {
+    height: auto;
+    color: $text-muted;
+}
+
+#today-summary {
+    height: auto;
+    margin-top: 1;
+}
+
+/* Negative-surprise insertion banner: composed always, revealed by class. */
+#surprise-banner {
+    display: none;
+    height: auto;
+}
+TodayScreen.-inserted #surprise-banner {
+    display: block;
+    border-left: thick $primary;
+    background: $warning 10%;
+    padding: 0 1;
+    margin-top: 1;
+}
+
+#card-grid {
+    grid-size: 2;
+    grid-gutter: 1 2;
+    grid-rows: auto;
+    height: auto;
+    margin-top: 1;
+}
+
+.card-grid-header {
+    column-span: 2;
+    color: $primary;
+    text-style: underline;
+    height: 1;
+    margin-top: 1;
+}
+
+.practice-card {
+    border: round $border-blurred;
+    padding: 1 2;
+    height: auto;
+}
+.practice-card.-focused {
+    border: round $primary;
+}
+.practice-card.-inserted-card {
+    border-left: thick $primary;
+}
+
+#empty-state {
+    column-span: 2;
+    color: $text-muted;
+}
+
+#why-order {
+    border: dashed $border-blurred;
+    padding: 0 1;
+    margin-top: 1;
+    height: auto;
+    color: $text-muted;
+}
+TodayScreen.-empty #why-order {
+    display: none;
+}

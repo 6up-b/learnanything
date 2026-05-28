@@ -1,0 +1,85 @@
+schema_version: 1
+id: pi_covariance_eigenvalue_variance
+learning_object_id: lo_covariance_directional_variance
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+  - data-analysis
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - open_text
+evidence_facets:
+  - directional_variance_formula
+  - eigenvalue_equation
+  - unit_vector_norm
+  - symbolic_reasoning
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Suppose C is the covariance matrix of a demeaned dataset. If u is a unit
+  eigenvector of C with eigenvalue lambda, explain why the variance in direction
+  u is lambda.
+expected_answer: The directional variance is V_u = u dot C u. Since u is an 
+  eigenvector, C u = lambda u. Therefore V_u = u dot (lambda u) = lambda (u dot 
+  u). Because u has unit length, u dot u = 1, so V_u = lambda.
+difficulty: 0.48
+difficulty_source: llm_estimate
+tags:
+  - covariance
+  - eigenvalues
+  - directional-variance
+hints:
+  - Use the formula V_u = u dot C u.
+  - Replace C u using the eigenvalue equation.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.5
+transfer_distance: 0.3
+scaffold_level: 0.2
+surface_family: prove_covariance_eigenvalue_equals_variance
+repair_targets:
+  - directional_variance_formula
+  - eigenvalue_equation
+  - unit_vector_norm
+  - fatal_missing_unit_length
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_variance_formula
+      points: 1.0
+      description: Starts from V_u = u dot C u.
+    - id: criterion_eigenvector_substitution
+      points: 1.0
+      description: Substitutes C u = lambda u.
+    - id: criterion_unit_length_use
+      points: 1.0
+      description: Uses u dot u = 1.
+    - id: criterion_lambda_conclusion
+      points: 1.0
+      description: Concludes V_u = lambda.
+  fatal_errors:
+    - id: fatal_missing_unit_length
+      description: Concludes V_u = lambda without using or assuming that u has 
+        unit length.
+      max_grade: 3
+    - id: fatal_confuses_eigenvector_with_covariance_column
+      description: Treats u as a data point or column of the data matrix rather 
+        than an eigenvector direction.
+      max_grade: 2
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:25Z'
+updated_at: '2026-05-26T00:00:25Z'

@@ -1,0 +1,14 @@
+schema_version: 1
+goals:
+  - id: goal_symmetric_matrices_and_variance
+    title: Symmetric matrices and variance PreTeXt logo
+    status: active
+    priority: 0.5
+    concept_anchors:
+      - concept_covariance_matrix
+      - concept_orthogonal_diagonalization
+      - concept_spectral_theorem_real_symmetric
+      - concept_variance_additivity
+    due_at:
+    created_at: '2026-05-25T23:52:04Z'
+    updated_at: '2026-05-25T23:52:04Z'

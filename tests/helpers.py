@@ -4,14 +4,32 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from learnloop.clock import FrozenClock
+from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
+from learnloop.vault.writer import upsert_practice_item
 
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
 NOW_ISO = "2026-05-19T12:00:00Z"
+ALGORITHM_VERSION = LearnLoopConfig().algorithms.algorithm_version
+
+
+async def begin_session(app, pilot):
+    """Advance from the warm-up Start screen to the Today screen.
+
+    The app launches on the warm-up StartScreen; most TUI tests want to drive
+    the Today queue, so they call this once after the initial mount.
+    """
+    from learnloop.tui.screens.start import StartScreen
+
+    if isinstance(app.screen, StartScreen):
+        today = await app.screen.begin_session()
+        await pilot.pause()
+        return today
+    return app.screen
 
 
 def seed_due_item(paths: VaultPaths) -> Repository:
@@ -24,7 +42,7 @@ def seed_due_item(paths: VaultPaths) -> Repository:
             logit_variance=1.0,
             evidence_count=1,
             last_evidence_at="2026-05-18T12:00:00Z",
-            algorithm_version="mvp-0.1",
+            algorithm_version=ALGORITHM_VERSION,
             updated_at=NOW_ISO,
         )
     )
@@ -159,3 +177,28 @@ def create_basic_vault(root: Path) -> VaultPaths:
         },
     )
     return paths
+
+
+def add_followup_item(root: Path, item_id: str = "pi_svd_define_002") -> None:
+    upsert_practice_item(
+        root,
+        {
+            "id": item_id,
+            "learning_object_id": "lo_svd_definition",
+            "subjects": None,
+            "practice_mode": "short_answer",
+            "attempt_types_allowed": ["independent_attempt"],
+            "evidence_facets": ["recall"],
+            "evidence_weights": {"recall": 1.0},
+            "prompt": "Follow-up: define SVD again.",
+            "expected_answer": "A matrix factorization into U, Sigma, and V transpose.",
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [{"id": "correctness", "points": 4, "description": "Correct definition."}],
+                "fatal_errors": [],
+            },
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        },
+        clock=FrozenClock(NOW),
+    )

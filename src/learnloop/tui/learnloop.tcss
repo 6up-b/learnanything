@@ -1,0 +1,37 @@
+/* App-level rules. Token-driven; no literal hex (palette lives in theme.py). */
+
+Screen {
+    padding: 1 2;
+    background: $background;
+}
+
+.-hidden {
+    display: none;
+}
+
+/* Section headers shared across screens. */
+.section-header {
+    color: $primary;
+    text-style: underline;
+    margin-top: 1;
+}
+
+/* Footer hot-key bar (custom KeyBar, prototype-faithful row). */
+KeyBar {
+    dock: bottom;
+    height: 1;
+    padding: 0 1;
+    border-top: solid $border-blurred;
+    background: $background;
+    color: $text-muted;
+}
+
+/* Error screen. */
+#error-title {
+    text-style: bold;
+    color: $text-error;
+}
+
+#error-message {
+    color: $text-muted;
+}

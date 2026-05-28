@@ -1,0 +1,59 @@
+schema_version: 1
+id: pi_explain_svd_geometry
+learning_object_id: lo_svd_geometric_interpretation
+subjects:
+  - singular-value-decomposition
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - geometric-interpretation
+  - factor-roles
+evidence_weights: {}
+prompt: Explain, in 3 to 5 sentences, how the factors V^T, Σ, and U act on the 
+  unit circle or unit sphere when a matrix A is applied through its SVD.
+expected_answer: A strong answer says that V^T first rotates or reflects the 
+  input into principal directions, Σ stretches or compresses along orthogonal 
+  axes by the singular values, and U then rotates or reflects the result into 
+  the final output orientation.
+difficulty: 0.6
+difficulty_source: llm_estimate
+tags:
+  - conceptual-explanation
+  - geometry
+hints:
+  - Think about what happens before and after the scaling step.
+  - Right singular vectors describe input directions.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Describes the role of V^T as an input basis change or 
+        rotation/reflection.
+    - id: c2
+      points: 1.0
+      description: Describes Σ as axis-aligned scaling by singular values.
+    - id: c3
+      points: 1.0
+      description: Describes U as the final output basis change or 
+        rotation/reflection.
+    - id: c4
+      points: 1.0
+      description: Connects the three steps into one coherent geometric story.
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: ctx_task
+      path: context
+      locator:
+      quote:
+      quote_hash:
+created_at: '2026-05-21T20:51:10Z'
+updated_at: '2026-05-24T01:15:19Z'

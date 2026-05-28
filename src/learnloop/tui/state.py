@@ -5,7 +5,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.services.scheduler import SchedulerSession, ScheduledItem, build_due_queue
-from learnloop.services.startup import run_startup_maintenance
+from learnloop.services.startup import StartupMaintenanceResult, run_startup_maintenance
 from learnloop.services.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
@@ -19,6 +19,7 @@ class TuiState:
     repository: Repository
     queue: list[ScheduledItem] = field(default_factory=list)
     state_sync: StateSyncResult | None = None
+    startup_maintenance: StartupMaintenanceResult | None = None
 
     @classmethod
     def load(cls, vault_root: Path) -> "TuiState":
@@ -32,7 +33,7 @@ class TuiState:
         self.vault = load_vault(self.vault_root)
         self.repository = Repository(VaultPaths(self.vault.root, self.vault.config).sqlite_path)
         self.state_sync = sync_vault_state(self.vault, self.repository)
-        run_startup_maintenance(self.vault, self.repository)
+        self.startup_maintenance = run_startup_maintenance(self.vault, self.repository)
         self.queue = build_due_queue(
             self.vault,
             self.repository,

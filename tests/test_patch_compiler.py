@@ -4,6 +4,7 @@ import pytest
 
 from learnloop.services.patches import PatchApplicationError, compile_proposal_item
 from learnloop.vault.loader import load_vault
+from learnloop.vault.writer import upsert_concept_edge
 
 from tests.helpers import create_basic_vault
 
@@ -36,17 +37,20 @@ def test_compile_concept_create(tmp_path):
     assert "new_concept" not in vault.concepts
 
 
-def test_compile_learning_object_requires_known_concept(tmp_path):
+def test_compile_learning_object_can_introduce_concept(tmp_path):
     vault = _vault(tmp_path)
     payload = {
         "id": "lo_new",
         "title": "New",
         "subjects": ["linear-algebra"],
         "concept_id": "missing_concept",
+        "knowledge_type": "conceptual",
         "summary": "s",
     }
-    with pytest.raises(PatchApplicationError):
-        compile_proposal_item(vault, _item("learning_object", "create", payload))
+    compiled = compile_proposal_item(vault, _item("learning_object", "create", payload))
+
+    assert compiled.entity_type == "learning_object"
+    assert compiled.entity_id == "lo_new"
 
 
 def test_compile_practice_item_requires_known_learning_object(tmp_path):
@@ -87,6 +91,29 @@ def test_compile_concept_edge_validates_endpoints(tmp_path):
                 {"source": "missing", "target": "singular_value_decomposition", "relation_type": "related"},
             ),
         )
+
+
+def test_compile_concept_edge_update_preserves_existing_endpoints(tmp_path):
+    vault_root = create_basic_vault(tmp_path / "vault").root
+    upsert_concept_edge(
+        vault_root,
+        {
+            "id": "edge_existing",
+            "source": "singular_value_decomposition",
+            "target": "singular_value_decomposition",
+            "relation_type": "related",
+            "strength": 0.4,
+        },
+    )
+    vault = load_vault(vault_root)
+
+    compiled = compile_proposal_item(
+        vault,
+        _item("concept_edge", "update", {"strength": 0.8}, target_entity_id="edge_existing"),
+    )
+
+    assert compiled.entity_type == "concept_edge"
+    assert compiled.entity_id == "edge_existing"
 
 
 def test_compile_rubric_targets_existing_practice_item(tmp_path):

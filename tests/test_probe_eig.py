@@ -17,14 +17,20 @@ from learnloop.vault.writer import upsert_practice_item
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 
-def _insert_error(repository: Repository, error_type: str = "conceptual_slip", severity: float = 0.7) -> None:
+def _insert_error(
+    repository: Repository,
+    error_type: str = "conceptual_slip",
+    severity: float = 0.7,
+    *,
+    is_misconception: bool = True,
+) -> None:
     repository.insert_error_event(
         {
             "id": f"err_{error_type}",
             "learning_object_id": "lo_svd_definition",
             "error_type": error_type,
             "severity": severity,
-            "is_misconception": True,
+            "is_misconception": is_misconception,
             "status": "active",
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
@@ -85,6 +91,18 @@ def test_probe_eig_higher_when_item_probes_active_misconception(tmp_path):
     non_probing = probe_eig_component(hypothesis_set, loaded.practice_items["pi_svd_no_fatal"])
 
     assert probing > non_probing > 0.0
+
+
+def test_probe_hypothesis_set_ignores_transient_errors(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    _insert_error(repository, error_type="transient_slip", is_misconception=False)
+    loaded = load_vault(vault_root)
+
+    hypothesis_set = build_hypothesis_set(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+
+    assert [hypothesis.label for hypothesis in hypothesis_set.hypotheses] == ["mastered", "unfamiliar"]
 
 
 def test_probe_eig_is_deterministic_and_normalized():

@@ -1,0 +1,40 @@
+schema_version: 1
+id: lo_orthogonal_diagonalization_definition
+title: Recognize and Build an Orthogonal Diagonalization
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+concept: concept_orthogonal_diagonalization
+knowledge_type: conceptual_procedural
+status: active
+contradicts:
+summary: A matrix is orthogonally diagonalizable when it has an orthonormal 
+  eigenbasis, allowing the factorization A = QDQ^T with Q orthogonal and D 
+  diagonal.
+prerequisites:
+  - eigenvalues and eigenvectors
+  - diagonalization
+  - orthonormal bases
+  - orthogonal matrices
+confusables:
+  - ordinary diagonalization A = PDP^{-1}
+  - matrix symmetry A = A^T
+difficulty_prior: 0.5
+difficulty_source: llm_estimate
+tags:
+  - orthogonal-diagonalization
+  - eigenvectors
+  - matrices
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:25Z'
+updated_at: '2026-05-26T00:00:25Z'

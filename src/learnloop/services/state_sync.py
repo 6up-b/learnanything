@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.mastery import initial_mastery_state
+from learnloop.db.repositories import Repository
+from learnloop.services.mastery import initial_mastery_state_for_learning_object
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import ConceptEdge, Goal, LoadedVault
 
@@ -95,19 +95,11 @@ def sync_vault_state(
         if learning_object_id in mastery_states:
             continue
         repository.upsert_mastery_state(
-            initial_mastery_state(
-                learning_object_id,
-                vault.config.algorithms.algorithm_version,
-                now,
-            )
+            initial_mastery_state_for_learning_object(vault, repository, learning_object_id, now)
         )
         created_mastery += 1
-        if learning_object.status == "active" and _active_goal_score(
-            learning_object.concept,
-            vault.goals,
-            vault.edges,
-        ) > 0:
-            _enter_initial_probe_if_possible(vault, repository, learning_object_id, clock=clock)
+
+    _enter_initial_probes(vault, repository, clock=clock)
 
     return StateSyncResult(
         practice_item_states_created=created_items,
@@ -115,6 +107,28 @@ def sync_vault_state(
         practice_item_states_deactivated=deactivated_items,
         mastery_states_created=created_mastery,
     )
+
+
+def _enter_initial_probes(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None,
+) -> None:
+    mastery_states = repository.mastery_states()
+    for learning_object_id, learning_object in vault.learning_objects.items():
+        if learning_object.status != "active":
+            continue
+        if repository.probe_state(learning_object_id) is not None:
+            continue
+        mastery = mastery_states.get(learning_object_id)
+        if mastery is not None and mastery.last_evidence_at is not None:
+            continue
+        if _has_active_local_item(vault, repository, learning_object_id):
+            _enter_initial_probe_if_possible(vault, repository, learning_object_id, clock=clock)
+            continue
+        if _active_goal_score(learning_object.concept, vault.goals, vault.edges) > 0:
+            _enter_initial_probe_if_possible(vault, repository, learning_object_id, clock=clock)
 
 
 def _enter_initial_probe_if_possible(
@@ -126,8 +140,7 @@ def _enter_initial_probe_if_possible(
 ) -> None:
     if repository.probe_state(learning_object_id) is not None:
         return
-    has_local_item = any(item.learning_object_id == learning_object_id for item in vault.practice_items.values())
-    if has_local_item:
+    if _has_active_local_item(vault, repository, learning_object_id):
         from learnloop.services.probes import enter_probe
 
         enter_probe(vault, repository, learning_object_id, clock=clock)
@@ -147,6 +160,17 @@ def _enter_initial_probe_if_possible(
         },
         clock=clock,
     )
+
+
+def _has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool:
+    item_states = repository.practice_item_states()
+    for item in vault.practice_items.values():
+        if item.learning_object_id != learning_object_id:
+            continue
+        state = item_states.get(item.id)
+        if state is None or state.active:
+            return True
+    return False
 
 
 def _active_goal_score(concept_id: str, goals: list[Goal], edges: list[ConceptEdge]) -> float:

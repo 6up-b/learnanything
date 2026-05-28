@@ -6,12 +6,13 @@ from textual.widgets import Static
 
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.tui.app import ErrorScreen, LearnLoopApp
-from learnloop.tui.screens.today import TodayScreen
+from learnloop.tui.screens.start import StartScreen
+from learnloop.tui.screens.today import PracticeCard, TodayScreen
 
-from tests.helpers import NOW_ISO, create_basic_vault
+from tests.helpers import NOW_ISO, begin_session, create_basic_vault
 
 
-def test_tui_app_launches_today_screen_and_syncs_state(tmp_path):
+def test_tui_app_launches_start_screen_and_syncs_state(tmp_path):
     async def scenario() -> None:
         vault_root = tmp_path / "vault"
         create_basic_vault(vault_root)
@@ -20,10 +21,14 @@ def test_tui_app_launches_today_screen_and_syncs_state(tmp_path):
         async with app.run_test() as pilot:
             await pilot.pause()
 
-            assert isinstance(app.screen, TodayScreen)
+            assert isinstance(app.screen, StartScreen)
             assert app.state is not None
             assert app.state.repository.practice_item_state("pi_svd_define_001") is not None
             assert app.state.repository.mastery_state("lo_svd_definition") is not None
+
+            today = await begin_session(app, pilot)
+            assert isinstance(today, TodayScreen)
+            assert isinstance(app.screen, TodayScreen)
 
     asyncio.run(scenario())
 
@@ -69,13 +74,15 @@ def test_tui_today_screen_renders_queue_details_and_refreshes(tmp_path):
 
         async with app.run_test() as pilot:
             await pilot.pause()
+            await begin_session(app, pilot)
             await pilot.press("r")
             await pilot.pause()
 
             assert isinstance(app.screen, TodayScreen)
             assert [item.practice_item_id for item in app.state.queue] == ["pi_svd_define_001"]
-            assert "SVD definition" in str(app.query_one("#item-title", Static).renderable)
-            assert "Define SVD." in str(app.query_one("#item-prompt", Static).renderable)
-            assert "forgetting_risk" in str(app.query_one("#item-components", Static).renderable)
+            focused = str(app.screen.query_one("PracticeCard.-focused", PracticeCard).renderable)
+            assert "SVD definition" in focused
+            assert "Define SVD." in focused
+            assert "forgetting_risk" in str(app.screen.query_one("#why-order", Static).renderable)
 
     asyncio.run(scenario())

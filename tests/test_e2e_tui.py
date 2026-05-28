@@ -8,7 +8,7 @@ from learnloop.tui.screens.feedback import FeedbackScreen
 from learnloop.tui.screens.practice import PracticeScreen
 from learnloop.tui.screens.today import TodayScreen
 
-from tests.helpers import create_basic_vault, seed_due_item
+from tests.helpers import begin_session, create_basic_vault, seed_due_item
 
 
 def test_tui_end_to_end_self_graded_practice(tmp_path):
@@ -20,9 +20,9 @@ def test_tui_end_to_end_self_graded_practice(tmp_path):
         app = LearnLoopApp(vault_root)
         async with app.run_test() as pilot:
             await pilot.pause()
+            today = await begin_session(app, pilot)
             assert isinstance(app.screen, TodayScreen)
 
-            today = app.screen
             await today.open_practice()
             await pilot.pause()
             practice = app.screen

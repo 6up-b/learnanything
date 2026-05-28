@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from learnloop.attempt_types import AttemptType
+
 EntityType = Literal["learning_object", "practice_item", "concept", "concept_edge", "rubric", "error_type"]
 ProposalOperation = Literal["create", "update", "deactivate"]
 ReviewRoute = Literal["auto_apply", "review_required", "reject"]
@@ -23,6 +25,21 @@ class TargetEntity(BaseModel):
     entity_id: str
 
 
+class ProposalItemAudit(BaseModel):
+    audit_type: Literal[
+        "deterministic_validator",
+        "lean",
+        "symbolic_solver",
+        "numeric_check",
+        "step_by_step_trace",
+    ]
+    status: Literal["passed", "failed", "not_applicable_with_trace"]
+    summary: str
+    trace: str | None = None
+    validator_name: str | None = None
+    validator_version: str | None = None
+
+
 class LearningObjectPatchPayload(BaseModel):
     id: str | None = None
     title: str | None = None
@@ -35,6 +52,7 @@ class LearningObjectPatchPayload(BaseModel):
     prerequisites: list[str] | None = None
     confusables: list[str] | None = None
     difficulty_prior: float | None = None
+    difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
     tags: list[str] | None = None
 
 
@@ -62,13 +80,20 @@ class PracticeItemPatchPayload(BaseModel):
     learning_object_id: str | None = None
     subjects: list[str] | None = None
     practice_mode: str | None = None
-    attempt_types_allowed: list[str] | None = None
+    attempt_types_allowed: list[AttemptType] | None = None
     prompt: str | None = None
     expected_answer: str | dict | None = None
     grading_rubric: RubricPatchPayload | None = None
     evidence_facets: list[str] | None = None
     evidence_weights: dict[str, float] | None = None
+    criterion_facet_weights: dict[str, dict[str, float]] | None = None
     difficulty: float | None = None
+    difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
+    retrieval_demand: float | None = None
+    transfer_distance: float | None = None
+    scaffold_level: float | None = None
+    surface_family: str | None = None
+    repair_targets: list[str] | None = None
     hints: list[str] | None = None
     hint_policy: dict | None = None
     tags: list[str] | None = None
@@ -120,6 +145,7 @@ class AuthoringProposalItem(BaseModel):
     source_ref_ids: list[str] = Field(default_factory=list)
     rationale: str
     review_route: ReviewRoute
+    audit: ProposalItemAudit | None = None
     payload: AuthoringPayload
 
     @model_validator(mode="before")
@@ -148,6 +174,10 @@ class AuthoringProposalItem(BaseModel):
             raise ValueError("target is required for update/deactivate")
         if self.operation == "create" and self.target is not None and self.item_type != "concept_edge":
             raise ValueError("target is forbidden for create except concept_edge endpoint references")
+        if self.operation == "create" and self.item_type not in {"concept_edge", "rubric"}:
+            payload_id = getattr(self.payload, "id", None)
+            if self.proposed_entity_id is None and payload_id is None:
+                raise ValueError("proposed_entity_id is required for create unless payload owns id")
         return self
 
 
@@ -175,10 +205,11 @@ class CriterionEvidence(BaseModel):
 
 class ErrorAttribution(BaseModel):
     error_type: str
-    severity: float = Field(ge=0.0, le=1.0)
+    severity: float | None = Field(default=None, ge=0.0, le=1.0)
     evidence: str
     is_misconception: bool = False
     target_evidence_families: list[str] = Field(default_factory=list)
+    target_criterion_ids: list[str] = Field(default_factory=list)
 
 
 class RepairSuggestion(BaseModel):

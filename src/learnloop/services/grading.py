@@ -2,12 +2,63 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from learnloop.codex.client import GradingContext
 from learnloop.codex.schemas import GradingProposal
+from learnloop.services.recall_coverage import criterion_facet_weights_for_item, resolve_coverage
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
+
+
+CANONICAL_ERROR_TYPES: tuple[dict[str, object], ...] = (
+    {
+        "id": "recall_failure",
+        "title": "Recall failure",
+        "severity_default": 0.4,
+        "is_misconception": False,
+        "use_when": "The learner explicitly cannot retrieve the requested fact, formula, step, or facet.",
+        "avoid_when": "The answer gives a wrong model or wrong rule; use conceptual_slip or procedure_misapplication instead.",
+    },
+    {
+        "id": "conceptual_slip",
+        "title": "Conceptual slip",
+        "severity_default": 0.7,
+        "is_misconception": True,
+        "use_when": "The learner's answer reveals a wrong definition, relationship, interpretation, or mental model.",
+        "avoid_when": "The concept is right but execution is wrong; use procedure_misapplication or arithmetic_slip.",
+    },
+    {
+        "id": "procedure_misapplication",
+        "title": "Procedure misapplication",
+        "severity_default": 0.65,
+        "is_misconception": True,
+        "use_when": "The learner chooses the wrong rule, formula, algorithm step, retained/discarded case, or condition.",
+        "avoid_when": "The rule is correct but a local numeric manipulation is wrong; use arithmetic_slip.",
+    },
+    {
+        "id": "arithmetic_slip",
+        "title": "Arithmetic slip",
+        "severity_default": 0.15,
+        "is_misconception": False,
+        "use_when": "The setup and concept are correct, but arithmetic, algebra, sign, indexing, or simplification is locally wrong.",
+        "avoid_when": "The calculation follows from choosing the wrong method; use procedure_misapplication.",
+    },
+    {
+        "id": "incomplete_answer",
+        "title": "Incomplete answer",
+        "severity_default": 0.35,
+        "is_misconception": False,
+        "use_when": "The answer is partially correct but omits a required value, justification, condition, unit, or explanation.",
+        "avoid_when": "The omitted part is explicitly unknown to the learner; use recall_failure for that facet.",
+    },
+)
+
+BUILTIN_ERROR_TYPE_DEFAULTS = {
+    str(error["id"]): float(error["severity_default"])
+    for error in CANONICAL_ERROR_TYPES
+} | {"scaffold_failure": 0.65}
 
 
 def confidence_to_grader_confidence(confidence: int) -> float:
@@ -35,6 +86,8 @@ class ValidatedErrorAttribution:
     severity: float
     evidence: str
     is_misconception: bool = False
+    target_evidence_families: list[str] | None = None
+    target_criterion_ids: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +98,8 @@ class ValidatedCodexGrade:
     error_attributions: list[ValidatedErrorAttribution]
     grader_confidence: float
     manual_review_reason: str | None
+    feedback_md: str | None = None
+    repair_suggestions: list[dict[str, Any]] | None = None
 
 
 def build_grading_context(
@@ -63,17 +118,37 @@ def build_grading_context(
         expected_answer=expected_answer,
         learner_answer_md=learner_answer_md,
         rubric=rubric.model_dump(mode="json", exclude_none=False),
+        evidence_facets=list(item.evidence_facets),
+        evidence_weights=dict(item.evidence_weights),
+        criterion_facet_weights=criterion_facet_weights_for_item(item, rubric),
+        error_taxonomy=_grading_error_taxonomy(vault),
     )
 
 
-def evidence_coverage(item: PracticeItem, criterion_points: dict[str, float]) -> float:
-    if not any(points >= 1 for points in criterion_points.values()):
-        return 0.0
-    if not item.evidence_weights:
-        return 1.0
-    if item.evidence_facets:
-        return min(1.0, sum(float(item.evidence_weights.get(facet, 0.0)) for facet in item.evidence_facets))
-    return min(1.0, sum(float(weight) for weight in item.evidence_weights.values()))
+def evidence_coverage(
+    item: PracticeItem,
+    criterion_points: dict[str, float],
+    *,
+    rubric: Rubric | None = None,
+    attempt_type: str = "independent_attempt",
+    hints_used: int = 0,
+    learner_answer_md: str = "__engaged_answer__",
+) -> float:
+    """Compatibility wrapper for score-independent coverage resolution.
+
+    ``criterion_points`` is retained for older callers, but coverage no longer
+    depends on awarded points. Use ``resolve_coverage`` for new code that also
+    needs traces and facet allocation.
+    """
+
+    _ = criterion_points
+    return resolve_coverage(
+        item,
+        rubric or item.grading_rubric,
+        attempt_type=attempt_type,
+        hints_used=hints_used,
+        learner_answer_md=learner_answer_md,
+    ).effective_coverage
 
 
 def grading_context_hash(context: GradingContext) -> str:
@@ -84,6 +159,10 @@ def grading_context_hash(context: GradingContext) -> str:
         "expected_answer": context.expected_answer,
         "learner_answer_md": context.learner_answer_md,
         "rubric": context.rubric,
+        "evidence_facets": context.evidence_facets,
+        "evidence_weights": context.evidence_weights,
+        "criterion_facet_weights": context.criterion_facet_weights,
+        "error_taxonomy": context.error_taxonomy,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
@@ -94,6 +173,7 @@ def validate_codex_grading_proposal(
     attempt_id: str,
     item: PracticeItem,
     vault: LoadedVault,
+    learner_answer_md: str | None = None,
 ) -> ValidatedCodexGrade:
     rubric = resolved_rubric(vault, item)
     if proposal.attempt_id != attempt_id:
@@ -135,18 +215,62 @@ def validate_codex_grading_proposal(
     if capped_score != proposal.rubric_score:
         raise GradingValidationError("Fatal errors must cap rubric_score")
 
-    validated_errors = [
-        ValidatedErrorAttribution(
-            error_type=attribution.error_type,
-            severity=attribution.severity,
+    known_facets = set(item.evidence_facets)
+    unknown_target_families: set[str] = set()
+    unknown_target_criteria: set[str] = set()
+    criterion_facet_weights = criterion_facet_weights_for_item(item, rubric)
+    validated_errors: list[ValidatedErrorAttribution] = []
+    for attribution in proposal.error_attributions:
+        error_type = _normalized_recall_error_type(
+            vault,
+            attribution.error_type,
             evidence=attribution.evidence,
+            learner_answer_md=learner_answer_md,
             is_misconception=attribution.is_misconception,
         )
-        for attribution in proposal.error_attributions
-    ]
+        target_evidence_families: list[str] = []
+        for raw_target in attribution.target_evidence_families:
+            target = vault.canonical_facet_id(raw_target)
+            if target in known_facets:
+                if target not in target_evidence_families:
+                    target_evidence_families.append(target)
+            else:
+                unknown_target_families.add(raw_target)
+        target_criterion_ids: list[str] = []
+        for raw_criterion_id in attribution.target_criterion_ids:
+            if raw_criterion_id not in criteria:
+                unknown_target_criteria.add(raw_criterion_id)
+                continue
+            if raw_criterion_id not in target_criterion_ids:
+                target_criterion_ids.append(raw_criterion_id)
+            for facet in criterion_facet_weights.get(raw_criterion_id, {}):
+                target = vault.canonical_facet_id(facet)
+                if target in known_facets and target not in target_evidence_families:
+                    target_evidence_families.append(target)
+        validated_errors.append(
+            ValidatedErrorAttribution(
+                error_type=error_type,
+                severity=_resolved_error_severity(vault, error_type, attribution.severity),
+                evidence=attribution.evidence,
+                is_misconception=attribution.is_misconception,
+                target_evidence_families=target_evidence_families,
+                target_criterion_ids=target_criterion_ids,
+            )
+        )
     manual_review_reason = "codex_manual_review" if proposal.manual_review_recommended else None
+    if manual_review_reason is None and proposal.grader_confidence < 0.4:
+        manual_review_reason = "low_grader_confidence"
+    if manual_review_reason is None and unknown_target_families:
+        manual_review_reason = "unknown_target_evidence_family:" + ",".join(sorted(unknown_target_families))
+    if manual_review_reason is None and unknown_target_criteria:
+        manual_review_reason = "unknown_target_criterion:" + ",".join(sorted(unknown_target_criteria))
     unknown_error_types = sorted(
-        {attribution.error_type for attribution in proposal.error_attributions if attribution.error_type not in vault.error_types}
+        {
+            attribution.error_type
+            for attribution in validated_errors
+            if attribution.error_type not in vault.error_types
+            and attribution.error_type not in BUILTIN_ERROR_TYPE_DEFAULTS
+        }
     )
     if unknown_error_types:
         manual_review_reason = "unknown_error_type:" + ",".join(unknown_error_types)
@@ -158,6 +282,8 @@ def validate_codex_grading_proposal(
         error_attributions=validated_errors,
         grader_confidence=proposal.grader_confidence,
         manual_review_reason=manual_review_reason,
+        feedback_md=proposal.feedback_md,
+        repair_suggestions=[suggestion.model_dump(mode="json") for suggestion in proposal.repair_suggestions],
     )
 
 
@@ -168,3 +294,74 @@ def resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
             f"{item.id} has no grading_rubric and no default rubric for practice mode {item.practice_mode}"
         )
     return rubric
+
+
+def _resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float:
+    if severity is not None:
+        return severity
+    taxonomy = vault.error_types.get(error_type)
+    if taxonomy is not None:
+        return taxonomy.severity_default
+    return BUILTIN_ERROR_TYPE_DEFAULTS.get(error_type, 0.5)
+
+
+def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
+    custom = [
+        {
+            "id": error.id,
+            "title": error.title,
+            "description": error.description,
+            "severity_default": error.severity_default,
+            "is_misconception": error.is_misconception,
+            "tags": error.tags,
+            "related_concepts": error.related_concepts,
+        }
+        for error in sorted(vault.error_types.values(), key=lambda entry: entry.id)
+        if error.id not in BUILTIN_ERROR_TYPE_DEFAULTS
+    ]
+    return {
+        "canonical_error_types": [dict(error) for error in CANONICAL_ERROR_TYPES],
+        "vault_error_types": custom,
+        "selection_policy": (
+            "Prefer the five canonical error_type ids for ordinary grading. Use rubric fatal error ids "
+            "when they exactly match the observed failure. Only propose a new error_type when the failure "
+            "is a durable, specific misconception that none of the canonical ids or rubric fatal ids cover."
+        ),
+        "targeting_policy": (
+            "Every error_attribution should point to the affected target_criterion_ids and/or "
+            "target_evidence_families. Use the narrowest target that explains the lost rubric points."
+        ),
+    }
+
+
+def _normalized_recall_error_type(
+    vault: LoadedVault,
+    error_type: str,
+    *,
+    evidence: str,
+    learner_answer_md: str | None,
+    is_misconception: bool,
+) -> str:
+    if is_misconception:
+        return error_type
+    text = f"{error_type} {evidence} {learner_answer_md or ''}".lower()
+    if _RECALL_FAILURE_PATTERN.search(text):
+        return "recall_failure"
+    if error_type in vault.error_types or error_type in BUILTIN_ERROR_TYPE_DEFAULTS:
+        return error_type
+    if re.search(r"\b(arithmetic|calculation|numeric)_?(error|slip|mistake)\b", error_type.lower()):
+        return "arithmetic_slip"
+    if re.search(r"\b(missing|omitted|incomplete|partial)\b", error_type.lower()):
+        return "incomplete_answer"
+    return error_type
+
+
+_RECALL_FAILURE_PATTERN = re.compile(
+    r"\b("
+    r"i\s+(do\s+not|don'?t)\s+(know|remember|recall)|"
+    r"(do\s+not|don'?t)\s+(know|remember|recall)|"
+    r"cannot\s+(remember|recall)|"
+    r"can'?t\s+(remember|recall)|"
+    r"not\s+sure\s+how"
+    r")\b"
+)

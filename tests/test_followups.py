@@ -8,39 +8,15 @@ from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.services.followups import evaluate_negative_surprise_followup
 from learnloop.services.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
-from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
-
-
-def _add_followup_item(vault_root) -> None:
-    upsert_practice_item(
-        vault_root,
-        {
-            "id": "pi_svd_define_002",
-            "learning_object_id": "lo_svd_definition",
-            "subjects": None,
-            "practice_mode": "short_answer",
-            "attempt_types_allowed": ["independent_attempt"],
-            "evidence_facets": ["recall"],
-            "evidence_weights": {"recall": 1.0},
-            "prompt": "Follow-up: define SVD again.",
-            "expected_answer": "x",
-            "grading_rubric": {
-                "max_points": 4,
-                "criteria": [{"id": "correctness", "points": 4, "description": "c"}],
-                "fatal_errors": [],
-            },
-        },
-        clock=FrozenClock(NOW),
-    )
+from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault
 
 
 def _surprising_attempt(vault_root, repository):
     loaded = load_vault(vault_root)
     # Seed a confident prior so a wrong answer produces strong negative surprise.
     repository.upsert_mastery_state(
-        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, "mvp-0.1", NOW_ISO)
+        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, ALGORITHM_VERSION, NOW_ISO)
     )
     result = complete_self_graded_attempt(
         loaded,
@@ -70,7 +46,7 @@ def _evaluate(loaded, repository, result, *, available_minutes=30):
 def test_negative_surprise_inserts_followup_when_item_exists(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    _add_followup_item(vault_root)
+    add_followup_item(vault_root)
     repository = Repository(paths.sqlite_path)
     loaded, result = _surprising_attempt(vault_root, repository)
 
@@ -81,18 +57,21 @@ def test_negative_surprise_inserts_followup_when_item_exists(tmp_path):
     assert decision.triggered is True
     assert decision.practice_item_id == "pi_svd_define_002"
     surprise = repository.latest_attempt_surprise(result.attempt_id)
-    assert surprise["triggered_actions"] == ["negative_surprise_followup:pi_svd_define_002"]
+    assert surprise["triggered_actions"] == [
+        "intervention_followup:negative_surprise:pi_svd_define_001",
+        "intervention_followup:queued:pi_svd_define_002",
+    ]
     assert surprise["suppressed_actions"] == []
     queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
     assert queue[0].practice_item_id == "pi_svd_define_002"
-    assert queue[0].components["negative_surprise_followup"] == 1.0
-    assert queue[0].plain_english[0] == "negative surprise follow-up"
+    assert queue[0].components["intervention_followup"] == 1.0
+    assert queue[0].plain_english[0] == "intervention follow-up"
 
 
 def test_negative_surprise_followup_stops_forcing_after_followup_attempt(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    _add_followup_item(vault_root)
+    add_followup_item(vault_root)
     repository = Repository(paths.sqlite_path)
     loaded, result = _surprising_attempt(vault_root, repository)
 
@@ -110,7 +89,7 @@ def test_negative_surprise_followup_stops_forcing_after_followup_attempt(tmp_pat
 
     assert repository.pending_followup_practice_item_ids() == []
     queue = build_due_queue(loaded, repository, clock=later, persist_explanations=False)
-    assert not queue or queue[0].components.get("negative_surprise_followup") is None
+    assert not queue or queue[0].components.get("intervention_followup") is None
 
 
 def test_negative_surprise_suppressed_when_no_suitable_item(tmp_path):
@@ -122,30 +101,31 @@ def test_negative_surprise_suppressed_when_no_suitable_item(tmp_path):
     decision = _evaluate(loaded, repository, result)
 
     assert decision.triggered is False
-    assert decision.reason == "negative_surprise_followup:no_suitable_item"
+    assert decision.reason.startswith("intervention_followup:no_suitable_item:")
     surprise = repository.latest_attempt_surprise(result.attempt_id)
-    assert surprise["suppressed_actions"] == ["negative_surprise_followup:no_suitable_item"]
+    assert len(surprise["suppressed_actions"]) == 1
+    assert surprise["suppressed_actions"][0].startswith("intervention_followup:no_suitable_item:")
 
 
 def test_negative_surprise_suppressed_when_out_of_time(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    _add_followup_item(vault_root)
+    add_followup_item(vault_root)
     repository = Repository(paths.sqlite_path)
     loaded, result = _surprising_attempt(vault_root, repository)
 
     decision = _evaluate(loaded, repository, result, available_minutes=0)
 
     assert decision.triggered is False
-    assert decision.reason == "negative_surprise_followup:no_time"
+    assert decision.reason == "intervention_followup:no_time"
     surprise = repository.latest_attempt_surprise(result.attempt_id)
-    assert surprise["suppressed_actions"] == ["negative_surprise_followup:no_time"]
+    assert surprise["suppressed_actions"] == ["intervention_followup:no_time"]
 
 
 def test_followup_gate_skips_non_negative_surprise(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    _add_followup_item(vault_root)
+    add_followup_item(vault_root)
     repository = Repository(paths.sqlite_path)
     loaded, result = _surprising_attempt(vault_root, repository)
 
@@ -163,7 +143,7 @@ def test_followup_gate_skips_non_negative_surprise(tmp_path):
     )
 
     assert decision.triggered is False
-    assert decision.reason == "not_negative"
+    assert decision.reason == "no_trigger"
     surprise = repository.latest_attempt_surprise(result.attempt_id)
     assert surprise["triggered_actions"] == []
     assert surprise["suppressed_actions"] == []

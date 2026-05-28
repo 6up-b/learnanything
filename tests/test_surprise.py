@@ -27,11 +27,11 @@ def _obs(score: int, *, coverage=1.0) -> MasteryObservation:
     )
 
 
-def _surprise(prior_mean: float, score: int, *, observed_error_type=None, prior_errors=None):
+def _surprise(prior_mean: float, score: int, *, item_b: float = 0.0, observed_error_type=None, prior_errors=None):
     config = LearnLoopConfig()
     prior = _prior(prior_mean)
     observation = _obs(score)
-    posterior = update_mastery(prior, observation, MasteryConfig(), VERSION)
+    posterior = update_mastery(prior, observation, MasteryConfig(), VERSION, item_b=item_b)
     return compute_surprise(
         prior=prior,
         posterior=posterior,
@@ -39,12 +39,20 @@ def _surprise(prior_mean: float, score: int, *, observed_error_type=None, prior_
         observed_error_type=observed_error_type,
         prior_active_errors=prior_errors or [],
         config=config,
+        item_b=item_b,
     )
 
 
-def test_positive_surprise_when_low_prior_meets_high_score():
-    result = _surprise(0.0, 4)
+def test_positive_surprise_when_hard_item_is_aced():
+    # On a hard item (b=+2) acing it is strongly surprising (residual ~2.6 > theta_pos).
+    result = _surprise(0.0, 4, item_b=2.0)
     assert result.surprise_direction == "positive"
+
+
+def test_negative_surprise_when_easy_item_is_failed():
+    # On a trivial item (b=-2) failing it is strongly surprising (residual ~-2.6).
+    result = _surprise(0.0, 0, item_b=-2.0)
+    assert result.surprise_direction == "negative"
 
 
 def test_negative_surprise_when_high_prior_meets_low_score():
@@ -52,9 +60,21 @@ def test_negative_surprise_when_high_prior_meets_low_score():
     assert result.surprise_direction == "negative"
 
 
+def test_no_surprise_for_on_target_outcome():
+    # A 50/50 (on-target, b=0) outcome is unsurprising either way (spec §9).
+    assert _surprise(0.0, 4).surprise_direction == "none"
+    assert _surprise(0.0, 0).surprise_direction == "none"
+
+
 def test_no_surprise_for_expected_outcome():
     result = _surprise(0.0, 2)
     assert result.surprise_direction == "none"
+
+
+def test_easy_correct_and_hard_wrong_are_unsurprising():
+    # Expected outcomes barely move the standardized innovation (spec §4.2 / §9).
+    assert _surprise(0.0, 4, item_b=-2.0).surprise_direction == "none"  # easy correct
+    assert _surprise(0.0, 0, item_b=2.0).surprise_direction == "none"   # hard wrong
 
 
 def test_error_type_channel_forces_negative():

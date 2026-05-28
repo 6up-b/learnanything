@@ -1,0 +1,25 @@
+schema_version: 1
+error_types:
+  - id: recall_failure
+    title: Recall failure
+    description: The learner could not retrieve the answer from memory, for 
+      example an "I don't know" attempt. This is a retrieval lapse rather than a
+      conceptual misunderstanding.
+    related_concepts: []
+    severity_default: 0.4
+    is_misconception: false
+    tags:
+      - recall
+    created_at: '2026-05-21T20:51:10Z'
+    updated_at: '2026-05-21T20:51:10Z'
+  - id: non_response
+    title: Non Response
+    description: '`learner_answer_md` is empty.'
+    related_concepts:
+      - concept_singular_values_vectors
+    severity_default: 1.0
+    is_misconception: false
+    tags:
+      - grading_proposal
+    created_at: '2026-05-24T01:47:36Z'
+    updated_at: '2026-05-24T01:47:36Z'

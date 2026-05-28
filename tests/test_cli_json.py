@@ -25,6 +25,7 @@ def test_doctor_json_contract(tmp_path):
     payload = json.loads(result.output)
     assert set(payload) == {
         "clean",
+        "ai_runtime",
         "codex_runtime",
         "error_count",
         "issues",
@@ -34,6 +35,7 @@ def test_doctor_json_contract(tmp_path):
         "warning_count",
     }
     assert payload["version"] == 1
+    assert payload["ai_runtime"] is None
     assert payload["codex_runtime"]["status"] == "codex_missing"
     assert payload["state_sync"]["practice_item_states_created"] == 1
 
@@ -78,7 +80,15 @@ def test_review_why_attempt_show_json_contracts(tmp_path):
 
     assert why.exit_code == 0, why.output
     why_payload = json.loads(why.output)
-    assert set(why_payload) == {"components", "practice_item_id", "priority", "reasons", "source", "version"}
+    assert set(why_payload) == {
+        "components",
+        "practice_item_id",
+        "priority",
+        "readiness_factor",
+        "reasons",
+        "source",
+        "version",
+    }
 
     assert shown.exit_code == 0, shown.output
     show_payload = json.loads(shown.output)
@@ -104,3 +114,5 @@ def test_proposals_json_contract(tmp_path):
     assert payload["version"] == 1
     assert payload["proposals"][0]["id"] == "patch_authoring_1"
     assert payload["proposals"][0]["source_refs"] == [{"ref_id": "note_svd", "ref_type": "note"}]
+    assert payload["proposals"][0]["items"][0]["id"] == "proposal_item_lo"
+    assert payload["proposals"][0]["items"][0]["decision"] == "pending"

@@ -1,0 +1,87 @@
+StartScreen {
+    background: $background;
+}
+
+#warmup-body {
+    height: 1fr;
+}
+
+#warmup-left {
+    width: 1fr;
+    border-right: solid $border-blurred;
+    align: center middle;
+    padding: 1 2;
+}
+#warmup-left-head {
+    text-align: center;
+    width: 1fr;
+    height: auto;
+}
+#torus {
+    width: 42;
+    height: 20;
+    margin: 1 0;
+    color: $primary;
+}
+#warmup-scope {
+    text-align: center;
+    width: 1fr;
+    height: auto;
+}
+
+#warmup-right {
+    width: 1fr;
+    padding: 1 2;
+}
+#warmup-intro { height: auto; margin-bottom: 1; }
+
+Slider {
+    height: 1;
+}
+Slider:focus {
+    background: $surface;
+}
+
+#minutes-row { height: 1; }
+#minutes-label {
+    width: 16;
+    color: $text-disabled;
+}
+MinutesPicker {
+    width: 1fr;
+}
+MinutesPicker:focus {
+    background: $surface;
+}
+
+#scheduler-mode {
+    background: $surface;
+    border-left: solid $accent;
+    padding: 0 1;
+    margin: 1 0;
+    height: auto;
+}
+
+#queue-preview {
+    padding: 0 1;
+    height: auto;
+}
+
+#last-session {
+    border: round $border-blurred;
+    padding: 0 1;
+    margin-top: 1;
+    height: auto;
+    color: $text-muted;
+}
+
+#begin-row {
+    height: auto;
+    align-horizontal: right;
+    margin-top: 1;
+}
+#postpone-button,
+#begin-button {
+    width: auto;
+    margin-left: 2;
+}

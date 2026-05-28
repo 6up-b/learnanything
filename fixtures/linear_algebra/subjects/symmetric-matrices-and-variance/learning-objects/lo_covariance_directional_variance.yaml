@@ -1,0 +1,42 @@
+schema_version: 1
+id: lo_covariance_directional_variance
+title: Compute Directional Variance Using a Covariance Matrix
+subjects:
+  - symmetric-matrices-and-variance
+  - linear-algebra
+  - data-analysis
+concept: concept_covariance_matrix
+knowledge_type: procedural_conceptual
+status: active
+contradicts:
+summary: For demeaned data matrix A, the covariance matrix C = (1/N)AA^T is 
+  symmetric, and the variance in a unit direction u is V_u = u dot C u.
+prerequisites:
+  - matrix multiplication
+  - dot products
+  - unit vectors
+  - demeaned data
+confusables:
+  - total variance
+  - coordinate variance
+  - uncentered data matrix
+difficulty_prior: 0.56
+difficulty_source: llm_estimate
+tags:
+  - covariance
+  - variance
+  - data
+  - quadratic-form
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_symmetric_matrices_and_variance_pretext_logo_8816d580
+      path: 
+        subjects/symmetric-matrices-and-variance/notes/note_source_symmetric_matrices_and_variance_pretext_logo_8816d580.md
+      locator: 
+        understanding-linear-algebra/section7-1symmetric-matrices-and-variance/subsection7-1-1symmetric-matrices-and-orthogonal-diagonalization/proposition7-1-10/p1
+      quote: For any matrix\(A\text{,}\)we have
+      quote_hash: sha256:lo_ref_adjoint_dot_identity
+created_at: '2026-05-26T00:00:25Z'
+updated_at: '2026-05-26T00:00:25Z'
