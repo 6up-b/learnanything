@@ -5,13 +5,11 @@ as editable Markdown/YAML and stores derived state in SQLite: attempts, FSRS
 scheduling, mastery, scheduler explanations, Codex proposals, source ingestion
 history, and content events.
 
-The full MVP target is defined in [spec_mvp.md](spec_mvp.md). The CLI and
-Textual TUI call the same service layer, so scripted workflows and interactive
-practice behave consistently. Codex is optional for local review and practice,
-but Codex is required for `propose` without `--file` and for canonical-source
-`ingest`.
+# To do
 
-
+- Fully add extensibility for deepseek API/other OpenAI routers instead of just codex
+- augment logging (event based) for later learned mechanisms
+- 
 
 ## Install
 
