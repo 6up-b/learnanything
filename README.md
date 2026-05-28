@@ -564,6 +564,31 @@ learnloop doctor --json --vault my-vault
 
 Use `--fix-state` after manual YAML edits or after importing content.
 
+### `learnloop merge-concepts`
+
+Merge a duplicate concept id into the canonical concept id and rewrite vault
+references.
+
+```powershell
+learnloop merge-concepts <canonical_concept_id> <duplicate_concept_id> --vault my-vault
+learnloop merge-concepts <canonical_concept_id> <duplicate_concept_id> --dry-run --vault my-vault
+learnloop merge-concepts <canonical_concept_id> <duplicate_concept_id> --no-alias --json --vault my-vault
+```
+
+By default, LearnLoop keeps the canonical concept and adds the duplicate id,
+duplicate title, and duplicate aliases to the canonical concept aliases. It then
+removes the duplicate concept and rewrites references in concept relations,
+goals, error types, subject concept graphs, Learning Objects, note frontmatter,
+and pending proposal payloads. Non-dry-run merges also sync derived SQLite state
+and record content events for the updated canonical concept and deactivated
+duplicate concept.
+
+Use `--dry-run` to list the files that would change without writing them,
+`--no-alias` to skip adding duplicate aliases to the canonical concept, and
+`--force` only when you intentionally want to merge concepts with conflicting
+type or description metadata. `learnloop doctor` reports likely concept merge
+candidates when it finds duplicate-looking concept entries.
+
 ### `learnloop review`
 
 Build the due queue and print one-line scheduler reasons. After accepting
