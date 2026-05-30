@@ -313,22 +313,34 @@ export function FeedbackScreen({
   attemptId,
   onNext,
   onBack,
+  onOpenNotes,
   onInspect,
   onError,
 }: {
   attemptId: string;
   onNext: () => void;
   onBack: () => void;
+  onOpenNotes: () => void;
   onInspect: (id: string) => void;
   onError: (message: string) => void;
 }) {
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [regrading, setRegrading] = useState(false);
+  const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [addingError, setAddingError] = useState(false);
   const [errorTypeInput, setErrorTypeInput] = useState("");
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
   const errorInputRef = useRef<HTMLInputElement>(null);
+
+  // Quick note capture — files a learner_note in the vault, linked to this
+  // item's subject and learning object, without leaving the feedback view.
+  const [addingNote, setAddingNote] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteBody, setNoteBody] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const noteTitleRef = useRef<HTMLInputElement>(null);
+  const noteBodyRef = useRef<HTMLTextAreaElement>(null);
 
   const suggestions = useMemo<CandidateErrorTypeDto[]>(() => {
     const all = item?.candidateErrorTypes ?? [];
@@ -362,6 +374,12 @@ export function FeedbackScreen({
   }, [addingError]);
 
   useEffect(() => {
+    if (addingNote) {
+      noteTitleRef.current?.focus();
+    }
+  }, [addingNote]);
+
+  useEffect(() => {
     setSelectedSuggestionIdx(-1);
   }, [errorTypeInput]);
 
@@ -375,6 +393,24 @@ export function FeedbackScreen({
       onError((error as Error).message);
     } finally {
       setRegrading(false);
+    }
+  };
+
+  // Manually force a diagnostic follow-up even when the automatic intervention
+  // gate did not fire. The backend bypasses the gates, queues the best-fit
+  // diagnostic item (or records an intervention need), and logs the surprise /
+  // gate context for later threshold tuning. The refreshed bundle re-renders
+  // the "Diagnostic follow-up" card with the manual-trigger reason.
+  const handleTriggerFollowup = async () => {
+    if (!feedback || triggeringFollowup) return;
+    setTriggeringFollowup(true);
+    try {
+      const updated = await api.triggerFollowup(feedback.attemptId);
+      setFeedback(updated);
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setTriggeringFollowup(false);
     }
   };
 
@@ -402,6 +438,53 @@ export function FeedbackScreen({
     void doAddError(sel?.id ?? errorTypeInput, sel?.severityDefault);
   };
 
+  const resetNote = () => {
+    setAddingNote(false);
+    setNoteTitle("");
+    setNoteBody("");
+  };
+
+  const openNoteCapture = () => {
+    setAddingError(false);
+    setNoteTitle((current) => current || (feedback?.learningObjectTitle ?? ""));
+    setAddingNote(true);
+  };
+
+  const doSaveNote = async () => {
+    if (!feedback || savingNote) return;
+    const title = noteTitle.trim();
+    const body = noteBody.trim();
+    if (!title && !body) {
+      resetNote();
+      return;
+    }
+    const subjectId = item?.subject ?? item?.subjects?.[0] ?? null;
+    if (!subjectId) {
+      onError("Cannot add note: this item has no associated subject.");
+      return;
+    }
+    const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+    const noteId = `${feedback.learningObjectId}_${stamp}`;
+    setSavingNote(true);
+    try {
+      const result = await api.addNote({
+        subjectId,
+        noteId,
+        title: title || "Untitled note",
+        body,
+        relatedLos: [feedback.learningObjectId],
+      });
+      if (result.exitCode !== 0) {
+        throw new Error(result.stderr.trim() || `add-note exited ${result.exitCode}`);
+      }
+      resetNote();
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
@@ -409,11 +492,14 @@ export function FeedbackScreen({
       if (event.key === "n" || event.key === "Enter") { event.preventDefault(); onNext(); }
       else if (event.key === "Escape" || event.key === "b") { event.preventDefault(); onBack(); }
       else if (event.key === "r") { event.preventDefault(); void handleRegrade(); }
+      else if (event.key === "D") { event.preventDefault(); void handleTriggerFollowup(); }
       else if (event.key === "a") { event.preventDefault(); setAddingError(true); }
+      else if (event.key === "j") { event.preventDefault(); openNoteCapture(); }
+      else if (event.key === "o") { event.preventDefault(); onOpenNotes(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onNext, onBack, feedback, regrading]);
+  }, [onNext, onBack, onOpenNotes, feedback, regrading, triggeringFollowup]);
 
   if (!feedback) {
     return (
@@ -724,11 +810,90 @@ export function FeedbackScreen({
         </div>
       )}
 
+      {addingNote && (
+        <div style={{ borderTop: `1px solid ${C.borderStrong}`, background: C.bgElev }}>
+          <div style={{ padding: "10px 24px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.cyan, whiteSpace: "nowrap" }}>note title</span>
+              <input
+                ref={noteTitleRef}
+                type="text"
+                value={noteTitle}
+                onChange={(e) => setNoteTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    noteBodyRef.current?.focus();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    resetNote();
+                  }
+                }}
+                placeholder="note title…"
+                style={{
+                  flex: 1,
+                  background: C.bg,
+                  border: `1px solid ${C.cyan}`,
+                  color: C.text,
+                  fontFamily: MONO,
+                  fontSize: 13,
+                  padding: "6px 10px",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <textarea
+              ref={noteBodyRef}
+              value={noteBody}
+              onChange={(e) => setNoteBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  void doSaveNote();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  resetNote();
+                }
+              }}
+              placeholder="write your note… (markdown, math ok)"
+              rows={4}
+              style={{
+                width: "100%",
+                resize: "vertical",
+                background: C.bg,
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                fontFamily: MONO,
+                fontSize: 13,
+                lineHeight: 1.5,
+                padding: "8px 10px",
+                outline: "none",
+              }}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Faint>
+                files a learner_note in{" "}
+                <span style={{ color: C.cyan }}>{subject ?? "—"}</span>
+                {" · linked to "}
+                <span style={{ color: C.cyan }}>{f.learningObjectId}</span>
+              </Faint>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 11, color: C.textFaint, whiteSpace: "nowrap" }}>
+                {savingNote ? "saving…" : "⌘/⌃ ↵ save · esc cancel"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <KeyBar
         keys={[
           { key: "n / ↵", label: "next item" },
           { key: "r", label: regrading ? "regrading…" : "regrade" },
+          { key: "⇧D", label: triggeringFollowup ? "triggering…" : "force follow-up" },
           { key: "a", label: "add error" },
+          { key: "j", label: "add note" },
+          { key: "o", label: "open notes" },
           { key: "esc / b", label: "back to queue" },
           { key: "^p", label: "palette" },
         ]}

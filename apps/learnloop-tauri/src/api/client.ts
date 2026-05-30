@@ -78,6 +78,8 @@ export const api = {
   triggerRegrade: (attemptId: string) => call<FeedbackBundle>("trigger_regrade", { input: { attemptId } }),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } }),
+  triggerFollowup: (attemptId: string) =>
+    call<FeedbackBundle>("trigger_followup", { input: { attemptId } }),
   inspectEntity: (id: string) => call<InspectorEntity>("inspect_entity", { id }),
   getConceptGraph: () => call<ConceptGraphSnapshot>("get_concept_graph"),
   getVaultTree: () => call<VaultTreeSnapshot>("get_vault_tree"),
@@ -108,5 +110,29 @@ export const api = {
     call<ProposalsSnapshot>("refresh_proposal_item_validation", { input: { patchId, itemId } }),
   deleteProposalItem: (patchId: string, itemId: string) =>
     call<ProposalsSnapshot>("delete_proposal_item", { input: { patchId, itemId } }),
-  runCliCommand: (argv: string[]) => call<CliCommandResult>("run_cli_command", { input: { argv } })
+  runCliCommand: (argv: string[]) => call<CliCommandResult>("run_cli_command", { input: { argv } }),
+  addNote: (input: {
+    subjectId: string;
+    noteId: string;
+    title: string;
+    body: string;
+    relatedLos?: string[];
+  }) =>
+    call<CliCommandResult>("run_cli_command", {
+      input: {
+        argv: [
+          "add-note",
+          input.subjectId,
+          input.noteId,
+          input.title,
+          "--body",
+          input.body,
+          "--source-type",
+          "learner_note",
+          ...(input.relatedLos && input.relatedLos.length > 0
+            ? ["--related-los", input.relatedLos.join(",")]
+            : [])
+        ]
+      }
+    })
 };

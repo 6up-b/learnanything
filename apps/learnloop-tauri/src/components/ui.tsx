@@ -220,12 +220,13 @@ export function EmptyPlaceholder({ title }: { title: string }) {
   );
 }
 
-export function KeyBar({ keys }: { keys: Array<{ key: string; label: string }> }) {
+export function KeyBar({ keys, right }: { keys: Array<{ key: string; label: string }>; right?: ReactNode }) {
   return (
     <div className="keybar">
       {keys.map((item) => (
         <span key={item.key}><b>{item.key}</b> {item.label}</span>
       ))}
+      {right ? <span style={{ marginLeft: "auto" }}>{right}</span> : null}
     </div>
   );
 }

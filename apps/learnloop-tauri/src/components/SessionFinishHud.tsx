@@ -115,6 +115,9 @@ export function SessionFinishHud({
     const attempts = String(summary.attemptsRecorded);
     const items = String(summary.itemsReviewed);
     const followups = summary.followupsQueued != null ? String(summary.followupsQueued) : "—";
+    const streakDays = `${summary.streak.current}d`;
+    const streakActive = summary.streak.activeToday;
+    const bestStreak = `BEST STREAK ${summary.streak.longest}D`;
 
     let cols = 0;
     let rows = 0;
@@ -265,7 +268,7 @@ export function SessionFinishHud({
       put(1, 2, `LL//RUNNER · ${code}`, C.faint);
       const logStr = `LOG #${logNo}`;
       put(1, cols - 2 - logStr.length, logStr, C.faint);
-      put(rows - 2, 2, "REV 23.05 · SECTOR 7F", C.faint);
+      put(rows - 2, 2, bestStreak, C.faint);
       const status = done ? "● STATUS OK" : "○ FINALIZING";
       put(rows - 2, cols - 2 - status.length, status, done ? C.amber : C.faint);
 
@@ -294,7 +297,8 @@ export function SessionFinishHud({
         const segs: Array<[string, ColorId]> = [
           ["ATTEMPTS ", C.faint], [attempts, C.amber], ["    ", C.faint],
           ["ITEMS ", C.faint], [items, C.amber], ["    ", C.faint],
-          ["FOLLOW-UPS ", C.faint], [followups, C.green]
+          ["FOLLOW-UPS ", C.faint], [followups, C.green], ["    ", C.faint],
+          ["STREAK ", C.faint], [streakDays, streakActive ? C.green : C.amber]
         ];
         const total = segs.reduce((n, [s]) => n + s.length, 0);
         let col = Math.round(cx - total / 2);

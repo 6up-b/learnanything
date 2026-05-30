@@ -168,7 +168,7 @@ export function App() {
       return <EmptyPlaceholder title="Loading LearnLoop vault" />;
     }
     if (tab === "start") {
-      return <StartScreen onBegin={beginSession} onError={onError} vault={snapshot.vault} />;
+      return <StartScreen onBegin={beginSession} onError={onError} vault={snapshot.vault} streak={snapshot.streak} />;
     }
     if (tab === "today") {
       if (todayStage === "practice" && session && practiceItemId) {
@@ -194,6 +194,7 @@ export function App() {
             attemptId={attemptId}
             onNext={() => setTodayStage("queue")}
             onBack={() => setTodayStage("queue")}
+            onOpenNotes={() => gotoTab("library")}
             onInspect={setInspectorId}
             onError={onError}
           />

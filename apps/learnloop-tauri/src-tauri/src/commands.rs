@@ -353,6 +353,14 @@ pub async fn add_error_event(
 }
 
 #[tauri::command]
+pub async fn trigger_followup(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "trigger_followup", input).await
+}
+
+#[tauri::command]
 pub async fn run_cli_command(
     input: Value,
     sidecar: State<'_, SidecarManager>,

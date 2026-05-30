@@ -55,12 +55,22 @@ export interface VaultSummary {
   issueCount: number;
 }
 
+export interface StreakSummary {
+  /** Consecutive days (local time) ending today, or yesterday if today is not yet practiced. */
+  current: number;
+  /** Whether a session has already been started today. */
+  activeToday: boolean;
+  /** Longest day streak ever recorded. */
+  longest: number;
+}
+
 export interface AppSnapshot {
   version: number;
   vault: VaultSummary | null;
   config: unknown | null;
   health: RuntimeHealth;
   activeSession: SessionSnapshot | null;
+  streak: StreakSummary;
 }
 
 export interface SessionStartInput {
@@ -90,6 +100,7 @@ export interface SessionEndSummary {
   attemptsRecorded: number;
   itemsReviewed: number;
   followupsQueued: number | null;
+  streak: StreakSummary;
 }
 
 export interface SessionCheckpoint {

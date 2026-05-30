@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
-import type { QueueSnapshot, ScheduledItemDto, SessionSnapshot, VaultSummary } from "../api/dto";
+import type { QueueSnapshot, ScheduledItemDto, SessionSnapshot, StreakSummary, VaultSummary } from "../api/dto";
 import { EmptyPlaceholder, KeyBar, SectionHeader } from "../components/ui";
 
 const COLOR = {
@@ -1372,14 +1372,45 @@ function vaultAlias(vault: VaultSummary | null): string {
   return "vault";
 }
 
+// Compact day-streak indicator for the footer key bar. Amber accent + lowercase
+// mono labels match the rest of the start screen; a filled dot means today is
+// already logged, a hollow dot means the streak is still waiting on today.
+function StreakBadge({ streak }: { streak: StreakSummary }) {
+  const { current, activeToday, longest } = streak;
+  if (current <= 0) {
+    return (
+      <span style={{ color: COLOR.textFaint, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span style={{ color: COLOR.borderStrong }}>○</span>
+        no streak yet · begin today
+      </span>
+    );
+  }
+  return (
+    <span style={{ color: COLOR.textDim, display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span
+        title={activeToday ? "logged today" : "practice today to keep your streak"}
+        style={{ color: activeToday ? COLOR.amber : COLOR.borderStrong }}
+      >
+        {activeToday ? "●" : "○"}
+      </span>
+      <span>
+        <b style={{ color: COLOR.amber }}>{current}</b> day{current === 1 ? "" : "s"} streak
+      </span>
+      {longest > current ? <span style={{ color: COLOR.textFaint }}>· best {longest}</span> : null}
+    </span>
+  );
+}
+
 export function StartScreen({
   onBegin,
   onError,
-  vault
+  vault,
+  streak
 }: {
   onBegin: (session: SessionSnapshot) => void;
   onError: (message: string) => void;
   vault: VaultSummary | null;
+  streak: StreakSummary;
 }) {
   const [backdrop, setBackdrop] = useState<BackdropName>(
     () => (localStorage.getItem("learnloop.startBackdrop") as BackdropName | null) ?? "axes"
@@ -1587,6 +1618,7 @@ export function StartScreen({
           { key: "alt+1..8", label: "tabs" },
           { key: "^p", label: "palette" }
         ]}
+        right={<StreakBadge streak={streak} />}
       />
     </div>
   );
