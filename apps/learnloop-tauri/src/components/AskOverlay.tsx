@@ -34,6 +34,11 @@ interface ThreadEntry {
   rating: number | null;
 }
 
+interface SaveNotice {
+  eventId: string;
+  message: string;
+}
+
 function entityIdOf(target: AskTarget): string {
   return target.noteId ?? target.attemptId ?? target.practiceItemId ?? "";
 }
@@ -54,10 +59,39 @@ export function AskOverlay({
   const [limitReached, setLimitReached] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [savingNote, setSavingNote] = useState<string | null>(null);
+  const [savedNoteEventIds, setSavedNoteEventIds] = useState<string[]>([]);
+  const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const saveNoticeTimerRef = useRef<number | null>(null);
 
   const open = target !== null;
+
+  function clearSaveNoticeTimer() {
+    if (saveNoticeTimerRef.current !== null) {
+      window.clearTimeout(saveNoticeTimerRef.current);
+      saveNoticeTimerRef.current = null;
+    }
+  }
+
+  function showSaveNotice(notice: SaveNotice) {
+    clearSaveNoticeTimer();
+    setSaveNotice(notice);
+    saveNoticeTimerRef.current = window.setTimeout(() => {
+      setSaveNotice(null);
+      saveNoticeTimerRef.current = null;
+    }, 30_000);
+  }
+
+  function saveNoteLabel(eventId: string) {
+    if (savingNote === eventId) return "saving…";
+    if (savedNoteEventIds.includes(eventId)) return "saved";
+    return "save as note";
+  }
+
+  function canSaveNote(eventId: string) {
+    return savingNote === null && !savedNoteEventIds.includes(eventId);
+  }
 
   useEffect(() => {
     if (!target) return;
@@ -66,6 +100,8 @@ export function AskOverlay({
     setRemaining(null);
     setLimitReached(false);
     setInlineError(null);
+    setSaveNotice(null);
+    clearSaveNoticeTimer();
     setQuestion("");
     api
       .getTutorTranscript({
@@ -104,6 +140,8 @@ export function AskOverlay({
     target?.noteId,
     target?.sessionId
   ]);
+
+  useEffect(() => clearSaveNoticeTimer, []);
 
   useEffect(() => {
     if (!open) return;
@@ -200,7 +238,12 @@ export function AskOverlay({
     setSavingNote(eventId);
     try {
       const result = await api.saveTutorAnswerNote(eventId);
-      onToast(`Saved note ${result.noteId ?? ""} at ${result.path}`);
+      setSavedNoteEventIds((current) => (current.includes(eventId) ? current : [...current, eventId]));
+      const noteName = result.noteId ? ` ${result.noteId}` : "";
+      showSaveNotice({
+        eventId,
+        message: `Saved note${noteName} at ${result.path}`
+      });
     } catch (error) {
       onToast((error as CommandError).message);
     } finally {
@@ -260,11 +303,17 @@ export function AskOverlay({
                   </div>
                   {entry.eventId ? (
                     <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 12 }}>
+                      {/* CSS `color` has no effect on color-emoji glyphs, so the
+                          selected state needs a background/opacity cue instead. */}
                       <span
                         onClick={() => void rate(entry.eventId as string, true)}
                         style={{
                           cursor: "pointer",
-                          color: entry.rating === 1 ? COLOR.amber : COLOR.textDim
+                          padding: "1px 5px",
+                          borderRadius: 4,
+                          opacity: entry.rating === 0 ? 0.35 : 1,
+                          background: entry.rating === 1 ? "rgba(227, 160, 99, 0.25)" : "transparent",
+                          outline: entry.rating === 1 ? `1px solid ${COLOR.amber}` : "none"
                         }}
                       >
                         👍
@@ -273,20 +322,30 @@ export function AskOverlay({
                         onClick={() => void rate(entry.eventId as string, false)}
                         style={{
                           cursor: "pointer",
-                          color: entry.rating === 0 ? COLOR.amber : COLOR.textDim
+                          padding: "1px 5px",
+                          borderRadius: 4,
+                          opacity: entry.rating === 1 ? 0.35 : 1,
+                          background: entry.rating === 0 ? "rgba(227, 160, 99, 0.25)" : "transparent",
+                          outline: entry.rating === 0 ? `1px solid ${COLOR.amber}` : "none"
                         }}
                       >
                         👎
                       </span>
                       <span
                         onClick={() => {
-                          if (savingNote === null) void saveAsNote(entry.eventId as string);
+                          if (canSaveNote(entry.eventId as string)) void saveAsNote(entry.eventId as string);
                         }}
-                        style={{ cursor: "pointer", color: COLOR.amberLink }}
+                        style={{
+                          cursor: canSaveNote(entry.eventId) ? "pointer" : "default",
+                          color: savedNoteEventIds.includes(entry.eventId) ? COLOR.textDim : COLOR.amberLink
+                        }}
                       >
-                        {savingNote === entry.eventId ? "saving…" : "save as note"}
+                        {saveNoteLabel(entry.eventId)}
                       </span>
                     </div>
+                  ) : null}
+                  {saveNotice?.eventId === entry.eventId ? (
+                    <div style={saveNoticeStyle}>{saveNotice.message}</div>
                   ) : null}
                 </div>
               )}
@@ -394,4 +453,14 @@ const footerStyle: CSSProperties = {
   gap: 18,
   flexShrink: 0,
   alignItems: "center"
+};
+
+const saveNoticeStyle: CSSProperties = {
+  marginTop: 8,
+  border: `1px solid ${COLOR.amber}`,
+  background: "#241d12",
+  color: COLOR.amber,
+  padding: "7px 9px",
+  fontSize: 12,
+  lineHeight: 1.4
 };

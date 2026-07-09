@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.handlers.serializers import (
     attempt_detail,
     error_event_dto,
@@ -27,6 +27,9 @@ def inspect_entity(ctx: SidecarContext, params: InspectInput) -> dict[str, Any]:
         return versioned(
             {"kind": "learning_object", "id": params.id, "detail": learning_object_detail(vault, repository, params.id)}
         )
+    note_detail = _note_detail(vault, params.id)
+    if note_detail is not None:
+        return versioned({"kind": "note", "id": params.id, "detail": note_detail})
     record = repository.find_record(params.id)
     if record is not None:
         kind, payload = record
@@ -35,6 +38,45 @@ def inspect_entity(ctx: SidecarContext, params: InspectInput) -> dict[str, Any]:
         if kind == "error_event":
             return versioned({"kind": "error_event", "id": params.id, "detail": error_event_dto(vault, payload)})
     return versioned({"kind": "not_found", "id": params.id, "suggestions": _search_suggestions(vault, params.id)})
+
+
+def _note_detail(vault: Any, identifier: str) -> dict[str, Any] | None:
+    note = vault.notes.get(identifier)
+    locator: str | None = None
+    if note is None and ":t=" in identifier:
+        note_id, locator_suffix = identifier.split(":t=", 1)
+        note = vault.notes.get(note_id)
+        locator = f"t={locator_suffix}" if note is not None else None
+    if note is None:
+        return None
+    title = _note_title(note.body) or note.id
+    metadata = note.model_extra if isinstance(note.model_extra, dict) else {}
+    canonical_source = metadata.get("canonical_source")
+    return to_camel(
+        {
+            "id": note.id,
+            "requested_id": identifier,
+            "title": title,
+            "subjects": note.subjects,
+            "related_los": note.related_los,
+            "related_concepts": note.related_concepts,
+            "source_type": note.source_type,
+            "path": note.path,
+            "locator": locator,
+            "canonical_source": canonical_source if isinstance(canonical_source, dict) else None,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "body": note.body,
+        }
+    )
+
+
+def _note_title(body: str) -> str | None:
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            return stripped.lstrip("#").strip() or None
+    return None
 
 
 def _search_suggestions(vault: Any, query: str) -> list[dict[str, Any]]:

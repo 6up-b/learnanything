@@ -9,7 +9,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.services.patches import apply_accepted_items
-from learnloop.vault.loader import load_vault
+from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.writer import upsert_learning_object
 from learnloop_sidecar.server import serve
 
@@ -870,6 +870,38 @@ def test_sidecar_inspect_practice_item_includes_attempt_history(tmp_path):
     assert row["hintsUsed"] == 0
     assert "createdAt" in row
     assert "surpriseDirection" in row  # present even when no surprise was recorded
+
+
+def test_sidecar_inspect_note_source_ref_with_timestamp_suffix(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    add_note(
+        vault_root,
+        "linear-algebra",
+        "source_video",
+        "Source Video",
+        "Captioned explanation.",
+        source_type="canonical_source",
+    )
+
+    result = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "inspect_entity",
+                "params": {"id": "note_source_video:t=1.0-2.0"},
+            },
+        ]
+    )[1]["result"]
+
+    assert result["kind"] == "note"
+    assert result["id"] == "note_source_video:t=1.0-2.0"
+    assert result["detail"]["id"] == "note_source_video"
+    assert result["detail"]["locator"] == "t=1.0-2.0"
+    assert result["detail"]["sourceType"] == "canonical_source"
+    assert "Captioned explanation" in result["detail"]["body"]
 
 
 def test_sidecar_get_concept_graph_serializes_concepts_and_rollups(tmp_path):

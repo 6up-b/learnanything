@@ -1,46 +1,62 @@
 schema_version: 2
 goals:
-- id: goal_attn
-  title: Attention Is All You Need
-  status: active
-  priority: 0.5
-  due_at: null
-  created_at: '2026-05-28T20:26:58Z'
-  updated_at: '2026-05-28T21:31:16Z'
-  facet_scope:
-    concepts:
-    - concept_autoregressive_decoder_masking
-    - concept_multihead_attention
-    - concept_positional_encoding
-    - concept_scaled_dot_product_attention
-    - concept_self_attention_advantages
-    - concept_transformer_architecture
-  target_recall: 0.8
-- id: goal_attn_2
-  title: YouTube video eMlx5fFNoYc
-  status: active
-  priority: 0.5
-  due_at: null
-  created_at: '2026-05-28T20:30:39Z'
-  updated_at: '2026-05-28T20:30:39Z'
-  facet_scope:
-    concepts:
-    - concept_attention_pattern
-    - concept_causal_mask
-    - concept_contextual_embedding
-    - concept_multihead_attention
-    - concept_value_vectors
-  target_recall: 0.8
-- id: goal_attn_3
-  title: YouTube video wjZofJX0v4M
-  status: active
-  priority: 0.5
-  due_at: null
-  created_at: '2026-05-28T22:06:11Z'
-  updated_at: '2026-05-28T22:06:11Z'
-  facet_scope:
-    concepts:
-    - concept_contextual_embedding
-    - concept_scaled_dot_product_attention
-    - concept_transformer_architecture
-  target_recall: 0.8
+  - id: goal_attn
+    title: Attention Is All You Need
+    status: expired
+    priority: 0.5
+    due_at:
+    created_at: '2026-05-28T20:26:58Z'
+    updated_at: '2026-07-08T19:39:57Z'
+    facet_scope:
+      concepts:
+        - concept_autoregressive_decoder_masking
+        - concept_multihead_attention
+        - concept_positional_encoding
+        - concept_scaled_dot_product_attention
+        - concept_self_attention_advantages
+        - concept_transformer_architecture
+    target_recall: 0.8
+  - id: goal_attn_2
+    title: YouTube video eMlx5fFNoYc
+    status: expired
+    priority: 0.5
+    due_at:
+    created_at: '2026-05-28T20:30:39Z'
+    updated_at: '2026-07-08T19:40:36Z'
+    facet_scope:
+      concepts:
+        - concept_attention_pattern
+        - concept_causal_mask
+        - concept_contextual_embedding
+        - concept_multihead_attention
+        - concept_value_vectors
+    target_recall: 0.8
+  - id: goal_attn_3
+    title: YouTube video wjZofJX0v4M
+    status: expired
+    priority: 0.5
+    due_at:
+    created_at: '2026-05-28T22:06:11Z'
+    updated_at: '2026-07-08T20:01:26Z'
+    facet_scope:
+      concepts:
+        - concept_contextual_embedding
+        - concept_scaled_dot_product_attention
+        - concept_transformer_architecture
+    target_recall: 0.8
+  - id: goal_july_8_july_15_goal
+    title: july 8-july 15 goal
+    status: active
+    priority: 0.5
+    target_recall: 0.85
+    facet_scope:
+      concepts:
+        - concept_scaled_dot_product_attention
+        - concept_autoregressive_decoder_masking
+      facets: []
+    due_at: '2026-07-16T03:59:59.000Z'
+    exam:
+      enabled: true
+      item_count: 20
+    created_at: '2026-07-08T20:06:45Z'
+    updated_at: '2026-07-08T20:06:45Z'

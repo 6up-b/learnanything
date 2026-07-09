@@ -20,19 +20,29 @@ Design decisions (agreed spec):
   the derivation, or confirming/denying the learner's approach; verification
   questions are deflected with a guiding question. A post-hoc leak check flags
   (never blocks) answers that overlap the expected answer.
+- **Two-phase persistence.** The question row is inserted with
+  ``answer_status='pending'`` before the provider call and updated to
+  ``answered`` (with classification) or ``failed`` after. Asking is
+  elicitation evidence about the learner's knowledge state, so a tutor outage
+  must not erase the question. Only ``answered`` turns consume the Q&A budget
+  or appear in transcripts/threads; each turn records a ``tutor_qa``
+  agent_run for observability.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import timedelta
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.codex.client import TutorQAContext
+from learnloop.codex.prompts import TUTOR_QA_PROMPT_VERSION
 from learnloop.db.repositories import Repository
+from learnloop.ids import new_ulid
 from learnloop.services.facet_diagnostics import required_facets
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -81,18 +91,27 @@ def question_usage(
     per note per UTC day."""
 
     config = vault.config.tutor_qa
+    # Only answered turns consume budget: a provider failure (answer_status
+    # 'failed'/'pending') keeps the question on record without charging for it.
     if context == "practice":
         used = repository.count_question_events(
-            context="practice", practice_item_id=practice_item_id, session_id=session_id
+            context="practice",
+            practice_item_id=practice_item_id,
+            session_id=session_id,
+            answer_status="answered",
         )
         return used, config.max_questions_practice
     if context == "feedback":
-        used = repository.count_question_events(context="feedback", attempt_id=attempt_id)
+        used = repository.count_question_events(
+            context="feedback", attempt_id=attempt_id, answer_status="answered"
+        )
         return used, config.max_questions_feedback
     if context == "library":
         now = parse_utc(utc_now_iso(clock))
         day_start = now.strftime("%Y-%m-%dT00:00:00Z")
-        used = repository.count_question_events(context="library", note_id=note_id, since=day_start)
+        used = repository.count_question_events(
+            context="library", note_id=note_id, since=day_start, answer_status="answered"
+        )
         return used, config.max_questions_library
     raise TutorQAError(f"Unknown question context {context!r}")
 
@@ -174,7 +193,55 @@ def ask_question(
         note=note,
         note_id=note_id,
     )
-    answer = client.run_tutor_qa(ai_context)
+
+    # Two-phase write: the question row lands BEFORE the provider call. The
+    # learner asking is elicitation evidence about their knowledge state
+    # regardless of whether the tutor manages to answer, so a provider failure
+    # must not erase it (classification arrives with the answer, or never).
+    event_id = repository.insert_question_event(
+        {
+            "context": context,
+            "note_id": note_id,
+            "practice_item_id": practice_item_id,
+            "attempt_id": attempt_id,
+            "session_id": session_id,
+            "question_md": question_md,
+            "answer_status": "pending",
+            "seconds_into_attempt": seconds_into_attempt,
+            "provider": getattr(client, "provider_name", None),
+        },
+        clock=clock,
+    )
+    agent_run_id = repository.insert_agent_run(
+        {
+            "id": new_ulid(),
+            "purpose": "tutor_qa",
+            "provider": getattr(client, "provider_name", None) or "codex",
+            "provider_type": getattr(client, "provider_type", None),
+            "model": getattr(client, "model", None),
+            "prompt_template": "tutor_qa",
+            "prompt_version": TUTOR_QA_PROMPT_VERSION,
+            "input_context_hash": _tutor_context_hash(ai_context),
+            "output_schema": "TutorAnswer",
+            "started_at": utc_now_iso(clock),
+            "status": "running",
+        }
+    )
+    try:
+        answer = client.run_tutor_qa(ai_context)
+    except Exception as exc:
+        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        repository.update_question_event_answer(
+            event_id,
+            answer_md=None,
+            question_type=None,
+            facets=None,
+            hint_equivalent=False,
+            leak_suspected=False,
+            answer_status="failed",
+        )
+        raise
+    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
 
     facets = sorted(
         {vault.canonical_facet_id(str(facet)) for facet in answer.facets}
@@ -187,23 +254,14 @@ def ask_question(
         and answer_leaks_expected(answer.answer_md, item.expected_answer)
     )
 
-    event_id = repository.insert_question_event(
-        {
-            "context": context,
-            "note_id": note_id,
-            "practice_item_id": practice_item_id,
-            "attempt_id": attempt_id,
-            "session_id": session_id,
-            "question_md": question_md,
-            "answer_md": answer.answer_md,
-            "question_type": answer.question_type,
-            "facets": facets,
-            "hint_equivalent": hint_equivalent,
-            "leak_suspected": leak_suspected,
-            "seconds_into_attempt": seconds_into_attempt,
-            "provider": getattr(client, "provider_name", None),
-        },
-        clock=clock,
+    repository.update_question_event_answer(
+        event_id,
+        answer_md=answer.answer_md,
+        question_type=answer.question_type,
+        facets=facets,
+        hint_equivalent=hint_equivalent,
+        leak_suspected=leak_suspected,
+        answer_status="answered",
     )
 
     # Feedback wiring: a post-grade question about facet X is a signal the
@@ -323,12 +381,19 @@ def _thread(
 ) -> list[dict[str, Any]]:
     if context == "practice":
         events = repository.question_events(
-            context="practice", practice_item_id=practice_item_id, session_id=session_id
+            context="practice",
+            practice_item_id=practice_item_id,
+            session_id=session_id,
+            answer_status="answered",
         )
     elif context == "feedback":
-        events = repository.question_events(context="feedback", attempt_id=attempt_id)
+        events = repository.question_events(
+            context="feedback", attempt_id=attempt_id, answer_status="answered"
+        )
     else:
-        events = repository.question_events(context="library", note_id=note_id)
+        events = repository.question_events(
+            context="library", note_id=note_id, answer_status="answered"
+        )
     return [
         {
             "question_md": event["question_md"],
@@ -337,6 +402,11 @@ def _thread(
         }
         for event in events
     ]
+
+
+def _tutor_context_hash(context: TutorQAContext) -> str:
+    payload = json.dumps(asdict(context), sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _build_context(

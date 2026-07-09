@@ -785,11 +785,28 @@ export interface AttemptInspectorDetail {
   feedback: FeedbackBundle | null;
 }
 
+export interface NoteInspectorDetail {
+  id: string;
+  requestedId: string;
+  title: string;
+  subjects: string[];
+  relatedLos: string[];
+  relatedConcepts: string[];
+  sourceType: string;
+  path: string | null;
+  locator: string | null;
+  canonicalSource: Record<string, unknown> | null;
+  createdAt: IsoTimestamp | null;
+  updatedAt: IsoTimestamp | null;
+  body: string;
+}
+
 export type InspectorEntity =
   | { version: number; kind: "practice_item"; id: string; detail: PracticeItemDetail }
   | { version: number; kind: "learning_object"; id: string; detail: LearningObjectDetail }
   | { version: number; kind: "attempt"; id: string; detail: AttemptInspectorDetail }
   | { version: number; kind: "error_event"; id: string; detail: ErrorEventDto }
+  | { version: number; kind: "note"; id: string; detail: NoteInspectorDetail }
   | { version: number; kind: "not_found"; id: string; suggestions: InspectorSearchResult[] };
 
 export interface InspectorSearchResult {

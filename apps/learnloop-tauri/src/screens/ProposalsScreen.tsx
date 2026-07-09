@@ -47,7 +47,7 @@ function ItemTypePill({ itemType }: { itemType: string }) {
   return <Pill color={ITEM_TYPE_COLOR[itemType] ?? "slate"}>{itemType.replace(/_/g, " ")}</Pill>;
 }
 
-function SourceRefPill({ source }: { source: ProposalSourceRefDto }) {
+function SourceRefPill({ source, onInspect }: { source: ProposalSourceRefDto; onInspect: (id: string) => void }) {
   const color: PillColor =
     source.kind === "note"
       ? "cyan"
@@ -56,9 +56,33 @@ function SourceRefPill({ source }: { source: ProposalSourceRefDto }) {
         : source.kind === "existing_entity"
           ? "green"
           : source.kind === "session"
-            ? "purple"
-            : "slate";
-  return <Pill color={color}>{source.label}</Pill>;
+          ? "purple"
+          : "slate";
+  if (!source.refId) {
+    return <Pill color={color}>{source.label}</Pill>;
+  }
+  const targetId = source.refId;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      title={`learnloop show ${targetId}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onInspect(targetId);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          onInspect(targetId);
+        }
+      }}
+      style={{ display: "inline-flex", cursor: "pointer" }}
+    >
+      <Pill color={color} style={{ textDecoration: "underline", textUnderlineOffset: 2 }}>{source.label}</Pill>
+    </span>
+  );
 }
 
 // ── Hero ───────────────────────────────────────────────────────────────
@@ -414,7 +438,7 @@ function ProposalDetail({
       {item.sourceRefs.length ? (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {item.sourceRefs.map((source, index) => (
-            <SourceRefPill key={index} source={source} />
+            <SourceRefPill key={index} source={source} onInspect={onInspect} />
           ))}
         </div>
       ) : (
@@ -538,12 +562,14 @@ export function ProposalsScreen({
   authoringReady,
   authoringProvider,
   onInspect,
+  onPaletteEntities,
   onError,
   onHandoff
 }: {
   authoringReady: boolean;
   authoringProvider: string;
   onInspect: (id: string) => void;
+  onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
   onError: (message: string) => void;
   onHandoff?: (patchId: string, itemId: string) => void;
 }) {
@@ -575,6 +601,25 @@ export function ProposalsScreen({
       cancelled = true;
     };
   }, [applySnapshot, onError]);
+
+  useEffect(() => {
+    if (!onPaletteEntities) return;
+    const items = snapshot?.batches.flatMap((batch) => batch.items) ?? [];
+    const inspectIds = uniqueIds(
+      items.flatMap((item) => [
+        item.proposedEntityId,
+        item.targetEntityId,
+        ...item.sourceRefs.map((source) => source.refId),
+      ])
+    );
+    const practiceItemIds = uniqueIds(
+      items
+        .filter((item) => item.itemType === "practice_item")
+        .map((item) => item.proposedEntityId)
+    );
+    onPaletteEntities({ inspectIds, practiceItemIds });
+    return () => onPaletteEntities({ inspectIds: [], practiceItemIds: [] });
+  }, [snapshot, onPaletteEntities]);
 
   // Items in display order, skipping collapsed batches — drives j/k navigation.
   const visibleItems = useMemo(() => {
@@ -798,4 +843,8 @@ export function ProposalsScreen({
       />
     </div>
   );
+}
+
+function uniqueIds(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }

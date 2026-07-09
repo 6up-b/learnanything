@@ -186,11 +186,16 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
             context="practice",
             practice_item_id=params.practice_item_id,
             session_id=params.session_id,
+            answer_status="answered",
         )
     elif params.context == "feedback":
-        events = repository.question_events(context="feedback", attempt_id=params.attempt_id)
+        events = repository.question_events(
+            context="feedback", attempt_id=params.attempt_id, answer_status="answered"
+        )
     else:
-        events = repository.question_events(context="library", note_id=params.note_id)
+        events = repository.question_events(
+            context="library", note_id=params.note_id, answer_status="answered"
+        )
     return versioned({"events": events, "remaining": max(0, limit - used)})
 
 

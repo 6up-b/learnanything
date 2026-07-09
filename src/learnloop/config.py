@@ -772,6 +772,19 @@ class TutorQAConfig(BaseModel):
     max_questions_library: int = Field(default=8, ge=0)
     apply_uncertainty_effect: bool = True
     uncertainty_evidence_mass: float = Field(default=0.15, ge=0.0, le=1.0)
+    # Write-path question evidence (decision-time, read-side): substantive
+    # unresolved questions update the facet hypothesis marginal used by
+    # follow-up selection and diagnostic-focus targeting.
+    # ``question_solid_likelihood_ratio`` is the ABSOLUTE FALLBACK for
+    # L(ask | facet_solid) / L(ask | not solid) — < 1 because learners rarely
+    # ask mechanism/prerequisite questions about facets they hold solidly. It
+    # is superseded by the learner's own empirical question->failure lift once
+    # ``question_likelihood_min_samples`` questioned attempts exist (see
+    # services/question_signal.py), keeping this a single self-retiring
+    # constant rather than a per-question-type table.
+    apply_question_evidence: bool = True
+    question_solid_likelihood_ratio: float = Field(default=0.45, gt=0.0, le=1.0)
+    question_likelihood_min_samples: int = Field(default=12, ge=1)
 
 
 class TeachBackConfig(BaseModel):

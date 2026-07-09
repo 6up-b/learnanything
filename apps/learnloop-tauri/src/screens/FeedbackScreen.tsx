@@ -777,6 +777,7 @@ export function FeedbackScreen({
   onPrimedRetry,
   onOpenLibraryFile,
   onInspect,
+  onPaletteEntities,
   onAsk,
   onError,
 }: {
@@ -789,6 +790,7 @@ export function FeedbackScreen({
   /** Open a vault file in the Library (source panel "view in Library"). */
   onOpenLibraryFile?: (path: string) => void;
   onInspect: (id: string) => void;
+  onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
   onAsk: (target: { context: "feedback"; attemptId: string; practiceItemId?: string }) => void;
   onError: (message: string) => void;
 }) {
@@ -840,6 +842,22 @@ export function FeedbackScreen({
       errorInputRef.current?.focus();
     }
   }, [addingError]);
+
+  useEffect(() => {
+    if (!onPaletteEntities) return;
+    const inspectIds = feedback
+      ? uniqueIds([
+          feedback.attemptId,
+          feedback.practiceItemId,
+          feedback.learningObjectId,
+          ...feedback.errorAttributions.map((event) => event.id),
+          feedback.interventionNeed?.id ?? null,
+        ])
+      : uniqueIds([attemptId]);
+    const practiceItemIds = feedback ? uniqueIds([feedback.practiceItemId]) : [];
+    onPaletteEntities({ inspectIds, practiceItemIds });
+    return () => onPaletteEntities({ inspectIds: [], practiceItemIds: [] });
+  }, [attemptId, feedback, onPaletteEntities]);
 
   useEffect(() => {
     if (addingNote) {
@@ -1458,4 +1476,8 @@ export function FeedbackScreen({
       />
     </div>
   );
+}
+
+function uniqueIds(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }

@@ -25,6 +25,10 @@ from learnloop.services.probes import (
     probe_posterior,
     resolve_item_irt,
 )
+from learnloop.services.question_signal import (
+    QuestionSignal,
+    question_adjusted_uncertainty_states,
+)
 from learnloop.services.recall_coverage import familiarity_discount
 from learnloop.services.signal_quantiles import ResolvedThreshold, resolve_followup_thresholds
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -987,9 +991,21 @@ def _choose_intervention_item(
         for item in vault.practice_items.values()
         if item.learning_object_id == learning_object_id and item.id != exclude_practice_item_id
     ]
+    # Tutor-question evidence (question_signal): substantive unresolved
+    # questions update the marginals BEFORE gating/EIG, so questioned facets
+    # carry more entropy (higher facet-EIG for items probing them) and
+    # questioned-but-never-failed facets join as virtual open states. Pure
+    # read-side adjustment of persisted question_events — replay-safe.
+    adjusted_states, question_signal = question_adjusted_uncertainty_states(
+        vault,
+        repository,
+        learning_object_id,
+        exclude_attempt_id=attempt_id,
+        clock=clock,
+    )
     diagnostic_states = [
         state
-        for state in repository.facet_uncertainty_states(learning_object_id)
+        for state in adjusted_states
         if state.status in {"open", "resolving"} or _is_known_gap_state(state)
     ]
     severity = max(max_error_severity, 0.05)
@@ -1015,6 +1031,7 @@ def _choose_intervention_item(
         diagnostic_states=diagnostic_states,
         max_error_severity=max_error_severity,
         fallback_dominant_target_facet=interim_dominant_target_facet,
+        question_signal=question_signal,
     )
     dominant_target_facet = diagnostic_focus.get("primary_target_facet")
     diagnostic_gate_facets = list(diagnostic_focus.get("diagnostic_gate_facets") or [])
@@ -1041,6 +1058,14 @@ def _choose_intervention_item(
         diagnostic_focus = {
             **diagnostic_focus,
             "open_facets": open_facets,
+            # Question-adjusted marginal snapshot per gate facet: the frozen
+            # belief state a generated probe must discriminate (spec: authoring
+            # designs the item whose outcomes separate these hypotheses).
+            "target_facet_marginals": {
+                state.facet_id: state.hypothesis_marginal
+                for state in diagnostic_states
+                if state.facet_id in gate_reference
+            },
         }
 
     # spec §4.1: active registry beliefs that gate diagnostic routing for this LO.
@@ -1272,6 +1297,7 @@ def _build_diagnostic_focus(
     diagnostic_states: list[Any],
     max_error_severity: float,
     fallback_dominant_target_facet: str | None,
+    question_signal: QuestionSignal | None = None,
 ) -> dict[str, Any]:
     scores: dict[str, float] = {}
     source_scores: dict[str, dict[str, Any]] = {}
@@ -1311,6 +1337,25 @@ def _build_diagnostic_focus(
         )
 
     structured_target_seen = False
+    # Tutor-question source: each questioned facet earns a bounded score so it
+    # can claim an "enriched" extras slot, but stays below the failed-facet
+    # floor (2.0+severity) so the grader's signal keeps the primary slot.
+    if question_signal is not None and question_signal.events_by_facet:
+        for facet, events in sorted(question_signal.events_by_facet.items()):
+            structured_target_seen = True
+            add_score(
+                facet,
+                0.75 + 0.25 * min(len(events), 3),
+                "tutor_question",
+                {
+                    "question_event_ids": [str(event.get("id")) for event in events],
+                    "question_types": sorted({str(event.get("question_type")) for event in events}),
+                    "unresolved_count": len(events),
+                    "solid_likelihood_ratio": question_signal.likelihood.value,
+                    "likelihood_source": question_signal.likelihood.source,
+                },
+            )
+
     if attempt_id:
         for event in repository.error_events_for_attempt(attempt_id):
             repair_plan = event.get("repair_plan")
@@ -1365,9 +1410,13 @@ def _build_diagnostic_focus(
 
     primary_pool = set(failed) | set(diagnostic_state_by_facet)
     if primary_pool:
+        # Failed rubric facets outrank everything for the primary slot: tutor
+        # questions and uncertainty may only enrich the gate set, never demote
+        # the grader's missed criterion from primary.
         primary = max(
             primary_pool,
             key=lambda facet: (
+                1 if facet in set(failed) else 0,
                 scores.get(facet, 0.0),
                 float(getattr(diagnostic_state_by_facet.get(facet), "uncertainty", 0.0) or 0.0),
                 facet,
@@ -1409,7 +1458,7 @@ def _build_diagnostic_focus(
     if primary is not None and diagnostic_gate_facets and primary not in diagnostic_gate_facets:
         diagnostic_gate_facets = sorted([primary, *diagnostic_gate_facets])
 
-    return {
+    focus = {
         "primary_target_facet": primary,
         "target_facets": diagnostic_gate_facets,
         "diagnostic_gate_facets": diagnostic_gate_facets,
@@ -1424,6 +1473,14 @@ def _build_diagnostic_focus(
         },
         "repair_rationales": repair_rationales,
     }
+    if question_signal is not None and (
+        question_signal.events_by_facet or question_signal.unfaceted_events
+    ):
+        # The learner's own words are the least lossy record of the confusion;
+        # authoring reads these to aim the probe (facets stay authoritative).
+        focus["tutor_question_context"] = question_signal.context_entries()
+        focus["question_likelihood"] = question_signal.likelihood.as_dict()
+    return focus
 
 
 def _is_known_gap_state(state: Any) -> bool:

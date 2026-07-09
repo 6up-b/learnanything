@@ -4,6 +4,7 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
@@ -56,7 +57,12 @@ def test_cli_attempt_json_and_show_attempt(tmp_path):
     why_payload = json.loads(why.output)
     assert why_payload["practice_item_id"] == "pi_svd_define_001"
     assert "active_goal" not in why_payload["components"]
-    assert why_payload["components"]["goal_frontier"] == 0.8
+    # The raw frontier weight (goal priority 0.8) is discounted by the
+    # same-item exposure factor because the item was just attempted: re-serving
+    # it would produce dependent evidence toward the goal.
+    exposure = why_payload["components"]["goal_frontier_exposure_discount"]
+    assert 0.0 < exposure < 1.0
+    assert why_payload["components"]["goal_frontier"] == pytest.approx(0.8 * exposure)
 
 
 def test_cli_attempt_defaults_to_allowed_open_text_attempt_type(tmp_path):

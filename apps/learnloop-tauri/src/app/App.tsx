@@ -328,6 +328,7 @@ export function App() {
             onPrimedRetry={openPrimedRetry}
             onOpenLibraryFile={openLibraryFile}
             onInspect={setInspectorId}
+            onPaletteEntities={onPaletteEntities}
             onAsk={setAskTarget}
             onError={onError}
           />
@@ -373,6 +374,7 @@ export function App() {
           authoringReady={snapshot.health.ai.ready}
           authoringProvider={snapshot.health.ai.activeProvider}
           onInspect={setInspectorId}
+          onPaletteEntities={onPaletteEntities}
           onError={onError}
           onHandoff={gotoLibraryProposal}
         />

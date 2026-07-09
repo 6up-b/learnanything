@@ -16,6 +16,7 @@ import type {
   InspectorEntity,
   InspectorSearchResult,
   LearningObjectDetail,
+  NoteInspectorDetail,
   PracticeItemDetail,
   ErrorEventDto,
   SchedulerComponents,
@@ -29,7 +30,8 @@ const KIND_PILL: Record<string, { color: PillColor; label: string }> = {
   practice_item: { color: "cyan", label: "practice_item" },
   learning_object: { color: "purple", label: "learning_object" },
   attempt: { color: "amber", label: "attempt" },
-  error_event: { color: "red", label: "error_event" }
+  error_event: { color: "red", label: "error_event" },
+  note: { color: "cyan", label: "note" }
 };
 
 function masteryColor(mastery: number): string {
@@ -227,7 +229,9 @@ function InspectorEntityView({
         ? entity.detail.title
         : entity.kind === "error_event"
           ? entity.detail.errorTitle ?? entity.detail.errorType
-          : entity.id;
+          : entity.kind === "note"
+            ? entity.detail.title
+            : entity.id;
 
   return (
     <>
@@ -245,6 +249,8 @@ function InspectorEntityView({
           <LearningObjectBody detail={entity.detail} childPracticeItemId={childPracticeItemId} onGo={onGo} />
         ) : entity.kind === "error_event" ? (
           <ErrorEventBody detail={entity.detail} onGo={onGo} />
+        ) : entity.kind === "note" ? (
+          <NoteBody detail={entity.detail} onGo={onGo} />
         ) : (
           <AttemptBody id={entity.id} detail={entity.detail} onGo={onGo} />
         )}
@@ -537,6 +543,72 @@ function ErrorEventBody({ detail, onGo }: { detail: ErrorEventDto; onGo: (id: st
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+// ── note ───────────────────────────────────────────────────────────────────
+function NoteBody({ detail, onGo }: { detail: NoteInspectorDetail; onGo: (id: string) => void }) {
+  return (
+    <div>
+      <InspectorRow label="note_id">
+        <Dim style={{ fontFamily: FONT_MONO }}>{detail.id}</Dim>
+      </InspectorRow>
+      {detail.requestedId !== detail.id ? (
+        <InspectorRow label="source_ref">
+          <Dim style={{ fontFamily: FONT_MONO }}>{detail.requestedId}</Dim>
+        </InspectorRow>
+      ) : null}
+      <InspectorRow label="source_type">
+        <Pill color={detail.sourceType === "canonical_source" ? "amber" : "cyan"}>{detail.sourceType}</Pill>
+      </InspectorRow>
+      {detail.locator ? (
+        <InspectorRow label="locator">
+          <Dim style={{ fontFamily: FONT_MONO }}>{detail.locator}</Dim>
+        </InspectorRow>
+      ) : null}
+      {detail.path ? (
+        <InspectorRow label="path">
+          <Dim style={{ fontFamily: FONT_MONO }}>{detail.path}</Dim>
+        </InspectorRow>
+      ) : null}
+      {detail.subjects.length ? (
+        <InspectorRow label="subjects">
+          <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+            {detail.subjects.map((subject) => (
+              <Pill key={subject} color="slate">{subject}</Pill>
+            ))}
+          </span>
+        </InspectorRow>
+      ) : null}
+      {detail.relatedLos.length ? (
+        <InspectorRow label="related_los">
+          <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
+            {detail.relatedLos.map((id) => (
+              <IdLink key={id} id={id} onGo={onGo} />
+            ))}
+          </span>
+        </InspectorRow>
+      ) : null}
+      {detail.relatedConcepts.length ? (
+        <InspectorRow label="related_concepts">
+          <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
+            {detail.relatedConcepts.map((id) => (
+              <IdLink key={id} id={id} onGo={onGo} />
+            ))}
+          </span>
+        </InspectorRow>
+      ) : null}
+      {detail.canonicalSource ? (
+        <InspectorRow label="canonical">
+          <Dim style={{ fontFamily: FONT_MONO, overflowWrap: "anywhere" }}>{JSON.stringify(detail.canonicalSource)}</Dim>
+        </InspectorRow>
+      ) : null}
+
+      <SectionHeader>Body</SectionHeader>
+      <div style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bgElev, padding: "10px 12px", fontSize: 13 }}>
+        <MarkdownMath value={detail.body} />
+      </div>
     </div>
   );
 }

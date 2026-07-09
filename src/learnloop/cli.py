@@ -1108,6 +1108,9 @@ def show(
     elif identifier in loaded.notes:
         entity_type = "note"
         payload = loaded.notes[identifier]
+    elif ":t=" in identifier and identifier.split(":t=", 1)[0] in loaded.notes:
+        entity_type = "note"
+        payload = loaded.notes[identifier.split(":t=", 1)[0]]
     elif identifier in loaded.subjects:
         entity_type = "subject"
         subject = loaded.subjects[identifier]

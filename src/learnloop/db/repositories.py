@@ -1300,9 +1300,9 @@ class Repository:
                   id, context, note_id, practice_item_id, attempt_id, session_id,
                   question_md, answer_md, question_type, facets_json,
                   hint_equivalent, leak_suspected, rating, seconds_into_attempt,
-                  provider, created_at
+                  provider, answer_status, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -1320,11 +1320,51 @@ class Repository:
                     event.get("rating"),
                     event.get("seconds_into_attempt"),
                     event.get("provider"),
+                    event.get("answer_status") or "answered",
                     now,
                 ),
             )
             connection.commit()
         return event_id
+
+    def update_question_event_answer(
+        self,
+        event_id: str,
+        *,
+        answer_md: str | None,
+        question_type: str | None,
+        facets: list[str] | None,
+        hint_equivalent: bool,
+        leak_suspected: bool,
+        answer_status: str,
+    ) -> bool:
+        """Complete (or fail) a pending question event after the provider call.
+
+        Second half of the two-phase write: the question row already exists
+        with answer_status='pending'; this fills in the answer and the tutor's
+        classification, or marks the turn 'failed' while keeping the question
+        text as evidence."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE question_events
+                SET answer_md = ?, question_type = ?, facets_json = ?,
+                    hint_equivalent = ?, leak_suspected = ?, answer_status = ?
+                WHERE id = ?
+                """,
+                (
+                    answer_md,
+                    question_type,
+                    _json(sorted({str(facet) for facet in facets})) if facets is not None else _json([]),
+                    1 if hint_equivalent else 0,
+                    1 if leak_suspected else 0,
+                    answer_status,
+                    event_id,
+                ),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
 
     def question_events(
         self,
@@ -1335,6 +1375,7 @@ class Repository:
         attempt_id: str | None = None,
         session_id: str | None = None,
         since: str | None = None,
+        answer_status: str | None = None,
     ) -> list[dict[str, Any]]:
         query = "SELECT * FROM question_events"
         clauses: list[str] = []
@@ -1345,6 +1386,7 @@ class Repository:
             ("practice_item_id", practice_item_id),
             ("attempt_id", attempt_id),
             ("session_id", session_id),
+            ("answer_status", answer_status),
         ):
             if value is not None:
                 clauses.append(f"{column} = ?")
@@ -1368,6 +1410,7 @@ class Repository:
         attempt_id: str | None = None,
         session_id: str | None = None,
         since: str | None = None,
+        answer_status: str | None = None,
     ) -> int:
         return len(
             self.question_events(
@@ -1377,6 +1420,7 @@ class Repository:
                 attempt_id=attempt_id,
                 session_id=session_id,
                 since=since,
+                answer_status=answer_status,
             )
         )
 
@@ -3824,6 +3868,7 @@ class Repository:
             ("lo_probe_state", "lo_probe_state", "learning_object_id", _probe_state_record),
             ("hypothesis_set", "hypothesis_sets", "id", _decode_hypothesis_set),
             ("learner_state_belief", "learner_state_beliefs", "id", dict),
+            ("intervention_need", "intervention_needs", "id", _decode_intervention_need),
             ("elicitation_event", "elicitation_events", "id", _decode_elicitation_event),
             ("decision_feature", "decision_features", "id", _decode_decision_features),
             ("proposal", "proposed_patches", "id", _decode_proposal_batch),

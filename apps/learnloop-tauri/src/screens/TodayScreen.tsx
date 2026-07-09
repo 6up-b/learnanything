@@ -57,7 +57,8 @@ export function TodayScreen({
   const [goals, setGoals] = useState<GoalDto[] | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [dismissedReview, setDismissedReview] = useState<Set<string>>(() => new Set());
-  const queueRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot> } | null>(null);
+  const queueRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot>; id: number } | null>(null);
+  const queueRequestSeqRef = useRef(0);
   const now = useNowMinute();
 
   const refreshGoals = useCallback(() => {
@@ -181,13 +182,16 @@ export function TodayScreen({
       } else if (event.key.toLowerCase() === "e") {
         void finishSession();
         event.preventDefault();
+      } else if (event.key.toLowerCase() === "r") {
+        void refreshQueue({ force: true });
+        event.preventDefault();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [finishSession, flatIds, focusedItem, onOpenPractice]);
 
-  async function refreshQueue() {
+  async function refreshQueue({ force = false }: { force?: boolean } = {}): Promise<QueueSnapshot | null> {
     const input = {
       sessionId: session?.sessionId ?? null,
       availableMinutes: session?.availableMinutes ?? null,
@@ -195,22 +199,51 @@ export function TodayScreen({
     };
     const key = JSON.stringify(input);
     const inFlight = queueRequestRef.current;
-    const promise = inFlight?.key === key ? inFlight.promise : api.getTodayQueue(input);
+    const reuse = !force && inFlight?.key === key;
+    const requestId = reuse ? inFlight.id : queueRequestSeqRef.current + 1;
+    const promise = reuse ? inFlight.promise : api.getTodayQueue(input);
 
-    queueRequestRef.current = { key, promise };
+    if (!reuse) {
+      queueRequestSeqRef.current = requestId;
+      queueRequestRef.current = { key, promise, id: requestId };
+    }
     setQueueLoading(true);
     try {
       const next = await promise;
-      setQueue(next);
-      setFocusedId(next.sections.flatMap((section) => section.items)[0]?.practiceItemId ?? null);
+      if (queueRequestSeqRef.current === requestId) {
+        setQueue(next);
+        setFocusedId(queueItems(next)[0]?.practiceItemId ?? null);
+      }
+      return next;
     } catch (error) {
       onError((error as Error).message);
+      return null;
     } finally {
       if (queueRequestRef.current?.promise === promise) {
         queueRequestRef.current = null;
       }
-      setQueueLoading(false);
+      if (queueRequestSeqRef.current === requestId) {
+        setQueueLoading(false);
+      }
     }
+  }
+
+  function refreshAfterGoalChange() {
+    refreshGoals();
+    void refreshQueue({ force: true });
+  }
+
+  async function practiceAtRisk() {
+    let target = firstGoalFrontierItem(queue);
+    if (!target) {
+      target = firstGoalFrontierItem(await refreshQueue({ force: true }));
+    }
+    if (!target) {
+      onError("No at-risk goal practice item is scheduled yet.");
+      return;
+    }
+    setFocusedId(target.practiceItemId);
+    onOpenPractice(target.practiceItemId);
   }
 
   if (queueLoading && !queue) {
@@ -237,10 +270,7 @@ export function TodayScreen({
           <GoalBanner
             goals={activeGoals}
             onError={onError}
-            onPracticeAtRisk={() => {
-              const first = flatIds[0];
-              if (first) setFocusedId(first);
-            }}
+            onPracticeAtRisk={practiceAtRisk}
             onTakeExam={onTakeExam}
             onNewGoal={() => setWizardOpen(true)}
           />
@@ -259,13 +289,13 @@ export function TodayScreen({
           goal={reviewCandidate.goal}
           reason={reviewCandidate.reason}
           onKeep={(id) => setDismissedReview((prev) => new Set(prev).add(id))}
-          onChanged={refreshGoals}
+          onChanged={refreshAfterGoalChange}
           onError={onError}
         />
       ) : null}
 
       {wizardOpen ? (
-        <GoalWizard onClose={() => setWizardOpen(false)} onCreated={refreshGoals} onError={onError} />
+        <GoalWizard onClose={() => setWizardOpen(false)} onCreated={refreshAfterGoalChange} onError={onError} />
       ) : null}
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -848,6 +878,14 @@ function QueueRankingStrip({ algorithmVersion }: { algorithmVersion: string }) {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function queueItems(snapshot: QueueSnapshot | null): ScheduledItemDto[] {
+  return snapshot?.sections.flatMap((section) => section.items) ?? [];
+}
+
+function firstGoalFrontierItem(snapshot: QueueSnapshot | null): ScheduledItemDto | null {
+  return queueItems(snapshot).find((item) => (item.components.goalFrontier ?? 0) > 0) ?? null;
 }
 
 function useNowMinute(): Date {

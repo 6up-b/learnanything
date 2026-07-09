@@ -15,7 +15,7 @@ from learnloop.codex.schemas import AuthoringProposal
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.writer import upsert_concept_edge
 
-from tests.helpers import NOW, create_basic_vault, seed_due_item
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
 
 runner = CliRunner()
 
@@ -73,6 +73,24 @@ def test_show_inspects_every_deterministic_id(tmp_path):
         },
         clock=FrozenClock(NOW),
     )
+    intervention_need_id = repository.upsert_intervention_need(
+        {
+            "id": "need_show",
+            "attempt_id": result.attempt_id,
+            "practice_item_id": "pi_svd_define_001",
+            "learning_object_id": "lo_svd_definition",
+            "desired_intent": "diagnostic_probe",
+            "trigger_reason": "show_test",
+            "target_facets": ["recall"],
+            "error_types": ["conceptual_slip"],
+            "priority": 0.75,
+            "status": "pending",
+            "blocked_reason": "queued_for_diagnostic",
+            "candidate_requirements": {},
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        }
+    )
     hypothesis_set = enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
     observation_template_id = register_observation_template(
         repository,
@@ -97,6 +115,7 @@ def test_show_inspects_every_deterministic_id(tmp_path):
     assert _show_type(vault_root, "conceptual_slip") == "error_type"
     assert _show_type(vault_root, "edge_show") == "concept_edge"
     assert _show_type(vault_root, "note_show") == "note"
+    assert _show_type(vault_root, "note_show:t=1.0-2.0") == "note"
     assert _show_type(vault_root, "linear-algebra") == "subject"
     assert _show_type(vault_root, result.attempt_id) == "practice_attempt"
     assert _show_type(vault_root, result.error_event_ids[0]) == "error_event"
@@ -105,6 +124,7 @@ def test_show_inspects_every_deterministic_id(tmp_path):
     assert _show_type(vault_root, change_batch_id) == "change_batch"
     assert _show_type(vault_root, evidence_id) == "grading_evidence"
     assert _show_type(vault_root, learner_claim_id) == "learner_claim"
+    assert _show_type(vault_root, intervention_need_id) == "intervention_need"
     assert _show_type(vault_root, hypothesis_set.id) == "hypothesis_set"
     assert _show_type(vault_root, observation_template_id) == "observation_template"
     assert _show_type(vault_root, observation.observation_event_id) == "observation_event"

@@ -6,10 +6,11 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import MasteryState, Repository
+from learnloop.db.repositories import MasteryState, PracticeItemState, Repository
 from learnloop.services.scheduler import (
     ScheduledItem,
     SchedulerSession,
+    _rotate_same_day_frontier_repeats,
     _selection_propensities,
     build_due_queue,
 )
@@ -627,3 +628,81 @@ def test_scheduler_persists_selection_propensity_and_exploration_flag(tmp_path):
     # Exactly the candidate promoted by seeded exploration carries the realized flag.
     explored = [row["practice_item_id"] for row in candidates if row["exploration_flag"] == 1]
     assert len(explored) <= 1
+
+
+# ── goal-frontier rotation (at-risk repeat fix) ──────────────────────────────
+
+
+def _frontier_item(item_id: str, reward: float, frontier: float = 0.5) -> ScheduledItem:
+    return ScheduledItem(
+        practice_item_id=item_id,
+        learning_object_id="lo_svd_definition",
+        priority=reward,
+        components={"goal_frontier": frontier, "selection_reward": reward},
+        readiness_factor=None,
+        selected_mode="short_answer",
+        plain_english=[],
+    )
+
+
+def _item_state(item_id: str, last_attempt_at: str | None) -> PracticeItemState:
+    return PracticeItemState(
+        practice_item_id=item_id,
+        difficulty=None,
+        stability=None,
+        retrievability=None,
+        due_at=None,
+        active=True,
+        content_hash=None,
+        last_attempt_at=last_attempt_at,
+        updated_at=NOW_ISO,
+    )
+
+
+def test_frontier_items_attempted_today_rotate_behind_fresh_ones():
+    queue = [
+        _frontier_item("pi_repeat", 0.9),
+        _frontier_item("pi_fresh", 0.7),
+    ]
+    item_states = {
+        "pi_repeat": _item_state("pi_repeat", NOW_ISO),
+        "pi_fresh": _item_state("pi_fresh", "2026-05-12T09:00:00Z"),
+    }
+    rotated = _rotate_same_day_frontier_repeats(queue, item_states, NOW)
+    assert [item.practice_item_id for item in rotated] == ["pi_fresh", "pi_repeat"]
+
+
+def test_rotation_no_op_when_all_frontier_items_attempted_today():
+    queue = [
+        _frontier_item("pi_a", 0.9),
+        _frontier_item("pi_b", 0.7),
+    ]
+    item_states = {
+        "pi_a": _item_state("pi_a", NOW_ISO),
+        "pi_b": _item_state("pi_b", NOW_ISO),
+    }
+    rotated = _rotate_same_day_frontier_repeats(queue, item_states, NOW)
+    assert [item.practice_item_id for item in rotated] == ["pi_a", "pi_b"]
+
+
+def test_rotation_leaves_non_frontier_slots_untouched():
+    non_frontier = ScheduledItem(
+        practice_item_id="pi_other",
+        learning_object_id="lo_svd_definition",
+        priority=1.0,
+        components={"goal_frontier": 0.0},
+        readiness_factor=None,
+        selected_mode="short_answer",
+        plain_english=[],
+    )
+    queue = [
+        _frontier_item("pi_repeat", 0.9),
+        non_frontier,
+        _frontier_item("pi_fresh", 0.7),
+    ]
+    item_states = {
+        "pi_repeat": _item_state("pi_repeat", NOW_ISO),
+        "pi_fresh": _item_state("pi_fresh", None),
+    }
+    rotated = _rotate_same_day_frontier_repeats(queue, item_states, NOW)
+    assert [item.practice_item_id for item in rotated] == ["pi_fresh", "pi_other", "pi_repeat"]

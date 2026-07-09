@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import exp
+from typing import Any
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.config import LearnLoopConfig
@@ -19,7 +20,11 @@ from learnloop.services.probes import (
 from learnloop.numeric import clamp
 from learnloop.services.goal_projection import build_goal_frontier
 from learnloop.services.exam_pool import reserved_item_ids as reserved_exam_pool_item_ids
-from learnloop.services.recall_coverage import familiarity_discount, resolve_coverage
+from learnloop.services.recall_coverage import (
+    familiarity_discount,
+    familiarity_discount_from_attempts,
+    resolve_coverage,
+)
 from learnloop.services.selection_rewards import SchedulerIntent, score_selection_reward
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -84,6 +89,7 @@ def build_due_queue(
 
     queue: list[ScheduledItem] = []
     probe_item_ids: dict[str, str] = {}
+    recent_attempts_by_lo: dict[str, list[dict[str, Any]]] = {}
     for item in vault.practice_items.values():
         state = item_states.get(item.id)
         if state is not None and not state.active:
@@ -96,16 +102,44 @@ def build_due_queue(
         mastery = mastery_states.get(learning_object.id)
         probe_state = probe_states.get(learning_object.id)
         in_probe = probe_state is not None and probe_state.status == "in_progress"
-        if (mastery is None or mastery.last_evidence_at is None) and not in_probe:
+        frontier_entry = frontier.by_lo.get(learning_object.id)
+        # Cold-start gate: never-attempted LOs stay out of the routine queue —
+        # EXCEPT when the LO is on an active goal's at-risk frontier. The
+        # frontier's widened semantics put unexamined facets at risk precisely
+        # so the goal's untouched material gets scheduled before the due date;
+        # skipping those items here would leave "practice at-risk facets"
+        # re-serving the goal's only attempted item.
+        if (mastery is None or mastery.last_evidence_at is None) and not in_probe and frontier_entry is None:
             continue
 
-        frontier_entry = frontier.by_lo.get(learning_object.id)
+        goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
         components: dict[str, float] = {
             "forgetting_risk": _forgetting_risk(state, now, fsrs_weights),
-            "goal_frontier": _goal_frontier(vault, item, frontier_entry),
             "recent_error": _recent_error(errors_by_lo.get(learning_object.id, []), now),
             "probe_eig": 0.0,
         }
+        if goal_frontier_component > 0:
+            # Exposure discount: evidence from re-serving a just-attempted item
+            # (or its surface family) is dependent evidence, worth less toward
+            # the goal — and without this the argmax re-serves the same frontier
+            # item after every failure. Reuses the follow-up/probe familiarity
+            # machinery; no new constants.
+            recent = recent_attempts_by_lo.get(learning_object.id)
+            if recent is None:
+                recent = repository.list_recent_attempts_by_learning_object(
+                    learning_object.id,
+                    limit=config.recall_coverage.familiarity_recent_attempt_window,
+                )
+                recent_attempts_by_lo[learning_object.id] = recent
+            exposure = familiarity_discount_from_attempts(
+                recent,
+                item,
+                covered_facets={str(facet): 1.0 for facet in item.evidence_facets},
+                config=config,
+            ).independent_evidence_discount
+            components["goal_frontier_exposure_discount"] = exposure
+            goal_frontier_component *= exposure
+        components["goal_frontier"] = goal_frontier_component
         probe_familiarity_discount = 1.0
 
         if in_probe and probe_state.hypothesis_set_id is not None:
@@ -204,6 +238,7 @@ def build_due_queue(
     # so the floor holds even in short sessions, and before follow-up insertion
     # (force-inserted follow-ups are a separate triggered decision).
     queue = _apply_goal_quota(queue, frontier.quota_floor)
+    queue = _rotate_same_day_frontier_repeats(queue, item_states, now)
     queue = _insert_pending_followups(vault, queue, pending_followups, readiness_factor)
     considered_queue = list(queue)
     if limit is not None:
@@ -302,6 +337,43 @@ def _insert_pending_followups(
 # escalation on solid items). A constant, not a config weight: the scheduler
 # priority-weight sweep showed those knobs are decision-inert.
 _TEACH_BACK_PRIORITY_FLOOR = 0.05
+
+
+def _rotate_same_day_frontier_repeats(
+    queue: list[ScheduledItem],
+    item_states: dict[str, PracticeItemState],
+    now: datetime,
+) -> list[ScheduledItem]:
+    """Within goal-frontier queue slots, serve items not yet attempted today first.
+
+    The at-risk treadmill: with no exposure term a failed frontier item stays
+    argmax, so "practice at-risk facets" re-serves the same problem all day.
+    Frontier items keep their queue slots as a group (non-frontier positions
+    are untouched); within those slots, items attempted on the current UTC day
+    sort after fresh ones, preserving reward order inside each half. If every
+    frontier item was already attempted today the order is unchanged — the
+    pool is genuinely exhausted and generation, not rotation, is the fix.
+    """
+
+    slots = [
+        index
+        for index, scheduled in enumerate(queue)
+        if scheduled.components.get("goal_frontier", 0.0) > 0
+    ]
+    if len(slots) < 2:
+        return queue
+    today = now.strftime("%Y-%m-%d")
+
+    def attempted_today(scheduled: ScheduledItem) -> int:
+        state = item_states.get(scheduled.practice_item_id)
+        last = state.last_attempt_at if state is not None else None
+        return 1 if last is not None and last[:10] == today else 0
+
+    rotated = sorted((queue[index] for index in slots), key=attempted_today)
+    reordered = list(queue)
+    for index, scheduled in zip(slots, rotated):
+        reordered[index] = scheduled
+    return reordered
 
 
 def _enforce_teach_back_session_cap(queue: list[ScheduledItem], cap: int) -> list[ScheduledItem]:

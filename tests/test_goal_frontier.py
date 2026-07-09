@@ -83,14 +83,18 @@ def test_known_gap_and_uncertain_facets_are_both_on_frontier(tmp_path):
         repository, status="resolved", top_label="facet_absent:recall", opened_by_attempt_id=result.attempt_id
     )
     queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
-    assert queue[0].components["goal_frontier"] == pytest.approx(0.8)
+    # The raw frontier weight (goal priority 0.8) is multiplied by the same-item
+    # exposure discount because the item was just attempted above.
+    exposure = queue[0].components["goal_frontier_exposure_discount"]
+    assert 0.0 < exposure < 1.0
+    assert queue[0].components["goal_frontier"] == pytest.approx(0.8 * exposure)
 
     _upsert_uncertainty(
         repository, status="open", top_label="facet_absent:recall", opened_by_attempt_id=result.attempt_id
     )
     queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
     # Uncertain now counts as not-on-track (previously excluded).
-    assert queue[0].components["goal_frontier"] == pytest.approx(0.8)
+    assert queue[0].components["goal_frontier"] == pytest.approx(0.8 * exposure)
 
 
 def test_no_active_goals_means_no_goal_frontier(tmp_path):
@@ -231,3 +235,24 @@ def test_goal_quota_guarantees_floor_share_at_top_of_queue(tmp_path):
 
     # With floor > 0 and a goal item available, position 1 is a goal item.
     assert is_goal(queue[0])
+
+
+def test_cold_start_lo_on_frontier_is_schedulable(tmp_path):
+    # A never-attempted LO inside an active goal's scope has all its facets
+    # unexamined -> at risk -> on the frontier. The scheduler's cold-start
+    # gate must not drop its items, or "practice at-risk facets" can never
+    # serve the goal's untouched material. No seed_due_item here: no mastery
+    # row, no item state — the LO is genuinely cold.
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    vault = load_vault(vault_root)
+
+    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+
+    frontier_ids = [
+        item.practice_item_id
+        for item in queue
+        if item.components.get("goal_frontier", 0.0) > 0
+    ]
+    assert ITEM_ID in frontier_ids

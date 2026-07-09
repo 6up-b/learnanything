@@ -145,7 +145,7 @@ async function runCommand(name: string, args: string[], flags: Flags, ctx: CmdCt
     case "why":
       return runWhy(args);
     case "show":
-      return runShow(args, ctx);
+      return runShow(args, ctx, argv);
     case "attempt": {
       if (!args[0]) return [{ type: "err", text: "usage: attempt <practice_item_id>" }];
       ctx.onOpenPractice(args[0]);
@@ -275,11 +275,11 @@ async function runWhy(args: string[]): Promise<OutputRow[]> {
   return rows;
 }
 
-async function runShow(args: string[], ctx: CmdCtx): Promise<OutputRow[]> {
+async function runShow(args: string[], ctx: CmdCtx, argv: string[]): Promise<OutputRow[]> {
   if (!args[0]) return [{ type: "err", text: "usage: show <id>" }];
   const entity = await api.inspectEntity(args[0]);
   if (entity.kind === "not_found") {
-    return [{ type: "err", text: `no entity found for "${args[0]}".` }];
+    return runCli(argv);
   }
   ctx.onInspect(args[0]);
   ctx.close();
