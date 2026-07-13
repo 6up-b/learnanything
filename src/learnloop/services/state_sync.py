@@ -47,6 +47,15 @@ def sync_vault_state(
     item_states = repository.practice_item_states()
     now = utc_now_iso(clock)
     live_item_ids = set(vault.practice_items)
+    # Generated probe instances parked behind instance review (§10) and
+    # ephemeral dialogue-turn instances (§8.1) stay inactive; a routine sync
+    # must not force-reactivate them into ordinary practice.
+    from learnloop.services.probe_instance_generation import pending_review_instance_ids
+
+    review_parked = pending_review_instance_ids(repository)
+
+    def _activatable(item_id: str, item) -> bool:
+        return item_id not in review_parked and item.practice_mode != "diagnostic_microprobe"
 
     for item_id, item in vault.practice_items.items():
         content_hash = practice_item_hash(item)
@@ -54,7 +63,7 @@ def sync_vault_state(
         if state is None:
             repository.upsert_practice_item_state(
                 item_id,
-                active=True,
+                active=_activatable(item_id, item),
                 content_hash=content_hash,
                 clock=clock,
             )
@@ -68,7 +77,7 @@ def sync_vault_state(
                 stability=state.stability,
                 retrievability=state.retrievability,
                 due_at=state.due_at,
-                active=True,
+                active=_activatable(item_id, item),
                 content_hash=content_hash,
                 last_attempt_at=state.last_attempt_at,
                 clock=clock,
@@ -102,6 +111,12 @@ def sync_vault_state(
 
     _enter_initial_probes(vault, repository, clock=clock)
 
+    # §6.5 periodic re-probe: persistently high uncertainty after a completed
+    # episode re-enters probing with trigger `stale_uncertainty`.
+    from learnloop.services.probe_episodes import enter_stale_uncertainty_reprobes
+
+    enter_stale_uncertainty_reprobes(vault, repository, clock=clock)
+
     return StateSyncResult(
         practice_item_states_created=created_items,
         practice_item_states_updated=updated_items,
@@ -116,6 +131,17 @@ def _enter_initial_probes(
     *,
     clock: Clock | None,
 ) -> None:
+    """Open initial diagnostic episodes (probe redesign §5/§10).
+
+    Legacy `lo_probe_state` is read-only history (Checkpoint 0): an LO that
+    already carries a legacy phase or any episode never re-enters here. A
+    missing local instrument parks the episode in `pending_items` with ONE
+    deduplicated generation need — repeated syncs create nothing new, and the
+    pending episode never blocks ordinary practice on the LO.
+    """
+
+    from learnloop.services.probe_episodes import enter_episode
+
     mastery_states = repository.mastery_states()
     # Explicit goal scope (no concept-edge expansion): an LO is in scope when any
     # active goal's resolved facet scope names it. Computed once per sync.
@@ -129,45 +155,13 @@ def _enter_initial_probes(
             continue
         if repository.probe_state(learning_object_id) is not None:
             continue
+        if repository.probe_episodes_for_learning_object(learning_object_id):
+            continue
         mastery = mastery_states.get(learning_object_id)
         if mastery is not None and mastery.last_evidence_at is not None:
             continue
-        if _has_active_local_item(vault, repository, learning_object_id):
-            _enter_initial_probe_if_possible(vault, repository, learning_object_id, clock=clock)
-            continue
-        if learning_object_id in goal_scope_los:
-            _enter_initial_probe_if_possible(vault, repository, learning_object_id, clock=clock)
-
-
-def _enter_initial_probe_if_possible(
-    vault: LoadedVault,
-    repository: Repository,
-    learning_object_id: str,
-    *,
-    clock: Clock | None,
-) -> None:
-    if repository.probe_state(learning_object_id) is not None:
-        return
-    if _has_active_local_item(vault, repository, learning_object_id):
-        from learnloop.services.probes import enter_probe
-
-        enter_probe(vault, repository, learning_object_id, clock=clock)
-        return
-    repository.insert_elicitation_event(
-        {
-            "session_id": None,
-            "selected_practice_item_id": None,
-            "target_scope": {"learning_object_id": learning_object_id},
-            "policy": "probe_eig",
-            "candidate_scores": {},
-            "expected_information_gain": 0.0,
-            "selected_reason": "no existing Practice Item can probe this new active-goal Learning Object",
-            "hypothesis_set_id": None,
-            "trigger": "probe_phase_local_pi_inadequate",
-            "fallback_outcome": "existing_pi_inadequate",
-        },
-        clock=clock,
-    )
+        if _has_active_local_item(vault, repository, learning_object_id) or learning_object_id in goal_scope_los:
+            enter_episode(vault, repository, learning_object_id, trigger="initial", clock=clock)
 
 
 def _has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool:

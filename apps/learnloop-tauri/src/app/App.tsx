@@ -6,6 +6,7 @@ import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
 import { EmptyPlaceholder, TerminalFrame, type TopTab, navTabs } from "../components/ui";
+import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { ExamScreen } from "../screens/ExamScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
 import { GraphScreen } from "../screens/GraphScreen";
@@ -32,6 +33,11 @@ export function App() {
   // The practice-exam overlay: when set, ExamScreen takes over the body (entered
   // only from the goal banner, exited back to the today tab). Not a nav tab.
   const [examGoalId, setExamGoalId] = useState<string | null>(null);
+  // The active §5.9 calibration session: when set, CalibrationScreen pre-empts
+  // the tab body (like the exam overlay) except while a practice/feedback round
+  // for its next target is in flight — coming back from that round remounts the
+  // screen, which refreshes progress. Entered from the command palette.
+  const [calibrationSessionId, setCalibrationSessionId] = useState<string | null>(null);
   const [inspectorId, setInspectorId] = useState<string | null>(null);
   const [libraryFocus, setLibraryFocus] = useState<{ patchId: string; itemId: string } | null>(null);
   const [libraryFilePath, setLibraryFilePath] = useState<string | null>(null);
@@ -41,6 +47,19 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [finishSummary, setFinishSummary] = useState<SessionEndSummary | null>(null);
   const [askTarget, setAskTarget] = useState<AskTarget | null>(null);
+  // In-memory mirror of the practice draft, reported by PracticeScreen when it
+  // unmounts. The backend checkpoint is also updated, but `session.checkpoint`
+  // is only loaded at startup — without this mirror, esc-ing to Today and
+  // re-opening the same question mid-session would show an empty editor.
+  const [localDraft, setLocalDraft] = useState<{
+    practiceItemId: string;
+    answerMd: string;
+    hintsUsed: number;
+  } | null>(null);
+  const onPracticeDraft = useCallback(
+    (draft: { practiceItemId: string; answerMd: string; hintsUsed: number }) => setLocalDraft(draft),
+    []
+  );
   const [libraryNoteId, setLibraryNoteId] = useState<string | null>(null);
   const startupStartedRef = useRef(false);
   // Whether the practice screen is currently a teach-back conversation. Only
@@ -110,6 +129,9 @@ export function App() {
   }, []);
 
   const restored = useMemo(() => {
+    if (localDraft && localDraft.practiceItemId === practiceItemId) {
+      return { answer: localDraft.answerMd, hints: localDraft.hintsUsed, teachBack: null };
+    }
     const checkpoint = session?.checkpoint;
     if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
       return { answer: "", hints: 0, teachBack: null };
@@ -119,7 +141,7 @@ export function App() {
       hints: checkpoint.hintsUsed,
       teachBack: checkpoint.teachBack ?? null
     };
-  }, [session, practiceItemId]);
+  }, [session, practiceItemId, localDraft]);
   const manualGrading = snapshot?.health.ai?.manualGrading ?? false;
   // In manual mode the sidecar reports ready=true (it's an intentional choice,
   // not an outage) — but practice screens must still start in self-grade mode.
@@ -200,12 +222,16 @@ export function App() {
 
   function clearLocalCheckpoint() {
     setSession((current) => current ? { ...current, checkpoint: null } : current);
+    setLocalDraft(null);
   }
 
   function endSession(summary: SessionEndSummary) {
     setSession(null);
+    setLocalDraft(null);
     setPracticeItemId(null);
     setAttemptId(null);
+    // Calibration attaches to the practice session — drop the overlay with it.
+    setCalibrationSessionId(null);
     setTodayStage("queue");
     setTab("start");
     // The finish HUD replaces the plain toast: it overlays the (now reset)
@@ -226,6 +252,20 @@ export function App() {
   // Exit the exam back to the today tab.
   function exitExam() {
     setExamGoalId(null);
+    setTab("today");
+    setTodayStage("queue");
+  }
+
+  // Enter the calibration overlay (command palette "calibrate").
+  function openCalibration(id: string) {
+    setCalibrationSessionId(id);
+    setTab("today");
+    setTodayStage("queue");
+  }
+
+  // Exit calibration back to the today tab.
+  function exitCalibration() {
+    setCalibrationSessionId(null);
     setTab("today");
     setTodayStage("queue");
   }
@@ -275,6 +315,7 @@ export function App() {
         setPracticeItemId(null);
         setAttemptId(null);
         setInspectorId(null);
+        setCalibrationSessionId(null);
         setTodayStage("queue");
         setTab("start");
       } catch (error) {
@@ -292,6 +333,20 @@ export function App() {
     // banner and returns to the today tab on exit.
     if (examGoalId) {
       return <ExamScreen goalId={examGoalId} onExit={exitExam} onError={onError} />;
+    }
+    // The calibration overlay also pre-empts the tab body, but yields to the
+    // practice/feedback stages so its "Practice next target" handoff runs the
+    // ordinary practice loop — returning to the queue remounts (→ refreshes) it.
+    const practicing = tab === "today" && (todayStage === "practice" || todayStage === "feedback");
+    if (calibrationSessionId && !practicing) {
+      return (
+        <CalibrationScreen
+          calibrationSessionId={calibrationSessionId}
+          onPractice={openPractice}
+          onExit={exitCalibration}
+          onError={onError}
+        />
+      );
     }
     if (tab === "start") {
       return <StartScreen onBegin={beginSession} onError={onError} vault={snapshot.vault} streak={snapshot.streak} />;
@@ -311,6 +366,7 @@ export function App() {
             onFeedback={openFeedback}
             onBack={() => setTodayStage("queue")}
             onCheckpointCleared={clearLocalCheckpoint}
+            onDraftSaved={onPracticeDraft}
             onTeachBackActive={onTeachBackActive}
             onInspect={setInspectorId}
             onAsk={setAskTarget}
@@ -416,6 +472,7 @@ export function App() {
         onClose={() => setPaletteOpen(false)}
         onGoto={gotoTab}
         onOpenPractice={openPractice}
+        onOpenCalibration={openCalibration}
         onInspect={setInspectorId}
         onAsk={askCurrentContext}
         onError={onError}

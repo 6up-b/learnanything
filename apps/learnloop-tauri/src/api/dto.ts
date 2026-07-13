@@ -392,6 +392,58 @@ export interface SubmitAttemptInput {
   selfGrade?: SelfGradeInputDto | null;
   /** Retry launched from the feedback screen's source-review panel. */
   primed?: boolean;
+  /** Probe redesign §5.1: the committed presentation this submission consumes. */
+  probePresentationId?: string | null;
+  /** Probe redesign §7.1: learner answer confidence (1–5), logged-only. */
+  answerConfidence?: number | null;
+}
+
+/** §5.7 block-end hook payload: withheld feedback released at the boundary,
+ *  the completion/open-set outcome, and where the learner routes next. */
+export interface ProbeBlockEndDto {
+  episodeId: string;
+  status: string;
+  releasedFeedback: {
+    attemptId: string;
+    practiceItemId: string | null;
+    rubricScore: number | null;
+    feedbackMd: string | null;
+    fatalErrors: string[];
+  }[];
+  normalizedMisconceptionIds: string[];
+  openSet: Record<string, unknown> | null;
+  completionReason: string | null;
+  firstErrorStepOrClaim: string | null;
+  route: "tutoring" | "next_block" | "ordinary_practice" | null;
+  decision: Record<string, unknown> | null;
+}
+
+/** Probe measurement contract for an item under an active diagnostic episode (§12). */
+export interface ProbeContractDto {
+  version: number;
+  active: boolean;
+  reason?: string;
+  presentationId?: string;
+  episodeId?: string;
+  observationNumber?: number;
+  maximumObservations?: number;
+  forcedAttemptType?: AttemptType;
+  restrictions?: {
+    hintsDisabled: boolean;
+    askTutorDisabled: boolean;
+    workedExampleDisabled: boolean;
+    answerRevealDisabled: boolean;
+    feedbackDeferred: boolean;
+  };
+  capabilitySummary?: string;
+  feedbackNote?: string;
+  actions?: { stopAndTeach: boolean; leaveAndResume: boolean };
+}
+
+export interface StopProbeResultDto {
+  version: number;
+  stopped: boolean;
+  decision: Record<string, unknown> | null;
 }
 
 /** A source ref resolved to displayable content for the source-review panel. */
@@ -437,6 +489,11 @@ export interface AttemptResultDto {
   gradingSource: GradingSource;
   fallbackReason: string | null;
   agentRunId: string | null;
+  /** Present when the item's LO has an open diagnostic episode (§5.6):
+   *  feedback stays deferred while the episode is still measuring. */
+  probeEpisode?: { episodeId: string; status: string; feedbackDeferred: boolean } | null;
+  /** Present when this submission closed a diagnostic block (§5.7). */
+  probeBlockEnd?: ProbeBlockEndDto | null;
 }
 
 export interface FeedbackBundle {
@@ -526,6 +583,46 @@ export interface TutorQuestionEventDto {
   secondsIntoAttempt: number | null;
   provider: string | null;
   createdAt: IsoTimestamp;
+  /** Back-link to the note this turn was saved as (migration 027), null until saved. */
+  savedNoteId: string | null;
+  /** Persisted promotion ledger row for this turn (spec_tutor_promotion.md §5), null if unpromoted. */
+  promotion: QuestionPromotionDto | null;
+}
+
+// ── Tutor question promotion (spec_tutor_promotion.md) ─────────────────────
+
+export type PromotionIntent = "practice" | "gap";
+
+export type PromotionRoute = "auto_apply" | "review_required" | "diagnostic_pending" | "existing_item";
+
+export type QuestionNature = "core_recall" | "mechanism" | "transfer" | "edge_case" | "what_if";
+
+export interface QuestionPromotionDto {
+  questionEventId: string;
+  intent: PromotionIntent;
+  route: PromotionRoute;
+  attributedFacets: string[];
+  questionNature: QuestionNature | null;
+  attemptedInThread: boolean | null;
+  learnerClaimId: string | null;
+  interventionNeedId: string | null;
+  proposedPatchId: string | null;
+  savedNoteId: string | null;
+  existingPracticeItemId: string | null;
+  createdPracticeItemId: string | null;
+  createdLearningObjectId: string | null;
+  createdAt: IsoTimestamp;
+  updatedAt: IsoTimestamp;
+}
+
+export interface PromoteTutorQuestionInput {
+  eventId: string;
+  intent: PromotionIntent;
+  subjectId?: string;
+}
+
+export interface PromoteTutorQuestionResult extends QuestionPromotionDto {
+  version: number;
 }
 
 export interface TutorTranscriptInput {
@@ -1039,6 +1136,21 @@ export interface ProposalsSnapshot {
 
 // ── goals + practice exams (goal redesign phases 3-4) ────────────────────────
 
+export interface GoalPaceDto {
+  attemptsPerDay: number;
+  attemptsLast14d: number;
+  daysLeft: number | null;
+  attemptsRemaining: number | null;
+  neededPerDay: number | null;
+  onPace: boolean | null;
+  attemptsLogged: number;
+}
+
+export interface GoalLatestExamDto {
+  score: number | null;
+  completedAt: string | null;
+}
+
 export interface GoalReportSummaryDto {
   onTrackCount: number;
   total: number;
@@ -1046,6 +1158,16 @@ export interface GoalReportSummaryDto {
   atRiskCount: number;
   horizon: string;
   dueAt: string | null;
+  // Dual-axis fields (attainment vs certification); optional so a stale
+  // sidecar degrades to the legacy on-track rendering.
+  certifiedCount?: number;
+  examinedCount?: number;
+  attainmentFraction?: number | null;
+  predictedRecallMean?: number | null;
+  attemptsRemaining?: number;
+  attemptsRemainingIsPartial?: boolean;
+  pace?: GoalPaceDto | null;
+  latestExam?: GoalLatestExamDto | null;
 }
 
 export interface GoalAtRiskFacetDto {
@@ -1055,6 +1177,11 @@ export interface GoalAtRiskFacetDto {
   label: "unexamined" | "uncertain" | "known_gap" | "solid";
   currentRecall: number | null;
   projectedRecall: number | null;
+  predictedCurrent?: number;
+  predictedAtHorizon?: number;
+  evidenceMass?: number;
+  certified?: boolean;
+  attemptsToCertify?: number | null;
 }
 
 export interface GoalDto {
@@ -1087,6 +1214,10 @@ export interface GoalSeriesPointDto {
   onTrackCount: number;
   total: number;
   onTrackFraction: number | null;
+  certifiedCount?: number;
+  examinedCount?: number;
+  attainmentFraction?: number | null;
+  predictedRecallMean?: number | null;
 }
 
 export interface GoalSeriesSnapshot {
@@ -1123,6 +1254,93 @@ export interface CreateGoalInput {
 export interface CreateGoalResult {
   version: number;
   goal: GoalDto;
+}
+
+// ── calibration sessions (probe redesign §5.9) ───────────────────────────────
+
+export type CalibrationSessionStatus = "active" | "completed" | "stopped" | "expired";
+
+export interface CalibrationEpisodeDto {
+  episodeId: string;
+  learningObjectId: string;
+  /** Probe episode status: in_progress | complete | converted_to_tutoring | abandoned | … */
+  status: string;
+  qualifyingObservations: number;
+  maximumObservations: number;
+}
+
+/** The adaptively-selected next block target (null once nothing is runnable). */
+export interface CalibrationNextTargetDto {
+  episodeId: string;
+  learningObjectId: string;
+  practiceItemId: string;
+  selectionObjective: string;
+  /** Episode posterior entropy (nats), null before any posterior exists. */
+  entropy: number | null;
+}
+
+export interface StartCalibrationSessionInput {
+  sessionId: string;
+  goalId?: string | null;
+  learningObjectIds?: string[] | null;
+  timeBudgetMinutes?: number | null;
+}
+
+export interface CalibrationSessionProgressDto {
+  version: number;
+  calibrationSessionId: string;
+  sessionId: string;
+  goalId: string | null;
+  status: CalibrationSessionStatus;
+  timeBudgetMinutes: number;
+  elapsedMinutes: number;
+  remainingMinutes: number;
+  blocksCompleted: number;
+  blocksPlanned: number;
+  episodes: CalibrationEpisodeDto[];
+  nextTarget: CalibrationNextTargetDto | null;
+}
+
+// ── dialogue microprobes (probe redesign §8.1) ───────────────────────────────
+
+/** One committed dialogue turn: an ephemeral instance + served presentation.
+ *  The learner's answer is submitted through the ordinary submit_attempt with
+ *  attemptType "diagnostic_probe" and this presentationId. */
+export interface DialogueTurnDto {
+  /** commit | reason | counterfactual | counterexample */
+  kind: string;
+  practiceItemId: string;
+  presentationId: string;
+  promptMd: string;
+  turnNumber: number;
+  plannedTurns: number;
+}
+
+export interface BeginProbeDialogueResult {
+  version: number;
+  /** Opaque DialogueBlockState JSON — round-trip it through every call. */
+  dialogueState: string;
+  plannedTurns: number;
+}
+
+export interface NextProbeDialogueTurnResult {
+  version: number;
+  dialogueState: string;
+  /** null once the block's planned turns are exhausted. */
+  turn: DialogueTurnDto | null;
+}
+
+export interface RecordProbeDialogueTurnResult {
+  version: number;
+  dialogueState: string;
+  blockComplete: boolean;
+}
+
+export interface EndProbeDialogueResult {
+  version: number;
+  ended: boolean;
+  /** §5.7 block-end payload: released feedback, completion, and the route. */
+  blockEnd: ProbeBlockEndDto | null;
 }
 
 export interface ExamStatusSnapshot {

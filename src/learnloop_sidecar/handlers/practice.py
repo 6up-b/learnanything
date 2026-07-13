@@ -16,6 +16,13 @@ from learnloop.services.attempts import (
 )
 from learnloop.services.followups import evaluate_attempt_intervention_followup
 from learnloop.services.tutor_qa import hint_equivalents_for_submission
+from learnloop.services.probe_episodes import (
+    commit_item_presentation,
+    episode_contract,
+    episode_hypothesis_set,
+    probe_serving_block_reason,
+    stop_diagnosing_and_teach,
+)
 from learnloop.services.probes import probe_posterior
 from learnloop.services.scheduler import SchedulerSession, build_due_queue
 from learnloop_sidecar.context import SidecarContext
@@ -60,6 +67,10 @@ class SubmitAttemptInput(ParamsModel):
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
     primed: bool = False
+    # Probe redesign §5.1: the committed presentation this submission consumes.
+    probe_presentation_id: str | None = None
+    # Probe redesign §7.1: learner answer confidence (1-5), logged-only.
+    answer_confidence: int | None = None
 
 
 class DontKnowInput(ParamsModel):
@@ -68,6 +79,8 @@ class DontKnowInput(ParamsModel):
     hints_used: int = 0
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
+    probe_presentation_id: str | None = None
+    answer_confidence: int | None = None
 
 
 class SkipInput(ParamsModel):
@@ -79,6 +92,90 @@ class SkipInput(ParamsModel):
 def get_practice_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     return practice_item_detail(vault, repository, params.practice_item_id)
+
+
+class ProbeContractInput(ParamsModel):
+    practice_item_id: str
+    session_id: str | None = None
+
+
+@method("get_probe_contract", ProbeContractInput)
+def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[str, Any]:
+    """The probe measurement contract for opening one item (§12).
+
+    When the item's LO has an in-progress diagnostic episode and the item
+    resolves an executable instrument, this durably commits and serves a
+    presentation (§5.1) and returns the enforced interaction contract: forced
+    `diagnostic_probe` attempt type, disabled assistance, delayed feedback,
+    and the presentation id the submission must consume. Otherwise the item
+    serves as ordinary practice (`active: false`).
+    """
+
+    vault, repository = ctx.require_vault()
+    item = vault.practice_items.get(params.practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    episode = repository.open_probe_episode(item.learning_object_id)
+    if episode is None or episode.status != "in_progress":
+        return versioned({"active": False})
+
+    # §5.9 orchestration gate (shared with the Textual surface): the routine
+    # per-session qualifying-observation cap and the fresh-vault onboarding
+    # ceiling. An active, in-budget calibration session lifts both — it is an
+    # explicit learner opt-in.
+    from learnloop.services.calibration_sessions import calibration_cap_lifted
+
+    cap_lifted = params.session_id is not None and calibration_cap_lifted(
+        repository, params.session_id
+    )
+    block_reason = probe_serving_block_reason(
+        vault, repository, session_id=params.session_id, cap_lifted=cap_lifted
+    )
+    if block_reason is not None:
+        return versioned({"active": False, "reason": block_reason})
+
+    # §5.8: measurement requires an approved diagnostic grading provider. Under
+    # a manual/self-grading provider no qualifying observation may be served:
+    # the episode parks and the LO degrades to belief-only ordinary practice.
+    _provider, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
+    if not runtime.ready or client is None:
+        repository.update_probe_episode_status(episode.id, status="pending_items")
+        return versioned({"active": False, "reason": "grading_provider_unavailable"})
+
+    hypothesis_set = episode_hypothesis_set(repository, episode)
+    if hypothesis_set is None:
+        return versioned({"active": False, "reason": "no_instrument"})
+    # §5.9 routine planner, shadow mode (§13.3): log where this episode ranks
+    # among all open episodes under plain vs disagreement-boosted information
+    # rate. Log-only until held-out predictive gains justify promotion.
+    extra_components = None
+    if vault.config.probe.shadow.enabled:
+        from learnloop.services.calibration_sessions import routine_planner_shadow
+
+        planner = routine_planner_shadow(vault, repository, episode.id)
+        if planner is not None:
+            extra_components = {"shadow_planner": planner}
+    presentation = commit_item_presentation(
+        vault, repository, episode, item, hypothesis_set,
+        extra_selection_components=extra_components,
+    )
+    if presentation is None:
+        return versioned({"active": False, "reason": "no_instrument"})
+    contract = episode_contract(vault, repository, item.learning_object_id) or {}
+    return versioned({"active": True, "presentation_id": presentation.id, **contract})
+
+
+@method("stop_probe_diagnosing", PracticeItemInput)
+def stop_probe_diagnosing(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]:
+    """`Stop diagnosing and teach me` (§3): end the measurement block, persist
+    the typed transition decision, and open a post-intervention state segment."""
+
+    vault, repository = ctx.require_vault()
+    item = vault.practice_items.get(params.practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    decision = stop_diagnosing_and_teach(vault, repository, item.learning_object_id)
+    return versioned({"stopped": decision is not None, "decision": decision})
 
 
 @method("save_practice_draft", PracticeDraftCheckpoint)
@@ -118,6 +215,8 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
         primed=params.primed,
+        probe_presentation_id=params.probe_presentation_id,
+        answer_confidence=params.answer_confidence,
     )
     self_grade = _self_grade(params.self_grade)
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
@@ -184,7 +283,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     repository.clear_session_checkpoint(params.session_id)
     _log_attempt_recorded(repository, params.session_id, params.answer_md, result)
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
-    return _attempt_result(result)
+    return _attempt_result(result, repository)
 
 
 @method("submit_dont_know", DontKnowInput)
@@ -200,6 +299,8 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         hints_used=params.hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
+        probe_presentation_id=params.probe_presentation_id,
+        answer_confidence=params.answer_confidence,
     )
     try:
         result = complete_self_graded_attempt(vault, repository, draft, grade)
@@ -210,7 +311,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     repository.clear_session_checkpoint(params.session_id)
     _log_attempt_recorded(repository, params.session_id, "", result)
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
-    return _attempt_result(result)
+    return _attempt_result(result, repository)
 
 
 @method("skip_practice_item", SkipInput)
@@ -259,8 +360,26 @@ def _self_grade(payload: SelfGradeInputDto | None) -> SelfGradeInput | None:
     )
 
 
-def _attempt_result(result) -> dict[str, Any]:
-    return versioned(result.as_dict())
+def _attempt_result(result, repository=None) -> dict[str, Any]:
+    # `probe_block_end` rides along inside as_dict() (camelized to
+    # probeBlockEnd): the §5.7 hook payload with released feedback and route.
+    payload = versioned(result.as_dict())
+    block_end = getattr(result, "probe_block_end", None)
+    if repository is not None:
+        # Probe redesign §5.6/§5.7: the client defers feedback while the LO's
+        # diagnostic episode is still measuring; the block-end hook releases
+        # the block's withheld feedback and routes the learner.
+        episode = repository.open_probe_episode(result.learning_object_id)
+        payload["probeEpisode"] = (
+            {
+                "episodeId": episode.id,
+                "status": episode.status,
+                "feedbackDeferred": episode.status == "in_progress" and block_end is None,
+            }
+            if episode is not None
+            else None
+        )
+    return payload
 
 
 def _persist_feedback_metadata(repository, result, self_grade: SelfGradeInput | None) -> None:

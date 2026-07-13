@@ -13,7 +13,9 @@ from learnloop.services.probes import (
     build_hypothesis_set,
     current_hypothesis_set,
     enter_probe,
+    persist_probe_beliefs,
     probe_posterior,
+    record_probe_attempt,
     score_bucket,
 )
 from learnloop.vault.loader import load_vault
@@ -82,6 +84,9 @@ def test_low_score_with_misconception_shifts_posterior_and_persists_belief(tmp_p
     assert max(posterior.posterior, key=posterior.posterior.get) == "misconception:conceptual_slip"
 
     # The misconception belief is persisted with the posterior marginal (Bug A).
+    # The live pipeline routes new evidence through diagnostic episodes now, so
+    # the frozen legacy persistence step is exercised directly.
+    persist_probe_beliefs(loaded, repository, "lo_svd_definition", posterior, clock=FrozenClock(NOW))
     beliefs = repository.state_beliefs(scope_type="misconception", scope_id="conceptual_slip")
     assert len(beliefs) == 1
     assert beliefs[0]["belief_key"] == "lo_svd_definition"
@@ -178,6 +183,8 @@ def test_dont_know_outcome_does_not_break_posterior(tmp_path):
 
 
 def test_mid_scores_run_probe_to_target_not_one(tmp_path):
+    # Frozen legacy replay semantics (Checkpoint 0): the live pipeline no longer
+    # advances lo_probe_state, so the legacy advancement step is driven directly.
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     repository = Repository(paths.sqlite_path)
@@ -185,10 +192,13 @@ def test_mid_scores_run_probe_to_target_not_one(tmp_path):
     enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
     _attempt(repository, loaded, points=2)
+    record_probe_attempt(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
     assert repository.probe_state("lo_svd_definition").status == "in_progress"
     _attempt(repository, loaded, points=2)
+    record_probe_attempt(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
     assert repository.probe_state("lo_svd_definition").status == "in_progress"
     _attempt(repository, loaded, points=2)
+    record_probe_attempt(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
     final = repository.probe_state("lo_svd_definition")
     assert final.probe_attempts_completed == 3
@@ -203,6 +213,7 @@ def test_decisive_high_score_converges_early_on_hypothesis_family(tmp_path):
     enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
     _attempt(repository, loaded, points=4)
+    record_probe_attempt(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
     state = repository.probe_state("lo_svd_definition")
     assert state.status == "complete"

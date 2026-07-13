@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import hashlib
 import json
 from math import ceil
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import ValidationError
 
@@ -19,7 +19,7 @@ from learnloop.codex.prompts import (
     DIAGNOSTIC_AUTHORING_PROMPT,
     DIAGNOSTIC_AUTHORING_PROMPT_VERSION,
 )
-from learnloop.codex.schemas import AuthoringProposal, AuthoringProposalItem, SourceRef
+from learnloop.codex.schemas import AuthoringProposal, AuthoringProposalItem, ProposalItemAudit, SourceRef
 from learnloop.db.repositories import MisconceptionRecord, Repository
 from learnloop.services.diagnostic_gate import GateResult, run_discrimination_gate
 from learnloop.ids import new_ulid
@@ -85,8 +85,17 @@ def build_authoring_context(
             return True
         return bool(set(item_subjects) & subject_set)
 
+    facet_vocabulary = _vault_evidence_facet_unions(vault)
+    surface_families = _vault_surface_family_unions(vault)
     learning_objects = [
-        {"id": lo.id, "title": lo.title, "concept": lo.concept, "subjects": lo.subjects}
+        {
+            "id": lo.id,
+            "title": lo.title,
+            "concept": lo.concept,
+            "subjects": lo.subjects,
+            "existing_evidence_facets": facet_vocabulary.get(lo.id, []),
+            "existing_surface_families": surface_families.get(lo.id, []),
+        }
         for lo in sorted(vault.learning_objects.values(), key=lambda lo: lo.id)
         if _in_scope(lo.subjects)
     ]
@@ -122,6 +131,31 @@ def build_authoring_context(
         focus_concepts=list(focus_concepts or []),
         focus_facets=list(focus_facets or []),
     )
+
+
+def _vault_evidence_facet_unions(vault: LoadedVault) -> dict[str, list[str]]:
+    """Per-LO union of canonical evidence facet ids across the vault's items.
+
+    Unlike ``_active_evidence_facet_unions`` in practice_generation this is
+    Repository-free (``build_authoring_context`` is pure over the vault), so
+    deactivated items' facets are included — for vocabulary reuse that is the
+    right call: a facet id stays canonical even when its item is retired.
+    """
+
+    unions: dict[str, set[str]] = {}
+    for item in vault.practice_items.values():
+        unions.setdefault(item.learning_object_id, set()).update(
+            vault.canonical_facet_id(facet) for facet in item.evidence_facets
+        )
+    return {lo_id: sorted(facets) for lo_id, facets in unions.items() if facets}
+
+
+def _vault_surface_family_unions(vault: LoadedVault) -> dict[str, list[str]]:
+    unions: dict[str, set[str]] = {}
+    for item in vault.practice_items.values():
+        if item.surface_family:
+            unions.setdefault(item.learning_object_id, set()).add(str(item.surface_family))
+    return {lo_id: sorted(families) for lo_id, families in unions.items() if families}
 
 
 def authoring_context_stats(context: AuthoringContext) -> dict[str, Any]:
@@ -351,12 +385,19 @@ def generate_authoring_proposal(
     model: str | None = None,
     codex_revision: str | None = None,
     merge_context_source_refs: bool = False,
+    row_transform: Callable[[list[dict[str, Any]]], None] | None = None,
     clock: Clock | None = None,
 ) -> str:
     """Run authoring generation through a CodexClient and persist the result.
 
     The agent run is recorded before the call and completed/failed afterwards so
     every persisted proposal batch has agent-run lineage.
+
+    ``row_transform`` is an optional, default-off seam (spec_tutor_promotion.md §3
+    Step 3): it is invoked once on the final persisted rows AFTER validation/repair
+    and BEFORE persist + ``_auto_apply_rows``, so a caller can downgrade a row's
+    ``_auto_apply`` flag or patch its payload (e.g. force review, add a tag)
+    without the route ever leaking to auto-apply. It mutates the rows in place.
     """
 
     vault = load_vault(root)
@@ -393,11 +434,23 @@ def generate_authoring_proposal(
     if merge_context_source_refs:
         proposal = _proposal_with_context_source_refs(proposal, context.source_refs)
     repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
-    proposal_payload = proposal.model_dump(mode="json", exclude_none=False)
+    provider = provider_fields["provider"] or "codex"
     rows = [
-        _proposal_item_row(item, now, vault=vault, proposal=proposal, provider=provider_fields["provider"] or "codex")
+        _proposal_item_row(item, now, vault=vault, proposal=proposal, provider=provider)
         for item in proposal.items
     ]
+    proposal, rows = _repair_invalid_proposal_items(
+        codex_client,
+        context,
+        proposal,
+        rows,
+        vault=vault,
+        provider=provider,
+        now=now,
+    )
+    if row_transform is not None:
+        row_transform(rows)
+    proposal_payload = proposal.model_dump(mode="json", exclude_none=False)
     patch_id = repository.persist_proposal_batch(
         {
             "id": new_ulid(),
@@ -1054,6 +1107,52 @@ def refresh_proposal_item_validation(
     return refreshed
 
 
+def repair_proposal_item_audit(
+    root: Path,
+    patch_id: str,
+    item_id: str,
+    audit: dict[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Replace a pending item's audit and revalidate the complete proposal item."""
+    vault = load_vault(root)
+    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    item = repository.proposal_item(item_id)
+    if item is None or item["proposed_patch_id"] != patch_id:
+        raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
+    if item["decision"] != "pending":
+        raise ValueError(f"Proposal item {item_id} is already {item['decision']}")
+
+    validated_audit = ProposalItemAudit.model_validate(audit)
+    payload = item.get("edited_payload") or item.get("payload") or {}
+    batch = repository.proposal_batch(patch_id)
+    errors = _edited_payload_validation_errors(
+        item,
+        payload,
+        vault,
+        batch_source_refs=batch.get("source_refs") if batch is not None else None,
+    )
+    if validated_audit.status == "failed":
+        errors.append("generated_audit_failed")
+    elif validated_audit.status == "not_applicable_with_trace" and _missing(validated_audit.trace):
+        errors.append("missing_generated_audit_trace")
+    errors = _dedupe_preserve_order(errors)
+    updated = repository.update_proposal_item_audit(
+        item_id,
+        audit=validated_audit.model_dump(mode="json", exclude_none=True),
+        validation_status="invalid" if errors else "valid",
+        validation_errors=errors,
+        clock=clock,
+    )
+    if not updated:
+        raise ValueError(f"Proposal item {item_id} could not be repaired")
+    refreshed = repository.proposal_item(item_id)
+    if refreshed is None:
+        raise ValueError(f"Proposal item {item_id} disappeared after repair")
+    return refreshed
+
+
 def delete_proposal_item(root: Path, patch_id: str, item_id: str) -> bool:
     """Permanently remove a single proposal item from the inbox.
 
@@ -1226,6 +1325,72 @@ def _proposal_item_row(
         "updated_at": now,
         "_auto_apply": validation_status == "valid" and review_policy == "auto_apply",
     }
+
+
+def _repair_invalid_proposal_items(
+    codex_client: CodexClient | AIProviderClient,
+    context: AuthoringContext,
+    proposal: AuthoringProposal,
+    rows: list[dict[str, Any]],
+    *,
+    vault: LoadedVault,
+    provider: str,
+    now: str,
+) -> tuple[AuthoringProposal, list[dict[str, Any]]]:
+    """One-shot self-repair for items that failed deterministic validation.
+
+    Feeds the failing items and their error codes back to the provider once and
+    merges corrected items by ``client_item_id``. Best-effort: any provider
+    failure (or a fake client that can't take a second call) leaves the original
+    proposal untouched, so callers never lose the first-pass result.
+    """
+
+    invalid_rows = [row for row in rows if row["validation_status"] == "invalid"]
+    if not invalid_rows:
+        return proposal, rows
+    items_by_client_id = {item.client_item_id: item for item in proposal.items}
+    failing = [
+        {
+            "client_item_id": row["client_item_id"],
+            "validation_errors": row["validation_errors"],
+            "item": items_by_client_id[row["client_item_id"]].model_dump(mode="json", exclude_none=True),
+        }
+        for row in invalid_rows
+        if row["client_item_id"] in items_by_client_id
+    ]
+    if not failing:
+        return proposal, rows
+    instructions = (
+        "REPAIR PASS: your previous authoring proposal contains items that failed "
+        "LearnLoop's deterministic validation. Return a proposal whose items are "
+        "ONLY corrected versions of the FAILING_ITEMS below. Keep each item's "
+        "client_item_id, entity ids, source_ref_ids, and intent unchanged; change "
+        "only what the validation error codes name. Reuse the original proposal's "
+        "source_refs verbatim. FAILING_ITEMS: "
+        + json.dumps(failing, sort_keys=True, ensure_ascii=False)
+    )
+    try:
+        repaired = codex_client.run_authoring_proposal(replace(context, instructions=instructions))
+    except Exception:
+        return proposal, rows
+    failing_ids = {entry["client_item_id"] for entry in failing}
+    repaired_by_id = {
+        item.client_item_id: item for item in repaired.items if item.client_item_id in failing_ids
+    }
+    if not repaired_by_id:
+        return proposal, rows
+    merged = proposal.model_copy(
+        update={
+            "items": [
+                repaired_by_id.get(item.client_item_id, item) for item in proposal.items
+            ]
+        }
+    )
+    merged_rows = [
+        _proposal_item_row(item, now, vault=vault, proposal=merged, provider=provider)
+        for item in merged.items
+    ]
+    return merged, merged_rows
 
 
 def _auto_apply_rows(root: Path, patch_id: str, rows: list[dict[str, Any]]) -> None:

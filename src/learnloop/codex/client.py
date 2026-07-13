@@ -23,6 +23,14 @@ from learnloop.codex.prompts import (
     DIAGNOSTIC_TRIALS_PROMPT_VERSION,
     GRADING_PROMPT_VERSION,
     MISCONCEPTION_MATCH_PROMPT_VERSION,
+    PROBE_DIALOGUE_TURN_PROMPT,
+    PROBE_DIALOGUE_TURN_PROMPT_VERSION,
+    PROBE_FAMILY_TRIALS_PROMPT,
+    PROBE_FAMILY_TRIALS_PROMPT_VERSION,
+    PROBE_INSTANCE_PROMPT,
+    PROBE_INSTANCE_PROMPT_VERSION,
+    PROMOTION_ANALYSIS_PROMPT,
+    PROMOTION_ANALYSIS_PROMPT_VERSION,
     TEACH_BACK_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
 )
@@ -31,6 +39,10 @@ from learnloop.codex.schemas import (
     DiagnosticTrials,
     GradingProposal,
     MisconceptionMatch,
+    ProbeDialogueTurn,
+    ProbeFamilyTrials,
+    ProbeInstanceSurfaces,
+    PromotionAnalysis,
     TeachBackQuestion,
     TutorAnswer,
 )
@@ -156,6 +168,11 @@ class TutorQAContext:
     note_title: str | None = None
     note_body: str | None = None
     learning_object_summaries: list[dict] = field(default_factory=list)
+    # §12.1 typed transition: when a diagnostic episode on this LO just ended
+    # in tutoring, the persisted decision (diagnosed_gap, tutor_move,
+    # scaffold_level, answer_reveal_budget, target_facets, …) steers the tutor
+    # prose instead of being re-derived from scratch.
+    diagnostic_decision: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -183,6 +200,107 @@ class TeachBackQuestionContext:
     learning_object_summary: str | None = None
 
 
+@dataclass(frozen=True)
+class PromotionAnalysisContext:
+    """Bounded input for the Step-0 promotion analysis (spec_tutor_promotion.md §3).
+
+    ``thread`` is the reconstructed Q&A conversation (oldest first, as
+    {question_md, answer_md, question_type} dicts); the LAST turn is the one being
+    promoted and its ``answer_md`` carries the tutor's socratic question. The
+    origin LO's ``facet_vocabulary`` is the closed set of existing evidence facet
+    ids to reuse; ``concept_neighbors`` are the concepts reachable from the LO's
+    concept via concept edges ({id, title, relation}) for the existing-concepts
+    context. ``existing_items`` lists the origin LO's practice items as {id,
+    prompt, surface_family, evidence_facets} for the dedup decision. ``intent`` is
+    ``"practice"`` or ``"gap"``.
+    """
+
+    intent: str
+    thread: list[dict] = field(default_factory=list)
+    learning_object_id: str | None = None
+    learning_object_title: str | None = None
+    facet_vocabulary: list[str] = field(default_factory=list)
+    concept_neighbors: list[dict] = field(default_factory=list)
+    existing_items: list[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ProbeInstanceContext:
+    """Bounded input for LLM-backed Item Instance surfaces (probe redesign §9.2).
+
+    One call generates ``count`` surface-varied instances for one admitted
+    family/card binding. ``measurement_intent`` states the family's measurement
+    pattern in prose; ``existing_prompts``/``existing_surface_families`` are the
+    LO's current items for the §5.4 duplication constraint. The structural
+    instance gate re-validates every returned surface before persistence.
+    """
+
+    family_template_id: str
+    family_template_version: int
+    instrument_kind: str
+    measurement_intent: str
+    learning_object_id: str
+    learning_object_title: str
+    learning_object_concept: str
+    learning_object_summary: str
+    target_facets: list[str] = field(default_factory=list)
+    confusable_concept: str | None = None
+    observation_alphabet: list[str] = field(default_factory=list)
+    count: int = 2
+    existing_prompts: list[str] = field(default_factory=list)
+    existing_surface_families: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ProbeDialogueTurnContext:
+    """Bounded input for one adaptive dialogue microprobe turn (§8.1).
+
+    ``prior_turns`` is the block so far, oldest first, as
+    {kind, prompt_md, learner_answer_md} dicts — the generated turn conditions
+    on the learner's actual committed answers, which is what makes the dialogue
+    adaptive rather than a slot-filled script.
+    """
+
+    turn_kind: str  # commit | reason | counterfactual | counterexample
+    turn_number: int
+    planned_turns: int
+    learning_object_id: str
+    learning_object_title: str
+    learning_object_concept: str
+    learning_object_summary: str
+    target_facets: list[str] = field(default_factory=list)
+    confusable_concept: str | None = None
+    prior_turns: list[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ProbeFamilyTrialsContext:
+    """Bounded input for LLM planted trials feeding the family admission gate
+    (probe redesign §9.6).
+
+    ``surfaces`` are the concrete instance surfaces under test as
+    {surface_suffix, prompt_md, expected_answer_md} dicts; ``hypothesis_slots``
+    are the card-bound planted states; ``observation_alphabet`` is the closed
+    outcome vocabulary ``matched_outcome`` must come from. The deterministic
+    gate (reverse matching, pair separation, controls) runs in LearnLoop code
+    on the returned trials.
+    """
+
+    family_template_id: str
+    family_template_version: int
+    instrument_kind: str
+    measurement_intent: str
+    learning_object_title: str
+    learning_object_summary: str
+    target_facets: list[str] = field(default_factory=list)
+    confusable_concept: str | None = None
+    hypothesis_slots: list[str] = field(default_factory=list)
+    observation_alphabet: list[str] = field(default_factory=list)
+    non_applicable_controls: list[str] = field(default_factory=list)
+    surfaces: list[dict] = field(default_factory=list)
+    trials_per_hypothesis: int = 3
+
+
 class CodexClient(Protocol):
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
         ...
@@ -200,6 +318,9 @@ class CodexClient(Protocol):
         ...
 
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
+        ...
+
+    def run_promotion_analysis(self, context: Any) -> PromotionAnalysis:
         ...
 
 
@@ -262,6 +383,15 @@ class HttpCodexClient:
             purpose="misconception_match",
         )
         return MisconceptionMatch.model_validate(payload.get("proposal", payload))
+
+    def run_promotion_analysis(self, context: Any) -> PromotionAnalysis:
+        context_payload = context if isinstance(context, dict) else asdict(context)
+        payload = self._post(
+            getattr(self.config, "promotion_analysis_path", "/promotion-analysis"),
+            {"context": context_payload},
+            purpose="promotion_analysis",
+        )
+        return PromotionAnalysis.model_validate(payload.get("proposal", payload))
 
     def _post(self, path: str, payload: dict, *, purpose: str) -> dict:
         url = _url(self.config.base_url, path)
@@ -422,6 +552,14 @@ class SdkCodexClient:
         )
         return MisconceptionMatch.model_validate_json(text)
 
+    def run_promotion_analysis(self, context: Any) -> PromotionAnalysis:
+        text = self._run_structured(
+            _promotion_analysis_prompt(context),
+            _codex_output_schema(PromotionAnalysis),
+            purpose="promotion_analysis",
+        )
+        return PromotionAnalysis.model_validate_json(text)
+
     def run_diagnostic_trials(self, context: Any) -> DiagnosticTrials:
         """Codex answers-under-belief for the sim discrimination gate (spec §6).
 
@@ -436,6 +574,52 @@ class SdkCodexClient:
             purpose="diagnostic_trials",
         )
         return DiagnosticTrials.model_validate_json(text)
+
+    def run_probe_instance_surfaces(self, context: ProbeInstanceContext) -> ProbeInstanceSurfaces:
+        """LLM-backed Item Instance surfaces (probe redesign §9.2/§9.4).
+
+        Deliberately NOT on the ``CodexClient`` Protocol / ``HttpCodexClient`` —
+        instance generation discovers it via ``getattr(client,
+        "run_probe_instance_surfaces", None)`` and falls back to the parametric
+        surface templates when the provider lacks it or is unavailable.
+        """
+
+        text = self._run_structured(
+            _probe_instance_surfaces_prompt(context),
+            _codex_output_schema(ProbeInstanceSurfaces),
+            purpose="probe_instance_surfaces",
+        )
+        return ProbeInstanceSurfaces.model_validate_json(text)
+
+    def run_probe_dialogue_turn(self, context: ProbeDialogueTurnContext) -> ProbeDialogueTurn:
+        """One adaptive dialogue microprobe turn (probe redesign §8.1).
+
+        Same getattr-discovery contract as ``run_probe_instance_surfaces``:
+        the dialogue service falls back to the parametric turn templates when
+        the provider lacks it or is unavailable.
+        """
+
+        text = self._run_structured(
+            _probe_dialogue_turn_prompt(context),
+            _codex_output_schema(ProbeDialogueTurn),
+            purpose="probe_dialogue_turn",
+        )
+        return ProbeDialogueTurn.model_validate_json(text)
+
+    def run_probe_family_trials(self, context: ProbeFamilyTrialsContext) -> ProbeFamilyTrials:
+        """LLM planted trials for the family admission gate (probe redesign §9.6).
+
+        Same getattr-discovery contract as ``run_diagnostic_trials``: the gate
+        runner degrades to reporting that no trial source is available rather
+        than fabricating synthetic admission evidence.
+        """
+
+        text = self._run_structured(
+            _probe_family_trials_prompt(context),
+            _codex_output_schema(ProbeFamilyTrials),
+            purpose="probe_family_trials",
+        )
+        return ProbeFamilyTrials.model_validate_json(text)
 
     def _run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
         _ensure_sdk_importable(self.sdk_python_path)
@@ -532,10 +716,35 @@ _PRACTICE_METADATA_GUIDANCE = (
     "For every generated Practice Item, include reward-facing metadata: "
     "`evidence_facets`, `evidence_weights`, `criterion_facet_weights` when a rubric "
     "exists, `retrieval_demand`, `transfer_distance`, `scaffold_level`, "
-    "`surface_family`, and `repair_targets`. Generated grading rubrics must stay on "
-    "the LearnLoop 0-4 grading scale: set `max_points` to 4 or less, and make rubric "
-    "criterion points sum to `max_points`. `repair_targets` must name evidence facets "
-    "or rubric fatal error ids."
+    "`surface_family`, and `repair_targets`. `criterion_facet_weights` must map "
+    "EVERY rubric criterion id (core and transfer) to its facet weight map; an "
+    "empty object `{}` fails validation whenever the item has a rubric. Generated "
+    "grading rubrics must stay on the LearnLoop 0-4 grading scale: set `max_points` "
+    "to 4 or less, and make rubric criterion points sum to `max_points`. "
+    "`repair_targets` must name evidence facets or rubric fatal error ids."
+)
+
+_FACET_VOCABULARY_GUIDANCE = (
+    "Facet and surface vocabulary: each Learning Object in context lists "
+    "existing_evidence_facets (facet ids already established for it) and "
+    "existing_surface_families. When an item probes knowledge an existing facet "
+    "names, reuse that exact facet id in "
+    "evidence_facets/evidence_weights/criterion_facet_weights; mint a new facet id "
+    "only when the item probes knowledge no existing facet covers — never restate "
+    "an existing facet under a new name. Likewise reuse existing surface_family "
+    "ids when the item's surface form matches one."
+)
+
+# Every source-linked generated Practice Item is post-validated against the
+# ProposalItemAudit contract (services/proposals.py); a trace-less
+# not_applicable_with_trace audit is rejected as `missing_generated_audit_trace`.
+_AUDIT_GUIDANCE = (
+    "Every generated Practice Item must carry an `audit`. Use status `passed` or "
+    "`failed` when a deterministic check (numeric check, symbolic solver, "
+    "step-by-step trace) ran. For conceptual/constructed-response items with no "
+    "deterministic check, use status `not_applicable_with_trace` and you MUST fill "
+    "`trace` with a short manual verification walkthrough of the expected answer; "
+    "a null or empty trace fails validation."
 )
 
 
@@ -556,6 +765,10 @@ def _authoring_prompt(context: AuthoringContext) -> str:
                 + _DIFFICULTY_GUIDANCE
                 + " "
                 + _PRACTICE_METADATA_GUIDANCE
+                + " "
+                + _FACET_VOCABULARY_GUIDANCE
+                + " "
+                + _AUDIT_GUIDANCE
             ),
             "context": asdict(context),
         },
@@ -574,6 +787,8 @@ def _canonical_ingest_prompt(context: CanonicalIngestContext) -> str:
                 + _DIFFICULTY_GUIDANCE
                 + " "
                 + _PRACTICE_METADATA_GUIDANCE
+                + " "
+                + _AUDIT_GUIDANCE
             ),
             "context": asdict(context),
         },
@@ -628,7 +843,12 @@ _TUTOR_QA_SHARED = (
     "question_type: `clarification` (what the prompt/wording means), "
     "`prerequisite` (background knowledge needed), `mechanism` (why/how "
     "something works), `strategy` (how to approach the task), `verification` "
-    "(is my answer/approach right?), or `other`. Fill `facets` with the subset "
+    "(is my answer/approach right?), or `other`. Also classify question_channel: "
+    "`epistemic` when the question signals missing or uncertain knowledge about "
+    "the content, `interaction_preference` when the learner is instead asking "
+    "for a different explanation style, pace, scaffold level, more or less "
+    "detail, or a direct answer (a request about HOW to be tutored, not WHAT is "
+    "true). Fill `facets` with the subset "
     "of context.candidate_facets the question is genuinely about (empty when "
     "none apply); never invent facet ids outside that list. Use "
     "context.thread as prior conversation turns and stay consistent with them. "
@@ -692,8 +912,32 @@ def _teach_back_question_prompt(context: TeachBackQuestionContext) -> str:
     )
 
 
+# §12.1: appended when a diagnostic episode transitioned to tutoring. The
+# typed decision was persisted BEFORE prose generation, so the tutor executes
+# it rather than re-diagnosing; measurement has ended, so the mid-attempt
+# no-reveal guardrail yields to the decision's answer_reveal_budget.
+_TUTOR_QA_DIAGNOSTIC_DECISION_TASK = (
+    "A diagnostic episode on this Learning Object has ENDED and transitioned to "
+    "tutoring. context.diagnostic_decision is the persisted typed decision: "
+    "ground your tutoring in it. Open with the named `tutor_move` (e.g. "
+    "contrast_cases = contrast the target with the confusable; counterexample = "
+    "present a case where the diagnosed belief fails; explanation = teach the "
+    "mechanism; transfer_question = pose a shifted-surface question; "
+    "state_subgoal = name the next subgoal; localize_error = walk to the first "
+    "divergent step; elicit_reasoning = ask for their reasoning first). Target "
+    "the `target_facets` and the `diagnosed_gap`; match depth to "
+    "`scaffold_level` (0 = minimal support, 1 = heavy scaffolding). "
+    "`answer_reveal_budget` overrides the mid-attempt guardrail: 0 means never "
+    "reveal, 1 means partial worked steps are allowed, 2 means full explanation "
+    "including the answer is allowed — measurement is over, so teaching to the "
+    "diagnosed gap is the goal."
+)
+
+
 def _tutor_qa_prompt(context: TutorQAContext) -> str:
     task = _TUTOR_QA_CONTEXT_TASKS.get(context.context, _TUTOR_QA_CONTEXT_TASKS["library"])
+    if context.diagnostic_decision is not None:
+        task = task + " " + _TUTOR_QA_DIAGNOSTIC_DECISION_TASK
     return _json_prompt(
         "learnloop tutor qa",
         TUTOR_QA_PROMPT_VERSION,
@@ -727,6 +971,20 @@ def _misconception_match_prompt(context: Any) -> str:
             "statement": getattr(context, "statement", ""),
             "learning_object_id": getattr(context, "learning_object_id", ""),
             "candidates": getattr(context, "candidates", []),
+        },
+    )
+
+
+def _promotion_analysis_prompt(context: Any) -> str:
+    """Step-0 promotion-analysis prompt (spec_tutor_promotion.md §3 Step 0)."""
+
+    context_payload = context if isinstance(context, dict) else asdict(context)
+    return _json_prompt(
+        "learnloop promotion analysis",
+        PROMOTION_ANALYSIS_PROMPT_VERSION,
+        {
+            "task": PROMOTION_ANALYSIS_PROMPT,
+            "context": context_payload,
         },
     )
 
@@ -769,6 +1027,45 @@ def _diagnostic_trials_prompt(context: Any) -> str:
             "misconception_statement": _get("misconception_statement", ""),
             "misconception_consistent_answer": _get("misconception_consistent_answer", ""),
             "keyed_fatal_errors": _get("keyed_fatal_errors", []),
+        },
+    )
+
+
+def _probe_instance_surfaces_prompt(context: ProbeInstanceContext) -> str:
+    """LLM instance-surface prompt (probe redesign §9.2/§9.4)."""
+
+    return _json_prompt(
+        "learnloop probe instance surfaces",
+        PROBE_INSTANCE_PROMPT_VERSION,
+        {
+            "task": PROBE_INSTANCE_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _probe_dialogue_turn_prompt(context: ProbeDialogueTurnContext) -> str:
+    """Adaptive dialogue-turn prompt (probe redesign §8.1)."""
+
+    return _json_prompt(
+        "learnloop probe dialogue turn",
+        PROBE_DIALOGUE_TURN_PROMPT_VERSION,
+        {
+            "task": PROBE_DIALOGUE_TURN_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _probe_family_trials_prompt(context: ProbeFamilyTrialsContext) -> str:
+    """Planted-trial prompt for the family admission gate (probe redesign §9.6)."""
+
+    return _json_prompt(
+        "learnloop probe family trials",
+        PROBE_FAMILY_TRIALS_PROMPT_VERSION,
+        {
+            "task": PROBE_FAMILY_TRIALS_PROMPT,
+            "context": asdict(context),
         },
     )
 

@@ -489,6 +489,70 @@ def test_practice_prompt_context_carries_guardrail_grounding(tmp_path):
     assert second.thread[0]["question_md"] == "First question"
 
 
+def test_diagnostic_decision_attaches_after_probe_transition(tmp_path):
+    """§12.1: the persisted typed decision steers post-diagnosis tutoring —
+    attached once the LO's episode has closed, suppressed mid-measurement."""
+
+    _root, vault, repository = _setup(tmp_path)
+    clock = FrozenClock(NOW)
+    decision = {
+        "diagnosed_gap": "confuses_with:eigendecomposition",
+        "tutor_move": "contrast_cases",
+        "instructional_intent": "repair",
+        "scaffold_level": 0.5,
+        "answer_reveal_budget": 1,
+        "target_facets": ["recall"],
+    }
+    episode_id = repository.insert_probe_episode(
+        learning_object_id="lo_svd_definition",
+        status="converted_to_tutoring",
+        trigger="manual",
+        hypothesis_set_id=None,
+        active_state_segment_id=None,
+        algorithm_version="test",
+        target_decision=decision,
+        clock=clock,
+    )
+
+    client = FakeTutorClient()
+    ask_question(
+        vault,
+        repository,
+        client,
+        context="practice",
+        question_md="What should I work on?",
+        practice_item_id="pi_svd_define_001",
+        session_id="sess_1",
+        clock=clock,
+    )
+    assert client.contexts[0].diagnostic_decision is not None
+    assert client.contexts[0].diagnostic_decision["tutor_move"] == "contrast_cases"
+
+    # A newly opened episode means measurement is live again: the decision
+    # must NOT attach (it would lift the no-reveal guardrail mid-block).
+    repository.insert_probe_episode(
+        learning_object_id="lo_svd_definition",
+        status="in_progress",
+        trigger="manual",
+        hypothesis_set_id=None,
+        active_state_segment_id=None,
+        algorithm_version="test",
+        clock=clock,
+    )
+    ask_question(
+        vault,
+        repository,
+        client,
+        context="practice",
+        question_md="And now?",
+        practice_item_id="pi_svd_define_001",
+        session_id="sess_1",
+        clock=clock,
+    )
+    assert client.contexts[1].diagnostic_decision is None
+    assert repository.probe_episode(episode_id) is not None
+
+
 # ── read-side uncertainty adjustment ──────────────────────────────────────────
 
 

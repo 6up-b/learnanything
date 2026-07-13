@@ -17,7 +17,7 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    assert config.algorithms.algorithm_version == "mvp-0.5"
+    assert config.algorithms.algorithm_version == "mvp-0.6"
     assert config.ai.active_provider == "codex"
     assert config.ai.providers["codex"].type == "codex_sdk"
     assert config.ai.providers["codex"].model == "gpt-5.5"
@@ -38,7 +38,7 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
     in_memory = LearnLoopConfig()
 
     for config in (loaded, in_memory):
-        assert config.algorithms.algorithm_version == "mvp-0.5"
+        assert config.algorithms.algorithm_version == "mvp-0.6"
         assert config.codex.model == "gpt-5.5"
         assert config.codex.reasoning_effort == "medium"
         assert config.ai.providers["codex"].model == "gpt-5.5"

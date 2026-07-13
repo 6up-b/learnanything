@@ -392,6 +392,46 @@ def predicted_correctness_from_vectors(
     return clamp(base + scaffold_adjustment - retrieval_penalty - bad_item_penalty)
 
 
+def predicted_facet_recall(
+    mastery_logit_mean: float | None,
+    mastery_evidence_count: int,
+    facet_mean: float | None,
+    facet_mass: float,
+    blend_evidence_count: float,
+) -> float:
+    """Facet-level predicted recall: LO-mastery backbone, facet evidence overlay.
+
+    One of the two sanctioned prediction blends (the other is the item-level
+    ``predicted_correctness_from_vectors`` above); a future calibration pass
+    must adjust both together. Unlike the item blend's variance weight (bounded
+    near 0.06), the blend weight here is evidence-mass-based so accumulated
+    facet evidence genuinely takes over from the mastery prior: the facet beta
+    posterior is prior-dominated (mean pinned near 0.5) until several attempts
+    land, while the mastery EKF moves quickly — so low-mass facets read as the
+    LO mastery and high-mass facets read as their own recall evidence.
+
+    The backbone only deserves the full ``blend_evidence_count`` pseudo-count
+    when the mastery state is itself well-evidenced: its pseudo-count is capped
+    at ``mastery_evidence_count`` so a one-attempt EKF cannot suppress strong
+    facet evidence. An absent (or zero-evidence) mastery row carries no
+    information; blending toward an arbitrary 0.5 would double-count the
+    ignorance the beta variance already expresses, so we fall back to the facet
+    mean alone (and 0.5 only when neither exists).
+    """
+
+    prior_count = min(max(blend_evidence_count, 0.0), float(max(mastery_evidence_count, 0)))
+    if mastery_logit_mean is None or prior_count <= 0.0:
+        if facet_mean is not None and facet_mass > 0.0:
+            return clamp(facet_mean)
+        return 0.5 if mastery_logit_mean is None else clamp(_sigmoid(mastery_logit_mean))
+    lo_mastery = _sigmoid(mastery_logit_mean)
+    if facet_mean is None:
+        return clamp(lo_mastery)
+    mass = max(facet_mass, 0.0)
+    weight = mass / (mass + max(prior_count, 0.1))
+    return clamp((1.0 - weight) * lo_mastery + weight * facet_mean)
+
+
 def _gradient_fit(predicted_correctness: float, intent: SchedulerIntent) -> float:
     low, high = {
         SchedulerIntent.PROBE: (0.40, 0.60),

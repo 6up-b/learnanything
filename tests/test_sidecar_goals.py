@@ -31,6 +31,29 @@ def test_goals_list_includes_report_for_active_goals(ctx):
     assert goal["id"] == "goal_linear_algebra_ml"
     assert goal["report"]["total"] > 0
     assert 0 <= goal["report"]["atRiskCount"] <= goal["report"]["total"]
+    # Dual-axis + pace fields for the banner.
+    report = goal["report"]
+    assert {
+        "certifiedCount",
+        "examinedCount",
+        "attainmentFraction",
+        "predictedRecallMean",
+        "attemptsRemaining",
+        "attemptsRemainingIsPartial",
+        "pace",
+        "latestExam",
+    } <= set(report)
+    assert report["attainmentFraction"] is None or 0.0 <= report["attainmentFraction"] <= 1.0
+    assert {
+        "attemptsPerDay",
+        "attemptsLast14d",
+        "daysLeft",
+        "attemptsRemaining",
+        "neededPerDay",
+        "onPace",
+        "attemptsLogged",
+    } <= set(report["pace"])
+    assert report["latestExam"] is None  # no exam taken in this fixture
 
 
 def test_goal_report_lists_at_risk_facets(ctx):
@@ -38,7 +61,21 @@ def test_goal_report_lists_at_risk_facets(ctx):
     report = out["report"]
     assert len(report["atRisk"]) == report["atRiskCount"]
     entry = report["atRisk"][0]
-    assert {"learningObjectId", "facetId", "label", "currentRecall", "projectedRecall"} <= set(entry)
+    assert {
+        "learningObjectId",
+        "facetId",
+        "label",
+        "currentRecall",
+        "projectedRecall",
+        "predictedCurrent",
+        "predictedAtHorizon",
+        "evidenceMass",
+        "certified",
+        "attemptsToCertify",
+    } <= set(entry)
+    # Sorted worst-first: uncertified before certified, low predictions first.
+    keys = [(f["certified"], f["predictedAtHorizon"]) for f in report["atRisk"]]
+    assert keys == sorted(keys)
 
 
 def test_create_goal_writes_yaml_and_reloads(ctx):
@@ -119,4 +156,13 @@ def test_goal_report_series_endpoint(ctx):
     )
     assert out["goalId"] == "goal_linear_algebra_ml"
     assert 1 <= len(out["series"]) <= 3
-    assert {"at", "onTrackCount", "total", "onTrackFraction"} <= set(out["series"][-1])
+    assert {
+        "at",
+        "onTrackCount",
+        "total",
+        "onTrackFraction",
+        "certifiedCount",
+        "examinedCount",
+        "attainmentFraction",
+        "predictedRecallMean",
+    } <= set(out["series"][-1])

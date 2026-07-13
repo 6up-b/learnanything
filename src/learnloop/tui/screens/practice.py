@@ -12,6 +12,13 @@ from textual.widgets import Button, Rule, TextArea
 
 from learnloop.attempt_types import default_attempt_type
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.services.probe_episodes import (
+    commit_item_presentation,
+    episode_contract,
+    episode_hypothesis_set,
+    probe_serving_block_reason,
+    stop_diagnosing_and_teach,
+)
 from learnloop.services.mastery import sigmoid
 from learnloop.services.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
@@ -47,6 +54,7 @@ class PracticeScreen(Screen):
         Binding("f10", "submit", "Submit", priority=True),
         Binding("ctrl+h", "hint", "Hint", priority=True),
         Binding("ctrl+d", "dont_know", "Don't know", priority=True),
+        Binding("ctrl+t", "stop_diagnosing", "Stop diagnosing", priority=True),
         Binding("ctrl+s", "skip", "Skip", priority=True),
         Binding("escape", "back", "Back", priority=True),
     ]
@@ -62,6 +70,45 @@ class PracticeScreen(Screen):
         self.practice_item = state.vault.practice_items[item.practice_item_id]
         self.learning_object = state.vault.learning_objects[item.learning_object_id]
         self.attempt_type = default_attempt_type(self.practice_item.attempt_types_allowed)
+        # Probe redesign §12: the same measurement contract the Tauri surface
+        # enforces. Committing the presentation is the serve event (§5.1).
+        self.probe_contract: dict | None = None
+        self.probe_presentation_id: str | None = None
+        self._resolve_probe_contract()
+
+    def _resolve_probe_contract(self) -> None:
+        repository = self.state.repository
+        vault = self.state.vault
+        episode = repository.open_probe_episode(self.learning_object.id)
+        if episode is None or episode.status != "in_progress":
+            return
+        # §5.9 orchestration gate (shared with the sidecar): the fresh-vault
+        # onboarding ceiling applies here too. The TUI has no session concept,
+        # so the per-session cap arm is inert (session_id=None).
+        if probe_serving_block_reason(vault, repository) is not None:
+            return
+        # §5.8 parity with the sidecar: the SAME grading-task routing (with
+        # fallback provider) decides whether an approved diagnostic grading
+        # provider exists — without one no qualifying observation may be
+        # served; the episode parks and the item runs as belief-only practice.
+        from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
+
+        _provider, runtime, client = ready_grading_provider(vault)
+        if not runtime.ready or client is None:
+            repository.update_probe_episode_status(episode.id, status="pending_items")
+            return
+        hypothesis_set = episode_hypothesis_set(repository, episode)
+        if hypothesis_set is None:
+            return
+        # Shared slate-preferring commit: the presentation carries the same
+        # §7.3 selection components and §13.3 shadow rankings as the sidecar.
+        presentation = commit_item_presentation(
+            vault, repository, episode, self.practice_item, hypothesis_set
+        )
+        if presentation is None:
+            return
+        self.probe_presentation_id = presentation.id
+        self.probe_contract = episode_contract(vault, repository, self.learning_object.id)
 
     # ── composition ──────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
@@ -129,6 +176,14 @@ class PracticeScreen(Screen):
         self._refresh_answer_meta(text)
 
     def reveal_hint(self) -> None:
+        if self.probe_presentation_id is not None:
+            # §5.5: authored hints are disabled during a diagnostic block.
+            self.notify(
+                "Hints are disabled during a diagnostic check — answer with what you know, "
+                "or press ^t to stop diagnosing and start tutoring.",
+                severity="warning",
+            )
+            return
         if self.hints_used < len(self.practice_item.hints):
             self.hints_used += 1
 
@@ -152,11 +207,17 @@ class PracticeScreen(Screen):
         return result
 
     def _draft(self, attempt_type: str | None = None) -> AttemptDraft:
+        # §12: an active diagnostic block forces the recording attempt type
+        # (dont_know remains a valid diagnostic outcome, §5.4).
+        resolved_type = attempt_type or self.attempt_type
+        if self.probe_presentation_id is not None and resolved_type != "dont_know":
+            resolved_type = "diagnostic_probe"
         return AttemptDraft(
             practice_item_id=self.practice_item.id,
             learner_answer_md=self.answer,
-            attempt_type=attempt_type or self.attempt_type,
+            attempt_type=resolved_type,
             hints_used=self.hints_used,
+            probe_presentation_id=self.probe_presentation_id,
         )
 
     # ── actions ──────────────────────────────────────────────────────────
@@ -166,6 +227,19 @@ class PracticeScreen(Screen):
 
     def action_hint(self) -> None:
         self.reveal_hint()
+
+    def action_stop_diagnosing(self) -> None:
+        """`Stop diagnosing and teach me` (§3): end measurement, start tutoring."""
+
+        if self.probe_presentation_id is None:
+            return
+        stop_diagnosing_and_teach(self.state.vault, self.state.repository, self.learning_object.id)
+        self.probe_presentation_id = None
+        self.probe_contract = None
+        self.probe = False
+        if self.is_mounted:
+            self.query_one("#probe-panel", TextStatic).update(self._probe_content())
+        self.notify("Diagnostic ended — this item now runs as ordinary tutoring/practice.")
 
     def action_dont_know(self) -> None:
         self.dont_know()
@@ -225,6 +299,18 @@ class PracticeScreen(Screen):
         return _join(pills)
 
     def _probe_content(self) -> Content:
+        if self.probe_contract is not None:
+            observation = self.probe_contract.get("observation_number", 1)
+            maximum = self.probe_contract.get("maximum_observations", 4)
+            return Content.assemble(
+                (f"Diagnostic · observation {observation} of up to {maximum}", "$probe bold"),
+                "\n",
+                (
+                    "feedback is delayed for measurement integrity · hints and ask-tutor are "
+                    "unavailable · ^t stops diagnosing and starts tutoring",
+                    "$text-muted italic",
+                ),
+            )
         eig = self.item.components.get("probe_eig", 0.0)
         return Content.assemble(
             ("Probe phase · hypothesis set locked", "$probe bold"),
@@ -319,6 +405,8 @@ class PracticeScreen(Screen):
 
     # ── data helpers ─────────────────────────────────────────────────────
     def _is_probe(self) -> bool:
+        if self.probe_presentation_id is not None:
+            return True
         return self.item.components.get("probe_eig", 0.0) > 0.0
 
     def _primary_subject(self) -> str:

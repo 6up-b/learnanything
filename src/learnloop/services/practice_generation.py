@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from math import log
 from pathlib import Path
 from typing import Any
 
 from learnloop.ai.client import AIProviderClient
+from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.services.followups import (
     current_same_facet_failure_streak,
@@ -249,13 +251,17 @@ def build_diagnostic_practice_plan(
     *,
     learning_object_id: str | None = None,
     max_needs: int = 3,
+    clock: Clock | None = None,
 ) -> DiagnosticPracticePlan:
     if max_needs <= 0:
         raise PracticeExpansionError("max_needs must be positive")
     irt = vault.config.mastery.irt
+    now = (clock or SystemClock()).now().astimezone(UTC)
     targets: list[DiagnosticPracticeTarget] = []
     for need in repository.pending_intervention_needs(learning_object_id):
-        if _stale_repeat_failure_need(vault, repository, need):
+        if _stale_repeat_failure_need(vault, repository, need) or _stale_tutor_gap_need(
+            vault, repository, need, now=now
+        ):
             continue
         learning_object = vault.learning_objects.get(need["learning_object_id"])
         if learning_object is None or learning_object.status != "active":
@@ -361,6 +367,75 @@ def _stale_repeat_failure_need(
         blocked_reason=f"resolved_failure_streak:{streak}/{threshold}",
     )
     return True
+
+
+def _stale_tutor_gap_need(
+    vault: LoadedVault,
+    repository: Repository,
+    need: dict[str, Any],
+    *,
+    now: datetime,
+) -> bool:
+    """Lazily retire tutor_gap_declaration needs (spec §3 G3).
+
+    A gap need goes stale when every target facet has landed >=1 *successful*
+    attempt after the need was created (mirrors question-signal resolution
+    semantics: not dont_know, correctness > 0.40, no error_type), or once it is
+    older than ``tutor_promotion.gap_need_ttl_days``. Other trigger families keep
+    their existing lifecycle.
+    """
+
+    if need.get("trigger_reason") != "tutor_gap_declaration":
+        return False
+    created_at = need.get("created_at")
+    target_facets = {vault.canonical_facet_id(str(facet)) for facet in need.get("target_facets", [])}
+
+    # TTL path: an unmeasured gap that no longer reflects the learner's state.
+    ttl_days = vault.config.tutor_promotion.gap_need_ttl_days
+    created = parse_utc(created_at) if created_at else None
+    if created is not None and now - created > timedelta(days=ttl_days):
+        repository.update_intervention_need_status(
+            str(need["id"]),
+            status="stale",
+            blocked_reason=f"tutor_gap_ttl:{ttl_days}d",
+        )
+        return True
+
+    # Facet-success path: every target facet has been measured successfully since.
+    if target_facets:
+        resolved: set[str] = set()
+        for attempt in repository.list_recent_attempts_by_learning_object(
+            str(need["learning_object_id"]), limit=200
+        ):
+            attempted_at = attempt.get("created_at")
+            if not attempted_at or (created_at and attempted_at <= created_at):
+                continue
+            if _attempt_failed(attempt):
+                continue
+            for facet in attempt.get("evidence_facets", []):
+                resolved.add(vault.canonical_facet_id(str(facet)))
+        if target_facets <= resolved:
+            repository.update_intervention_need_status(
+                str(need["id"]),
+                status="stale",
+                blocked_reason="tutor_gap_facets_resolved",
+            )
+            return True
+    return False
+
+
+def _attempt_failed(attempt: dict[str, Any]) -> bool:
+    """Failure predicate mirroring ``question_signal._attempt_failed`` (§3 G3).
+
+    Kept in sync deliberately so tutor_gap staleness resolves on exactly the same
+    "successful attempt" definition the question-signal channel uses.
+    """
+
+    return (
+        attempt.get("attempt_type") == "dont_know"
+        or float(attempt.get("correctness") or 0.0) <= 0.40
+        or bool(attempt.get("error_type"))
+    )
 
 
 def generate_diagnostic_practice_proposal(

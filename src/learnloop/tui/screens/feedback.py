@@ -323,6 +323,22 @@ class FeedbackScreen(Screen):
         self._render_results(result)
         self.has_errors = bool(result.error_event_ids)
         self.graded = True
+        # §5.6 opt-out accounting: the TUI reveals feedback per attempt, and
+        # each reveal is an intervention boundary — if this diagnostic attempt
+        # did not already close its block, run the block-end hook now so the
+        # state segment closes and later evidence measures the post-reveal
+        # learner state. The integrity model does not depend on the UX cost.
+        if self.draft.probe_presentation_id is not None and result.probe_block_end is None:
+            from learnloop.services.probe_blocks import end_diagnostic_block
+
+            episode = self.state.repository.open_probe_episode(self.learning_object.id)
+            if episode is not None and episode.status == "in_progress":
+                end_diagnostic_block(
+                    self.state.vault,
+                    self.state.repository,
+                    episode,
+                    ai_client=client if runtime.ready else None,
+                )
         self.state.refresh()
 
     # ── results rendering ────────────────────────────────────────────────────

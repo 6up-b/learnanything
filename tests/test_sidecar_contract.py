@@ -722,6 +722,101 @@ def test_sidecar_config_carries_gate_fields(tmp_path):
     assert followup["thresholdMode"] == "quantile"
 
 
+def test_sidecar_calibration_session_lifecycle(tmp_path):
+    from learnloop.clock import FrozenClock
+    from tests.helpers import NOW, admit_probe_instrument_card
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    admit_probe_instrument_card(repository, items=("pi_svd_define_001",))
+
+    started = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "start_calibration_session",
+                "params": {
+                    "sessionId": "cal-client-session",
+                    "learningObjectIds": ["lo_svd_definition"],
+                    "timeBudgetMinutes": 15,
+                },
+            },
+        ]
+    )[1]["result"]
+    assert started["status"] == "active"
+    assert started["blocksPlanned"] == 1
+    assert started["nextTarget"]["learningObjectId"] == "lo_svd_definition"
+    calibration_id = started["calibrationSessionId"]
+
+    stopped = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "get_calibration_session",
+                "params": {"calibrationSessionId": calibration_id},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "stop_calibration_session",
+                "params": {"calibrationSessionId": calibration_id},
+            },
+        ]
+    )
+    assert stopped[1]["result"]["status"] == "active"
+    assert stopped[2]["result"]["status"] == "stopped"
+
+
+def test_sidecar_dialogue_microprobe_turn_flow(tmp_path):
+    from tests.helpers import admit_probe_instrument_card
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    admit_probe_instrument_card(repository, items=("pi_svd_define_001",))
+
+    responses = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "begin_probe_dialogue",
+                "params": {"learningObjectId": "lo_svd_definition"},
+            },
+        ]
+    )
+    begun = responses[1]["result"]
+    assert begun["plannedTurns"] >= 1
+    state_json = begun["dialogueState"]
+
+    turn_responses = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "next_probe_dialogue_turn",
+                "params": {"dialogueState": state_json},
+            },
+        ]
+    )
+    turn = turn_responses[1]["result"]["turn"]
+    assert turn["kind"] == "commit"
+    assert turn["presentationId"]
+    assert turn["practiceItemId"].startswith("pi_dlg_")
+    assert turn["promptMd"]
+    presentation = Repository(paths.sqlite_path).probe_presentation(turn["presentationId"])
+    assert presentation is not None
+    assert presentation.selection_components["dialogue_turn_kind"] == "commit"
+    assert 0 < presentation.selection_components["task_evidence_share"] <= 1.0
+
+
 def test_sidecar_feedback_exposes_probe_intervention_need(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
@@ -1337,32 +1432,38 @@ def test_sidecar_sqlite_browse_and_edit(tmp_path):
                 "jsonrpc": "2.0",
                 "id": 2,
                 "method": "sqlite_update_cell",
-                "params": {"path": "state.sqlite", "table": "t_demo", "rowid": rowid, "column": "b", "value": "42"},
+                "params": {"path": "state.sqlite", "table": "t_demo", "rowid": rowid, "column": "a", "value": ""},
             },
-            {"jsonrpc": "2.0", "id": 3, "method": "sqlite_table", "params": {"path": "state.sqlite", "table": "t_demo"}},
             {
                 "jsonrpc": "2.0",
-                "id": 4,
+                "id": 3,
+                "method": "sqlite_update_cell",
+                "params": {"path": "state.sqlite", "table": "t_demo", "rowid": rowid, "column": "b", "value": "42"},
+            },
+            {"jsonrpc": "2.0", "id": 4, "method": "sqlite_table", "params": {"path": "state.sqlite", "table": "t_demo"}},
+            {
+                "jsonrpc": "2.0",
+                "id": 5,
                 "method": "sqlite_exec",
                 "params": {"path": "state.sqlite", "sql": "SELECT a, b FROM t_demo"},
             },
-            {"jsonrpc": "2.0", "id": 5, "method": "sqlite_delete_row", "params": {"path": "state.sqlite", "table": "t_demo", "rowid": rowid}},
-            {"jsonrpc": "2.0", "id": 6, "method": "sqlite_table", "params": {"path": "state.sqlite", "table": "t_demo"}},
+            {"jsonrpc": "2.0", "id": 6, "method": "sqlite_delete_row", "params": {"path": "state.sqlite", "table": "t_demo", "rowid": rowid}},
+            {"jsonrpc": "2.0", "id": 7, "method": "sqlite_table", "params": {"path": "state.sqlite", "table": "t_demo"}},
             # A non-database path is refused by the browser.
-            {"jsonrpc": "2.0", "id": 7, "method": "sqlite_tables", "params": {"path": "learnloop.toml"}},
+            {"jsonrpc": "2.0", "id": 8, "method": "sqlite_tables", "params": {"path": "learnloop.toml"}},
         ]
     )
 
-    table = edited[2]["result"]
+    table = edited[3]["result"]
     assert table["editable"] is True and table["rowCount"] == 1
     assert [col["name"] for col in table["columns"]] == ["a", "b"]
-    assert table["rows"][0]["cells"] == [None, 42]  # "42" coerced to INTEGER affinity
-    select = edited[3]["result"]
+    assert table["rows"][0]["cells"] == ["", 42]  # empty TEXT is distinct from NULL; INTEGER is coerced
+    select = edited[4]["result"]
     assert select["kind"] == "rows" and select["columns"] == ["a", "b"]
-    assert select["rows"] == [[None, 42]]
-    assert edited[4]["result"]["ok"] is True  # delete_row
-    assert edited[5]["result"]["rowCount"] == 0
-    assert edited[6]["error"]["data"]["code"] == "not_found"
+    assert select["rows"] == [["", 42]]
+    assert edited[5]["result"]["ok"] is True  # delete_row
+    assert edited[6]["result"]["rowCount"] == 0
+    assert edited[7]["error"]["data"]["code"] == "not_found"
 
 
 def test_sidecar_edit_and_delete_proposal_item(tmp_path):

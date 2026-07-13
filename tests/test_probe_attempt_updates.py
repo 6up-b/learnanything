@@ -98,14 +98,18 @@ def test_record_probe_attempt_is_noop_when_not_probing(tmp_path):
     assert repository.probe_state("lo_svd_definition") is None
 
 
-def test_attempt_service_advances_probe(tmp_path):
+def test_attempt_service_never_writes_legacy_probe_state(tmp_path):
+    # Probe redesign Checkpoint 0: lo_probe_state is read-only legacy. The live
+    # attempt pipeline routes through diagnostic episodes instead, and an
+    # ordinary self-graded attempt can neither advance the frozen legacy phase
+    # nor create a probe observation.
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     loaded = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
     enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
-    complete_self_graded_attempt(
+    result = complete_self_graded_attempt(
         loaded,
         repository,
         AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="An answer."),
@@ -114,4 +118,6 @@ def test_attempt_service_advances_probe(tmp_path):
     )
 
     state = repository.probe_state("lo_svd_definition")
-    assert state.probe_attempts_completed >= 1
+    assert state.probe_attempts_completed == 0
+    assert state.status == "in_progress"  # untouched frozen legacy row
+    assert repository.probe_observation_for_attempt(result.attempt_id) is None

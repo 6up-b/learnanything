@@ -180,6 +180,65 @@ def create_basic_vault(root: Path) -> VaultPaths:
     return paths
 
 
+def admit_probe_instrument_card(
+    repository: Repository,
+    *,
+    learning_object_id: str = "lo_svd_definition",
+    card_id: str = "card_svd_contrast",
+    items: tuple[str, ...] = ("pi_svd_define_001",),
+    rows: dict | None = None,
+    target_facets: tuple[str, ...] = ("recall",),
+) -> None:
+    """Admit a contrast_confusable Instrument Card and link items to it.
+
+    Probe redesign §9: only items with an executable instrument binding are
+    probe candidates, so episode tests admit one card against the basic vault.
+    """
+
+    from learnloop.services.probe_families import (
+        CONTRAST_CONFUSABLE_DEFAULT_ROWS,
+        CONTRAST_CONFUSABLE_V1,
+        InstrumentCard,
+        ensure_builtin_families,
+        validate_and_compile_card,
+    )
+
+    clock = FrozenClock(NOW)
+    ensure_builtin_families(repository, clock=clock)
+    card = InstrumentCard(
+        id=card_id,
+        version=1,
+        family_template_id=CONTRAST_CONFUSABLE_V1.id,
+        family_template_version=CONTRAST_CONFUSABLE_V1.version,
+        learning_object_id=learning_object_id,
+        target_decision="choose_schema_vs_confusable_repair",
+        bindings={"target_facet": "recall", "confusable_concept": "eigendecomposition"},
+        hypotheses=CONTRAST_CONFUSABLE_V1.hypothesis_slots,
+        conditional_observations=rows or CONTRAST_CONFUSABLE_DEFAULT_ROWS,
+        target_facets=target_facets,
+        signature_error_types={"confusable_signature": ["conceptual_slip"]},
+    )
+    instrument = validate_and_compile_card(card, CONTRAST_CONFUSABLE_V1)
+    repository.insert_probe_instrument_card(
+        card_id=card.id,
+        version=card.version,
+        probe_family_template_id=CONTRAST_CONFUSABLE_V1.id,
+        probe_family_template_version=CONTRAST_CONFUSABLE_V1.version,
+        learning_object_id=learning_object_id,
+        hypothesis_scope=list(card.hypotheses),
+        card=card.as_dict(),
+        compiled_likelihood_hash=instrument.compiled_likelihood_hash(),
+        clock=clock,
+    )
+    for item_id in items:
+        repository.link_probe_item_family(
+            practice_item_id=item_id,
+            instrument_card_id=card.id,
+            instrument_card_version=card.version,
+            clock=clock,
+        )
+
+
 def add_followup_item(root: Path, item_id: str = "pi_svd_define_002") -> None:
     upsert_practice_item(
         root,

@@ -1,0 +1,92 @@
+schema_version: 1
+id: pi_scaled_attention_weighted_sum_001
+learning_object_id: lo_scaled_dot_product_attention
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - weighted_sum
+  - value_weighting
+  - compatibility_weights
+  - qkv_roles
+evidence_weights:
+  compatibility_weights: 0.25
+  qkv_roles: 0.25
+  value_weighting: 0.25
+  weighted_sum: 0.25
+criterion_facet_weights: {}
+prompt: Softmax has already produced attention weights [0.75, 0.25] over value 
+  vectors v1 = [2, 0] and v2 = [0, 4]. Compute the attention output and explain 
+  why this step uses values rather than keys.
+expected_answer: The output is 0.75*[2,0] + 0.25*[0,4] = [1.5, 1]. This step 
+  uses values because the attention weights decide how much information/content 
+  to take from each position; keys were used earlier only to compute 
+  compatibility with the query.
+difficulty: 0.25
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - values
+  - scaled_dot_product_attention
+hints:
+  - Multiply each value vector by its attention weight before adding.
+  - Keys help choose weights; values are what the weights combine.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.25
+scaffold_level: 0.2
+surface_family: value_weighted_sum_compute
+misconception_consistent_answer: The output is the average [1,2], and keys are 
+  used because keys represent the positions.
+repair_targets:
+  - weighted_sum
+  - value_weighting
+  - qkv_roles
+  - fatal_unweighted_average_values
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: weighted_sum_computation
+      points: 1.5
+      description: Correctly computes the output vector as [1.5, 1].
+      tier: core
+    - id: uses_attention_weights
+      points: 0.75
+      description: Shows that each value vector is multiplied by its 
+        corresponding attention weight.
+      tier: core
+    - id: values_as_content
+      points: 1.0
+      description: Explains that values carry the content being mixed into the 
+        output.
+      tier: core
+    - id: keys_for_compatibility
+      points: 0.75
+      description: Distinguishes keys as used earlier for compatibility scoring 
+        rather than final content mixing.
+      tier: core
+  fatal_errors:
+    - id: fatal_unweighted_average_values
+      description: Computes an unweighted average instead of using the supplied 
+        attention weights.
+      max_grade: 2
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+created_at: '2026-07-13T01:00:14Z'
+updated_at: '2026-07-13T01:00:14Z'

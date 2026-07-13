@@ -72,8 +72,6 @@ def _coerce(value: Any, declared_type: str | None) -> Any:
     if value is None:
         return None
     text = str(value)
-    if text == "":
-        return None
     affinity = (declared_type or "").upper()
     if "INT" in affinity:
         try:

@@ -129,13 +129,19 @@ def initial_mastery_state_for_learning_object(vault, repository, learning_object
     claim = covering_learner_claim(vault, repository, learning_object_id)
     if claim is None:
         return state
+    # Any covering claim seeds the prior (spec_tutor_promotion.md §3 G2): a low
+    # self-rating (e.g. a tutor gap declaration at claimed_level 0.25, or an
+    # init-wizard low claim) must move the prior, not silently no-op as it did
+    # when this gated on claim_skip_threshold. That threshold keeps its role ONLY
+    # in probes.py (probe skip / attempt-target). The low floor 0.05 stops a
+    # claimed_level of 0 from seeding an absurdly confident prior; the high side
+    # stays at logit()'s native 0.98 clamp so claims >= claim_skip_threshold seed
+    # bit-identically to the pre-change code.
     claimed_level = float(claim["claimed_level"])
-    if claimed_level < vault.config.probe.claim_skip_threshold:
-        return state
     prior_pseudo_count = max(float(claim["prior_pseudo_count"]), 0.25)
     return MasteryState(
         learning_object_id=learning_object_id,
-        logit_mean=logit(claimed_level),
+        logit_mean=logit(clamp(claimed_level, 0.05, 0.98)),
         logit_variance=1 / prior_pseudo_count,
         evidence_count=0,
         last_evidence_at=None,

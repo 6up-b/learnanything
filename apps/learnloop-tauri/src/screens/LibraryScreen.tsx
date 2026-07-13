@@ -350,8 +350,10 @@ export function LibraryScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
       const inField = tag === "textarea" || tag === "input";
+      const inSqliteBrowser = Boolean(target?.closest?.("[data-sqlite-browser]"));
       const ctrl = event.ctrlKey || event.metaKey;
 
       if (ctrl && event.key.toLowerCase() === "s") {
@@ -371,6 +373,9 @@ export function LibraryScreen({
         return;
       }
       if (inField) return;
+      // SqliteBrowser owns its grid navigation while focus is inside it. Without
+      // this boundary, j/k and the arrow keys would also move the Library tree.
+      if (inSqliteBrowser) return;
       if (event.key === "n") {
         event.preventDefault();
         setNewPath("notes/");
@@ -421,6 +426,14 @@ export function LibraryScreen({
       return [
         { key: "^s", label: "Save payload" },
         { key: "j/k", label: "Move" }
+      ];
+    }
+    if (isDatabase) {
+      return [
+        { key: "hjkl / arrows", label: "Move cell" },
+        { key: "enter / i", label: "Edit" },
+        { key: "space", label: "Inspector" },
+        { key: "esc", label: "Cancel / close" }
       ];
     }
     if (isMd) {

@@ -3,12 +3,12 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.probes import enter_probe
+from learnloop.services.probe_episodes import enter_episode
 from learnloop.services.scheduler import SchedulerSession, build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault
 
 
 def _setup_probe_vault(tmp_path):
@@ -30,7 +30,10 @@ def _setup_probe_vault(tmp_path):
         }
     )
     loaded = load_vault(vault_root)
-    enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+    # Probe redesign §9: probe candidacy requires an executable instrument
+    # binding, so the scheduler tests admit a card for the basic vault's item.
+    admit_probe_instrument_card(repository)
+    enter_episode(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
     return vault_root, repository
 
 
@@ -86,7 +89,8 @@ def test_short_session_keeps_probe_eig_when_probe_is_only_reason(tmp_path):
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)
     loaded = load_vault(vault_root)
-    enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+    admit_probe_instrument_card(repository)
+    enter_episode(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
     queue = build_due_queue(
         loaded,

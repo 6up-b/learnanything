@@ -1,8 +1,11 @@
-// Inline-SVG week-by-week on-track trajectory for a goal, with a dotted linear
-// forecast to the due date. No chart libs — terminal-styled: amber achieved
-// series, dimmed dashed forecast, a vertical tick at the due date. Y domain is a
-// fixed 0–100%. Honest by construction: fewer than two real points renders a
-// "not enough history yet" note instead of a fabricated line.
+// Inline-SVG week-by-week goal trajectory, with a dotted linear forecast to the
+// due date. Plots predicted recall (continuous, comparable to the targetRecall
+// reference line); falls back to the legacy on-track fraction when the sidecar
+// predates the dual-axis report. Green rings mark milestone weeks where the
+// certified-facet count increased. No chart libs — terminal-styled: amber
+// achieved series, dimmed dashed forecast, a vertical tick at the due date.
+// Y domain is a fixed 0–100%. Honest by construction: fewer than two real
+// points renders a "not enough history yet" note instead of a fabricated line.
 
 import type { GoalSeriesPointDto } from "../api/dto";
 import { COLOR, FONT_MONO } from "./term";
@@ -48,9 +51,11 @@ export function GoalTrajectoryChart({
   width?: number;
   height?: number;
 }) {
-  const pts: Array<{ t: number; frac: number }> = series
-    .filter((p) => p.onTrackFraction != null && !Number.isNaN(Date.parse(p.at)))
-    .map((p) => ({ t: Date.parse(p.at), frac: p.onTrackFraction as number }));
+  const metricOf = (p: GoalSeriesPointDto): number | null =>
+    p.predictedRecallMean ?? p.onTrackFraction ?? null;
+  const pts: Array<{ t: number; frac: number; certified: number }> = series
+    .filter((p) => metricOf(p) != null && !Number.isNaN(Date.parse(p.at)))
+    .map((p) => ({ t: Date.parse(p.at), frac: metricOf(p) as number, certified: p.certifiedCount ?? 0 }));
 
   if (pts.length < 2) {
     return (
@@ -130,6 +135,13 @@ export function GoalTrajectoryChart({
       {pts.map((p, i) => (
         <circle key={i} cx={xOf(p.t)} cy={yOf(p.frac)} r={2.4} fill={COLOR.amber} />
       ))}
+
+      {/* milestone rings: weeks where the certified-facet count grew */}
+      {pts.map((p, i) =>
+        i > 0 && p.certified > pts[i - 1].certified ? (
+          <circle key={`m${i}`} cx={xOf(p.t)} cy={yOf(p.frac)} r={4.2} fill="none" stroke={COLOR.green} strokeWidth={1.4} />
+        ) : null
+      )}
     </svg>
   );
 }

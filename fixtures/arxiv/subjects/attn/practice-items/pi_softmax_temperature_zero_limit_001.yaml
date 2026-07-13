@@ -1,0 +1,102 @@
+schema_version: 1
+id: pi_softmax_temperature_zero_limit_001
+learning_object_id: lo_softmax_logits_temperature
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - zero_argmax_limit
+  - lower_temperature_peakedness
+  - probability_constraints
+  - softmax_normalization
+evidence_weights:
+  lower_temperature_peakedness: 0.25
+  probability_constraints: 0.25
+  softmax_normalization: 0.25
+  zero_argmax_limit: 0.25
+criterion_facet_weights: {}
+prompt: A model has next-token logits where one token is clearly highest. As 
+  temperature approaches 0, what happens to the softmax distribution? Explain 
+  why this resembles argmax while still referring to probabilities.
+expected_answer: As temperature approaches 0, dividing logits by a tiny 
+  temperature greatly amplifies the gaps between them. Softmax puts probability 
+  approaching 1 on the highest-logit token and probability approaching 0 on the 
+  others. This resembles argmax because the highest-logit token is effectively 
+  selected, but it is described as a limiting probability distribution.
+difficulty: 0.42
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - softmax
+  - temperature
+  - argmax
+hints:
+  - Low temperature sharpens the largest logit advantage.
+  - Argmax chooses the largest score; softmax describes probabilities that can 
+    approach that behavior.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.55
+transfer_distance: 0.45
+scaffold_level: 0.1
+surface_family: temperature_zero_argmax_limit
+misconception_consistent_answer: At temperature 0, softmax makes every token 
+  equally likely because all randomness is removed.
+repair_targets:
+  - zero_argmax_limit
+  - lower_temperature_peakedness
+  - probability_constraints
+  - fatal_zero_temperature_uniform
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: gap_amplification
+      points: 1.0
+      description: Explains that very low temperature amplifies differences 
+        between logits.
+      tier: core
+    - id: top_probability_approaches_one
+      points: 1.0
+      description: States that the highest-logit token's probability approaches 
+        1.
+      tier: core
+    - id: other_probabilities_approach_zero
+      points: 1.0
+      description: States that lower-logit token probabilities approach 0.
+      tier: core
+    - id: argmax_probability_distinction
+      points: 1.0
+      description: Explains why the limit behaves like argmax while still being 
+        framed through softmax probabilities.
+      tier: transfer
+  fatal_errors:
+    - id: fatal_zero_temperature_uniform
+      description: Claims temperature approaching 0 makes all token 
+        probabilities equal or uniform.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+    - ref_type: note
+      ref_id: note_tutor_qa_01kx1ssdt65kpw5rb797cpf5sk
+      path: subjects/attn/notes/note_tutor_qa_01kx1ssdt65kpw5rb797cpf5sk.md
+      locator:
+      quote: If (T) is small, then the gap between a high logit and low logit 
+        should be high.
+      quote_hash:
+created_at: '2026-07-13T01:00:28Z'
+updated_at: '2026-07-13T01:00:28Z'

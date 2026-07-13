@@ -483,7 +483,9 @@ def _track_goals_end_of_day(
         if goal.id not in snapshot_days:
             continue
         report = goal_report(vault, repository, goal, clock=end_of_day_clock)
-        at_risk_by_goal[goal.id] = report.total - report.on_track_count
+        # at_risk is a dual-axis predicate (attainment OR certification), no
+        # longer the complement of on_track — mirror the scheduler frontier.
+        at_risk_by_goal[goal.id] = report.at_risk_count
         if day != snapshot_days[goal.id]:
             continue
         scope = resolve_goal_scope(vault, goal, repository)

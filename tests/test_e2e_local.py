@@ -79,13 +79,16 @@ def test_local_only_learning_loop(tmp_path):
     assert doctor.exit_code == 0, doctor.output
     assert json.loads(doctor.output)["clean"] is True
 
-    # Cold active LOs with local Practice Items start in probe mode so the
-    # learner can establish an initial skill estimate before ordinary review.
+    # Cold active LOs open a diagnostic episode on sync (probe redesign). With
+    # no admitted instrument card the episode parks in pending_items, which
+    # keeps the LO schedulable for belief-only ordinary practice: the item is
+    # served, but it carries no probe EIG (§4.2 fix — an item that cannot
+    # discriminate the locked hypothesis set is not a probe).
     first_review = runner.invoke(app, ["review", "--json", *v])
     assert first_review.exit_code == 0
     first_items = json.loads(first_review.output)["items"]
     assert [item["practice_item_id"] for item in first_items] == ["pi_svd_define_001"]
-    assert first_items[0]["components"]["probe_eig"] > 0.0
+    assert first_items[0]["components"]["probe_eig"] == 0.0
 
     attempt = runner.invoke(
         app,

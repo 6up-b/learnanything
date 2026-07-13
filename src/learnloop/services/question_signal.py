@@ -28,14 +28,14 @@ Design constraints:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.config import TutorQAConfig
+from learnloop.config import TutorPromotionConfig, TutorQAConfig
 from learnloop.db.repositories import FacetUncertaintyState, Repository
-from learnloop.services.facet_diagnostics import entropy, normalize_distribution
+from learnloop.services.facet_diagnostics import entropy, facet_state_label, normalize_distribution
 from learnloop.vault.models import LoadedVault
 
 # Substantive question types (mirrors tutor_qa.HINT_EQUIVALENT_TYPES, which is
@@ -47,6 +47,11 @@ SUBSTANTIVE_QUESTION_TYPES = frozenset({"prerequisite", "mechanism", "strategy"}
 # recent unresolved questions per facet act as observations, within the window.
 QUESTION_SIGNAL_WINDOW_DAYS = 7
 MAX_QUESTION_OBSERVATIONS_PER_FACET = 3
+
+# Frontier natures (spec §3 G2): a gap declared while probing a transfer / edge /
+# what-if boundary must NOT degrade a facet the diagnostics already call solid —
+# it marks the learner's frontier boundary, not core decay.
+_FRONTIER_NATURES = frozenset({"transfer", "edge_case", "what_if"})
 
 # Odds-ratio guards for the empirical calibration: failure rates are clamped
 # away from 0/1 before forming odds, and the resolved ratio is kept in
@@ -86,6 +91,14 @@ class QuestionSignal:
     events_by_facet: dict[str, list[dict[str, Any]]]
     unfaceted_events: list[dict[str, Any]]
     likelihood: ResolvedQuestionLikelihood
+    # Second read-side channel (spec §3 G2 + §4b): gap-declared promotions
+    # (``question_promotions`` intent='gap') act as unresolved-question
+    # observations on their attributed facets, independent of question_type, with
+    # their OWN empirically-fit likelihood slot. Kept separate from
+    # ``events_by_facet`` so the ordinary substantive channel and its consumers
+    # (followups diagnostic focus) are untouched.
+    gap_events_by_facet: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    gap_likelihood: ResolvedQuestionLikelihood | None = None
 
     @property
     def facets(self) -> list[str]:
@@ -135,9 +148,66 @@ def resolve_question_likelihood(repository: Repository, config: TutorQAConfig) -
         target = _first_attempt_at_or_after(repository, item_id, event["created_at"])
         if target is not None:
             questioned.setdefault(str(target["id"]), _attempt_failed(target))
+    return _empirical_solid_likelihood(
+        questioned, repository, min_samples=int(config.question_likelihood_min_samples), fallback=fallback
+    )
+
+
+def resolve_gap_declaration_likelihood(
+    repository: Repository, config: TutorPromotionConfig
+) -> ResolvedQuestionLikelihood:
+    """Calibrate the gap-declaration solid-likelihood ratio (spec §3 G2).
+
+    Mirrors ``resolve_question_likelihood`` but conditions the questioned sample
+    on **gap-declared** promotions (``question_promotions`` intent='gap') rather
+    than substantive question_types: among graded attempts preceded by a gap
+    declaration on the same practice item, how much more often does the attempt
+    fail than the base rate. Below ``gap_declaration_likelihood_min_samples``
+    gap-declared attempts the config ``gap_declaration_solid_likelihood_ratio``
+    applies unchanged — a stronger prior bump than an ordinary ask because a
+    declaration is explicit, not inferred from question type.
+    """
+
+    fallback = float(config.gap_declaration_solid_likelihood_ratio)
+    questioned: dict[str, bool] = {}
+    for promotion in repository.question_promotions():
+        if promotion.get("intent") != "gap":
+            continue
+        event = repository.question_event(str(promotion["question_event_id"]))
+        if event is None:
+            continue
+        item_id = event.get("practice_item_id")
+        created_at = event.get("created_at")
+        if not item_id or not created_at:
+            continue
+        target = _first_attempt_at_or_after(repository, item_id, created_at)
+        if target is not None:
+            questioned.setdefault(str(target["id"]), _attempt_failed(target))
+    return _empirical_solid_likelihood(
+        questioned,
+        repository,
+        min_samples=int(config.gap_declaration_likelihood_min_samples),
+        fallback=fallback,
+    )
+
+
+def _empirical_solid_likelihood(
+    questioned: dict[str, bool],
+    repository: Repository,
+    *,
+    min_samples: int,
+    fallback: float,
+) -> ResolvedQuestionLikelihood:
+    """Shared Laplace-smoothed failure-lift → solid-likelihood ratio.
+
+    Both the ordinary substantive channel and the gap-declaration channel form
+    the same statistic: the questioned-attempt failure odds relative to the base
+    failure odds, inverted, clamped to ``(_RATIO_FLOOR, 1.0]``. Below
+    ``min_samples`` the caller's config constant applies unchanged.
+    """
 
     sample_size = len(questioned)
-    if sample_size < int(config.question_likelihood_min_samples):
+    if sample_size < min_samples:
         return ResolvedQuestionLikelihood(
             value=fallback,
             source="absolute_fallback",
@@ -146,15 +216,7 @@ def resolve_question_likelihood(repository: Repository, config: TutorQAConfig) -
             base_failure_rate=None,
             absolute_fallback=fallback,
         )
-
-    base_n = 0
-    base_failures = 0
-    for learning_object_id in repository.learning_object_ids_with_attempts():
-        for attempt in repository.list_attempts_by_learning_object(learning_object_id):
-            base_n += 1
-            if _attempt_failed(attempt):
-                base_failures += 1
-    base_rate = _clamped_rate(base_failures, base_n)
+    base_rate = _base_failure_rate(repository)
     questioned_failures = sum(1 for failed in questioned.values() if failed)
     # Laplace-style shrinkage toward the base rate so a thin questioned sample
     # cannot swing the ratio to its clamps.
@@ -172,6 +234,17 @@ def resolve_question_likelihood(repository: Repository, config: TutorQAConfig) -
         base_failure_rate=base_rate,
         absolute_fallback=fallback,
     )
+
+
+def _base_failure_rate(repository: Repository) -> float:
+    base_n = 0
+    base_failures = 0
+    for learning_object_id in repository.learning_object_ids_with_attempts():
+        for attempt in repository.list_attempts_by_learning_object(learning_object_id):
+            base_n += 1
+            if _attempt_failed(attempt):
+                base_failures += 1
+    return _clamped_rate(base_failures, base_n)
 
 
 def apply_question_observation(
@@ -214,6 +287,7 @@ def collect_question_signal(
     """
 
     likelihood = resolve_question_likelihood(repository, vault.config.tutor_qa)
+    gap_likelihood = resolve_gap_declaration_likelihood(repository, vault.config.tutor_promotion)
     now = parse_utc(utc_now_iso(clock))
     since = (now - timedelta(days=QUESTION_SIGNAL_WINDOW_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     successes = _facet_success_times(
@@ -235,11 +309,72 @@ def collect_question_signal(
             if resolved_at is not None and resolved_at > event["created_at"]:
                 continue
             events_by_facet.setdefault(facet, []).append(event)
+    gap_events_by_facet = _collect_gap_declarations(
+        vault, repository, learning_object_id, since=since, successes=successes
+    )
     return QuestionSignal(
         events_by_facet=events_by_facet,
         unfaceted_events=unfaceted,
         likelihood=likelihood,
+        gap_events_by_facet=gap_events_by_facet,
+        gap_likelihood=gap_likelihood,
     )
+
+
+def _collect_gap_declarations(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    since: str,
+    successes: dict[str, str],
+) -> dict[str, list[dict[str, Any]]]:
+    """Gap-declared promotions mapped to this LO's attributed facets.
+
+    Mirrors the ordinary channel's window / LO-mapping / success-resolution, but
+    the observation targets are the promotion's ``attributed_facets`` (not the
+    event's classified facets) and the type filter is dropped — a declaration is
+    explicit. Nature-based skip: a transfer/edge_case/what_if gap on a facet the
+    diagnostics currently call ``solid`` is the learner's frontier boundary and
+    must NOT degrade core state, so it is skipped for that facet.
+    """
+
+    promotions = [p for p in repository.question_promotions() if p.get("intent") == "gap"]
+    if not promotions:
+        return {}
+    uncertainty_states = {
+        state.facet_id: state for state in repository.facet_uncertainty_states(learning_object_id)
+    }
+    recall_states = {
+        state.facet_id: state
+        for state in repository.facet_recall_states(learning_object_id)
+        if state.practice_item_id is None
+    }
+    min_mass = vault.config.recall_coverage.min_facet_evidence_mass
+    gap_events_by_facet: dict[str, list[dict[str, Any]]] = {}
+    for promotion in promotions:
+        event = repository.question_event(str(promotion["question_event_id"]))
+        if event is None or event.get("answer_status") != "answered":
+            continue
+        created_at = event.get("created_at")
+        if not created_at or created_at < since:
+            continue
+        if not _event_maps_to_lo(vault, event, learning_object_id):
+            continue
+        skip_solid = promotion.get("question_nature") in _FRONTIER_NATURES
+        facets = sorted(
+            {vault.canonical_facet_id(str(facet)) for facet in promotion.get("attributed_facets", [])}
+        )
+        for facet in facets:
+            resolved_at = successes.get(facet)
+            if resolved_at is not None and resolved_at > created_at:
+                continue
+            if skip_solid and facet_state_label(
+                facet, uncertainty_states.get(facet), recall_states.get(facet), min_mass
+            ) == "solid":
+                continue
+            gap_events_by_facet.setdefault(facet, []).append(event)
+    return gap_events_by_facet
 
 
 def question_adjusted_uncertainty_states(
@@ -275,31 +410,48 @@ def question_adjusted_uncertainty_states(
             exclude_attempt_id=exclude_attempt_id,
             clock=clock,
         )
-    if not signal.events_by_facet:
+    if not signal.events_by_facet and not signal.gap_events_by_facet:
         return list(states), signal
 
     ratio = signal.likelihood.value
+    gap_ratio = signal.gap_likelihood.value if signal.gap_likelihood is not None else 1.0
+    preference_damping = float(vault.config.tutor_qa.preference_channel_damping)
     adjusted: list[FacetUncertaintyState] = []
     seen_facets: set[str] = set()
     for state in states:
         seen_facets.add(state.facet_id)
         events = signal.events_by_facet.get(state.facet_id, [])
-        if not events:
+        gap_events = signal.gap_events_by_facet.get(state.facet_id, [])
+        if not events and not gap_events:
             adjusted.append(state)
             continue
-        marginal = dict(state.hypothesis_marginal)
-        for _ in range(min(len(events), MAX_QUESTION_OBSERVATIONS_PER_FACET)):
-            marginal = apply_question_observation(marginal, solid_likelihood_ratio=ratio)
+        marginal = _apply_question_channels(
+            dict(state.hypothesis_marginal),
+            events,
+            gap_events,
+            ratio,
+            gap_ratio,
+            preference_damping=preference_damping,
+        )
         adjusted.append(
             replace(state, hypothesis_marginal=marginal, uncertainty=entropy(marginal))
         )
     now_iso = utc_now_iso(clock)
-    for facet, events in sorted(signal.events_by_facet.items()):
+    observed_facets = sorted(set(signal.events_by_facet) | set(signal.gap_events_by_facet))
+    for facet in observed_facets:
         if facet in seen_facets:
             continue
-        marginal = {f"facet_solid:{facet}": 0.5, f"facet_absent:{facet}": 0.5}
-        for _ in range(min(len(events), MAX_QUESTION_OBSERVATIONS_PER_FACET)):
-            marginal = apply_question_observation(marginal, solid_likelihood_ratio=ratio)
+        events = signal.events_by_facet.get(facet, [])
+        gap_events = signal.gap_events_by_facet.get(facet, [])
+        marginal = _apply_question_channels(
+            {f"facet_solid:{facet}": 0.5, f"facet_absent:{facet}": 0.5},
+            events,
+            gap_events,
+            ratio,
+            gap_ratio,
+            preference_damping=preference_damping,
+        )
+        ordered = sorted([*events, *gap_events], key=lambda event: str(event.get("created_at") or ""))
         adjusted.append(
             FacetUncertaintyState(
                 id=f"virtual_question_{learning_object_id}_{facet}",
@@ -308,15 +460,56 @@ def question_adjusted_uncertainty_states(
                 hypothesis_marginal=marginal,
                 uncertainty=entropy(marginal),
                 status="open",
-                opened_by_attempt_id=str(events[0].get("id", "")),
+                opened_by_attempt_id=str(ordered[0].get("id", "")),
                 opened_reason="tutor_question",
-                last_evidence_at=events[-1].get("created_at"),
+                last_evidence_at=ordered[-1].get("created_at"),
                 algorithm_version=vault.config.algorithms.algorithm_version,
-                created_at=str(events[0].get("created_at") or now_iso),
+                created_at=str(ordered[0].get("created_at") or now_iso),
                 updated_at=now_iso,
             )
         )
     return adjusted, signal
+
+
+def _apply_question_channels(
+    marginal: dict[str, float],
+    ordinary_events: list[dict[str, Any]],
+    gap_events: list[dict[str, Any]],
+    ordinary_ratio: float,
+    gap_ratio: float,
+    *,
+    preference_damping: float = 1.0,
+) -> dict[str, float]:
+    """Fold both question channels into one facet marginal under a shared cap.
+
+    Gap declarations are applied first because they are the explicit, stronger
+    signal; the ordinary substantive observations then consume whatever remains
+    of ``MAX_QUESTION_OBSERVATIONS_PER_FACET`` so the two channels together never
+    exceed the per-facet observation budget.
+
+    §13.4: an event classified ``interaction_preference`` is a request about
+    HOW to be tutored, not evidence of missing knowledge; its likelihood ratio
+    is damped toward 1 by ``preference_damping`` (retained-strength factor —
+    0 removes its mastery effect entirely) until contextual likelihoods are
+    calibrated.
+    """
+
+    def event_ratio(event: dict[str, Any], base_ratio: float) -> float:
+        if event.get("signal_channel") == "interaction_preference":
+            return 1.0 - (1.0 - base_ratio) * preference_damping
+        return base_ratio
+
+    gap_count = min(len(gap_events), MAX_QUESTION_OBSERVATIONS_PER_FACET)
+    ordinary_count = min(len(ordinary_events), MAX_QUESTION_OBSERVATIONS_PER_FACET - gap_count)
+    for event in gap_events[:gap_count]:
+        marginal = apply_question_observation(
+            marginal, solid_likelihood_ratio=event_ratio(event, gap_ratio)
+        )
+    for event in ordinary_events[:ordinary_count]:
+        marginal = apply_question_observation(
+            marginal, solid_likelihood_ratio=event_ratio(event, ordinary_ratio)
+        )
+    return marginal
 
 
 def _empty_signal(config: TutorQAConfig) -> QuestionSignal:

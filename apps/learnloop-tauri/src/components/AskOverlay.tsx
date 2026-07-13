@@ -3,6 +3,8 @@ import { api } from "../api/client";
 import type {
   AskTutorQuestionInput,
   CommandError,
+  PromotionIntent,
+  QuestionPromotionDto,
   TutorQuestionContext,
   TutorQuestionEventDto
 } from "../api/dto";
@@ -32,11 +34,33 @@ interface ThreadEntry {
   questionType: string | null;
   hintEquivalent: boolean;
   rating: number | null;
+  /** Persisted server-side (question_events.saved_note_id, migration 027); survives remount. */
+  savedNoteId: string | null;
+  /** Persisted promotion ledger row (question_promotions); survives remount (spec §2 idempotency). */
+  promotion: QuestionPromotionDto | null;
 }
 
 interface SaveNotice {
   eventId: string;
   message: string;
+}
+
+/** Result-chip label per route (spec_tutor_promotion.md §2). */
+function promotionChipLabel(promotion: QuestionPromotionDto): string {
+  switch (promotion.route) {
+    case "auto_apply":
+      return `added: ${promotion.createdPracticeItemId ?? promotion.createdLearningObjectId ?? "?"}`;
+    case "review_required":
+      return promotion.proposedPatchId
+        ? `queued for review (patch ${promotion.proposedPatchId})`
+        : "queued for review";
+    case "diagnostic_pending":
+      return "gap filed";
+    case "existing_item":
+      return `scheduled: ${promotion.existingPracticeItemId ?? "?"}`;
+    default:
+      return promotion.route;
+  }
 }
 
 function entityIdOf(target: AskTarget): string {
@@ -59,11 +83,14 @@ export function AskOverlay({
   const [limitReached, setLimitReached] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [savingNote, setSavingNote] = useState<string | null>(null);
-  const [savedNoteEventIds, setSavedNoteEventIds] = useState<string[]>([]);
   const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
+  const [promoteChoiceEventId, setPromoteChoiceEventId] = useState<string | null>(null);
+  const [promotingEventId, setPromotingEventId] = useState<string | null>(null);
+  const [promoteNotice, setPromoteNotice] = useState<SaveNotice | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const saveNoticeTimerRef = useRef<number | null>(null);
+  const promoteNoticeTimerRef = useRef<number | null>(null);
 
   const open = target !== null;
 
@@ -83,14 +110,30 @@ export function AskOverlay({
     }, 30_000);
   }
 
-  function saveNoteLabel(eventId: string) {
-    if (savingNote === eventId) return "saving…";
-    if (savedNoteEventIds.includes(eventId)) return "saved";
+  function clearPromoteNoticeTimer() {
+    if (promoteNoticeTimerRef.current !== null) {
+      window.clearTimeout(promoteNoticeTimerRef.current);
+      promoteNoticeTimerRef.current = null;
+    }
+  }
+
+  function showPromoteNotice(notice: SaveNotice) {
+    clearPromoteNoticeTimer();
+    setPromoteNotice(notice);
+    promoteNoticeTimerRef.current = window.setTimeout(() => {
+      setPromoteNotice(null);
+      promoteNoticeTimerRef.current = null;
+    }, 8_000);
+  }
+
+  function saveNoteLabel(entry: ThreadEntry) {
+    if (entry.eventId !== null && savingNote === entry.eventId) return "saving…";
+    if (entry.savedNoteId) return "saved";
     return "save as note";
   }
 
-  function canSaveNote(eventId: string) {
-    return savingNote === null && !savedNoteEventIds.includes(eventId);
+  function canSaveNote(entry: ThreadEntry) {
+    return savingNote === null && !entry.savedNoteId;
   }
 
   useEffect(() => {
@@ -102,6 +145,9 @@ export function AskOverlay({
     setInlineError(null);
     setSaveNotice(null);
     clearSaveNoticeTimer();
+    setPromoteNotice(null);
+    clearPromoteNoticeTimer();
+    setPromoteChoiceEventId(null);
     setQuestion("");
     api
       .getTutorTranscript({
@@ -120,7 +166,9 @@ export function AskOverlay({
             answerMd: event.answerMd,
             questionType: event.questionType,
             hintEquivalent: event.hintEquivalent,
-            rating: event.rating
+            rating: event.rating,
+            savedNoteId: event.savedNoteId,
+            promotion: event.promotion
           }))
         );
         setRemaining(snapshot.remaining);
@@ -142,6 +190,7 @@ export function AskOverlay({
   ]);
 
   useEffect(() => clearSaveNoticeTimer, []);
+  useEffect(() => clearPromoteNoticeTimer, []);
 
   useEffect(() => {
     if (!open) return;
@@ -175,7 +224,16 @@ export function AskOverlay({
     setInlineError(null);
     setThread((prev) => [
       ...prev,
-      { eventId: null, questionMd: text, answerMd: null, questionType: null, hintEquivalent: false, rating: null }
+      {
+        eventId: null,
+        questionMd: text,
+        answerMd: null,
+        questionType: null,
+        hintEquivalent: false,
+        rating: null,
+        savedNoteId: null,
+        promotion: null
+      }
     ]);
     setQuestion("");
     const input: AskTutorQuestionInput = {
@@ -200,7 +258,9 @@ export function AskOverlay({
                 answerMd: answer.answerMd,
                 questionType: answer.questionType,
                 hintEquivalent: answer.hintEquivalent,
-                rating: null
+                rating: null,
+                savedNoteId: null,
+                promotion: null
               }
             : entry
         )
@@ -238,7 +298,11 @@ export function AskOverlay({
     setSavingNote(eventId);
     try {
       const result = await api.saveTutorAnswerNote(eventId);
-      setSavedNoteEventIds((current) => (current.includes(eventId) ? current : [...current, eventId]));
+      setThread((prev) =>
+        prev.map((entry) =>
+          entry.eventId === eventId ? { ...entry, savedNoteId: result.noteId ?? entry.savedNoteId } : entry
+        )
+      );
       const noteName = result.noteId ? ` ${result.noteId}` : "";
       showSaveNotice({
         eventId,
@@ -248,6 +312,21 @@ export function AskOverlay({
       onToast((error as CommandError).message);
     } finally {
       setSavingNote(null);
+    }
+  }
+
+  async function promote(eventId: string, intent: PromotionIntent) {
+    setPromoteChoiceEventId(null);
+    setPromotingEventId(eventId);
+    try {
+      const result = await api.promoteTutorQuestion(eventId, intent);
+      setThread((prev) =>
+        prev.map((entry) => (entry.eventId === eventId ? { ...entry, promotion: result } : entry))
+      );
+    } catch (error) {
+      showPromoteNotice({ eventId, message: (error as CommandError).message });
+    } finally {
+      setPromotingEventId(null);
     }
   }
 
@@ -302,7 +381,7 @@ export function AskOverlay({
                     <MarkdownMath value={entry.answerMd} />
                   </div>
                   {entry.eventId ? (
-                    <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 12 }}>
+                    <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
                       {/* CSS `color` has no effect on color-emoji glyphs, so the
                           selected state needs a background/opacity cue instead. */}
                       <span
@@ -333,19 +412,58 @@ export function AskOverlay({
                       </span>
                       <span
                         onClick={() => {
-                          if (canSaveNote(entry.eventId as string)) void saveAsNote(entry.eventId as string);
+                          if (canSaveNote(entry)) void saveAsNote(entry.eventId as string);
                         }}
                         style={{
-                          cursor: canSaveNote(entry.eventId) ? "pointer" : "default",
-                          color: savedNoteEventIds.includes(entry.eventId) ? COLOR.textDim : COLOR.amberLink
+                          cursor: canSaveNote(entry) ? "pointer" : "default",
+                          color: entry.savedNoteId ? COLOR.textDim : COLOR.amberLink
                         }}
                       >
-                        {saveNoteLabel(entry.eventId)}
+                        {saveNoteLabel(entry)}
                       </span>
+                      {/* → practice: promote this socratic question (spec_tutor_promotion.md §2). */}
+                      {entry.promotion ? (
+                        <span style={{ color: COLOR.textDim }}>{promotionChipLabel(entry.promotion)}</span>
+                      ) : promotingEventId === entry.eventId ? (
+                        <span style={{ color: COLOR.textDim }}>promoting…</span>
+                      ) : promoteChoiceEventId === entry.eventId ? (
+                        <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          <span
+                            onClick={() => void promote(entry.eventId as string, "practice")}
+                            style={{ cursor: "pointer", color: COLOR.amberLink }}
+                          >
+                            add to practice
+                          </span>
+                          {target.context !== "library" ? (
+                            <span
+                              onClick={() => void promote(entry.eventId as string, "gap")}
+                              style={{ cursor: "pointer", color: COLOR.amberLink }}
+                            >
+                              this exposed a gap
+                            </span>
+                          ) : null}
+                          <span
+                            onClick={() => setPromoteChoiceEventId(null)}
+                            style={{ cursor: "pointer", color: COLOR.textDim }}
+                          >
+                            cancel
+                          </span>
+                        </span>
+                      ) : (
+                        <span
+                          onClick={() => setPromoteChoiceEventId(entry.eventId)}
+                          style={{ cursor: "pointer", color: COLOR.amberLink }}
+                        >
+                          → practice
+                        </span>
+                      )}
                     </div>
                   ) : null}
                   {saveNotice?.eventId === entry.eventId ? (
                     <div style={saveNoticeStyle}>{saveNotice.message}</div>
+                  ) : null}
+                  {promoteNotice?.eventId === entry.eventId ? (
+                    <div style={saveNoticeStyle}>{promoteNotice.message}</div>
                   ) : null}
                 </div>
               )}

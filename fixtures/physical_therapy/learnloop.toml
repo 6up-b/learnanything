@@ -4,7 +4,7 @@ schema_version = 1
 sqlite_path = "state.sqlite"
 
 [algorithms]
-algorithm_version = "mvp-0.5"
+algorithm_version = "mvp-0.6"
 
 [scheduler]
 forgetting_risk_weight = 1.0

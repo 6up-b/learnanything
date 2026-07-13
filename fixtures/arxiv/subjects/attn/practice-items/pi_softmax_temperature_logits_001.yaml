@@ -1,0 +1,99 @@
+schema_version: 1
+id: pi_softmax_temperature_logits_001
+learning_object_id: lo_softmax_logits_temperature
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - logits_raw_scores
+  - softmax_normalization
+  - probability_constraints
+  - next_token_distribution
+evidence_weights:
+  logits_raw_scores: 0.25
+  next_token_distribution: 0.25
+  probability_constraints: 0.25
+  softmax_normalization: 0.25
+criterion_facet_weights: {}
+prompt: A language model produces logits for possible next tokens before 
+  sampling. What are logits, and what does softmax change about them so they can
+  be used as a next-token distribution?
+expected_answer: Logits are raw, unnormalized scores for candidate next tokens. 
+  Softmax exponentiates and normalizes those scores into nonnegative 
+  probabilities that sum to 1, so they can be interpreted as a probability 
+  distribution for sampling or choosing the next token.
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - softmax
+  - temperature
+  - sampling
+hints:
+  - Ask whether logits must already add to 1.
+  - Softmax turns arbitrary scores into a probability distribution.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.15
+scaffold_level: 0.2
+surface_family: logits_to_softmax_distribution
+misconception_consistent_answer: Logits are the percentages for each next token,
+  and softmax just picks the biggest one.
+repair_targets:
+  - logits_raw_scores
+  - softmax_normalization
+  - probability_constraints
+  - fatal_logits_already_probabilities
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: logits_raw_scores
+      points: 1.25
+      description: Defines logits as raw unnormalized scores for candidate next 
+        tokens.
+      tier: core
+    - id: softmax_nonnegative_probabilities
+      points: 1.0
+      description: Explains that softmax converts scores into nonnegative 
+        probabilities.
+      tier: core
+    - id: probabilities_sum_one
+      points: 1.0
+      description: States that the resulting probabilities sum to 1.
+      tier: core
+    - id: next_token_distribution_use
+      points: 0.75
+      description: Connects the probabilities to next-token sampling or 
+        selection.
+      tier: core
+  fatal_errors:
+    - id: fatal_logits_already_probabilities
+      description: Claims logits are already normalized probabilities before 
+        softmax.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+    - ref_type: note
+      ref_id: note_tutor_qa_01kx1pec2nhz65ccybh1xjnm82
+      path: subjects/attn/notes/note_tutor_qa_01kx1pec2nhz65ccybh1xjnm82.md
+      locator:
+      quote: temperature controls the distribution output from softmax
+      quote_hash:
+created_at: '2026-07-13T01:00:16Z'
+updated_at: '2026-07-13T01:00:16Z'

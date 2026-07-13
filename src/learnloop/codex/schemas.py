@@ -35,7 +35,14 @@ class ProposalItemAudit(BaseModel):
     ]
     status: Literal["passed", "failed", "not_applicable_with_trace"]
     summary: str
-    trace: str | None = None
+    trace: str | None = Field(
+        default=None,
+        description=(
+            "REQUIRED (non-null, non-empty) when status is 'not_applicable_with_trace': "
+            "explain why no deterministic check applies and walk through how the "
+            "expected answer was verified by hand."
+        ),
+    )
     validator_name: str | None = None
     validator_version: str | None = None
 
@@ -90,19 +97,66 @@ class PracticeItemPatchPayload(BaseModel):
     expected_answer: str | dict | None = None
     grading_rubric: RubricPatchPayload | None = None
     evidence_facets: list[str] | None = None
-    evidence_weights: dict[str, float] | None = None
-    criterion_facet_weights: dict[str, dict[str, float]] | None = None
+    evidence_weights: dict[str, float] | None = Field(
+        default=None,
+        description=(
+            "REQUIRED whenever evidence_facets is set: map EVERY listed facet id to "
+            "its weight (weights should sum to 1.0). An empty object is invalid."
+        ),
+    )
+    criterion_facet_weights: dict[str, dict[str, float]] | None = Field(
+        default=None,
+        description=(
+            "REQUIRED whenever grading_rubric is present: map EVERY rubric criterion "
+            "id to {facet_id: weight}. An empty object is invalid — cover each "
+            "criterion, reusing ids from evidence_facets."
+        ),
+    )
     difficulty: float | None = None
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
-    retrieval_demand: float | None = None
-    transfer_distance: float | None = None
-    scaffold_level: float | None = None
-    surface_family: str | None = None
+    retrieval_demand: float | None = Field(
+        default=None,
+        description=(
+            "REQUIRED on generated items, in [0,1]: how much unaided recall the item "
+            "demands (0=fully cued recognition, 1=free recall with no cues)."
+        ),
+    )
+    transfer_distance: float | None = Field(
+        default=None,
+        description=(
+            "REQUIRED on generated items, in [0,1]: how far the item sits from the "
+            "source material's surface form (0=near/verbatim, 1=far transfer to a "
+            "novel situation)."
+        ),
+    )
+    scaffold_level: float | None = Field(
+        default=None,
+        description=(
+            "REQUIRED on generated items, in [0,1]: how much support the prompt "
+            "provides (0=no scaffolding, 1=heavily scaffolded/step-by-step)."
+        ),
+    )
+    surface_family: str | None = Field(
+        default=None,
+        description=(
+            "REQUIRED on generated items: short snake_case id for the item's surface "
+            "form (e.g. 'numeric_compute', 'concept_explain'). Reuse the Learning "
+            "Object's existing surface_families from context when the form matches; "
+            "mint a new id only for a genuinely new surface."
+        ),
+    )
     # spec §5.2.2: the categorically-divergent answer a holder of the targeted
     # belief would give on a diagnostic item. Feeds the sim gate (§6) and the
     # §5.3 review check; None on ordinary (non-diagnostic) items.
     misconception_consistent_answer: str | None = None
-    repair_targets: list[str] | None = None
+    repair_targets: list[str] | None = Field(
+        default=None,
+        description=(
+            "REQUIRED (non-empty) on generated items: the evidence facet ids and/or "
+            "rubric fatal error ids this item can diagnose or repair. Every entry "
+            "must exactly match an id in evidence_facets or grading_rubric.fatal_errors."
+        ),
+    )
     hints: list[str] | None = None
     hint_policy: dict | None = None
     tags: list[str] | None = None
@@ -262,6 +316,11 @@ class TutorAnswer(BaseModel):
     answer_md: str
     question_type: QuestionType = "other"
     facets: list[str] = Field(default_factory=list)
+    # §13.4 (probe redesign): `epistemic` = the question signals missing or
+    # uncertain knowledge; `interaction_preference` = the learner is asking for
+    # a different explanation style, pace, scaffold level, or a direct answer.
+    # Preference questions change tutor policy, not mastery belief.
+    question_channel: Literal["epistemic", "interaction_preference"] = "epistemic"
 
 
 class MisconceptionMatch(BaseModel):
@@ -275,6 +334,90 @@ class MisconceptionMatch(BaseModel):
 
     decision: Literal["same", "new"]
     misconception_id: str | None = None
+
+
+class PromotionAnalysis(BaseModel):
+    """Step-0 extraction for tutor-question promotion (spec_tutor_promotion.md §3).
+
+    ``attributed_facets`` are the evidence facet ids the tutor's socratic question
+    exercises — existing ids from the origin LO vocabulary are strongly preferred;
+    a new id is minted only when nothing covers the probe. ``question_nature``
+    classifies the probe's cognitive demand and keys the gap-route frontier
+    interpretation (§3 G2). ``attempted_in_thread`` records whether the learner
+    tried the socratic question in-thread and failed, vs never engaged — a
+    calibration feature, never an algorithmic input. ``covered_by_practice_item_id``
+    (nullable) names an existing item that already exercises the same probe (same
+    facets + substantially the same demand); when set, the dedup short-circuit
+    fires and nothing is authored (§3 Step 0).
+    """
+
+    attributed_facets: list[str] = Field(default_factory=list)
+    question_nature: Literal[
+        "core_recall", "mechanism", "transfer", "edge_case", "what_if"
+    ] = "core_recall"
+    attempted_in_thread: bool = False
+    covered_by_practice_item_id: str | None = None
+
+
+class ProbeInstanceSurface(BaseModel):
+    """One LLM-generated Item Instance surface for an admitted family/card
+    binding (probe redesign §9.2/§9.4).
+
+    The family template owns the measurement pattern, rubric structure, and
+    signature fatal errors; the model supplies only surface wording. Every
+    surface still passes the instance-level structural gate
+    (``instance_gate_errors``) before it can be persisted, so a leaky or
+    ungrounded surface is dropped, never served.
+    """
+
+    surface_suffix: str
+    prompt_md: str
+    expected_answer_md: str
+
+
+class ProbeInstanceSurfaces(BaseModel):
+    """Batch of surface-varied instances for one family/card binding."""
+
+    surfaces: list[ProbeInstanceSurface] = Field(default_factory=list)
+
+
+class ProbeDialogueTurn(BaseModel):
+    """One adaptive dialogue microprobe turn surface (probe redesign §8.1).
+
+    Generated conditioned on the learner's prior committed answers in the
+    block, so a `reason` turn asks about THEIR answer and a `counterfactual`
+    turn minimally perturbs THEIR committed case. The turn must stay a pure
+    measurement: no teaching, hinting, correcting, or revealing whether any
+    prior answer was right. Falls back to the parametric turn templates when
+    the provider is unavailable.
+    """
+
+    prompt_md: str
+    expected_answer_md: str
+
+
+class ProbeFamilyTrial(BaseModel):
+    """One simulated planted-state response for the family admission gate
+    (probe redesign §9.6).
+
+    ``matched_outcome`` is the outcome class (from the family's observation
+    alphabet) the model judges a careful grader would assign to ``answer`` —
+    the deterministic gate then checks whether the planted slot is recovered
+    as the likelihood argmax of that outcome. ``non_applicable_control``
+    trials present a scenario where the family's trigger conditions do not
+    hold; a sound family must not fire a signature outcome there.
+    """
+
+    hypothesis_slot: str
+    answer: str
+    matched_outcome: str
+    non_applicable_control: bool = False
+
+
+class ProbeFamilyTrials(BaseModel):
+    """All planted trials for one family admission gate run (one call)."""
+
+    trials: list[ProbeFamilyTrial] = Field(default_factory=list)
 
 
 class DiagnosticTrialResult(BaseModel):

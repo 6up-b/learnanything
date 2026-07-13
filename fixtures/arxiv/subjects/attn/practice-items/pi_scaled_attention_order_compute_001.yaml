@@ -1,0 +1,100 @@
+schema_version: 1
+id: pi_scaled_attention_order_compute_001
+learning_object_id: lo_scaled_dot_product_attention
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - dot_products
+  - scaling
+  - softmax
+  - weighted_sum
+  - correct_order
+evidence_weights:
+  correct_order: 0.2
+  dot_products: 0.2
+  scaling: 0.2
+  softmax: 0.2
+  weighted_sum: 0.2
+criterion_facet_weights: {}
+prompt: For one query q = [1, 1, 0, 0] and two keys k1 = [1, 1, 0, 0], k2 = [1, 
+  -1, 0, 0], compute the raw dot products and the scaled scores when d_k = 4. 
+  Then name the next two operations in scaled dot-product attention.
+expected_answer: The raw dot products are q.k1 = 2 and q.k2 = 0. Since sqrt(d_k)
+  = 2, the scaled scores are [1, 0]. Next, apply softmax to turn the scaled 
+  scores into attention weights, then use those weights to form a weighted sum 
+  of the value vectors.
+difficulty: 0.3
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - scaled_dot_product_attention
+hints:
+  - Scaled dot-product attention computes query-key scores before using values.
+  - sqrt(4) is 2.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.3
+scaffold_level: 0.25
+surface_family: scaled_attention_partial_compute
+misconception_consistent_answer: First average the values, then use softmax to 
+  decide which key was closest.
+repair_targets:
+  - dot_products
+  - scaling
+  - softmax
+  - weighted_sum
+  - correct_order
+  - fatal_values_before_softmax
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: dot_products_correct
+      points: 1.0
+      description: Correctly computes raw dot products as 2 and 0.
+      tier: core
+    - id: scaling_correct
+      points: 1.0
+      description: Correctly divides by sqrt(4)=2 to get scaled scores 1 and 0.
+      tier: core
+    - id: softmax_next
+      points: 1.0
+      description: Identifies softmax as the next operation after scaling.
+      tier: core
+    - id: weighted_sum_final
+      points: 1.0
+      description: Identifies weighted sum of value vectors as the operation 
+        after softmax.
+      tier: core
+  fatal_errors:
+    - id: fatal_values_before_softmax
+      description: Claims value vectors are summed before attention weights are 
+        produced by softmax.
+      max_grade: 2
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+    - ref_type: note
+      ref_id: note_source_attention_is_all_you_need_fc4584d5
+      path: 
+        subjects/attn/notes/note_source_attention_is_all_you_need_fc4584d5.md
+      locator:
+      quote: Attention Is All You Need
+      quote_hash:
+created_at: '2026-07-13T01:00:09Z'
+updated_at: '2026-07-13T01:00:09Z'

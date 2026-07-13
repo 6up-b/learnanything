@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from math import exp
+from math import exp, log
 from typing import Any
 
 from learnloop.clock import Clock, SystemClock, parse_utc
@@ -11,12 +11,14 @@ from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repository
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve
-from learnloop.services.probes import (
-    HypothesisSet,
-    current_hypothesis_set,
-    probe_eig_component,
-    resolve_item_irt,
+from learnloop.services.probe_episodes import (
+    EligibleInstrument,
+    EpisodePosterior,
+    eligible_instruments,
+    episode_hypothesis_set,
+    episode_posterior,
 )
+from learnloop.services.probes import HypothesisSet
 from learnloop.numeric import clamp
 from learnloop.services.goal_projection import build_goal_frontier
 from learnloop.services.exam_pool import reserved_item_ids as reserved_exam_pool_item_ids
@@ -65,7 +67,10 @@ def build_due_queue(
     # the exam stays an honest, uncontaminated test (fetched once per build).
     reserved_item_ids = reserved_exam_pool_item_ids(repository)
     mastery_states = repository.mastery_states()
-    probe_states = repository.probe_states()
+    # Probe redesign: open diagnostic episodes replace lo_probe_state (frozen
+    # legacy). `pending_items` episodes keep their LO schedulable for ordinary
+    # practice; only `in_progress` episodes score probe EIG.
+    open_episodes = repository.open_probe_episodes()
     errors_by_lo = _errors_by_learning_object(repository.active_error_events())
     short_session = (
         session.available_minutes is not None
@@ -73,7 +78,8 @@ def build_due_queue(
     )
     readiness_factor = _readiness_factor(session, config)
     fsrs_weights = resolve_fsrs_weights(repository)
-    hypothesis_set_cache: dict[str, HypothesisSet | None] = {}
+    episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {}
+    episode_eligible_cache: dict[str, dict[str, EligibleInstrument]] = {}
     pending_followups = repository.pending_followup_practice_items()
     facet_states_by_lo = {
         learning_object_id: repository.facet_recall_states(learning_object_id)
@@ -89,6 +95,7 @@ def build_due_queue(
 
     queue: list[ScheduledItem] = []
     probe_item_ids: dict[str, str] = {}
+    probe_entropy_before: dict[str, float] = {}
     recent_attempts_by_lo: dict[str, list[dict[str, Any]]] = {}
     for item in vault.practice_items.values():
         state = item_states.get(item.id)
@@ -96,20 +103,26 @@ def build_due_queue(
             continue
         if item.id in reserved_item_ids:
             continue
+        # Ephemeral dialogue-turn instances (§8.1) exist only to carry their one
+        # committed diagnostic attempt; they are never ordinary practice.
+        if item.practice_mode == "diagnostic_microprobe":
+            continue
         learning_object = vault.learning_object_for_item(item)
         if learning_object is None:
             continue
         mastery = mastery_states.get(learning_object.id)
-        probe_state = probe_states.get(learning_object.id)
-        in_probe = probe_state is not None and probe_state.status == "in_progress"
+        episode = open_episodes.get(learning_object.id)
+        in_probe = episode is not None and episode.status == "in_progress"
         frontier_entry = frontier.by_lo.get(learning_object.id)
         # Cold-start gate: never-attempted LOs stay out of the routine queue —
-        # EXCEPT when the LO is on an active goal's at-risk frontier. The
+        # EXCEPT when the LO is on an active goal's at-risk frontier or has an
+        # open diagnostic episode. A `pending_items` episode explicitly keeps
+        # the LO schedulable for belief-only ordinary practice (§10). The
         # frontier's widened semantics put unexamined facets at risk precisely
         # so the goal's untouched material gets scheduled before the due date;
         # skipping those items here would leave "practice at-risk facets"
         # re-serving the goal's only attempted item.
-        if (mastery is None or mastery.last_evidence_at is None) and not in_probe and frontier_entry is None:
+        if (mastery is None or mastery.last_evidence_at is None) and episode is None and frontier_entry is None:
             continue
 
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
@@ -142,12 +155,19 @@ def build_due_queue(
         components["goal_frontier"] = goal_frontier_component
         probe_familiarity_discount = 1.0
 
-        if in_probe and probe_state.hypothesis_set_id is not None:
-            hypothesis_set = _load_hypothesis_set(
-                vault, repository, learning_object.id, probe_state, hypothesis_set_cache
+        if in_probe and episode.hypothesis_set_id is not None:
+            context = _load_episode_context(vault, repository, episode, episode_posterior_cache)
+            eligible_entry = (
+                _load_episode_eligible(vault, repository, episode, context, episode_eligible_cache).get(item.id)
+                if context is not None
+                else None
             )
-            if hypothesis_set is not None:
-                item_a, item_b, probe_irt = resolve_item_irt(vault, item)
+            # §4.2 fix: only items with an executable instrument binding for
+            # this episode's locked set (admitted card, or the logged registry
+            # fallback) are probe candidates. Everything else scores zero
+            # hypothesis EIG and stays ordinary practice.
+            if context is not None and eligible_entry is not None:
+                hypothesis_set, posterior, entropy_before = context
                 rubric = vault.rubric_for_item(item)
                 prospective_coverage = resolve_coverage(
                     item,
@@ -164,21 +184,37 @@ def build_due_queue(
                     covered_facets=prospective_coverage.covered_facets,
                     config=config,
                 )
-                candidate_probe_eig_raw = probe_eig_component(
-                    hypothesis_set,
-                    item,
-                    rubric,
-                    item_a=item_a,
-                    item_b=item_b,
-                    irt=probe_irt,
-                )
+                # Card-compiled, grader-composed conditionals — the same ones
+                # posterior replay uses (§7.2). The primary objective is §7.4
+                # predictive EIG (fraction of held-out predictive uncertainty
+                # removed, [0, 1]) when the episode's target set is adequate;
+                # hypothesis EIG normalized by the locked set's maximum
+                # entropy is the fallback. Both are logged; never added (§7.4).
+                eig_nats = eligible_entry.expected_information_gain
+                size = len(posterior)
+                hypothesis_eig_normalized = eig_nats / log(size) if size > 1 else 0.0
+                predictive_primary = eligible_entry.selection_objective == "predictive_eig"
+                if predictive_primary and eligible_entry.predictive_prior_entropy > 0:
+                    candidate_probe_eig_raw = (
+                        eligible_entry.predictive_eig / eligible_entry.predictive_prior_entropy
+                    )
+                else:
+                    candidate_probe_eig_raw = hypothesis_eig_normalized
                 probe_familiarity_discount = prospective_familiarity.independent_evidence_discount
                 candidate_probe_eig = candidate_probe_eig_raw * probe_familiarity_discount
                 if not short_session or _priority(components, config) <= 0:
                     components["probe_eig"] = candidate_probe_eig
                     components["probe_eig_raw"] = candidate_probe_eig_raw
+                    # §7.3 telemetry separation: only response-conditioned
+                    # entropy reduction is labeled EIG; coverage value is
+                    # logged separately by the selection reward.
+                    components["actual_hypothesis_eig"] = eig_nats
+                    components["predictive_eig"] = eligible_entry.predictive_eig
+                    components["predictive_information_rate"] = eligible_entry.predictive_information_rate
+                    components["probe_predictive_primary"] = 1.0 if predictive_primary else 0.0
                     components["probe_eig_familiarity_discount"] = probe_familiarity_discount
-                    probe_item_ids[item.id] = probe_state.hypothesis_set_id
+                    probe_item_ids[item.id] = episode.hypothesis_set_id
+                    probe_entropy_before[item.id] = entropy_before
 
         legacy_priority = _priority(components, config)
         intent = _intent_for_item(item, in_probe=in_probe, components=components)
@@ -204,6 +240,11 @@ def build_due_queue(
             # Small floor (not a new weight): transfer escalation keeps solid
             # items weakly schedulable, so a teach_back item must survive the
             # zero-priority filter and rank by its selection reward.
+            priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
+        if episode is not None and (mastery is None or mastery.last_evidence_at is None):
+            # Cold-start floor (probe redesign §10): an open episode — including
+            # a pending_items one — keeps its never-attempted LO practicable for
+            # belief-only ordinary practice instead of blocking on instruments.
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
         if priority <= 0:
             continue
@@ -238,6 +279,18 @@ def build_due_queue(
     # so the floor holds even in short sessions, and before follow-up insertion
     # (force-inserted follow-ups are a separate triggered decision).
     queue = _apply_goal_quota(queue, frontier.quota_floor)
+    # Requested-items floor (spec §4a): the learner explicitly asked to chase a
+    # promoted item, so guarantee up to N of them a front slot. Applied AFTER the
+    # goal quota — the goal quota establishes its floor first, then this pulls at
+    # most `requested_items_per_session` items to the very front, displacing the
+    # goal prefix by at most that many positions (a tiny cap, default 1). Reorder
+    # only: it can never surface a requested item that failed eligibility/gates,
+    # because it only touches items already in the built (eligible) queue.
+    queue = _apply_requested_floor(
+        queue,
+        repository.requested_practice_item_ids(),
+        config.tutor_promotion.requested_items_per_session,
+    )
     queue = _rotate_same_day_frontier_repeats(queue, item_states, now)
     queue = _insert_pending_followups(vault, queue, pending_followups, readiness_factor)
     considered_queue = list(queue)
@@ -270,7 +323,9 @@ def build_due_queue(
             retention_limit=config.scheduler.candidate_log_retention_limit,
             clock=clock,
         )
-        _record_probe_elicitation(repository, queue, probe_item_ids, session, clock=clock)
+        _record_probe_elicitation(
+            repository, queue, probe_item_ids, session, entropy_before=probe_entropy_before, clock=clock
+        )
     return queue
 
 
@@ -391,20 +446,46 @@ def _enforce_teach_back_session_cap(queue: list[ScheduledItem], cap: int) -> lis
     return capped
 
 
-def _load_hypothesis_set(
+def _load_episode_context(
     vault: LoadedVault,
     repository: Repository,
-    learning_object_id: str,
-    probe_state,
-    cache: dict[str, HypothesisSet | None],
-) -> HypothesisSet | None:
-    # The locked entry prior is updated with observed probe attempts so probe-EIG
-    # is computed against the live posterior, not the entry prior. One hypothesis
-    # set per LO probe phase, so the set id is a stable cache key.
-    hypothesis_set_id = probe_state.hypothesis_set_id
-    if hypothesis_set_id not in cache:
-        cache[hypothesis_set_id] = current_hypothesis_set(vault, repository, learning_object_id)
-    return cache[hypothesis_set_id]
+    episode,
+    cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None],
+) -> tuple[HypothesisSet, dict[str, float], float] | None:
+    # The locked entry prior is conditioned on the episode's observed evidence
+    # so probe-EIG is computed against the live posterior, not the entry prior.
+    # One locked set per episode, so the episode id is a stable cache key.
+    if episode.id not in cache:
+        hypothesis_set = episode_hypothesis_set(repository, episode)
+        posterior: EpisodePosterior | None = (
+            episode_posterior(vault, repository, episode, hypothesis_set=hypothesis_set)
+            if hypothesis_set is not None
+            else None
+        )
+        if hypothesis_set is None or posterior is None:
+            cache[episode.id] = None
+        else:
+            cache[episode.id] = (hypothesis_set, posterior.posterior, posterior.entropy)
+    return cache[episode.id]
+
+
+def _load_episode_eligible(
+    vault: LoadedVault,
+    repository: Repository,
+    episode,
+    context: tuple[HypothesisSet, dict[str, float], float],
+    cache: dict[str, dict[str, EligibleInstrument]],
+) -> dict[str, EligibleInstrument]:
+    """The episode's eligible instruments (with §7.4 predictive components),
+    computed once per episode per queue build and keyed by item id."""
+
+    if episode.id not in cache:
+        hypothesis_set, posterior, _entropy_before = context
+        entries = eligible_instruments(
+            vault, repository, episode, hypothesis_set=hypothesis_set, posterior=posterior
+        )
+        cache[episode.id] = {entry.item.id: entry for entry in entries}
+    return cache[episode.id]
 
 
 def _record_probe_elicitation(
@@ -413,6 +494,7 @@ def _record_probe_elicitation(
     probe_item_ids: dict[str, str],
     session: SchedulerSession,
     *,
+    entropy_before: dict[str, float] | None = None,
     clock: Clock | None,
 ) -> None:
     probe_items = [item for item in queue if item.practice_item_id in probe_item_ids]
@@ -428,6 +510,8 @@ def _record_probe_elicitation(
             "candidate_scores": {
                 item.practice_item_id: item.components.get("probe_eig", 0.0) for item in probe_items
             },
+            # §13.1: routine probe selections never log null entropy.
+            "entropy_before": (entropy_before or {}).get(selected.practice_item_id),
             "expected_information_gain": selected.components.get("probe_eig", 0.0),
             "selected_reason": "highest probe expected information gain",
             "hypothesis_set_id": probe_item_ids[selected.practice_item_id],
@@ -706,6 +790,40 @@ def _apply_goal_quota(queue: list[ScheduledItem], floor: float) -> list[Schedule
             goal_count += 1
         result.append(chosen)
     return result
+
+
+def _apply_requested_floor(
+    queue: list[ScheduledItem],
+    requested_item_ids: list[str],
+    cap: int,
+) -> list[ScheduledItem]:
+    """Prefix-floor reorder guaranteeing requested items a front slot (spec §4a).
+
+    ``requested_item_ids`` are the learner's promoted-but-unattempted items,
+    oldest promotion first. Among those that are ALSO eligible candidates in the
+    built queue, pull the first ``cap`` to the front in that oldest-first order.
+    Reorder only (never adds ineligible items — an id not already in the queue is
+    skipped), and stable for everything else. Composes after the goal quota.
+    """
+
+    if cap <= 0 or not requested_item_ids:
+        return queue
+    by_id = {item.practice_item_id: item for item in queue}
+    eligible = [item_id for item_id in requested_item_ids if item_id in by_id]
+    if not eligible:
+        return queue
+    pull_ids = eligible[:cap]
+    pull_set = set(pull_ids)
+    reason = "requested: you asked to chase this"
+    pulled = [
+        replace(
+            by_id[item_id],
+            plain_english=[reason] + [existing for existing in by_id[item_id].plain_english if existing != reason],
+        )
+        for item_id in pull_ids
+    ]
+    rest = [item for item in queue if item.practice_item_id not in pull_set]
+    return pulled + rest
 
 
 def _recent_error(errors: list[ActiveErrorEvent], now: datetime) -> float:

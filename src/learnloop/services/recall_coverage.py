@@ -741,6 +741,24 @@ def _raw_coverage(
     return {facet: 1.0 / len(facets) for facet in facets}, _practice_mode_default(item, evidence), "practice_mode"
 
 
+def expected_facet_mass_gain(
+    item: PracticeItem, rubric: Rubric | None, evidence: EvidenceConfig | None = None
+) -> dict[str, float]:
+    """Nominal per-facet evidence mass one fresh attempt on ``item`` would add.
+
+    ``item_coverage × normalized facet weight`` — the pre-modifier core of
+    ``resolve_coverage`` (no hint/engagement/attempt-type dampening and no
+    familiarity discount, which depend on the eventual attempt). Used to invert
+    the mass equation into "attempts to certify" estimates for goal reporting.
+    """
+
+    raw_facet_weights, item_coverage, _ = _raw_coverage(item, rubric, evidence)
+    return {
+        facet: item_coverage * weight
+        for facet, weight in _normalize(raw_facet_weights).items()
+    }
+
+
 def _error_attributed_facets(error_attributions: Iterable[Any]) -> set[str]:
     facets: set[str] = set()
     for attribution in error_attributions:

@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import math
 from datetime import timedelta
 
 import pytest
 
 from learnloop.clock import FrozenClock
+from learnloop.db.repositories import MasteryState
+from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.services.goal_projection import (
+    _attempts_to_certify,
     build_goal_frontier,
     goal_report,
     resolve_goal_scope,
 )
+from learnloop.services.recall_coverage import expected_facet_mass_gain
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -156,6 +161,129 @@ def test_projection_is_monotonically_non_increasing_with_horizon(tmp_path):
         if previous is not None:
             assert projected <= previous + 1e-9
         previous = projected
+
+
+def test_high_mastery_low_mass_is_on_track_but_uncertified_and_at_risk(tmp_path):
+    """The two axes are independent: attainment can lead certification."""
+
+    vault, _paths, repository = _loaded(tmp_path)
+    vault.goals[0].due_at = _due_iso(1)  # near horizon: negligible FSRS decay
+    _seed_aggregate_facet(repository, mean=0.6, mass=0.2)
+    repository.upsert_mastery_state(
+        MasteryState(
+            learning_object_id=LO_ID,
+            logit_mean=2.5,
+            logit_variance=0.5,
+            evidence_count=6,
+            last_evidence_at=NOW_ISO,
+            algorithm_version=ALGORITHM_VERSION,
+            updated_at=NOW_ISO,
+        )
+    )
+
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+    assert projection.predicted_current > 0.85
+    assert projection.on_track is True
+    assert projection.certified is False  # mass 0.2 < 0.5 gate
+    assert projection.at_risk is True
+    assert report.on_track_count == 1
+    assert report.certified_count == 0
+    assert report.at_risk_count == 1
+
+    # Still on the frontier: the scheduler keeps driving toward certification.
+    frontier = build_goal_frontier(vault, repository, clock=FrozenClock(NOW))
+    assert FACET_ID in frontier.by_lo[LO_ID].facets
+
+
+def test_attempts_to_certify_inverts_the_mass_equation(tmp_path):
+    vault, _paths, repository = _loaded(tmp_path)
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+    assert projection.evidence_mass == 0.0
+
+    item = vault.practice_items[ITEM_ID]
+    gain = expected_facet_mass_gain(item, vault.rubric_for_item(item), vault.config.evidence)[
+        FACET_ID
+    ]
+    min_mass = vault.config.recall_coverage.min_facet_evidence_mass
+    expected = math.ceil((min_mass + 1e-6) / (0.75 * gain))
+    assert projection.attempts_to_certify == expected
+
+    # Certified facets need nothing further.
+    _seed_aggregate_facet(repository, mean=0.9, mass=2.0)
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    assert _recall_projection(report).attempts_to_certify == 0
+
+
+def test_attempts_to_certify_inversion_edge_cases():
+    # No supporting items covering the facet: the count is unknowable.
+    assert _attempts_to_certify("facet", 0.0, {}, 0.5) is None
+    assert _attempts_to_certify("facet", 0.0, {"other": [0.25]}, 0.5) is None
+    # Mass gate already cleared: nothing further needed.
+    assert _attempts_to_certify("facet", 0.6, {"facet": [0.25]}, 0.5) == 0
+    # Median of gains drives the estimate, capped at 99.
+    assert _attempts_to_certify("facet", 0.0, {"facet": [0.2, 0.3]}, 0.5) == math.ceil(
+        (0.5 + 1e-6) / (0.75 * 0.25)
+    )
+    assert _attempts_to_certify("facet", 0.0, {"facet": [1e-9]}, 0.5) == 99
+
+
+def test_attainment_aggregates(tmp_path):
+    vault, _paths, repository = _loaded(tmp_path)
+    _seed_aggregate_facet(repository, mean=0.9, mass=2.0)
+
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+    target = vault.goals[0].target_recall
+    expected_attainment = sum(
+        min(facet.predicted_at_horizon / target, 1.0) for facet in report.facets
+    ) / len(report.facets)
+    assert report.attainment_fraction == pytest.approx(expected_attainment)
+    assert report.predicted_recall_mean == pytest.approx(
+        sum(facet.predicted_at_horizon for facet in report.facets) / len(report.facets)
+    )
+    assert 0.0 < report.attainment_fraction <= 1.0
+    assert projection.predicted_at_horizon <= projection.predicted_current
+
+
+def test_known_gap_facet_is_never_on_track(tmp_path):
+    vault, _paths, repository = _loaded(tmp_path)
+    _seed_aggregate_facet(repository, mean=0.95, mass=2.0)
+    attempt = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id=ITEM_ID,
+            learner_answer_md="SVD factorizes into U Sigma V^T.",
+            attempt_type="independent_attempt",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW),
+    )
+    _seed_aggregate_facet(repository, mean=0.95, mass=2.0)  # re-pin after the attempt's update
+    # Resolved uncertainty whose winning hypothesis is NOT facet_solid => known_gap.
+    repository.upsert_facet_uncertainty_state(
+        {
+            "learning_object_id": LO_ID,
+            "facet_id": FACET_ID,
+            "hypothesis_marginal": {f"facet_absent:{FACET_ID}": 0.9, f"facet_solid:{FACET_ID}": 0.1},
+            "uncertainty": 0.05,
+            "status": "resolved",
+            "opened_by_attempt_id": attempt.attempt_id,
+            "opened_reason": "low_facet_outcome",
+            "last_evidence_at": NOW_ISO,
+            "algorithm_version": ALGORITHM_VERSION,
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        }
+    )
+
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+    assert projection.label == "known_gap"
+    assert projection.on_track is False
+    assert projection.at_risk is True
 
 
 def test_quota_floor_open_ended_goal_uses_floor_min(tmp_path):

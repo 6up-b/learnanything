@@ -145,6 +145,33 @@ pub async fn get_practice_item(
 }
 
 #[tauri::command]
+pub async fn get_probe_contract(
+    practice_item_id: String,
+    session_id: Option<String>,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "get_probe_contract",
+        json!({"practiceItemId": practice_item_id, "sessionId": session_id}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn stop_probe_diagnosing(
+    practice_item_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "stop_probe_diagnosing",
+        json!({"practiceItemId": practice_item_id}),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn save_practice_draft(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -445,6 +472,14 @@ pub async fn get_tutor_transcript(
 }
 
 #[tauri::command]
+pub async fn promote_tutor_question(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "promote_tutor_question", input).await
+}
+
+#[tauri::command]
 pub async fn start_teach_back(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -530,9 +565,96 @@ pub async fn submit_exam_answer(
 }
 
 #[tauri::command]
+pub async fn start_calibration_session(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "start_calibration_session", input).await
+}
+
+#[tauri::command]
+pub async fn get_calibration_session(
+    calibration_session_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "get_calibration_session",
+        json!({"calibrationSessionId": calibration_session_id}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn stop_calibration_session(
+    calibration_session_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "stop_calibration_session",
+        json!({"calibrationSessionId": calibration_session_id}),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn finish_exam(
     input: Value,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "finish_exam", input).await
+}
+
+#[tauri::command]
+pub async fn begin_probe_dialogue(
+    learning_object_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "begin_probe_dialogue",
+        json!({"learningObjectId": learning_object_id}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn next_probe_dialogue_turn(
+    dialogue_state: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "next_probe_dialogue_turn",
+        json!({"dialogueState": dialogue_state}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn record_probe_dialogue_turn(
+    dialogue_state: String,
+    presentation_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "record_probe_dialogue_turn",
+        json!({"dialogueState": dialogue_state, "presentationId": presentation_id}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn end_probe_dialogue(
+    dialogue_state: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "end_probe_dialogue",
+        json!({"dialogueState": dialogue_state}),
+    )
+    .await
 }

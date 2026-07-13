@@ -1031,3 +1031,88 @@ def _reject_payload() -> dict:
             }
         ],
     }
+
+
+class _QueueAuthoringClient:
+    def __init__(self, proposals: list[AuthoringProposal]):
+        self.proposals = list(proposals)
+        self.contexts: list[AuthoringContext] = []
+
+    def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
+        self.contexts.append(context)
+        return self.proposals.pop(0)
+
+    def run_grading_proposal(self, context):  # pragma: no cover
+        raise NotImplementedError
+
+
+def test_invalid_generated_item_gets_one_repair_round_trip(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    broken_payload = _generated_practice_proposal_payload(
+        {"evidence_facets": ["application"], "evidence_weights": {"application": 1.0}}
+    )
+    broken_payload["items"][0]["audit"] = {
+        "audit_type": "deterministic_validator",
+        "status": "not_applicable_with_trace",
+        "summary": "Conceptual item; no numeric validation.",
+    }
+    repaired_payload = _generated_practice_proposal_payload(
+        {"evidence_facets": ["application"], "evidence_weights": {"application": 1.0}}
+    )
+    repaired_payload["items"][0]["audit"] = {
+        "audit_type": "deterministic_validator",
+        "status": "not_applicable_with_trace",
+        "summary": "Conceptual item; no numeric validation.",
+        "trace": "Checked the expected answer against the SVD definition by hand.",
+    }
+    client = _QueueAuthoringClient(
+        [
+            AuthoringProposal.model_validate(broken_payload),
+            AuthoringProposal.model_validate(repaired_payload),
+        ]
+    )
+
+    patch_id = generate_authoring_proposal(vault_root, client, clock=FrozenClock(NOW))
+
+    assert len(client.contexts) == 2
+    repair_instructions = client.contexts[1].instructions or ""
+    assert "REPAIR PASS" in repair_instructions
+    assert "missing_generated_audit_trace" in repair_instructions
+    repository = Repository(vault_root / "state.sqlite")
+    items = repository.proposal_items(patch_id)
+    assert len(items) == 1
+    assert items[0]["validation_status"] != "invalid"
+    assert items[0]["audit"]["trace"].startswith("Checked the expected answer")
+
+
+def test_valid_proposal_skips_repair_round_trip(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    client = _QueueAuthoringClient([AuthoringProposal.model_validate(_two_item_payload())])
+
+    generate_authoring_proposal(vault_root, client, clock=FrozenClock(NOW))
+
+    assert len(client.contexts) == 1
+
+
+def test_failed_repair_call_keeps_original_invalid_item(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    broken_payload = _generated_practice_proposal_payload(
+        {"evidence_facets": ["application"], "evidence_weights": {"application": 1.0}}
+    )
+    broken_payload["items"][0]["audit"] = {
+        "audit_type": "deterministic_validator",
+        "status": "not_applicable_with_trace",
+        "summary": "Conceptual item; no numeric validation.",
+    }
+    client = _QueueAuthoringClient([AuthoringProposal.model_validate(broken_payload)])
+
+    patch_id = generate_authoring_proposal(vault_root, client, clock=FrozenClock(NOW))
+
+    repository = Repository(vault_root / "state.sqlite")
+    items = repository.proposal_items(patch_id)
+    assert len(items) == 1
+    assert items[0]["validation_status"] == "invalid"
+    assert items[0]["validation_errors"] == ["missing_generated_audit_trace"]

@@ -1,0 +1,88 @@
+schema_version: 1
+id: pi_dot_product_alignment_zero_001
+learning_object_id: lo_dot_product_alignment_for_embeddings
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - zero_interpretation
+  - multiply_sum_method
+  - alignment_interpretation
+evidence_weights:
+  alignment_interpretation: 0.3333333333333333
+  multiply_sum_method: 0.3333333333333333
+  zero_interpretation: 0.3333333333333333
+criterion_facet_weights: {}
+prompt: Two embedding directions are x = [3, 1] and y = [1, -3]. Compute x . y. 
+  If this dot product appeared as an attention compatibility score before other 
+  transformations, what would the score say about alignment?
+expected_answer: x . y = 3*1 + 1*(-3) = 0. A zero dot product means the vectors 
+  are neither positively aligned nor negatively opposed in this simple alignment
+  sense; the compatibility evidence from their direction is neutral before 
+  scaling and softmax.
+difficulty: 0.28
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - dot_product
+  - alignment
+hints:
+  - A dot product can be positive, negative, or zero.
+  - Zero is different from a high positive compatibility score.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.3
+scaffold_level: 0.2
+surface_family: zero_dot_product_attention_score
+misconception_consistent_answer: A zero dot product means the two vectors are 
+  the same because there is no difference between them.
+repair_targets:
+  - zero_interpretation
+  - alignment_interpretation
+  - fatal_zero_means_identical
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: zero_dot_product_correct
+      points: 1.25
+      description: Correctly computes x . y as 0.
+      tier: core
+    - id: multiply_sum_method_clear
+      points: 0.75
+      description: Uses the componentwise multiply-and-sum method.
+      tier: core
+    - id: zero_alignment_interpretation
+      points: 1.25
+      description: Interprets zero as neutral/no directional alignment rather 
+        than strong similarity.
+      tier: core
+    - id: attention_score_context
+      points: 0.75
+      description: Connects the dot product to an attention compatibility score 
+        before scaling and softmax.
+      tier: transfer
+  fatal_errors:
+    - id: fatal_zero_means_identical
+      description: Claims a zero dot product means the vectors are identical or 
+        maximally similar.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+created_at: '2026-07-13T01:00:10Z'
+updated_at: '2026-07-13T01:00:10Z'

@@ -23,12 +23,24 @@ def _rpc(messages: list[dict]) -> list[dict]:
 
 
 class _TutorServer:
-    """Mock AI provider: /health + /tutor-qa + /grading-proposal."""
+    """Mock AI provider: /health + /tutor-qa + /grading-proposal + /promotion-analysis."""
 
-    def __init__(self, *, question_type: str = "mechanism", answer_md: str = "Think about the factor shapes."):
+    def __init__(
+        self,
+        *,
+        question_type: str = "mechanism",
+        answer_md: str = "Think about the factor shapes.",
+        promotion_analysis: dict | None = None,
+    ):
         self.requests: list[dict] = []
         self.question_type = question_type
         self.answer_md = answer_md
+        self.promotion_analysis = promotion_analysis or {
+            "attributed_facets": [],
+            "question_nature": "mechanism",
+            "attempted_in_thread": False,
+            "covered_by_practice_item_id": None,
+        }
         self._server = HTTPServer(("127.0.0.1", 0), self._handler())
         self.base_url = f"http://127.0.0.1:{self._server.server_port}"
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -78,6 +90,9 @@ class _TutorServer:
                             "grader_confidence": 0.95,
                         }
                     )
+                    return
+                if self.path == "/promotion-analysis":
+                    self._json(owner.promotion_analysis)
                     return
                 self.send_response(404)
                 self.end_headers()
@@ -441,6 +456,178 @@ def test_sidecar_ask_requires_ready_provider(tmp_path):
                     "practiceItemId": "pi_svd_define_001",
                     "sessionId": "sess_x",
                 },
+            },
+        ]
+    )[1]
+    assert response["error"]["data"]["code"] == "provider_unavailable"
+    assert response["error"]["data"]["retryable"] is True
+
+
+# --- promote_tutor_question (spec_tutor_promotion.md §8 W4) -----------------
+
+
+def test_sidecar_promote_tutor_question_dedup_route_is_idempotent(tmp_path):
+    """Dedup short-circuit (route='existing_item') + a re-promote replay returns the same row."""
+
+    server = _TutorServer(
+        promotion_analysis={
+            "attributed_facets": ["recall"],
+            "question_nature": "mechanism",
+            "attempted_in_thread": True,
+            # Dedup short-circuit: the analysis names an existing item that already
+            # covers this probe, so nothing gets authored (§3 Step 0).
+            "covered_by_practice_item_id": "pi_svd_define_001",
+        }
+    )
+    server.start()
+    try:
+        vault_root, _paths = _tutor_vault(tmp_path, server)
+        session_id = _rpc(
+            [_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}}]
+        )[1]["result"]["sessionId"]
+
+        asked = _rpc(
+            [
+                _init(vault_root),
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "ask_tutor_question",
+                    "params": {
+                        "context": "practice",
+                        "question": "Why must U have orthonormal columns?",
+                        "practiceItemId": "pi_svd_define_001",
+                        "sessionId": session_id,
+                    },
+                },
+            ]
+        )[1]["result"]
+        event_id = asked["eventId"]
+
+        def do_promote():
+            return _rpc(
+                [
+                    _init(vault_root),
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 2,
+                        "method": "promote_tutor_question",
+                        "params": {"eventId": event_id, "intent": "practice"},
+                    },
+                ]
+            )[1]["result"]
+
+        first = do_promote()
+        assert first["route"] == "existing_item"
+        assert first["existingPracticeItemId"] == "pi_svd_define_001"
+        assert first["questionEventId"] == event_id
+        assert first["intent"] == "practice"
+        analysis_calls_after_first = len(
+            [request for request in server.requests if request["path"] == "/promotion-analysis"]
+        )
+        assert analysis_calls_after_first == 1
+
+        # Idempotent replay: same row back, no additional analysis call (the
+        # service short-circuits on the existing question_promotions PK before
+        # touching the provider at all).
+        second = do_promote()
+        assert second == first
+        analysis_calls_after_second = len(
+            [request for request in server.requests if request["path"] == "/promotion-analysis"]
+        )
+        assert analysis_calls_after_second == analysis_calls_after_first
+
+        # The transcript surfaces the persisted promotion state (spec §2
+        # idempotency: chip instead of button on remount).
+        transcript = _rpc(
+            [
+                _init(vault_root),
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "get_tutor_transcript",
+                    "params": {
+                        "context": "practice",
+                        "practiceItemId": "pi_svd_define_001",
+                        "sessionId": session_id,
+                    },
+                },
+            ]
+        )[1]["result"]
+        transcript_promotion = transcript["events"][0]["promotion"]
+        assert transcript_promotion["existingPracticeItemId"] == "pi_svd_define_001"
+    finally:
+        server.stop()
+
+
+def test_sidecar_promote_tutor_question_gap_rejected_in_library_context(tmp_path):
+    """Gap route requires an origin LO — restricted to practice/feedback (§3, §7 Q7)."""
+
+    server = _TutorServer()
+    server.start()
+    try:
+        vault_root, _paths = _tutor_vault(tmp_path, server)
+        add_note(
+            vault_root,
+            "linear-algebra",
+            "note_svd_intro",
+            "SVD intro",
+            "SVD factorizes any matrix into rotations and scalings.",
+            related_los=["lo_svd_definition"],
+            clock=FrozenClock(NOW),
+        )
+        asked = _rpc(
+            [
+                _init(vault_root),
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "ask_tutor_question",
+                    "params": {
+                        "context": "library",
+                        "question": "What is an orthogonal matrix?",
+                        "noteId": "note_svd_intro",
+                    },
+                },
+            ]
+        )[1]["result"]
+
+        response = _rpc(
+            [
+                _init(vault_root),
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "promote_tutor_question",
+                    "params": {"eventId": asked["eventId"], "intent": "gap"},
+                },
+            ]
+        )[1]
+        assert response["error"]["data"]["code"] == "validation_error"
+    finally:
+        server.stop()
+
+
+def test_sidecar_promote_tutor_question_requires_ready_provider(tmp_path):
+    # No mock server: the routed provider is unreachable, so the handler must
+    # fail fast with the same provider_unavailable shape ask_tutor_question uses,
+    # before ever touching the (nonexistent) question event.
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    checkout = tmp_path / "codex"
+    checkout.mkdir()
+    (checkout / "HEAD").write_text("abc123", encoding="utf-8")
+    _configure_http_provider(vault_root, checkout, "http://127.0.0.1:1")
+
+    response = _rpc(
+        [
+            _init(vault_root),
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "promote_tutor_question",
+                "params": {"eventId": "evt_nonexistent", "intent": "practice"},
             },
         ]
     )[1]

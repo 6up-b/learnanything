@@ -165,9 +165,14 @@ def test_decisive_hard_correct_concentrates_posterior_more_than_trivial(tmp_path
 
 
 def test_hard_correct_completes_probe_on_hypothesis_convergence(tmp_path):
+    # Frozen legacy path (probe redesign Checkpoint 0): the live pipeline no
+    # longer advances lo_probe_state, so the legacy step is driven directly.
+    from learnloop.services.probes import record_probe_attempt
+
     hv, hr = _setup(tmp_path / "hard")
     enter_probe(hv, hr, "lo_svd_definition", clock=FrozenClock(NOW))
     _attempt(hv, hr, "pi_hard", 4)
+    record_probe_attempt(hv, hr, "lo_svd_definition", clock=FrozenClock(NOW))
     state = hr.probe_state("lo_svd_definition")
     # The decisive hard-correct should converge the hypothesis family in one shot.
     assert "hypothesis" in state.families_converged

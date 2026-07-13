@@ -1,0 +1,94 @@
+schema_version: 1
+id: pi_dot_product_alignment_compute_002
+learning_object_id: lo_dot_product_alignment_for_embeddings
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - dot_product_ab
+  - dot_product_ac
+  - multiply_sum_method
+  - alignment_interpretation
+  - zero_interpretation
+evidence_weights:
+  alignment_interpretation: 0.2
+  dot_product_ab: 0.2
+  dot_product_ac: 0.2
+  multiply_sum_method: 0.2
+  zero_interpretation: 0.2
+criterion_facet_weights: {}
+prompt: Compute a . b and a . c for a = [2, -1], b = [4, 2], and c = [-1, 3]. 
+  Which vector is more aligned with a, and what does the sign of the other dot 
+  product suggest?
+expected_answer: a . b = 2*4 + (-1)*2 = 6. a . c = 2*(-1) + (-1)*3 = -5. b is 
+  more aligned with a because it has the larger positive dot product. The 
+  negative dot product with c suggests c points more against a than with it.
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - dot_product
+  - alignment
+hints:
+  - Multiply matching coordinates, then add the products.
+  - For alignment, a larger positive dot product means more same-direction 
+    alignment.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.25
+scaffold_level: 0.2
+surface_family: 2d_dot_product_alignment
+misconception_consistent_answer: c is more aligned because |-5| is close to 6 
+  and negative only means strong relationship.
+repair_targets:
+  - dot_product_ab
+  - dot_product_ac
+  - multiply_sum_method
+  - alignment_interpretation
+  - fatal_chooses_smaller_dot_product_as_more_aligned
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: dot_product_ab_correct
+      points: 1.0
+      description: Correctly computes a . b as 6.
+      tier: core
+    - id: dot_product_ac_correct
+      points: 1.0
+      description: Correctly computes a . c as -5.
+      tier: core
+    - id: multiply_sum_method_shown
+      points: 0.75
+      description: Shows or describes multiplying corresponding components and 
+        summing.
+      tier: core
+    - id: alignment_interpretation_correct
+      points: 1.25
+      description: Identifies b as more aligned and interprets the negative dot 
+        product as opposition or poor alignment.
+      tier: core
+  fatal_errors:
+    - id: fatal_chooses_smaller_dot_product_as_more_aligned
+      description: Chooses c as more aligned because its dot product has larger 
+        magnitude, ignoring sign and direction.
+      max_grade: 2
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+created_at: '2026-07-13T01:00:07Z'
+updated_at: '2026-07-13T01:00:07Z'

@@ -31,14 +31,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from math import ceil
+from statistics import median
 
 from learnloop.clock import Clock, SystemClock, parse_utc
-from learnloop.db.repositories import FacetRecallState, PracticeItemState, Repository
+from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemState, Repository
 from learnloop.numeric import clamp
 from learnloop.services.facet_diagnostics import facet_state_label, required_facets
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.fsrs import forgetting_curve
+from learnloop.services.recall_coverage import expected_facet_mass_gain
+from learnloop.services.selection_rewards import predicted_facet_recall
 from learnloop.vault.models import Goal, LoadedVault
+
+# Attempts-to-certify inversion assumes fresh-ish practice: the familiarity
+# discount for a distinct item starts at 1.0 and decays toward 0.20 when
+# re-drilling; 0.75 is an honest middle for a short remediation run.
+_ASSUMED_FRESH_DISCOUNT = 0.75
 
 
 @dataclass(frozen=True)
@@ -47,8 +56,19 @@ class FacetProjection:
     facet_id: str
     label: str                      # unexamined | uncertain | known_gap | solid
     current_recall: float | None    # aggregate recall_mean; None when no aggregate state
-    projected_recall: float | None  # forward-projected to the horizon; None when no aggregate state
-    on_track: bool
+    projected_recall: float | None  # raw mean forward-projected to the horizon; None when no aggregate state
+    on_track: bool                  # attainment axis: predicted_at_horizon >= target (and no known gap)
+    predicted_current: float        # mastery-blended predicted recall now (predicted_facet_recall)
+    predicted_at_horizon: float     # predicted_current x FSRS retention ratio at the horizon
+    evidence_mass: float            # aggregate independent evidence mass
+    certified: bool                 # coverage axis: label == "solid" (mass gate cleared, no open gap)
+    attempts_to_certify: int | None  # ~fresh attempts to clear the mass gate; None = no supporting items
+
+    @property
+    def at_risk(self) -> bool:
+        """Needs work for the goal: not attained OR not yet certified."""
+
+        return not self.on_track or not self.certified
 
 
 @dataclass(frozen=True)
@@ -66,6 +86,48 @@ class GoalReport:
     @property
     def total(self) -> int:
         return len(self.facets)
+
+    @property
+    def certified_count(self) -> int:
+        return sum(1 for facet in self.facets if facet.certified)
+
+    @property
+    def examined_count(self) -> int:
+        return sum(1 for facet in self.facets if facet.label != "unexamined")
+
+    @property
+    def at_risk_count(self) -> int:
+        return sum(1 for facet in self.facets if facet.at_risk)
+
+    @property
+    def attainment_fraction(self) -> float | None:
+        """Mean per-facet progress toward target (clamped ratio), the headline %."""
+
+        if not self.facets or self.target_recall <= 0:
+            return None
+        return sum(
+            clamp(facet.predicted_at_horizon / self.target_recall) for facet in self.facets
+        ) / len(self.facets)
+
+    @property
+    def predicted_recall_mean(self) -> float | None:
+        if not self.facets:
+            return None
+        return sum(facet.predicted_at_horizon for facet in self.facets) / len(self.facets)
+
+    @property
+    def attempts_remaining(self) -> int:
+        return sum(
+            facet.attempts_to_certify
+            for facet in self.facets
+            if facet.at_risk and facet.attempts_to_certify is not None
+        )
+
+    @property
+    def attempts_remaining_is_partial(self) -> bool:
+        return any(
+            facet.attempts_to_certify is None for facet in self.facets if facet.at_risk
+        )
 
 
 @dataclass(frozen=True)
@@ -129,19 +191,23 @@ def _supporting_weight(vault: LoadedVault, item, facet_id: str) -> float:
     return max(weights.get(facet_id, 0.0), 0.0)
 
 
-def _project_recall(
+def _retention_ratio(
     vault: LoadedVault,
     learning_object_id: str,
     facet_id: str,
-    current_recall: float | None,
     *,
     now: datetime,
     horizon: datetime,
     item_states: dict[str, PracticeItemState],
     fsrs_weights: tuple[float, ...],
-) -> float | None:
-    if current_recall is None:
-        return None
+) -> float:
+    """Evidence-weighted FSRS retention ratio (horizon vs now) for one facet.
+
+    1.0 when no supporting item carries decay information — *no decay
+    information*, which is not the same as *no decay*: we hold recall flat
+    rather than inventing a curve.
+    """
+
     numerator = 0.0
     weight_total = 0.0
     for item in vault.practice_items.values():
@@ -165,9 +231,50 @@ def _project_recall(
         numerator += weight * retention_ratio
         weight_total += weight
     if weight_total <= 0.0:
-        # No decay information (not the same as no decay): hold recall flat.
-        return current_recall
-    return current_recall * (numerator / weight_total)
+        return 1.0
+    return numerator / weight_total
+
+
+def _attempts_to_certify(
+    facet_id: str,
+    evidence_mass: float,
+    mass_gain_by_facet: dict[str, list[float]],
+    min_mass: float,
+) -> int | None:
+    """Invert the mass equation into a coarse fresh-attempt count (None = no items)."""
+
+    gap = max(0.0, min_mass + 1e-6 - evidence_mass)
+    if gap <= 0.0:
+        return 0
+    gains = mass_gain_by_facet.get(facet_id)
+    if not gains:
+        return None
+    delta = _ASSUMED_FRESH_DISCOUNT * median(gains)
+    if delta <= 0.0:
+        return None
+    return min(ceil(gap / delta), 99)
+
+
+def _lo_mass_gains(
+    vault: LoadedVault,
+    learning_object_id: str,
+    item_states: dict[str, PracticeItemState],
+) -> dict[str, list[float]]:
+    """Per canonical facet id, the nominal mass gain of each active item covering it."""
+
+    gains: dict[str, list[float]] = {}
+    for item in vault.practice_items.values():
+        if item.learning_object_id != learning_object_id:
+            continue
+        state = item_states.get(item.id)
+        if state is not None and not state.active:
+            continue
+        gain_map = expected_facet_mass_gain(item, vault.rubric_for_item(item), vault.config.evidence)
+        for facet, gain in gain_map.items():
+            if gain <= 0.0:
+                continue
+            gains.setdefault(vault.canonical_facet_id(str(facet)), []).append(gain)
+    return gains
 
 
 def _facet_projections(
@@ -179,41 +286,58 @@ def _facet_projections(
     horizon: datetime,
     item_states: dict[str, PracticeItemState],
     facet_states_by_lo: dict[str, list[FacetRecallState]],
+    mastery_states: dict[str, MasteryState],
     fsrs_weights: tuple[float, ...],
 ) -> list[FacetProjection]:
     scope = resolve_goal_scope(vault, goal, repository)
     min_mass = vault.config.recall_coverage.min_facet_evidence_mass
+    blend_count = vault.config.recall_coverage.facet_blend_evidence_count
     projections: list[FacetProjection] = []
     for learning_object_id in sorted(scope):
-        recall_by_facet = {
-            state.facet_id: state
-            for state in facet_states_by_lo.get(learning_object_id, [])
-            if state.practice_item_id is None
-        }
+        # Keyed by canonical facet id; alias rows fold onto the canonical entry
+        # (highest evidence mass wins, matching the aggregate's intent).
+        recall_by_facet: dict[str, FacetRecallState] = {}
+        for state in facet_states_by_lo.get(learning_object_id, []):
+            if state.practice_item_id is not None:
+                continue
+            key = vault.canonical_facet_id(state.facet_id)
+            existing = recall_by_facet.get(key)
+            if existing is None or state.independent_evidence_mass > existing.independent_evidence_mass:
+                recall_by_facet[key] = state
         uncertainty_by_facet = {
-            state.facet_id: state
+            vault.canonical_facet_id(state.facet_id): state
             for state in repository.facet_uncertainty_states(learning_object_id)
         }
+        mastery = mastery_states.get(learning_object_id)
+        mass_gain_by_facet = _lo_mass_gains(vault, learning_object_id, item_states)
         for facet_id in sorted(scope[learning_object_id]):
             recall_state = recall_by_facet.get(facet_id)
             uncertainty_state = uncertainty_by_facet.get(facet_id)
             label = facet_state_label(facet_id, uncertainty_state, recall_state, min_mass)
             current_recall = recall_state.recall_mean if recall_state is not None else None
-            projected_recall = _project_recall(
+            evidence_mass = (
+                max(recall_state.independent_evidence_mass, 0.0) if recall_state is not None else 0.0
+            )
+            retention = _retention_ratio(
                 vault,
                 learning_object_id,
                 facet_id,
-                current_recall,
                 now=now,
                 horizon=horizon,
                 item_states=item_states,
                 fsrs_weights=fsrs_weights,
             )
-            on_track = (
-                label == "solid"
-                and projected_recall is not None
-                and projected_recall >= goal.target_recall
+            projected_recall = current_recall * retention if current_recall is not None else None
+            predicted_current = predicted_facet_recall(
+                mastery.logit_mean if mastery is not None else None,
+                mastery.evidence_count if mastery is not None else 0,
+                current_recall,
+                evidence_mass,
+                blend_count,
             )
+            predicted_at_horizon = clamp(predicted_current * retention)
+            certified = label == "solid"
+            on_track = predicted_at_horizon >= goal.target_recall and label != "known_gap"
             projections.append(
                 FacetProjection(
                     learning_object_id=learning_object_id,
@@ -222,6 +346,13 @@ def _facet_projections(
                     current_recall=current_recall,
                     projected_recall=projected_recall,
                     on_track=on_track,
+                    predicted_current=predicted_current,
+                    predicted_at_horizon=predicted_at_horizon,
+                    evidence_mass=evidence_mass,
+                    certified=certified,
+                    attempts_to_certify=_attempts_to_certify(
+                        facet_id, evidence_mass, mass_gain_by_facet, min_mass
+                    ),
                 )
             )
     return projections
@@ -249,6 +380,7 @@ def goal_report(
         learning_object_id: repository.facet_recall_states(learning_object_id)
         for learning_object_id in vault.learning_objects
     }
+    mastery_states = repository.mastery_states()
     fsrs_weights = resolve_fsrs_weights(repository)
     facets = _facet_projections(
         vault,
@@ -258,6 +390,7 @@ def goal_report(
         horizon=horizon,
         item_states=item_states,
         facet_states_by_lo=facet_states_by_lo,
+        mastery_states=mastery_states,
         fsrs_weights=fsrs_weights,
     )
     return GoalReport(
@@ -291,6 +424,7 @@ def build_goal_frontier(
     clock: Clock | None = None,
     item_states: dict[str, PracticeItemState] | None = None,
     facet_states_by_lo: dict[str, list[FacetRecallState]] | None = None,
+    mastery_states: dict[str, MasteryState] | None = None,
 ) -> GoalFrontier:
     now = (clock or SystemClock()).now().astimezone(UTC)
     if item_states is None:
@@ -300,6 +434,8 @@ def build_goal_frontier(
             learning_object_id: repository.facet_recall_states(learning_object_id)
             for learning_object_id in vault.learning_objects
         }
+    if mastery_states is None:
+        mastery_states = repository.mastery_states()
     fsrs_weights = resolve_fsrs_weights(repository)
 
     by_lo: dict[str, FrontierEntry] = {}
@@ -317,9 +453,14 @@ def build_goal_frontier(
             horizon=horizon,
             item_states=item_states,
             facet_states_by_lo=facet_states_by_lo,
+            mastery_states=mastery_states,
             fsrs_weights=fsrs_weights,
         )
-        at_risk = [projection for projection in projections if not projection.on_track]
+        # Frontier keeps every facet needing work on either axis: unattained
+        # (predicted below target) or unattained certification (mass gate) —
+        # so the scheduler still drives certified-but-unattained and
+        # attained-but-uncertified facets alike.
+        at_risk = [projection for projection in projections if projection.at_risk]
         if not at_risk:
             continue
         active_goal_ids.append(goal.id)

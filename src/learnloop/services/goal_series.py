@@ -35,6 +35,10 @@ class GoalSeriesPoint:
     at: datetime
     on_track_count: int
     total: int
+    certified_count: int
+    examined_count: int
+    attainment_fraction: float | None
+    predicted_recall_mean: float | None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -42,7 +46,23 @@ class GoalSeriesPoint:
             "on_track_count": self.on_track_count,
             "total": self.total,
             "on_track_fraction": (self.on_track_count / self.total) if self.total else None,
+            "certified_count": self.certified_count,
+            "examined_count": self.examined_count,
+            "attainment_fraction": self.attainment_fraction,
+            "predicted_recall_mean": self.predicted_recall_mean,
         }
+
+
+def _point_from_report(at: datetime, report) -> GoalSeriesPoint:
+    return GoalSeriesPoint(
+        at=at,
+        on_track_count=report.on_track_count,
+        total=report.total,
+        certified_count=report.certified_count,
+        examined_count=report.examined_count,
+        attainment_fraction=report.attainment_fraction,
+        predicted_recall_mean=report.predicted_recall_mean,
+    )
 
 
 def goal_report_series(
@@ -68,9 +88,7 @@ def goal_report_series(
     for checkpoint in checkpoints[:-1]:
         points.append(_historical_point(vault, repository, goal, scope_los, checkpoint))
     live = goal_report(vault, repository, goal, clock=FrozenClock(checkpoints[-1]))
-    points.append(
-        GoalSeriesPoint(at=checkpoints[-1], on_track_count=live.on_track_count, total=live.total)
-    )
+    points.append(_point_from_report(checkpoints[-1], live))
     return points
 
 
@@ -119,8 +137,4 @@ def _historical_point(
             clock=FrozenClock(checkpoint),
         )
         report = goal_report(vault, scratch_repo, goal, clock=FrozenClock(checkpoint))
-        return GoalSeriesPoint(
-            at=checkpoint,
-            on_track_count=report.on_track_count,
-            total=report.total,
-        )
+        return _point_from_report(checkpoint, report)

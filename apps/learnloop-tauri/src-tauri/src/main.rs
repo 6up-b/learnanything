@@ -25,6 +25,8 @@ fn main() {
             explain_practice_item,
             open_queue_item,
             get_practice_item,
+            get_probe_contract,
+            stop_probe_diagnosing,
             save_practice_draft,
             submit_attempt,
             submit_dont_know,
@@ -65,6 +67,7 @@ fn main() {
             rate_tutor_answer,
             save_tutor_answer_note,
             get_tutor_transcript,
+            promote_tutor_question,
             start_teach_back,
             submit_teach_back_turn,
             goals_list,
@@ -76,7 +79,14 @@ fn main() {
             get_exam_status,
             start_exam,
             submit_exam_answer,
-            finish_exam
+            finish_exam,
+            start_calibration_session,
+            get_calibration_session,
+            stop_calibration_session,
+            begin_probe_dialogue,
+            next_probe_dialogue_turn,
+            record_probe_dialogue_turn,
+            end_probe_dialogue
         ])
         .run(tauri::generate_context!())
         .expect("error while running LearnLoop");

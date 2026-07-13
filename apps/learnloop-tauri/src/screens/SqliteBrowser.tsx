@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject
+} from "react";
 import { api } from "../api/client";
 import type { SqliteExecResult, SqliteTableInfo, SqliteTableSnapshot } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill } from "../components/term";
@@ -6,6 +14,8 @@ import { COLOR, Faint, FONT_MONO, Pill } from "../components/term";
 const PAGE = 200;
 
 type Cell = string | number | boolean | null;
+type BrowserMode = "nav" | "edit";
+type CellPosition = { row: number; column: number };
 
 function CellText({ value }: { value: Cell }) {
   if (value === null) return <span style={{ color: COLOR.textFaint, fontStyle: "italic" }}>NULL</span>;
@@ -14,19 +24,23 @@ function CellText({ value }: { value: Cell }) {
   return <span style={{ color: COLOR.text }}>{value}</span>;
 }
 
-// One inline-editable grid cell. Click to edit (when editable); Enter / blur commits.
+// A selectable grid cell. Editing is deliberately handled by the inspector so
+// long and multiline values never have to fit inside the table column.
 function GridCell({
   value,
-  editable,
-  onCommit
+  selected,
+  editing,
+  onSelect,
+  onEdit,
+  cellRef
 }: {
   value: Cell;
-  editable: boolean;
-  onCommit: (next: string) => void;
+  selected: boolean;
+  editing: boolean;
+  onSelect: () => void;
+  onEdit: () => void;
+  cellRef: (element: HTMLTableCellElement | null) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
   const tdStyle = {
     borderRight: `1px solid ${COLOR.border}`,
     borderBottom: `1px solid ${COLOR.border}`,
@@ -37,53 +51,20 @@ function GridCell({
     maxWidth: 360,
     overflow: "hidden",
     textOverflow: "ellipsis",
-    cursor: editable ? "text" : "default"
+    cursor: "pointer",
+    background: editing ? "#302314" : selected ? "#241d12" : "transparent",
+    boxShadow: selected ? `inset 0 0 0 1px ${editing ? COLOR.green : COLOR.amber}` : "none"
   };
 
-  if (editing) {
-    return (
-      <td style={{ ...tdStyle, padding: 0 }}>
-        <input
-          autoFocus
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => {
-            setEditing(false);
-            onCommit(draft);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              (event.target as HTMLInputElement).blur();
-            } else if (event.key === "Escape") {
-              event.preventDefault();
-              setEditing(false);
-            }
-          }}
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            background: COLOR.bgInput,
-            border: `1px solid ${COLOR.amber}`,
-            color: COLOR.text,
-            fontFamily: FONT_MONO,
-            fontSize: 12,
-            padding: "3px 7px",
-            outline: "none"
-          }}
-        />
-      </td>
-    );
-  }
   return (
     <td
+      ref={cellRef}
+      role="gridcell"
+      aria-selected={selected}
       style={tdStyle}
       title={value === null ? "NULL" : String(value)}
-      onClick={() => {
-        if (!editable) return;
-        setDraft(value === null ? "" : String(value));
-        setEditing(true);
-      }}
+      onClick={onSelect}
+      onDoubleClick={onEdit}
     >
       <CellText value={value} />
     </td>
@@ -138,6 +119,15 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
   const [sql, setSql] = useState("");
   const [execResult, setExecResult] = useState<SqliteExecResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [activeCell, setActiveCell] = useState<CellPosition | null>(null);
+  const [mode, setMode] = useState<BrowserMode>("nav");
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [editDraft, setEditDraft] = useState("");
+  const [editAsNull, setEditAsNull] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  const cellRefs = useRef(new Map<string, HTMLTableCellElement>());
+  const initialFocusPath = useRef<string | null>(null);
 
   const refreshTables = useCallback(async () => {
     try {
@@ -155,6 +145,10 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
     setData(null);
     setOffset(0);
     setExecResult(null);
+    setActiveCell(null);
+    setMode("nav");
+    setInspectorOpen(false);
+    initialFocusPath.current = null;
     void refreshTables();
   }, [refreshTables]);
 
@@ -173,14 +167,37 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
     if (selected) void loadTable(selected, offset);
   }, [selected, offset, loadTable]);
 
-  const updateCell = async (rowid: number, column: string, value: string) => {
-    if (!selected || busy) return;
+  // Start each table/page at its first cell and place keyboard focus in the
+  // database grid the first time this file opens.
+  useEffect(() => {
+    cellRefs.current.clear();
+    setMode("nav");
+    setActiveCell(data && data.rows.length > 0 && data.columns.length > 0 ? { row: 0, column: 0 } : null);
+    if (data && initialFocusPath.current !== path) {
+      initialFocusPath.current = path;
+      requestAnimationFrame(() => gridRef.current?.focus());
+    }
+  }, [data?.table, data?.columns.length, data?.rows.length, offset, path]);
+
+  useEffect(() => {
+    if (!activeCell) return;
+    cellRefs.current.get(`${activeCell.row}:${activeCell.column}`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeCell]);
+
+  useEffect(() => {
+    if (mode === "edit") requestAnimationFrame(() => editRef.current?.focus());
+  }, [mode]);
+
+  const updateCell = async (rowid: number, column: string, value: string | null): Promise<boolean> => {
+    if (!selected || busy) return false;
     setBusy(true);
     try {
-      await api.sqliteUpdateCell(path, selected, rowid, column, value === "" ? null : value);
+      await api.sqliteUpdateCell(path, selected, rowid, column, value);
       await loadTable(selected, offset);
+      return true;
     } catch (error) {
       onError((error as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -235,9 +252,74 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
   const editable = Boolean(data?.editable);
   const rangeEnd = data ? Math.min(offset + (data.rows.length || 0), data.rowCount) : 0;
   const pkSet = useMemo(() => new Set(data?.primaryKey ?? []), [data]);
+  const selectedValue = activeCell && data ? data.rows[activeCell.row]?.cells[activeCell.column] : undefined;
+  const selectedColumn = activeCell && data ? data.columns[activeCell.column] : undefined;
+  const selectedRow = activeCell && data ? data.rows[activeCell.row] : undefined;
+  const selectedCellEditable = Boolean(editable && selectedRow?.rowid !== null && selectedRow?.rowid !== undefined);
+
+  const focusGrid = () => requestAnimationFrame(() => gridRef.current?.focus());
+
+  const selectCell = (position: CellPosition, openInspector = false) => {
+    setActiveCell(position);
+    setMode("nav");
+    if (openInspector) setInspectorOpen(true);
+    focusGrid();
+  };
+
+  const beginCellEdit = (position: CellPosition | null = activeCell) => {
+    if (!position || !data || busy) return;
+    const row = data.rows[position.row];
+    const value = row?.cells[position.column];
+    if (value === undefined || !editable || row.rowid === null) return;
+    setActiveCell(position);
+    setEditDraft(value === null ? "" : String(value));
+    setEditAsNull(value === null);
+    setInspectorOpen(true);
+    setMode("edit");
+  };
+
+  const cancelCellEdit = () => {
+    setMode("nav");
+    focusGrid();
+  };
+
+  const commitCellEdit = async () => {
+    if (!selectedColumn || !selectedRow || selectedRow.rowid === null) return;
+    const saved = await updateCell(selectedRow.rowid, selectedColumn.name, editAsNull ? null : editDraft);
+    if (saved) {
+      setMode("nav");
+      focusGrid();
+    }
+  };
+
+  const moveCell = (rowDelta: number, columnDelta: number) => {
+    if (!data || data.rows.length === 0 || data.columns.length === 0) return;
+    const current = activeCell ?? { row: 0, column: 0 };
+    setActiveCell({
+      row: Math.max(0, Math.min(data.rows.length - 1, current.row + rowDelta)),
+      column: Math.max(0, Math.min(data.columns.length - 1, current.column + columnDelta))
+    });
+  };
+
+  const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (mode !== "nav") return;
+    let handled = true;
+    if (event.key === "h" || event.key === "ArrowLeft") moveCell(0, -1);
+    else if (event.key === "l" || event.key === "ArrowRight") moveCell(0, 1);
+    else if (event.key === "j" || event.key === "ArrowDown") moveCell(1, 0);
+    else if (event.key === "k" || event.key === "ArrowUp") moveCell(-1, 0);
+    else if (event.key === "Enter" || event.key === "i" || event.key === "e") beginCellEdit();
+    else if (event.key === " ") setInspectorOpen((open) => !open);
+    else if (event.key === "Escape" && inspectorOpen) setInspectorOpen(false);
+    else handled = false;
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
 
   return (
-    <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+    <div data-sqlite-browser style={{ flex: 1, display: "flex", minHeight: 0 }}>
       {/* Table list */}
       <div style={{ width: 200, flexShrink: 0, borderRight: `1px solid ${COLOR.border}`, overflowY: "auto" }}>
         <div style={{ padding: "8px 12px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: COLOR.textFaint, borderBottom: `1px solid ${COLOR.border}` }}>
@@ -246,7 +328,12 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
         {tables.map((table) => (
           <div
             key={table.name}
-            onClick={() => { setSelected(table.name); setOffset(0); }}
+            onClick={() => {
+              setSelected(table.name);
+              setOffset(0);
+              setInspectorOpen(false);
+              focusGrid();
+            }}
             style={{
               padding: "6px 12px",
               cursor: "pointer",
@@ -271,6 +358,7 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
         <div style={{ padding: "8px 14px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.amberLink }}>{selected ?? "—"}</span>
           {data ? <Faint style={{ fontSize: 11 }}>{data.rowCount} rows</Faint> : null}
+          <Pill color={mode === "edit" ? "green" : "amber"} style={{ fontSize: 10 }}>{mode === "edit" ? "EDIT" : "NAV"}</Pill>
           {!editable && data ? <Pill color="slate">read-only · no rowid</Pill> : null}
           <span style={{ flex: 1 }} />
           {editable ? (
@@ -283,7 +371,14 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
           <ActionButton label="next ›" disabled={!data || rangeEnd >= data.rowCount} onClick={() => setOffset(offset + PAGE)} />
         </div>
 
-        <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
+        <div
+          ref={gridRef}
+          role="grid"
+          aria-label={selected ? `${selected} database table` : "database table"}
+          tabIndex={0}
+          onKeyDown={onGridKeyDown}
+          style={{ flex: 1, overflow: "auto", minHeight: 0, outline: "none" }}
+        >
           {data ? (
             <table style={{ borderCollapse: "collapse" }}>
               <thead>
@@ -313,8 +408,17 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
                       <GridCell
                         key={cellIndex}
                         value={cell}
-                        editable={editable && row.rowid !== null}
-                        onCommit={(next) => { if (row.rowid !== null) void updateCell(row.rowid, data.columns[cellIndex].name, next); }}
+                        selected={activeCell?.row === rowIndex && activeCell.column === cellIndex}
+                        editing={mode === "edit" && activeCell?.row === rowIndex && activeCell.column === cellIndex}
+                        onSelect={() => selectCell({ row: rowIndex, column: cellIndex }, true)}
+                        onEdit={() => {
+                          beginCellEdit({ row: rowIndex, column: cellIndex });
+                        }}
+                        cellRef={(element) => {
+                          const key = `${rowIndex}:${cellIndex}`;
+                          if (element) cellRefs.current.set(key, element);
+                          else cellRefs.current.delete(key);
+                        }}
                       />
                     ))}
                   </tr>
@@ -361,7 +465,207 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
           {execResult ? <ConsoleResult result={execResult} /> : null}
         </div>
       </div>
+
+      {inspectorOpen && activeCell && selectedColumn && selectedRow && selectedValue !== undefined ? (
+        <CellInspector
+          table={selected ?? "—"}
+          column={selectedColumn.name}
+          columnType={selectedColumn.type}
+          primaryKey={selectedColumn.pk}
+          notNull={selectedColumn.notnull}
+          rowNumber={offset + activeCell.row + 1}
+          rowid={selectedRow.rowid}
+          value={selectedValue}
+          mode={mode}
+          editable={selectedCellEditable}
+          busy={busy}
+          draft={editDraft}
+          editAsNull={editAsNull}
+          editRef={editRef}
+          onChangeDraft={setEditDraft}
+          onChangeNull={setEditAsNull}
+          onBeginEdit={() => beginCellEdit()}
+          onCommit={() => void commitCellEdit()}
+          onCancel={cancelCellEdit}
+          onClose={() => {
+            if (mode === "edit") cancelCellEdit();
+            setInspectorOpen(false);
+            focusGrid();
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function CellInspector({
+  table,
+  column,
+  columnType,
+  primaryKey,
+  notNull,
+  rowNumber,
+  rowid,
+  value,
+  mode,
+  editable,
+  busy,
+  draft,
+  editAsNull,
+  editRef,
+  onChangeDraft,
+  onChangeNull,
+  onBeginEdit,
+  onCommit,
+  onCancel,
+  onClose
+}: {
+  table: string;
+  column: string;
+  columnType: string;
+  primaryKey: boolean;
+  notNull: boolean;
+  rowNumber: number;
+  rowid: number | null;
+  value: Cell;
+  mode: BrowserMode;
+  editable: boolean;
+  busy: boolean;
+  draft: string;
+  editAsNull: boolean;
+  editRef: RefObject<HTMLTextAreaElement>;
+  onChangeDraft: (value: string) => void;
+  onChangeNull: (value: boolean) => void;
+  onBeginEdit: () => void;
+  onCommit: () => void;
+  onCancel: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <aside
+      aria-label="Cell inspector"
+      style={{
+        width: 360,
+        maxWidth: "40%",
+        flexShrink: 0,
+        borderLeft: `1px solid ${COLOR.borderStrong}`,
+        background: COLOR.bgElev,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        fontFamily: FONT_MONO
+      }}
+    >
+      <div style={{ padding: "9px 12px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ color: COLOR.textFaint, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          cell inspector
+        </span>
+        <span style={{ flex: 1 }} />
+        <Pill color={mode === "edit" ? "green" : "slate"} style={{ fontSize: 9 }}>{mode === "edit" ? "EDIT" : "VIEW"}</Pill>
+        <button
+          type="button"
+          onClick={onClose}
+          title="close inspector (space)"
+          style={{ border: 0, background: "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 15, cursor: "pointer", padding: "0 2px" }}
+        >
+          ×
+        </button>
+      </div>
+
+      <div style={{ padding: "12px", borderBottom: `1px solid ${COLOR.border}`, display: "grid", gap: 7, fontSize: 11 }}>
+        <div style={{ color: COLOR.text, fontSize: 12, overflowWrap: "anywhere" }}>
+          <span style={{ color: COLOR.amberLink }}>{table}</span>
+          <Faint>.</Faint>
+          <span style={{ color: COLOR.cyan }}>{column}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+          <Pill color="slate" style={{ fontSize: 9 }}>{columnType || "untyped"}</Pill>
+          {primaryKey ? <Pill color="amber" style={{ fontSize: 9 }}>primary key</Pill> : null}
+          {notNull ? <Pill color="purple" style={{ fontSize: 9 }}>not null</Pill> : null}
+        </div>
+        <div style={{ display: "flex", gap: 14 }}>
+          <Faint>row <span style={{ color: COLOR.textDim }}>{rowNumber}</span></Faint>
+          <Faint>rowid <span style={{ color: COLOR.textDim }}>{rowid ?? "—"}</span></Faint>
+        </div>
+      </div>
+
+      <div style={{ padding: "10px 12px 6px", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ color: COLOR.textFaint, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>value</span>
+        <span style={{ flex: 1 }} />
+        {value === null && mode === "nav" ? <Pill color="pink" style={{ fontSize: 9 }}>NULL</Pill> : null}
+      </div>
+
+      {mode === "edit" ? (
+        <div style={{ padding: "4px 12px 12px", display: "flex", flexDirection: "column", gap: 10, minHeight: 0, flex: 1 }}>
+          <textarea
+            ref={editRef}
+            value={draft}
+            disabled={editAsNull || busy}
+            onChange={(event) => onChangeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                onCancel();
+              } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                event.stopPropagation();
+                onCommit();
+              }
+            }}
+            spellCheck={false}
+            style={{
+              flex: 1,
+              minHeight: 160,
+              resize: "none",
+              boxSizing: "border-box",
+              background: editAsNull ? COLOR.bg : COLOR.bgInput,
+              border: `1px solid ${editAsNull ? COLOR.border : COLOR.green}`,
+              color: editAsNull ? COLOR.textFaint : COLOR.text,
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              lineHeight: 1.55,
+              padding: "9px 10px",
+              outline: "none",
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere"
+            }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <ActionButton label={editAsNull ? "✓ NULL" : "set NULL"} active={editAsNull} onClick={() => onChangeNull(!editAsNull)} />
+            <span style={{ flex: 1 }} />
+            <ActionButton label="cancel" onClick={onCancel} />
+            <ActionButton label={busy ? "saving…" : "save  ^↵"} active disabled={busy} onClick={onCommit} />
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: "4px 12px 12px", display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
+          <pre
+            style={{
+              margin: 0,
+              padding: "10px",
+              flex: 1,
+              minHeight: 80,
+              overflow: "auto",
+              background: COLOR.bgInput,
+              border: `1px solid ${COLOR.border}`,
+              color: value === null ? COLOR.textFaint : COLOR.text,
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              lineHeight: 1.55,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              userSelect: "text"
+            }}
+          >
+            {value === null ? "NULL" : String(value)}
+          </pre>
+          <div style={{ paddingTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            {editable ? <ActionButton label="edit  i" active onClick={onBeginEdit} /> : <Faint style={{ fontSize: 11 }}>read-only cell</Faint>}
+          </div>
+        </div>
+      )}
+    </aside>
   );
 }
 

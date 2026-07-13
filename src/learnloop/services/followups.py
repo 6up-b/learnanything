@@ -451,7 +451,30 @@ def evaluate_attempt_intervention_followup(
     error persistence and before evaluation, so a just-diagnosed belief is visible
     to routing and the hypothesis prior. Replay never re-normalizes (it does not
     run this path); persisted ``misconception_id`` links survive rebuilds.
+
+    §5.7 block boundary semantics: for an attempt inside an active diagnostic
+    block (a diagnostic submission that consumed a committed presentation),
+    follow-up evaluation, follow-up queue insertion, and misconception
+    normalization are DEFERRED to the block-end hook
+    (probe_blocks.end_diagnostic_block) — a force-inserted follow-up mid-block
+    would reveal that the previous answer was wrong, and normalization here
+    would duplicate the block's diagnosis.
     """
+
+    attempt_row = repository.fetch_practice_attempt(result.attempt_id) or {}
+    open_episode = repository.open_probe_episode(result.learning_object_id)
+    if (
+        open_episode is not None
+        and open_episode.status == "in_progress"
+        and attempt_row.get("probe_presentation_id") is not None
+    ):
+        suppressed = [f"{INTERVENTION_ACTION}:deferred_to_block_end:{open_episode.id}"]
+        repository.update_attempt_surprise_actions(
+            result.attempt_id, suppressed_actions=suppressed
+        )
+        return _decision(
+            False, None, "deferred_to_block_end", [], suppressed, intent=None
+        )
 
     normalize_and_resolve_attempt(
         vault,
@@ -461,6 +484,13 @@ def evaluate_attempt_intervention_followup(
         ai_client=ai_client,
         clock=clock,
     )
+    # §6.5 re-probe trigger: repeated prediction errors on a settled LO signal
+    # model misspecification and reopen probing (live path only, never replay).
+    from learnloop.services.probe_episodes import maybe_reprobe_for_predictive_failure
+
+    maybe_reprobe_for_predictive_failure(
+        vault, repository, result.learning_object_id, clock=clock
+    )
 
     debug_payload = result.debug_payload or {}
     facet_targets = _facet_targets_from_debug(debug_payload)
@@ -469,6 +499,7 @@ def evaluate_attempt_intervention_followup(
     ]
     lo_independent_evidence_mass = sum(state.independent_evidence_mass for state in aggregate_facet_states)
     probe_state = repository.probe_state(result.learning_object_id)
+    open_episode = repository.open_probe_episode(result.learning_object_id)
     probe_unfamiliar_probability = _probe_unfamiliar_probability(
         vault,
         repository,
@@ -501,7 +532,8 @@ def evaluate_attempt_intervention_followup(
         session_interventions_for_lo=_session_interventions_for_lo(
             repository, session_id, result.learning_object_id
         ),
-        probe_phase_active=probe_state is not None and probe_state.status == "in_progress",
+        probe_phase_active=(probe_state is not None and probe_state.status == "in_progress")
+        or (open_episode is not None and open_episode.status == "in_progress"),
         lo_independent_evidence_mass=lo_independent_evidence_mass,
         lo_raw_attempt_count=len(
             repository.list_recent_attempts_by_learning_object(result.learning_object_id, limit=1000)
@@ -517,9 +549,26 @@ def _probe_unfamiliar_probability(
     result: Any,
     probe_state: Any,
 ) -> float | None:
-    if probe_state is None or probe_state.hypothesis_set_id is None:
-        return None
     if float(result.correctness or 0.0) >= 1.0:
+        return None
+    # Probe redesign: live evidence flows through diagnostic episodes; the
+    # legacy lo_probe_state branch below serves only frozen pre-redesign phases.
+    episode = repository.open_probe_episode(result.learning_object_id)
+    if episode is not None and episode.hypothesis_set_id is not None:
+        from learnloop.services.probe_episodes import episode_posterior
+        from learnloop.services.probe_hypotheses import H_OTHER, H_UNFAMILIAR
+
+        posterior = episode_posterior(vault, repository, episode)
+        if posterior is not None:
+            # The reserved open-set mass counts toward "unfamiliar" here: both
+            # states mean the learner is not demonstrably capable and route to
+            # the same foundational/diagnostic intervention. Without it the
+            # richer episode set mechanically dilutes the legacy-calibrated
+            # threshold this trigger was tuned against.
+            return float(
+                posterior.posterior.get(H_UNFAMILIAR, 0.0) + posterior.posterior.get(H_OTHER, 0.0)
+            )
+    if probe_state is None or probe_state.hypothesis_set_id is None:
         return None
     if probe_state.status != "in_progress":
         completed_at = parse_utc(probe_state.completed_at)

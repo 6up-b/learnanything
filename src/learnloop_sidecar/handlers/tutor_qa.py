@@ -5,15 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.codex.client import CodexUnavailable
-from learnloop.ids import new_ulid
+from learnloop.services.promotions import PromotionError
+from learnloop.services.promotions import (
+    promote_tutor_question as promote_tutor_question_service,
+)
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
 from learnloop.services.tutor_qa import (
     QuestionLimitReached,
     TutorQAError,
     ask_question,
+    build_tutor_qa_note,
     question_usage,
 )
-from learnloop.vault.loader import add_note
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -29,6 +32,17 @@ class AskTutorQuestionInput(ParamsModel):
     note_id: str | None = None
     session_id: str | None = None
     seconds_into_attempt: float | None = None
+    # §13.4 generating-process context (probe redesign Checkpoint 4.6): all
+    # optional; persisted verbatim on the question event for later contextual
+    # likelihood calibration.
+    preceding_tutor_move: str | None = None
+    scaffold_level: str | None = None
+    warning_state: str | None = None
+    learner_mode: str | None = None
+    question_opportunity: str | None = None
+    hints_used_before: int | None = None
+    direct_explanation_request: bool = False
+    attempt_progress: str | None = None
 
 
 class RateTutorAnswerInput(ParamsModel):
@@ -47,6 +61,12 @@ class GetTutorTranscriptInput(ParamsModel):
     attempt_id: str | None = None
     note_id: str | None = None
     session_id: str | None = None
+
+
+class PromoteTutorQuestionInput(ParamsModel):
+    event_id: str
+    intent: str
+    subject_id: str | None = None
 
 
 @method("ask_tutor_question", AskTutorQuestionInput)
@@ -82,6 +102,16 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             note_id=params.note_id,
             session_id=params.session_id,
             seconds_into_attempt=params.seconds_into_attempt,
+            question_context={
+                "preceding_tutor_move": params.preceding_tutor_move,
+                "scaffold_level": params.scaffold_level,
+                "warning_state": params.warning_state,
+                "learner_mode": params.learner_mode,
+                "question_opportunity": params.question_opportunity,
+                "hints_used_before": params.hints_used_before,
+                "direct_explanation_request": params.direct_explanation_request,
+                "attempt_progress": params.attempt_progress,
+            },
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -125,45 +155,66 @@ def save_tutor_answer_note(ctx: SidecarContext, params: SaveTutorAnswerNoteInput
     if event is None:
         raise SidecarError("not_found", f"Question event {params.event_id} was not found.")
 
-    related_los: list[str] = []
-    subjects: list[str] = []
-    item_id = event.get("practice_item_id")
-    if item_id is not None:
-        item = vault.practice_items.get(item_id)
-        if item is not None:
-            related_los.append(item.learning_object_id)
-            subjects = vault.subjects_for_item(item)
-    source_note_id = event.get("note_id")
-    if source_note_id is not None:
-        source_note = vault.notes.get(source_note_id)
-        if source_note is not None:
-            related_los.extend(source_note.related_los)
-            subjects = subjects or list(source_note.subjects)
-
-    subject_id = params.subject_id or (subjects[0] if subjects else None)
-    if subject_id is None and vault.subjects:
-        subject_id = sorted(vault.subjects)[0]
-    if subject_id is None:
-        raise SidecarError("invalid_request", "No subject available to file the note under.")
-
-    title = _note_title(event["question_md"])
-    body = (
-        f"**Q ({event['context']}):** {event['question_md'].strip()}\n\n"
-        f"**A:** {(event.get('answer_md') or '').strip()}\n"
-    )
+    # A turn already saved as a note returns the existing note (idempotent);
+    # the saved_note_id back-link is persisted server-side (migration 027) so the
+    # "saved" UI state survives a remount.
     try:
-        path = add_note(
-            vault.root,
-            subject_id,
-            f"tutor_qa_{new_ulid().lower()}",
-            title,
-            body,
-            related_los=sorted(set(related_los)),
-        )
+        result = build_tutor_qa_note(vault, repository, event, subject_id=params.subject_id)
+    except TutorQAError as exc:
+        raise SidecarError("invalid_request", str(exc)) from exc
     except ValueError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
-    ctx.reload(maintenance=False)
-    return versioned({"note_id": path.stem, "path": str(path)})
+    if not result["reused"]:
+        ctx.reload(maintenance=False)
+    return versioned({"note_id": result["note_id"], "path": result["path"], "reused": result["reused"]})
+
+
+@method("promote_tutor_question", PromoteTutorQuestionInput)
+def promote_tutor_question(ctx: SidecarContext, params: PromoteTutorQuestionInput) -> dict[str, Any]:
+    """Promote an answered tutor turn to practice/gap (spec_tutor_promotion.md §2/§8 W4).
+
+    Reuses ``ask_tutor_question``'s provider-resolution path: the Step-0
+    analysis and (practice route) authoring generation both need a live
+    provider, so an unready provider fails fast here with the same
+    ``provider_unavailable`` shape the ask flow uses, instead of surfacing a
+    confusing error from deep inside the service.
+    """
+    vault, repository = ctx.require_vault()
+    if ctx.vault_root is None:
+        raise SidecarError("vault_not_loaded", "No vault has been initialized.")
+    provider_name, runtime, client = ready_tutor_qa_provider(vault)
+    if not runtime.ready or client is None:
+        raise SidecarError(
+            "provider_unavailable",
+            f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
+            retryable=True,
+        )
+    # Detect idempotent replay before calling the service so we don't reload the
+    # vault for a turn that was already promoted (mirrors save_tutor_answer_note's
+    # `reused` check) — nothing changed on disk on a replay.
+    already_promoted = repository.question_promotion(params.event_id) is not None
+    try:
+        result = promote_tutor_question_service(
+            ctx.vault_root,
+            client,
+            event_id=params.event_id,
+            intent=params.intent,
+            subject_id=params.subject_id,
+        )
+    except PromotionError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    except (CodexUnavailable, TimeoutError) as exc:
+        raise SidecarError(
+            "provider_unavailable",
+            f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
+            retryable=True,
+        ) from exc
+    # Reload when this call actually applied entities (auto_apply route) or
+    # materialized a grounding note (both write vault files), mirroring how
+    # save_tutor_answer_note reloads only on a fresh (non-reused) note.
+    if not already_promoted and (result.get("route") == "auto_apply" or result.get("saved_note_id")):
+        ctx.reload(maintenance=False)
+    return versioned(result)
 
 
 @method("get_tutor_transcript", GetTutorTranscriptInput)
@@ -196,11 +247,12 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
         events = repository.question_events(
             context="library", note_id=params.note_id, answer_status="answered"
         )
+    # Attach persisted promotion state per turn so the overlay renders result
+    # chips instead of the promote button on remount (spec §2 idempotency).
+    # saved_note_id already rides along on each event row (migration 027).
+    promotions = repository.question_promotions_for_events(
+        [event["id"] for event in events]
+    )
+    for event in events:
+        event["promotion"] = promotions.get(event["id"])
     return versioned({"events": events, "remaining": max(0, limit - used)})
-
-
-def _note_title(question_md: str) -> str:
-    text = " ".join(question_md.split())
-    if len(text) <= 60:
-        return text
-    return text[:59].rstrip() + "…"

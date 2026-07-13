@@ -2584,6 +2584,354 @@ def fit_deactivate_command(
     typer.echo(f"Deactivated {count} fitted set(s) for scope {scope}; defaults now apply.")
 
 
+@app.command("probe-coverage")
+def probe_coverage_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+) -> None:
+    """Hypothesis-contrast / family coverage report (probe redesign §9.5).
+
+    For every decision-relevant hypothesis distinction an episode could
+    instantiate, checks that at least two signature-distinct family templates
+    can separate it — one direct/minimal and one shifted instrument.
+    """
+
+    from learnloop.services.probe_coverage import family_coverage_report
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = family_coverage_report(loaded, repository)
+    if json_output:
+        typer.echo(_dump(report))
+        return
+    totals = report["totals"]
+    typer.echo(
+        f"LOs: {totals['learning_objects']} ({totals['learning_objects_with_bindings']} with instrument bindings)"
+    )
+    typer.echo(
+        f"Hypothesis contrasts: {totals['contrasts']} total, "
+        f"{totals['contrasts_fully_covered']} fully covered, "
+        f"{totals['contrasts_uncovered']} with no separating instrument"
+    )
+    if totals["integrative_gaps"]:
+        typer.echo(f"Integrative/long-form family gaps: {totals['integrative_gaps']} LOs")
+    for entry in report["learning_objects"]:
+        if not entry["uncovered_contrasts"] and not entry["needs_integrative_family"]:
+            continue
+        typer.echo(f"- {entry['learning_object_id']}:")
+        for pair in entry["uncovered_contrasts"]:
+            typer.echo(f"    uncovered: {pair[0]} vs {pair[1]}")
+        if entry["needs_integrative_family"]:
+            typer.echo("    missing integrative/long-form family")
+
+
+@app.command("probe-instances")
+def probe_instances_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    learning_object_id: Annotated[str | None, typer.Option("--lo", help="Only this Learning Object's pending episode.")] = None,
+    seed: Annotated[int, typer.Option("--seed", help="Deterministic generation seed.")] = 0,
+    no_llm: Annotated[bool, typer.Option("--no-llm", help="Skip LLM surfaces; use only parametric templates.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON summary.")] = False,
+) -> None:
+    """Resolve pending diagnostic episodes through instance generation from
+    admitted family/card bindings (probe redesign §10). Surfaces come from the
+    configured AI provider when available (§9.2) and fall back to the
+    parametric templates."""
+
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.services.probe_instance_generation import generate_instances_for_episode
+    from learnloop_sidecar.handlers.ai_providers import client_for_provider, runtime_for_provider
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    ai_client = None
+    if not no_llm and loaded.config.probe.generation.llm_surfaces:
+        provider_name = provider_for_task(loaded.config, "authoring").provider_name
+        runtime = runtime_for_provider(loaded, provider_name)
+        if runtime.ready:
+            ai_client = client_for_provider(loaded, provider_name)
+    summaries = []
+    for lo_id, episode in sorted(repository.open_probe_episodes().items()):
+        if episode.status != "pending_items":
+            continue
+        if learning_object_id is not None and lo_id != learning_object_id:
+            continue
+        summary = generate_instances_for_episode(
+            repository, loaded, episode.id, seed=seed, ai_client=ai_client
+        )
+        summaries.append(summary.as_dict())
+        loaded = load_vault(root)
+    if json_output:
+        typer.echo(_dump({"version": 1, "episodes": summaries}))
+        return
+    if not summaries:
+        typer.echo("No pending diagnostic episodes to resolve.")
+        return
+    for summary in summaries:
+        generated = summary["generated"]
+        typer.echo(
+            f"{summary['learning_object_id']}: {len(generated)} instances "
+            f"({'unparked' if summary['episode_unparked'] else 'still pending review'})"
+        )
+        for instance in generated:
+            typer.echo(
+                f"    {instance['practice_item_id']} [{instance['family_template_id']} "
+                f"v{instance['family_template_version']}, {instance['review_status']}, "
+                f"{instance.get('generator_id', 'probe_family_parametric')}]"
+            )
+
+
+@app.command("probe-audit")
+def probe_audit_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+) -> None:
+    """Probe pilot audit (probe redesign §13, Checkpoint 4): predicted-vs-realized
+    EIG, negative realized information, time calibration, cross-surface
+    replication, downstream outcomes, regrade agreement, evidence-source
+    separation, shadow-policy comparison, and the replay determinism check."""
+
+    from learnloop.services.probe_audit import pilot_report
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = pilot_report(loaded, repository)
+    _write_or_echo_report(report, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    eig = report["eig_calibration"]
+    typer.echo(
+        f"EIG: {eig['observations']} qualifying observations, "
+        f"expected {eig['mean_expected_eig']} vs realized {eig['mean_realized_information']} nats, "
+        f"negative-information rate {eig['negative_information_rate']}"
+    )
+    time_report = report["time_calibration"]
+    typer.echo(
+        f"Time: {time_report['observations']} observations, "
+        f"mean error {time_report['mean_error_seconds']}s "
+        f"(abs {time_report['mean_absolute_error_seconds']}s)"
+    )
+    replication = report["cross_surface_replication"]
+    typer.echo(
+        f"Cross-surface replication: {replication['replicated']}/"
+        f"{replication['episodes_with_cross_surface_pairs']} "
+        f"(rate {replication['replication_rate']})"
+    )
+    downstream = report["downstream_outcomes"]
+    typer.echo(
+        f"Downstream (proxy): {downstream['episodes_with_before_and_after']} measurable episodes, "
+        f"mean success delta {downstream['mean_success_delta']}"
+    )
+    determinism = report["replay_determinism"]
+    failures = len(determinism["failures"])
+    typer.echo(
+        f"Replay determinism: {determinism['episodes_checked']} episodes checked — "
+        + ("OK" if determinism["deterministic"] else f"{failures} FAILURES")
+    )
+
+
+@app.command("probe-regrade")
+def probe_regrade_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    limit: Annotated[int, typer.Option("--limit", min=1, help="Maximum observations to regrade.")] = 10,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON summary.")] = False,
+) -> None:
+    """Re-grade a sample of probe observations and record grader agreement per
+    family and grader version (probe redesign §7.6, Checkpoint 4.4).
+    Non-destructive: original evidence is never superseded."""
+
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.services.probe_audit import grading_confusion_report, run_probe_regrade_checks
+    from learnloop_sidecar.handlers.ai_providers import client_for_provider, runtime_for_provider
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    provider_name = provider_for_task(loaded.config, "grading").provider_name
+    runtime = runtime_for_provider(loaded, provider_name)
+    client = client_for_provider(loaded, provider_name) if runtime.ready else None
+    if client is None:
+        typer.echo(f"Grading provider {provider_name} is unavailable; cannot regrade.")
+        raise typer.Exit(code=1)
+    summary = run_probe_regrade_checks(loaded, repository, client, limit=limit)
+    report = grading_confusion_report(repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, "run": summary, "confusion": report}))
+        return
+    typer.echo(
+        f"Regraded {summary['recorded']}/{summary['attempted']} sampled observations "
+        f"({summary['failed']} failed)."
+    )
+    for key, scope in report["scopes"].items():
+        typer.echo(f"- {key}: agreement {scope['agreement_rate']} over {scope['checks']} checks")
+
+
+@app.command("probe-families")
+def probe_families_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    promote: Annotated[str | None, typer.Option("--promote", help="Promote family:version to trusted (gates must recommend it unless --force).")] = None,
+    retire: Annotated[str | None, typer.Option("--retire", help="Retire family:version.")] = None,
+    revise: Annotated[str | None, typer.Option("--revise", help="Create the next draft version of a family id.")] = None,
+    force: Annotated[bool, typer.Option("--force", help="Apply --promote even when the metric gates do not recommend it.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON overview.")] = False,
+) -> None:
+    """Family-version lifecycle (probe redesign §9.7, Checkpoint 4.7):
+    metric-gated trusted/revise/retire transitions with a persisted audit trail.
+    Without flags, prints every family version's status and recommendation."""
+
+    from learnloop.services.probe_lifecycle import (
+        LifecycleTransitionError,
+        apply_family_lifecycle_transition,
+        evaluate_family_lifecycle,
+        family_lifecycle_overview,
+        revise_family_version,
+    )
+
+    def parse_ref(ref: str) -> tuple[str, int]:
+        family_id, _, version = ref.partition(":")
+        if not family_id or not version.isdigit():
+            raise typer.BadParameter(f"expected family:version, got {ref!r}")
+        return family_id, int(version)
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+
+    try:
+        if promote is not None:
+            family_id, version = parse_ref(promote)
+            assessment = evaluate_family_lifecycle(loaded, repository, family_id, version)
+            if assessment.recommendation != "promote_to_trusted" and not force:
+                typer.echo(
+                    f"Refusing to promote {family_id} v{version}: recommendation is "
+                    f"{assessment.recommendation} ({'; '.join(assessment.reasons)}). Use --force to override."
+                )
+                raise typer.Exit(code=1)
+            apply_family_lifecycle_transition(
+                repository,
+                family_id=family_id,
+                version=version,
+                to_status="trusted",
+                reason={**assessment.as_dict(), "forced": force},
+            )
+            typer.echo(f"Promoted {family_id} v{version} to trusted.")
+            return
+        if retire is not None:
+            family_id, version = parse_ref(retire)
+            assessment = evaluate_family_lifecycle(loaded, repository, family_id, version)
+            apply_family_lifecycle_transition(
+                repository,
+                family_id=family_id,
+                version=version,
+                to_status="retired",
+                reason=assessment.as_dict(),
+            )
+            typer.echo(f"Retired {family_id} v{version}. Historical observations replay unchanged.")
+            return
+        if revise is not None:
+            new_version = revise_family_version(repository, revise)
+            typer.echo(f"Created {revise} v{new_version} as draft.")
+            return
+    except LifecycleTransitionError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+
+    assessments = family_lifecycle_overview(loaded, repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, "families": [a.as_dict() for a in assessments]}))
+        return
+    if not assessments:
+        typer.echo("No probe family versions stored.")
+        return
+    for assessment in assessments:
+        metrics = assessment.metrics
+        typer.echo(
+            f"{assessment.family_id} v{assessment.version} [{assessment.status}] -> "
+            f"{assessment.recommendation} "
+            f"(real n={metrics.real_sample_size}, obs={metrics.eligible_observations}, "
+            f"neg-info={metrics.negative_information_rate}, "
+            f"regrade={metrics.regrade_agreement} over {metrics.regrade_checks})"
+        )
+        for reason in assessment.reasons:
+            typer.echo(f"    {reason}")
+
+
+@app.command("probe-gate")
+def probe_gate_command(
+    learning_object_id: Annotated[str, typer.Argument(help="Learning Object whose family/card bindings to gate.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    family: Annotated[str | None, typer.Option("--family", help="Only this family template id.")] = None,
+    trials: Annotated[int, typer.Option("--trials", min=1, max=10, help="Planted trials per hypothesis.")] = 3,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON results.")] = False,
+) -> None:
+    """Run the §9.6 family admission gate with LLM planted-trial traces for one
+    Learning Object's applicable family/card bindings. Outcomes are recorded
+    under evidence_source='synthetic_gate' only — structural and simulation
+    validity, never real-learner calibration."""
+
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.services.probe_instance_generation import (
+        applicable_families,
+        run_llm_family_gate,
+    )
+    from learnloop_sidecar.handlers.ai_providers import client_for_provider, runtime_for_provider
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    learning_object = loaded.learning_objects.get(learning_object_id)
+    if learning_object is None:
+        typer.echo(f"Unknown Learning Object {learning_object_id}.")
+        raise typer.Exit(code=1)
+    provider_name = provider_for_task(loaded.config, "authoring").provider_name
+    runtime = runtime_for_provider(loaded, provider_name)
+    client = client_for_provider(loaded, provider_name) if runtime.ready else None
+    if client is None:
+        typer.echo(f"AI provider {provider_name} is unavailable; the gate needs planted trials.")
+        raise typer.Exit(code=1)
+
+    results: list[dict[str, Any]] = []
+    for template in applicable_families(loaded, learning_object):
+        if family is not None and template.id != family:
+            continue
+        gate = run_llm_family_gate(
+            loaded, repository, learning_object_id, template, client, trials_per_hypothesis=trials
+        )
+        if gate is None:
+            results.append({"family_template_id": template.id, "version": template.version, "ran": False})
+            continue
+        results.append(
+            {
+                "family_template_id": template.id,
+                "version": template.version,
+                "ran": True,
+                "accepted": gate.accepted,
+                "reasons": gate.reasons,
+                "reverse_match_accuracy": gate.reverse_match_accuracy,
+            }
+        )
+    if json_output:
+        typer.echo(_dump({"version": 1, "learning_object_id": learning_object_id, "families": results}))
+        return
+    if not results:
+        typer.echo("No applicable family templates for this Learning Object.")
+        return
+    for entry in results:
+        if not entry["ran"]:
+            typer.echo(f"{entry['family_template_id']} v{entry['version']}: skipped (cannot bind or no trials)")
+            continue
+        verdict = "ACCEPTED" if entry["accepted"] else "REJECTED"
+        typer.echo(f"{entry['family_template_id']} v{entry['version']}: {verdict}")
+        for slot, acc in sorted(entry["reverse_match_accuracy"].items()):
+            typer.echo(f"    reverse-match {slot}: {acc:.2f}")
+        for reason in entry["reasons"]:
+            typer.echo(f"    {reason}")
+
+
 sim_app = typer.Typer(
     no_args_is_help=True,
     help="Synthetic-student simulation harness and config sensitivity sweeps.",
@@ -2621,6 +2969,187 @@ def _write_or_echo_report(payload: dict, *, json_output: bool, output: Path | No
         typer.echo(f"Wrote report to {output}")
     elif json_output:
         typer.echo(_dump(payload))
+
+
+@sim_app.command("probe-validation")
+def sim_probe_validation_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root (copied per run, never written).")] = None,
+    seeds: Annotated[int, typer.Option("--seeds", min=1, help="Runs per planted type.")] = 5,
+    planted: Annotated[str | None, typer.Option("--planted", help="Comma-separated planted types (default: all).")] = None,
+    learning_object_id: Annotated[str | None, typer.Option("--lo", help="Target Learning Object (default: first with an open episode).")] = None,
+    label_threshold: Annotated[float, typer.Option("--label-threshold", help="Per-type classification accuracy gate.")] = 0.6,
+    action_threshold: Annotated[float, typer.Option("--action-threshold", help="Per-type instructional-action accuracy gate.")] = 0.6,
+    sets: Annotated[list[str] | None, typer.Option("--set", help="Config override param.path=value (repeatable).")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+) -> None:
+    """Checkpoint-3 episode validation against planted latent hypothesis types.
+
+    Drives the real selection/presentation/observation/completion loop against
+    planted `surface_only`, `confuses_with`, `schema_without_transfer`,
+    `unfamiliar`, and `robust_initial_grasp` students, and gates on per-type
+    classification and instructional-action accuracy (the Checkpoint-4 entry
+    gate of spec_probe_eig_redesign.md).
+    """
+
+    import tempfile
+
+    from learnloop.sim.diagnostic_validation import PLANTED_TYPES, run_probe_validation
+
+    source_root = _root(vault)
+    planted_types = (
+        tuple(part.strip() for part in planted.split(",") if part.strip())
+        if planted
+        else PLANTED_TYPES
+    )
+    workdir = Path(tempfile.mkdtemp(prefix="learnloop-probe-validation-"))
+    report = run_probe_validation(
+        source_root,
+        workdir,
+        planted_types=planted_types,
+        seeds=tuple(range(11, 11 + seeds)),
+        learning_object_id=learning_object_id,
+        config_overrides=_parse_sim_sets(sets),
+    )
+    payload = report.as_dict()
+    payload["passes"] = report.passes(
+        label_accuracy_threshold=label_threshold, action_accuracy_threshold=action_threshold
+    )
+    _write_or_echo_report(payload, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    typer.echo(f"Run dir: {workdir}")
+    for planted_type, summary in payload["by_planted"].items():
+        typer.echo(
+            f"{planted_type}: label {summary['label_accuracy']:.2f}, "
+            f"action {summary['action_accuracy']:.2f}, "
+            f"mean observations {summary['mean_observations']:.1f} ({summary['runs']} runs)"
+        )
+    typer.echo(
+        f"Overall: label {payload['overall_label_accuracy']:.2f}, "
+        f"action {payload['overall_action_accuracy']:.2f} — "
+        f"{'PASS' if payload['passes'] else 'FAIL'} at label>={label_threshold} action>={action_threshold}"
+    )
+    if not payload["passes"]:
+        raise typer.Exit(code=1)
+
+
+@sim_app.command("probe-pilot")
+def sim_probe_pilot_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Fixture vault root (copied per run, never written).")] = None,
+    seeds: Annotated[int, typer.Option("--seeds", min=1, help="Runs per planted type.")] = 3,
+    planted: Annotated[str | None, typer.Option("--planted", help="Comma-separated planted types (default: all).")] = None,
+    learning_object_id: Annotated[str | None, typer.Option("--lo", help="Target Learning Object.")] = None,
+    label_threshold: Annotated[float, typer.Option("--label-threshold", help="Checkpoint 4 entry gate: per-type classification accuracy.")] = 0.6,
+    action_threshold: Annotated[float, typer.Option("--action-threshold", help="Checkpoint 4 entry gate: per-type action accuracy.")] = 0.6,
+    sets: Annotated[list[str] | None, typer.Option("--set", help="Config override param.path=value (repeatable).")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+) -> None:
+    """Checkpoint-4 fixture-vault pilot: enforce the Checkpoint-3 sim entry
+    gate, drive the full episode accounting against planted students, then run
+    the §13 audit (predicted-vs-realized EIG, negative information, time
+    calibration, cross-surface replication, shadow policies) and the replay
+    determinism check on every run vault."""
+
+    import tempfile
+
+    from learnloop.services.probe_audit import pilot_report
+    from learnloop.sim.diagnostic_validation import PLANTED_TYPES, run_probe_validation
+
+    source_root = _root(vault)
+    planted_types = (
+        tuple(part.strip() for part in planted.split(",") if part.strip())
+        if planted
+        else PLANTED_TYPES
+    )
+    workdir = Path(tempfile.mkdtemp(prefix="learnloop-probe-pilot-"))
+    validation = run_probe_validation(
+        source_root,
+        workdir,
+        planted_types=planted_types,
+        seeds=tuple(range(11, 11 + seeds)),
+        learning_object_id=learning_object_id,
+        config_overrides=_parse_sim_sets(sets),
+    )
+    entry_gate_passes = validation.passes(
+        label_accuracy_threshold=label_threshold, action_accuracy_threshold=action_threshold
+    )
+
+    # Audit every run vault the validation produced; aggregate determinism.
+    audits: list[dict] = []
+    deterministic = True
+    for run_root in sorted(workdir.glob("run_*")):
+        try:
+            run_vault = load_vault(run_root)
+        except Exception:
+            continue
+        run_repository = Repository(VaultPaths(run_vault.root, run_vault.config).sqlite_path)
+        audit = pilot_report(run_vault, run_repository)
+        audit["run"] = run_root.name
+        deterministic = deterministic and audit["replay_determinism"]["deterministic"]
+        audits.append(audit)
+
+    payload = {
+        "version": 1,
+        "entry_gate": {
+            "passes": entry_gate_passes,
+            "label_threshold": label_threshold,
+            "action_threshold": action_threshold,
+            **validation.as_dict(),
+        },
+        "replay_deterministic": deterministic,
+        "audits": audits,
+    }
+    _write_or_echo_report(payload, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    typer.echo(f"Run dir: {workdir}")
+    typer.echo(
+        f"Entry gate (Checkpoint 3 sim validation): {'PASS' if entry_gate_passes else 'FAIL'} "
+        f"at label>={label_threshold} action>={action_threshold}"
+    )
+    total_observations = sum(a["eig_calibration"]["observations"] for a in audits)
+    negative = sum(a["eig_calibration"]["negative_information_count"] for a in audits)
+    typer.echo(
+        f"Audited {len(audits)} run vaults: {total_observations} qualifying observations, "
+        f"{negative} with negative realized information."
+    )
+    typer.echo(f"Replay determinism: {'OK' if deterministic else 'FAILED'}")
+    if not entry_gate_passes or not deterministic:
+        raise typer.Exit(code=1)
+
+
+@sim_app.command("benchmark-forgetting")
+def sim_benchmark_forgetting_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root (read-only).")] = None,
+    train_fraction: Annotated[float, typer.Option("--train-fraction", min=0.1, max=0.9, help="Temporal split point.")] = 0.7,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+) -> None:
+    """Offline DAS3H-style forgetting benchmark (probe redesign Checkpoint 5.6).
+
+    Fits a time-window logistic model on the vault's attempt history and
+    compares held-out next-attempt prediction against frequency baselines.
+    Report-only: never replaces durable state or facet mappings."""
+
+    from learnloop.sim.offline_benchmarks import run_forgetting_benchmark
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = run_forgetting_benchmark(repository, train_fraction=train_fraction)
+    _write_or_echo_report(report, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    if report["status"] != "ok":
+        typer.echo(f"{report['status']}: {report.get('examples', 0)} examples "
+                   f"(need {report.get('minimum_examples')})")
+        return
+    typer.echo(f"Train {report['train_examples']} / test {report['test_examples']} attempts.")
+    for name, metrics in report["results"].items():
+        typer.echo(f"- {name}: log loss {metrics['log_loss']}, Brier {metrics['brier']}")
+    typer.echo(f"Best by log loss: {report['best_by_log_loss']} (report-only; nothing auto-adopted)")
 
 
 @sim_app.command("run")

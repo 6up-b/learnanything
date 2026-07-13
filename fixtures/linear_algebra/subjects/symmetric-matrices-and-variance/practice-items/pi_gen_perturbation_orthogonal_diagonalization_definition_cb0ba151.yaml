@@ -1,0 +1,53 @@
+schema_version: 1
+id: pi_gen_perturbation_orthogonal_diagonalization_definition_cb0ba151
+learning_object_id: lo_orthogonal_diagonalization_definition
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - diagnostic_probe
+  - dont_know
+evidence_facets:
+  - eigenbasis_diagonalization
+evidence_weights:
+  eigenbasis_diagonalization: 1.0
+criterion_facet_weights: {}
+prompt: Restate and apply the key idea of Recognize and Build an Orthogonal 
+  Diagonalization using different notation or a different representation than 
+  the one you practiced with. Does the conclusion survive the change of surface?
+  Why?
+expected_answer: 'Grounded in the Learning Object summary: A matrix is orthogonally
+  diagonalizable when it has an orthonormal eigenbasis, allowing the factorization
+  A = QDQ^T with Q orthogonal and D diagonal.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance: 0.35
+scaffold_level:
+surface_family: perturbation_new_notation
+misconception_consistent_answer:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4.0
+      description: Response demonstrates the target idea with a decisive reason.
+      tier: core
+  fatal_errors:
+    - id: surface_bound_error
+      description: Answer reproduces the familiar surface and breaks on the 
+        shifted surface.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs: []
+created_at: '2026-07-13T16:30:58Z'
+updated_at: '2026-07-13T16:30:58Z'

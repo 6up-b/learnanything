@@ -1,0 +1,56 @@
+schema_version: 1
+id: pi_gen_perturbation_dot_product_alignment_for_embeddings_5e15f7be
+learning_object_id: lo_dot_product_alignment_for_embeddings
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - diagnostic_probe
+  - dont_know
+evidence_facets:
+  - alignment_interpretation
+evidence_weights:
+  alignment_interpretation: 1.0
+criterion_facet_weights: {}
+prompt: "For the learning object \"Interpret Dot Products As Vector Alignment,\" treat
+  these three feature-weight rows as embedding vectors:\n\n| item | novelty | rigor
+  | speed |\n|---|---:|---:|---:|\n| query q | 2 | -1 | 3 |\n| note A | 1 | 4 | 0
+  |\n| note B | 3 | -2 | 1 |\n\nUsing dot product alignment, compute q . A and q .
+  B. Which note is more aligned with the query, and why does this table-style representation
+  not change the alignment interpretation?"
+expected_answer: q . A = -2 and q . B = 11, so note B is more aligned with q. 
+  The representation as named feature columns does not change the 
+  multiply-then-sum dot product; the larger positive score indicates stronger 
+  same-direction alignment.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance: 0.35
+scaffold_level:
+surface_family: perturbation_llm_feature_table_projection
+misconception_consistent_answer:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4.0
+      description: Response demonstrates the target idea with a decisive reason.
+      tier: core
+  fatal_errors:
+    - id: surface_bound_error
+      description: Answer reproduces the familiar surface and breaks on the 
+        shifted surface.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs: []
+created_at: '2026-07-13T16:32:56Z'
+updated_at: '2026-07-13T16:32:56Z'

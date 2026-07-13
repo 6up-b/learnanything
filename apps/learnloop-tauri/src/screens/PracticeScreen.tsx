@@ -6,6 +6,7 @@ import type {
   CandidateErrorTypeDto,
   CommandError,
   PracticeItemDetail,
+  ProbeContractDto,
   RubricCriterionDto,
   SelfGradeErrorAttributionDto,
   SelfGradeInputDto,
@@ -14,7 +15,8 @@ import type {
   TeachBackTurnDto
 } from "../api/dto";
 import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui";
-import { modePillColor } from "../components/term";
+import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor } from "../components/term";
+import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
 
@@ -29,6 +31,7 @@ export function PracticeScreen({
   onFeedback,
   onBack,
   onCheckpointCleared,
+  onDraftSaved,
   onTeachBackActive,
   onInspect,
   onAsk,
@@ -47,6 +50,9 @@ export function PracticeScreen({
   onFeedback: (attemptId: string) => void;
   onBack: () => void;
   onCheckpointCleared: () => void;
+  /** Mirror of the last flushed draft, so App can restore it if this item is
+   *  re-opened before the backend checkpoint is reloaded. */
+  onDraftSaved: (draft: { practiceItemId: string; answerMd: string; hintsUsed: number }) => void;
   onTeachBackActive: (active: boolean) => void;
   onInspect: (id: string) => void;
   onAsk: (target: {
@@ -61,6 +67,14 @@ export function PracticeScreen({
   const [answer, setAnswer] = useState(restoredAnswer ?? "");
   const [hintsUsed, setHintsUsed] = useState(restoredHints ?? 0);
   const [submitting, setSubmitting] = useState(false);
+  // Probe redesign §12: when the LO has an in-progress diagnostic episode, the
+  // sidecar commits a presentation and this contract enforces measurement
+  // conditions — forced diagnostic_probe, no hints, no ask-tutor, deferred
+  // feedback, and a "stop diagnosing" escape into tutoring.
+  const [probe, setProbe] = useState<ProbeContractDto | null>(null);
+  // §7.1: the learner's committed answer confidence (1–5) during a diagnostic
+  // block. Logged-only — it never changes grading or scheduling.
+  const [answerConfidence, setAnswerConfidence] = useState<number | null>(null);
   const [fallbackRequired, setFallbackRequired] = useState(!gradingReady);
   // The self-grade panel is only revealed once the learner clicks Submit (and
   // grading actually needs a self-grade), never while they are still answering.
@@ -100,6 +114,7 @@ export function PracticeScreen({
   const openedAtMs = useRef(Date.now());
   useEffect(() => {
     openedAtMs.current = Date.now();
+    setAnswerConfidence(null);
   }, [practiceItemId]);
   const openAsk = () =>
     onAsk({
@@ -164,8 +179,17 @@ export function PracticeScreen({
         }));
       })
       .catch((error) => { if (!cancelled) onError(error.message); });
+    // Ask the sidecar for the probe measurement contract; committing the
+    // presentation is the serve event (§5.1). A failure here (older sidecar,
+    // parked episode) just means ordinary practice.
+    setProbe(null);
+    api.getProbeContract(practiceItemId, session.sessionId)
+      .then((contract) => {
+        if (!cancelled) setProbe(contract.active ? contract : null);
+      })
+      .catch(() => { if (!cancelled) setProbe(null); });
     return () => { cancelled = true; };
-  }, [practiceItemId, onError]);
+  }, [practiceItemId, session.sessionId, onError]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -177,8 +201,14 @@ export function PracticeScreen({
   useEffect(() => {
     return () => {
       void flushDraft().catch((error) => onError(error.message));
+      // Reported only on unmount — reporting on every debounced flush would
+      // loop the draft back through restoredAnswer while the user is typing.
+      if (!suppressDraftFlush.current && !teachBackRef.current) {
+        const { practiceItemId: id, answerMd, hintsUsed: hints } = latestDraft.current;
+        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints });
+      }
     };
-  }, [flushDraft, onError]);
+  }, [flushDraft, onError, onDraftSaved]);
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
@@ -225,6 +255,10 @@ export function PracticeScreen({
           // No hints in teach-back: the tutor could leak what the naive
           // student is probing for.
           onError("ask-tutor is disabled during a teach-back conversation.");
+        } else if (probeActive) {
+          // §5.5: Ask Tutor is disabled during a diagnostic block; the escape
+          // hatch is the explicit stop-and-teach action, which ends measurement.
+          onError("ask-tutor is disabled during a diagnostic check — use “stop diagnosing & teach me” instead.");
         } else {
           openAsk();
         }
@@ -266,8 +300,47 @@ export function PracticeScreen({
     return score;
   }, [item, selfGrade]);
 
+  const probeActive = Boolean(probe?.active && probe.presentationId);
+
   function revealHint() {
+    if (probeActive) {
+      // §5.5: authored hints are disabled during a diagnostic block.
+      onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
+      return;
+    }
     setHintsUsed((value) => Math.min(item?.hints.length ?? 0, value + 1));
+  }
+
+  async function stopDiagnosing() {
+    if (!item) return;
+    try {
+      await api.stopProbeDiagnosing(item.id);
+      setProbe(null);
+      // §3: measurement ends and tutoring begins.
+      openAsk();
+    } catch (error) {
+      onError((error as Error).message);
+    }
+  }
+
+  function routeAfterAttempt(result: {
+    attemptId: string;
+    probeEpisode?: { feedbackDeferred: boolean } | null;
+    probeBlockEnd?: { route: string | null } | null;
+  }) {
+    // §5.6/§5.7: feedback stays deferred while the diagnostic block is
+    // measuring; the block-end hook releases the block's withheld feedback,
+    // so a submission that closed the block routes straight to it.
+    if (probeActive && result.probeEpisode?.feedbackDeferred && !result.probeBlockEnd) {
+      onBack();
+      return;
+    }
+    onFeedback(result.attemptId);
+    if (result.probeBlockEnd?.route === "tutoring") {
+      // §12.1: the typed transition decision is persisted server-side; open
+      // the tutor so the diagnosed gap flows into instruction.
+      openAsk();
+    }
   }
 
   async function submit() {
@@ -287,16 +360,19 @@ export function PracticeScreen({
         sessionId: session.sessionId,
         practiceItemId: item.id,
         answerMd: answer,
-        attemptType: chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
+        // §12: an active diagnostic block forces the recording attempt type.
+        attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
         hintsUsed,
         primed,
+        probePresentationId: probeActive ? probe?.presentationId : null,
+        answerConfidence: probeActive ? answerConfidence : null,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
         selfGrade: fallbackRequired ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) } : null
       });
       suppressDraftFlush.current = true;
       await clearCheckpoint();
-      onFeedback(result.attemptId);
+      routeAfterAttempt(result);
     } catch (error) {
       const command = error as CommandError;
       if (command.code === "grading_fallback_required") {
@@ -315,10 +391,16 @@ export function PracticeScreen({
     if (!item || submitting) return;
     setSubmitting(true);
     try {
-      const result = await api.submitDontKnow({ sessionId: session.sessionId, practiceItemId: item.id, hintsUsed });
+      const result = await api.submitDontKnow({
+        sessionId: session.sessionId,
+        practiceItemId: item.id,
+        hintsUsed,
+        probePresentationId: probeActive ? probe?.presentationId : null,
+        answerConfidence: probeActive ? answerConfidence : null
+      });
       suppressDraftFlush.current = true;
       await clearCheckpoint();
-      onFeedback(result.attemptId);
+      routeAfterAttempt(result);
     } catch (error) {
       onError((error as Error).message);
     } finally {
@@ -360,9 +442,67 @@ export function PracticeScreen({
             <EntityLink id={item.id} onInspect={onInspect} />
             <EntityLink id={item.learningObjectId} onInspect={onInspect}>{item.learningObjectTitle}</EntityLink>
             <Pill tone={modePillColor(item.practiceMode)}>{item.practiceMode}</Pill>
+            {item.subject ? <Pill tone="slate">{item.subject}</Pill> : null}
             {fallbackRequired ? <Pill tone="amber">self-grade required</Pill> : <Pill tone="green">{gradingProvider} grading</Pill>}
           </div>
+          {probeActive ? (
+            <div className="hint-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <Pill tone="cyan">
+                Diagnostic · observation {probe?.observationNumber ?? 1} of up to {probe?.maximumObservations ?? 4}
+              </Pill>
+              <span style={{ fontSize: 12, opacity: 0.75 }}>
+                {probe?.capabilitySummary ?? "Checking what you already know."}{" "}
+                Feedback is delayed for measurement integrity; hints and ask-tutor are unavailable.
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, opacity: 0.85 }}>
+                <Faint>confidence</Faint>
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    className="queue-row"
+                    style={{
+                      padding: "0 6px",
+                      fontFamily: FONT_MONO,
+                      opacity: answerConfidence === level ? 1 : 0.45
+                    }}
+                    onClick={() => setAnswerConfidence(answerConfidence === level ? null : level)}
+                    title="how confident are you in your answer? (optional, 1 = guessing, 5 = certain)"
+                  >
+                    {level}
+                  </button>
+                ))}
+              </span>
+              <button
+                type="button"
+                className="queue-row"
+                style={{ marginLeft: "auto" }}
+                onClick={() => void stopDiagnosing()}
+                title="end the diagnostic block and start tutoring"
+              >
+                stop diagnosing &amp; teach me
+              </button>
+            </div>
+          ) : null}
+          {item.mastery != null ? (
+            <div className="queue-meta" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+              <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery</Faint>
+              <BlockBar value={item.mastery.mean} width={10} color={masteryTone(item.mastery.mean, COLOR)} />
+              <span style={{ fontFamily: FONT_MONO, color: COLOR.text }}>{item.mastery.mean.toFixed(2)}</span>
+              <Faint>±{Math.sqrt(item.mastery.variance).toFixed(2)}</Faint>
+            </div>
+          ) : null}
           <div className="markdown"><MarkdownMath value={item.prompt} /></div>
+          {item.sourceRefs.length > 0 ? (
+            <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, lineHeight: 1.6 }}>
+              {item.sourceRefs.map((ref, index) => (
+                <div key={`${ref.refId}:${index}`} title={ref.quote ?? undefined} style={{ display: "flex", gap: 8 }}>
+                  <span style={{ fontFamily: FONT_MONO }}>{ref.refId}</span>
+                  <span style={{ color: COLOR.textDim }}>{ref.locator ?? ref.path ?? ref.refType}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {isTeachBack ? (
             <TeachBackConversation
               key={item.id}
@@ -420,6 +560,11 @@ export function PracticeScreen({
       </div>
       <KeyBar keys={isTeachBack ? [
         { key: "^enter", label: "send" },
+        { key: "^s", label: "skip" },
+        { key: "esc", label: "today" }
+      ] : probeActive ? [
+        { key: "^enter", label: "submit" },
+        { key: "^d", label: "don't know" },
         { key: "^s", label: "skip" },
         { key: "esc", label: "today" }
       ] : [

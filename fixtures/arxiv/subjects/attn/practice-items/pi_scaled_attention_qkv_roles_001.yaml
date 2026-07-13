@@ -1,0 +1,104 @@
+schema_version: 1
+id: pi_scaled_attention_qkv_roles_001
+learning_object_id: lo_scaled_dot_product_attention
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - qkv_roles
+  - compatibility_weights
+  - value_weighting
+  - weighted_sum
+  - clarity
+evidence_weights:
+  clarity: 0.2
+  compatibility_weights: 0.2
+  qkv_roles: 0.2
+  value_weighting: 0.2
+  weighted_sum: 0.2
+criterion_facet_weights: {}
+prompt: In scaled dot-product attention, explain the different jobs of queries, 
+  keys, and values. Your answer should say which vectors determine the attention
+  weights and which vectors are mixed to produce the output.
+expected_answer: 'Queries and keys determine attention weights: each query is compared
+  with keys using dot products, the scores are scaled, and softmax turns them into
+  weights. Values carry the information that gets mixed; the output is the weighted
+  sum of value vectors using those attention weights.'
+difficulty: 0.27
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - qkv
+  - scaled_dot_product_attention
+hints:
+  - Ask which vectors are compared and which vectors carry the content to copy 
+    or blend.
+  - The attention pattern is made before values are mixed.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.5
+transfer_distance: 0.2
+scaffold_level: 0.2
+surface_family: qkv_role_explanation
+misconception_consistent_answer: Queries choose values directly, and keys are 
+  the vectors that get averaged into the output.
+repair_targets:
+  - qkv_roles
+  - compatibility_weights
+  - value_weighting
+  - weighted_sum
+  - fatal_keys_are_output_content
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: queries_keys_for_scores
+      points: 1.25
+      description: States that queries and keys are compared to produce 
+        compatibility scores.
+      tier: core
+    - id: scaling_and_softmax_weights
+      points: 1.0
+      description: Mentions scaling and softmax as the path from scores to 
+        attention weights.
+      tier: core
+    - id: values_are_mixed
+      points: 1.0
+      description: States that values are the vectors combined to produce the 
+        attention output.
+      tier: core
+    - id: weighted_sum_connection
+      points: 0.75
+      description: Explains that values are combined by a weighted sum using the
+        attention weights.
+      tier: core
+  fatal_errors:
+    - id: fatal_keys_are_output_content
+      description: Claims keys, rather than values, are the main vectors mixed 
+        to produce the output.
+      max_grade: 2
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+    - ref_type: note
+      ref_id: note_source_attention_is_all_you_need_fc4584d5
+      path: 
+        subjects/attn/notes/note_source_attention_is_all_you_need_fc4584d5.md
+      locator:
+      quote: Attention Is All You Need
+      quote_hash:
+created_at: '2026-07-13T01:00:13Z'
+updated_at: '2026-07-13T01:00:13Z'

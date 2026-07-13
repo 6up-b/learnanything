@@ -68,6 +68,7 @@ const GRAMMAR: Record<string, GrammarSpec> = {
   "add-note": { help: "Register a note for later proposal generation", args: [{ name: "subject_id", kind: "subject" }, { name: "note_id" }, { name: "title" }], flags: ["--body", "--file", "--source-type"] },
   "generate-practice": { help: "Generate post-probe practice proposals", args: [], flags: ["--subjects", "--target-items-per-lo", "--max-new-per-lo", "--max-los", "--from-goal", "--instructions", "--dry-run", "--json"] },
   "populate-goal": { help: "Generate + accept practice items covering an active goal's scope", args: [{ name: "goal_id", kind: "goal" }], flags: ["--target-items-per-lo", "--max-new-per-lo", "--instructions", "--review", "--dry-run", "--json"] },
+  calibrate: { help: "Start a calibration session — batched diagnostic blocks over a goal (or all open episodes)", args: [{ name: "goal_id", kind: "goal" }], flags: ["--minutes"] },
   "generate-diagnostics": { help: "Generate diagnostic follow-up practice proposals", args: [], flags: ["--learning-object-id", "--max-needs", "--instructions", "--ai-provider", "--dry-run", "--json"] },
   "observation-templates": { help: "List observation templates", args: [], flags: ["--all", "--json"] },
   "register-observation-template": { help: "Register an observation template", args: [], flags: ["--file", "--domain", "--version", "--title", "--active", "--inactive", "--json"] },
@@ -110,6 +111,7 @@ interface CmdCtx {
   session: SessionSnapshot | null;
   onGoto: (tab: TopTab) => void;
   onOpenPractice: (id: string) => void;
+  onOpenCalibration: (calibrationSessionId: string) => void;
   onInspect: (id: string) => void;
   onAsk: () => boolean;
   clearBuffer: () => void;
@@ -154,6 +156,8 @@ async function runCommand(name: string, args: string[], flags: Flags, ctx: CmdCt
       ctx.close();
       return [{ type: "log", text: `→ practice · ${args[0]}` }];
     }
+    case "calibrate":
+      return runCalibrate(args, flags, ctx);
     case "doctor":
       return runDoctor();
     case "proposals": {
@@ -248,6 +252,34 @@ async function runReview(_args: string[], flags: Flags, ctx: CmdCtx): Promise<Ou
     });
   }
   return rows;
+}
+
+// Start a §5.9 calibration session and enter the calibration screen. With a
+// goal id it batches episode blocks across that goal's facet scope; without
+// one it runs over the already-open probe episodes.
+async function runCalibrate(args: string[], flags: Flags, ctx: CmdCtx): Promise<OutputRow[]> {
+  if (!ctx.session) {
+    return [{ type: "err", text: "start a session first — calibration attaches to the active practice session" }];
+  }
+  let minutes: number | null = null;
+  if (typeof flags["--minutes"] === "string") {
+    const parsed = Number(flags["--minutes"]);
+    if (!Number.isInteger(parsed) || parsed <= 0) return [{ type: "err", text: "invalid --minutes" }];
+    minutes = parsed;
+  }
+  const progress = await api.startCalibrationSession({
+    sessionId: ctx.session.sessionId,
+    goalId: args[0] ?? null,
+    timeBudgetMinutes: minutes
+  });
+  ctx.onOpenCalibration(progress.calibrationSessionId);
+  ctx.close();
+  return [
+    {
+      type: "log",
+      text: `→ calibration · ${progress.calibrationSessionId} · ${progress.blocksPlanned} blocks planned · ${progress.timeBudgetMinutes}m budget`
+    }
+  ];
 }
 
 async function runWhy(args: string[]): Promise<OutputRow[]> {
@@ -625,6 +657,7 @@ export function CommandPalette({
   onClose,
   onGoto,
   onOpenPractice,
+  onOpenCalibration,
   onInspect,
   onAsk,
   onError
@@ -637,6 +670,7 @@ export function CommandPalette({
   onClose: () => void;
   onGoto: (tab: TopTab) => void;
   onOpenPractice: (id: string) => void;
+  onOpenCalibration: (calibrationSessionId: string) => void;
   onInspect: (id: string) => void;
   onAsk: () => boolean;
   onError: (message: string) => void;
@@ -745,6 +779,7 @@ export function CommandPalette({
         session,
         onGoto,
         onOpenPractice,
+        onOpenCalibration,
         onInspect,
         onAsk,
         clearBuffer: () => setBuffer([]),

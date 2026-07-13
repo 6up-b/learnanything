@@ -54,7 +54,16 @@ def test_series_reflects_evidence_arriving_over_time(tmp_path):
     ats = [point.at for point in series]
     assert ats == sorted(ats)
     payload = series[0].as_dict()
-    assert set(payload) == {"at", "on_track_count", "total", "on_track_fraction"}
+    assert set(payload) == {
+        "at",
+        "on_track_count",
+        "total",
+        "on_track_fraction",
+        "certified_count",
+        "examined_count",
+        "attainment_fraction",
+        "predicted_recall_mean",
+    }
 
 
 def test_series_caps_points_and_keeps_recent_window(tmp_path):

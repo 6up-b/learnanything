@@ -13,7 +13,9 @@ import type {
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
   PracticeItemDetail,
+  ProbeContractDto,
   ProposalsSnapshot,
+  StopProbeResultDto,
   QueueInput,
   QueueSnapshot,
   RecentIngestsSnapshot,
@@ -34,11 +36,18 @@ import type {
   TutorTranscriptInput,
   TutorTranscriptSnapshot,
   TutorSaveNoteResult,
+  PromotionIntent,
+  PromoteTutorQuestionResult,
   StartTeachBackInput,
   StartTeachBackResult,
   SubmitTeachBackTurnInput,
   TeachBackTurnResult,
+  BeginProbeDialogueResult,
+  CalibrationSessionProgressDto,
   CreateGoalInput,
+  EndProbeDialogueResult,
+  NextProbeDialogueTurnResult,
+  RecordProbeDialogueTurnResult,
   CreateGoalResult,
   ExamAnswerResult,
   ExamReportSnapshot,
@@ -50,6 +59,7 @@ import type {
   GoalReportSnapshot,
   GoalSeriesSnapshot,
   GoalsListSnapshot,
+  StartCalibrationSessionInput,
 } from "./dto";
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -95,6 +105,10 @@ export const api = {
     call<SchedulerExplanationDto>("explain_practice_item", { practiceItemId }),
   openQueueItem: (practiceItemId: string) => call<PracticeItemDetail>("open_queue_item", { practiceItemId }),
   getPracticeItem: (practiceItemId: string) => call<PracticeItemDetail>("get_practice_item", { practiceItemId }),
+  getProbeContract: (practiceItemId: string, sessionId?: string) =>
+    call<ProbeContractDto>("get_probe_contract", { practiceItemId, sessionId: sessionId ?? null }),
+  stopProbeDiagnosing: (practiceItemId: string) =>
+    call<StopProbeResultDto>("stop_probe_diagnosing", { practiceItemId }),
   savePracticeDraft: (input: {
     sessionId: string;
     practiceItemId: string;
@@ -107,6 +121,8 @@ export const api = {
     practiceItemId: string;
     hintsUsed: number;
     latencySeconds?: number | null;
+    probePresentationId?: string | null;
+    answerConfidence?: number | null;
   }) => call<AttemptResultDto>("submit_dont_know", { input }),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     call<QueueSnapshot>("skip_practice_item", { input }),
@@ -192,6 +208,8 @@ export const api = {
     }),
   getTutorTranscript: (input: TutorTranscriptInput) =>
     call<TutorTranscriptSnapshot>("get_tutor_transcript", { input }),
+  promoteTutorQuestion: (eventId: string, intent: PromotionIntent) =>
+    call<PromoteTutorQuestionResult>("promote_tutor_question", { input: { eventId, intent } }),
   startTeachBack: (input: StartTeachBackInput) =>
     call<StartTeachBackResult>("start_teach_back", { input }),
   submitTeachBackTurn: (input: SubmitTeachBackTurnInput) =>
@@ -209,5 +227,19 @@ export const api = {
   startExam: (goalId: string) => call<ExamSessionSnapshot>("start_exam", { input: { goalId } }),
   submitExamAnswer: (sessionId: string, practiceItemId: string, answerMd: string) =>
     call<ExamAnswerResult>("submit_exam_answer", { input: { sessionId, practiceItemId, answerMd } }),
-  finishExam: (sessionId: string) => call<ExamReportSnapshot>("finish_exam", { input: { sessionId } })
+  finishExam: (sessionId: string) => call<ExamReportSnapshot>("finish_exam", { input: { sessionId } }),
+  startCalibrationSession: (input: StartCalibrationSessionInput) =>
+    call<CalibrationSessionProgressDto>("start_calibration_session", { input }),
+  getCalibrationSession: (calibrationSessionId: string) =>
+    call<CalibrationSessionProgressDto>("get_calibration_session", { calibrationSessionId }),
+  stopCalibrationSession: (calibrationSessionId: string) =>
+    call<CalibrationSessionProgressDto>("stop_calibration_session", { calibrationSessionId }),
+  beginProbeDialogue: (learningObjectId: string) =>
+    call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId }),
+  nextProbeDialogueTurn: (dialogueState: string) =>
+    call<NextProbeDialogueTurnResult>("next_probe_dialogue_turn", { dialogueState }),
+  recordProbeDialogueTurn: (dialogueState: string, presentationId: string) =>
+    call<RecordProbeDialogueTurnResult>("record_probe_dialogue_turn", { dialogueState, presentationId }),
+  endProbeDialogue: (dialogueState: string) =>
+    call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState })
 };

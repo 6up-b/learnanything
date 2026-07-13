@@ -1,0 +1,98 @@
+schema_version: 1
+id: pi_decoder_causal_masking_allowed_positions_001
+learning_object_id: lo_decoder_causal_masking
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - allowed_positions
+  - future_leakage
+  - autoregressive_property
+  - specific_to_decoder
+evidence_weights:
+  allowed_positions: 0.25
+  autoregressive_property: 0.25
+  future_leakage: 0.25
+  specific_to_decoder: 0.25
+criterion_facet_weights: {}
+prompt: In decoder self-attention over the target tokens [A, B, C, D], which 
+  token positions may the representation at position C attend to under causal 
+  masking? Briefly explain why D is treated differently.
+expected_answer: Position C may attend to A, B, and C, but not D. The causal 
+  mask allows the current and previous target positions while blocking future 
+  positions so the decoder cannot use tokens that should not be known yet.
+difficulty: 0.2
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - decoder
+  - causal_masking
+hints:
+  - Ask which positions are already known when predicting or representing C.
+  - Causal masking preserves access to the current and previous positions, not 
+    later ones.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.2
+scaffold_level: 0.25
+surface_family: causal_mask_position_visibility
+misconception_consistent_answer: C can attend to A, B, C, and D because all 
+  tokens are in the training sentence.
+repair_targets:
+  - allowed_positions
+  - future_leakage
+  - autoregressive_property
+  - fatal_all_positions_allowed
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: allowed_positions_current_and_past
+      points: 1.5
+      description: Correctly states that C can attend to A, B, and C.
+      tier: core
+    - id: future_position_blocked
+      points: 1.0
+      description: Correctly states that D is not attendable because it is a 
+        future position relative to C.
+      tier: core
+    - id: autoregressive_reason
+      points: 1.0
+      description: Connects the allowed positions to the autoregressive 
+        requirement of predicting without future target information.
+      tier: core
+    - id: decoder_self_attention_context
+      points: 0.5
+      description: Frames the answer specifically as decoder self-attention over
+        target positions.
+      tier: core
+  fatal_errors:
+    - id: fatal_all_positions_allowed
+      description: Claims that C can attend to all positions including D under 
+        causal masking.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+    - ref_type: note
+      ref_id: note_tutor_qa_01kx3ntda8mxpfw9gtzk63zdt6
+      path: subjects/attn/notes/note_tutor_qa_01kx3ntda8mxpfw9gtzk63zdt6.md
+      locator:
+      quote: Why do we need to hide future tokens from past tokens?
+      quote_hash:
+created_at: '2026-07-13T01:00:00Z'
+updated_at: '2026-07-13T01:00:00Z'

@@ -36,7 +36,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from datetime import timedelta
-from typing import Any
+from typing import Any, Mapping
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.codex.client import TutorQAContext
@@ -44,6 +44,7 @@ from learnloop.codex.prompts import TUTOR_QA_PROMPT_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.services.facet_diagnostics import required_facets
+from learnloop.vault.loader import add_note
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 QUESTION_CONTEXTS = ("library", "practice", "feedback")
@@ -128,8 +129,15 @@ def ask_question(
     note_id: str | None = None,
     session_id: str | None = None,
     seconds_into_attempt: float | None = None,
+    question_context: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
+    """``question_context`` carries the §13.4 generating-process fields
+    (preceding_tutor_move, scaffold_level, warning_state, learner_mode,
+    question_opportunity, hints_used_before, direct_explanation_request,
+    attempt_progress). They are persisted verbatim for later contextual
+    likelihood calibration; unknown keys are ignored."""
+
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
     if not question_md.strip():
@@ -198,6 +206,7 @@ def ask_question(
     # learner asking is elicitation evidence about their knowledge state
     # regardless of whether the tutor manages to answer, so a provider failure
     # must not erase it (classification arrives with the answer, or never).
+    qc = dict(question_context or {})
     event_id = repository.insert_question_event(
         {
             "context": context,
@@ -209,6 +218,16 @@ def ask_question(
             "answer_status": "pending",
             "seconds_into_attempt": seconds_into_attempt,
             "provider": getattr(client, "provider_name", None),
+            # §13.4 generating-process context, persisted for later contextual
+            # likelihood calibration.
+            "preceding_tutor_move": qc.get("preceding_tutor_move"),
+            "scaffold_level": qc.get("scaffold_level"),
+            "warning_state": qc.get("warning_state"),
+            "learner_mode": qc.get("learner_mode"),
+            "question_opportunity": qc.get("question_opportunity"),
+            "hints_used_before": qc.get("hints_used_before"),
+            "direct_explanation_request": bool(qc.get("direct_explanation_request")),
+            "attempt_progress": qc.get("attempt_progress"),
         },
         clock=clock,
     )
@@ -253,6 +272,13 @@ def ask_question(
         and item is not None
         and answer_leaks_expected(answer.answer_md, item.expected_answer)
     )
+    # §13.4 channel: an explicit direct-explanation request is
+    # interaction-preference by construction, whatever the classifier said.
+    signal_channel = (
+        "interaction_preference"
+        if qc.get("direct_explanation_request")
+        else getattr(answer, "question_channel", None) or "epistemic"
+    )
 
     repository.update_question_event_answer(
         event_id,
@@ -262,6 +288,7 @@ def ask_question(
         hint_equivalent=hint_equivalent,
         leak_suspected=leak_suspected,
         answer_status="answered",
+        signal_channel=signal_channel,
     )
 
     # Feedback wiring: a post-grade question about facet X is a signal the
@@ -275,6 +302,7 @@ def ask_question(
         "event_id": event_id,
         "answer_md": answer.answer_md,
         "question_type": answer.question_type,
+        "signal_channel": signal_channel,
         "facets": facets,
         "hint_equivalent": hint_equivalent,
         "leak_suspected": leak_suspected,
@@ -346,6 +374,82 @@ def answer_leaks_expected(answer_md: str, expected_answer: str | dict[str, Any])
     answer_tokens = {token for token in answer_norm.split() if len(token) > 2}
     overlap = len(expected_tokens & answer_tokens) / len(expected_tokens)
     return overlap >= _LEAK_OVERLAP_THRESHOLD
+
+
+def tutor_qa_note_title(question_md: str) -> str:
+    text = " ".join(question_md.split())
+    if len(text) <= 60:
+        return text
+    return text[:59].rstrip() + "…"
+
+
+def build_tutor_qa_note(
+    vault: LoadedVault,
+    repository: Repository,
+    event: Mapping[str, Any],
+    *,
+    subject_id: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Materialize a tutor Q&A turn as a vault note and persist the back-link.
+
+    Shared by the ``save_tutor_answer_note`` handler and the promotion
+    pipeline's grounding step (spec_tutor_promotion.md §3 Step 1). Idempotent:
+    if the event already carries a ``saved_note_id`` the existing note is
+    returned unchanged (``reused=True``) without writing a duplicate;
+    otherwise the note is written, the ``question_events.saved_note_id``
+    back-link is persisted via ``set_question_event_saved_note``, and the
+    created note is returned (``reused=False``).
+
+    The note body carries the full turn (learner question + tutor answer, which
+    contains the socratic question) and its ``related_los``/subject are resolved
+    from the event's practice item or source note. The caller is responsible for
+    reloading the vault so a newly created note becomes visible. Raises
+    ``TutorQAError`` when no subject can be resolved to file the note under.
+    """
+
+    existing_note_id = event.get("saved_note_id")
+    if existing_note_id:
+        return {"note_id": existing_note_id, "path": None, "reused": True}
+
+    related_los: list[str] = []
+    subjects: list[str] = []
+    item_id = event.get("practice_item_id")
+    if item_id is not None:
+        item = vault.practice_items.get(item_id)
+        if item is not None:
+            related_los.append(item.learning_object_id)
+            subjects = vault.subjects_for_item(item)
+    source_note_id = event.get("note_id")
+    if source_note_id is not None:
+        source_note = vault.notes.get(source_note_id)
+        if source_note is not None:
+            related_los.extend(source_note.related_los)
+            subjects = subjects or list(source_note.subjects)
+
+    resolved_subject = subject_id or (subjects[0] if subjects else None)
+    if resolved_subject is None and vault.subjects:
+        resolved_subject = sorted(vault.subjects)[0]
+    if resolved_subject is None:
+        raise TutorQAError("No subject available to file the note under.")
+
+    title = tutor_qa_note_title(event["question_md"])
+    body = (
+        f"**Q ({event['context']}):** {event['question_md'].strip()}\n\n"
+        f"**A:** {(event.get('answer_md') or '').strip()}\n"
+    )
+    path = add_note(
+        vault.root,
+        resolved_subject,
+        f"tutor_qa_{new_ulid().lower()}",
+        title,
+        body,
+        related_los=sorted(set(related_los)),
+        clock=clock,
+    )
+    note_id = path.stem
+    repository.set_question_event_saved_note(str(event["id"]), note_id)
+    return {"note_id": note_id, "path": str(path), "reused": False}
 
 
 def _normalize(text: str) -> str:
@@ -475,7 +579,30 @@ def _build_context(
         note_title=note_id,
         note_body=note.body if note is not None else None,
         learning_object_summaries=lo_summaries,
+        diagnostic_decision=_diagnostic_decision_for(repository, item, context),
     )
+
+
+def _diagnostic_decision_for(
+    repository: Repository, item: PracticeItem | None, context: str
+) -> dict[str, Any] | None:
+    """The §12.1 typed transition decision steering post-diagnosis tutoring.
+
+    Attached only when the item's LO has no open episode (measurement has
+    ended — attaching it mid-measurement would lift the no-reveal guardrail
+    while a block is still measuring) and the latest closed episode persisted
+    a decision on its way into tutoring.
+    """
+
+    if item is None or context not in ("practice", "feedback"):
+        return None
+    lo_id = item.learning_object_id
+    if repository.open_probe_episode(lo_id) is not None:
+        return None
+    for episode in reversed(repository.probe_episodes_for_learning_object(lo_id)):
+        if episode.status in ("complete", "converted_to_tutoring") and episode.target_decision:
+            return dict(episode.target_decision)
+    return None
 
 
 def _grading_evidence_rows(repository: Repository, attempt_id: str) -> list[dict[str, Any]]:

@@ -1,0 +1,92 @@
+schema_version: 1
+id: pi_dot_product_alignment_compare_words_001
+learning_object_id: lo_dot_product_alignment_for_embeddings
+subjects:
+  - attn
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - alignment_interpretation
+  - zero_interpretation
+evidence_weights:
+  alignment_interpretation: 0.5
+  zero_interpretation: 0.5
+criterion_facet_weights: {}
+prompt: Suppose a query vector has a high positive dot product with key A, a 
+  near-zero dot product with key B, and a negative dot product with key C. In 
+  plain language, rank the keys by compatibility with the query and explain the 
+  alignment idea behind your ranking.
+expected_answer: Key A is most compatible because a high positive dot product 
+  indicates strong alignment with the query. Key B is roughly neutral because a 
+  near-zero dot product indicates little directional alignment. Key C is least 
+  compatible because a negative dot product suggests it points against the query
+  in the relevant vector dimensions.
+difficulty: 0.31
+difficulty_source: llm_estimate
+tags:
+  - goal_july_8_july_15_goal
+  - attention
+  - dot_product
+  - alignment
+  - query_key
+hints:
+  - Think of positive, zero, and negative as same-direction, neutral, and 
+    opposite-direction evidence.
+  - Compatibility for attention usually grows as the score becomes more 
+    positive.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.35
+scaffold_level: 0.15
+surface_family: qualitative_alignment_ranking
+misconception_consistent_answer: C is most compatible because negative dot 
+  products are strong, B is least because zero means no score.
+repair_targets:
+  - alignment_interpretation
+  - zero_interpretation
+  - fatal_negative_ranked_highest
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: ranking_correct
+      points: 1.25
+      description: Ranks A highest, B middle/neutral, and C lowest.
+      tier: core
+    - id: positive_alignment_explained
+      points: 1.0
+      description: Explains high positive dot product as stronger alignment or 
+        compatibility.
+      tier: core
+    - id: zero_neutral_explained
+      points: 0.75
+      description: Explains near-zero dot product as weak or neutral directional
+        evidence.
+      tier: core
+    - id: negative_opposition_explained
+      points: 1.0
+      description: Explains negative dot product as opposition or low 
+        compatibility.
+      tier: core
+  fatal_errors:
+    - id: fatal_negative_ranked_highest
+      description: Ranks the negative dot product as most compatible without a 
+        valid qualification.
+      max_grade: 1
+      misconception_id:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: context_targets_mvp_0_2
+      path:
+      locator: user-supplied authoring context
+      quote: Generate additional LearnLoop Practice Items after completed probe 
+        phases.
+      quote_hash:
+created_at: '2026-07-13T01:00:12Z'
+updated_at: '2026-07-13T01:00:12Z'

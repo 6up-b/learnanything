@@ -51,11 +51,14 @@ def test_state_sync_enters_probe_for_new_active_goal_learning_object(tmp_path):
 
     sync_vault_state(load_vault(vault_root), repository, clock=clock)
 
-    probe_state = repository.probe_state("lo_svd_definition")
+    # Probe redesign: sync opens a diagnostic episode (legacy lo_probe_state is
+    # read-only history). With no admitted instrument the episode parks in
+    # pending_items — which never blocks ordinary practice on the LO.
+    episode = repository.open_probe_episode("lo_svd_definition")
     queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
 
-    assert probe_state is not None
-    assert probe_state.status == "in_progress"
+    assert episode is not None
+    assert episode.status == "pending_items"
     assert "pi_svd_define_001" in [item.practice_item_id for item in queue]
 
 
@@ -68,13 +71,15 @@ def test_state_sync_enters_probe_for_new_active_learning_object_without_goal(tmp
 
     sync_vault_state(load_vault(vault_root), repository, clock=clock)
 
-    probe_state = repository.probe_state("lo_svd_definition")
+    episode = repository.open_probe_episode("lo_svd_definition")
     queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
 
-    assert probe_state is not None
-    assert probe_state.status == "in_progress"
+    assert episode is not None
+    assert episode.status == "pending_items"
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_001"]
-    assert queue[0].components["probe_eig"] > 0.0
+    # §4.2 fix: an item with no executable instrument binding is not a probe
+    # candidate; it schedules as ordinary (belief-only) practice.
+    assert queue[0].components["probe_eig"] == 0.0
 
 
 def test_state_sync_enters_probe_when_practice_item_arrives_after_learning_object(tmp_path):
@@ -86,7 +91,7 @@ def test_state_sync_enters_probe_when_practice_item_arrives_after_learning_objec
     clock = FrozenClock(NOW)
 
     sync_vault_state(load_vault(vault_root), repository, clock=clock)
-    assert repository.probe_state("lo_svd_definition") is None
+    assert repository.open_probe_episode("lo_svd_definition") is None
 
     upsert_practice_item(
         vault_root,
@@ -112,7 +117,7 @@ def test_state_sync_enters_probe_when_practice_item_arrives_after_learning_objec
     sync_vault_state(load_vault(vault_root), repository, clock=clock)
     queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
 
-    assert repository.probe_state("lo_svd_definition").status == "in_progress"
+    assert repository.open_probe_episode("lo_svd_definition") is not None
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_001"]
 
 
@@ -141,10 +146,16 @@ def test_state_sync_uses_strong_learner_claim_for_initial_mastery(tmp_path):
     assert mastery.logit_variance == pytest.approx(0.25)
     assert mastery.evidence_count == 0
     assert mastery.last_evidence_at is None
-    assert repository.probe_state("lo_svd_definition").probe_attempts_target == 1
+    # Probe redesign: the legacy strong-claim shortened target became the §11
+    # fast-path completion policy; sync still opens an episode either way.
+    assert repository.open_probe_episode("lo_svd_definition") is not None
 
 
-def test_state_sync_ignores_weak_learner_claim_for_initial_mastery(tmp_path):
+def test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold(tmp_path):
+    # spec_tutor_promotion.md §3 G2: ANY covering claim now seeds the prior (a low
+    # self-rating must move it, not silently no-op). claim_skip_threshold keeps its
+    # role ONLY in probes.py — a sub-threshold claim still seeds mastery but does
+    # NOT shorten the probe phase.
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     repository = Repository(paths.sqlite_path)
@@ -165,8 +176,14 @@ def test_state_sync_ignores_weak_learner_claim_for_initial_mastery(tmp_path):
     sync_vault_state(load_vault(vault_root), repository, clock=FrozenClock(NOW))
 
     mastery = repository.mastery_state("lo_svd_definition")
-    assert mastery.logit_mean == 0.0
-    assert mastery.logit_variance == 1.0
+    assert mastery.logit_mean == pytest.approx(logit(0.7))
+    assert mastery.logit_variance == pytest.approx(0.25)
+    assert mastery.evidence_count == 0
+    # Episode unchanged by the sub-threshold claim: 0.7 < fast_path_claim_threshold
+    # (0.75) so the full §11 completion policy stands (no fast path).
+    episode = repository.open_probe_episode("lo_svd_definition")
+    assert episode is not None
+    assert episode.minimum_independent_observations == 2
 
 
 def test_state_sync_no_probe_gap_for_item_less_goal_lo(tmp_path):

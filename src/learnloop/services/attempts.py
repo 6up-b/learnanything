@@ -62,7 +62,6 @@ from learnloop.services.mastery import (
     update_item_difficulty,
     update_mastery_traced,
 )
-from learnloop.services.probes import record_probe_attempt
 from learnloop.services.evidence import attempt_evidence_mass
 from learnloop.services.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.services.recall_coverage import (
@@ -105,6 +104,13 @@ class AttemptDraft:
     # canonical source was just re-read, so the mastery update applies an IRT
     # easiness shift and the attempt does not advance last_evidence_at.
     primed: bool = False
+    # Probe redesign §5.1: the committed presentation this submission consumes.
+    # Required for qualifying diagnostic observations; an invalid or already
+    # consumed reference downgrades the attempt to incidental evidence.
+    probe_presentation_id: str | None = None
+    # Probe redesign §7.1: the learner's committed answer confidence (1-5).
+    # Logged-only observation feature — never consumed by grading or scheduling.
+    answer_confidence: int | None = None
 
 
 @dataclass(frozen=True)
@@ -189,6 +195,9 @@ class AttemptResult:
     # IRT picture of the mastery update (spec §7.1); debug-only, excluded from as_dict.
     mastery_trace: MasteryObservationTrace | None = None
     debug_payload: dict[str, object] | None = None
+    # §5.7 block-end hook payload when this attempt closed a diagnostic block:
+    # released feedback, open-set/completion outcome, and the route.
+    probe_block_end: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -213,6 +222,7 @@ class AttemptResult:
             "feedback_md": self.feedback_md,
             "repair_suggestions": self.repair_suggestions,
             "fatal_errors": self.fatal_errors,
+            "probe_block_end": self.probe_block_end,
             "debug": self.debug_payload or {},
         }
 
@@ -232,6 +242,10 @@ class ApplyAttemptInput:
     replace_existing: bool = False
     record_probe_update: bool = True
     error_event_ids_override: list[str] | None = None
+    # Probe redesign §5.8: the grading provider that produced this grade.
+    # Qualifying diagnostic observations require an approved provider; a
+    # self-graded submission can never advance an episode.
+    grading_source: str = "self"
 
 
 @dataclass(frozen=True)
@@ -614,6 +628,7 @@ def complete_codex_graded_attempt(
                 clock=clock,
                 manual_review_reason=_attempt_manual_review_reason(validated.manual_review_reason, draft),
             ),
+            grading_source=grading_source,
         ),
         clock=clock,
     )
@@ -651,6 +666,8 @@ def replay_existing_attempt(
         hints_used=int(attempt.get("hints_used") or 0),
         latency_seconds=attempt.get("latency_seconds"),
         session_id=attempt.get("session_id"),
+        probe_presentation_id=attempt.get("probe_presentation_id"),
+        answer_confidence=attempt.get("answer_confidence"),
     )
     error_type = attempt.get("error_type")
     return apply_attempt(
@@ -733,6 +750,12 @@ def _resolve_attempt_target(vault: LoadedVault, draft: AttemptDraft, *, replay: 
     exempt_attempt_types = {"dont_know", "exam_evidence", "exam_attempt"}
     if draft.attempt_type == "teach_back" and (replay or item.practice_mode == "teach_back"):
         exempt_attempt_types.add("teach_back")
+    # Probe redesign §12: an active diagnostic episode forces the recording
+    # attempt type to diagnostic_probe on whatever item was committed, so the
+    # type is exempt whenever the submission consumes a presentation (and at
+    # replay, where a recorded attempt must always re-apply).
+    if draft.attempt_type == "diagnostic_probe" and (replay or draft.probe_presentation_id is not None):
+        exempt_attempt_types.add("diagnostic_probe")
     if (
         item.attempt_types_allowed
         and draft.attempt_type not in exempt_attempt_types
@@ -747,6 +770,8 @@ def _resolve_attempt_target(vault: LoadedVault, draft: AttemptDraft, *, replay: 
         raise AttemptValidationError("hints_used must be non-negative")
     if draft.latency_seconds is not None and draft.latency_seconds < 0:
         raise AttemptValidationError("latency_seconds must be non-negative")
+    if draft.answer_confidence is not None and not 1 <= draft.answer_confidence <= 5:
+        raise AttemptValidationError("answer_confidence must be between 1 and 5")
     return item, learning_object, rubric
 
 
@@ -766,11 +791,65 @@ def apply_attempt(
     """
 
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
+    application = _validate_probe_presentation(repository, application, attempt, clock=clock)
     _persist_attempt_application(repository, application, replace_existing=attempt.replace_existing)
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
     if attempt.record_probe_update:
-        record_probe_attempt(vault, repository, application.result.learning_object_id, clock=clock)
+        # Probe redesign Checkpoint 0/1: episode accounting replaces the legacy
+        # lo_probe_state advancement (`record_probe_attempt` is frozen for
+        # pre-redesign replay only). Belief updates and episode advancement are
+        # separated inside `record_episode_evidence`.
+        from learnloop.services.probe_episodes import record_episode_evidence
+
+        grading_source = (
+            "deterministic" if attempt.draft.attempt_type == "dont_know" else attempt.grading_source
+        )
+        block_end = record_episode_evidence(
+            vault,
+            repository,
+            learning_object_id=application.result.learning_object_id,
+            attempt_id=application.result.attempt_id,
+            practice_item_id=attempt.draft.practice_item_id,
+            attempt_type=attempt.draft.attempt_type,
+            hints_used=attempt.draft.hints_used,
+            probe_presentation_id=application.attempt_record.get("probe_presentation_id"),
+            grading_source=grading_source,
+            clock=clock,
+        )
+        if block_end is not None:
+            return replace(application.result, probe_block_end=block_end)
     return application.result
+
+
+def _validate_probe_presentation(
+    repository: Repository,
+    application: AttemptApplication,
+    attempt: ApplyAttemptInput,
+    *,
+    clock: Clock | None = None,
+) -> AttemptApplication:
+    """Pre-persist §5.4 validation: an invalid, mismatched, ended, or already
+    consumed presentation reference is stripped so the attempt records as
+    incidental evidence (and the unique presentation index never rejects the
+    row). A retried submission of the same attempt keeps its link (idempotent)."""
+
+    presentation_id = application.attempt_record.get("probe_presentation_id")
+    if not presentation_id:
+        return application
+    from learnloop.services.probe_episodes import validate_presentation_for_submission
+
+    validation = validate_presentation_for_submission(
+        repository,
+        str(presentation_id),
+        practice_item_id=attempt.draft.practice_item_id,
+        attempt_id=attempt.attempt_id,
+        clock=clock,
+    )
+    if validation.valid:
+        return application
+    stripped = dict(application.attempt_record)
+    stripped["probe_presentation_id"] = None
+    return replace(application, attempt_record=stripped)
 
 
 def compute_attempt_application(
@@ -1187,6 +1266,8 @@ def _compute_resolved_grade_application(
         "updated_at": now_iso,
         "session_id": draft.session_id,
         "primed": draft.primed,
+        "probe_presentation_id": draft.probe_presentation_id,
+        "answer_confidence": draft.answer_confidence,
     }
     error_event_ids = [
         error_event_ids_override[index]

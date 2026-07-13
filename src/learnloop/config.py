@@ -15,7 +15,11 @@ DEFAULT_CONFIG_TEXT = """schema_version = 1
 sqlite_path = "state.sqlite"
 
 [algorithms]
-algorithm_version = "mvp-0.5"
+# mvp-0.6: probe/EIG redesign (spec_probe_eig_redesign.md). Legacy
+# `probe_<lo_id>` phases recorded under earlier versions replay through the
+# frozen path in services/probes.py forever; new diagnostic episodes replay
+# exclusively through probe_observations.
+algorithm_version = "mvp-0.6"
 
 # Single source of truth for per-attempt-type evidence (Fable's-take item 3).
 # evidence_mass weights ability-belief updates (mastery EKF / reliability);
@@ -179,11 +183,108 @@ b_max_step = 0.25
 b_var_min = 0.01
 
 [probe]
+# LEGACY (probe redesign Checkpoint 0.4): attempts_target_default,
+# attempts_target_with_strong_claim, claim_skip_threshold, and
+# variance_convergence_threshold configure only the frozen pre-redesign replay
+# path. Their live roles moved to [probe.episode]: the attempt targets map to
+# minimum/maximum_observations, the strong-claim skip maps to the explicit
+# fast-path policy (fast_path_claim_threshold), and variance convergence is
+# superseded by the §11 completion policy (posterior_stop_threshold).
 attempts_target_default = 3
 attempts_target_with_strong_claim = 1
 claim_skip_threshold = 0.75
 variance_convergence_threshold = 0.10
 hypothesis_set_max_size = 5
+
+# Diagnostic episodes (spec_probe_eig_redesign.md §5/§11).
+[probe.episode]
+minimum_independent_observations = 2
+maximum_observations = 4
+posterior_stop_threshold = 0.85
+ambiguity_threshold = 0.30
+open_set_prior = 0.10
+open_set_trigger_threshold = 0.35
+hinted_evidence_weight = 0.5
+contaminated_evidence_weight = 0.3
+self_graded_evidence_weight = 0.3
+session_qualifying_observation_cap = 4
+fast_path_enabled = true
+fast_path_claim_threshold = 0.75
+presentation_ttl_minutes = 240
+# Predictive EIG per expected time is the diagnostic default objective (§7.4/§7.5)
+# whenever at least predictive_target_minimum held-out instruments exist for the
+# episode; hypothesis EIG remains the fallback and audit signal.
+predictive_selection_enabled = true
+predictive_target_minimum = 2
+predictive_target_cap = 6
+selection_overhead_seconds = 10.0
+# §5.9 fresh-vault onboarding: probes deactivate after this many qualifying
+# observations until ordinary practice has started (0 disables).
+onboarding_practice_ceiling_observations = 4
+# §6.5 re-probe triggers: repeated prediction errors and stale uncertainty.
+reprobe_prediction_error_count = 3
+reprobe_prediction_error_window = 10
+reprobe_predictive_surprise_threshold = 1.0
+reprobe_stale_uncertainty_variance = 0.6
+reprobe_stale_uncertainty_days = 30
+
+# Parameterized instance generation from admitted family/card bindings (§10).
+# llm_surfaces: when an AI provider capable of run_probe_instance_surfaces is
+# wired through, instance surfaces come from the LLM (grounded in the LO,
+# validated by the structural instance gate) and fall back to the parametric
+# templates on provider failure or gate rejection.
+[probe.generation]
+instances_per_need = 2
+auto_generate_on_entry = false
+llm_surfaces = true
+
+# Short adaptive dialogue microprobes (§8.1): turns within one block share the
+# family's total task evidence mass (§7.7).
+[probe.dialogue]
+planned_turns = 3
+max_turns = 4
+
+# Learner-initiated calibration sessions (§5.9): batch episode blocks across a
+# goal scope; lift only the per-session qualifying-observation cap within the
+# declared time budget.
+[probe.calibration]
+default_time_budget_minutes = 20
+max_planned_episodes = 8
+disagreement_weight = 0.5
+
+# Hierarchical family -> item shrinkage (§9.7, Checkpoint 4.2): item rows shrink
+# toward the family-version posterior with this much family-equivalent mass.
+[probe.hierarchy]
+item_shrinkage_pseudo_count = 25.0
+
+# Family-version lifecycle gates (§9.7, Checkpoint 4.7). Trust requires
+# real-learner evidence; synthetic gate statistics never qualify a family.
+[probe.lifecycle]
+trust_minimum_real_sample = 20
+trust_minimum_regrade_checks = 5
+trust_minimum_regrade_agreement = 0.80
+trust_maximum_negative_information_rate = 0.20
+retire_minimum_sample = 10
+retire_negative_information_rate = 0.50
+retire_regrade_agreement_floor = 0.50
+
+# Shadow-mode alternative selection policies (§13.3, Checkpoint 5.1): log-only
+# rankings on the committed presentation. Off-policy estimation stays on hold
+# for single-learner vaults.
+[probe.shadow]
+enabled = true
+top_k = 3
+
+# Precommitted diagnostic blocks (Checkpoint 5.2/5.3): redundancy penalty is a
+# separate ranking component (never labeled EIG); joint greedy conditional EIG
+# applies only to blocks committed before answers are observed.
+[probe.block]
+family_redundancy_penalty = 0.6
+max_block_size = 4
+conditional_branch_cap = 3
+# §5.6/§5.7: sequential probes run the block-end hook after this many
+# observations in the current state segment.
+default_block_observations = 2
 
 # IRT difficulty-aware probe conditionals (spec_irt_difficulty.md §5).
 [probe.irt]
@@ -219,6 +320,22 @@ max_questions_feedback = 5
 max_questions_library = 8
 apply_uncertainty_effect = true
 uncertainty_evidence_mass = 0.15
+
+# Promoting Socratic tutor questions to practice items / learning objects.
+# Gap route: a "this exposed a gap" promotion writes a low self-report claim
+# (gap_claim_level at gap_claim_pseudo_count pseudo-observations) and counts as
+# an unresolved-question observation with its own likelihood slot fit from the
+# learner's gap-declaration -> failure lift, falling back to
+# gap_declaration_solid_likelihood_ratio below gap_declaration_likelihood_min_samples.
+# The filed need goes stale after gap_need_ttl_days; requested_items_per_session
+# bounds the scheduler floor for promoted-but-unattempted items.
+[tutor_promotion]
+gap_claim_level = 0.25
+gap_claim_pseudo_count = 2.0
+gap_declaration_solid_likelihood_ratio = 0.35
+gap_declaration_likelihood_min_samples = 12
+gap_need_ttl_days = 21
+requested_items_per_session = 1
 
 # Teach-back conversations: the learner explains, an AI naive student asks up
 # to max_followups questions (one per rubric criterion, uncertainty-ranked with
@@ -444,7 +561,7 @@ class StorageConfig(BaseModel):
 
 
 class AlgorithmsConfig(BaseModel):
-    algorithm_version: str = "mvp-0.5"
+    algorithm_version: str = "mvp-0.6"
 
 
 class SchedulerSurpriseConfig(BaseModel):
@@ -598,7 +715,157 @@ class MasteryConfig(BaseModel):
     irt: MasteryIRTConfig = Field(default_factory=MasteryIRTConfig)
 
 
+class ProbeEpisodeConfig(BaseModel):
+    """Diagnostic-episode policy (spec_probe_eig_redesign.md §5/§11).
+
+    Belief updates and episode advancement are separate accounting paths: the
+    *_evidence_weight fields dampen incidental/contaminated likelihoods toward
+    the bucket marginal for belief only — such evidence never advances an
+    episode regardless of weight.
+    """
+
+    minimum_independent_observations: int = 2
+    maximum_observations: int = 4
+    posterior_stop_threshold: float = 0.85
+    # A high-cost hypothesis pair is unresolved while the smaller of the two
+    # probabilities exceeds this fraction of the larger (§11).
+    ambiguity_threshold: float = 0.30
+    open_set_prior: float = 0.10
+    open_set_trigger_threshold: float = 0.35
+    hinted_evidence_weight: float = 0.5
+    contaminated_evidence_weight: float = 0.3
+    self_graded_evidence_weight: float = 0.3
+    session_qualifying_observation_cap: int = 4
+    # Explicit §11 fast path replacing the legacy claim_skip_threshold: a strong
+    # prior claim plus a highly discriminating cross-facet instrument may complete
+    # after one qualifying observation.
+    fast_path_enabled: bool = True
+    fast_path_claim_threshold: float = 0.75
+    presentation_ttl_minutes: int = 240
+    # §7.4/§7.5: predictive EIG per expected second is the diagnostic default
+    # objective when enough held-out target instruments exist; hypothesis EIG
+    # is the fallback and audit signal. Never added together (§7.4).
+    predictive_selection_enabled: bool = True
+    predictive_target_minimum: int = Field(default=2, ge=1)
+    predictive_target_cap: int = Field(default=6, ge=1)
+    selection_overhead_seconds: float = Field(default=10.0, ge=0.0)
+    # §5.9 fresh-vault onboarding ceiling: once this many qualifying diagnostic
+    # observations exist and no ordinary practice attempt has been recorded yet,
+    # the probe contract deactivates so the learner reaches ordinary practice.
+    # 0 disables the ceiling. A calibration session (explicit opt-in) lifts it.
+    onboarding_practice_ceiling_observations: int = Field(default=4, ge=0)
+    # §6.5 re-probe triggers. Repeated prediction errors: at least
+    # `reprobe_prediction_error_count` negative-surprise attempts above the
+    # predictive-surprise threshold (nats) within the last
+    # `reprobe_prediction_error_window` attempts reopen the LO's episode.
+    reprobe_prediction_error_count: int = Field(default=3, ge=1)
+    reprobe_prediction_error_window: int = Field(default=10, ge=1)
+    reprobe_predictive_surprise_threshold: float = Field(default=1.0, ge=0.0)
+    # Stale uncertainty: a completed episode whose LO still has logit variance
+    # at/above this after `reprobe_stale_uncertainty_days` re-enters probing.
+    # 0 days disables the periodic producer.
+    reprobe_stale_uncertainty_variance: float = Field(default=0.6, ge=0.0)
+    reprobe_stale_uncertainty_days: int = Field(default=30, ge=0)
+
+
+class ProbeGenerationConfig(BaseModel):
+    """Parameterized instance generation from admitted family/card bindings (§10)."""
+
+    instances_per_need: int = Field(default=2, ge=1, le=3)
+    auto_generate_on_entry: bool = False
+    # LLM-backed instance surfaces (§9.2/§9.4): used only when a capable AI
+    # client is threaded through; every surface still passes the structural
+    # instance gate, and the parametric templates remain the fallback.
+    llm_surfaces: bool = True
+
+
+class ProbeDialogueConfig(BaseModel):
+    """Short adaptive dialogue microprobes (§8.1)."""
+
+    planned_turns: int = Field(default=3, ge=1, le=6)
+    max_turns: int = Field(default=4, ge=1, le=8)
+
+
+class ProbeCalibrationConfig(BaseModel):
+    """Learner-initiated calibration sessions (§5.9)."""
+
+    default_time_budget_minutes: int = Field(default=20, ge=1)
+    max_planned_episodes: int = Field(default=8, ge=1)
+    # §5.9/§6.4 planner priority: disagreement among the graph-propagated
+    # prior, learner claims, and observed evidence multiplies the information
+    # rate by (1 + weight * disagreement). 0 disables the signal.
+    disagreement_weight: float = Field(default=0.5, ge=0.0)
+
+
+class ProbeHierarchyConfig(BaseModel):
+    """Hierarchical family → item shrinkage (§9.7, Checkpoint 4.2).
+
+    Item-instance conditionals shrink toward the family-version posterior with
+    the strength of ``item_shrinkage_pseudo_count`` family-equivalent
+    observations: an item's own counts only move its rows meaningfully once
+    they rival that mass. Within a single-learner vault every estimate is
+    learner-specific pooling, never psychometric calibration (§9.7).
+    """
+
+    item_shrinkage_pseudo_count: float = Field(default=25.0, gt=0.0)
+
+
+class ProbeLifecycleConfig(BaseModel):
+    """Metric gates for trusted/revise/retire transitions (§9.7, Checkpoint 4.7).
+
+    Promotion to ``trusted`` requires real-learner evidence, acceptable regrade
+    agreement, and realized-information health; retirement triggers on sustained
+    negative realized information or grading disagreement. All thresholds apply
+    to real-learner rows only — synthetic gate statistics never qualify a
+    family for trust (§9.6).
+    """
+
+    trust_minimum_real_sample: int = Field(default=20, ge=1)
+    trust_minimum_regrade_checks: int = Field(default=5, ge=0)
+    trust_minimum_regrade_agreement: float = Field(default=0.8, ge=0.0, le=1.0)
+    trust_maximum_negative_information_rate: float = Field(default=0.2, ge=0.0, le=1.0)
+    retire_minimum_sample: int = Field(default=10, ge=1)
+    retire_negative_information_rate: float = Field(default=0.5, ge=0.0, le=1.0)
+    retire_regrade_agreement_floor: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class ProbeShadowConfig(BaseModel):
+    """Shadow-mode alternative selection policies (§13.3, Checkpoint 5.1).
+
+    Alternative rankings are logged onto the committed presentation; a policy
+    is promoted only after held-out predictive gains, never from shadow logs
+    alone. Off-policy estimates stay on hold for single-learner vaults.
+    """
+
+    enabled: bool = True
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class ProbeBlockConfig(BaseModel):
+    """Precommitted diagnostic blocks (§5.6, Checkpoint 5.2/5.3).
+
+    ``family_redundancy_penalty`` demotes candidates whose family already
+    produced an observation this episode (a separate ranking component, never
+    folded into the EIG label). Joint greedy conditional EIG applies only to
+    blocks committed before answers are observed; sequential selection keeps
+    conditioning on the live posterior (§16 test 29).
+    """
+
+    family_redundancy_penalty: float = Field(default=0.6, gt=0.0, le=1.0)
+    max_block_size: int = Field(default=4, ge=2, le=8)
+    # §5.6/§5.7 default diagnostic block: sequential (non-dialogue,
+    # non-precommitted) probes run the block-end hook after this many
+    # observations in the current state segment.
+    default_block_observations: int = Field(default=2, ge=1, le=8)
+    # Outcome branches kept per already-picked instrument when marginalizing
+    # the expected posterior for conditional EIG (caps the combination tree).
+    conditional_branch_cap: int = Field(default=3, ge=1, le=8)
+
+
 class ProbeConfig(BaseModel):
+    # LEGACY fields (Checkpoint 0.4): consumed only by the frozen pre-redesign
+    # replay path in services/probes.py. Live policy lives in `episode`; see the
+    # [probe] TOML block for the field-by-field mapping.
     attempts_target_default: int = 3
     attempts_target_with_strong_claim: int = 1
     claim_skip_threshold: float = 0.75
@@ -606,6 +873,14 @@ class ProbeConfig(BaseModel):
     hypothesis_set_max_size: int = 5
     irt: ProbeIRTConfig = Field(default_factory=ProbeIRTConfig)
     self_tag: ProbeSelfTagConfig = Field(default_factory=ProbeSelfTagConfig)
+    episode: ProbeEpisodeConfig = Field(default_factory=ProbeEpisodeConfig)
+    generation: ProbeGenerationConfig = Field(default_factory=ProbeGenerationConfig)
+    dialogue: ProbeDialogueConfig = Field(default_factory=ProbeDialogueConfig)
+    calibration: ProbeCalibrationConfig = Field(default_factory=ProbeCalibrationConfig)
+    hierarchy: ProbeHierarchyConfig = Field(default_factory=ProbeHierarchyConfig)
+    lifecycle: ProbeLifecycleConfig = Field(default_factory=ProbeLifecycleConfig)
+    shadow: ProbeShadowConfig = Field(default_factory=ProbeShadowConfig)
+    block: ProbeBlockConfig = Field(default_factory=ProbeBlockConfig)
 
 
 class PracticeGenerationConfig(BaseModel):
@@ -785,6 +1060,40 @@ class TutorQAConfig(BaseModel):
     apply_question_evidence: bool = True
     question_solid_likelihood_ratio: float = Field(default=0.45, gt=0.0, le=1.0)
     question_likelihood_min_samples: int = Field(default=12, ge=1)
+    # §13.4 (probe redesign Checkpoint 4.6): interaction-preference questions
+    # (requested explanation style, pace, scaffold level, direct-explanation
+    # asks) change tutor policy, not mastery belief. Until contextual
+    # likelihoods are calibrated their mastery likelihood is damped toward 1
+    # (no-op) by this factor: ratio' = 1 - (1 - ratio) * damping. 0 disables
+    # the mastery effect of preference-channel questions entirely.
+    preference_channel_damping: float = Field(default=0.4, ge=0.0, le=1.0)
+
+
+class TutorPromotionConfig(BaseModel):
+    """Promoting Socratic tutor questions to practice items / learning objects
+    (spec_tutor_promotion.md §5).
+
+    Gap route: a "this exposed a gap" promotion writes a low self-report
+    ``learner_claims`` row (``gap_claim_level`` at ``gap_claim_pseudo_count``
+    pseudo-observations) and, for established LOs, counts as an unresolved-
+    question observation with its own likelihood slot in ``question_signal``.
+    That slot's ratio is fit empirically from the learner's own gap-declaration
+    -> subsequent-failure lift; ``gap_declaration_solid_likelihood_ratio`` is the
+    absolute fallback (below 1: a declared gap makes "facet is solid" less
+    likely, more strongly than an ordinary ask) used until
+    ``gap_declaration_likelihood_min_samples`` gap-declared attempts exist.
+    The filed ``tutor_gap_declaration`` need goes stale after
+    ``gap_need_ttl_days``. ``requested_items_per_session`` bounds how many
+    requested (promoted-but-unattempted) items the scheduler floor guarantees a
+    slot per built queue (§4a).
+    """
+
+    gap_claim_level: float = Field(default=0.25, ge=0.0, le=1.0)
+    gap_claim_pseudo_count: float = Field(default=2.0, ge=0.0)
+    gap_declaration_solid_likelihood_ratio: float = Field(default=0.35, gt=0.0, le=1.0)
+    gap_declaration_likelihood_min_samples: int = Field(default=12, ge=1)
+    gap_need_ttl_days: int = Field(default=21, ge=0)
+    requested_items_per_session: int = Field(default=1, ge=0)
 
 
 class TeachBackConfig(BaseModel):
@@ -1042,6 +1351,7 @@ class LearnLoopConfig(BaseModel):
     practice_generation: PracticeGenerationConfig = Field(default_factory=PracticeGenerationConfig)
     exam_seeding: ExamSeedingConfig = Field(default_factory=ExamSeedingConfig)
     tutor_qa: TutorQAConfig = Field(default_factory=TutorQAConfig)
+    tutor_promotion: TutorPromotionConfig = Field(default_factory=TutorPromotionConfig)
     teach_back: TeachBackConfig = Field(default_factory=TeachBackConfig)
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)

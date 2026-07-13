@@ -1,9 +1,12 @@
 // Motivating goal banner for the top of TodayScreen. Renders immediately from the
 // goalsList summary (report is embedded on GoalDto) and streams in the trajectory
-// chart (get_goal_report_series) + at-risk facet titles (get_goal_report, lazy on
-// expand). Three motivational elements: trajectory dots, dotted forecast to the
-// due date, and a "▲ +N this week" delta. Degrades quietly: series/report errors
-// render as small dim text, never crash the banner.
+// chart (get_goal_report_series) + at-risk facet checklist (get_goal_report, lazy
+// on expand). Two honest progress axes: attainment (mastery-blended predicted
+// recall vs target) and certification (evidence-mass coverage), plus earned work,
+// attempts-remaining pace, countdown urgency, and certification milestones.
+// Degrades quietly: series/report errors render as small dim text, and every
+// dual-axis field is optional-read so a stale sidecar falls back to the legacy
+// on-track rendering.
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
@@ -21,16 +24,61 @@ function daysUntil(dueAt: string | null): number | null {
 function dueLabel(dueAt: string | null): string {
   const d = daysUntil(dueAt);
   if (d == null) return "open-ended";
-  if (d < 0) return `${-d}d overdue`;
+  if (d < 0) return `${-d}d OVERDUE`;
   if (d === 0) return "due today";
   return `due in ${d}d`;
 }
 
-function statusOf(fraction: number | null): { label: string; color: string } {
-  const f = fraction ?? 0;
-  if (f >= 0.85) return { label: "ON TRACK", color: COLOR.green };
-  if (f >= 0.5) return { label: "ON PACE", color: COLOR.amber };
+// Countdown urgency ramp: relaxed → amber → pink → red as the due date nears.
+function dueTone(dueAt: string | null): string {
+  const d = daysUntil(dueAt);
+  if (d == null) return COLOR.textDim;
+  if (d < 0) return COLOR.red;
+  if (d < 7) return COLOR.pink;
+  if (d <= 14) return COLOR.amber;
+  return COLOR.textDim;
+}
+
+function statusOf(attainment: number | null): { label: string; color: string } {
+  const f = attainment ?? 0;
+  if (f >= 0.97) return { label: "ON TRACK", color: COLOR.green };
+  if (f >= 0.8) return { label: "CLOSING IN", color: COLOR.amber };
   return { label: "BEHIND", color: COLOR.pink };
+}
+
+function actionOf(label: GoalAtRiskFacetDto["label"]): string {
+  if (label === "known_gap") return "repair";
+  if (label === "solid") return "review";
+  return "probe";
+}
+
+const pct = (value: number | null | undefined): string =>
+  value == null ? "—" : `${Math.round(value * 100)}%`;
+
+// Tri-state monospace coverage bar: certified ▓ / examined ▒ / untouched ░.
+function SegmentBar({
+  certified,
+  examined,
+  total,
+  width = 24
+}: {
+  certified: number;
+  examined: number;
+  total: number;
+  width?: number;
+}) {
+  if (total <= 0) return null;
+  const cells = Math.min(width, Math.max(total, 1));
+  const certCells = Math.round((certified / total) * cells);
+  const examCells = Math.max(Math.round((examined / total) * cells) - certCells, 0);
+  const restCells = Math.max(cells - certCells - examCells, 0);
+  return (
+    <span style={{ fontFamily: FONT_MONO, fontSize: 12, letterSpacing: 1 }}>
+      <span style={{ color: COLOR.green }}>{"▓".repeat(certCells)}</span>
+      <span style={{ color: COLOR.amber }}>{"▒".repeat(examCells)}</span>
+      <span style={{ color: COLOR.borderStrong }}>{"░".repeat(restCells)}</span>
+    </span>
+  );
 }
 
 export function GoalBanner({
@@ -58,8 +106,10 @@ export function GoalBanner({
   const [atRiskError, setAtRiskError] = useState<string | null>(null);
 
   const [exam, setExam] = useState<ExamStatusSnapshot | null>(null);
+  const [celebrateCount, setCelebrateCount] = useState<number | null>(null);
 
   const goalId = goal?.id;
+  const report = goal?.report ?? null;
 
   // Keep selection valid if the active-goal set changes underneath us.
   useEffect(() => {
@@ -109,7 +159,7 @@ export function GoalBanner({
     };
   }, [goalId, goal?.exam.enabled]);
 
-  // Lazily load at-risk facet titles when the learner expands the list.
+  // Lazily load the at-risk facet checklist when the learner expands it.
   useEffect(() => {
     if (!expanded || !goalId || atRisk != null) return;
     let cancelled = false;
@@ -131,31 +181,59 @@ export function GoalBanner({
     setExpanded(false);
     setAtRisk(null);
     setAtRiskError(null);
+    setCelebrateCount(null);
   }, [goalId]);
+
+  // Milestone celebration: a facet certified since this goal was last rendered.
+  const certifiedCount = report?.certifiedCount;
+  useEffect(() => {
+    if (!goalId || certifiedCount == null) return;
+    const key = `learnloop.goalCertified.${goalId}`;
+    const previous = Number(window.localStorage.getItem(key) ?? "0");
+    if (certifiedCount > previous && previous > 0) {
+      setCelebrateCount(certifiedCount - previous);
+    }
+    window.localStorage.setItem(key, String(certifiedCount));
+  }, [goalId, certifiedCount]);
 
   if (!goal) return null;
 
-  const report = goal.report;
-  const fraction = report?.onTrackFraction ?? null;
-  const status = statusOf(fraction);
-  const pct = fraction != null ? Math.round(fraction * 100) : null;
+  const hasDualAxis = report?.attainmentFraction !== undefined;
+  const attainment = report?.attainmentFraction ?? report?.onTrackFraction ?? null;
+  const status = statusOf(attainment);
   const targetPct = Math.round(goal.targetRecall * 100);
+  const tone = goal.dueAt ? dueTone(goal.dueAt) : status.color;
 
-  // Delta from the last two series points (on-track facet count).
-  const delta = series && series.length >= 2 ? series[series.length - 1].onTrackCount - series[series.length - 2].onTrackCount : null;
+  // Weekly delta: prefer certification milestones, fall back to attainment movement.
+  const lastTwo = series && series.length >= 2 ? series.slice(-2) : null;
+  const certDelta =
+    lastTwo && lastTwo[0].certifiedCount != null && lastTwo[1].certifiedCount != null
+      ? (lastTwo[1].certifiedCount ?? 0) - (lastTwo[0].certifiedCount ?? 0)
+      : null;
+  const attainDelta =
+    lastTwo && lastTwo[0].attainmentFraction != null && lastTwo[1].attainmentFraction != null
+      ? (lastTwo[1].attainmentFraction ?? 0) - (lastTwo[0].attainmentFraction ?? 0)
+      : lastTwo
+        ? (lastTwo[1].onTrackFraction ?? 0) - (lastTwo[0].onTrackFraction ?? 0)
+        : null;
 
+  const pace = report?.pace ?? null;
   const atRiskCount = report?.atRiskCount ?? 0;
   const showExamButton = Boolean(onTakeExam && goal.exam.enabled && exam && exam.poolItemCount > 0);
+  const paceTone =
+    (daysUntil(goal.dueAt) ?? 0) < 0 ? COLOR.pink : pace?.onPace === false ? COLOR.amber : COLOR.green;
 
   return (
     <div
       style={{
         margin: "16px 24px 0",
         border: `1px solid ${COLOR.borderStrong}`,
-        borderLeft: `3px solid ${status.color}`,
+        borderLeft: `3px solid ${tone}`,
         background: COLOR.bgElev
       }}
     >
+      <style>{`@keyframes llGoalCertPulse { from { background: rgba(80, 200, 120, 0.22); } to { background: transparent; } }`}</style>
+
       {/* ── header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: `1px solid ${COLOR.border}` }}>
         <span style={{ fontSize: 10, color: COLOR.textFaint, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: FONT_MONO }}>
@@ -183,15 +261,25 @@ export function GoalBanner({
           </span>
         ) : null}
         <span style={{ flex: 1 }} />
-        <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: (daysUntil(goal.dueAt) ?? 99) < 0 ? COLOR.pink : COLOR.textDim }}>
+        <span
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 12,
+            fontWeight: 600,
+            color: tone,
+            border: `1px solid ${goal.dueAt ? tone : COLOR.border}`,
+            padding: "2px 8px",
+            whiteSpace: "nowrap"
+          }}
+        >
           {dueLabel(goal.dueAt)}
         </span>
       </div>
 
       {/* ── body ── */}
       <div style={{ display: "flex", gap: 24, padding: "14px 16px", flexWrap: "wrap" }}>
-        {/* left: status + progress + at-risk */}
-        <div style={{ flex: "1 1 320px", minWidth: 260 }}>
+        {/* left: status + dual-axis progress + work remaining + at-risk checklist */}
+        <div style={{ flex: "1 1 340px", minWidth: 280 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span
               style={{
@@ -207,32 +295,99 @@ export function GoalBanner({
               {status.label}
             </span>
             <span style={{ fontSize: 13, color: COLOR.text }}>
-              {report ? `${report.onTrackCount}/${report.total} facets ≥ ${targetPct}%` : "no report yet"}
+              {report == null
+                ? "no report yet"
+                : hasDualAxis
+                  ? `predicted recall ${pct(report.predictedRecallMean)} · target ${targetPct}%`
+                  : `${report.onTrackCount}/${report.total} facets ≥ ${targetPct}%`}
             </span>
-            {delta != null && delta !== 0 ? (
-              <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: delta > 0 ? COLOR.green : COLOR.pink }}>
-                {delta > 0 ? "▲" : "▼"} {delta > 0 ? "+" : ""}
-                {delta} this week
+            {certDelta != null && certDelta > 0 ? (
+              <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.green }}>
+                ▲ +{certDelta} certified this week
+              </span>
+            ) : attainDelta != null && Math.abs(attainDelta) >= 0.01 ? (
+              <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: attainDelta > 0 ? COLOR.green : COLOR.pink }}>
+                {attainDelta > 0 ? "▲" : "▼"} {attainDelta > 0 ? "+" : ""}
+                {Math.round(attainDelta * 100)}pp this week
               </span>
             ) : null}
           </div>
 
+          {/* attainment bar */}
           <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
-            <BlockBar value={fraction ?? 0} width={28} color={status.color} />
-            <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>{pct != null ? `${pct}%` : "—"}</span>
+            <BlockBar value={attainment ?? 0} width={28} color={status.color} />
+            <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>{pct(attainment)}</span>
+            <Faint style={{ fontSize: 11 }}>toward target</Faint>
           </div>
 
-          {/* at-risk facets (lazy on expand) */}
+          {/* coverage bar (certified / examined / untouched) */}
+          {hasDualAxis && report ? (
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <SegmentBar
+                certified={report.certifiedCount ?? 0}
+                examined={report.examinedCount ?? 0}
+                total={report.total}
+                width={28}
+              />
+              <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>
+                {report.certifiedCount ?? 0} certified · {Math.max((report.examinedCount ?? 0) - (report.certifiedCount ?? 0), 0)} examined ·{" "}
+                {Math.max(report.total - (report.examinedCount ?? 0), 0)} untouched
+              </Faint>
+            </div>
+          ) : null}
+
+          {/* earned progress */}
+          {hasDualAxis && report ? (
+            <div style={{ marginTop: 10, fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO }}>
+              {pace ? `${pace.attemptsLogged} attempts` : null}
+              {pace ? " · " : null}
+              {report.examinedCount ?? 0}/{report.total} facets examined · {report.certifiedCount ?? 0} certified
+              {report.latestExam?.score != null ? ` · last exam ${pct(report.latestExam.score)}` : null}
+            </div>
+          ) : null}
+
+          {/* work remaining + pace */}
+          {hasDualAxis && pace ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: paceTone, fontFamily: FONT_MONO }}>
+              {pace.attemptsRemaining == null
+                ? "work remaining unknown — some facets need new practice items"
+                : pace.attemptsRemaining === 0
+                  ? "all facets certified — hold the line until the due date"
+                  : `≈ ${pace.attemptsRemaining} attempts to certify` +
+                    (pace.neededPerDay != null ? ` · need ~${pace.neededPerDay}/day` : "") +
+                    ` · pace ${pace.attemptsPerDay}/day` +
+                    (report?.attemptsRemainingIsPartial ? " · + facets needing new items" : "")}
+            </div>
+          ) : null}
+
+          {/* milestone celebration */}
+          {celebrateCount != null ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "6px 10px",
+                border: `1px solid ${COLOR.green}`,
+                color: COLOR.green,
+                fontFamily: FONT_MONO,
+                fontSize: 12,
+                animation: "llGoalCertPulse 2.4s ease-out 1"
+              }}
+            >
+              ▲ {celebrateCount === 1 ? "facet certified" : `${celebrateCount} facets certified`} — {report?.certifiedCount ?? 0} total
+            </div>
+          ) : null}
+
+          {/* at-risk facet checklist (lazy on expand) */}
           {atRiskCount > 0 ? (
             <div style={{ marginTop: 12 }}>
               <span
                 onClick={() => setExpanded((v) => !v)}
                 style={{ fontSize: 12, color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO }}
               >
-                {expanded ? "▾" : "▸"} at risk: {atRiskCount} {atRiskCount === 1 ? "facet" : "facets"}
+                {expanded ? "▾" : "▸"} to do: {atRiskCount} {atRiskCount === 1 ? "facet" : "facets"} need work
               </span>
               {expanded ? (
-                <div style={{ marginTop: 6, fontSize: 12, color: COLOR.textDim, lineHeight: 1.6 }}>
+                <div style={{ marginTop: 6, fontSize: 12, color: COLOR.textDim, lineHeight: 1.7 }}>
                   {atRiskError ? (
                     <Faint style={{ color: COLOR.red }}>{atRiskError}</Faint>
                   ) : atRisk == null ? (
@@ -240,16 +395,30 @@ export function GoalBanner({
                   ) : atRisk.length === 0 ? (
                     <Faint>none</Faint>
                   ) : (
-                    atRisk.slice(0, 6).map((f) => (
-                      <div key={`${f.learningObjectId}:${f.facetId}`} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                          {f.learningObjectTitle}
-                        </span>
-                        <Faint style={{ fontFamily: FONT_MONO, fontSize: 11 }}>
-                          {f.currentRecall != null ? `${Math.round(f.currentRecall * 100)}%` : f.label}
-                        </Faint>
-                      </div>
-                    ))
+                    <>
+                      {atRisk.slice(0, 8).map((f) => (
+                        <div key={`${f.learningObjectId}:${f.facetId}`} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 80 }}>
+                            {f.learningObjectTitle}
+                          </span>
+                          <Pill color="slate">{f.facetId}</Pill>
+                          {f.evidenceMass != null ? (
+                            <BlockBar value={Math.min(f.evidenceMass / 0.5, 1)} width={6} color={f.certified ? COLOR.green : COLOR.amber} />
+                          ) : null}
+                          <Faint style={{ fontFamily: FONT_MONO, fontSize: 11, whiteSpace: "nowrap" }}>
+                            {f.predictedAtHorizon != null ? `pred ${pct(f.predictedAtHorizon)}` : f.label}
+                          </Faint>
+                          <Faint style={{ fontFamily: FONT_MONO, fontSize: 11, whiteSpace: "nowrap" }}>
+                            {f.attemptsToCertify == null
+                              ? "needs items"
+                              : f.attemptsToCertify > 0
+                                ? `≈${f.attemptsToCertify} att.`
+                                : actionOf(f.label)}
+                          </Faint>
+                        </div>
+                      ))}
+                      {atRisk.length > 8 ? <Faint style={{ fontSize: 11 }}>… and {atRisk.length - 8} more</Faint> : null}
+                    </>
                   )}
                 </div>
               ) : null}
@@ -281,7 +450,7 @@ export function GoalBanner({
         {/* right: trajectory chart */}
         <div style={{ flex: "0 0 auto", minWidth: 260 }}>
           <div style={{ fontSize: 10, color: COLOR.textFaint, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: FONT_MONO, marginBottom: 4 }}>
-            trajectory
+            trajectory · predicted recall vs target
           </div>
           {seriesError ? (
             <Faint style={{ color: COLOR.red, fontSize: 11 }}>{seriesError}</Faint>

@@ -11,6 +11,8 @@ import re
 from typing import Any
 
 from learnloop.clock import utc_now_iso
+from learnloop.db.repositories import Repository
+from learnloop.services.goal_pace import compute_goal_pace
 from learnloop.services.goal_projection import GoalReport, goal_report, resolve_goal_scope
 from learnloop.services.goal_series import goal_report_series
 from learnloop.vault.models import Goal, LoadedVault
@@ -26,6 +28,10 @@ _GOAL_STATUSES = ("active", "paused", "completed", "expired")
 # goal_report_series replays history (checkpoints x per-LO replay); cache per
 # (goal, params) and invalidate on any new attempt for the vault.
 _series_cache: dict[tuple, list[dict[str, Any]]] = {}
+
+# Bump when GoalSeriesPoint.as_dict gains/loses keys so a hot-reloaded process
+# can never serve a stale-shape cached payload.
+_SERIES_PAYLOAD_VERSION = 2
 
 
 class GoalIdInput(ParamsModel):
@@ -67,8 +73,28 @@ def _find_goal(vault: LoadedVault, goal_id: str) -> Goal:
     raise SidecarError("goal_not_found", f"Goal {goal_id} does not exist.")
 
 
-def _report_dto(vault: LoadedVault, report: GoalReport, *, include_facets: bool) -> dict[str, Any]:
-    at_risk = [facet for facet in report.facets if not facet.on_track]
+def _latest_exam_dto(repository: Repository, goal: Goal) -> dict[str, Any] | None:
+    session = repository.latest_completed_exam_session(goal.id)
+    if session is None or not session.get("report"):
+        return None
+    return {
+        "score": session["report"].get("overall_score"),
+        "completed_at": session.get("completed_at"),
+    }
+
+
+def _report_dto(
+    vault: LoadedVault,
+    report: GoalReport,
+    *,
+    include_facets: bool,
+    repository: Repository | None = None,
+    goal: Goal | None = None,
+) -> dict[str, Any]:
+    at_risk = sorted(
+        (facet for facet in report.facets if facet.at_risk),
+        key=lambda facet: (facet.certified, facet.predicted_at_horizon),
+    )
     payload: dict[str, Any] = {
         "on_track_count": report.on_track_count,
         "total": report.total,
@@ -76,7 +102,16 @@ def _report_dto(vault: LoadedVault, report: GoalReport, *, include_facets: bool)
         "at_risk_count": len(at_risk),
         "horizon": report.horizon.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "due_at": report.due_at.strftime("%Y-%m-%dT%H:%M:%SZ") if report.due_at else None,
+        "certified_count": report.certified_count,
+        "examined_count": report.examined_count,
+        "attainment_fraction": report.attainment_fraction,
+        "predicted_recall_mean": report.predicted_recall_mean,
+        "attempts_remaining": report.attempts_remaining,
+        "attempts_remaining_is_partial": report.attempts_remaining_is_partial,
     }
+    if repository is not None and goal is not None:
+        payload["pace"] = compute_goal_pace(vault, repository, goal, report).as_dict()
+        payload["latest_exam"] = _latest_exam_dto(repository, goal)
     if include_facets:
         payload["at_risk"] = [
             {
@@ -90,13 +125,23 @@ def _report_dto(vault: LoadedVault, report: GoalReport, *, include_facets: bool)
                 "label": facet.label,
                 "current_recall": facet.current_recall,
                 "projected_recall": facet.projected_recall,
+                "predicted_current": facet.predicted_current,
+                "predicted_at_horizon": facet.predicted_at_horizon,
+                "evidence_mass": facet.evidence_mass,
+                "certified": facet.certified,
+                "attempts_to_certify": facet.attempts_to_certify,
             }
             for facet in at_risk
         ]
     return payload
 
 
-def _goal_dto(vault: LoadedVault, goal: Goal, report: GoalReport | None) -> dict[str, Any]:
+def _goal_dto(
+    vault: LoadedVault,
+    goal: Goal,
+    report: GoalReport | None,
+    repository: Repository | None = None,
+) -> dict[str, Any]:
     return {
         "id": goal.id,
         "title": goal.title,
@@ -111,7 +156,11 @@ def _goal_dto(vault: LoadedVault, goal: Goal, report: GoalReport | None) -> dict
         "exam": {"enabled": goal.exam.enabled, "item_count": goal.exam.item_count},
         "created_at": goal.created_at,
         "updated_at": goal.updated_at,
-        "report": _report_dto(vault, report, include_facets=False) if report else None,
+        "report": (
+            _report_dto(vault, report, include_facets=False, repository=repository, goal=goal)
+            if report
+            else None
+        ),
     }
 
 
@@ -121,7 +170,7 @@ def goals_list(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]:
     goals = []
     for goal in vault.goals:
         report = goal_report(vault, repository, goal) if goal.status == "active" else None
-        goals.append(_goal_dto(vault, goal, report))
+        goals.append(_goal_dto(vault, goal, report, repository))
     return versioned({"goals": goals})
 
 
@@ -133,7 +182,9 @@ def get_goal_report(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
     return versioned(
         {
             "goal": _goal_dto(vault, goal, None),
-            "report": _report_dto(vault, report, include_facets=True),
+            "report": _report_dto(
+                vault, report, include_facets=True, repository=repository, goal=goal
+            ),
         }
     )
 
@@ -147,6 +198,7 @@ def get_goal_report_series(ctx: SidecarContext, params: GoalSeriesInput) -> dict
             "SELECT COUNT(*) AS n, MAX(created_at) AS latest FROM practice_attempts"
         ).fetchone()
     cache_key = (
+        _SERIES_PAYLOAD_VERSION,
         str(vault.root),
         goal.id,
         goal.updated_at,
@@ -252,7 +304,7 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
 
         reserve_exam_pool(vault, repository, goal)
     report = goal_report(vault, repository, goal)
-    return versioned({"goal": _goal_dto(vault, goal, report)})
+    return versioned({"goal": _goal_dto(vault, goal, report, repository)})
 
 
 @method("update_goal_status", UpdateGoalStatusInput)
@@ -276,4 +328,4 @@ def update_goal_status(ctx: SidecarContext, params: UpdateGoalStatusInput) -> di
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, params.goal_id)
     report = goal_report(vault, repository, goal) if goal.status == "active" else None
-    return versioned({"goal": _goal_dto(vault, goal, report)})
+    return versioned({"goal": _goal_dto(vault, goal, report, repository)})

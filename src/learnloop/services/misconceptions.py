@@ -209,6 +209,14 @@ def normalize_attempt_misconceptions(
             inserted = repository.misconception(misconception_id)
             if inserted is not None:
                 candidates.append(inserted)  # dedupe repeats within the same attempt
+            # Probe redesign §6.5: a newly registered high-severity misconception
+            # is a re-probe trigger — a NEW episode with a fresh locked set that
+            # includes the belief, replacing the stale diagnosis.
+            from learnloop.services.probe_episodes import maybe_reprobe_for_misconception
+
+            maybe_reprobe_for_misconception(
+                vault, repository, learning_object_id, severity=severity, clock=clock
+            )
         repository.set_error_event_misconception(event["id"], misconception_id, clock=clock)
         touched.append(misconception_id)
     return touched
