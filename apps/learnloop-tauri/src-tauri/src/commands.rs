@@ -409,6 +409,14 @@ pub async fn start_inventory(
 }
 
 #[tauri::command]
+pub async fn create_study_map(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "create_study_map", input).await
+}
+
+#[tauri::command]
 pub async fn start_extraction_repair(
     input: Value,
     sidecar: State<'_, SidecarManager>,

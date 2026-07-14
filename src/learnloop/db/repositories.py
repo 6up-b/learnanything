@@ -4532,6 +4532,113 @@ class Repository:
             )
             connection.commit()
 
+    # --- synthesis-time generate-discriminator needs (ING M6, §8.7) ----------
+
+    def upsert_synthesis_generation_need(
+        self,
+        *,
+        subject_id: str,
+        need_kind: str,
+        target_key: str,
+        missing_capability: str,
+        facet_ids: list[str] | None = None,
+        source_set_id: str | None = None,
+        synthesis_run_id: str | None = None,
+        detail: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Record one deduplicated synthesis-time generation/coarsen need.
+
+        Mirrors ``upsert_probe_generation_need`` but synthesis-scoped: deduped on
+        (subject_id, need_kind, target_key) since there is no probe episode yet.
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM synthesis_generation_needs "
+                "WHERE subject_id = ? AND need_kind = ? AND target_key = ?",
+                (subject_id, need_kind, target_key),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            need_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO synthesis_generation_needs(
+                  id, subject_id, source_set_id, synthesis_run_id, need_kind,
+                  target_key, missing_capability, facet_ids_json, detail, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    need_id,
+                    subject_id,
+                    source_set_id,
+                    synthesis_run_id,
+                    need_kind,
+                    target_key,
+                    missing_capability,
+                    _json(list(facet_ids or [])),
+                    detail,
+                    now,
+                ),
+            )
+            connection.commit()
+        return need_id
+
+    def synthesis_generation_needs(
+        self,
+        *,
+        subject_id: str | None = None,
+        status: str | None = None,
+        need_kind: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        for column, value in (
+            ("subject_id", subject_id),
+            ("status", status),
+            ("need_kind", need_kind),
+        ):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM synthesis_generation_needs{where} ORDER BY created_at, id",
+                parameters,
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "subject_id": row["subject_id"],
+                "source_set_id": row["source_set_id"],
+                "synthesis_run_id": row["synthesis_run_id"],
+                "need_kind": row["need_kind"],
+                "target_key": row["target_key"],
+                "missing_capability": row["missing_capability"],
+                "facet_ids": _loads(row["facet_ids_json"], []),
+                "detail": row["detail"],
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "resolved_at": row["resolved_at"],
+            }
+            for row in rows
+        ]
+
+    def resolve_synthesis_generation_need(
+        self, need_id: str, *, status: str = "resolved", clock: Clock | None = None
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE synthesis_generation_needs SET status = ?, resolved_at = ? WHERE id = ?",
+                (status, now, need_id),
+            )
+            connection.commit()
+
     def update_probe_item_family_metadata(
         self,
         *,

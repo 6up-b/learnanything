@@ -31,6 +31,8 @@ from learnloop.codex.prompts import (
     PROBE_INSTANCE_PROMPT_VERSION,
     PROMOTION_ANALYSIS_PROMPT,
     PROMOTION_ANALYSIS_PROMPT_VERSION,
+    SOURCE_SET_SYNTHESIS_PROMPT,
+    SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     SOURCE_UNIT_INVENTORY_PROMPT,
     SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     TEACH_BACK_PROMPT_VERSION,
@@ -45,6 +47,7 @@ from learnloop.codex.schemas import (
     ProbeFamilyTrials,
     ProbeInstanceSurfaces,
     PromotionAnalysis,
+    SourceSetSynthesis,
     SourceUnitInventory,
     TeachBackQuestion,
     TutorAnswer,
@@ -321,6 +324,30 @@ class SourceUnitInventoryContext:
     role: str
     inventory_profile: str  # semantic | practice | assessment | combined
     unit_view: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SourceSetSynthesisContext:
+    """Bounded input for one bootstrap synthesis pass/shard (§8.5).
+
+    Carries role-specific unit inventories (NOT raw documents), the synthesis
+    brief, a compact existing-registry index, and the exam assessment-alignment
+    view (aggregate profile + cited task metadata only — held-out wording is
+    NEVER included). ``resolved_spans`` holds the one bounded span-request round's
+    resolved evidence (empty on pass 1). All text is untrusted; the prompt
+    delimits it and cites provided span ids only.
+    """
+
+    source_set_id: str
+    subject_id: str
+    mode: str  # bootstrap
+    brief: dict = field(default_factory=dict)
+    unit_inventories: list = field(default_factory=list)
+    exam_profile: dict = field(default_factory=dict)
+    registry_index: dict = field(default_factory=dict)
+    resolved_spans: list = field(default_factory=list)
+    shard_ordinal: int = 0
+    shard_count: int = 1
 
 
 class CodexClient(Protocol):
@@ -660,6 +687,24 @@ class SdkCodexClient:
             purpose="source_unit_inventory",
         )
         return SourceUnitInventory.model_validate_json(text)
+
+    def run_source_set_synthesis(self, context: SourceSetSynthesisContext) -> SourceSetSynthesis:
+        """N-way bootstrap synthesis over role-specific inventories (§8.5).
+
+        Deliberately NOT on the ``CodexClient`` Protocol / ``HttpCodexClient`` —
+        the synthesis service discovers it via ``getattr(client,
+        "run_source_set_synthesis", None)`` and degrades when the provider lacks
+        it. Output is candidate-only, span-cited, and dependency-annotated; the
+        service validates spans, runs the §8.7 gates, normalizes dependencies,
+        and persists through the existing proposal pipeline.
+        """
+
+        text = self._run_structured(
+            _source_set_synthesis_prompt(context),
+            _codex_output_schema(SourceSetSynthesis),
+            purpose="source_set_synthesis",
+        )
+        return SourceSetSynthesis.model_validate_json(text)
 
     def _run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
         _ensure_sdk_importable(self.sdk_python_path)
@@ -1137,6 +1182,19 @@ def _source_unit_inventory_prompt(context: SourceUnitInventoryContext) -> str:
         SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
         {
             "task": SOURCE_UNIT_INVENTORY_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str:
+    """Bootstrap synthesis prompt (source-ingestion §8.5)."""
+
+    return _json_prompt(
+        "learnloop source set synthesis",
+        SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
+        {
+            "task": SOURCE_SET_SYNTHESIS_PROMPT,
             "context": asdict(context),
         },
     )

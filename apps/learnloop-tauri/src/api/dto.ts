@@ -1245,6 +1245,31 @@ export interface StartInventoryInput {
   sourceSetId?: string | null;
 }
 
+export interface CreateStudyMapInput {
+  sourceSetId: string;
+  mode?: "auto" | "bootstrap";
+  brief?: Record<string, unknown>;
+  apply?: boolean;
+  createGoal?: boolean;
+}
+
+export interface StudyMapDto {
+  sourceSetId: string;
+  subjectId: string;
+  mode: string;
+  manifestHash: string;
+  synthesisRunId: string | null;
+  proposalId: string | null;
+  reused: boolean;
+  applied: boolean;
+  goalId: string | null;
+  itemCounts: Record<string, number>;
+  gateDiagnostics: Record<string, unknown>[];
+  generationNeeds: Record<string, unknown>[];
+  spanRequestCount: number;
+  resolvedSpanHashes: string[];
+}
+
 export interface AcquisitionPreviewItem {
   input: string;
   recognized: boolean;

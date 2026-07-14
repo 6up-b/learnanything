@@ -1,0 +1,51 @@
+# Hand-authored GOLD registry + blueprint set for ONE fixture chapter
+# (linear algebra — symmetric matrices & the spectral theorem). ING M6 synthesis
+# quality eval harness (spec_source_ingestion_v2 §14). Keyed per prompt version.
+#
+# This is the reference a synthesized study map is scored against: good facets
+# are statement/contract-level semantic atoms that split only when they have
+# different counterexamples, error signatures, or repairs (knowledge-model §18.4).
+prompt_version: mvp-0.7-source-set-synthesis-bootstrap
+subject: linear-algebra
+facets:
+  - id: facet_symmetry_definition
+    concept_id: concept_symmetric_matrix
+    kind: definition
+    claim: A real square matrix is symmetric exactly when A^T = A.
+    preconditions:
+      - the matrix is real and square
+    postconditions: []
+    error_signatures:
+      - substitutes A^T A = I for A^T = A
+    instructional_repairs:
+      - contrast symmetric and orthogonal matrices
+    provenance_role: primary_textbook
+  - id: facet_spectral_applicability
+    concept_id: concept_symmetric_matrix
+    kind: applicability_condition
+    claim: The spectral theorem applies to real symmetric matrices.
+    preconditions:
+      - the matrix is real and symmetric
+    postconditions:
+      - the matrix is orthogonally diagonalizable
+    error_signatures:
+      - applies the spectral theorem to non-symmetric matrices
+    instructional_repairs:
+      - check symmetry before invoking the spectral theorem
+    provenance_role: primary_textbook
+blueprints:
+  - id: bp_select_and_apply_spectral
+    learning_object_id: lo_diagonalize_symmetric
+    recipes:
+      - id: recipe_spectral
+        facets: [facet_symmetry_definition, facet_spectral_applicability]
+recipes:
+  - id: recipe_spectral
+    facets: [facet_symmetry_definition, facet_spectral_applicability]
+criterion_targets:
+  - facet: facet_symmetry_definition
+    capability: schema_interpretation
+    role: primary
+  - facet: facet_spectral_applicability
+    capability: method_selection
+    role: primary

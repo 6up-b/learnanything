@@ -339,11 +339,22 @@ def test_legacy_ingest_handler_wraps_pipeline_with_stub_client(tmp_path):
 
 
 def test_reserved_job_types_fail_with_not_implemented_seam(tmp_path):
-    # `inventory` landed in ING M4; `bootstrap_synthesis`/`append_synthesis`
-    # remain reserved seams for M6.
+    # `inventory` landed in ING M4 and `bootstrap_synthesis` in ING M6;
+    # `append_synthesis` remains a reserved seam for M7.
     runner = _runner(tmp_path)
-    batch_id = runner.enqueue_batch("create_study_map", [JobSpec("bootstrap_synthesis", {"set_id": "s1"})])
+    batch_id = runner.enqueue_batch("update_study_map", [JobSpec("append_synthesis", {"set_id": "s1"})])
     runner.drain()
     job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
     assert job["status"] == "failed"
     assert job["error"]["code"] == "not_implemented"
+
+
+def test_bootstrap_synthesis_job_validates_payload(tmp_path):
+    # `bootstrap_synthesis` landed in ING M6: a missing source_set_id is a
+    # validation failure, not a not_implemented seam.
+    runner = _runner(tmp_path)
+    batch_id = runner.enqueue_batch("create_study_map", [JobSpec("bootstrap_synthesis", {})])
+    runner.drain()
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "failed"
+    assert job["error"]["code"] != "not_implemented"

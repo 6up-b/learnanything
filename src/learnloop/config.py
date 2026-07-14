@@ -409,6 +409,9 @@ synthesis_total_input_ceiling = 48000
 synthesis_output_tokens = 16000
 append_neighborhood_input_tokens = 24000
 append_output_tokens = 10000
+# Span-request protocol caps (§8.5): one bounded request round only.
+synthesis_span_request_max_count = 12
+synthesis_span_char_cap = 4000
 
 # Per-provider context/output limits consulted by preflight, keyed by the
 # [ai.providers.<name>] entries (source-ingestion spec §3.1), e.g.
@@ -1202,6 +1205,9 @@ class IngestBudgetsConfig(BaseModel):
     synthesis_output_tokens: int = 16000
     append_neighborhood_input_tokens: int = 24000
     append_output_tokens: int = 10000
+    # Span-request protocol caps (§8.5): one bounded request round only.
+    synthesis_span_request_max_count: int = 12
+    synthesis_span_char_cap: int = 4000
 
 
 class IngestProviderLimits(BaseModel):

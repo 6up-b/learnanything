@@ -1133,6 +1133,100 @@ def source_coverage_command(
         typer.echo(f"  ! {flag['code']}: {flag['message']}")
 
 
+@app.command("synthesize")
+def synthesize_command(
+    set_id: Annotated[str, typer.Argument(help="Source-set id.")],
+    mode: Annotated[str, typer.Option("--mode", help="auto|bootstrap.")] = "auto",
+    brief_file: Annotated[Path | None, typer.Option("--brief-file", help="JSON synthesis brief (§8.3).")] = None,
+    apply_map: Annotated[bool, typer.Option("--apply", help="Accept the study map under the vault lock (requires mvp-0.7).")] = False,
+    create_goal: Annotated[bool, typer.Option("--create-goal", help="Create an exam-prep Goal wired to the minted facets.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Create a study map from a source set (bootstrap synthesis, §8)."""
+
+    from learnloop.services.source_set_synthesis import StudyMapError, create_study_map
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    if not any(s.id == set_id for s in loaded.source_sets):
+        typer.echo(f"Source set '{set_id}' does not exist.", err=True)
+        raise typer.Exit(code=1)
+    brief: dict = {}
+    if brief_file is not None:
+        brief = jsonlib.loads(brief_file.read_text(encoding="utf-8"))
+
+    runtime = check_codex_runtime(vault_root, loaded.config.codex)
+    client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+    if client is None:
+        typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        result = create_study_map(
+            vault_root, set_id, client=client, brief=brief, mode=mode,
+            apply=apply_map, create_goal=create_goal,
+        )
+    except StudyMapError as exc:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": exc.code, "message": str(exc),
+                              "diagnostics": exc.diagnostics, "lockReasons": exc.lock_reasons}))
+        else:
+            typer.echo(f"{exc.code}: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(_dump({"version": 1, "studyMap": result.as_dict()}))
+        return
+    typer.echo(f"Study map for {result.subject_id} ({result.mode}) — proposal {result.proposal_id}")
+    typer.echo(f"  reused={result.reused} applied={result.applied} items={result.item_counts}")
+    if result.generation_needs:
+        typer.echo(f"  identifiability needs: {len(result.generation_needs)}")
+    for diag in result.gate_diagnostics:
+        if diag["severity"] != "hard_fail":
+            typer.echo(f"  ~ {diag['gate']}: {diag['message']}")
+
+
+@app.command("synthesis-eval")
+def synthesis_eval_command(
+    subject: Annotated[str, typer.Argument(help="Fixture subject id (informational; keyed per prompt version).")],
+    set_id: Annotated[str | None, typer.Option("--set", help="Source set to synthesize + score (live provider run).")] = None,
+    gold: Annotated[Path | None, typer.Option("--gold", help="Gold registry YAML (defaults to the bundled fixture).")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Score a synthesized study map against a hand-authored gold registry (§14)."""
+
+    from learnloop.codex.prompts import SOURCE_SET_SYNTHESIS_PROMPT_VERSION
+    from learnloop.services.source_set_synthesis import create_study_map
+    from learnloop.services.synthesis_eval import (
+        default_gold_path,
+        evaluate,
+        extract_candidate_from_vault,
+        load_gold,
+    )
+
+    gold_path = gold or default_gold_path()
+    gold_data = load_gold(gold_path)
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    if set_id is not None:
+        runtime = check_codex_runtime(vault_root, loaded.config.codex)
+        client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+        if client is None:
+            typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+            raise typer.Exit(code=1)
+        create_study_map(vault_root, set_id, client=client, brief={}, apply=True)
+        loaded = load_vault(vault_root)
+    candidate = extract_candidate_from_vault(loaded, prompt_version=SOURCE_SET_SYNTHESIS_PROMPT_VERSION)
+    report = evaluate(gold_data, candidate)
+    if json_output:
+        typer.echo(_dump({"version": 1, "eval": report.as_dict()}))
+        return
+    typer.echo(report.format_text())
+
+
 @app.command("build-plan")
 def build_plan_command(
     refs: Annotated[list[str], typer.Argument(help="Extraction/revision/artifact ids to plan.")],

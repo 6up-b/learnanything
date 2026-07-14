@@ -21,9 +21,16 @@ from learnloop.vault.writer import (
     upsert_concept,
     upsert_concept_edge,
     upsert_error_type,
+    upsert_facet,
     upsert_learning_object,
     upsert_practice_item,
 )
+
+# Learnable-map item types whose acceptance requires an mvp-0.7 vault
+# (source-ingestion §8.2 / knowledge-model §12.7 feature gate). Applying any of
+# these in a legacy vault is refused so no attempts can accrue against a
+# partially-upgraded map.
+LEARNABLE_MAP_ITEM_TYPES = frozenset({"facet", "task_blueprint"})
 
 
 class PatchApplicationError(ValueError):
@@ -251,7 +258,76 @@ def compile_proposal_item(vault: LoadedVault, item: dict[str, Any]) -> CompiledP
         return _compile_rubric(vault, item, payload)
     if item_type == "error_type":
         return _compile_error_type(vault, item, payload)
+    if item_type == "facet":
+        return _compile_facet(vault, item, payload)
+    if item_type == "task_blueprint":
+        return _compile_task_blueprint(vault, item, payload)
     raise PatchApplicationError(f"Unsupported proposal item type {item_type}")
+
+
+def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: str) -> None:
+    """Bootstrap evidence refusal (§8.2 enforcement 2, knowledge-model §12.7).
+
+    A learnable study map (facets/blueprints) may only be applied once the vault
+    is at algorithm_version mvp-0.7. In a legacy vault synthesis/preview may run
+    but ACCEPTANCE refuses with a typed reason, so no attempts can accrue against
+    a partially-upgraded map."""
+
+    if vault.config.algorithms.algorithm_version != "mvp-0.7":
+        raise PatchApplicationError(
+            f"bootstrap_evidence_refused: cannot apply learnable {item_type} {entity_id} "
+            f"in a legacy vault (requires algorithm_version mvp-0.7)"
+        )
+
+
+def _compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
+    entity_id = _entity_id(item, payload)
+    _refuse_learnable_on_legacy(vault, "facet", entity_id)
+    data = {**payload, "id": entity_id}
+    concept_id = data.get("concept_id")
+    if concept_id is not None and concept_id not in vault.concepts:
+        raise PatchApplicationError(f"Facet {entity_id} references missing concept {concept_id}")
+    return CompiledPatch(
+        proposal_item_id=item["id"],
+        entity_type="facet",
+        entity_id=entity_id,
+        subject=None,
+        event_type=_event_type(item["operation"]),
+        summary=f"{item['operation']} facet {entity_id}",
+        apply=lambda root, clock: upsert_facet(root, data, clock=clock),
+    )
+
+
+def _compile_task_blueprint(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
+    blueprint_id = str(payload.get("id") or "")
+    if not blueprint_id:
+        raise PatchApplicationError(f"Proposal item {item['id']} task_blueprint requires an id")
+    _refuse_learnable_on_legacy(vault, "task_blueprint", blueprint_id)
+    learning_object_id = payload.get("learning_object_id") or item.get("target_entity_id")
+    existing = vault.learning_objects.get(str(learning_object_id))
+    if existing is None:
+        raise PatchApplicationError(
+            f"task_blueprint {blueprint_id} references missing Learning Object {learning_object_id}"
+        )
+    data = existing.model_dump(mode="json", exclude_none=False)
+    blueprint = {
+        "id": blueprint_id,
+        "weight": payload.get("weight", 1.0),
+        "recipes": payload.get("recipes") or [],
+    }
+    blueprints = [dict(bp) for bp in (data.get("blueprints") or []) if bp.get("id") != blueprint_id]
+    blueprints.append(blueprint)
+    data["blueprints"] = blueprints
+    subject = existing.subjects[0]
+    return CompiledPatch(
+        proposal_item_id=item["id"],
+        entity_type="task_blueprint",
+        entity_id=blueprint_id,
+        subject=subject,
+        event_type=_event_type(item["operation"]),
+        summary=f"{item['operation']} task blueprint {blueprint_id} on {learning_object_id}",
+        apply=lambda root, clock: upsert_learning_object(root, data, clock=clock),
+    )
 
 
 def _proposal_apply_order(item: dict[str, Any]) -> tuple[int, int, str]:
@@ -259,10 +335,12 @@ def _proposal_apply_order(item: dict[str, Any]) -> tuple[int, int, str]:
     type_order = {
         "concept": 0,
         "error_type": 1,
-        "learning_object": 2,
-        "practice_item": 3,
-        "rubric": 4,
-        "concept_edge": 5,
+        "facet": 2,
+        "learning_object": 3,
+        "task_blueprint": 4,
+        "practice_item": 5,
+        "rubric": 6,
+        "concept_edge": 7,
     }
     return (
         operation_order.get(str(item.get("operation")), 9),

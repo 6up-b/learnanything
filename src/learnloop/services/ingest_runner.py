@@ -109,6 +109,7 @@ class RunnerServices:
     extract: Callable[[FetchedBytes, str, "JobContext"], Any] | None = None
     run_legacy_ingest: Callable[..., Any] | None = None
     inventory_client_factory: Callable[["JobContext"], Any] | None = None
+    synthesis_client_factory: Callable[["JobContext"], Any] | None = None
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
         return (self.fetch or default_fetch)(source, category, ctx)
@@ -121,6 +122,9 @@ class RunnerServices:
 
     def inventory_client(self, ctx: "JobContext") -> Any:
         return (self.inventory_client_factory or default_inventory_client)(ctx)
+
+    def synthesis_client(self, ctx: "JobContext") -> Any:
+        return (self.synthesis_client_factory or default_inventory_client)(ctx)
 
 
 @dataclass
@@ -413,6 +417,48 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         "units": results,
         "cache_hits": sum(1 for row in results if row["cache_hit"]),
     }
+
+
+def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
+    """bootstrap_synthesis: N-way study-map synthesis over a source set (ING M6).
+
+    Depends on all selected unit-inventory jobs (the runner enforces this via
+    job dependencies). Payload: ``source_set_id`` plus optional ``brief``,
+    ``mode``, ``apply``, ``create_goal``. Emits the dependency-closed proposal
+    through the existing pipeline; the manifest hash is the agent-run cache seam
+    so an identical manifest re-drains at zero tokens."""
+
+    from learnloop.services.source_set_synthesis import StudyMapError, create_study_map
+
+    payload = ctx.payload
+    source_set_id = str(payload.get("source_set_id") or "").strip()
+    if not source_set_id:
+        raise IngestRunnerError("bootstrap_synthesis job requires a 'source_set_id'.")
+
+    ctx.report("inventoried", message="Preparing study-map synthesis")
+    client = ctx.services.synthesis_client(ctx)
+    try:
+        result = create_study_map(
+            ctx.vault_root,
+            source_set_id,
+            client=client,
+            brief=payload.get("brief") or {},
+            mode=str(payload.get("mode") or "auto"),
+            apply=bool(payload.get("apply", False)),
+            create_goal=bool(payload.get("create_goal", False)),
+            repository=ctx.repo,
+            clock=ctx.clock,
+        )
+    except StudyMapError as exc:
+        raise IngestRunnerError(f"{exc.code}: {exc}")
+
+    ctx.record_usage({"calls": (result.item_counts and 1) or 0})
+    ctx.report("synthesized", message="Study map synthesized")
+    if result.applied:
+        ctx.report("applied", message="Study map applied")
+    else:
+        ctx.report("proposed", message="Study-map proposal ready for review")
+    return result.as_dict()
 
 
 def handle_import(ctx: JobContext) -> dict[str, Any]:
@@ -755,7 +801,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "legacy_ingest": handle_legacy_ingest,
     "exam_ingest": handle_legacy_ingest,
     "inventory": handle_inventory,
-    "bootstrap_synthesis": _not_implemented_handler("bootstrap_synthesis"),
+    "bootstrap_synthesis": handle_bootstrap_synthesis,
     "append_synthesis": _not_implemented_handler("append_synthesis"),
     "extraction_repair": handle_extraction_repair,
 }

@@ -552,3 +552,177 @@ class SourceUnitInventory(BaseModel):
     misconception_signals: list[InventoryMisconceptionSignal] = Field(default_factory=list)
     coverage_claims: list[InventoryCoverageClaim] = Field(default_factory=list)
     inventory_warnings: list[InventoryWarning] = Field(default_factory=list)
+
+
+# --- Source-set synthesis (ING M6, spec §8.5) -------------------------------
+#
+# The bootstrap synthesis output contract. It emits DEPENDENCY-ANNOTATED
+# proposal items (facets, concepts, LOs with blueprints/recipes, task
+# blueprints, practice items with rubric criteria) plus a single bounded
+# round of `span_requests`. All ids are CLIENT ids; the service reassigns
+# deterministic entity ids and normalizes `depends_on` into the dependency
+# table. Provenance cites ONLY span ids supplied in the synthesis context.
+
+
+class SynthSpanRef(BaseModel):
+    """One span citation (§8.5). Cites provided extraction/unit/span ids only."""
+
+    extraction_id: str = ""
+    revision_id: str = ""
+    unit_id: str = ""
+    span_id: str = ""
+    source_id: str = ""
+    locator: str = ""
+    relation: Literal["primary", "support", "alternate", "exercise", "assessment_alignment"] = "support"
+    role: str = "reference"
+
+
+class SynthSpanRequest(BaseModel):
+    """A pass-1 evidence-view request (§8.5). Resolved for selected units only."""
+
+    extraction_id: str = ""
+    unit_id: str = ""
+    span_id: str = ""
+    purpose: str = ""
+
+
+class SynthConcept(BaseModel):
+    client_item_id: str = ""
+    id: str = ""
+    title: str = ""
+    type: Literal["concept", "procedure", "skill", "misconception"] = "concept"
+    description: str = ""
+
+
+class SynthFacet(BaseModel):
+    """A canonical facet registry entry (knowledge-model §3.2), span-cited."""
+
+    client_item_id: str = ""
+    id: str = ""
+    concept_client_id: str = ""
+    concept_id: str = ""
+    kind: Literal["definition", "proposition", "procedure_contract", "applicability_condition", "interpretation"] = "definition"
+    claim: str = ""
+    preconditions: list[str] = Field(default_factory=list)
+    postconditions: list[str] = Field(default_factory=list)
+    applicability: list[str] = Field(default_factory=list)
+    positive_examples: list[str] = Field(default_factory=list)
+    negative_examples: list[str] = Field(default_factory=list)
+    non_goals: list[str] = Field(default_factory=list)
+    error_signatures: list[str] = Field(default_factory=list)
+    instructional_repairs: list[str] = Field(default_factory=list)
+    aliases: list[str] = Field(default_factory=list)
+    provenance: list[SynthSpanRef] = Field(default_factory=list)
+
+
+class SynthRecipeComponent(BaseModel):
+    facet_client_id: str = ""
+    facet: str = ""
+    capability: str = "retrieval"
+    modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
+
+
+class SynthRecipe(BaseModel):
+    id: str = ""
+    composition: Literal["conjunctive"] = "conjunctive"
+    all_of: list[SynthRecipeComponent] = Field(default_factory=list)
+    any_of: list[SynthRecipeComponent] = Field(default_factory=list)
+    integration: SynthRecipeComponent | None = None
+
+
+class SynthBlueprint(BaseModel):
+    """A performance blueprint (knowledge-model §7.2). Merged onto its LO."""
+
+    client_item_id: str = ""
+    id: str = ""
+    learning_object_client_id: str = ""
+    learning_object_id: str = ""
+    weight: float = 1.0
+    recipes: list[SynthRecipe] = Field(default_factory=list)
+
+
+class SynthLearningObject(BaseModel):
+    client_item_id: str = ""
+    id: str = ""
+    concept_client_id: str = ""
+    concept_id: str = ""
+    title: str = ""
+    summary: str = ""
+    knowledge_type: str = ""
+    prerequisites: list[str] = Field(default_factory=list)
+    provenance: list[SynthSpanRef] = Field(default_factory=list)
+
+
+class SynthCriterionTarget(BaseModel):
+    facet_client_id: str = ""
+    facet: str = ""
+    capability: str = "retrieval"
+    role: Literal["primary", "supporting"] = "primary"
+
+
+class SynthCriterion(BaseModel):
+    id: str = ""
+    points: float = 1.0
+    description: str = ""
+    tier: Literal["core", "transfer"] = "core"
+    targets: list[SynthCriterionTarget] = Field(default_factory=list)
+    depends_on: list[str] = Field(default_factory=list)
+    recipe_ids: list[str] = Field(default_factory=list)
+    correlation_group: str = ""
+
+
+class SynthEvidenceFingerprint(BaseModel):
+    source_family: str = ""
+    shared_stimulus_id: str = ""
+    representation: str = ""
+    solution_recipe_family: str = ""
+    answer_structure: str = ""
+
+
+class SynthPracticeItem(BaseModel):
+    client_item_id: str = ""
+    id: str = ""
+    learning_object_client_id: str = ""
+    learning_object_id: str = ""
+    practice_mode: str = "retrieval"
+    prompt: str = ""
+    expected_answer: str = ""
+    evidence_facet_client_ids: list[str] = Field(default_factory=list)
+    evidence_facets: list[str] = Field(default_factory=list)
+    criteria: list[SynthCriterion] = Field(default_factory=list)
+    fatal_error_ids: list[str] = Field(default_factory=list)
+    evidence_fingerprint: SynthEvidenceFingerprint = Field(default_factory=SynthEvidenceFingerprint)
+    retrieval_demand: float = 0.5
+    transfer_distance: float = 0.0
+    scaffold_level: float = 0.0
+    surface_family: str = "source_form"
+    depends_on_client_item_ids: list[str] = Field(default_factory=list)
+    provenance: list[SynthSpanRef] = Field(default_factory=list)
+
+
+class SynthConflict(BaseModel):
+    entity_client_id: str = ""
+    statement: str = ""
+    left: SynthSpanRef = Field(default_factory=SynthSpanRef)
+    right: SynthSpanRef = Field(default_factory=SynthSpanRef)
+
+
+class SourceSetSynthesis(BaseModel):
+    """The §8.5 bootstrap synthesis contract (candidate-only, span-cited).
+
+    Deliberately NOT on the CodexClient Protocol — discovered via getattr like
+    run_source_unit_inventory. The service validates span citations, runs the
+    §8.7 gates, normalizes dependencies, and persists through the existing
+    proposal pipeline. Every declared conflict candidate must appear here or be
+    explicitly dispositioned as a non-conflict."""
+
+    summary: str = ""
+    span_requests: list[SynthSpanRequest] = Field(default_factory=list)
+    concepts: list[SynthConcept] = Field(default_factory=list)
+    facets: list[SynthFacet] = Field(default_factory=list)
+    learning_objects: list[SynthLearningObject] = Field(default_factory=list)
+    blueprints: list[SynthBlueprint] = Field(default_factory=list)
+    practice_items: list[SynthPracticeItem] = Field(default_factory=list)
+    conflicts: list[SynthConflict] = Field(default_factory=list)
+    non_conflict_dispositions: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)

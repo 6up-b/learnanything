@@ -444,6 +444,48 @@ def get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[
     return versioned({"coverage": build_source_coverage(repository, vault, source_set)})
 
 
+class CreateStudyMapInput(ParamsModel):
+    source_set_id: str
+    mode: str = "auto"
+    brief: dict[str, Any] = {}
+    apply: bool = False
+    create_goal: bool = False
+
+
+@method("create_study_map", CreateStudyMapInput)
+def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[str, Any]:
+    """Bootstrap synthesis: brief -> gated dependency-closed study map (§8, M6).
+
+    The proposal is left for review unless ``apply`` is set (which requires the
+    vault at mvp-0.7; a legacy vault refuses acceptance with a typed reason)."""
+
+    from learnloop.services.source_set_synthesis import StudyMapError
+    from learnloop.services.source_set_synthesis import create_study_map as run_create_study_map
+    from learnloop_sidecar.handlers.ai_providers import _codex_client
+
+    vault, repository = ctx.require_vault()
+    _source_set_or_error(vault, params.source_set_id)
+    client = _codex_client(vault)
+    if client is None:
+        raise SidecarError("codex_unavailable", "Codex runtime is unavailable for synthesis.", retryable=True)
+    try:
+        result = run_create_study_map(
+            vault.root,
+            params.source_set_id,
+            client=client,
+            brief=dict(params.brief or {}),
+            mode=params.mode,
+            apply=params.apply,
+            create_goal=params.create_goal,
+            repository=repository,
+        )
+    except StudyMapError as exc:
+        raise SidecarError(exc.code, str(exc), details={"diagnostics": exc.diagnostics, "lockReasons": exc.lock_reasons})
+    if params.apply:
+        ctx.reload(maintenance=False)
+    return versioned({"studyMap": result.as_dict()})
+
+
 @method("start_inventory", StartInventoryInput)
 def start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[str, Any]:
     """Enqueue a role-aware unit-inventory batch (§7). Cache hits cost zero tokens."""

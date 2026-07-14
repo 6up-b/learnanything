@@ -7,10 +7,12 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.vault.loader import load_vault
+from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.models import (
     Concept,
     ConceptEdge,
     ErrorType,
+    EvidenceFacet,
     LearningObject,
     PracticeItem,
     SourceSet,
@@ -55,6 +57,7 @@ LEARNING_OBJECT_ORDER = [
     "summary",
     "prerequisites",
     "confusables",
+    "blueprints",
     "difficulty_prior",
     "difficulty_source",
     "tags",
@@ -278,6 +281,74 @@ def upsert_error_type(
         error_types[index] = validated
     write_yaml(paths.error_types_path, data)
     return paths.error_types_path
+
+
+FACET_ORDER = [
+    "id",
+    "concept_id",
+    "kind",
+    "claim",
+    "preconditions",
+    "postconditions",
+    "applicability",
+    "positive_examples",
+    "negative_examples",
+    "non_goals",
+    "error_signatures",
+    "instructional_repairs",
+    "aliases",
+    "status",
+    "version",
+    "semantic_fingerprint",
+    "provenance",
+]
+
+
+def upsert_facet(
+    root: Path,
+    payload: EvidenceFacet | dict[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> Path:
+    """Create or update a canonical facet in facets.yaml (knowledge-model §3.2).
+
+    Facets are the semantic registry entries source-set synthesis mints. The
+    write validates through the EvidenceFacet model and (re)computes the
+    deterministic ``semantic_fingerprint`` from the normalized contract so cross-
+    vault reuse proposals stay stable. The file is written at schema_version 2."""
+
+    vault = load_vault(root)
+    paths = VaultPaths(vault.root, vault.config)
+    data = _read_yaml_or(paths.facets_path, {"schema_version": 2, "facets": []})
+    if not data.get("schema_version"):
+        data["schema_version"] = 2
+    facets = data.setdefault("facets", [])
+    if not isinstance(facets, list):
+        raise VaultWriterError("facets.yaml must contain a facets list")
+    raw = _payload(payload)
+    facet_id = str(raw.get("id") or "")
+    if not facet_id:
+        raise VaultWriterError("Facet id is required")
+    index = _list_index_by_id(facets, facet_id)
+    existing = _mapping(facets[index]) if index is not None else {}
+    merged_source = {**existing, **raw}
+    ordered: dict[str, Any] = {}
+    for key in FACET_ORDER:
+        if key in merged_source:
+            ordered[key] = merged_source[key]
+    for key, value in merged_source.items():
+        if key not in ordered:
+            ordered[key] = value
+    validated = EvidenceFacet.model_validate(ordered)
+    fingerprint = semantic_fingerprint(validated)
+    dumped = validated.model_dump(mode="json", exclude_none=False)
+    dumped["semantic_fingerprint"] = fingerprint
+    if index is None:
+        facets.append(dumped)
+    else:
+        facets[index] = dumped
+    write_yaml(paths.facets_path, data)
+    return paths.facets_path
 
 
 SOURCE_SET_ORDER = [

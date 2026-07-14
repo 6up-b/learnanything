@@ -63,6 +63,7 @@ fn main() {
             upsert_source_set,
             get_source_coverage,
             start_inventory,
+            create_study_map,
             start_extraction_repair,
             read_vault_file,
             write_vault_file,
