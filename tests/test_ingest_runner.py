@@ -358,3 +358,63 @@ def test_bootstrap_synthesis_job_validates_payload(tmp_path):
     job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
     assert job["status"] == "failed"
     assert job["error"]["code"] != "not_implemented"
+
+
+def _extract_ctx(tmp_path):
+    from learnloop.db.repositories import Repository
+    from learnloop.clock import FrozenClock
+    from learnloop.services.ingest_runner import JobContext
+
+    return JobContext(
+        repo=None,  # default_extract never touches the repository
+        vault_root=tmp_path,
+        job={"payload": {}},
+        clock=FrozenClock("2026-07-14T00:00:00Z"),
+        worker_id="w-test",
+    )
+
+
+def test_web_import_routes_html_normalizer_not_raw_text(tmp_path):
+    # Dogfood regression: a real HTML page was stored as ONE 216kB raw-HTML
+    # block because default_extract fell through to the text normalizer.
+    from learnloop.services.ingest_runner import FetchedBytes, default_extract
+
+    html = (
+        "<!DOCTYPE html><html><head><title>Symmetric matrices</title></head><body>"
+        "<h1>Symmetric matrices</h1><p>A symmetric matrix equals its transpose.</p>"
+        "<h1>Variance</h1><p>The covariance matrix is symmetric.</p>"
+        "</body></html>"
+    )
+    fetched = FetchedBytes(
+        raw_bytes=html.encode(),
+        content_type="text/html",
+        original_uri="https://example.org/sec-symmetric-matrices.html",
+        retrieved_at="2026-07-14T00:00:00Z",
+    )
+    ir = default_extract(fetched, "web", _extract_ctx(tmp_path))
+    assert ir.extractor == "html"
+    joined = " ".join(block.text for block in ir.blocks)
+    assert "symmetric matrix equals its transpose" in joined
+    assert "<html" not in joined.lower() and "doctype" not in joined.lower()
+
+
+def test_youtube_import_routes_caption_cues_to_time_range_ir(tmp_path):
+    # Dogfood regression: caption-cue JSON was stored verbatim as one text block.
+    import json as _json
+
+    from learnloop.services.ingest_runner import FetchedBytes, default_extract
+
+    cues = {"cues": [
+        {"start": 0.48, "duration": 4.84, "text": "Singular value decomposition is one of"},
+        {"start": 5.4, "duration": 3.1, "text": "the most useful matrix factorizations."},
+    ]}
+    fetched = FetchedBytes(
+        raw_bytes=_json.dumps(cues).encode(),
+        content_type=None,
+        original_uri="https://youtu.be/qs1qcpemCIE",
+        retrieved_at="2026-07-14T00:00:00Z",
+    )
+    ir = default_extract(fetched, "youtube", _extract_ctx(tmp_path))
+    assert ir.extractor == "youtube"
+    assert len(ir.blocks) == 2
+    assert ir.blocks[0].text.startswith("Singular value decomposition")

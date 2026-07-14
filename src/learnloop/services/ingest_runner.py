@@ -31,6 +31,8 @@ this same object.
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
@@ -261,8 +263,60 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
         extractor = pdf_extractor_for(dict(ctx.payload.get("pdf_config") or {}))
         context = ExtractionContext(revision_id=str(ctx.job.get("_revision_id") or "rev"))
         return extractor.extract(fetched.raw_bytes, context)
+
     text = fetched.raw_bytes.decode("utf-8", errors="replace")
+
+    if category == "youtube":
+        from learnloop.ingest.extractors import captions_to_ir
+
+        cues = _caption_cues(text)
+        if cues is not None:
+            return captions_to_ir(cues, title=ctx.payload.get("title"))
+
+    looks_like_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
+        re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
+    )
+    if category in ("web", "arxiv") or looks_like_html:
+        markdown = _html_to_markdown(text)
+        if markdown:
+            return markdown_to_ir(markdown, title=ctx.payload.get("title"), extractor_name="html")
+
     return markdown_to_ir(text, title=ctx.payload.get("title"), extractor_name="text")
+
+
+def _caption_cues(text: str) -> list[dict[str, Any]] | None:
+    """Decode fetched YouTube caption bytes ({"cues": [...]} or a bare list)."""
+
+    try:
+        payload = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    cues = payload.get("cues") if isinstance(payload, dict) else payload
+    if not isinstance(cues, list) or not cues:
+        return None
+    normalized: list[dict[str, Any]] = []
+    for cue in cues:
+        if not isinstance(cue, dict) or not str(cue.get("text") or "").strip():
+            continue
+        start = float(cue.get("start") or 0.0)
+        end = cue.get("end")
+        if end is None:
+            end = start + float(cue.get("duration") or 0.0)
+        normalized.append({"start": start, "end": float(end), "text": cue["text"]})
+    return normalized or None
+
+
+def _html_to_markdown(raw_html: str) -> str | None:
+    """Readable-body markdown from raw HTML (same engine as the legacy path)."""
+
+    try:
+        import trafilatura
+    except ImportError:  # pragma: no cover - trafilatura is a base dependency
+        return None
+    extracted = trafilatura.extract(
+        raw_html, output_format="markdown", include_tables=True, include_comments=False
+    )
+    return extracted or None
 
 
 def default_run_legacy_ingest(
