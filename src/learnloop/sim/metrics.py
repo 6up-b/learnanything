@@ -92,6 +92,54 @@ def _belief_vs_truth(
     }
 
 
+def canonical_facet_belief_mae(
+    repository: Repository,
+    student: "SyntheticStudent",
+    final_day: float,
+    *,
+    facet_truth_key=None,
+) -> dict[str, Any]:
+    """KM2 sim re-key (§16): belief-vs-truth MAE over canonical facet parents.
+
+    Reads the shared canonical ``facet_recall_state`` aggregate (post-KM2) rather
+    than per-LO keys, so the same facet exercised under several LOs is scored
+    once against one truth value. This is the aggregation that must improve vs the
+    per-LO baseline: pooled evidence reaches a confident belief with fewer
+    attempts. ``facet_truth_key`` maps a canonical facet id to the student truth
+    facet (defaults to identity).
+    """
+
+    key = facet_truth_key or (lambda facet_id: facet_id)
+    errors: list[float] = []
+    per_facet: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for state in repository.canonical_facet_recall_states():
+        if state.practice_item_id is not None:
+            continue  # aggregate parents only
+        if state.facet_id in seen:
+            # Distinct capabilities share one truth; score the shared parent once
+            # by preferring the 'shared'/first-seen aggregate deterministically.
+            continue
+        seen.add(state.facet_id)
+        belief = state.recall_mean
+        truth = student.mastery_at(key(state.facet_id), final_day)
+        err = abs(belief - truth)
+        errors.append(err)
+        per_facet.append(
+            {
+                "facet_id": state.facet_id,
+                "belief_mean": round(belief, 6),
+                "true_mastery": round(truth, 6),
+                "abs_error": round(err, 6),
+            }
+        )
+    return {
+        "mae": _round(_mean(errors)),
+        "n_facets": len(errors),
+        "per_facet": per_facet,
+    }
+
+
 # -- calibration ------------------------------------------------------------
 
 
