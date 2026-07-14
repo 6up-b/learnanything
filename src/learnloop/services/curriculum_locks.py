@@ -142,9 +142,32 @@ def _facet_independence_locked(
             entity_id=facet_id,
             detail="facet is in an active goal's certified scope",
         )
-    # KM2 seam: surface-group / facet_lock_mass independence arms.
-    #   config = vault.config.locks  (facet_lock_mass, facet_surface_groups)
-    #   ledger = repository.facet_capability_evidence(...)  # arrives with KM2
+    # KM2: the surface-group and independent-mass arms, read from the capability
+    # ledger and canonical belief state (§3.4). Direct evidence spanning >=
+    # facet_surface_groups distinct surface/correlation groups, or independent
+    # mass >= facet_lock_mass, makes history load-bearing enough to lock.
+    locks = vault.config.locks
+    surface_groups, independent_mass = repository.facet_independence_evidence(facet_id)
+    if surface_groups >= locks.facet_surface_groups:
+        return LockReason(
+            source="independent_surface_groups",
+            entity_type="facet",
+            entity_id=facet_id,
+            detail=(
+                f"direct evidence spans {surface_groups} distinct surface/correlation "
+                f"groups (>= {locks.facet_surface_groups})"
+            ),
+        )
+    if independent_mass >= locks.facet_lock_mass:
+        return LockReason(
+            source="independent_mass",
+            entity_type="facet",
+            entity_id=facet_id,
+            detail=(
+                f"independent evidence mass {independent_mass:.3f} "
+                f"(>= {locks.facet_lock_mass})"
+            ),
+        )
     return None
 
 

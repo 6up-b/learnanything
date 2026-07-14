@@ -1198,21 +1198,19 @@ class Repository:
         return facets
 
     def facet_ids_with_recall_evidence(self) -> set[str]:
-        """Facet ids that carry accrued attempt evidence (§12 locks).
+        """Facet ids with legacy per-LO recall evidence (mvp-0.6 first-touch lock).
 
-        Unions the legacy per-LO recall table (mvp-0.6) and KM2's canonical
-        ``facet_recall_state`` (mvp-0.7) so the lock closure sees evidence under
-        either keying.
+        Reads only the legacy table on purpose: canonical mvp-0.7 facets are NOT
+        first-touch-locked (§3.4 — that would defeat the grace window). They lock
+        through the independence gate in ``_facet_independence_locked`` (distinct
+        surface groups / independent mass / active-goal scope) instead.
         """
 
         with self.connection() as connection:
-            legacy = connection.execute(
+            rows = connection.execute(
                 "SELECT DISTINCT facet_id FROM evidence_facet_recall_state"
             ).fetchall()
-            canonical = connection.execute(
-                "SELECT DISTINCT facet_id FROM facet_recall_state"
-            ).fetchall()
-        return {str(row["facet_id"]) for row in legacy} | {str(row["facet_id"]) for row in canonical}
+        return {str(row["facet_id"]) for row in rows}
 
     def update_misconception(
         self,
@@ -2504,6 +2502,34 @@ class Repository:
                 "SELECT * FROM facet_capability_evidence ORDER BY facet_id, capability"
             ).fetchall()
         return [_facet_capability_evidence(row) for row in rows]
+
+    def facet_capability_evidence_for_facet(
+        self, facet_id: str
+    ) -> list[FacetCapabilityEvidence]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM facet_capability_evidence WHERE facet_id = ? ORDER BY capability",
+                (facet_id,),
+            ).fetchall()
+        return [_facet_capability_evidence(row) for row in rows]
+
+    def facet_independence_evidence(self, facet_id: str) -> tuple[int, float]:
+        """(#distinct direct surface/correlation groups, independent mass) for the
+        independence-gated lock trigger (§3.4). Direct evidence only."""
+
+        groups: set[str] = set()
+        for cell in self.facet_capability_evidence_for_facet(facet_id):
+            groups.update(cell.independent_surface_groups)
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(independent_evidence_mass), 0.0) AS mass
+                FROM facet_recall_state
+                WHERE facet_id = ? AND practice_item_id IS NULL
+                """,
+                (facet_id,),
+            ).fetchone()
+        return len(groups), float(row["mass"] if row is not None else 0.0)
 
     def replace_canonical_facet_state(
         self,

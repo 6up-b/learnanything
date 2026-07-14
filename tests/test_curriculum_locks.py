@@ -98,6 +98,121 @@ def test_identity_locks_read_adapter(tmp_path):
     assert locks["recall"]
 
 
+def test_locked_facet_refuses_merge_on_surface_groups(tmp_path):
+    """KM2 §3.4: direct evidence spanning >= facet_surface_groups distinct
+    surface/correlation groups locks the facet against merge."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    write_yaml(paths.goals_path, {"schema_version": 2, "goals": []})
+    _registered(paths)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    repository.replace_canonical_facet_state(
+        recall_rows=[
+            {
+                "facet_id": "recall",
+                "capability_key": "retrieval",
+                "practice_item_id": None,
+                "recall_alpha": 2.0,
+                "recall_beta": 1.0,
+                "recall_mean": 0.66,
+                "recall_variance": 0.05,
+                "independent_evidence_mass": 0.5,
+            }
+        ],
+        capability_rows=[
+            {
+                "facet_id": "recall",
+                "capability": "retrieval",
+                "direct_positive_mass": 1.0,
+                "certification_credit": 1.0,
+                "independent_surface_groups": ["group_a", "group_b"],
+            }
+        ],
+        algorithm_version="mvp-0.7",
+    )
+    result = can_apply(
+        vault, repository, Operation(op_type="facet_merge", entity_type="facet", entity_id="recall")
+    )
+    assert result.legal is False
+    assert any(r.source == "independent_surface_groups" for r in result.lock_reasons)
+
+
+def test_locked_facet_refuses_merge_on_independent_mass(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    write_yaml(paths.goals_path, {"schema_version": 2, "goals": []})
+    _registered(paths)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    repository.replace_canonical_facet_state(
+        recall_rows=[
+            {
+                "facet_id": "recall",
+                "capability_key": "retrieval",
+                "practice_item_id": None,
+                "recall_alpha": 3.0,
+                "recall_beta": 1.0,
+                "recall_mean": 0.75,
+                "recall_variance": 0.04,
+                "independent_evidence_mass": 2.5,  # >= facet_lock_mass (2.0)
+            }
+        ],
+        capability_rows=[
+            {
+                "facet_id": "recall",
+                "capability": "retrieval",
+                "direct_positive_mass": 2.5,
+                "independent_surface_groups": ["only_one_group"],
+            }
+        ],
+        algorithm_version="mvp-0.7",
+    )
+    result = can_apply(
+        vault, repository, Operation(op_type="facet_merge", entity_type="facet", entity_id="recall")
+    )
+    assert result.legal is False
+    assert any(r.source == "independent_mass" for r in result.lock_reasons)
+
+
+def test_prelock_facet_with_single_surface_group_still_mergeable(tmp_path):
+    """One surface group and sub-threshold mass keeps a facet in the grace
+    window: merge is legal-with-review (§3.4)."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    write_yaml(paths.goals_path, {"schema_version": 2, "goals": []})
+    _registered(paths)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    repository.replace_canonical_facet_state(
+        recall_rows=[
+            {
+                "facet_id": "recall",
+                "capability_key": "retrieval",
+                "practice_item_id": None,
+                "recall_alpha": 1.5,
+                "recall_beta": 1.0,
+                "recall_mean": 0.6,
+                "recall_variance": 0.06,
+                "independent_evidence_mass": 0.5,
+            }
+        ],
+        capability_rows=[
+            {
+                "facet_id": "recall",
+                "capability": "retrieval",
+                "direct_positive_mass": 0.5,
+                "independent_surface_groups": ["only_one_group"],
+            }
+        ],
+        algorithm_version="mvp-0.7",
+    )
+    result = can_apply(
+        vault, repository, Operation(op_type="facet_merge", entity_type="facet", entity_id="recall")
+    )
+    assert result.legal is True
+    assert result.requires_review is True
+
+
 def test_deactivate_locked_learning_object_is_invalid(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     write_yaml(paths.goals_path, {"schema_version": 2, "goals": []})
