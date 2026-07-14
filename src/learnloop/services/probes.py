@@ -25,6 +25,12 @@ from learnloop.services.mastery import (
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
 SCORE_BUCKETS = ("low", "mid", "high")
+
+# Concept-graph closeness decay per hop for the self-tag trust weight and the
+# error-type picker ranking (spec §12.3). Formerly read from the now-retired
+# [cross_lo_propagation] config block (knowledge-model §8.3); this is a fixed
+# UI-ranking constant, not belief propagation.
+_CONCEPT_CLOSENESS_HOP_DECAY = 0.5
 Outcome = tuple[str, str | None]
 
 # Crockford base32 ULID (26 chars, excludes I, L, O, U). See spec §1.4.
@@ -390,7 +396,7 @@ def self_tag_weight(
     item_concept = learning_object.concept if learning_object is not None else None
 
     adjacency = _concept_graph_adjacency(vault)
-    hop_decay = vault.config.cross_lo_propagation.default.hop_decay
+    hop_decay = _CONCEPT_CLOSENESS_HOP_DECAY
     c_raw = _concept_closeness(adjacency, item_concept, related, hop_decay)
 
     # rho: how much a *missing* link should be trusted (§12.3). A missing link only
@@ -448,7 +454,7 @@ def rank_error_type_candidates(
     item_concept = learning_object.concept if learning_object is not None else None
 
     adjacency = _concept_graph_adjacency(vault)
-    hop_decay = vault.config.cross_lo_propagation.default.hop_decay
+    hop_decay = _CONCEPT_CLOSENESS_HOP_DECAY
 
     candidates: list[ErrorTypeCandidate] = []
     for error in vault.error_types.values():

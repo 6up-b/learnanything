@@ -524,7 +524,6 @@ families = { numeric = -0.05 }
 lo_mastery_delta = 0.0
 local_severity_gain = 0.35
 
-# Cross-LO propagation gates per error type (spec §"Error-type gate").
 # Capability damping/shrinkage for shared-parent facet belief (knowledge-model
 # spec §4.2). Reserved for KM2+; residual activation ships default-off.
 [capabilities]
@@ -537,25 +536,10 @@ local_severity_gain = 0.35
 facet_lock_mass = 2.0
 facet_surface_groups = 2
 
-[cross_lo_propagation.default]
-max_depth = 3
-hop_decay = 0.5
-total_propagated_weight_cap = 0.7
-
-[cross_lo_propagation.error_gates.recall_failure]
-mean_factor = 0.0          # forgetting a definition is not evidence prereqs are weak
-variance_factor = 0.25
-scope = "all"
-
-[cross_lo_propagation.error_gates.scaffold_failure]
-mean_factor = 0.0
-variance_factor = 0.35
-scope = "all"
-
-[cross_lo_propagation.error_gates.arithmetic_slip]
-mean_factor = 0.0
-variance_factor = 0.10
-scope = "all"
+# NOTE: [cross_lo_propagation] is retired (knowledge-model §8.3/§15). The LO-to-LO
+# graph-propagated prior is prerequisite-only, direction-respecting, and
+# shadow/diagnostic-only; its error_gates were dormant. `learnloop doctor` warns
+# when a vault TOML still declares the block.
 
 [recall_coverage.severity_examples.first_dont_know]
 attempt_type = "dont_know"
@@ -1342,6 +1326,13 @@ class CrossLoPropagationDefaults(BaseModel):
 
 
 class CrossLoPropagationConfig(BaseModel):
+    """RETIRED (knowledge-model §8.3/§15). Retained only so legacy vault TOMLs
+    that still declare ``[cross_lo_propagation]`` continue to parse; no code
+    reads it. The LO-to-LO graph prior is prerequisite-only, direction-respecting,
+    and shadow/diagnostic-only, and ``error_gates`` was already dormant.
+    ``learnloop doctor`` emits a migration warning when the block is present.
+    """
+
     default: CrossLoPropagationDefaults = Field(default_factory=CrossLoPropagationDefaults)
     error_gates: dict[str, ErrorGate] = Field(default_factory=dict)
 
@@ -1571,18 +1562,8 @@ class LearnLoopConfig(BaseModel):
             "arithmetic_slip",
             ErrorImpact(families={"numeric": -0.05}, local_severity_gain=0.35),
         )
-        self.cross_lo_propagation.error_gates.setdefault(
-            "recall_failure",
-            ErrorGate(mean_factor=0.0, variance_factor=0.25, scope="all"),
-        )
-        self.cross_lo_propagation.error_gates.setdefault(
-            "scaffold_failure",
-            ErrorGate(mean_factor=0.0, variance_factor=0.35, scope="all"),
-        )
-        self.cross_lo_propagation.error_gates.setdefault(
-            "arithmetic_slip",
-            ErrorGate(mean_factor=0.0, variance_factor=0.10, scope="all"),
-        )
+        # [cross_lo_propagation].error_gates seeding is retired (knowledge-model
+        # §8.3): the gates were dormant and the config block is deprecated.
         return self
 
 

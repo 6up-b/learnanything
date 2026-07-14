@@ -7,6 +7,8 @@ from math import exp, log
 from learnloop.db.repositories import ActiveErrorEvent, FacetRecallState, MasteryState, PracticeItemQualityState
 from learnloop.services.ability_transition import estimate_ability_transition
 from learnloop.numeric import clamp
+from learnloop.services.blueprint_projection import predict_item_success
+from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop.services.mastery import item_irt_params
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem
 
@@ -130,7 +132,7 @@ def score_selection_reward(
         facet_aliases=vault.facet_aliases,
     )
     demand = item_demand_vector(vault, item, learning_object, quality_state)
-    predicted = predicted_correctness_from_vectors(ability, demand, vault.config.recall_coverage.facet_blend_evidence_count)
+    predicted = _predicted_correctness(vault, item, learning_object, ability, demand, mastery)
     facet_weakness = _facet_weakness(ability, demand)
     gradient_fit = _gradient_fit(predicted, intent)
     targeted_boundary_fit = _targeted_boundary_fit(ability, demand, gradient_fit)
@@ -374,6 +376,47 @@ def item_demand_vector(
         repair_targets=item.repair_targets or list(evidence_weights),
         bad_item_suspicion=quality_state.bad_item_suspicion if quality_state is not None else 0.0,
     )
+
+
+def _predicted_correctness(
+    vault: LoadedVault,
+    item: PracticeItem,
+    learning_object: LearningObject,
+    ability: LearnerAbilityVector,
+    demand: ItemDemandVector,
+    mastery: MasteryState | None,
+) -> float:
+    """Item predicted correctness — blueprint likelihood under mvp-0.7, else legacy.
+
+    For a blueprint-bearing LO on an mvp-0.7 vault, the noisy-AND / guess-floor /
+    max-over-recipes projection (§9.2) is the expected-performance source. The
+    per-component recall is the mastery-blended ``predicted_facet_recall`` (the
+    LO EKF as a prediction-only calibration residual, §9.2). Every other case —
+    legacy vaults, and blueprint-less LOs (their flat ``evidence_facets`` union
+    is a non-certifying compatibility blueprint, §15) — keeps the existing blend.
+    """
+
+    blend_count = vault.config.recall_coverage.facet_blend_evidence_count
+    if is_canonical_state_vault(vault) and learning_object.blueprints:
+        mastery_logit = mastery.logit_mean if mastery is not None else None
+        mastery_evidence = mastery.evidence_count if mastery is not None else 0
+
+        def component_recall(facet: str, _capability: str) -> float:
+            canonical = vault.canonical_facet_id(facet)
+            facet_mean = ability.facet_recall_mean_by_facet.get(canonical)
+            facet_mass = ability.facet_independent_evidence_mass_by_facet.get(canonical, 0.0)
+            return predicted_facet_recall(
+                mastery_logit,
+                mastery_evidence,
+                facet_mean,
+                facet_mass,
+                blend_count,
+            )
+
+        success = predict_item_success(vault, item, learning_object, component_recall)
+        if success is not None:
+            return success
+    return predicted_correctness_from_vectors(ability, demand, blend_count)
 
 
 def predicted_correctness_from_vectors(

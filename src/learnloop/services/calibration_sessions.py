@@ -29,13 +29,22 @@ class CalibrationSessionError(ValueError):
 def graph_propagated_prior(
     vault: LoadedVault, repository: Repository, learning_object_id: str
 ) -> float | None:
-    """Conservative graph-propagated mastery prior for one LO (§6.4).
+    """Prerequisite-only, direction-respecting graph mastery prior (§8.3).
 
-    Relation- and direction-specific: prerequisite evidence moves the prior
-    weakly (weight 1.0 within one hop), ``part_of``/``related`` more weakly
-    (0.5), and ``confusable_with`` never propagates mastery as equivalence.
-    Only neighbors with direct behavioral evidence contribute. Returns None
-    when the graph offers no evidence-bearing neighbor.
+    Corrected per knowledge-model §8.1/§8.3:
+
+    * Only ``prerequisite`` edges carry any belief effect. ``part_of``,
+      ``related``, ``analogous_to``, and ``confusable_with`` contribute **zero**
+      — knowing parts/neighbours/analogues does not predict this facet, and
+      confusion is not equivalence.
+    * Direction is respected. An edge ``source --prerequisite--> target`` means
+      ``source`` is a prerequisite of ``target``; an LO's prior is informed by
+      the prerequisites pointing *into* its concept, never by the downstream
+      dependents it points *to* (the previous code was direction-blind).
+
+    Only neighbours with direct behavioral evidence contribute. Returns None
+    when the graph offers no evidence-bearing prerequisite. The signal is
+    shadow/diagnostic-only: it has no live consumer (§8.3, §11.1).
     """
 
     from learnloop.services.mastery import display_mastery
@@ -44,28 +53,26 @@ def graph_propagated_prior(
     if learning_object is None or not learning_object.concept:
         return None
     concept = learning_object.concept
-    neighbor_weights: dict[str, float] = {}
+    prerequisite_concepts: set[str] = set()
     for edge in vault.edges:
-        if edge.relation_type == "confusable_with":
-            continue  # §6.4: confusion is not equivalence
-        weight = 1.0 if edge.relation_type == "prerequisite" else 0.5
-        if edge.source == concept and edge.target != concept:
-            neighbor_weights[edge.target] = max(neighbor_weights.get(edge.target, 0.0), weight)
-        elif edge.target == concept and edge.source != concept:
-            neighbor_weights[edge.source] = max(neighbor_weights.get(edge.source, 0.0), weight)
-    if not neighbor_weights:
+        if edge.relation_type != "prerequisite":
+            continue  # §8.1: only prerequisite has a (diagnostic) belief effect
+        # source is the prerequisite of target -> only edges pointing INTO this
+        # concept inform its prior; edges leaving it point at dependents.
+        if edge.target == concept and edge.source != concept:
+            prerequisite_concepts.add(edge.source)
+    if not prerequisite_concepts:
         return None
     weighted_sum = 0.0
     total_weight = 0.0
     for other_id, other in vault.learning_objects.items():
-        if other_id == learning_object_id or other.concept not in neighbor_weights:
+        if other_id == learning_object_id or other.concept not in prerequisite_concepts:
             continue
         mastery = repository.mastery_state(other_id)
         if mastery is None or mastery.evidence_count <= 0:
             continue
-        weight = neighbor_weights[other.concept]
-        weighted_sum += weight * display_mastery(mastery).mastery_mean
-        total_weight += weight
+        weighted_sum += display_mastery(mastery).mastery_mean
+        total_weight += 1.0
     if total_weight <= 0:
         return None
     return weighted_sum / total_weight
@@ -208,11 +215,15 @@ def start_calibration_session(
         episode_ids[lo_id] = episode.id
 
     # Cross-LO adaptive ordering (§5.9): the episode whose best instrument has
-    # the highest predictive information rate runs first, scaled up by the
-    # §6.4 disagreement among graph prior, learner claims, and observed
-    # evidence — high-disagreement, high-consequence episodes run first.
-    # Parked episodes rank last.
-    disagreement_weight = calibration_config.disagreement_weight
+    # the highest predictive information rate runs first. Parked episodes rank
+    # last.
+    #
+    # Graph-prior correction (§8.3): the live ``episode_priority_disagreement``
+    # weighting is DISABLED. The graph-propagated prior is shadow/diagnostic-only
+    # until it earns held-out predictive support, so ordering reverts to the
+    # plain predictive information rate. The disagreement signal is still
+    # computed and logged by ``routine_planner_shadow`` — it simply no longer
+    # steers a live decision (consistent with §11.1 priority 2).
     ranked: list[tuple[float, str]] = []
     for lo_id, episode_id in episode_ids.items():
         episode = repository.probe_episode(episode_id)
@@ -226,9 +237,6 @@ def start_calibration_session(
                     if best.selection_objective == "predictive_eig"
                     else best.expected_information_gain
                 )
-        if rate > 0 and disagreement_weight > 0:
-            disagreement = episode_priority_disagreement(working_vault, repository, lo_id)
-            rate *= 1.0 + disagreement_weight * disagreement
         ranked.append((-rate, episode_id))
     ranked.sort()
     planned = [episode_id for _negative_rate, episode_id in ranked][

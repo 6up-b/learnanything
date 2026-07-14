@@ -111,7 +111,7 @@ def test_sparse_codex_ai_profile_uses_current_codex_defaults():
     assert codex_config.reasoning_effort == "medium"
 
 
-def test_default_config_contains_recall_error_impacts_and_gates(tmp_path):
+def test_default_config_contains_recall_error_impacts(tmp_path):
     init_vault(tmp_path)
 
     loaded = load_config(tmp_path / "learnloop.toml")
@@ -126,11 +126,9 @@ def test_default_config_contains_recall_error_impacts_and_gates(tmp_path):
         assert scaffold.families["recall"] < recall.families["recall"]
         assert slip.families["numeric"] < 0.0
 
-        gates = config.cross_lo_propagation.error_gates
-        assert gates["recall_failure"].mean_factor == 0.0
-        assert gates["scaffold_failure"].mean_factor == 0.0
-        assert gates["arithmetic_slip"].mean_factor == 0.0
-        assert gates["arithmetic_slip"].variance_factor < gates["scaffold_failure"].variance_factor
+        # cross_lo_propagation.error_gates is retired (knowledge-model §8.3): the
+        # default config no longer seeds it.
+        assert config.cross_lo_propagation.error_gates == {}
 
 
 def test_error_impacts_max_sharpening_maps_to_recall_coverage_runtime_field():

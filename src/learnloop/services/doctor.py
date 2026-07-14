@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass, field
 from difflib import get_close_matches
 from pathlib import Path
@@ -98,6 +99,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     config = _load_config_for_doctor(vault_root, issues)
     if config is None:
         return DoctorReport(root=vault_root, issues=issues)
+    _check_retired_config(vault_root, issues)
     codex_runtime = check_codex_runtime(vault_root, config.codex)
     ai_runtime = check_ai_runtime(vault_root, config, provider_name=ai_provider) if ai else None
 
@@ -169,6 +171,42 @@ def _load_config_for_doctor(root: Path, issues: list[HealthIssue]) -> LearnLoopC
     except (OSError, ValueError, ValidationError) as exc:
         issues.append(_issue("error", "config:invalid", f"learnloop.toml is invalid: {exc}", path))
         return None
+
+
+def _check_retired_config(root: Path, issues: list[HealthIssue]) -> None:
+    """Migration warning for retired config blocks (knowledge-model §8.3/§15).
+
+    ``[cross_lo_propagation]`` (and ``propagation_mean_floor_mass``) are retired:
+    the LO-to-LO graph prior is now prerequisite-only, direction-respecting, and
+    shadow-only, and the error gates were dormant. A vault TOML that still
+    declares them parses (for back-compat) but the values are ignored, so warn.
+
+    Parses the TOML (comments are ignored) so a documentation comment mentioning
+    the retired block never false-positives.
+    """
+
+    path = root / "learnloop.toml"
+    try:
+        with path.open("rb") as handle:
+            data = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        return
+    retired = [
+        name
+        for name in ("cross_lo_propagation", "propagation_mean_floor_mass")
+        if name in data
+    ]
+    for name in retired:
+        issues.append(
+            _issue(
+                "warning",
+                "config:retired_cross_lo_propagation",
+                f"learnloop.toml sets retired '{name}' (knowledge-model §8.3): "
+                "the value is ignored — remove the block. The graph prior is now "
+                "prerequisite-only and shadow-only.",
+                path,
+            )
+        )
 
 
 def _check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None:

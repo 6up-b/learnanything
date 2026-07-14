@@ -29,7 +29,7 @@ MVP approximation (documented deliberately, so a later model can replace it):
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import ceil
 from statistics import median
@@ -37,13 +37,18 @@ from statistics import median
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemState, Repository
 from learnloop.numeric import clamp
+from learnloop.services.blueprint_projection import LoReadiness, project_lo_readiness
 from learnloop.services.facet_diagnostics import facet_state_label, required_facets
 from learnloop.services.facet_state_reader import (
     facet_states_by_lo as read_facet_states_by_lo,
 )
-from learnloop.services.facet_state_reader import facet_uncertainty_states_for_lo
+from learnloop.services.facet_state_reader import (
+    facet_uncertainty_states_for_lo,
+    is_canonical_state_vault,
+)
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.fsrs import forgetting_curve
+from learnloop.services.goal_certification import facet_demonstration
 from learnloop.services.recall_coverage import expected_facet_mass_gain
 from learnloop.services.selection_rewards import predicted_facet_recall
 from learnloop.vault.models import Goal, LoadedVault
@@ -67,6 +72,20 @@ class FacetProjection:
     evidence_mass: float            # aggregate independent evidence mass
     certified: bool                 # coverage axis: label == "solid" (mass gate cleared, no open gap)
     attempts_to_certify: int | None  # ~fresh attempts to clear the mass gate; None = no supporting items
+    # KM3 §9.5 dual-axis split (additive; the display rule — ambient leads Ready,
+    # goal/cert surfaces lead Demonstrated, never blended — is KM3b's UI job).
+    # ``predicted_at_horizon`` is the Ready value; these expose the Demonstrated
+    # axis: capability-matched direct/embedded certification evidence.
+    demonstrated: bool = False                     # every required capability capability-matched-certified
+    required_capabilities: tuple[str, ...] = ()    # capabilities the facet is required at for this LO
+    demonstrated_capabilities: tuple[str, ...] = ()  # of those, the ones with direct capability-matched credit
+    demonstrated_from_legacy_default: bool = False  # capabilities resolved from a mode default, not blueprints
+
+    @property
+    def ready(self) -> float:
+        """The Ready axis: predicted ability at the goal horizon (§9.6)."""
+
+        return self.predicted_at_horizon
 
     @property
     def at_risk(self) -> bool:
@@ -82,6 +101,10 @@ class GoalReport:
     due_at: datetime | None
     horizon: datetime
     facets: list[FacetProjection]
+    # KM3 §9.2/§9.6: blueprint expected-performance readiness per in-scope LO
+    # (the ambient Ready number and the recipe-tree "why not ready" source).
+    # Only populated for blueprint-bearing LOs under mvp-0.7; empty otherwise.
+    blueprint_readiness_by_lo: dict[str, LoReadiness] = field(default_factory=dict)
 
     @property
     def on_track_count(self) -> int:
@@ -292,6 +315,7 @@ def _facet_projections(
     facet_states_by_lo: dict[str, list[FacetRecallState]],
     mastery_states: dict[str, MasteryState],
     fsrs_weights: tuple[float, ...],
+    include_demonstration: bool = False,
 ) -> list[FacetProjection]:
     scope = resolve_goal_scope(vault, goal, repository)
     min_mass = vault.config.recall_coverage.min_facet_evidence_mass
@@ -342,6 +366,12 @@ def _facet_projections(
             predicted_at_horizon = clamp(predicted_current * retention)
             certified = label == "solid"
             on_track = predicted_at_horizon >= goal.target_recall and label != "known_gap"
+            learning_object = vault.learning_objects.get(learning_object_id)
+            demonstration = (
+                facet_demonstration(vault, repository, learning_object, facet_id)
+                if include_demonstration and learning_object is not None
+                else None
+            )
             projections.append(
                 FacetProjection(
                     learning_object_id=learning_object_id,
@@ -357,9 +387,88 @@ def _facet_projections(
                     attempts_to_certify=_attempts_to_certify(
                         facet_id, evidence_mass, mass_gain_by_facet, min_mass
                     ),
+                    demonstrated=demonstration.demonstrated if demonstration else False,
+                    required_capabilities=(
+                        demonstration.required_capabilities if demonstration else ()
+                    ),
+                    demonstrated_capabilities=(
+                        demonstration.demonstrated_capabilities if demonstration else ()
+                    ),
+                    demonstrated_from_legacy_default=(
+                        demonstration.from_legacy_default if demonstration else False
+                    ),
                 )
             )
     return projections
+
+
+def _lo_blueprint_readiness(
+    vault: LoadedVault,
+    learning_object_id: str,
+    facet_states: list[FacetRecallState],
+    mastery: MasteryState | None,
+    *,
+    blend_count: float,
+) -> LoReadiness | None:
+    """Blueprint expected-performance readiness for one LO (§9.2), or None.
+
+    The per-component predicted recall is the sanctioned mastery-blended
+    ``predicted_facet_recall`` over the shared facet mean — capability-agnostic
+    at launch (capability residuals ship off, §4.2/§18), so the LO EKF enters
+    only as the prediction-only calibration residual, never as certification.
+    """
+
+    learning_object = vault.learning_objects.get(learning_object_id)
+    if learning_object is None or not learning_object.blueprints:
+        return None
+    recall_by_facet: dict[str, FacetRecallState] = {}
+    for state in facet_states:
+        if state.practice_item_id is not None:
+            continue
+        key = vault.canonical_facet_id(state.facet_id)
+        existing = recall_by_facet.get(key)
+        if existing is None or state.independent_evidence_mass > existing.independent_evidence_mass:
+            recall_by_facet[key] = state
+
+    def component_recall(facet: str, _capability: str) -> float:
+        state = recall_by_facet.get(vault.canonical_facet_id(facet))
+        facet_mean = state.recall_mean if state is not None else None
+        facet_mass = max(state.independent_evidence_mass, 0.0) if state is not None else 0.0
+        return predicted_facet_recall(
+            mastery.logit_mean if mastery is not None else None,
+            mastery.evidence_count if mastery is not None else 0,
+            facet_mean,
+            facet_mass,
+            blend_count,
+        )
+
+    slip = float(vault.config.evidence.blueprints.slip)
+    return project_lo_readiness(learning_object, component_recall, slip=slip)
+
+
+def _blueprint_readiness_by_lo(
+    vault: LoadedVault,
+    goal: Goal,
+    repository: Repository,
+    *,
+    facet_states_by_lo: dict[str, list[FacetRecallState]],
+    mastery_states: dict[str, MasteryState],
+) -> dict[str, LoReadiness]:
+    if not is_canonical_state_vault(vault):
+        return {}
+    blend_count = vault.config.recall_coverage.facet_blend_evidence_count
+    readiness: dict[str, LoReadiness] = {}
+    for learning_object_id in sorted(resolve_goal_scope(vault, goal, repository)):
+        lo_readiness = _lo_blueprint_readiness(
+            vault,
+            learning_object_id,
+            facet_states_by_lo.get(learning_object_id, []),
+            mastery_states.get(learning_object_id),
+            blend_count=blend_count,
+        )
+        if lo_readiness is not None:
+            readiness[learning_object_id] = lo_readiness
+    return readiness
 
 
 def _horizon(vault: LoadedVault, goal: Goal, now: datetime) -> tuple[datetime | None, datetime]:
@@ -393,6 +502,7 @@ def goal_report(
         facet_states_by_lo=facet_states_by_lo,
         mastery_states=mastery_states,
         fsrs_weights=fsrs_weights,
+        include_demonstration=True,
     )
     return GoalReport(
         goal_id=goal.id,
@@ -400,6 +510,13 @@ def goal_report(
         due_at=due_at,
         horizon=horizon,
         facets=facets,
+        blueprint_readiness_by_lo=_blueprint_readiness_by_lo(
+            vault,
+            goal,
+            repository,
+            facet_states_by_lo=facet_states_by_lo,
+            mastery_states=mastery_states,
+        ),
     )
 
 

@@ -1,3 +1,18 @@
+"""Per-LO mastery EKF (spec_irt_difficulty.md §4).
+
+KM3 demotion (knowledge-model §9.2): under mvp-0.7 the LO EKF is a
+**prediction-only calibration residual**. It adjusts predicted performance
+(consumed through ``selection_rewards.predicted_facet_recall`` as the mastery
+backbone of a component's predicted recall) but carries **no certification
+credit** — certification is derived independently from the immutable observation
+ledger into ``facet_capability_evidence`` (see ``goal_certification``), never
+from this filter. It also cannot absorb claims, item difficulty, familiarity, or
+unidentified integration as interchangeable evidence: claims seed only the prior
+(``initial_mastery_state_for_learning_object``), difficulty enters as the IRT
+``b`` (an observation modifier, not a latent-skill term), and assistance enters
+as the observation reliability weight. Legacy (mvp-0.6) behavior is unchanged.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

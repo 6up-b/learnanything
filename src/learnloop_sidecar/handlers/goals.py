@@ -130,9 +130,22 @@ def _report_dto(
                 "evidence_mass": facet.evidence_mass,
                 "certified": facet.certified,
                 "attempts_to_certify": facet.attempts_to_certify,
+                # KM3 §9.5 dual-axis split (additive): Ready = predicted ability;
+                # Demonstrated = capability-matched direct evidence. KM3b's UI
+                # leads ambient surfaces with Ready, goal surfaces with
+                # Demonstrated, never a blended number.
+                "ready": facet.ready,
+                "demonstrated": facet.demonstrated,
+                "required_capabilities": list(facet.required_capabilities),
+                "demonstrated_capabilities": list(facet.demonstrated_capabilities),
+                "demonstrated_from_legacy_default": facet.demonstrated_from_legacy_default,
             }
             for facet in at_risk
         ]
+        payload["blueprint_readiness"] = {
+            lo_id: readiness.as_dict()
+            for lo_id, readiness in report.blueprint_readiness_by_lo.items()
+        }
     return payload
 
 
