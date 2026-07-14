@@ -2531,6 +2531,50 @@ class Repository:
             ).fetchone()
         return len(groups), float(row["mass"] if row is not None else 0.0)
 
+    def canonical_observation_ledger(self) -> list[dict[str, Any]]:
+        """Every graded attempt in global chronological order with its
+        non-superseded grading evidence (KM2 projection input).
+
+        Chronological across LOs so the derived canonical belief state is
+        deterministic regardless of per-LO replay order; beta masses accumulate
+        additively so only timestamps/consecutive-failures depend on order.
+        """
+
+        with self.connection() as connection:
+            attempts = connection.execute(
+                """
+                SELECT id, practice_item_id, learning_object_id, attempt_type,
+                       practice_mode, hints_used, created_at
+                FROM practice_attempts
+                ORDER BY created_at ASC, id ASC
+                """
+            ).fetchall()
+            ledger: list[dict[str, Any]] = []
+            for attempt in attempts:
+                evidence = connection.execute(
+                    """
+                    SELECT criterion_id, points_awarded, attribution_json,
+                           correlation_group, recipe_id
+                    FROM grading_evidence
+                    WHERE attempt_id = ? AND superseded_at IS NULL
+                    ORDER BY created_at, criterion_id
+                    """,
+                    (attempt["id"],),
+                ).fetchall()
+                ledger.append(
+                    {
+                        "attempt_id": attempt["id"],
+                        "practice_item_id": attempt["practice_item_id"],
+                        "learning_object_id": attempt["learning_object_id"],
+                        "attempt_type": attempt["attempt_type"],
+                        "practice_mode": attempt["practice_mode"],
+                        "hints_used": attempt["hints_used"] or 0,
+                        "created_at": attempt["created_at"],
+                        "evidence": [dict(row) for row in evidence],
+                    }
+                )
+        return ledger
+
     def replace_canonical_facet_state(
         self,
         *,
@@ -5638,6 +5682,31 @@ class Repository:
             )
             connection.commit()
         return factor_id
+
+    def open_unresolved_cause_observation_ids(self) -> set[str]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT observation_id FROM unresolved_cause_factors
+                WHERE status = 'open' AND observation_id IS NOT NULL
+                """
+            ).fetchall()
+        return {str(row["observation_id"]) for row in rows}
+
+    def retire_unresolved_cause_factor(
+        self, observation_id: str, *, clock: Clock | None = None
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE unresolved_cause_factors
+                SET status = 'retired', updated_at = ?
+                WHERE observation_id = ? AND status = 'open'
+                """,
+                (now, observation_id),
+            )
+            connection.commit()
 
     def proposal_batches(self) -> list[dict[str, Any]]:
         with self.connection() as connection:

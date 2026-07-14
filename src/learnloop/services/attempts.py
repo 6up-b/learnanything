@@ -63,6 +63,7 @@ from learnloop.services.mastery import (
     update_mastery_traced,
 )
 from learnloop.services.evidence import attempt_evidence_mass
+from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
 from learnloop.services.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.services.recall_coverage import (
     build_facet_recall_updates,
@@ -795,6 +796,7 @@ def apply_attempt(
     _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
     _persist_attempt_application(repository, application, replace_existing=attempt.replace_existing)
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
+    _project_canonical_belief(vault, repository, clock=clock)
     if attempt.record_probe_update:
         # Probe redesign Checkpoint 0/1: episode accounting replaces the legacy
         # lo_probe_state advancement (`record_probe_attempt` is frozen for
@@ -820,6 +822,23 @@ def apply_attempt(
         if block_end is not None:
             return replace(application.result, probe_block_end=block_end)
     return application.result
+
+
+def _project_canonical_belief(
+    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
+) -> None:
+    """Recompute the canonical shared belief cache after an attempt (mvp-0.7).
+
+    A no-op on legacy vaults (the projection early-returns), so mvp-0.6 replay is
+    byte-identical. The recompute is a deterministic fold over the immutable
+    observation ledger, so live state and replayed state coincide by construction.
+    """
+
+    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+        return
+    from learnloop.services.canonical_projection import project_canonical_facet_state
+
+    project_canonical_facet_state(vault, repository, clock=clock)
 
 
 def _validate_probe_presentation(

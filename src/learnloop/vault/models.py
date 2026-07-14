@@ -283,6 +283,21 @@ class HintPolicy(VaultModel):
     coverage_surface_dampening_by_hint: dict[int | str, float] = Field(default_factory=dict)
 
 
+class EvidenceFingerprint(VaultModel):
+    """Global surface/correlation fingerprint (knowledge-model §6).
+
+    Vault-wide familiarity/correlation lookup keys on these fields so a near-clone
+    under another LO cannot mint fresh independent evidence after facet state
+    becomes global. All optional and additive; legacy items omit it entirely.
+    """
+
+    source_family: str | None = None
+    shared_stimulus_id: str | None = None
+    representation: str | None = None
+    solution_recipe_family: str | None = None
+    answer_structure: str | None = None
+
+
 class PracticeItem(VaultModel):
     schema_version: int = 1
     id: str
@@ -305,6 +320,7 @@ class PracticeItem(VaultModel):
     transfer_distance: float | None = Field(default=None, ge=0.0, le=1.0)
     scaffold_level: float | None = Field(default=None, ge=0.0, le=1.0)
     surface_family: str | None = None
+    evidence_fingerprint: EvidenceFingerprint = Field(default_factory=EvidenceFingerprint)
     # spec §5.2.2: for generated diagnostics, the categorically-divergent answer a
     # holder of the targeted belief would give. Round-trips through patches so the
     # sim gate and review policy can read it off the applied item. None otherwise.

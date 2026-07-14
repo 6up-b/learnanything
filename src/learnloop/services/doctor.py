@@ -137,6 +137,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_facet_merge_candidates(vault, issues)
     _check_learning_object_merge_candidates(vault, issues)
     _check_duplicate_diagnostic_proposals(vault, repository, issues)
+    _check_mvp07_canonical_state(vault, repository, issues)
 
     return DoctorReport(
         root=vault_root,
@@ -584,6 +585,41 @@ def _check_criterion_facet_maps(vault: LoadedVault, issues: list[HealthIssue]) -
                         entity_id=item.id,
                     )
                 )
+
+
+def _check_mvp07_canonical_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None:
+    """Guard against mixed/inconsistent keying on an mvp-0.7 vault (KM §15).
+
+    Canonical belief rows keyed on a facet that (after alias + merge resolution)
+    is not registered signal a mixed or corrupted state; on an mvp-0.7 vault this
+    is an error. Legacy vaults never write these rows, so the check is a no-op.
+    """
+
+    if vault.config.algorithms.algorithm_version != "mvp-0.7":
+        return
+    known = set(vault.evidence_facets)
+    if not known:
+        return
+    try:
+        merge_map = repository.facet_merge_map()
+        states = repository.canonical_facet_recall_states()
+    except Exception:
+        return
+    for state in states:
+        resolved = repository.resolve_facet_merge(vault.canonical_facet_id(state.facet_id), merge_map)
+        if resolved not in known:
+            issues.append(
+                _issue(
+                    "error",
+                    "facet_recall_state:unregistered_canonical_facet",
+                    (
+                        f"canonical belief row keys facet {state.facet_id!r} "
+                        f"(resolves to {resolved!r}) which is not registered"
+                    ),
+                    entity_id=state.facet_id,
+                    details={"facet_id": state.facet_id, "resolved_facet_id": resolved},
+                )
+            )
 
 
 def _mvp07_facet_severity(vault: LoadedVault) -> Severity:

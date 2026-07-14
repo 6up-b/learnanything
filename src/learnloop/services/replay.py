@@ -89,6 +89,12 @@ def replay_learning_object(
     update_misconception_posteriors_and_resolve(
         vault, repository, learning_object_id=learning_object_id
     )
+    # KM2 §7.1: canonical shared belief is vault-level, so it is recomputed as a
+    # whole-ledger projection (no-op under mvp-0.6). Idempotent and deterministic,
+    # so replaying any subset of LOs reproduces byte-identical canonical state.
+    from learnloop.services.canonical_projection import project_canonical_facet_state
+
+    project_canonical_facet_state(vault, repository)
     return ReplayResult(
         learning_object_id=learning_object_id,
         replayed_attempts=len(replayed),
