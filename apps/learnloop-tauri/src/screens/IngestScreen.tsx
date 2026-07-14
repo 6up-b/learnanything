@@ -3,6 +3,12 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
 import type { CommandError, IngestJobDto, IngestJobPhase, IngestMode, RecentIngestEntry } from "../api/dto";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, type PillColor } from "../components/term";
+import {
+  BatchProgressView,
+  IngestViewTabs,
+  SourceLibraryView,
+  type IngestView
+} from "../components/BatchProgress";
 
 // Ingest screen — `learnloop ingest <source> --subject <id>` mirror.
 // Spec_mvp §15.2: turn external reference material (URL / arXiv id / PDF /
@@ -465,8 +471,41 @@ function splitFrontmatter(raw: string): { frontmatter: string | null; body: stri
   return { frontmatter: null, body: raw };
 }
 
-// ── Main screen ────────────────────────────────────────────────────────
+// ── Ingest tab shell: view switch over library / add / batch progress ───
 export function IngestScreen({
+  jobId,
+  onJobIdChange,
+  onProceedToPropose
+}: {
+  jobId: string | null;
+  onJobIdChange: (jobId: string | null) => void;
+  onProceedToPropose: (patchId: string) => void;
+}) {
+  // A running legacy job forces the Add-source view so its progress stays visible.
+  const [view, setView] = useState<IngestView>(jobId ? "add" : "library");
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <IngestViewTabs view={view} onChange={setView} />
+      {view === "add" && (
+        <AddSourceView jobId={jobId} onJobIdChange={onJobIdChange} onProceedToPropose={onProceedToPropose} />
+      )}
+      {view === "library" && (
+        <SourceLibraryView
+          onOpenBatch={(batchId) => {
+            setSelectedBatchId(batchId);
+            setView("batches");
+          }}
+        />
+      )}
+      {view === "batches" && <BatchProgressView selectedBatchId={selectedBatchId} onSelect={setSelectedBatchId} />}
+    </div>
+  );
+}
+
+// ── Single-source ingest form (legacy Quick-add path, still durable) ─────
+function AddSourceView({
   jobId,
   onJobIdChange,
   onProceedToPropose

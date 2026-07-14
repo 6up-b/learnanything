@@ -1053,6 +1053,85 @@ export interface StartIngestInput {
   mode: IngestMode;
 }
 
+// ── Durable ingest workflows (source-ingestion v2 §6.2) ──────────────────
+export type DurableIngestStatus =
+  | "queued"
+  | "running"
+  | "waiting_for_input"
+  | "completed"
+  | "failed"
+  | "blocked"
+  | "cancelled";
+
+export interface IngestJobView {
+  id: string;
+  batchId: string;
+  ordinal: number;
+  jobType: string;
+  status: DurableIngestStatus;
+  phase: string | null;
+  message: string | null;
+  currentWindow: number | null;
+  totalWindows: number | null;
+  attemptCount: number;
+  checkpointLadder: string[];
+  usage: Record<string, number>;
+  estimate: Record<string, number>;
+  source: string | null;
+  result: Record<string, unknown> | null;
+  error: { code: string; message: string } | null;
+  waitingForInput: Record<string, unknown> | null;
+  dependsOn: string[];
+}
+
+export interface IngestBatchDto {
+  version?: number;
+  id: string;
+  workflowType: string;
+  subjectId: string | null;
+  sourceSetId: string | null;
+  status: DurableIngestStatus;
+  cancelRequested: boolean;
+  createdAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  jobs: IngestJobView[];
+}
+
+export interface IngestBatchesSnapshot {
+  version: number;
+  batches: IngestBatchDto[];
+}
+
+export interface StartImportBatchInput {
+  sources: string[];
+  subjectId?: string | null;
+  inventory?: boolean;
+}
+
+export type SourceReadiness = "ready" | "processing" | "needs_extraction";
+
+export interface SourceLibraryCard {
+  sourceId: string;
+  title: string;
+  acquisitionKind: string | null;
+  canonicalUri: string | null;
+  workId: string | null;
+  currentRevisionId: string | null;
+  revisionCount: number;
+  readiness: SourceReadiness;
+  unitCount: number;
+  blockCount: number;
+  extractionStatus: string | null;
+  suggestedRole: string | null;
+  updateAvailable: boolean;
+}
+
+export interface SourceLibrarySnapshot {
+  version: number;
+  sources: SourceLibraryCard[];
+}
+
 export interface ConceptGraphLearningObject {
   id: string;
   title: string;

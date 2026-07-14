@@ -414,6 +414,15 @@ append_output_tokens = 10000
 # [ai.providers.<name>] entries (source-ingestion spec §3.1), e.g.
 # [ingest.providers.codex] context_tokens / max_output_tokens.
 
+# Durable ingest-queue worker settings (source-ingestion spec §6.2). One worker
+# (sidecar background loop or foreground CLI) drains queued jobs at a time under
+# a single lease; a running lease older than lease_ttl_seconds is recovered to
+# failed(interrupted) on startup and its queued siblings resume.
+[ingest.runner]
+lease_ttl_seconds = 120
+heartbeat_interval_seconds = 15
+poll_interval_seconds = 1.0
+
 [ai]
 active_provider = "codex"
 fallback_provider = ""
@@ -1203,6 +1212,21 @@ class IngestProviderLimits(BaseModel):
     max_output_tokens: int | None = None
 
 
+class IngestRunnerConfig(BaseModel):
+    """Durable-queue worker settings for ingestion v2 (source-ingestion §6.2).
+
+    The runner drains queued jobs sequentially under a single lease. A running
+    job is kept alive by its heartbeat; a lease older than ``lease_ttl_seconds``
+    is considered dead and recovered to failed(interrupted) on startup.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    lease_ttl_seconds: int = 120
+    heartbeat_interval_seconds: int = 15
+    poll_interval_seconds: float = 1.0
+
+
 class IngestConfig(BaseModel):
     window_char_cap: int = 150000
     min_content_chars: int = 400
@@ -1211,6 +1235,7 @@ class IngestConfig(BaseModel):
     pdf: PdfIngestConfig = Field(default_factory=PdfIngestConfig)
     budgets: IngestBudgetsConfig = Field(default_factory=IngestBudgetsConfig)
     providers: dict[str, IngestProviderLimits] = Field(default_factory=dict)
+    runner: IngestRunnerConfig = Field(default_factory=IngestRunnerConfig)
 
 
 class CodexConfig(BaseModel):

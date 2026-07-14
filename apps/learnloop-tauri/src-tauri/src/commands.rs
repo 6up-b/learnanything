@@ -293,6 +293,51 @@ pub async fn cancel_ingest(
 }
 
 #[tauri::command]
+pub async fn start_import_batch(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "start_import_batch", input).await
+}
+
+#[tauri::command]
+pub async fn get_ingest_batch(
+    batch_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_ingest_batch", json!({"batchId": batch_id})).await
+}
+
+#[tauri::command]
+pub async fn list_ingest_batches(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "list_ingest_batches", input).await
+}
+
+#[tauri::command]
+pub async fn cancel_ingest_batch(
+    batch_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "cancel_ingest_batch", json!({"batchId": batch_id})).await
+}
+
+#[tauri::command]
+pub async fn resume_ingest_batch(
+    batch_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "resume_ingest_batch", json!({"batchId": batch_id})).await
+}
+
+#[tauri::command]
+pub async fn get_source_library(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_source_library", json!({})).await
+}
+
+#[tauri::command]
 pub async fn read_vault_file(
     path: String,
     sidecar: State<'_, SidecarManager>,

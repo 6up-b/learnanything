@@ -2037,6 +2037,48 @@ def test_sidecar_set_grading_provider_rejects_unknown_provider(tmp_path):
     assert response[2]["result"]["ai"]["gradingProviderOverride"] is None
 
 
+def test_sidecar_durable_ingest_batch_rpcs(tmp_path):
+    """The Source library + Batch progress RPCs (§6.3): registration, camelCase
+    envelope, and the import batch/library round-trip."""
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    source = vault_root / "notes.md"
+    source.write_text("# Eigen\n\nAn eigenvector of A is a vector v with Av = lambda v.\n", encoding="utf-8")
+
+    responses = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "list_ingest_batches", "params": {"limit": 5}},
+            {"jsonrpc": "2.0", "id": 3, "method": "start_import_batch", "params": {"sources": [str(source)]}},
+            {"jsonrpc": "2.0", "id": 4, "method": "get_source_library"},
+        ]
+    )
+
+    assert responses[1]["result"]["batches"] == []
+    batch = responses[2]["result"]
+    assert batch["status"] in {"queued", "running", "completed"}
+    assert len(batch["jobs"]) == 1
+    job = batch["jobs"][0]
+    assert job["jobType"] == "import"
+    assert isinstance(job["checkpointLadder"], list) and "extracted" in job["checkpointLadder"]
+    # get_source_library returns the camelCase card envelope (may be mid-drain).
+    assert "sources" in responses[3]["result"]
+
+
+def test_sidecar_get_ingest_batch_not_found(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    responses = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "get_ingest_batch", "params": {"batchId": "batch_missing"}},
+        ]
+    )
+    assert responses[1]["error"]["data"]["code"] == "ingest_batch_not_found"
+
+
 def _rpc(messages: list[dict]) -> list[dict]:
     stdin = io.StringIO("".join(json.dumps(message) + "\n" for message in messages))
     stdout = io.StringIO()

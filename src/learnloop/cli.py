@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json as jsonlib
+import os
 import sys
 import textwrap
 import threading
@@ -703,6 +704,165 @@ def _echo_ingest_summary(result) -> None:
         f"auto_applied={result.auto_applied_count} "
         f"review_required={result.review_required_count} invalid={result.invalid_count}"
     )
+
+
+def _ingest_runner(vault_root: Path):
+    from learnloop.services.ingest_runner import IngestRunner
+
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    runner_config = loaded.config.ingest.runner
+    return IngestRunner(
+        repository,
+        vault_root=vault_root,
+        worker_id=f"cli-{os.getpid()}",
+        lease_ttl_seconds=runner_config.lease_ttl_seconds,
+    )
+
+
+def _batch_json(runner, batch_id: str) -> dict[str, Any]:
+    batch = runner.repo.get_ingest_batch(batch_id)
+    if batch is None:
+        return {}
+    jobs = runner.repo.ingest_jobs_for_batch(batch_id)
+    return {
+        "id": batch["id"],
+        "workflow_type": batch["workflow_type"],
+        "status": batch["status"],
+        "subject_id": batch.get("subject_id"),
+        "cancel_requested": bool(batch.get("cancel_requested")),
+        "created_at": batch.get("created_at"),
+        "finished_at": batch.get("finished_at"),
+        "jobs": [
+            {
+                "id": job["id"],
+                "ordinal": job["ordinal"],
+                "job_type": job["job_type"],
+                "status": job["status"],
+                "phase": job.get("phase"),
+                "message": job.get("message"),
+                "attempt_count": job.get("attempt_count", 0),
+                "current_window": job.get("current_window"),
+                "total_windows": job.get("total_windows"),
+                "usage": job.get("usage") or {},
+                "result": job.get("result"),
+                "error": job.get("error"),
+            }
+            for job in jobs
+        ],
+    }
+
+
+@app.command("import")
+def import_sources(
+    sources: Annotated[list[str], typer.Argument(help="URLs, arXiv ids, or local files to import.")],
+    subject: Annotated[str | None, typer.Option("--subject", help="Optional subject id for the batch.")] = None,
+    inventory: Annotated[bool, typer.Option("--inventory", help="Also queue role-specific unit inventories (M3 seam).")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the durable batch as JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Import sources into the vault library through the durable queue (§6.1).
+
+    Enqueues one durable ``import`` job per source and drains them in the
+    foreground when no sidecar worker holds the lease."""
+
+    from learnloop.services.ingest_runner import JobSpec
+
+    vault_root = _root(vault)
+    _load_vault_or_exit(vault_root, json_output=json_output)
+    runner = _ingest_runner(vault_root)
+    specs: list[JobSpec] = []
+    for source in sources:
+        import_index = len(specs)
+        specs.append(JobSpec("import", {"source": source}))
+        if inventory:
+            specs.append(JobSpec("inventory", {"source": source}, depends_on=(import_index,)))
+    workflow = "import_inventory" if inventory else "import"
+    batch_id = runner.enqueue_batch(workflow, specs, subject_id=subject)
+    runner.recover_stale_leases()
+    runner.drain()
+    payload = _batch_json(runner, batch_id)
+    if json_output:
+        typer.echo(_dump({"version": 1, "batch": payload}))
+        return
+    typer.echo(f"Batch {payload['id']} [{payload['status']}]")
+    for job in payload["jobs"]:
+        detail = job.get("error", {}).get("message") if job.get("error") else job.get("message")
+        typer.echo(f"  {job['ordinal']:>2} {job['job_type']:<16} {job['status']:<12} {detail or ''}")
+
+
+ingest_batches_app = typer.Typer(no_args_is_help=True, help="Inspect and control durable ingest batches (§6.2).")
+app.add_typer(ingest_batches_app, name="ingest-batches")
+
+
+@ingest_batches_app.command("list")
+def ingest_batches_list(
+    limit: Annotated[int, typer.Option("--limit", help="Max batches to list.")] = 30,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    runner = _ingest_runner(_root(vault))
+    batches = [_batch_json(runner, batch["id"]) for batch in runner.repo.list_ingest_batches(limit=limit)]
+    if json_output:
+        typer.echo(_dump({"version": 1, "batches": batches}))
+        return
+    if not batches:
+        typer.echo("No ingest batches.")
+        return
+    for batch in batches:
+        done = sum(1 for job in batch["jobs"] if job["status"] == "completed")
+        typer.echo(f"{batch['id']} [{batch['status']}] {batch['workflow_type']} {done}/{len(batch['jobs'])} jobs")
+
+
+@ingest_batches_app.command("show")
+def ingest_batches_show(
+    batch_id: Annotated[str, typer.Argument(help="Batch id.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    runner = _ingest_runner(_root(vault))
+    batch = _batch_json(runner, batch_id)
+    if not batch:
+        typer.echo(_dump({"version": 1, "error": "ingest_batch_not_found"}) if json_output else f"Batch {batch_id} not found.", err=not json_output)
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump({"version": 1, "batch": batch}))
+        return
+    typer.echo(f"Batch {batch['id']} [{batch['status']}] {batch['workflow_type']}")
+    for job in batch["jobs"]:
+        typer.echo(f"  {job['ordinal']:>2} {job['job_type']:<16} {job['status']:<12} phase={job.get('phase')}")
+
+
+@ingest_batches_app.command("cancel")
+def ingest_batches_cancel(
+    batch_id: Annotated[str, typer.Argument(help="Batch id.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    runner = _ingest_runner(_root(vault))
+    if runner.repo.get_ingest_batch(batch_id) is None:
+        typer.echo(f"Batch {batch_id} not found.", err=True)
+        raise typer.Exit(code=1)
+    runner.cancel_batch(batch_id)
+    batch = _batch_json(runner, batch_id)
+    typer.echo(_dump({"version": 1, "batch": batch}) if json_output else f"Batch {batch_id} [{batch['status']}]")
+
+
+@ingest_batches_app.command("resume")
+def ingest_batches_resume(
+    batch_id: Annotated[str, typer.Argument(help="Batch id.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    runner = _ingest_runner(_root(vault))
+    if runner.repo.get_ingest_batch(batch_id) is None:
+        typer.echo(f"Batch {batch_id} not found.", err=True)
+        raise typer.Exit(code=1)
+    runner.resume_batch(batch_id)
+    runner.recover_stale_leases()
+    runner.drain()
+    batch = _batch_json(runner, batch_id)
+    typer.echo(_dump({"version": 1, "batch": batch}) if json_output else f"Batch {batch_id} [{batch['status']}]")
 
 
 @app.command("seed-exam-attempts")

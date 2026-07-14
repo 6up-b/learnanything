@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, date, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
@@ -6632,6 +6632,33 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def all_source_artifacts(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_artifacts ORDER BY created_at DESC, id DESC"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def extraction_runs_for_revision(self, revision_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_extraction_runs WHERE revision_id = ? ORDER BY created_at, id",
+                (revision_id,),
+            ).fetchall()
+        return [_decode_extraction_run(row) for row in rows]
+
+    def document_ir_counts(self, extraction_id: str) -> dict[str, int]:
+        with self.connection() as connection:
+            units = connection.execute(
+                "SELECT COUNT(*) AS n FROM source_document_units WHERE extraction_id = ?",
+                (extraction_id,),
+            ).fetchone()["n"]
+            blocks = connection.execute(
+                "SELECT COUNT(*) AS n FROM source_document_blocks WHERE extraction_id = ?",
+                (extraction_id,),
+            ).fetchone()["n"]
+        return {"unit_count": units, "block_count": blocks}
+
     def insert_extraction_run(
         self,
         *,
@@ -6884,6 +6911,391 @@ class Repository:
         if row is not None:
             return row["scheme"]
         return detect_locator_scheme(locator)
+
+    # ------------------------------------------------------------------
+    # Durable ingest batches/jobs (spec_source_ingestion_v2 §6.2)
+    # ------------------------------------------------------------------
+
+    def insert_ingest_batch(
+        self,
+        *,
+        id: str,
+        workflow_type: str,
+        subject_id: str | None = None,
+        source_set_id: str | None = None,
+        payload_schema_version: int = 1,
+        status: str = "queued",
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO ingest_batches(
+                  id, workflow_type, payload_schema_version, subject_id,
+                  source_set_id, status, created_at, cancel_requested
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                """,
+                (id, workflow_type, payload_schema_version, subject_id, source_set_id, status, now),
+            )
+            connection.commit()
+
+    def get_ingest_batch(self, batch_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM ingest_batches WHERE id = ?", (batch_id,)
+            ).fetchone()
+        return _decode_ingest_batch(row) if row is not None else None
+
+    def list_ingest_batches(self, limit: int | None = None) -> list[dict[str, Any]]:
+        query = "SELECT * FROM ingest_batches ORDER BY created_at DESC, id DESC"
+        params: tuple[Any, ...] = ()
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (limit,)
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [_decode_ingest_batch(row) for row in rows]
+
+    def update_ingest_batch_status(
+        self,
+        batch_id: str,
+        status: str,
+        *,
+        mark_started: bool = False,
+        mark_finished: bool = False,
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE ingest_batches
+                   SET status = ?,
+                       started_at = CASE WHEN ? AND started_at IS NULL THEN ? ELSE started_at END,
+                       finished_at = CASE WHEN ? THEN ? ELSE finished_at END
+                 WHERE id = ?
+                """,
+                (status, 1 if mark_started else 0, now, 1 if mark_finished else 0, now, batch_id),
+            )
+            connection.commit()
+
+    def request_ingest_batch_cancel(self, batch_id: str) -> None:
+        """Flag the batch and every not-yet-terminal job for cancellation."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE ingest_batches SET cancel_requested = 1 WHERE id = ?", (batch_id,)
+            )
+            connection.execute(
+                """
+                UPDATE ingest_jobs
+                   SET cancel_requested = 1
+                 WHERE batch_id = ?
+                   AND status IN ('queued', 'running', 'waiting_for_input', 'blocked')
+                """,
+                (batch_id,),
+            )
+            connection.commit()
+
+    def insert_ingest_job(
+        self,
+        *,
+        id: str,
+        batch_id: str,
+        ordinal: int,
+        job_type: str,
+        payload: Mapping[str, Any] | None = None,
+        payload_schema_version: int = 1,
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO ingest_jobs(
+                  id, batch_id, ordinal, job_type, payload_schema_version,
+                  payload_json, status, phase, message, attempt_count,
+                  cancel_requested, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'queued', 'queued', 'Waiting to start', 0, 0, ?)
+                """,
+                (
+                    id,
+                    batch_id,
+                    ordinal,
+                    job_type,
+                    payload_schema_version,
+                    _json(dict(payload)) if payload is not None else None,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def add_ingest_job_dependency(self, job_id: str, depends_on_job_id: str) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO ingest_job_dependencies(job_id, depends_on_job_id)
+                VALUES (?, ?)
+                """,
+                (job_id, depends_on_job_id),
+            )
+            connection.commit()
+
+    def get_ingest_job(self, job_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM ingest_jobs WHERE id = ?", (job_id,)
+            ).fetchone()
+        return _decode_ingest_job(row) if row is not None else None
+
+    def ingest_jobs_for_batch(self, batch_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM ingest_jobs WHERE batch_id = ? ORDER BY ordinal, id",
+                (batch_id,),
+            ).fetchall()
+        return [_decode_ingest_job(row) for row in rows]
+
+    def ingest_job_dependency_ids(self, job_id: str) -> list[str]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT depends_on_job_id FROM ingest_job_dependencies WHERE job_id = ? ORDER BY depends_on_job_id",
+                (job_id,),
+            ).fetchall()
+        return [row["depends_on_job_id"] for row in rows]
+
+    def ingest_job_dependents(self, job_id: str) -> list[str]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT job_id FROM ingest_job_dependencies WHERE depends_on_job_id = ? ORDER BY job_id",
+                (job_id,),
+            ).fetchall()
+        return [row["job_id"] for row in rows]
+
+    def claim_next_ingest_job(
+        self, *, worker_id: str, now_iso: str, lease_cutoff_iso: str
+    ) -> dict[str, Any] | None:
+        """Atomically claim the next eligible queued job for ``worker_id``.
+
+        Returns None when another worker already holds a live running lease
+        (exactly one worker drains at a time — no competing vault writes) or when
+        no queued job has all of its dependencies completed. A ``running`` job
+        whose heartbeat predates ``lease_cutoff_iso`` is treated as dead and does
+        not block the claim; startup recovery converts it to failed(interrupted).
+        """
+
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            live = connection.execute(
+                """
+                SELECT 1 FROM ingest_jobs
+                 WHERE status = 'running'
+                   AND heartbeat_at IS NOT NULL
+                   AND heartbeat_at >= ?
+                 LIMIT 1
+                """,
+                (lease_cutoff_iso,),
+            ).fetchone()
+            if live is not None:
+                connection.execute("ROLLBACK")
+                return None
+            candidate = connection.execute(
+                """
+                SELECT j.* FROM ingest_jobs j
+                 JOIN ingest_batches b ON b.id = j.batch_id
+                 WHERE j.status = 'queued'
+                   AND b.cancel_requested = 0
+                   AND NOT EXISTS (
+                     SELECT 1 FROM ingest_job_dependencies d
+                      JOIN ingest_jobs dep ON dep.id = d.depends_on_job_id
+                      WHERE d.job_id = j.id AND dep.status != 'completed'
+                   )
+                 ORDER BY b.created_at, j.ordinal, j.id
+                 LIMIT 1
+                """
+            ).fetchone()
+            if candidate is None:
+                connection.execute("ROLLBACK")
+                return None
+            connection.execute(
+                """
+                UPDATE ingest_jobs
+                   SET status = 'running',
+                       worker_id = ?,
+                       heartbeat_at = ?,
+                       started_at = COALESCE(started_at, ?),
+                       attempt_count = attempt_count + 1,
+                       phase = COALESCE(phase, 'acquired'),
+                       error_json = NULL
+                 WHERE id = ? AND status = 'queued'
+                """,
+                (worker_id, now_iso, now_iso, candidate["id"]),
+            )
+            claimed = connection.execute(
+                "SELECT * FROM ingest_jobs WHERE id = ?", (candidate["id"],)
+            ).fetchone()
+            connection.execute("COMMIT")
+            return _decode_ingest_job(claimed) if claimed is not None else None
+        finally:
+            connection.close()
+
+    def heartbeat_ingest_job(
+        self,
+        job_id: str,
+        *,
+        worker_id: str,
+        phase: str | None = None,
+        message: str | None = None,
+        current_window: int | None = None,
+        total_windows: int | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE ingest_jobs
+                   SET heartbeat_at = ?,
+                       phase = COALESCE(?, phase),
+                       message = COALESCE(?, message),
+                       current_window = ?,
+                       total_windows = ?
+                 WHERE id = ? AND worker_id = ?
+                """,
+                (now, phase, message, current_window, total_windows, job_id, worker_id),
+            )
+            connection.commit()
+
+    def finish_ingest_job(
+        self,
+        job_id: str,
+        *,
+        status: str,
+        phase: str | None = None,
+        message: str | None = None,
+        result: Mapping[str, Any] | None = None,
+        error: Mapping[str, Any] | None = None,
+        usage: Mapping[str, Any] | None = None,
+        release_lease: bool = True,
+        clear_finished: bool = False,
+        current_window: int | None = None,
+        total_windows: int | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        """Move a job to a new state and (optionally) release its lease.
+
+        ``waiting_for_input`` and ``queued`` (resume/requeue) release the lease
+        but leave ``finished_at`` NULL (``clear_finished=True``); terminal states
+        stamp ``finished_at``.
+        """
+
+        now = utc_now_iso(clock)
+        finished_at = None if clear_finished else now
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE ingest_jobs
+                   SET status = ?,
+                       phase = COALESCE(?, phase),
+                       message = COALESCE(?, message),
+                       result_json = COALESCE(?, result_json),
+                       error_json = ?,
+                       usage_json = COALESCE(?, usage_json),
+                       current_window = COALESCE(?, current_window),
+                       total_windows = COALESCE(?, total_windows),
+                       worker_id = CASE WHEN ? THEN NULL ELSE worker_id END,
+                       heartbeat_at = CASE WHEN ? THEN NULL ELSE heartbeat_at END,
+                       finished_at = ?
+                 WHERE id = ?
+                """,
+                (
+                    status,
+                    phase,
+                    message,
+                    _json(dict(result)) if result is not None else None,
+                    _json(dict(error)) if error is not None else None,
+                    _json(dict(usage)) if usage is not None else None,
+                    current_window,
+                    total_windows,
+                    1 if release_lease else 0,
+                    1 if release_lease else 0,
+                    finished_at,
+                    job_id,
+                ),
+            )
+            connection.commit()
+
+    def requeue_ingest_job(
+        self, job_id: str, *, message: str = "Waiting to start", clock: Clock | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE ingest_jobs
+                   SET status = 'queued', phase = 'queued', message = ?,
+                       worker_id = NULL, heartbeat_at = NULL,
+                       error_json = NULL, finished_at = NULL,
+                       cancel_requested = 0
+                 WHERE id = ?
+                """,
+                (message, job_id),
+            )
+            connection.commit()
+
+    def set_ingest_job_cancel_requested(self, job_id: str) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE ingest_jobs SET cancel_requested = 1 WHERE id = ?", (job_id,)
+            )
+            connection.commit()
+
+    def ingest_jobs_by_types(
+        self, job_types: Sequence[str], *, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        placeholders = ",".join("?" for _ in job_types)
+        query = (
+            f"SELECT * FROM ingest_jobs WHERE job_type IN ({placeholders}) "
+            "ORDER BY created_at DESC, id DESC"
+        )
+        params: list[Any] = list(job_types)
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [_decode_ingest_job(row) for row in rows]
+
+    def expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM ingest_jobs
+                 WHERE status = 'running'
+                   AND (heartbeat_at IS NULL OR heartbeat_at < ?)
+                 ORDER BY ordinal, id
+                """,
+                (lease_cutoff_iso,),
+            ).fetchall()
+        return [_decode_ingest_job(row) for row in rows]
+
+
+def _decode_ingest_batch(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["cancel_requested"] = bool(data.get("cancel_requested"))
+    return data
+
+
+def _decode_ingest_job(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["cancel_requested"] = bool(data.get("cancel_requested"))
+    for key in ("payload", "result", "error", "usage"):
+        raw = data.pop(f"{key}_json", None)
+        data[key] = json.loads(raw) if raw else None
+    return data
 
 
 def _practice_item_state(row: sqlite3.Row) -> PracticeItemState:

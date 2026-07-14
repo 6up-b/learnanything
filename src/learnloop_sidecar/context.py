@@ -37,6 +37,13 @@ class SidecarContext:
         self.vault_root = Path(vault_path).resolve()
         self.vault = load_vault(self.vault_root)
         self.repository = Repository(VaultPaths(self.vault.root, self.vault.config).sqlite_path)
+        runner_config = self.vault.config.ingest.runner
+        self.ingest_jobs.bind(
+            self.repository,
+            self.vault_root,
+            lease_ttl_seconds=runner_config.lease_ttl_seconds,
+            poll_interval_seconds=runner_config.poll_interval_seconds,
+        )
         sync_vault_state(self.vault, self.repository)
         # Startup maintenance probes the Codex runtime, which (for the HTTP provider)
         # can launch the server and block up to startup_timeout_seconds. Skip it on
