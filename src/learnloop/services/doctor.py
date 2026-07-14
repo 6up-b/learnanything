@@ -108,6 +108,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     if fix_state:
         apply_migrations(paths.sqlite_path)
     _check_sqlite(paths, issues)
+    _recover_apply_intents(paths, issues, fix_state=fix_state)
 
     try:
         vault = load_vault(vault_root)
@@ -352,6 +353,53 @@ def _check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> None:
                 "error",
                 "sqlite:migrations_missing",
                 f"SQLite is missing migration versions: {', '.join(str(version) for version in missing)}",
+                paths.sqlite_path,
+            )
+        )
+
+
+def _recover_apply_intents(paths: VaultPaths, issues: list[HealthIssue], *, fix_state: bool) -> None:
+    """Complete any write-ahead apply intent left mid-flight (§10.2 recovery).
+
+    A pending intent means a proposal acceptance crashed between the durable DB
+    commit and the applied mark. Under ``--fix`` it is completed idempotently
+    while holding the vault mutation lock; otherwise it is reported so a plain
+    ``doctor`` run never silently mutates the vault.
+    """
+
+    if not paths.sqlite_path.exists():
+        return
+    from learnloop.services.apply_protocol import recover_apply_intents
+    from learnloop.services.vault_lock import vault_mutation_lock
+
+    repository = Repository(paths.sqlite_path)
+    pending = repository.pending_apply_intents()
+    if not pending:
+        return
+    if not fix_state:
+        issues.append(
+            _issue(
+                "warning",
+                "apply_intents:pending",
+                f"{len(pending)} proposal apply intent(s) left mid-flight; run doctor --fix to recover",
+                paths.sqlite_path,
+            )
+        )
+        return
+    try:
+        with vault_mutation_lock(paths.root, purpose="doctor_recover_apply"):
+            recovered = recover_apply_intents(paths.root, repository)
+    except Exception as exc:  # pragma: no cover - defensive
+        issues.append(
+            _issue("error", "apply_intents:recovery_failed", f"Apply-intent recovery failed: {exc}", paths.sqlite_path)
+        )
+        return
+    if recovered:
+        issues.append(
+            _issue(
+                "warning",
+                "apply_intents:recovered",
+                f"Recovered {len(recovered)} mid-flight proposal apply intent(s)",
                 paths.sqlite_path,
             )
         )

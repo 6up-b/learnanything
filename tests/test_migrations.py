@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import shutil
+import sqlite3
+
+import pytest
 
 from learnloop.attempt_types import SUPPORTED_ATTEMPT_TYPES
 from learnloop.db.connection import connect
@@ -293,6 +296,70 @@ def test_source_unit_selections_migration_applies_on_pre_040_db(tmp_path):
         }
     assert fk_issues == []
     assert "source_unit_selections" in tables
+
+
+def test_provenance_manifests_apply_intents_schema_is_available(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        link_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(entity_source_links)")
+        }
+
+    assert {
+        "entity_source_links",
+        "notation_mappings",
+        "source_conflicts",
+        "synthesis_manifests",
+        "synthesis_runs",
+        "apply_intents",
+    } <= tables
+    assert {"entity_type", "entity_id", "locator", "relation", "status", "revision_id"} <= link_columns
+
+
+def test_entity_source_links_relation_and_status_checks(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+    with connect(sqlite_path) as connection:
+        # Invalid relation is rejected by the CHECK.
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO entity_source_links(id, entity_type, entity_id, locator, relation, created_at)"
+                " VALUES ('l1', 'facet', 'f1', 'loc', 'not_a_relation', '2026-01-01T00:00:00Z')"
+            )
+        # Invalid status is rejected by the CHECK.
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO entity_source_links(id, entity_type, entity_id, locator, relation, status, created_at)"
+                " VALUES ('l2', 'facet', 'f1', 'loc', 'primary', 'bogus', '2026-01-01T00:00:00Z')"
+            )
+
+
+def test_provenance_migration_applies_on_pre_044_db(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    old_migrations = tmp_path / "old_migrations"
+    old_migrations.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 43:
+            shutil.copy2(migration.path, old_migrations / migration.path.name)
+
+    apply_migrations(sqlite_path, migrations_dir=old_migrations)
+    applied = apply_migrations(sqlite_path)
+    assert 44 in [migration.version for migration in applied]
+
+    with connect(sqlite_path) as connection:
+        fk_issues = connection.execute("PRAGMA foreign_key_check").fetchall()
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+    assert fk_issues == []
+    assert "apply_intents" in tables
 
 
 def test_migrations_are_idempotent(tmp_path):

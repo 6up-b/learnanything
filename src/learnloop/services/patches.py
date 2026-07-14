@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -8,6 +10,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.services.state_sync import sync_vault_state
+from learnloop.services.vault_lock import vault_mutation_lock
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -51,47 +54,147 @@ def apply_accepted_items(
     *,
     clock: Clock | None = None,
 ) -> PatchApplyResult:
+    """Accept a dependency-closed set of proposal items as one logical transaction.
+
+    Runs under the cross-process vault mutation lock (§8.2), which serializes the
+    accept-time lock/target recheck, YAML mutation, derived-state sync, and
+    proposal decision. Application itself uses the write-ahead protocol
+    (``services.apply_protocol``, §10.2): a durable intent commits to SQLite first,
+    YAML is staged/fsynced/atomically renamed, then the intent is marked applied —
+    so a crash mid-flight is completed by startup/doctor recovery.
+    """
+
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
-    items = sorted(repository.pending_proposal_items(patch_id, item_ids), key=_proposal_apply_order)
-    origin = _proposal_origin(repository, patch_id)
-    change_batch_ids: list[str] = []
-    for item in items:
+    with vault_mutation_lock(vault.root, purpose="proposal_accept"):
+        return _apply_accepted_locked(vault, repository, patch_id, item_ids, clock)
+
+
+def _apply_accepted_locked(
+    vault: LoadedVault,
+    repository: Repository,
+    patch_id: str,
+    item_ids: list[str] | None,
+    clock: Clock | None,
+) -> PatchApplyResult:
+    from learnloop.services.apply_protocol import (
+        compute_dependency_closure,
+        materialize_targets,
+        perform_db_effects,
+        stage_target_contents,
+    )
+
+    requested = repository.pending_proposal_items(patch_id, item_ids)
+    for item in requested:
         if item["validation_status"] == "invalid":
             raise PatchApplicationError(f"Proposal item {item['id']} is invalid and cannot be accepted")
-        compiled = compile_proposal_item(vault, item)
-        compiled.apply(vault.root, clock)
-        refreshed = load_vault(vault.root)
-        sync_vault_state(refreshed, repository, clock=clock)
-        now = utc_now_iso(clock)
-        change_batch_id = new_ulid()
-        repository.record_applied_proposal_item(
-            proposal_item_id=item["id"],
-            change_batch={
-                "id": change_batch_id,
-                "reason": "proposal_accept",
-                "origin": origin,
-                "summary": compiled.summary,
-                "created_at": now,
-            },
-            content_events=[
-                {
-                    "id": new_ulid(),
-                    "event_type": compiled.event_type,
-                    "subject": compiled.subject,
-                    "entity_type": compiled.entity_type,
-                    "entity_id": compiled.entity_id,
-                    "origin": origin,
-                    "review_status": "accepted",
-                    "summary": compiled.summary,
-                    "created_at": now,
-                }
-            ],
-            clock=clock,
+
+    origin = _proposal_origin(repository, patch_id)
+    ordered_ids, blocked = compute_dependency_closure(repository, requested)
+
+    # A dependent with a rejected/unaccepted prerequisite is blocked, never
+    # partially applied (§10.2). Applyable items are marked ready.
+    for item_id, reason in blocked.items():
+        repository.set_proposal_item_dependency_status(
+            item_id, dependency_status="blocked", block_reason=reason
         )
-        change_batch_ids.append(change_batch_id)
-        vault = refreshed
-    return PatchApplyResult(applied_count=len(change_batch_ids), change_batch_ids=change_batch_ids)
+    for item_id in ordered_ids:
+        repository.set_proposal_item_dependency_status(item_id, dependency_status="ready")
+
+    requested_by_id = {item["id"]: item for item in requested}
+    ordered_items = [requested_by_id[item_id] for item_id in ordered_ids]
+
+    # Accept-time refusal: an update/deactivate whose target changed after
+    # synthesis, or whose identity became locked (e.g. an attempt inserted after
+    # synthesis), is refused while holding the mutation lock (§8.2 enforcement 3).
+    _accept_time_rechecks(vault, repository, ordered_items)
+
+    if not ordered_items:
+        return PatchApplyResult(applied_count=0, change_batch_ids=[])
+
+    targets, db_plan = stage_target_contents(
+        vault.root, vault, ordered_items, origin, patch_id, clock=clock
+    )
+    # 1. Durable intent commits FIRST (closure + target contents/hashes + DB plan).
+    intent_id = repository.insert_apply_intent(
+        proposed_patch_id=patch_id,
+        item_ids=ordered_ids,
+        targets=targets,
+        db_plan=db_plan,
+        clock=clock,
+    )
+    # 2. Stage/fsync/atomic-rename the YAML into place.
+    materialize_targets(vault.root, targets)
+    # 3. Derived-state sync + DB side effects, then mark the intent applied.
+    sync_vault_state(load_vault(vault.root), repository, clock=clock)
+    change_batch_ids = perform_db_effects(repository, db_plan, clock=clock)
+    repository.mark_apply_intent_applied(intent_id, clock=clock)
+    return PatchApplyResult(applied_count=len(ordered_items), change_batch_ids=change_batch_ids)
+
+
+def compute_target_hash(vault: LoadedVault, item_type: str, entity_id: str) -> str | None:
+    """Content hash of the current on-vault target entity (§8.2 expected_target_hash).
+
+    Synthesis stamps this on every update/deactivate item; acceptance refuses if
+    the live target no longer matches — the target changed after synthesis even if
+    lock state did not. Returns ``None`` when the entity does not exist (create) or
+    the type is not hash-checked.
+    """
+
+    entity: Any = None
+    if item_type == "learning_object":
+        entity = vault.learning_objects.get(entity_id)
+    elif item_type == "practice_item":
+        entity = vault.practice_items.get(entity_id)
+    elif item_type == "concept":
+        entity = vault.concepts.get(entity_id)
+    elif item_type == "error_type":
+        entity = vault.error_types.get(entity_id)
+    elif item_type == "rubric":
+        item = vault.practice_items.get(entity_id)
+        entity = item.grading_rubric if item is not None else None
+    if entity is None:
+        return None
+    payload = entity.model_dump(mode="json", exclude_none=False)
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _accept_time_rechecks(
+    vault: LoadedVault, repository: Repository, ordered_items: list[dict[str, Any]]
+) -> None:
+    from learnloop.services.curriculum_locks import Operation, can_apply
+
+    lock_entity_types = {"learning_object", "practice_item", "concept", "rubric"}
+    for item in ordered_items:
+        payload = item["edited_payload"] if item.get("edited_payload") is not None else item["payload"]
+        expected = payload.get("expected_target_hash") if isinstance(payload, dict) else None
+        if expected is None:
+            continue  # legacy item: no v2 accept-time recheck
+        if item["operation"] not in {"update", "deactivate"}:
+            continue
+        item_type = item["item_type"]
+        entity_id = _entity_id(item, payload)
+        current = compute_target_hash(vault, item_type, entity_id)
+        if current is not None and current != expected:
+            raise PatchApplicationError(
+                f"Refusing to apply {item_type} {entity_id}: target changed after "
+                f"synthesis (expected {expected}, found {current})"
+            )
+        if item_type in lock_entity_types:
+            entity_type = "practice_item" if item_type == "rubric" else item_type
+            op_type = "deactivate" if item["operation"] == "deactivate" else "blueprint_identity_change"
+            result = can_apply(
+                vault,
+                repository,
+                Operation(op_type=op_type, entity_type=entity_type, entity_id=entity_id),
+            )
+            if not result.legal:
+                detail = "; ".join(reason.detail for reason in result.lock_reasons)
+                raise PatchApplicationError(
+                    f"Refusing to apply {item_type} {entity_id}: identity is locked "
+                    f"({detail})"
+                )
 
 
 def reject_applied_items(
@@ -113,15 +216,18 @@ def reject_applied_items(
         and (not requested or item["id"] in requested)
     ]
     rejected = 0
-    for item in items:
-        event = _apply_reject_side_effect(vault, repository, item, origin=origin, clock=clock)
-        if event is None:
-            raise PatchApplicationError(
-                f"Cannot revert proposal item {item['id']} ({item['item_type']} {item['operation']})"
-            )
-        if repository.reject_applied_proposal_item(item["id"], content_event=event, clock=clock):
-            rejected += 1
-            vault = load_vault(root)
+    # Reverting an applied item mutates the vault, so it takes the same
+    # accept-time critical-section lock as acceptance (§8.2).
+    with vault_mutation_lock(vault.root, purpose="proposal_reject"):
+        for item in items:
+            event = _apply_reject_side_effect(vault, repository, item, origin=origin, clock=clock)
+            if event is None:
+                raise PatchApplicationError(
+                    f"Cannot revert proposal item {item['id']} ({item['item_type']} {item['operation']})"
+                )
+            if repository.reject_applied_proposal_item(item["id"], content_event=event, clock=clock):
+                rejected += 1
+                vault = load_vault(root)
     return rejected
 
 

@@ -10,6 +10,7 @@ import type {
 } from "../api/dto";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, type PillColor } from "../components/term";
 import { highlightFor } from "../components/highlight";
+import { ProvenancePanel } from "../components/ProvenancePanel";
 import { LiveMarkdownEditor } from "../render/LiveMarkdownEditor";
 import { SqliteBrowser } from "./SqliteBrowser";
 
@@ -142,6 +143,9 @@ export function LibraryScreen({
   const [newPath, setNewPath] = useState<string | null>(null);
   const newInputRef = useRef<HTMLInputElement>(null);
 
+  // Read-only source-provenance popover for the selected entity file.
+  const [provenanceOpen, setProvenanceOpen] = useState(false);
+
   const loadTree = () =>
     api.getVaultTree().then((tree) => {
       setSnapshot(tree);
@@ -196,6 +200,7 @@ export function LibraryScreen({
   // Load file content for file selections (drops out of edit mode each time).
   useEffect(() => {
     setEditing(false);
+    setProvenanceOpen(false);
     if (!selected || selected.kind !== "file") {
       setContent(null);
       setDraft("");
@@ -235,6 +240,17 @@ export function LibraryScreen({
 
   const selectedFilePath = selected?.kind === "file" ? selected.path : null;
   const selectedContent = content && selectedFilePath === content.path ? content : null;
+
+  // An lo_/pi_ vault file is an inspectable entity whose id is the file stem;
+  // it can carry source provenance we surface in a read-only popover.
+  const entityProvenanceTarget = useMemo<{ entityType: string; entityId: string } | null>(() => {
+    const name = selectedContent?.name;
+    if (!name) return null;
+    const stem = name.replace(/\.(md|ya?ml|json|toml)$/i, "");
+    if (name.startsWith("lo_")) return { entityType: "learning_object", entityId: stem };
+    if (name.startsWith("pi_")) return { entityType: "practice_item", entityId: stem };
+    return null;
+  }, [selectedContent]);
   const isMd = Boolean(selectedContent && selectedContent.kind === "md" && selectedContent.editable && !selectedContent.binary && !selectedContent.truncated);
   const isDatabase = Boolean(selectedContent?.database);
   const canEditRaw = Boolean(selectedContent && selectedContent.editable && !selectedContent.binary && !selectedContent.truncated && selectedContent.kind !== "md");
@@ -522,7 +538,40 @@ export function LibraryScreen({
         </div>
 
         {/* Viewer / editor */}
-        <div className="ll-scroll" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: COLOR.bg, minHeight: 0 }}>
+        <div className="ll-scroll" style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: COLOR.bg, minHeight: 0 }}>
+          {entityProvenanceTarget ? (
+            <>
+              <span
+                onClick={() => setProvenanceOpen((open) => !open)}
+                title="source provenance"
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 16,
+                  zIndex: 5,
+                  padding: "2px 10px",
+                  border: `1px solid ${provenanceOpen ? COLOR.amber : COLOR.borderStrong}`,
+                  background: provenanceOpen ? "#241d12" : "transparent",
+                  color: provenanceOpen ? COLOR.amber : COLOR.textDim,
+                  fontFamily: FONT_MONO,
+                  fontSize: 11,
+                  cursor: "pointer",
+                  borderRadius: 2
+                }}
+              >
+                provenance
+              </span>
+              {provenanceOpen ? (
+                <div style={{ position: "absolute", top: 42, right: 16, zIndex: 5 }}>
+                  <ProvenancePanel
+                    entityType={entityProvenanceTarget.entityType}
+                    entityId={entityProvenanceTarget.entityId}
+                    onClose={() => setProvenanceOpen(false)}
+                  />
+                </div>
+              ) : null}
+            </>
+          ) : null}
           {selected?.kind === "proposal" ? (
             <ProposalEditor
               found={focusedProposal}

@@ -5,6 +5,7 @@ import type {
   CliCommandResult,
   CommandError,
   ConceptGraphSnapshot,
+  EntityProvenance,
   FacetMasterySnapshot,
   FeedbackBundle,
   PrimedRetryResultDto,
@@ -197,6 +198,8 @@ export const api = {
   sqliteDeleteRow: (path: string, table: string, rowid: number) =>
     call<{ version: number; ok: boolean }>("sqlite_delete_row", { input: { path, table, rowid } }),
   getProposals: () => call<ProposalsSnapshot>("get_proposals"),
+  getEntityProvenance: (entityType: string, entityId: string) =>
+    call<EntityProvenance>("get_entity_provenance", { entityType, entityId }),
   acceptProposalItems: (patchId: string, itemIds?: string[] | null) =>
     call<ProposalsSnapshot>("accept_proposal_items", { input: { patchId, itemIds: itemIds ?? null } }),
   rejectProposalItems: (patchId: string, itemIds?: string[] | null) =>

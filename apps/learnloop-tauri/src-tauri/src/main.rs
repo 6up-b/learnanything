@@ -69,6 +69,7 @@ fn main() {
             sqlite_insert_row,
             sqlite_delete_row,
             get_proposals,
+            get_entity_provenance,
             accept_proposal_items,
             reject_proposal_items,
             reset_proposal_items,

@@ -7876,6 +7876,505 @@ class Repository:
             ).fetchall()
         return [_decode_ingest_job(row) for row in rows]
 
+    # --- ING M5: provenance, manifests, write-ahead apply intents -----------
+
+    def insert_entity_source_link(
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        locator: str,
+        relation: str,
+        source_id: str | None = None,
+        revision_id: str | None = None,
+        locator_scheme: str | None = None,
+        extraction_id: str | None = None,
+        asset_hash: str | None = None,
+        span_hash: str | None = None,
+        patch_id: str | None = None,
+        status: str = "current",
+        link_id: str | None = None,
+        created_at: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Insert an entity_source_links row (§9.1). Idempotent on the UNIQUE key
+        ``(entity_type, entity_id, revision_id, locator, relation)`` so recovery /
+        re-application never duplicates provenance.
+        """
+
+        row_id = link_id or new_ulid()
+        now = created_at or utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO entity_source_links(
+                  id, entity_type, entity_id, source_id, revision_id,
+                  locator, locator_scheme, relation, extraction_id, asset_hash,
+                  span_hash, patch_id, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    entity_type,
+                    entity_id,
+                    source_id,
+                    revision_id,
+                    locator,
+                    locator_scheme,
+                    relation,
+                    extraction_id,
+                    asset_hash,
+                    span_hash,
+                    patch_id,
+                    status,
+                    now,
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def entity_source_links(
+        self, entity_type: str, entity_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM entity_source_links
+                 WHERE entity_type = ? AND entity_id = ?
+                 ORDER BY created_at, id
+                """,
+                (entity_type, entity_id),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def entity_source_links_for_revision(self, revision_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM entity_source_links WHERE revision_id = ? ORDER BY id",
+                (revision_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_notation_mapping(
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        canonical_notation: str,
+        alternate_notation: str,
+        subject_id: str | None = None,
+        context: str | None = None,
+        source_id: str | None = None,
+        revision_id: str | None = None,
+        locator: str | None = None,
+        patch_id: str | None = None,
+        status: str = "active",
+        mapping_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        row_id = mapping_id or new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO notation_mappings(
+                  id, subject_id, entity_type, entity_id, canonical_notation,
+                  alternate_notation, context, source_id, revision_id, locator,
+                  patch_id, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    subject_id,
+                    entity_type,
+                    entity_id,
+                    canonical_notation,
+                    alternate_notation,
+                    context,
+                    source_id,
+                    revision_id,
+                    locator,
+                    patch_id,
+                    status,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def notation_mappings_for_entity(
+        self, entity_type: str, entity_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM notation_mappings
+                 WHERE entity_type = ? AND entity_id = ?
+                 ORDER BY created_at, id
+                """,
+                (entity_type, entity_id),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_source_conflict(
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        statement: str,
+        subject_id: str | None = None,
+        left_source_id: str | None = None,
+        left_revision_id: str | None = None,
+        left_locator: str | None = None,
+        right_source_id: str | None = None,
+        right_revision_id: str | None = None,
+        right_locator: str | None = None,
+        status: str = "open",
+        resolution: Any = None,
+        patch_id: str | None = None,
+        conflict_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        row_id = conflict_id or new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_conflicts(
+                  id, subject_id, entity_type, entity_id,
+                  left_source_id, left_revision_id, left_locator,
+                  right_source_id, right_revision_id, right_locator,
+                  statement, status, resolution_json, patch_id, created_at, resolved_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    subject_id,
+                    entity_type,
+                    entity_id,
+                    left_source_id,
+                    left_revision_id,
+                    left_locator,
+                    right_source_id,
+                    right_revision_id,
+                    right_locator,
+                    statement,
+                    status,
+                    _json(resolution) if resolution is not None else None,
+                    patch_id,
+                    utc_now_iso(clock),
+                    None,
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def source_conflicts_for_entity(
+        self, entity_type: str, entity_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM source_conflicts
+                 WHERE entity_type = ? AND entity_id = ?
+                 ORDER BY created_at, id
+                """,
+                (entity_type, entity_id),
+            ).fetchall()
+        return [_decode_source_conflict(row) for row in rows]
+
+    def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
+        """Persist an immutable synthesis manifest (§8.4). Idempotent on
+        ``manifest_hash`` — an identical manifest returns the existing id and is
+        never re-inserted (the cache seam)."""
+
+        manifest_hash = str(manifest["manifest_hash"])
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM synthesis_manifests WHERE manifest_hash = ?",
+                (manifest_hash,),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            row_id = str(manifest.get("id") or new_ulid())
+            connection.execute(
+                """
+                INSERT INTO synthesis_manifests(
+                  id, manifest_hash, source_set_id, membership_json,
+                  revision_ids_json, asset_hashes_json, extraction_ids_json,
+                  unit_inventory_versions_json, scope_json, brief_json,
+                  prompt_version, schema_version, provider, model,
+                  extractor_versions_json, curriculum_snapshot_hash,
+                  facet_registry_hash, task_graph_hash, assessment_schema_version,
+                  learner_model_contract_version, lock_fingerprint,
+                  token_budget_json, estimated_usage_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    manifest_hash,
+                    manifest.get("source_set_id"),
+                    _json(manifest.get("membership")),
+                    _json(manifest.get("revision_ids")),
+                    _json(manifest.get("asset_hashes")),
+                    _json(manifest.get("extraction_ids")),
+                    _json(manifest.get("unit_inventory_versions")),
+                    _json(manifest.get("scope")),
+                    _json(manifest.get("brief")),
+                    manifest.get("prompt_version"),
+                    manifest.get("schema_version"),
+                    manifest.get("provider"),
+                    manifest.get("model"),
+                    _json(manifest.get("extractor_versions")),
+                    manifest.get("curriculum_snapshot_hash"),
+                    manifest.get("facet_registry_hash"),
+                    manifest.get("task_graph_hash"),
+                    manifest.get("assessment_schema_version"),
+                    manifest.get("learner_model_contract_version"),
+                    manifest.get("lock_fingerprint"),
+                    _json(manifest.get("token_budget")),
+                    _json(manifest.get("estimated_usage")),
+                    manifest.get("created_at") or utc_now_iso(),
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def synthesis_manifest(self, manifest_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM synthesis_manifests WHERE id = ?",
+                (manifest_id,),
+            ).fetchone()
+        return _decode_synthesis_manifest(row) if row is not None else None
+
+    def synthesis_manifest_by_hash(self, manifest_hash: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM synthesis_manifests WHERE manifest_hash = ?",
+                (manifest_hash,),
+            ).fetchone()
+        return _decode_synthesis_manifest(row) if row is not None else None
+
+    def insert_synthesis_run(
+        self,
+        *,
+        manifest_id: str,
+        mode: str,
+        agent_run_id: str | None = None,
+        proposal_id: str | None = None,
+        span_request: Any = None,
+        status: str = "created",
+        run_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        row_id = run_id or new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO synthesis_runs(
+                  id, manifest_id, mode, agent_run_id, proposal_id,
+                  span_request_json, resolved_span_hashes_json,
+                  coverage_decisions_json, actual_usage_json, status,
+                  created_at, completed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    manifest_id,
+                    mode,
+                    agent_run_id,
+                    proposal_id,
+                    _json(span_request) if span_request is not None else None,
+                    None,
+                    None,
+                    None,
+                    status,
+                    utc_now_iso(clock),
+                    None,
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def complete_synthesis_run(
+        self,
+        run_id: str,
+        *,
+        status: str,
+        proposal_id: str | None = None,
+        resolved_span_hashes: Any = None,
+        coverage_decisions: Any = None,
+        actual_usage: Any = None,
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE synthesis_runs
+                   SET status = ?,
+                       proposal_id = COALESCE(?, proposal_id),
+                       resolved_span_hashes_json = COALESCE(?, resolved_span_hashes_json),
+                       coverage_decisions_json = COALESCE(?, coverage_decisions_json),
+                       actual_usage_json = COALESCE(?, actual_usage_json),
+                       completed_at = ?
+                 WHERE id = ?
+                """,
+                (
+                    status,
+                    proposal_id,
+                    _json(resolved_span_hashes) if resolved_span_hashes is not None else None,
+                    _json(coverage_decisions) if coverage_decisions is not None else None,
+                    _json(actual_usage) if actual_usage is not None else None,
+                    utc_now_iso(clock),
+                    run_id,
+                ),
+            )
+            connection.commit()
+
+    def synthesis_run(self, run_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM synthesis_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return _decode_synthesis_run(row) if row is not None else None
+
+    def synthesis_run_introducing_entity(
+        self, entity_type: str, entity_id: str
+    ) -> dict[str, Any] | None:
+        """The synthesis run whose proposal introduced an entity (patch -> run ->
+        manifest lineage, §9.2). Resolved via the entity's applied content event's
+        change batch -> proposal item -> proposed_patch -> synthesis_runs.proposal_id.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT synthesis_runs.*
+                  FROM content_events
+                  JOIN change_batches
+                    ON change_batches.id = content_events.change_batch_id
+                  JOIN proposed_patch_items
+                    ON proposed_patch_items.id = change_batches.proposed_patch_item_id
+                  JOIN synthesis_runs
+                    ON synthesis_runs.proposal_id = proposed_patch_items.proposed_patch_id
+                 WHERE content_events.entity_type = ?
+                   AND content_events.entity_id = ?
+                   AND content_events.event_type = 'created'
+                 ORDER BY content_events.created_at
+                 LIMIT 1
+                """,
+                (entity_type, entity_id),
+            ).fetchone()
+        return _decode_synthesis_run(row) if row is not None else None
+
+    def insert_apply_intent(
+        self,
+        *,
+        proposed_patch_id: str,
+        item_ids: list[str],
+        targets: list[Mapping[str, Any]],
+        db_plan: list[Mapping[str, Any]],
+        intent_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Durably commit the write-ahead apply intent BEFORE any YAML is staged
+        (§10.2). Returns the intent id."""
+
+        row_id = intent_id or new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO apply_intents(
+                  id, proposed_patch_id, item_ids_json, targets_json,
+                  db_plan_json, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    row_id,
+                    proposed_patch_id,
+                    _json(list(item_ids)),
+                    _json([dict(t) for t in targets]),
+                    _json([dict(p) for p in db_plan]),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def mark_apply_intent_applied(self, intent_id: str, *, clock: Clock | None = None) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE apply_intents SET status = 'applied', applied_at = ? WHERE id = ?",
+                (utc_now_iso(clock), intent_id),
+            )
+            connection.commit()
+
+    def mark_apply_intent_rolled_back(self, intent_id: str, *, clock: Clock | None = None) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE apply_intents SET status = 'rolled_back', rolled_back_at = ? WHERE id = ?",
+                (utc_now_iso(clock), intent_id),
+            )
+            connection.commit()
+
+    def apply_intent(self, intent_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM apply_intents WHERE id = ?", (intent_id,)
+            ).fetchone()
+        return _decode_apply_intent(row) if row is not None else None
+
+    def pending_apply_intents(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM apply_intents WHERE status = 'pending' ORDER BY created_at, id"
+            ).fetchall()
+        return [_decode_apply_intent(row) for row in rows]
+
+
+def _decode_source_conflict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["resolution"] = _loads(data.pop("resolution_json", None), None)
+    return data
+
+
+def _decode_synthesis_manifest(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    for key in (
+        "membership",
+        "revision_ids",
+        "asset_hashes",
+        "extraction_ids",
+        "unit_inventory_versions",
+        "scope",
+        "brief",
+        "extractor_versions",
+        "token_budget",
+        "estimated_usage",
+    ):
+        data[key] = _loads(data.pop(f"{key}_json", None), None)
+    return data
+
+
+def _decode_synthesis_run(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    for key in ("span_request", "resolved_span_hashes", "coverage_decisions", "actual_usage"):
+        data[key] = _loads(data.pop(f"{key}_json", None), None)
+    return data
+
+
+def _decode_apply_intent(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["item_ids"] = _loads(data.pop("item_ids_json"), [])
+    data["targets"] = _loads(data.pop("targets_json"), [])
+    data["db_plan"] = _loads(data.pop("db_plan_json"), [])
+    return data
+
 
 def _decode_ingest_batch(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)

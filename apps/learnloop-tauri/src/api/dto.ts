@@ -1457,6 +1457,67 @@ export interface ProposalsSnapshot {
   batchCount: number;
 }
 
+// ── entity provenance (source lineage read-only panel) ───────────────────────
+
+/** One resolved source link for an entity: which source/revision, where in it
+ *  (locator), the relation, and whether the link has gone stale. */
+export interface EntitySourceLink {
+  id: string;
+  sourceId: string | null;
+  revisionId: string | null;
+  locator: string | null;
+  locatorScheme: string | null;
+  relation: string | null;
+  extractionId: string | null;
+  assetHash: string | null;
+  spanHash: string | null;
+  status: string | null;
+  stale: boolean;
+}
+
+/** A recorded disagreement between two source spans about a statement. */
+export interface SourceConflictRef {
+  id: string;
+  statement: string | null;
+  status: string | null;
+  leftSourceId: string | null;
+  leftLocator: string | null;
+  rightSourceId: string | null;
+  rightLocator: string | null;
+}
+
+/** A canonical ↔ alternate notation mapping recorded for the entity. */
+export interface NotationMappingRef {
+  id: string;
+  canonicalNotation: string | null;
+  alternateNotation: string | null;
+  context: string | null;
+  status: string | null;
+}
+
+/** The synthesis run / proposal that introduced the entity. */
+export interface IntroducedBy {
+  synthesisRunId: string | null;
+  mode: string | null;
+  agentRunId: string | null;
+  proposalId: string | null;
+  manifestId: string | null;
+  manifestHash: string | null;
+}
+
+export interface EntityProvenance {
+  entityType: string;
+  entityId: string;
+  semanticSources: EntitySourceLink[];
+  assessmentAlignmentSources: EntitySourceLink[];
+  semanticAuthority: EntitySourceLink | null;
+  staleLinks: EntitySourceLink[];
+  conflicts: SourceConflictRef[];
+  notationMappings: NotationMappingRef[];
+  introducedBy: IntroducedBy | null;
+  hasProvenance: boolean;
+}
+
 // ── goals + practice exams (goal redesign phases 3-4) ────────────────────────
 
 export interface GoalPaceDto {

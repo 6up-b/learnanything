@@ -16,6 +16,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     library,
     practice,
     proposals,
+    provenance,
     queue,
     sessions,
     sqlite_admin,

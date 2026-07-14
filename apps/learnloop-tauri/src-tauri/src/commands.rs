@@ -458,6 +458,20 @@ pub async fn get_proposals(sidecar: State<'_, SidecarManager>) -> Result<Value, 
 }
 
 #[tauri::command]
+pub async fn get_entity_provenance(
+    entity_type: String,
+    entity_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "get_entity_provenance",
+        json!({"entityType": entity_type, "entityId": entity_id}),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn accept_proposal_items(
     input: Value,
     sidecar: State<'_, SidecarManager>,
