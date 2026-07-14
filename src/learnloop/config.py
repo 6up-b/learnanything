@@ -526,6 +526,7 @@ local_severity_gain = 0.35
 # certified scope — whichever comes first.
 [locks]
 facet_lock_mass = 2.0
+facet_surface_groups = 2
 
 [cross_lo_propagation.default]
 max_depth = 3
@@ -1335,6 +1336,21 @@ class FittingConfig(BaseModel):
     fsrs: FsrsFittingConfig = Field(default_factory=FsrsFittingConfig)
 
 
+class LocksConfig(BaseModel):
+    """Curriculum identity-lock policy (knowledge-model §3.4/§12).
+
+    Facet identity locking is independence-gated: a facet locks when its direct
+    evidence spans >= ``facet_surface_groups`` distinct surface/correlation
+    groups, or its independent evidence mass reaches ``facet_lock_mass``, or it
+    enters an active goal's certified scope. KM1 records the policy and the
+    ``can_apply`` closure; the independence-gate trigger itself lands with KM2's
+    capability ledgers (the seam in ``curriculum_locks.py``).
+    """
+
+    facet_lock_mass: float = 2.0
+    facet_surface_groups: int = 2
+
+
 class EvidenceMassEntry(BaseModel):
     """Evidence carried by one attempt type (Fable's-take item 3).
 
@@ -1395,15 +1411,20 @@ class EvidenceCorrelationConfig(BaseModel):
 
 
 class EvidenceCertificationConfig(BaseModel):
-    """Capability-aware certification budgets (knowledge-model spec §5.4)."""
+    """Bounded certification credit (knowledge-model §5.4).
+
+    ``max_groups_per_attempt`` caps how many independently-observable
+    correlation groups one attempt may certify (the attempt-wide ceiling is
+    ``evidence_mass(attempt_type) * max_groups_per_attempt``). ``group_budgets``
+    overrides the per-``(attempt_type, group)`` budget, which otherwise defaults
+    to ``evidence_mass(attempt_type)``. KM1 ships this table as data; the write
+    path that consumes it lands with KM2.
+    """
 
     model_config = ConfigDict(extra="allow")
 
-    # Attempt-wide ceiling: evidence_mass(attempt_type) * max_groups_per_attempt.
     max_groups_per_attempt: int = 3
-    # Per-(attempt_type, correlation group) budget overrides; default budget is
-    # evidence_mass(attempt_type) from [evidence.attempt_types].
-    group_budget_overrides: dict[str, float] = Field(default_factory=dict)
+    group_budgets: dict[str, float] = Field(default_factory=dict)
 
 
 class EvidenceBlueprintsConfig(BaseModel):
@@ -1454,14 +1475,6 @@ class CapabilitiesConfig(BaseModel):
     """
 
     model_config = ConfigDict(extra="allow")
-
-
-class LocksConfig(BaseModel):
-    """Independence-gated identity-lock policy (knowledge-model spec §3.4)."""
-
-    model_config = ConfigDict(extra="allow")
-
-    facet_lock_mass: float = 2.0
 
 
 class LearnLoopConfig(BaseModel):

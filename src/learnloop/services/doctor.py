@@ -131,6 +131,8 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_bad_item_suspicion(vault, repository, issues)
     _check_criterion_facet_maps(vault, issues)
     _check_registered_facets(vault, issues)
+    _check_facet_contract_completeness(vault, issues)
+    _check_blueprints_and_criteria(vault, issues)
     _check_concept_merge_candidates(vault, issues)
     _check_facet_merge_candidates(vault, issues)
     _check_learning_object_merge_candidates(vault, issues)
@@ -584,16 +586,51 @@ def _check_criterion_facet_maps(vault: LoadedVault, issues: list[HealthIssue]) -
                 )
 
 
+def _mvp07_facet_severity(vault: LoadedVault) -> Severity:
+    """Facet-registry issues are errors on mvp-0.7 vaults, warnings on legacy.
+
+    The upgraded doctor must not break frozen legacy vaults (§3.2), so severity
+    is gated by the vault-global algorithm version.
+    """
+
+    if vault.config.algorithms.algorithm_version == "mvp-0.7":
+        return "error"
+    return "warning"
+
+
 def _check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> None:
-    if not vault.evidence_facets:
-        return
     known = set(vault.evidence_facets)
+    severity = _mvp07_facet_severity(vault)
+
+    # Once any item declares evidence_facets, an empty registry is a real gap.
+    # On mvp-0.7 vaults this is a doctor error (fixes the doctor.py:588 skip,
+    # knowledge-model §3.2). Legacy vaults keep today's warning-only behavior:
+    # an empty registry is skipped so the upgraded doctor does not add new noise
+    # to (or break) frozen vaults.
+    if not known:
+        if severity == "error":
+            facet_bearing = [item for item in vault.practice_items.values() if item.evidence_facets]
+            if facet_bearing:
+                issues.append(
+                    _issue(
+                        "error",
+                        "evidence_facet:empty_registry",
+                        (
+                            f"{len(facet_bearing)} practice item(s) declare evidence facets but "
+                            "facets.yaml has no registry entries"
+                        ),
+                        entity_id=facet_bearing[0].id,
+                        details={"facet_bearing_item_ids": sorted(item.id for item in facet_bearing)},
+                    )
+                )
+        return
+
     for item in vault.practice_items.values():
         for facet in item.evidence_facets:
             if facet not in known:
                 issues.append(
                     _issue(
-                        "warning",
+                        severity,
                         "evidence_facet:unregistered",
                         f"{item.id} uses evidence facet {facet!r} that is not registered in facets.yaml",
                         entity_id=item.id,
@@ -610,6 +647,198 @@ def _check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> N
                         },
                     )
                 )
+
+
+def _check_facet_contract_completeness(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    """Facet semantic-contract completeness (knowledge-model §3.2).
+
+    A registry entry that declares any part of its v2 semantic contract but omits
+    ``claim`` or ``kind`` is incomplete. On mvp-0.7 vaults every registered facet
+    must carry both; on legacy vaults this stays a warning.
+    """
+
+    if not vault.evidence_facets:
+        return
+    is_mvp07 = vault.config.algorithms.algorithm_version == "mvp-0.7"
+    for facet in vault.evidence_facets.values():
+        declares_contract = any(
+            [
+                facet.kind,
+                facet.claim,
+                facet.preconditions,
+                facet.postconditions,
+                facet.applicability,
+                facet.positive_examples,
+                facet.negative_examples,
+                facet.non_goals,
+                facet.error_signatures,
+                facet.instructional_repairs,
+            ]
+        )
+        if not (is_mvp07 or declares_contract):
+            continue
+        missing = [field for field in ("claim", "kind") if not getattr(facet, field)]
+        if missing:
+            issues.append(
+                _issue(
+                    "error" if is_mvp07 else "warning",
+                    "evidence_facet:incomplete_contract",
+                    f"facet {facet.id!r} is missing required contract field(s): {', '.join(missing)}",
+                    entity_id=facet.id,
+                    details={"facet_id": facet.id, "missing": missing},
+                )
+            )
+
+
+def _check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    """Validate LO blueprints and rubric criterion targets (§5.1/§7.2).
+
+    - blueprint recipe ids are unique within an LO;
+    - blueprint/recipe facets are registered (severity gated by version);
+    - recipe/criterion capabilities are in the closed vocabulary;
+    - criterion depends_on forms a DAG (a cycle is rejected).
+    """
+
+    from learnloop.services.capability_mapping import is_valid_capability
+    from learnloop.vault.models import learning_object_facet_union, recipe_components
+
+    known = set(vault.evidence_facets)
+    severity = _mvp07_facet_severity(vault)
+
+    for lo in vault.learning_objects.values():
+        if not lo.blueprints:
+            continue
+        recipe_ids: set[str] = set()
+        for blueprint in lo.blueprints:
+            for recipe in blueprint.recipes:
+                if recipe.id in recipe_ids:
+                    issues.append(
+                        _issue(
+                            "error",
+                            "blueprint:duplicate_recipe_id",
+                            f"{lo.id} declares recipe id {recipe.id!r} more than once",
+                            entity_id=lo.id,
+                        )
+                    )
+                recipe_ids.add(recipe.id)
+                for component in recipe_components(recipe):
+                    if not is_valid_capability(component.capability):
+                        issues.append(
+                            _issue(
+                                "error",
+                                "blueprint:invalid_capability",
+                                (
+                                    f"{lo.id} recipe {recipe.id!r} uses capability "
+                                    f"{component.capability!r} outside the closed vocabulary"
+                                ),
+                                entity_id=lo.id,
+                            )
+                        )
+        if known:
+            for facet in learning_object_facet_union(lo):
+                if facet not in known:
+                    issues.append(
+                        _issue(
+                            severity,
+                            "blueprint:unregistered_facet",
+                            f"{lo.id} blueprint references unregistered facet {facet!r}",
+                            entity_id=lo.id,
+                            details={"learning_object_id": lo.id, "facet_id": facet},
+                        )
+                    )
+
+    _check_criterion_target_dags(vault, issues)
+
+
+def _check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    from learnloop.services.capability_mapping import is_valid_capability
+
+    known = set(vault.evidence_facets)
+    severity = _mvp07_facet_severity(vault)
+    rubrics: list[tuple[str, Any]] = [
+        (f"rubric:{mode}", rubric) for mode, rubric in vault.default_rubrics.items()
+    ]
+    for item in vault.practice_items.values():
+        if item.grading_rubric is not None:
+            rubrics.append((item.id, item.grading_rubric))
+
+    for owner_id, rubric in rubrics:
+        criterion_ids = {criterion.id for criterion in rubric.criteria}
+        graph: dict[str, list[str]] = {}
+        for criterion in rubric.criteria:
+            graph[criterion.id] = [dep for dep in criterion.depends_on if dep in criterion_ids]
+            for dep in criterion.depends_on:
+                if dep not in criterion_ids:
+                    issues.append(
+                        _issue(
+                            "error",
+                            "criterion:unknown_dependency",
+                            f"{owner_id} criterion {criterion.id!r} depends_on unknown criterion {dep!r}",
+                            entity_id=owner_id,
+                        )
+                    )
+            for target in criterion.targets:
+                if not is_valid_capability(target.capability):
+                    issues.append(
+                        _issue(
+                            "error",
+                            "criterion:invalid_capability",
+                            (
+                                f"{owner_id} criterion {criterion.id!r} target uses capability "
+                                f"{target.capability!r} outside the closed vocabulary"
+                            ),
+                            entity_id=owner_id,
+                        )
+                    )
+                if known and target.facet not in known:
+                    issues.append(
+                        _issue(
+                            severity,
+                            "criterion:unregistered_target_facet",
+                            f"{owner_id} criterion {criterion.id!r} targets unregistered facet {target.facet!r}",
+                            entity_id=owner_id,
+                        )
+                    )
+        cycle = _first_dependency_cycle(graph)
+        if cycle is not None:
+            issues.append(
+                _issue(
+                    "error",
+                    "criterion:dependency_cycle",
+                    f"{owner_id} criterion depends_on graph has a cycle: {' -> '.join(cycle)}",
+                    entity_id=owner_id,
+                    details={"cycle": cycle},
+                )
+            )
+
+
+def _first_dependency_cycle(graph: dict[str, list[str]]) -> list[str] | None:
+    """Return one cycle as an id path, or None if the graph is a DAG."""
+
+    WHITE, GREY, BLACK = 0, 1, 2
+    color = {node: WHITE for node in graph}
+
+    def visit(node: str, stack: list[str]) -> list[str] | None:
+        color[node] = GREY
+        stack.append(node)
+        for neighbor in graph.get(node, []):
+            if color.get(neighbor) == GREY:
+                index = stack.index(neighbor)
+                return stack[index:] + [neighbor]
+            if color.get(neighbor) == WHITE:
+                found = visit(neighbor, stack)
+                if found is not None:
+                    return found
+        stack.pop()
+        color[node] = BLACK
+        return None
+
+    for node in graph:
+        if color[node] == WHITE:
+            found = visit(node, [])
+            if found is not None:
+                return found
+    return None
 
 
 def _check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue]) -> None:

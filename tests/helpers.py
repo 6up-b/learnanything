@@ -239,6 +239,23 @@ def admit_probe_instrument_card(
         )
 
 
+def set_algorithm_version(paths: VaultPaths, version: str) -> None:
+    """Rewrite learnloop.toml's algorithm_version in place (KM1 mvp-0.7 tests)."""
+
+    toml_path = paths.root / "learnloop.toml"
+    text = toml_path.read_text(encoding="utf-8")
+    updated = text.replace(
+        'algorithm_version = "mvp-0.6"', f'algorithm_version = "{version}"'
+    )
+    if updated == text:
+        raise AssertionError("algorithm_version line not found in learnloop.toml")
+    toml_path.write_text(updated, encoding="utf-8")
+
+
+def write_facets(paths: VaultPaths, facets: list[dict], *, schema_version: int = 2) -> None:
+    write_yaml(paths.facets_path, {"schema_version": schema_version, "facets": facets})
+
+
 def add_followup_item(root: Path, item_id: str = "pi_svd_define_002") -> None:
     upsert_practice_item(
         root,

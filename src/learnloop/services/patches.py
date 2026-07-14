@@ -314,6 +314,7 @@ def _compile_practice_item(vault: LoadedVault, item: dict[str, Any], payload: di
         raise PatchApplicationError(f"Practice Item {entity_id} references missing subject {primary_subject}")
     if data.get("grading_rubric") is not None:
         data["grading_rubric"] = _normalize_rubric_payload(data["grading_rubric"])
+    _reject_unregistered_facets(vault, entity_id, data)
     return CompiledPatch(
         proposal_item_id=item["id"],
         entity_type="practice_item",
@@ -323,6 +324,28 @@ def _compile_practice_item(vault: LoadedVault, item: dict[str, Any], payload: di
         summary=f"{item['operation']} Practice Item {entity_id}",
         apply=lambda root, clock: upsert_practice_item(root, data, clock=clock),
     )
+
+
+def _reject_unregistered_facets(vault: LoadedVault, entity_id: str, data: dict[str, Any]) -> None:
+    """Generated-item facet gate (knowledge-model §3.2, mirrors the probe gate).
+
+    On mvp-0.7 vaults a newly generated item MUST reference registered canonical
+    facets; an unregistered facet id is rejected. Legacy vaults keep today's
+    lenient behavior (doctor warns instead), so frozen content is untouched.
+    """
+
+    if vault.config.algorithms.algorithm_version != "mvp-0.7":
+        return
+    if not vault.evidence_facets:
+        return
+    from learnloop.services.capability_mapping import unregistered_facet_errors
+
+    facet_ids = [vault.canonical_facet_id(str(facet)) for facet in data.get("evidence_facets") or []]
+    errors = unregistered_facet_errors(set(vault.evidence_facets), facet_ids)
+    if errors:
+        raise PatchApplicationError(
+            f"Practice Item {entity_id} references {'; '.join(errors)}"
+        )
 
 
 def _compile_rubric(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:

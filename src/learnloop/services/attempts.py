@@ -792,6 +792,7 @@ def apply_attempt(
 
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
     application = _validate_probe_presentation(repository, application, attempt, clock=clock)
+    _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
     _persist_attempt_application(repository, application, replace_existing=attempt.replace_existing)
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
     if attempt.record_probe_update:
@@ -877,6 +878,61 @@ def compute_attempt_application(
         prior_state=prior_state,
         replay=attempt.replace_existing,
     )
+
+
+def _stamp_observation_lineage(
+    vault: LoadedVault,
+    repository: Repository,
+    application: AttemptApplication,
+    attempt: ApplyAttemptInput,
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Snapshot the assessment contract and stamp observation ids (KM §5.2).
+
+    Only runs on mvp-0.7 vaults, and only for freshly recorded grading evidence
+    (not the replace/replay path, which reuses stored rows). Legacy vaults skip
+    this entirely, so mvp-0.6 replay reproduces byte-identical derived state.
+    """
+
+    from learnloop.services.assessment_contracts import (
+        KM_ALGORITHM_VERSION,
+        snapshot_for_presentation,
+    )
+
+    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+        return
+    if attempt.replace_existing or not application.evidence_rows:
+        return
+    item = vault.practice_items.get(attempt.draft.practice_item_id)
+    if item is None:
+        return
+    try:
+        version_id = snapshot_for_presentation(repository, vault, item, clock=clock)
+    except Exception:
+        # A snapshot is additive lineage; never block an attempt on it.
+        return
+    attempt_id = application.result.attempt_id
+    revision = 0
+    for row in application.evidence_rows:
+        criterion_id = row.get("criterion_id")
+        if criterion_id is None:
+            continue
+        row.setdefault("assessment_contract_version_id", version_id)
+        row.setdefault("grading_revision", revision)
+        row.setdefault("observation_id", f"{attempt_id}:{criterion_id}:{revision}")
+        if row.get("correlation_group") is None:
+            row["correlation_group"] = _criterion_correlation_group(item, str(criterion_id))
+
+
+def _criterion_correlation_group(item: PracticeItem, criterion_id: str) -> str | None:
+    rubric = item.grading_rubric
+    if rubric is None:
+        return None
+    for criterion in rubric.criteria:
+        if criterion.id == criterion_id:
+            return criterion.correlation_group
+    return None
 
 
 def _persist_attempt_application(

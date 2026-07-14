@@ -24,6 +24,7 @@ from learnloop.vault.models import (
     Subject,
     SubjectMetadata,
 )
+from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.yaml_io import (
     read_markdown_with_frontmatter,
@@ -85,6 +86,9 @@ def load_vault(root: Path | None = None) -> LoadedVault:
 
     facets_file = _load_yaml_model(paths.facets_path, EvidenceFacetsFile, issues)
     if facets_file:
+        for facet in facets_file.facets:
+            if not facet.semantic_fingerprint:
+                facet.semantic_fingerprint = semantic_fingerprint(facet)
         loaded.evidence_facets = {facet.id: facet for facet in facets_file.facets}
         loaded.facet_aliases = _facet_aliases(facets_file)
 

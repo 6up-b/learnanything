@@ -797,6 +797,31 @@ def doctor(
     raise typer.Exit(code=1)
 
 
+@app.command("facet-candidates")
+def facet_candidates_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = True,
+) -> None:
+    """Harvest facet candidates and lexical review pairs (knowledge-model §3.3).
+
+    Similarity is review-only and never merges; no similarity artifact is
+    persisted as identity.
+    """
+
+    from learnloop.services.facet_candidates import harvest_facet_candidates
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    result = harvest_facet_candidates(loaded, repository)
+    if json_output:
+        typer.echo(_dump(result))
+        return
+    typer.echo(f"{len(result['candidates'])} candidate(s), {len(result['review_pairs'])} review pair(s).")
+    for pair in result["review_pairs"]:
+        typer.echo(f"  review: {pair['left']} ~ {pair['right']} ({pair['similarity']})")
+
+
 @app.command("merge-concepts")
 def merge_concepts_command(
     canonical_id: Annotated[str, typer.Argument(help="Concept id to keep.")],

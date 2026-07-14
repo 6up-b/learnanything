@@ -402,6 +402,13 @@ class GradingEvidenceRecord:
     learner_confidence: str | None
     created_at: str
     superseded_at: str | None
+    # KM1 observation lineage (§5.2); NULL on legacy rows and under mvp-0.6.
+    observation_id: str | None = None
+    grading_revision: int | None = None
+    assessment_contract_version_id: str | None = None
+    recipe_id: str | None = None
+    attribution_json: str | None = None
+    correlation_group: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1135,6 +1142,32 @@ class Repository:
                 (*concept_list, *status_list),
             ).fetchall()
         return [_decode_misconception(row) for row in rows]
+
+    def active_misconception_facet_ids(self) -> set[str]:
+        """Facet ids referenced by any active/resolving misconception (§12 locks)."""
+
+        facets: set[str] = set()
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT facet_ids_json FROM misconceptions WHERE status IN ('active', 'resolving')"
+            ).fetchall()
+        for row in rows:
+            for facet in _loads(row["facet_ids_json"], []):
+                facets.add(str(facet))
+        return facets
+
+    def facet_ids_with_recall_evidence(self) -> set[str]:
+        """Facet ids that carry accrued attempt evidence (§12 locks).
+
+        Reads the legacy per-LO recall table (the only evidence store at KM1;
+        KM2's canonical ``facet_recall_state`` joins this once it lands).
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT facet_id FROM evidence_facet_recall_state"
+            ).fetchall()
+        return {str(row["facet_id"]) for row in rows}
 
     def update_misconception(
         self,
@@ -5147,7 +5180,16 @@ class Repository:
                     batch.get("updated_at", batch["created_at"]),
                 ),
             )
+            # client_item_id -> DB id, so LLM-declared depends_on_client_item_ids
+            # normalize into the dependency table (source-ingestion §10.2).
+            client_to_db_id: dict[str, str] = {}
+            dependency_edges: list[tuple[str, list[str]]] = []
             for item in items:
+                item_db_id = item.get("id") or new_ulid()
+                client_to_db_id[str(item["client_item_id"])] = item_db_id
+                depends_on = list(item.get("depends_on_client_item_ids") or [])
+                if depends_on:
+                    dependency_edges.append((item_db_id, [str(dep) for dep in depends_on]))
                 connection.execute(
                     """
                     INSERT INTO proposed_patch_items(
@@ -5156,12 +5198,13 @@ class Repository:
                       source_ref_ids_json, audit_json, edited_payload_json,
                       decision, validation_status, validation_errors_json,
                       applied_change_batch_id, decided_at, decided_by,
-                      created_at, updated_at
+                      created_at, updated_at, dependency_status,
+                      dependency_block_reason_json
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        item.get("id") or new_ulid(),
+                        item_db_id,
                         batch_id,
                         item["client_item_id"],
                         item["item_type"],
@@ -5180,11 +5223,165 @@ class Repository:
                         item.get("decided_by"),
                         item["created_at"],
                         item.get("updated_at", item["created_at"]),
+                        item.get("dependency_status", "pending"),
+                        _json(item.get("dependency_block_reason"))
+                        if item.get("dependency_block_reason") is not None
+                        else None,
                     ),
                 )
+            for item_db_id, depends_on in dependency_edges:
+                for client_dep in depends_on:
+                    dep_db_id = client_to_db_id.get(client_dep)
+                    if dep_db_id is None or dep_db_id == item_db_id:
+                        # An unknown or self-referential dependency is dropped
+                        # rather than persisted as a dangling edge; the item's
+                        # dependency_status carries any blocking reason.
+                        continue
+                    connection.execute(
+                        """
+                        INSERT OR IGNORE INTO proposed_patch_item_dependencies(
+                          proposed_patch_item_id, depends_on_patch_item_id
+                        )
+                        VALUES (?, ?)
+                        """,
+                        (item_db_id, dep_db_id),
+                    )
             self._refresh_proposal_status(connection, batch_id, updated_at=batch.get("updated_at", batch["created_at"]))
             connection.commit()
         return batch_id
+
+    def proposal_item_dependencies(self, item_id: str) -> list[str]:
+        """DB ids this proposal item depends on (source-ingestion §10.2)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT depends_on_patch_item_id
+                FROM proposed_patch_item_dependencies
+                WHERE proposed_patch_item_id = ?
+                ORDER BY depends_on_patch_item_id
+                """,
+                (item_id,),
+            ).fetchall()
+        return [row["depends_on_patch_item_id"] for row in rows]
+
+    def set_proposal_item_dependency_status(
+        self,
+        item_id: str,
+        *,
+        dependency_status: str,
+        block_reason: Mapping[str, Any] | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE proposed_patch_items
+                SET dependency_status = ?, dependency_block_reason_json = ?
+                WHERE id = ?
+                """,
+                (
+                    dependency_status,
+                    _json(block_reason) if block_reason is not None else None,
+                    item_id,
+                ),
+            )
+            connection.commit()
+
+    def ensure_assessment_contract_version(
+        self,
+        *,
+        practice_item_id: str,
+        contract_hash: str,
+        contract_json: str,
+        schema_version: int,
+        clock: Clock | None = None,
+    ) -> str:
+        """Content-addressed assessment-contract snapshot (§5.2), idempotent.
+
+        Returns the existing snapshot id when ``(practice_item_id, contract_hash)``
+        already exists (identical item versions reuse one snapshot), else inserts
+        and returns a new id.
+        """
+
+        with self.connection() as connection:
+            existing = connection.execute(
+                """
+                SELECT id FROM assessment_contract_versions
+                WHERE practice_item_id = ? AND contract_hash = ?
+                """,
+                (practice_item_id, contract_hash),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO assessment_contract_versions(
+                  id, practice_item_id, contract_hash, contract_json,
+                  schema_version, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id,
+                    practice_item_id,
+                    contract_hash,
+                    contract_json,
+                    schema_version,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return version_id
+
+    def fetch_assessment_contract_version(self, version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM assessment_contract_versions WHERE id = ?",
+                (version_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["contract"] = _loads(payload["contract_json"], {})
+        return payload
+
+    def insert_unresolved_cause_factor(
+        self,
+        *,
+        attempt_id: str,
+        candidate_causes: Any,
+        algorithm_version: str,
+        observation_id: str | None = None,
+        status: str = "open",
+        clock: Clock | None = None,
+    ) -> str:
+        now = utc_now_iso(clock)
+        factor_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO unresolved_cause_factors(
+                  id, attempt_id, observation_id, candidate_causes_json,
+                  status, resolution_observation_ids_json, algorithm_version,
+                  created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    factor_id,
+                    attempt_id,
+                    observation_id,
+                    _json(candidate_causes),
+                    status,
+                    None,
+                    algorithm_version,
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        return factor_id
 
     def proposal_batches(self) -> list[dict[str, Any]]:
         with self.connection() as connection:
@@ -5757,9 +5954,11 @@ class Repository:
             INSERT INTO grading_evidence(
               id, attempt_id, criterion_id, points_awarded, evidence, notes,
               agent_run_id, local_grader_id, grader_tier, created_at,
-              superseded_at, superseded_by_evidence_id, learner_confidence
+              superseded_at, superseded_by_evidence_id, learner_confidence,
+              observation_id, grading_revision, assessment_contract_version_id,
+              recipe_id, attribution_json, correlation_group
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 row.get("id") or new_ulid(),
@@ -5775,6 +5974,14 @@ class Repository:
                 row.get("superseded_at"),
                 row.get("superseded_by_evidence_id"),
                 row.get("learner_confidence"),
+                # KM1 observation lineage: NULL under mvp-0.6 (unstamped rows),
+                # so legacy replay reproduces byte-identical derived state.
+                row.get("observation_id"),
+                row.get("grading_revision"),
+                row.get("assessment_contract_version_id"),
+                row.get("recipe_id"),
+                row.get("attribution_json"),
+                row.get("correlation_group"),
             ),
         )
 
@@ -7309,6 +7516,16 @@ def _grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord:
         learner_confidence=row["learner_confidence"] if "learner_confidence" in row.keys() else None,
         created_at=row["created_at"],
         superseded_at=row["superseded_at"],
+        observation_id=row["observation_id"] if "observation_id" in row.keys() else None,
+        grading_revision=row["grading_revision"] if "grading_revision" in row.keys() else None,
+        assessment_contract_version_id=(
+            row["assessment_contract_version_id"]
+            if "assessment_contract_version_id" in row.keys()
+            else None
+        ),
+        recipe_id=row["recipe_id"] if "recipe_id" in row.keys() else None,
+        attribution_json=row["attribution_json"] if "attribution_json" in row.keys() else None,
+        correlation_group=row["correlation_group"] if "correlation_group" in row.keys() else None,
     )
 
 
@@ -7468,6 +7685,8 @@ def _decode_proposal_item(row: sqlite3.Row) -> dict[str, Any]:
     payload["audit"] = _loads(payload.pop("audit_json", None), None)
     payload["edited_payload"] = _loads(payload.pop("edited_payload_json"), None)
     payload["validation_errors"] = _loads(payload.pop("validation_errors_json"), [])
+    if "dependency_block_reason_json" in payload:
+        payload["dependency_block_reason"] = _loads(payload.pop("dependency_block_reason_json"), None)
     return payload
 
 

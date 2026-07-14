@@ -133,6 +133,19 @@ class ConceptGraph(VaultModel):
     subject_ordering_hints: list[str] = Field(default_factory=list)
 
 
+class CriterionTarget(VaultModel):
+    """What a rubric criterion observes (knowledge-model §5.1).
+
+    ``capability`` is one of ``CAPABILITY_VOCABULARY`` (stored as TEXT, validated
+    in doctor). ``role`` compiles deterministically into certification-credit
+    allocations (``primary`` 1.0, ``supporting`` 0.3); it is not causal certainty.
+    """
+
+    facet: str
+    capability: str
+    role: Literal["primary", "supporting"] = "primary"
+
+
 class RubricCriterion(VaultModel):
     id: str
     points: float
@@ -142,6 +155,12 @@ class RubricCriterion(VaultModel):
     # what-ifs) and carry a reduced, symmetric evidence-mass multiplier.
     # Existing vault files omit the field and default to "core".
     tier: Literal["core", "transfer"] = "core"
+    # Knowledge-model §5.1 observation contract (all optional for legacy items;
+    # authored ``targets`` always override the mode->capability default mapping).
+    targets: list[CriterionTarget] = Field(default_factory=list)
+    depends_on: list[str] = Field(default_factory=list)
+    correlation_group: str | None = None
+    recipe_ids: list[str] = Field(default_factory=list)
 
 
 class RubricFatalError(VaultModel):
@@ -170,6 +189,43 @@ class DefaultRubric(VaultModel):
     rubric: Rubric
 
 
+# Requirement modality (knowledge-model §8.2): only ``hard`` and exercised
+# ``path_specific`` requirements materially affect task likelihood/attribution.
+RequirementModality = Literal["hard", "path_specific", "facilitating", "instructional_order"]
+
+
+class RecipeComponent(VaultModel):
+    """One facet-capability requirement inside a recipe (§7.2)."""
+
+    facet: str
+    capability: str
+    modality: RequirementModality = "hard"
+
+
+class BlueprintRecipe(VaultModel):
+    """A valid method for satisfying a blueprint (§7.2).
+
+    ``all_of`` are conjunctive components (all required for this recipe);
+    ``any_of`` are alternative components (at least one). ``integration`` is an
+    optional explicit coordination factor authored only when component competence
+    can coexist with a repeatable, separately-repairable coordination failure.
+    """
+
+    id: str
+    composition: Literal["conjunctive"] = "conjunctive"
+    all_of: list[RecipeComponent] = Field(default_factory=list)
+    any_of: list[RecipeComponent] = Field(default_factory=list)
+    integration: RecipeComponent | None = None
+
+
+class Blueprint(VaultModel):
+    """A performance blueprint over one or more requirement recipes (§7.2)."""
+
+    id: str
+    weight: float = 1.0
+    recipes: list[BlueprintRecipe] = Field(default_factory=list)
+
+
 class LearningObject(VaultModel):
     schema_version: int = 1
     id: str
@@ -182,6 +238,10 @@ class LearningObject(VaultModel):
     summary: str
     prerequisites: list[str] = Field(default_factory=list)
     confusables: list[str] = Field(default_factory=list)
+    # Knowledge-model §7.2 AND/OR requirement recipes. Flat ``evidence_facets``
+    # (used for search/legacy compat) is derived from these by the loader, never
+    # the source of readiness math. Absent on legacy LOs.
+    blueprints: list[Blueprint] = Field(default_factory=list)
     difficulty_prior: float | None = Field(default=None, ge=0.0, le=1.0)
     # Provenance of difficulty_prior; non-hashed metadata (spec §6.1), not item content.
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
@@ -189,6 +249,31 @@ class LearningObject(VaultModel):
     provenance: Provenance = Field(default_factory=Provenance)
     created_at: str
     updated_at: str
+
+
+def recipe_components(recipe: "BlueprintRecipe") -> list["RecipeComponent"]:
+    """Every facet-capability component of a recipe, integration included."""
+
+    components = list(recipe.all_of) + list(recipe.any_of)
+    if recipe.integration is not None:
+        components.append(recipe.integration)
+    return components
+
+
+def learning_object_facet_union(lo: "LearningObject") -> list[str]:
+    """Derived flat union of every facet referenced by an LO's blueprints (§7.2).
+
+    This replaces a hand-authored flat ``evidence_facets`` list: it is used for
+    search and legacy compatibility only, never as the source of readiness math.
+    Deterministic (first-seen order).
+    """
+
+    seen: dict[str, None] = {}
+    for blueprint in lo.blueprints:
+        for recipe in blueprint.recipes:
+            for component in recipe_components(recipe):
+                seen.setdefault(component.facet, None)
+    return list(seen)
 
 
 class HintPolicy(VaultModel):
@@ -269,12 +354,67 @@ class ErrorTypesFile(VaultModel):
     error_types: list[ErrorType] = Field(default_factory=list)
 
 
+# Closed, domain-general capability vocabulary (knowledge-model §4.1). Stored
+# as TEXT everywhere and validated in app code (doctor), never as a DB/pydantic
+# enum, so extension stays additive.
+CAPABILITY_VOCABULARY: tuple[str, ...] = (
+    "retrieval",
+    "schema_interpretation",
+    "procedure_execution",
+    "method_selection",
+    "coordination",
+)
+
+FacetKind = Literal[
+    "definition",
+    "proposition",
+    "procedure_contract",
+    "applicability_condition",
+    "interpretation",
+]
+
+
+class FacetProvenance(VaultModel):
+    """Synthesis-time embedded provenance snapshot for a facet (§3.2).
+
+    ``entity_source_links`` is authoritative for current multi-source facet
+    provenance; this YAML field is the snapshot legacy readers use.
+    """
+
+    origin: Literal["sourceset_synthesis", "manual", "facet_normalization"] = "manual"
+    source_refs: list[SourceRef] = Field(default_factory=list)
+
+
 class EvidenceFacet(VaultModel):
+    """A registry entry for an assessable semantic atom (schema_version 2, §3.2).
+
+    Schema v1 registries keep loading unchanged: every v2 field is optional and
+    defaulted, so a legacy ``{id, title, aliases, ...}`` facet parses as before.
+    """
+
     id: str
     title: str | None = None
     aliases: list[str] = Field(default_factory=list)
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
+    # Schema v2 semantic contract (all optional; absent on legacy v1 entries).
+    concept_id: str | None = None
+    kind: FacetKind | None = None
+    claim: str | None = None
+    preconditions: list[str] = Field(default_factory=list)
+    postconditions: list[str] = Field(default_factory=list)
+    applicability: list[str] = Field(default_factory=list)
+    positive_examples: list[str] = Field(default_factory=list)
+    negative_examples: list[str] = Field(default_factory=list)
+    non_goals: list[str] = Field(default_factory=list)
+    error_signatures: list[str] = Field(default_factory=list)
+    instructional_repairs: list[str] = Field(default_factory=list)
+    status: Literal["proposed", "reviewed", "retired"] = "reviewed"
+    version: int = 1
+    # Deterministic hash of the normalized semantic contract; proposes cross-vault
+    # reuse, never asserts equivalence. Computed at load when omitted.
+    semantic_fingerprint: str | None = None
+    provenance: FacetProvenance = Field(default_factory=FacetProvenance)
 
 
 class EvidenceFacetsFile(VaultModel):
