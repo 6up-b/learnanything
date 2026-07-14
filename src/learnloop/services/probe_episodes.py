@@ -342,7 +342,7 @@ def _record_generation_need(
     labels = sorted(hypothesis.label for hypothesis in hypothesis_set.hypotheses if hypothesis.label != H_OTHER)
     target_key = "|".join(labels[:2]) if len(labels) >= 2 else "|".join(labels)
     learning_object = vault.learning_objects.get(episode.learning_object_id)
-    families = applicable_families(vault, learning_object) if learning_object is not None else []
+    families = applicable_families(vault, learning_object, repository) if learning_object is not None else []
     missing_capability = families[0].id if families else "contrast_confusable"
     repository.upsert_probe_generation_need(
         probe_episode_id=episode.id,

@@ -3442,6 +3442,49 @@ def probe_regrade_command(
         typer.echo(f"- {key}: agreement {scope['agreement_rate']} over {scope['checks']} checks")
 
 
+@app.command("taxonomy-regrade-check")
+def taxonomy_regrade_check_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    limit: Annotated[int, typer.Option("--limit", min=1, help="Maximum attempts to regrade.")] = 20,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
+) -> None:
+    """Non-destructive mechanism-taxonomy regrade check (knowledge-model §10.1/§16).
+
+    Re-grades a sample of graded attempts under the current GRADING_PROMPT_VERSION
+    and reports whether any error-type attribution regresses when compared through
+    the §10.1 legacy map. Writes no belief state. Exits non-zero on a regression."""
+
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.services.taxonomy_regrade import run_taxonomy_regrade_checks
+    from learnloop_sidecar.handlers.ai_providers import client_for_provider, runtime_for_provider
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    provider_name = provider_for_task(loaded.config, "grading").provider_name
+    runtime = runtime_for_provider(loaded, provider_name)
+    client = client_for_provider(loaded, provider_name) if runtime.ready else None
+    if client is None:
+        typer.echo(f"Grading provider {provider_name} is unavailable; cannot regrade.")
+        raise typer.Exit(code=1)
+    report = run_taxonomy_regrade_checks(loaded, repository, client, limit=limit)
+    if json_output:
+        typer.echo(_dump({"version": 1, "report": report}))
+    else:
+        typer.echo(
+            f"Taxonomy regrade check under {report['prompt_version']}: "
+            f"checked {report['checked']}/{report['attempted']} attempts, "
+            f"{report['regression_count']} regressions ({report['failed']} failed)."
+        )
+        for regression in report["regressions"]:
+            typer.echo(
+                f"- {regression['attempt_id']}: dropped "
+                f"{', '.join(regression['dropped_mechanisms'])}"
+            )
+    if not report["no_regressions"]:
+        raise typer.Exit(code=1)
+
+
 @app.command("probe-families")
 def probe_families_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
@@ -3567,7 +3610,7 @@ def probe_gate_command(
         raise typer.Exit(code=1)
 
     results: list[dict[str, Any]] = []
-    for template in applicable_families(loaded, learning_object):
+    for template in applicable_families(loaded, learning_object, repository):
         if family is not None and template.id != family:
             continue
         gate = run_llm_family_gate(

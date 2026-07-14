@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -165,6 +165,17 @@ class MisconceptionRecord:
     created_at: str | None
     updated_at: str | None
     resolved_at: str | None
+    # KM4 §10.2 compositional fields (NULL for legacy rows; populated when a
+    # mvp-0.7 vault mints a compositional record).
+    mechanism: str | None = None
+    operation: str | None = None
+    target_facet: str | None = None
+    confused_with_facet: str | None = None
+    trigger_conditions: list[str] = field(default_factory=list)
+    expected_signatures: list[str] = field(default_factory=list)
+    first_divergence: list[str] = field(default_factory=list)
+    non_applicable_controls: list[str] = field(default_factory=list)
+    promotion_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1100,6 +1111,15 @@ class Repository:
         severity: float = 0.0,
         status: str = "active",
         source_error_event_ids: Iterable[str] | None = None,
+        mechanism: str | None = None,
+        operation: str | None = None,
+        target_facet: str | None = None,
+        confused_with_facet: str | None = None,
+        trigger_conditions: Iterable[str] | None = None,
+        expected_signatures: Iterable[str] | None = None,
+        first_divergence: Iterable[str] | None = None,
+        non_applicable_controls: Iterable[str] | None = None,
+        promotion_reason: str | None = None,
         clock: Clock | None = None,
     ) -> str:
         if status not in {"active", "resolving", "resolved"}:
@@ -1113,9 +1133,13 @@ class Repository:
                 INSERT INTO misconceptions(
                   id, learning_object_id, concept_id, statement, signature,
                   facet_ids_json, severity, status, source_error_event_ids_json,
-                  created_at, updated_at, resolved_at
+                  created_at, updated_at, resolved_at,
+                  mechanism, operation, target_facet, confused_with_facet,
+                  trigger_conditions_json, expected_signatures_json,
+                  first_divergence_json, non_applicable_controls_json,
+                  promotion_reason
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     misconception_id,
@@ -1130,6 +1154,15 @@ class Repository:
                     now,
                     now,
                     resolved_at,
+                    mechanism,
+                    operation,
+                    target_facet,
+                    confused_with_facet,
+                    _json([str(t) for t in (trigger_conditions or [])]),
+                    _json([str(s) for s in (expected_signatures or [])]),
+                    _json([str(d) for d in (first_divergence or [])]),
+                    _json([str(c) for c in (non_applicable_controls or [])]),
+                    promotion_reason,
                 ),
             )
             connection.commit()
@@ -1276,6 +1309,176 @@ class Repository:
             )
             connection.commit()
         return self.misconception(misconception_id)
+
+    # -- Misconception candidates (KM4 §10.3 promotion discipline) -----------
+
+    def misconception_candidate_by_normalized(
+        self, learning_object_id: str, statement_normalized: str
+    ) -> dict[str, Any] | None:
+        """The open candidate for one normalized statement on an LO, if any."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM misconception_candidates
+                WHERE learning_object_id = ? AND statement_normalized = ?
+                  AND status = 'candidate'
+                ORDER BY created_at, id
+                LIMIT 1
+                """,
+                (learning_object_id, statement_normalized),
+            ).fetchone()
+        return _decode_misconception_candidate(row) if row is not None else None
+
+    def misconception_candidates_for_learning_object(
+        self, learning_object_id: str, statuses: Iterable[str] = ("candidate",)
+    ) -> list[dict[str, Any]]:
+        status_list = list(statuses)
+        placeholders = ",".join("?" for _ in status_list) or "''"
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM misconception_candidates
+                WHERE learning_object_id = ? AND status IN ({placeholders})
+                ORDER BY created_at, id
+                """,
+                (learning_object_id, *status_list),
+            ).fetchall()
+        return [_decode_misconception_candidate(row) for row in rows]
+
+    def insert_misconception_candidate(
+        self,
+        *,
+        learning_object_id: str,
+        statement: str,
+        statement_normalized: str,
+        id: str | None = None,
+        concept_id: str | None = None,
+        signature: str | None = None,
+        mechanism: str | None = None,
+        operation: str | None = None,
+        target_facet: str | None = None,
+        confused_with_facet: str | None = None,
+        facet_ids: Iterable[str] | None = None,
+        source_error_event_ids: Iterable[str] | None = None,
+        surface_families: Iterable[str] | None = None,
+        item_ids: Iterable[str] | None = None,
+        occurrence_count: int = 1,
+        severity: float = 0.0,
+        clock: Clock | None = None,
+    ) -> str:
+        candidate_id = id or new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO misconception_candidates(
+                  id, learning_object_id, concept_id, statement, statement_normalized,
+                  signature, mechanism, operation, target_facet, confused_with_facet,
+                  facet_ids_json, source_error_event_ids_json, surface_families_json,
+                  item_ids_json, occurrence_count, severity, status,
+                  promoted_misconception_id, promotion_reason, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'candidate', NULL, NULL, ?, ?)
+                """,
+                (
+                    candidate_id,
+                    learning_object_id,
+                    concept_id,
+                    statement,
+                    statement_normalized,
+                    signature,
+                    mechanism,
+                    operation,
+                    target_facet,
+                    confused_with_facet,
+                    _json(sorted({str(f) for f in (facet_ids or [])})),
+                    _json([str(e) for e in (source_error_event_ids or [])]),
+                    _json(sorted({str(s) for s in (surface_families or [])})),
+                    _json(sorted({str(i) for i in (item_ids or [])})),
+                    int(occurrence_count),
+                    float(severity),
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        return candidate_id
+
+    def update_misconception_candidate(
+        self,
+        candidate_id: str,
+        *,
+        severity: float | None = None,
+        occurrence_count: int | None = None,
+        append_source_error_event_ids: Iterable[str] | None = None,
+        add_surface_families: Iterable[str] | None = None,
+        add_item_ids: Iterable[str] | None = None,
+        signature: str | None = None,
+        mechanism: str | None = None,
+        target_facet: str | None = None,
+        confused_with_facet: str | None = None,
+        status: str | None = None,
+        promoted_misconception_id: str | None = None,
+        promotion_reason: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM misconception_candidates WHERE id = ?",
+                (candidate_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            current = _decode_misconception_candidate(row)
+            source_ids = list(current["source_error_event_ids"])
+            for event_id in append_source_error_event_ids or []:
+                if str(event_id) not in source_ids:
+                    source_ids.append(str(event_id))
+            surfaces = set(current["surface_families"]) | {
+                str(s) for s in (add_surface_families or [])
+            }
+            item_ids = set(current["item_ids"]) | {str(i) for i in (add_item_ids or [])}
+            connection.execute(
+                """
+                UPDATE misconception_candidates
+                SET severity = ?, occurrence_count = ?, source_error_event_ids_json = ?,
+                    surface_families_json = ?, item_ids_json = ?, signature = ?,
+                    mechanism = ?, target_facet = ?, confused_with_facet = ?,
+                    status = ?, promoted_misconception_id = ?, promotion_reason = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    float(severity) if severity is not None else current["severity"],
+                    int(occurrence_count) if occurrence_count is not None else current["occurrence_count"],
+                    _json(source_ids),
+                    _json(sorted(surfaces)),
+                    _json(sorted(item_ids)),
+                    signature if signature is not None else current["signature"],
+                    mechanism if mechanism is not None else current["mechanism"],
+                    target_facet if target_facet is not None else current["target_facet"],
+                    confused_with_facet if confused_with_facet is not None else current["confused_with_facet"],
+                    status if status is not None else current["status"],
+                    promoted_misconception_id
+                    if promoted_misconception_id is not None
+                    else current["promoted_misconception_id"],
+                    promotion_reason if promotion_reason is not None else current["promotion_reason"],
+                    now,
+                    candidate_id,
+                ),
+            )
+            connection.commit()
+        return self.misconception_candidate_by_id(candidate_id)
+
+    def misconception_candidate_by_id(self, candidate_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM misconception_candidates WHERE id = ?",
+                (candidate_id,),
+            ).fetchone()
+        return _decode_misconception_candidate(row) if row is not None else None
 
     # -- Item/misconception discrimination (spec §1.3) ----------------------
 
@@ -9281,7 +9484,54 @@ def _decode_misconception(row: sqlite3.Row) -> MisconceptionRecord:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         resolved_at=row["resolved_at"],
+        mechanism=_row_opt(row, "mechanism"),
+        operation=_row_opt(row, "operation"),
+        target_facet=_row_opt(row, "target_facet"),
+        confused_with_facet=_row_opt(row, "confused_with_facet"),
+        trigger_conditions=_loads(_row_opt(row, "trigger_conditions_json"), []),
+        expected_signatures=_loads(_row_opt(row, "expected_signatures_json"), []),
+        first_divergence=_loads(_row_opt(row, "first_divergence_json"), []),
+        non_applicable_controls=_loads(_row_opt(row, "non_applicable_controls_json"), []),
+        promotion_reason=_row_opt(row, "promotion_reason"),
     )
+
+
+def _row_opt(row: sqlite3.Row, key: str) -> Any:
+    """Row value for ``key`` or ``None`` when the column is absent.
+
+    Tolerates rows produced before migration 047 (KM4 additive columns).
+    """
+
+    try:
+        return row[key]
+    except (IndexError, KeyError):
+        return None
+
+
+def _decode_misconception_candidate(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "learning_object_id": row["learning_object_id"],
+        "concept_id": row["concept_id"],
+        "statement": row["statement"],
+        "statement_normalized": row["statement_normalized"],
+        "signature": row["signature"],
+        "mechanism": row["mechanism"],
+        "operation": row["operation"],
+        "target_facet": row["target_facet"],
+        "confused_with_facet": row["confused_with_facet"],
+        "facet_ids": _loads(row["facet_ids_json"], []),
+        "source_error_event_ids": _loads(row["source_error_event_ids_json"], []),
+        "surface_families": _loads(row["surface_families_json"], []),
+        "item_ids": _loads(row["item_ids_json"], []),
+        "occurrence_count": row["occurrence_count"],
+        "severity": row["severity"],
+        "status": row["status"],
+        "promoted_misconception_id": row["promoted_misconception_id"],
+        "promotion_reason": row["promotion_reason"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
 
 
 def _decode_discrimination(row: sqlite3.Row) -> ItemMisconceptionDiscrimination:

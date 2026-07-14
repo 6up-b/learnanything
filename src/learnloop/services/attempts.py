@@ -46,6 +46,7 @@ from learnloop.services.grading import (
     validate_codex_grading_proposal,
 )
 from learnloop.services.error_taxonomy import persist_unknown_error_type_proposals
+from learnloop.services.error_taxonomy_map import map_legacy_error_type
 from learnloop.services.facet_diagnostics import (
     apply_mastery_variance_floor,
     build_facet_uncertainty_updates,
@@ -545,7 +546,7 @@ def complete_self_graded_attempt(
         # A don't-know is deterministically attributed to recall_failure so it
         # writes an error event and feeds surprise / cross-LO propagation through
         # the standard pipeline (spec §"Attempt-type handling").
-        attribution_error_type = _dont_know_error_type(draft.hints_used)
+        attribution_error_type = _dont_know_error_type(vault, draft.hints_used)
     error_attributions = _self_grade_attributions(
         vault, fatal_errors, attribution_error_type, per_criterion_attributions
     )
@@ -1621,8 +1622,14 @@ def _attempt_manual_review_reason(existing: str | None, draft: AttemptDraft) -> 
     return None
 
 
-def _dont_know_error_type(hints_used: int) -> str:
-    return SCAFFOLD_FAILURE_ERROR_TYPE if hints_used > 0 else DONT_KNOW_ERROR_TYPE
+def _dont_know_error_type(vault: LoadedVault, hints_used: int) -> str:
+    legacy = SCAFFOLD_FAILURE_ERROR_TYPE if hints_used > 0 else DONT_KNOW_ERROR_TYPE
+    # KM4 §10.1: under mvp-0.7 the deterministic attribution speaks the canonical
+    # mechanism vocabulary (both recall_failure and scaffold_failure resolve to
+    # retrieval_failure). mvp-0.6 keeps the legacy names, so replay is unchanged.
+    if is_canonical_state_vault(vault):
+        return map_legacy_error_type(legacy)
+    return legacy
 
 
 def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) -> dict[str, object] | None:

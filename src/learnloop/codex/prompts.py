@@ -1,6 +1,6 @@
 AUTHORING_PROMPT_VERSION = "mvp-0.6-authoring-facet-vocabulary"
 CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.5-canonical-ingest-audit-facet-weights"
-GRADING_PROMPT_VERSION = "mvp-0.5-misconception-statements"
+GRADING_PROMPT_VERSION = "mvp-0.7-mechanism-taxonomy"
 TUTOR_QA_PROMPT_VERSION = "mvp-0.6-tutor-qa-diagnostic-decision"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
 MISCONCEPTION_MATCH_PROMPT_VERSION = "mvp-0.5-misconception-match"

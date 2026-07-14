@@ -25,6 +25,7 @@ from typing import Any, Mapping
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import ProbeGenerationNeedRecord, Repository
+from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop.services.probe_families import (
     CONTRAST_CONFUSABLE_V1,
     DEFAULT_INSTRUCTIONAL_ACTIONS,
@@ -145,14 +146,24 @@ class GenerationSummary:
 
 
 def applicable_families(
-    vault: LoadedVault, learning_object: LearningObject
+    vault: LoadedVault,
+    learning_object: LearningObject,
+    repository: Repository | None = None,
 ) -> list[ProbeFamilyTemplate]:
     """Families whose bindings this LO can fill, best-first (§9.5 coverage:
-    one direct/minimal instrument plus one contrast/perturbation instrument)."""
+    one direct/minimal instrument plus one contrast/perturbation instrument).
+
+    KM4 §10.2: a compositional misconception record (target/confused facet pair)
+    is an additional source of a contrast binding, so the contrast family is
+    applicable even when the LO has no confusable-concept metadata.
+    """
 
     knowledge_type = (learning_object.knowledge_type or "").lower()
     tokens = knowledge_type_tokens(knowledge_type)
-    has_confusable = bool(_confusable_for(vault, learning_object))
+    has_confusable = bool(_confusable_for(vault, learning_object)) or (
+        repository is not None
+        and compositional_contrast_binding(vault, repository, learning_object.id) is not None
+    )
     ordered: list[ProbeFamilyTemplate] = [MINIMAL_RECALL_V1]
     if has_confusable:
         ordered.append(CONTRAST_CONFUSABLE_V1)
@@ -179,6 +190,35 @@ def applicable_families(
         or tokens & set(template.applicable_knowledge_types)
         or not knowledge_type
     ]
+
+
+def compositional_contrast_binding(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+) -> tuple[str, str] | None:
+    """The (target_facet, confused_with_facet) pair of an active compositional
+    misconception on this LO, if any (knowledge-model §10.2).
+
+    KM4 lets contrast/dialogue probe generation bind the two facets directly from
+    a compositional record, rather than only from LO confusable metadata. Only
+    canonical (mvp-0.7) vaults carry compositional records; mvp-0.6 returns None
+    so the legacy confusable-concept binding path is unchanged.
+    """
+
+    if not is_canonical_state_vault(vault):
+        return None
+    for row in repository.misconceptions_for_learning_object(
+        learning_object_id, statuses=("active", "resolving")
+    ):
+        target = getattr(row, "target_facet", None)
+        confused = getattr(row, "confused_with_facet", None)
+        if target and confused:
+            return (
+                vault.canonical_facet_id(target),
+                vault.canonical_facet_id(confused),
+            )
+    return None
 
 
 def _confusable_for(vault: LoadedVault, learning_object: LearningObject) -> str | None:
@@ -213,11 +253,31 @@ def _target_facet_for(vault: LoadedVault, learning_object: LearningObject) -> st
 
 
 def _misconception_error_types(vault: LoadedVault) -> list[str]:
-    return sorted(
+    """Error-type ids whose firing marks a confusable/misconception signature.
+
+    KM4 §10.1: under mvp-0.7 the grader emits the mechanism taxonomy, so the
+    confusable-signature fatal set must include the misconception mechanisms
+    (e.g. ``conceptual_schema_error``) for the deterministic matcher to keep
+    firing that signature. The rubric fatal id / signature-name invariant is
+    unaffected: the signature outcome's own fatal id (``confusable_signature``)
+    is still declared and is what identifies it; the mechanisms are additional
+    fired ids. mvp-0.6 is unchanged.
+    """
+
+    ids = {
         error_type_id
         for error_type_id, taxonomy in vault.error_types.items()
         if getattr(taxonomy, "is_misconception", False)
-    )
+    }
+    if is_canonical_state_vault(vault):
+        from learnloop.services.error_taxonomy_map import MECHANISM_IS_MISCONCEPTION
+
+        ids.update(
+            mechanism
+            for mechanism, is_misconception in MECHANISM_IS_MISCONCEPTION.items()
+            if is_misconception
+        )
+    return sorted(ids)
 
 
 def ensure_instrument_card(
@@ -255,15 +315,24 @@ def ensure_instrument_card(
         )
 
     confusable = _confusable_for(vault, learning_object)
+    # KM4 §10.2: a compositional misconception record binds the (target, confused)
+    # facet pair directly, so a contrast/dialogue instrument can be minted from it
+    # even when the LO has no confusable-concept metadata.
+    compositional = compositional_contrast_binding(vault, repository, learning_object_id)
     hypotheses = list(template.hypothesis_slots)
-    if confusable is None:
+    if confusable is None and compositional is None:
         if template.instrument_kind == "contrast":
-            # A contrast instrument without a confusable neighbor has no
-            # measurement target — the caller must pick another family.
+            # A contrast instrument without a confusable neighbor or a
+            # compositional facet pair has no measurement target — the caller
+            # must pick another family.
             return None
         # Families with an optional neighbor slot (dialogue) bind without it.
         hypotheses = [slot for slot in hypotheses if slot != "confuses_with_neighbor"]
-    target_facet = _target_facet_for(vault, learning_object)
+    if compositional is not None:
+        target_facet, confused_with_facet = compositional
+    else:
+        target_facet = _target_facet_for(vault, learning_object)
+        confused_with_facet = None
     rows = FAMILY_DEFAULT_ROWS.get(template.id)
     if rows is None:
         return None
@@ -278,8 +347,13 @@ def ensure_instrument_card(
         signature_error_types[outcome] = fired
 
     bindings: dict[str, Any] = {"target_facet": target_facet}
-    if template.contrast_slots and confusable is not None:
-        bindings["confusable_concept"] = confusable
+    if confused_with_facet is not None:
+        bindings["confused_with_facet"] = confused_with_facet
+    # Surface templates render {confusable}: prefer LO confusable-concept
+    # metadata, else the compositional record's confused facet is the contrast.
+    contrast_confusable = confusable if confusable is not None else confused_with_facet
+    if template.contrast_slots and contrast_confusable is not None:
+        bindings["confusable_concept"] = contrast_confusable
     if template.id in LONGFORM_OBLIGATIONS:
         # §8.2: the card declares the ordered obligations the structured trace
         # assesses; each maps onto one rubric criterion of generated instances.
@@ -302,7 +376,11 @@ def ensure_instrument_card(
             slot: DEFAULT_INSTRUCTIONAL_ACTIONS.get(slot, "diagnostic_followup")
             for slot in hypotheses
         },
-        target_facets=(target_facet,),
+        target_facets=(
+            (target_facet, confused_with_facet)
+            if confused_with_facet is not None
+            else (target_facet,)
+        ),
         signature_error_types=signature_error_types,
     )
     instrument = validate_and_compile_card(card, template)
@@ -887,7 +965,7 @@ def generate_instances_for_episode(
     count = instances_per_family or vault.config.probe.generation.instances_per_need
     families = [
         template
-        for template in applicable_families(vault, learning_object)
+        for template in applicable_families(vault, learning_object, repository)
         if template.id != DIALOGUE_MICROPROBE_V1.id
     ]
     # §9.5 coverage: one direct/minimal family plus EVERY applicable shifted

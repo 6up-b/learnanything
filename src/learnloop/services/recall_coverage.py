@@ -8,6 +8,7 @@ from typing import Any, Iterable, Mapping
 from learnloop.config import EvidenceConfig, LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.numeric import clamp
+from learnloop.services.error_taxonomy_map import map_legacy_error_type
 from learnloop.services.evidence import (
     attempt_evidence_mass,
     attempt_surface_exposure,
@@ -338,6 +339,27 @@ def familiarity_discount_from_attempts(
     return FamiliarityResult(independent_evidence_discount=final, trace=trace)
 
 
+def _resolve_error_impact_config(config: LearnLoopConfig, error_type: str):
+    """Look up an ``[error_impacts]`` entry, resolving legacy keys via §10.1.
+
+    A direct hit wins (mvp-0.6 legacy names and new-vocab TOMLs alike), so legacy
+    behavior is byte-identical. Under mvp-0.7 the grader emits canonical mechanism
+    values (e.g. ``retrieval_failure``) that no legacy TOML keys directly; those
+    fall back to a view of the config re-keyed through ``map_legacy_error_type``.
+    Collisions (recall_failure and scaffold_failure both map to retrieval_failure)
+    resolve deterministically to the first legacy key in sorted order.
+    """
+
+    impact = config.error_impacts.get(error_type)
+    if impact is not None:
+        return impact
+    resolved: dict[str, Any] = {}
+    for legacy_key in sorted(config.error_impacts):
+        mechanism = map_legacy_error_type(legacy_key)
+        resolved.setdefault(mechanism, config.error_impacts[legacy_key])
+    return resolved.get(error_type)
+
+
 def resolve_error_impact(
     config: LearnLoopConfig,
     *,
@@ -351,7 +373,7 @@ def resolve_error_impact(
     if error_type is None or max_event_severity <= 0:
         sharpening = 1.0
     else:
-        impact = config.error_impacts.get(error_type)
+        impact = _resolve_error_impact_config(config, error_type)
         local_gain = impact.local_severity_gain if impact is not None else 0.8
         sharpening = clamp(
             1.0 + local_gain * max_event_severity * effective_coverage,

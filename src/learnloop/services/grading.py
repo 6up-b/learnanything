@@ -9,8 +9,28 @@ from typing import Any
 from learnloop.codex.client import GradingContext
 from learnloop.codex.schemas import GradingProposal
 from learnloop.config import EvidenceConfig
+from learnloop.services.error_taxonomy_map import (
+    MECHANISM_SEVERITY_DEFAULT,
+    MECHANISM_TAXONOMY_CARD_JSON,
+    map_legacy_error_type,
+)
 from learnloop.services.recall_coverage import criterion_facet_weights_for_item, resolve_coverage
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
+
+
+def is_canonical_state_vault(vault: LoadedVault) -> bool:
+    """Whether the vault reads/writes canonical (mvp-0.7) state.
+
+    Lazy indirection to ``facet_state_reader`` avoids a grading↔assessment_contracts
+    import cycle at module load (the reader pulls in assessment_contracts, which
+    imports ``resolved_rubric`` from this module).
+    """
+
+    from learnloop.services.facet_state_reader import (
+        is_canonical_state_vault as _impl,
+    )
+
+    return _impl(vault)
 
 
 CANONICAL_ERROR_TYPES: tuple[dict[str, object], ...] = (
@@ -60,6 +80,25 @@ BUILTIN_ERROR_TYPE_DEFAULTS = {
     str(error["id"]): float(error["severity_default"])
     for error in CANONICAL_ERROR_TYPES
 } | {"scaffold_failure": 0.65}
+
+# mvp-0.7 grader contract (§10.1): the canonical builtins are the nine mechanism
+# taxonomy values, not the legacy five. The legacy names remain resolvable via
+# ``map_legacy_error_type`` so config/back-compat keep working, but a mvp-0.7
+# grader emits (and the validator accepts) the mechanism vocabulary directly.
+MECHANISM_ERROR_TYPE_DEFAULTS = dict(MECHANISM_SEVERITY_DEFAULT)
+
+
+def builtin_error_type_defaults(vault: LoadedVault) -> dict[str, float]:
+    """Version-branched builtin error-type severity defaults.
+
+    mvp-0.6 vaults keep the legacy five (+scaffold_failure); mvp-0.7 vaults use
+    the nine-mechanism taxonomy. Legacy replay is byte-identical because a
+    mvp-0.6 vault never reaches the mechanism branch.
+    """
+
+    if is_canonical_state_vault(vault):
+        return MECHANISM_ERROR_TYPE_DEFAULTS
+    return BUILTIN_ERROR_TYPE_DEFAULTS
 
 
 def confidence_to_grader_confidence(confidence: int) -> float:
@@ -287,12 +326,13 @@ def validate_codex_grading_proposal(
         manual_review_reason = "unknown_target_evidence_family:" + ",".join(sorted(unknown_target_families))
     if manual_review_reason is None and unknown_target_criteria:
         manual_review_reason = "unknown_target_criterion:" + ",".join(sorted(unknown_target_criteria))
+    builtin_defaults = builtin_error_type_defaults(vault)
     unknown_error_types = sorted(
         {
             attribution.error_type
             for attribution in validated_errors
             if attribution.error_type not in vault.error_types
-            and attribution.error_type not in BUILTIN_ERROR_TYPE_DEFAULTS
+            and attribution.error_type not in builtin_defaults
         }
     )
     if unknown_error_types:
@@ -325,7 +365,7 @@ def _resolved_error_severity(vault: LoadedVault, error_type: str, severity: floa
     taxonomy = vault.error_types.get(error_type)
     if taxonomy is not None:
         return taxonomy.severity_default
-    return BUILTIN_ERROR_TYPE_DEFAULTS.get(error_type, 0.5)
+    return builtin_error_type_defaults(vault).get(error_type, 0.5)
 
 
 def _canonical_learner_confidence(value: str | None) -> str | None:
@@ -335,6 +375,8 @@ def _canonical_learner_confidence(value: str | None) -> str | None:
 
 
 def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
+    canonical_vault = is_canonical_state_vault(vault)
+    builtin_defaults = builtin_error_type_defaults(vault)
     custom = [
         {
             "id": error.id,
@@ -346,16 +388,32 @@ def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
             "related_concepts": error.related_concepts,
         }
         for error in sorted(vault.error_types.values(), key=lambda entry: entry.id)
-        if error.id not in BUILTIN_ERROR_TYPE_DEFAULTS
+        # Exclude the version's builtins. Under mvp-0.7 also exclude any legacy
+        # seed name that already resolves to a canonical mechanism, so a mvp-0.7
+        # grader is not offered the retired recall_failure/scaffold_failure/
+        # arithmetic_slip seeds. mvp-0.6 keeps the exact legacy filter.
+        if error.id not in builtin_defaults
+        and (not canonical_vault or map_legacy_error_type(error.id) == error.id)
     ]
-    return {
-        "canonical_error_types": [dict(error) for error in CANONICAL_ERROR_TYPES],
-        "vault_error_types": custom,
-        "selection_policy": (
+    if is_canonical_state_vault(vault):
+        canonical = [dict(error) for error in MECHANISM_TAXONOMY_CARD_JSON]
+        selection_policy = (
+            "Pick the mechanism error_type id (§10.1 stable taxonomy) whose use_when fits and whose "
+            "avoid_when does not. Use rubric fatal error ids when they exactly match the observed failure. "
+            "Only propose a new error_type when the failure is a durable, specific misconception that none "
+            "of the mechanism ids or rubric fatal ids cover."
+        )
+    else:
+        canonical = [dict(error) for error in CANONICAL_ERROR_TYPES]
+        selection_policy = (
             "Prefer the five canonical error_type ids for ordinary grading. Use rubric fatal error ids "
             "when they exactly match the observed failure. Only propose a new error_type when the failure "
             "is a durable, specific misconception that none of the canonical ids or rubric fatal ids cover."
-        ),
+        )
+    return {
+        "canonical_error_types": canonical,
+        "vault_error_types": custom,
+        "selection_policy": selection_policy,
         "targeting_policy": (
             "Every error_attribution should point to the affected target_criterion_ids and/or "
             "target_evidence_families. Use the narrowest target that explains the lost rubric points."
@@ -371,18 +429,26 @@ def _normalized_recall_error_type(
     learner_answer_md: str | None,
     is_misconception: bool,
 ) -> str:
+    canonical_vault = is_canonical_state_vault(vault)
+
+    def _finalize(value: str) -> str:
+        # Under mvp-0.7 the grader may still emit a legacy name (legacy provider
+        # or heuristic branch above): resolve it onto the canonical mechanism so
+        # a single vocabulary reaches the state model. mvp-0.6 is untouched.
+        return map_legacy_error_type(value) if canonical_vault else value
+
     if is_misconception:
-        return error_type
+        return _finalize(error_type)
     text = f"{error_type} {evidence} {learner_answer_md or ''}".lower()
     if _RECALL_FAILURE_PATTERN.search(text):
-        return "recall_failure"
-    if error_type in vault.error_types or error_type in BUILTIN_ERROR_TYPE_DEFAULTS:
-        return error_type
+        return _finalize("recall_failure")
+    if error_type in vault.error_types or error_type in builtin_error_type_defaults(vault):
+        return _finalize(error_type)
     if re.search(r"\b(arithmetic|calculation|numeric)_?(error|slip|mistake)\b", error_type.lower()):
-        return "arithmetic_slip"
+        return _finalize("arithmetic_slip")
     if re.search(r"\b(missing|omitted|incomplete|partial)\b", error_type.lower()):
-        return "incomplete_answer"
-    return error_type
+        return _finalize("incomplete_answer")
+    return _finalize(error_type)
 
 
 _RECALL_FAILURE_PATTERN = re.compile(
