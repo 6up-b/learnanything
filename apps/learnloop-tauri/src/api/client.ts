@@ -97,6 +97,15 @@ import type {
   StartInventoryInput,
   CreateStudyMapInput,
   StudyMapDto,
+  AppendResultDto,
+  AppendSourceInput,
+  RefreshResultDto,
+  RefreshRevisionInput,
+  MaintenanceFeedSnapshot,
+  MaintenanceNoticeDto,
+  SourceConflictDto,
+  ResolveConflictInput,
+  ExamReadinessReportDto,
 } from "./dto";
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -213,6 +222,25 @@ export const api = {
     call<IngestBatchDto>("start_inventory", { input }),
   createStudyMap: (input: CreateStudyMapInput) =>
     call<{ version: number; studyMap: StudyMapDto }>("create_study_map", { input }),
+  // ING M7 — Update study map (§10), maintenance feed (§11), exam readiness (§15).
+  appendSource: (input: AppendSourceInput) =>
+    call<{ version: number; append: AppendResultDto }>("append_source", { input }),
+  refreshRevision: (input: RefreshRevisionInput) =>
+    call<{ version: number; refresh: RefreshResultDto }>("refresh_revision", { input }),
+  getMaintenanceFeed: (subjectId?: string | null) =>
+    call<MaintenanceFeedSnapshot>("maintenance_feed", { input: { subjectId: subjectId ?? null } }),
+  maintenanceNoticeAction: (noticeId: string, action: "dismiss" | "snooze", snoozedUntil?: string | null) =>
+    call<{ version: number; notice: MaintenanceNoticeDto | null }>("maintenance_notice_action", {
+      input: { noticeId, action, snoozedUntil: snoozedUntil ?? null }
+    }),
+  listSourceConflicts: (status = "open") =>
+    call<{ version: number; conflicts: SourceConflictDto[] }>("list_source_conflicts", { input: { status } }),
+  resolveSourceConflict: (input: ResolveConflictInput) =>
+    call<{ version: number; conflict: SourceConflictDto }>("resolve_source_conflict", { input }),
+  getExamReadiness: (subjectId?: string | null) =>
+    call<{ version: number; report: ExamReadinessReportDto }>("exam_readiness", {
+      input: { subjectId: subjectId ?? null }
+    }),
   planQuickAdd: (input: PlanQuickAddInput) =>
     call<{ version: number; plan: QuickAddPlanDto }>("plan_quick_add", { input }),
   confirmQuickAdd: (input: ConfirmQuickAddInput) =>

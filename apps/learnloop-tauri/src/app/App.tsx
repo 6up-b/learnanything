@@ -13,6 +13,7 @@ import { FeedbackScreen } from "../screens/FeedbackScreen";
 import { GraphScreen } from "../screens/GraphScreen";
 import { IngestScreen } from "../screens/IngestScreen";
 import { LibraryScreen } from "../screens/LibraryScreen";
+import { MaintenanceScreen } from "../screens/MaintenanceScreen";
 import { PracticeScreen } from "../screens/PracticeScreen";
 import { ProposalsScreen } from "../screens/ProposalsScreen";
 import { RegistryReviewScreen } from "../screens/RegistryReviewScreen";
@@ -517,6 +518,15 @@ export function App() {
           onOpenSource={(extractionId, spanId, entityType, entityId) =>
             setOpenSource({ extractionId, spanId, context: "registry_review", entityType, entityId })
           }
+        />
+      );
+    }
+    if (tab === "maintain") {
+      return (
+        <MaintenanceScreen
+          subjects={subjectOptions}
+          onError={onError}
+          onInspect={setInspectorId}
         />
       );
     }

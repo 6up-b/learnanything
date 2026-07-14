@@ -148,6 +148,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_blueprints_and_criteria(vault, issues)
     _check_concept_merge_candidates(vault, issues)
     _check_facet_merge_candidates(vault, issues)
+    _check_registry_near_duplicate_facets(vault, issues)
     _check_learning_object_merge_candidates(vault, issues)
     _check_duplicate_diagnostic_proposals(vault, repository, issues)
     _check_mvp07_canonical_state(vault, repository, issues)
@@ -1048,6 +1049,29 @@ def _check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue])
                         ),
                     )
                 )
+
+
+def _check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    """Post-append near-duplicate facet pass over the whole registry (§14).
+
+    Emits merge-REVIEW warnings (never auto-merges); the same detection runs on the
+    append completion path so a fresh near-duplicate surfaces immediately."""
+
+    from learnloop.services.facet_doctor import near_duplicate_facet_review
+
+    for proposal in near_duplicate_facet_review(vault):
+        issues.append(
+            _issue(
+                "warning",
+                "evidence_facet:registry_near_duplicate",
+                (
+                    f"registry facets {proposal.left_facet_id!r} and {proposal.right_facet_id!r} "
+                    f"are near-duplicates (jaccard {proposal.similarity:.2f}); review as a merge"
+                ),
+                entity_id=proposal.left_facet_id,
+                details=proposal.as_dict(),
+            )
+        )
 
 
 def _check_concept_merge_candidates(vault: LoadedVault, issues: list[HealthIssue]) -> None:

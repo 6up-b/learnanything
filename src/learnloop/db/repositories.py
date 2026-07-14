@@ -8820,6 +8820,257 @@ class Repository:
             ).fetchall()
         return [_decode_source_conflict(row) for row in rows]
 
+    def entity_source_links_for_sources(
+        self, source_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        """All entity_source_links whose ``source_id`` is in ``source_ids``.
+
+        Used by append affected-neighborhood selection (§10.1 source scope): every
+        entity the appended source already touches is a high-signal neighbor."""
+
+        if not source_ids:
+            return []
+        placeholders = ",".join("?" for _ in source_ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM entity_source_links WHERE source_id IN ({placeholders}) ORDER BY id",
+                tuple(source_ids),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def stale_entity_source_links(
+        self, statuses: tuple[str, ...] = ("stale", "needs_reanchor")
+    ) -> list[dict[str, Any]]:
+        """Links whose spans went stale / need re-anchoring (§10.4 revision refresh)."""
+
+        placeholders = ",".join("?" for _ in statuses)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM entity_source_links WHERE status IN ({placeholders}) ORDER BY id",
+                statuses,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def mark_entity_source_link_status(
+        self,
+        link_id: str,
+        *,
+        status: str,
+        superseded_by_link_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE entity_source_links
+                   SET status = ?, stale_at = ?, superseded_by_link_id = ?
+                 WHERE id = ?
+                """,
+                (
+                    status,
+                    utc_now_iso(clock) if status in {"stale", "removed", "needs_reanchor"} else None,
+                    superseded_by_link_id,
+                    link_id,
+                ),
+            )
+            connection.commit()
+
+    def all_notation_mappings(self, status: str | None = "active") -> list[dict[str, Any]]:
+        query = "SELECT * FROM notation_mappings"
+        params: tuple[Any, ...] = ()
+        if status is not None:
+            query += " WHERE status = ?"
+            params = (status,)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
+    def source_conflict(self, conflict_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_conflicts WHERE id = ?", (conflict_id,)
+            ).fetchone()
+        return _decode_source_conflict(row) if row else None
+
+    def source_conflicts_by_status(self, status: str = "open") -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_conflicts WHERE status = ? ORDER BY created_at, id",
+                (status,),
+            ).fetchall()
+        return [_decode_source_conflict(row) for row in rows]
+
+    def resolve_source_conflict(
+        self,
+        conflict_id: str,
+        *,
+        status: str,
+        resolution: Any,
+        resolution_kind: str,
+        actor: str | None = None,
+        rationale: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Persist a conflict resolution + an immutable audit row (§10.2).
+
+        The conflict row's status/resolution advance; ``source_conflict_resolutions``
+        preserves every decision so audit history is never overwritten. Both
+        evidence locators stay on the conflict row untouched."""
+
+        now = utc_now_iso(clock)
+        audit_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE source_conflicts
+                   SET status = ?, resolution_json = ?, resolved_at = ?
+                 WHERE id = ?
+                """,
+                (status, _json(resolution), now if status in {"resolved", "dismissed"} else None, conflict_id),
+            )
+            connection.execute(
+                """
+                INSERT INTO source_conflict_resolutions(
+                  id, conflict_id, resolution_kind, resolution_json, actor, rationale, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (audit_id, conflict_id, resolution_kind, _json(resolution), actor, rationale, now),
+            )
+            connection.commit()
+        return audit_id
+
+    def source_conflict_resolutions(self, conflict_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM source_conflict_resolutions
+                 WHERE conflict_id = ? ORDER BY created_at, id
+                """,
+                (conflict_id,),
+            ).fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            data = dict(row)
+            data["resolution"] = _loads(data.pop("resolution_json", None), None)
+            out.append(data)
+        return out
+
+    # --- maintenance feed (§11) --------------------------------------------
+
+    def upsert_maintenance_notice(
+        self,
+        *,
+        notice_type: str,
+        dedup_key: str,
+        title: str,
+        action: Mapping[str, Any],
+        aging_policy: str,
+        severity: str = "info",
+        subject_id: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        detail: Any = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Insert or refresh a notice (idempotent on ``(notice_type, dedup_key)``).
+
+        A live notice keeps its id, snooze_count, and snoozed_until across
+        regeneration; only ``last_seen_at`` (and severity/detail) refresh, so
+        deterministic re-generation never duplicates or resets a notice."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT * FROM maintenance_notices WHERE notice_type = ? AND dedup_key = ?",
+                (notice_type, dedup_key),
+            ).fetchone()
+            if existing is not None:
+                connection.execute(
+                    """
+                    UPDATE maintenance_notices
+                       SET title = ?, action_json = ?, severity = ?, detail_json = ?,
+                           last_seen_at = ?,
+                           status = CASE WHEN status IN ('dismissed','resolved','expired','snoozed')
+                                         THEN status ELSE 'active' END
+                     WHERE id = ?
+                    """,
+                    (title, _json(action), severity, _json(detail), now, existing["id"]),
+                )
+                connection.commit()
+                return existing["id"]
+            row_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO maintenance_notices(
+                  id, subject_id, notice_type, dedup_key, severity, aging_policy,
+                  entity_type, entity_id, title, detail_json, action_json, status,
+                  snooze_count, snoozed_until, first_seen_at, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, NULL, ?, ?)
+                """,
+                (
+                    row_id, subject_id, notice_type, dedup_key, severity, aging_policy,
+                    entity_type, entity_id, title, _json(detail), _json(action), now, now,
+                ),
+            )
+            connection.commit()
+            return row_id
+
+    def maintenance_notices(
+        self, *, subject_id: str | None = None, include_hidden: bool = False
+    ) -> list[dict[str, Any]]:
+        query = "SELECT * FROM maintenance_notices"
+        clauses: list[str] = []
+        params: list[Any] = []
+        if not include_hidden:
+            clauses.append("status IN ('active', 'snoozed')")
+        if subject_id is not None:
+            clauses.append("(subject_id = ? OR subject_id IS NULL)")
+            params.append(subject_id)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY severity DESC, first_seen_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, tuple(params)).fetchall()
+        return [_decode_maintenance_notice(row) for row in rows]
+
+    def maintenance_notice(self, notice_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM maintenance_notices WHERE id = ?", (notice_id,)
+            ).fetchone()
+        return _decode_maintenance_notice(row) if row else None
+
+    def live_maintenance_notice_keys(self) -> set[tuple[str, str]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT notice_type, dedup_key FROM maintenance_notices WHERE status IN ('active','snoozed')"
+            ).fetchall()
+        return {(row["notice_type"], row["dedup_key"]) for row in rows}
+
+    def set_maintenance_notice_status(
+        self,
+        notice_id: str,
+        *,
+        status: str,
+        snoozed_until: str | None = None,
+        bump_snooze: bool = False,
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                f"""
+                UPDATE maintenance_notices
+                   SET status = ?, snoozed_until = ?,
+                       snooze_count = snooze_count + {1 if bump_snooze else 0},
+                       resolved_at = CASE WHEN ? IN ('resolved','expired','dismissed') THEN ? ELSE resolved_at END
+                 WHERE id = ?
+                """,
+                (status, snoozed_until, status, now, notice_id),
+            )
+            connection.commit()
+
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on
         ``manifest_hash`` — an identical manifest returns the existing id and is
@@ -9076,6 +9327,13 @@ class Repository:
 def _decode_source_conflict(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
     data["resolution"] = _loads(data.pop("resolution_json", None), None)
+    return data
+
+
+def _decode_maintenance_notice(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["detail"] = _loads(data.pop("detail_json", None), None)
+    data["action"] = _loads(data.pop("action_json", None), {})
     return data
 
 

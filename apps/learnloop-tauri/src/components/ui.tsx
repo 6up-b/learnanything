@@ -11,7 +11,8 @@ export const navTabs = [
   { id: "registry", key: "6", label: "Registry" },
   { id: "library", key: "7", label: "Library" },
   { id: "errors", key: "8", label: "Errors" },
-  { id: "doctor", key: "9", label: "Doctor" }
+  { id: "doctor", key: "9", label: "Doctor" },
+  { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 
 export type TopTab = (typeof navTabs)[number]["id"];
