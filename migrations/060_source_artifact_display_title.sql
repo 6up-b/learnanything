@@ -1,0 +1,13 @@
+-- Human-readable artifact title captured at import time (spec_source_ingestion_v2 §5.7).
+--
+-- Until now the Source library card / activity batch card / outline header all
+-- derived their label from the artifact's raw canonical_uri (or a revision's
+-- original_uri) — a bare URL. For sources whose metadata is knowable at fetch
+-- time (notably YouTube, where the public oEmbed endpoint returns the video
+-- title + channel author with no API key), the import job now stores a real
+-- display title of the form "<title> — <author>".
+--
+-- Nullable: absence means "no captured title — fall back to the URL as before".
+-- Only set on first registration of an artifact; re-imports of identical bytes
+-- reuse the existing artifact/title untouched.
+ALTER TABLE source_artifacts ADD COLUMN display_title TEXT;

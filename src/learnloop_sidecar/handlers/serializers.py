@@ -7,7 +7,11 @@ from learnloop.clock import SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
 from learnloop.services.grading import resolved_rubric
 from learnloop.services.mastery import display_mastery, sigmoid
-from learnloop.services.scheduler import ScheduledItem, explain_practice_item
+from learnloop.services.scheduler import (
+    ScheduledItem,
+    dominant_scheduler_reason,
+    explain_practice_item,
+)
 from learnloop.services.source_review import resolve_source_refs
 from learnloop.services.tutor_qa import hint_equivalents_for_attempt
 from learnloop.vault.models import ErrorType, LearningObject, LoadedVault, PracticeItem, Rubric
@@ -34,6 +38,9 @@ def scheduled_item_dto(vault: LoadedVault, repository: Repository, scheduled: Sc
             "components": scheduled.components,
             "readiness_factor": scheduled.readiness_factor,
             "plain_english": scheduled.plain_english,
+            "dominant_reason": dominant_scheduler_reason(
+                scheduled.components, vault.config
+            ),
             "mastery": mastery_display.mastery_mean if mastery_display is not None else None,
             "mastery_variance": mastery_display.mastery_variance if mastery_display is not None else None,
             "due_at": state.due_at if state is not None else None,
@@ -85,6 +92,16 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     scheduler = explain_practice_item(vault, repository, practice_item_id)
     rubric = _rubric_for_item(vault, item)
     max_points = rubric.max_points if rubric is not None else 4
+    assessment_contract_version_id = None
+    from learnloop.services.assessment_contracts import (
+        KM_ALGORITHM_VERSION,
+        snapshot_for_presentation,
+    )
+
+    if vault.config.algorithms.algorithm_version == KM_ALGORITHM_VERSION:
+        assessment_contract_version_id = snapshot_for_presentation(
+            repository, vault, item, rubric=rubric
+        )
     return versioned(
         {
             "id": item.id,
@@ -115,6 +132,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             "mastery": mastery_dto(repository, learning_object.id, vault),
             "scheduler": scheduler_explanation_dto(scheduler) if scheduler is not None else None,
             "attempts": practice_item_attempts(repository, item.id, max_points),
+            "assessment_contract_version_id": assessment_contract_version_id,
         }
     )
 
@@ -210,6 +228,28 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     intervention_need = repository.intervention_need_for_attempt(attempt_id)
     gate_attempt_id = repository.followup_source_attempt(attempt_id)
     rating = repository.followup_rating(attempt_id)
+    error_events = repository.error_events_for_attempt(attempt_id)
+    matched_misconception = None
+    for error_event in error_events:
+        misconception_id = error_event.get("misconception_id")
+        if not misconception_id:
+            continue
+        record = repository.misconception(str(misconception_id))
+        if (
+            record is not None
+            and record.status in {"active", "resolving"}
+            and record.correction_statement
+        ):
+            matched_misconception = {
+                "id": record.id,
+                "statement": record.statement,
+                "correction_statement": record.correction_statement,
+                "mechanism": record.mechanism,
+                "target_facet": record.target_facet,
+                "confused_with_facet": record.confused_with_facet,
+                "status": record.status,
+            }
+            break
     return versioned(
         {
             "attempt_id": attempt_id,
@@ -231,7 +271,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             ],
             "fatal_errors": metadata.get("fatal_errors") or [],
             "error_attributions": [
-                error_event_dto(vault, row) for row in repository.error_events_for_attempt(attempt_id)
+                error_event_dto(vault, row) for row in error_events
             ],
             "surprise": surprise_dto(surprise, vault.config.scheduler.followup.tau_followup_nats),
             "mastery_before": mastery_before_dto(surprise, mastery_after),
@@ -274,6 +314,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
                 }
                 for factor in repository.unresolved_cause_factors_for_attempt(attempt_id)
             ],
+            "matched_misconception": matched_misconception,
         }
     )
 

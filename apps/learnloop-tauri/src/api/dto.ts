@@ -112,6 +112,58 @@ export interface KnowledgeMapSnapshot {
   counts: { items: number; learningObjects: number; concepts: number; facets: number };
   /** Kruskal stress-1 of the 2D embedding — how approximate the map is. */
   stress: number;
+  /** Facet-native diagnostic field; item points above remain for strata/history. */
+  facetField: KnowledgeFacetField;
+}
+
+export type CapabilityArcStatus = "demonstrated" | "required" | "absent";
+
+export interface KnowledgeFacetPoint {
+  id: string;
+  title: string;
+  x: number;
+  y: number;
+  ready: number;
+  /** Undecayed prediction used as the retrievability well's ghost outline. */
+  readyGhost: number;
+  readyVariance: number;
+  evidenceMass: number;
+  demonstratedMass: number;
+  requiredCapabilities: string[];
+  demonstratedCapabilities: string[];
+  hasBlueprints: boolean;
+  capabilityArcs: Array<{ capability: string; status: CapabilityArcStatus }>;
+  learningObjectIds: string[];
+  ambiguityCandidates: string[];
+  ambiguityAttemptId: string | null;
+  correction: { at: string; delta: number; attemptId: string } | null;
+}
+
+export interface KnowledgeFieldEdge {
+  source: string;
+  target: string;
+  weight: number;
+}
+
+export interface KnowledgeNextGap {
+  kind: "bottleneck_component" | "integration_gap" | "retrievability" | "unresolved_diagnostic";
+  facetId: string;
+  goalId: string;
+  targetType: "facet" | "learning_object" | "attempt" | "probe_episode";
+  targetId: string;
+  label: string;
+  pathFacetIds: string[];
+}
+
+export interface KnowledgeFacetField {
+  points: KnowledgeFacetPoint[];
+  graphNodes: string[];
+  edges: KnowledgeFieldEdge[];
+  layoutVersion: string;
+  stress: number;
+  layoutValid: boolean;
+  layoutWarning: string | null;
+  nextGap: KnowledgeNextGap | null;
 }
 
 export interface KnowledgeHistoryAttempt {
@@ -204,6 +256,10 @@ export interface SessionEndSummary {
   itemsReviewed: number;
   followupsQueued: number | null;
   streak: StreakSummary;
+  facetsDemonstrated: number;
+  predictionsMoved: { up: number; down: number };
+  corrections: number;
+  misconceptionsTouched: { resolved: number; returned: number };
 }
 
 export interface SessionCheckpoint {
@@ -245,6 +301,7 @@ export interface ScheduledItemDto {
   components: SchedulerComponents;
   readinessFactor: number | null;
   plainEnglish: string[];
+  dominantReason: string;
   mastery: number | null;
   masteryVariance: number | null;
   dueAt: IsoTimestamp | null;
@@ -322,6 +379,7 @@ export interface PracticeItemDetail {
   mastery: MasteryDto | null;
   scheduler: SchedulerExplanationDto | null;
   attempts: AttemptHistoryRowDto[];
+  assessmentContractVersionId: string | null;
 }
 
 export interface AttemptHistoryRowDto {
@@ -401,6 +459,10 @@ export interface SubmitAttemptInput {
   probePresentationId?: string | null;
   /** Probe redesign §7.1: learner answer confidence (1–5), logged-only. */
   answerConfidence?: number | null;
+  /** Immutable grading contract captured when this item was opened. */
+  assessmentContractVersionId?: string | null;
+  /** Stable identity reused when a network submission is retried. */
+  submissionId?: string | null;
 }
 
 /** §5.7 block-end hook payload: withheld feedback released at the boundary,
@@ -546,6 +608,17 @@ export interface FeedbackBundle {
   /** KM3 §9.6 unresolved-cause factors: ambiguous localized failures whose
    * candidate causes imply different repairs (drives the diagnostic card). */
   unresolvedCauses?: UnresolvedCauseDto[];
+  matchedMisconception?: MatchedMisconceptionDto | null;
+}
+
+export interface MatchedMisconceptionDto {
+  id: string;
+  statement: string;
+  correctionStatement: string;
+  mechanism: string | null;
+  targetFacet: string | null;
+  confusedWithFacet: string | null;
+  status: string;
 }
 
 export interface UnresolvedCauseDto {
@@ -938,12 +1011,40 @@ export interface NoteInspectorDetail {
   body: string;
 }
 
+export interface ProbeEpisodeInspectorDetail {
+  id: string;
+  learningObjectId: string;
+  status: string;
+  trigger: string;
+  hypothesisSetId: string | null;
+  targetDecision: Record<string, unknown> | null;
+  requiredFacets: string[];
+  minimumIndependentObservations: number;
+  maximumObservations: number;
+  enteredAt: IsoTimestamp | null;
+  completedAt: IsoTimestamp | null;
+  completionReason: string | null;
+  createdAt: IsoTimestamp;
+  observations: Array<{
+    attemptId: string;
+    practiceItemId: string;
+    eligibleForCompletion: boolean;
+    updatesBelief: boolean;
+    entropyBefore: number;
+    entropyAfter: number;
+    realizedInformationGain: number;
+    contamination: Record<string, unknown> | null;
+    createdAt: IsoTimestamp;
+  }>;
+}
+
 export type InspectorEntity =
   | { version: number; kind: "practice_item"; id: string; detail: PracticeItemDetail }
   | { version: number; kind: "learning_object"; id: string; detail: LearningObjectDetail }
   | { version: number; kind: "attempt"; id: string; detail: AttemptInspectorDetail }
   | { version: number; kind: "error_event"; id: string; detail: ErrorEventDto }
   | { version: number; kind: "note"; id: string; detail: NoteInspectorDetail }
+  | { version: number; kind: "probe_episode"; id: string; detail: ProbeEpisodeInspectorDetail }
   | { version: number; kind: "not_found"; id: string; suggestions: InspectorSearchResult[] };
 
 export interface InspectorSearchResult {
@@ -1120,6 +1221,10 @@ export interface IngestBatchDto {
   startedAt: string | null;
   finishedAt: string | null;
   jobs: IngestJobView[];
+  // Present on build_study_map results: which routing was chosen for the
+  // collection — "bootstrap" creates the map, "append" reconciles new material
+  // into an existing one via the bounded neighborhood.
+  mode?: "bootstrap" | "append";
 }
 
 export interface IngestBatchesSnapshot {
@@ -1182,10 +1287,40 @@ export interface OutlineUnit {
   inventory: UnitInventoryMarker;
 }
 
+// Byte-exact display markdown the authoring model receives for a selection.
+export interface SelectionPreviewDto {
+  version?: number;
+  extractionId: string;
+  selectedUnitIds: string[];
+  markdown: string;
+  approxTokens: number;
+}
+
+// ── ING: live effective-unit shape from boundary overrides (§5.3) ──────────
+// Deterministic backend preview of how merge/split intents reshape the units;
+// zero LLM. `kind` drives the row glyph, `splitNoop` flags a split with no
+// level-2 headings to partition on.
+export interface EffectiveUnitDto {
+  effectiveId: string;
+  label: string;
+  sourceUnitIds: string[];
+  blockCount: number;
+  approxTokens: number;
+  kind: "merged" | "split" | "unchanged";
+  splitNoop?: boolean;
+}
+
+export interface EffectiveOutlineDto {
+  version?: number;
+  extractionId: string;
+  units: EffectiveUnitDto[];
+}
+
 export interface UnitSelectionState {
   selectedUnitIds: string[];
   boundaryOverrides: Record<string, unknown>[];
   needsReview: string[];
+  roleOverride: string | null;
 }
 
 export interface SourceOutline {
@@ -1210,6 +1345,7 @@ export interface SaveUnitSelectionInput {
   extractionId: string;
   selectedUnitIds: string[];
   boundaryOverrides?: Record<string, unknown>[];
+  roleOverride?: string | null;
 }
 
 // ── ING M4: source sets, role-aware inventories, coverage (§4.3/§7/§9.3) ──
@@ -1260,6 +1396,16 @@ export interface SourceCoverageDto {
   conceptMatrix: Record<string, unknown>[];
   assessmentAlignment: Record<string, unknown> | null;
   readiness: { ready: boolean; flags: CoverageReadinessFlag[]; notInventoried: Record<string, string>[] };
+  rollup?: CoverageRollupDto;
+}
+
+export interface CoverageRollupDto {
+  total: number;
+  buckets: {
+    demonstrated: { count: number; facetIds: string[] };
+    assessed: { count: number; facetIds: string[] };
+    noPracticeSupply: { count: number; facetIds: string[] };
+  };
 }
 
 export interface StartInventoryInput {
@@ -1275,6 +1421,12 @@ export interface CreateStudyMapInput {
   brief?: Record<string, unknown>;
   apply?: boolean;
   createGoal?: boolean;
+}
+
+export interface BuildStudyMapInput {
+  sourceSetId: string;
+  brief?: Record<string, unknown>;
+  mode?: "auto" | "bootstrap";
 }
 
 export interface StudyMapDto {
@@ -1418,7 +1570,7 @@ export interface SpanViewDto {
   originalUri: string | null;
   canonicalUri: string | null;
   acquisitionKind: string | null;
-  viewerMode: "pdf_text" | "text_anchor";
+  viewerMode: "pdf_page" | "pdf_text" | "text_anchor";
   blockType: string;
   page: number | null;
   bbox: number[] | null;
@@ -1428,6 +1580,7 @@ export interface SpanViewDto {
   locator: string;
   locatorScheme: string;
   pageRender: string | null;
+  pageRenderSize: number[] | null;
   pageSpans: { spanId: string; bbox: number[] | null; polygon: number[][] | null }[];
   previousSpans: SpanNeighborDto[];
   nextSpans: SpanNeighborDto[];
@@ -1825,6 +1978,7 @@ export interface GoalPaceDto {
   neededPerDay: number | null;
   onPace: boolean | null;
   attemptsLogged: number;
+  paceKind: "activity" | "qualifying";
 }
 
 export interface GoalLatestExamDto {
@@ -1845,6 +1999,9 @@ export interface GoalReportSummaryDto {
   examinedCount?: number;
   attainmentFraction?: number | null;
   predictedRecallMean?: number | null;
+  readyCurrentMean?: number | null;
+  demonstratedCount?: number;
+  modelCoverage?: { decayEstimated: number; heldFlat: number };
   attemptsRemaining?: number;
   attemptsRemainingIsPartial?: boolean;
   pace?: GoalPaceDto | null;
@@ -2030,6 +2187,12 @@ export interface GoalSeriesPointDto {
   examinedCount?: number;
   attainmentFraction?: number | null;
   predictedRecallMean?: number | null;
+  demonstratedCount: number;
+  readyMean: number | null;
+  projectedReadyMean: number | null;
+  projection: boolean;
+  decayEstimated: number;
+  heldFlat: number;
 }
 
 export interface GoalSeriesSnapshot {
@@ -2380,4 +2543,160 @@ export interface ExamReadinessReportDto {
    *  fraction — reported side by side, never blended. */
   predictedScore: { mean: number; variance: number; std: number } | null;
   demonstratedScore: number | null;
+}
+
+// ── hypothesis surfaces / Review / remediation ─────────────────────────────
+
+export type ClaimClass = "estimate" | "diagnosis" | "policy" | "ledger_fact";
+export type ClaimTemperature = "hot" | "cold";
+
+export interface ClaimCandidateDto {
+  claimClass: ClaimClass;
+  claimType: "ready_estimate" | "forecast" | "misconception" | "schedule_choice" | "regrade" | "session_delta" | string;
+  claimRef: unknown;
+  claimVersion: string;
+  producerVersion: string;
+  surface: string;
+  temperature: ClaimTemperature;
+  visibleAt?: string | null;
+  coldReask?: boolean;
+  claimText?: string | null;
+  provenance?: string | null;
+  receiptRef?: string | null;
+}
+
+export interface PresentedClaimDto extends ClaimCandidateDto {
+  presentationId: string;
+  affordancesEnabled: boolean;
+  suppressionReason: string | null;
+  debounced: boolean;
+}
+
+export interface HypothesisEventDto {
+  id: string;
+  createdAt: string;
+  presentationId: string | null;
+  eventType: "presented" | "responded" | "dismissed";
+  claimClass: ClaimClass;
+  claimType: string;
+  claimRef: string;
+  claimVersion: string;
+  producerVersion: string;
+  surface: string;
+  temperature: ClaimTemperature;
+  visibleAt: string | null;
+  suppressionReason: string | null;
+  responsePayload: Record<string, unknown> | null;
+  sessionId: string | null;
+  visitId: string | null;
+}
+
+export interface ReviewChangelogEntryDto {
+  id: string;
+  kind: "session" | "recalibration" | "regrade";
+  at: string;
+  attemptsRecorded: number;
+  itemsReviewed: number;
+  predictionsMoved: { up: number; down: number };
+  facetIds: string[];
+  corrections: number;
+  facetsDemonstrated: number;
+  misconceptionsTouched: { resolved: number; returned: number };
+}
+
+export interface WorkingHypothesisDto {
+  id: string;
+  learningObjectId: string;
+  statement: string;
+  correctionStatement: string;
+  mechanism: string | null;
+  targetFacet: string | null;
+  confusedWithFacet: string | null;
+  status: string;
+  history: Array<{ id: string; at: string; fromStatus: string | null; toStatus: string; label: string }>;
+  severity: number;
+}
+
+export interface ReviewLogDto {
+  version: number;
+  changelog: ReviewChangelogEntryDto[];
+  workingHypotheses: WorkingHypothesisDto[];
+}
+
+export interface RemediationEpisodeDto {
+  id: string;
+  caseKind: "misconception" | "diagnosis";
+  caseRef: string;
+  state: string;
+  passagesShown: Array<{ role: string; facetId: string; spanView: SpanViewDto }>;
+  primedItemId: string | null;
+  coldItemId: string | null;
+  primedAttemptId: string | null;
+  coldAttemptId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface RemediationCaseDto {
+  id: string;
+  statement: string;
+  correctionStatement: string | null;
+  mechanism: string | null;
+  targetFacet: string | null;
+  confusedWithFacet: string | null;
+  status: string;
+  history: Array<{ id: string; at: string; label: string }>;
+}
+
+export interface RemediationDto {
+  version: number;
+  episode: RemediationEpisodeDto;
+  case: RemediationCaseDto;
+  primedItemId?: string;
+  coldItemId?: string;
+  practiceItem?: PracticeItemDetail;
+}
+
+export interface ForecastTrackRecordDto {
+  version: number;
+  trackRecord: {
+    byKind: Record<string, { issued: number; resolved: number; censored: number; unobservable: number; meanAbsoluteError: number | null }>;
+    forecasts: Array<Record<string, unknown>>;
+  };
+}
+
+export interface CalibrationBinDto {
+  lower: number;
+  upper: number;
+  count: number;
+  meanPredicted: number | null;
+  meanObserved: number | null;
+}
+
+export interface AnswerCalibrationReportDto {
+  version: number;
+  items: {
+    n: number;
+    brier: number | null;
+    logLoss: number | null;
+    bins: CalibrationBinDto[];
+    minimumN: number;
+    curveAvailable: boolean;
+  };
+  facets: {
+    n: number;
+    brier: number | null;
+    logLoss: number | null;
+    bins: CalibrationBinDto[];
+    byFacet: Record<
+      string,
+      { n: number; meanProjected: number; meanObserved: number }
+    >;
+  };
+  duel: {
+    n: number;
+    learnerBrier: number | null;
+    modelBrier: number | null;
+  };
 }

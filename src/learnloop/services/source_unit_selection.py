@@ -20,6 +20,7 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentIR
 from learnloop.ingest.reanchor import reanchor_spans
+from learnloop.services.role_authority import KNOWN_ROLES
 
 # Boundary-override operations a user can layer over the ExtractionRun (§5.3).
 MERGE_WITH_NEXT = "merge_with_next"
@@ -61,6 +62,153 @@ def normalize_overrides(boundary_overrides: list[dict] | None) -> list[dict]:
             entry["at_span_id"] = at_span
         normalized.append(entry)
     return normalized
+
+
+def _override_op_by_unit(boundary_overrides: list[dict] | None) -> dict[str, str]:
+    """Map unit_id → op for the recognized boundary-override operations."""
+
+    ops: dict[str, str] = {}
+    for override in normalize_overrides(boundary_overrides):
+        op = override.get("op")
+        unit_id = override.get("unit_id")
+        if unit_id is not None and op in _OVERRIDE_OPS:
+            ops[unit_id] = op
+    return ops
+
+
+def _approx_tokens(blocks: list) -> int:
+    return sum(len(block.text) // 4 for block in blocks)
+
+
+def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | None) -> list[dict]:
+    """Deterministically compute the *effective* unit shape after boundary overrides.
+
+    Walks ``ir.units`` in ``ordinal`` order and applies each unit's override:
+
+    - ``merge_with_next`` fuses a unit with the unit that follows it; chains fold
+      (A merge + B merge + C → one effective unit A+B+C), and the effective label
+      joins the source labels with ``" + "``.
+    - ``split_at_heading`` partitions the unit's blocks (resolved via ``span_ids``,
+      ordered by block ``ordinal``) by their level-2 heading (second ``section_path``
+      segment). Blocks with no second segment form a leading ``"(intro)"`` part.
+      Each part is labeled ``"{unit.label} › {sub-slug}"``. A unit with no level-2
+      headings is a no-op: it passes through unchanged with ``"split_noop": True``.
+    - A unit with no override passes through unchanged.
+
+    Pure and side-effect free; the same inputs always yield the same output.
+    """
+
+    ops = _override_op_by_unit(boundary_overrides)
+    units = sorted(ir.units, key=lambda u: u.ordinal)
+    blocks_by_span = {block.span_id: block for block in ir.blocks}
+
+    def unit_blocks(unit) -> list:
+        resolved = [blocks_by_span[span_id] for span_id in unit.span_ids if span_id in blocks_by_span]
+        return sorted(resolved, key=lambda b: b.ordinal)
+
+    effective: list[dict] = []
+    index = 0
+    while index < len(units):
+        unit = units[index]
+        op = ops.get(unit.unit_id)
+
+        if op == MERGE_WITH_NEXT:
+            # Fold this unit with the following unit(s), chaining while each merged
+            # unit (except the last in the chain) also carries merge_with_next.
+            chain = [unit]
+            cursor = index
+            while ops.get(units[cursor].unit_id) == MERGE_WITH_NEXT and cursor + 1 < len(units):
+                cursor += 1
+                chain.append(units[cursor])
+            collected: list = []
+            for member in chain:
+                collected.extend(unit_blocks(member))
+            collected = sorted(collected, key=lambda b: b.ordinal)
+            label = " + ".join(member.label for member in chain)
+            if len(chain) == 1:
+                # merge_with_next on the last unit has no following unit to fuse.
+                effective.append(
+                    {
+                        "effective_id": unit.unit_id,
+                        "label": unit.label,
+                        "source_unit_ids": [unit.unit_id],
+                        "block_count": len(collected),
+                        "approx_tokens": _approx_tokens(collected),
+                        "kind": "unchanged",
+                    }
+                )
+            else:
+                effective.append(
+                    {
+                        "effective_id": "+".join(member.unit_id for member in chain),
+                        "label": label,
+                        "source_unit_ids": [member.unit_id for member in chain],
+                        "block_count": len(collected),
+                        "approx_tokens": _approx_tokens(collected),
+                        "kind": "merged",
+                    }
+                )
+            index = cursor + 1
+            continue
+
+        if op == SPLIT_AT_HEADING:
+            blocks = unit_blocks(unit)
+            # Partition by the level-2 heading slug (second section_path segment),
+            # preserving first-seen order; blocks lacking one form an "(intro)" part.
+            order: list[str | None] = []
+            parts: dict[str | None, list] = {}
+            for block in blocks:
+                sub = block.section_path[1] if len(block.section_path) >= 2 else None
+                if sub not in parts:
+                    parts[sub] = []
+                    order.append(sub)
+                parts[sub].append(block)
+            real_headings = [sub for sub in order if sub is not None]
+            if not real_headings:
+                # No level-2 headings — splitting does nothing.
+                effective.append(
+                    {
+                        "effective_id": unit.unit_id,
+                        "label": unit.label,
+                        "source_unit_ids": [unit.unit_id],
+                        "block_count": len(blocks),
+                        "approx_tokens": _approx_tokens(blocks),
+                        "kind": "split",
+                        "split_noop": True,
+                    }
+                )
+            else:
+                for sub in order:
+                    part_blocks = parts[sub]
+                    slug = sub if sub is not None else "(intro)"
+                    effective.append(
+                        {
+                            "effective_id": f"{unit.unit_id}#{slug}",
+                            "label": f"{unit.label} › {slug}",
+                            "source_unit_ids": [unit.unit_id],
+                            "block_count": len(part_blocks),
+                            "approx_tokens": _approx_tokens(part_blocks),
+                            "kind": "split",
+                        }
+                    )
+            index += 1
+            continue
+
+        # No override — pass through unchanged.
+        blocks = unit_blocks(unit)
+        effective.append(
+            {
+                "effective_id": unit.unit_id,
+                "label": unit.label,
+                "source_unit_ids": [unit.unit_id],
+                "block_count": len(blocks),
+                "approx_tokens": _approx_tokens(blocks),
+                "kind": "unchanged",
+            }
+        )
+        index += 1
+
+    return effective
 
 
 def validate_unit_selection(
@@ -116,6 +264,7 @@ def save_unit_selection(
     boundary_overrides: list[dict] | None = None,
     exam_use_modes: dict[str, str] | None = None,
     exam_paper_metadata: dict | None = None,
+    role_override: str | None = None,
     clock: Clock | None = None,
 ) -> dict:
     """Validate and persist a selection for one extraction run.
@@ -123,7 +272,12 @@ def save_unit_selection(
     ``exam_use_modes`` maps unit_id → use mode (§4.2); ``exam_paper_metadata``
     carries administration year/syllabus/weighting for the paper. Both are chosen
     at selection so downstream exam-profile aggregation and leakage policy read
-    them without a second decision point."""
+    them without a second decision point.
+
+    ``role_override`` records the role the learner picked in the outline flow.
+    Authority still lives on source-set membership (§4.2) — this is a UI-round-trip
+    hint for the import-batch path, which has no collection yet. Must be a known
+    role (role_authority.KNOWN_ROLES) when set; ``None`` means "no override"."""
 
     ir = repo.load_document_ir(extraction_id)
     if ir is None:
@@ -132,6 +286,9 @@ def save_unit_selection(
     for unit_id, mode in (exam_use_modes or {}).items():
         if mode not in EXAM_USE_MODES:
             raise SelectionValidationError(f"unknown exam use mode '{mode}' for unit '{unit_id}'.")
+    normalized_role = (role_override or "").strip() or None
+    if normalized_role is not None and normalized_role not in KNOWN_ROLES:
+        raise SelectionValidationError(f"unknown source role '{normalized_role}'.")
     run = repo.get_extraction_run(extraction_id)
     revision_id = run["revision_id"] if run else None
     revision = repo.get_source_revision(revision_id) if revision_id else None
@@ -145,6 +302,7 @@ def save_unit_selection(
         needs_review=[],
         exam_use_modes=dict(exam_use_modes or {}),
         exam_paper_metadata=dict(exam_paper_metadata or {}),
+        role_override=normalized_role,
         clock=clock,
     )
     return repo.get_unit_selection(extraction_id) or {}
@@ -278,6 +436,7 @@ def reanchor_selection_to(
         needs_review=reanchored.needs_review,
         exam_use_modes=new_modes,
         exam_paper_metadata=stored.get("exam_paper_metadata") or {},
+        role_override=stored.get("role_override"),
         clock=clock,
     )
     return repo.get_unit_selection(to_extraction_id) or {}

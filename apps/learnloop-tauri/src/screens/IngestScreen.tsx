@@ -1,23 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
-import type { CommandError, IngestJobDto, IngestJobPhase, IngestMode, RecentIngestEntry, SourceLibraryCard } from "../api/dto";
+import type { AcquisitionPreviewItem, CommandError, IngestJobDto, IngestJobPhase, IngestMode, SourceLibraryCard } from "../api/dto";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, type PillColor } from "../components/term";
-import {
-  BatchProgressView,
-  IngestViewTabs,
-  SourceLibraryView,
-  type IngestView
-} from "../components/BatchProgress";
+import { IngestActivityStack } from "../components/IngestActivity";
+import { SourceLibrarySidebar } from "../components/SourceLibrarySidebar";
 import { OutlinePlanFlow } from "../components/OutlineAndPlan";
 
-// Ingest screen — `learnloop ingest <source> --subject <id>` mirror.
-// Spec_mvp §15.2: turn external reference material (URL / arXiv id / PDF /
-// YouTube / local .md|.txt) into a `source_type: canonical_source` note under
-// `subjects/<id>/notes/`, then run the canonical-ingestor proposal against it.
-//
-// Runs the real pipeline as a cancellable sidecar job; the screen polls typed
-// phase/progress snapshots while recent ingests come from `get_recent_ingests`.
+// Ingest screen — single merged surface over durable ingest v2 (§5.7/§6).
+// One entry point: paste a source, canonical imports go through the durable
+// batch queue (`start_import_batch` → fetch → extract → library card), then a
+// manual "outline & select →" launches the authoring batch. Exam seeding still
+// rides the legacy one-shot pipeline (`start_ingest`) until a v2 exam workflow
+// exists. Left column is the source library; batch progress renders inline as
+// Activity cards — there are no sub-tabs.
 
 type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local";
 
@@ -25,9 +21,10 @@ type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local";
 function detectKind(source: string): Kind | null {
   const s = (source || "").trim();
   if (!s) return null;
-  if (/^https?:\/\/(www\.)?arxiv\.org\//i.test(s) || /^arxiv:/i.test(s)) return "arxiv";
+  if (/^https?:\/\/([\w-]+\.)?arxiv\.org\//i.test(s) || /^arxiv:/i.test(s)) return "arxiv";
   if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(s)) return "arxiv"; // bare id
-  if (/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(s)) return "youtube";
+  // Mirror resolution._YOUTUBE_HOSTS: youtube.com, www./m. subdomains, youtu.be.
+  if (/^https?:\/\/([\w-]+\.)?(youtube\.com|youtu\.be)\//i.test(s)) return "youtube";
   if (/\.pdf(\?|$)/i.test(s)) return "pdf";
   if (/^https?:\/\//i.test(s)) return "web";
   if (/\.(md|markdown|txt)$/i.test(s)) return "local";
@@ -44,34 +41,7 @@ const KIND_META: Record<Kind, KindMeta> = {
   local: { color: "purple", label: "local file", icon: "📁" }
 };
 
-// Backend `canonical_source.kind` values → display pill.
-const BACKEND_KIND: Record<string, { color: PillColor; label: string }> = {
-  website_page: { color: "cyan", label: "web" },
-  arxiv_html: { color: "green", label: "arxiv" },
-  textbook_chapter: { color: "amber", label: "pdf" },
-  youtube_video: { color: "red", label: "youtube" }
-};
-
-function backendKindPill(kind: string | null, canonicalUri?: string | null): { color: PillColor; label: string } {
-  if (kind === "website_page" && canonicalUri && /\.pdf(?:$|[?#])/i.test(canonicalUri)) {
-    return { color: "amber", label: "pdf" };
-  }
-  if (kind && BACKEND_KIND[kind]) return BACKEND_KIND[kind];
-  return { color: "slate", label: kind ?? "source" };
-}
-
 type Mode = IngestMode;
-
-function relativeWhen(iso: string | null): string {
-  if (!iso) return "";
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) return "";
-  const seconds = Math.max(0, (Date.now() - then) / 1000);
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
 
 function kebabCase(value: string): string {
   return value
@@ -94,123 +64,6 @@ function Card({ children, style = {} }: { children: ReactNode; style?: CSSProper
       }}
     >
       {children}
-    </div>
-  );
-}
-
-// ── Markdown preview highlighter — light reuse of library's style ──────
-function previewMD(src: string): ReactNode[] {
-  const out: ReactNode[] = [];
-  src.split("\n").forEach((line, i) => {
-    if (line.startsWith("# ")) {
-      out.push(
-        <div key={i} style={{ color: COLOR.amber, fontWeight: 700 }}>
-          {line}
-        </div>
-      );
-    } else if (line.startsWith("## ")) {
-      out.push(
-        <div key={i} style={{ color: COLOR.amberLink, fontWeight: 600 }}>
-          {line}
-        </div>
-      );
-    } else if (line.startsWith("> ")) {
-      out.push(
-        <div key={i} style={{ color: COLOR.cyan, fontStyle: "italic" }}>
-          {line}
-        </div>
-      );
-    } else if (line.startsWith("    ")) {
-      out.push(
-        <div key={i} style={{ color: COLOR.green }}>
-          {line}
-        </div>
-      );
-    } else if (/^\d+\.\s/.test(line) || /^- /.test(line)) {
-      const marker = line.match(/^\S+/)?.[0] ?? "";
-      out.push(
-        <div key={i}>
-          <span style={{ color: COLOR.amber }}>{marker} </span>
-          <span>{line.slice(line.indexOf(" ") + 1)}</span>
-        </div>
-      );
-    } else if (line.startsWith("[")) {
-      const tag = line.match(/^\[[^\]]+\]/)?.[0] ?? "";
-      out.push(
-        <div key={i}>
-          <span style={{ color: COLOR.textFaint }}>{tag}</span>
-          <span>{line.slice(tag.length)}</span>
-        </div>
-      );
-    } else {
-      // inline backticks
-      const parts = line.split(/(`[^`]+`)/);
-      out.push(
-        <div key={i}>
-          {parts.map((p, j) =>
-            p.startsWith("`") ? (
-              <span key={j} style={{ color: COLOR.green, background: COLOR.bgElev, padding: "0 4px" }}>
-                {p.slice(1, -1)}
-              </span>
-            ) : (
-              <span key={j}>{p}</span>
-            )
-          )}
-        </div>
-      );
-    }
-  });
-  return out;
-}
-
-// ── Recent ingest row ──────────────────────────────────────────────────
-function RecentIngestRow({
-  row,
-  selected,
-  onSelect
-}: {
-  row: RecentIngestEntry;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const pill = row.purpose === "exam_ingest"
-    ? { color: "pink" as PillColor, label: "exam" }
-    : backendKindPill(row.kind, row.canonicalUri);
-  return (
-    <div
-      onClick={onSelect}
-      style={{
-        padding: "8px 12px",
-        borderBottom: `1px solid ${COLOR.border}`,
-        borderLeft: `2px solid ${selected ? COLOR.amber : "transparent"}`,
-        background: selected ? COLOR.bgElev : "transparent",
-        display: "flex",
-        flexDirection: "column",
-        gap: 3,
-        cursor: "pointer"
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Pill color={pill.color}>{pill.label}</Pill>
-        <span
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            color: COLOR.text,
-            fontSize: 12
-          }}
-        >
-          {row.title}
-        </span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
-        <Faint style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.subjectId ?? "—"}</Faint>
-        <span style={{ flex: 1 }} />
-        <Faint>{relativeWhen(row.createdAt ?? row.retrievedAt)}</Faint>
-      </div>
     </div>
   );
 }
@@ -254,7 +107,7 @@ function SubjectPicker({
 }: {
   subjects: string[];
   value: string | null;
-  onChange: (subject: string) => void;
+  onChange: (subject: string | null) => void;
   onCreate: (title: string) => Promise<boolean>;
   creating: boolean;
 }) {
@@ -282,7 +135,7 @@ function SubjectPicker({
         return (
           <span
             key={s}
-            onClick={() => onChange(s)}
+            onClick={() => onChange(sel ? null : s)}
             style={{
               padding: "4px 12px",
               fontSize: 12,
@@ -367,7 +220,7 @@ function SubjectPicker({
   );
 }
 
-// ── Indeterminate progress bar + spinner while the pipeline runs ────────
+// ── Indeterminate progress bar + spinner while the legacy exam job runs ──
 const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"];
 
 const INGEST_PHASES: Array<{ phase: IngestJobPhase; label: string }> = [
@@ -442,7 +295,7 @@ function RunningCard({ job, elapsed, onCancel }: { job: IngestJobDto; elapsed: n
         )}
         <div style={{ marginTop: 4 }}>
           <Faint>
-            job {job.id} · {job.mode === "exam" ? "practice exam" : "canonical source"} · subject {job.subjectId}
+            job {job.id} · exam seeding · subject {job.subjectId}
           </Faint>
         </div>
       </div>
@@ -450,29 +303,7 @@ function RunningCard({ job, elapsed, onCancel }: { job: IngestJobDto; elapsed: n
   );
 }
 
-// ── Selected recent-ingest preview state ─────────────────────────────────
-type NotePreview = {
-  entry: RecentIngestEntry;
-  loading: boolean;
-  frontmatter: string | null;
-  body: string | null;
-  error: string | null;
-};
-
-function splitFrontmatter(raw: string): { frontmatter: string | null; body: string } {
-  if (raw.startsWith("---")) {
-    const end = raw.indexOf("\n---", 3);
-    if (end !== -1) {
-      return {
-        frontmatter: raw.slice(0, end + 4),
-        body: raw.slice(end + 4).replace(/^\s*\n/, "")
-      };
-    }
-  }
-  return { frontmatter: null, body: raw };
-}
-
-// ── Ingest tab shell: view switch over library / add / batch progress ───
+// ── Ingest screen shell: outline overlay over the single merged view ────
 export function IngestScreen({
   jobId,
   onJobIdChange,
@@ -484,115 +315,184 @@ export function IngestScreen({
   onProceedToPropose: (patchId: string) => void;
   onCreateStudyMap?: () => void;
 }) {
-  // A running legacy job forces the Add-source view so its progress stays visible.
-  const [view, setView] = useState<IngestView>(jobId ? "add" : "library");
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
-  // The outline → build-plan → start-batch flow overlays the tab shell (§5.7).
-  const [outlineCard, setOutlineCard] = useState<SourceLibraryCard | null>(null);
-
-  if (outlineCard) {
-    return (
-      <OutlinePlanFlow
-        sourceRef={outlineCard.sourceId}
-        sourceUri={outlineCard.canonicalUri}
-        subjectId={null}
-        onClose={() => setOutlineCard(null)}
-        onOpenBatch={(batchId) => {
-          setOutlineCard(null);
-          setSelectedBatchId(batchId);
-          setView("batches");
-        }}
-      />
-    );
-  }
+  // The outline → build-plan → start-batch flow opens as a large modal OVER the
+  // ingest screen, which stays mounted underneath (§5.7).
+  const [outlineTarget, setOutlineTarget] = useState<{
+    sourceRef: string;
+    sourceUri: string | null;
+    suggestedRole: string | null;
+  } | null>(null);
+  const [focusBatchId, setFocusBatchId] = useState<string | null>(null);
+  const [libraryRefresh, setLibraryRefresh] = useState(0);
+  const overlayActive = outlineTarget !== null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <IngestViewTabs view={view} onChange={setView} />
-      {view === "add" && (
-        <AddSourceView jobId={jobId} onJobIdChange={onJobIdChange} onProceedToPropose={onProceedToPropose} />
-      )}
-      {view === "library" && (
-        <SourceLibraryView
-          onOpenBatch={(batchId) => {
-            setSelectedBatchId(batchId);
-            setView("batches");
+    <>
+      <IngestHome
+        jobId={jobId}
+        onJobIdChange={onJobIdChange}
+        onProceedToPropose={onProceedToPropose}
+        onCreateStudyMap={onCreateStudyMap}
+        focusBatchId={focusBatchId}
+        onFocusBatch={setFocusBatchId}
+        libraryRefresh={libraryRefresh}
+        onLibraryRefresh={() => setLibraryRefresh((n) => n + 1)}
+        overlayActive={overlayActive}
+        onOpenOutline={(sourceRef, sourceUri, suggestedRole = null) => {
+          // The plan step re-imports by canonical URI to start the authoring
+          // batch — callers without one (the Activity CTA) resolve it from the
+          // library card before the flow opens, or "start batch" dead-ends. The
+          // suggested role rides along the same resolution so the modal can seed
+          // its role control.
+          if (sourceUri) {
+            setOutlineTarget({ sourceRef, sourceUri, suggestedRole });
+            return;
+          }
+          void api
+            .getSourceLibrary()
+            .then((lib) => {
+              const card = lib.sources.find((c) => c.sourceId === sourceRef);
+              setOutlineTarget({
+                sourceRef,
+                sourceUri: card?.canonicalUri ?? null,
+                suggestedRole: card?.suggestedRole ?? suggestedRole
+              });
+            })
+            .catch(() => setOutlineTarget({ sourceRef, sourceUri: null, suggestedRole }));
+        }}
+      />
+
+      {outlineTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 300,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "4vh 4vw"
           }}
-          onOpenOutline={(card) => setOutlineCard(card)}
-          onCreateStudyMap={onCreateStudyMap}
-        />
+          onClick={() => setOutlineTarget(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(1100px, 92vw)",
+              height: "85vh",
+              maxHeight: "85vh",
+              background: COLOR.bg,
+              border: `1px solid ${COLOR.borderStrong}`,
+              boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden"
+            }}
+          >
+            <OutlinePlanFlow
+              sourceRef={outlineTarget.sourceRef}
+              sourceUri={outlineTarget.sourceUri}
+              subjectId={null}
+              suggestedRole={outlineTarget.suggestedRole}
+              onClose={() => setOutlineTarget(null)}
+              onOpenBatch={(batchId) => {
+                // The authoring batch surfaces as an expanded Activity card in
+                // the ingest screen underneath; close the modal and focus it.
+                setOutlineTarget(null);
+                setFocusBatchId(batchId);
+                setLibraryRefresh((n) => n + 1);
+              }}
+            />
+          </div>
+        </div>
       )}
-      {view === "batches" && <BatchProgressView selectedBatchId={selectedBatchId} onSelect={setSelectedBatchId} />}
-    </div>
+    </>
   );
 }
 
-// ── Single-source ingest form (legacy Quick-add path, still durable) ─────
-function AddSourceView({
+// ── The merged view: library sidebar · source input · inline activity ───
+function IngestHome({
   jobId,
   onJobIdChange,
-  onProceedToPropose
+  onProceedToPropose,
+  onCreateStudyMap,
+  focusBatchId,
+  onFocusBatch,
+  libraryRefresh,
+  onLibraryRefresh,
+  overlayActive,
+  onOpenOutline
 }: {
   jobId: string | null;
   onJobIdChange: (jobId: string | null) => void;
   onProceedToPropose: (patchId: string) => void;
+  onCreateStudyMap?: () => void;
+  focusBatchId: string | null;
+  onFocusBatch: (batchId: string | null) => void;
+  libraryRefresh: number;
+  onLibraryRefresh: () => void;
+  overlayActive: boolean;
+  onOpenOutline: (sourceRef: string, sourceUri: string | null, suggestedRole?: string | null) => void;
 }) {
   const [source, setSource] = useState("");
   const [mode, setMode] = useState<Mode>("canonical");
   const [subjects, setSubjects] = useState<string[]>([]);
   const [subject, setSubject] = useState<string | null>(null);
   const [creatingSubject, setCreatingSubject] = useState(false);
-  const [recent, setRecent] = useState<RecentIngestEntry[]>([]);
-  const [recentLoading, setRecentLoading] = useState(true);
-  const [preview, setPreview] = useState<NotePreview | null>(null);
   const [job, setJob] = useState<IngestJobDto | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [authoritativeKind, setAuthoritativeKind] = useState<Kind | null>(null);
   const [classifying, setClassifying] = useState(false);
+  const [staged, setStaged] = useState<string[]>([]);
+  const [previews, setPreviews] = useState<Record<string, AcquisitionPreviewItem>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  const activityRef = useRef<HTMLDivElement>(null);
   const runningRef = useRef(false);
-  const completedJobRef = useRef<string | null>(null);
 
   const kind = authoritativeKind ?? detectKind(source);
   const running = job?.status === "queued" || job?.status === "running";
   const result = job?.status === "completed" ? job.result : null;
   const error = localError ?? (job?.status === "failed" || job?.status === "cancelled" ? job.error?.message ?? job.message : null);
-  const canRun = source.trim().length > 0 && subject !== null && !running;
+  // Subject is optional for canonical imports (v2 accepts a null subject); exam
+  // seeding replays into one subject's mastery state, so it stays required.
+  // Multi-source staging is canonical-only; exam seeding stays single-source legacy.
+  const stagingVisible = mode === "canonical";
+  const hasStaged = staged.length > 0;
+  const canRun =
+    (source.trim().length > 0 || (stagingVisible && hasStaged)) &&
+    !running &&
+    !importing &&
+    (mode === "canonical" || subject !== null);
+  const importCount = staged.length + (source.trim() ? 1 : 0);
+  const subjectTooltip =
+    mode === "canonical"
+      ? "imports land in the vault-global source library — no subject needed. A subject chosen here just pre-tags the import batch; sources are bound to subjects later, at outline & build-plan time."
+      : "exam seeding replays outcomes into one subject's mastery state, so a subject is required.";
 
   const refreshSubjects = useCallback(async () => {
     try {
       const snapshot = await api.loadVault();
       const list = snapshot.vault?.subjects ?? [];
       setSubjects(list);
-      setSubject((current) => (current && list.includes(current) ? current : (list[0] ?? null)));
+      setSubject((current) => (current && list.includes(current) ? current : null));
     } catch {
       // vault not loaded yet — the shell surfaces that state
     }
   }, []);
 
-  const refreshRecent = useCallback(async () => {
-    try {
-      const snapshot = await api.getRecentIngests();
-      setRecent(snapshot.ingests);
-    } catch {
-      setRecent([]);
-    } finally {
-      setRecentLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     void refreshSubjects();
-    void refreshRecent();
-  }, [refreshSubjects, refreshRecent]);
+  }, [refreshSubjects]);
 
   useEffect(() => {
-    runningRef.current = running;
-  }, [running]);
+    runningRef.current = running || importing;
+  }, [running, importing]);
 
-  // Recover an ingest that is still running if this screen was unmounted while
-  // the learner visited another tab.
+  // Recover a legacy exam job that is still running if this screen was
+  // unmounted while the learner visited another tab.
   useEffect(() => {
     if (jobId) return;
     let cancelled = false;
@@ -620,10 +520,6 @@ function AddSourceView({
         setMode(next.mode);
         setSubject(next.subjectId);
         setLocalError(null);
-        if (next.status === "completed" && completedJobRef.current !== next.id) {
-          completedJobRef.current = next.id;
-          await refreshRecent();
-        }
         if (next.status === "queued" || next.status === "running") {
           timer = window.setTimeout(() => void poll(), 750);
         }
@@ -645,7 +541,7 @@ function AddSourceView({
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [jobId, onJobIdChange, refreshRecent]);
+  }, [jobId, onJobIdChange]);
 
   useEffect(() => {
     const candidate = source.trim();
@@ -682,7 +578,33 @@ function AddSourceView({
     };
   }, [source]);
 
-  // Elapsed-time ticker while the background job runs.
+  // Annotate staged sources from an acquisition preview (debounced). Keep the
+  // last annotations on transient errors — no error spam.
+  useEffect(() => {
+    if (staged.length === 0) {
+      setPreviews({});
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      api.getAcquisitionPreview([...staged])
+        .then((preview) => {
+          if (cancelled) return;
+          const next: Record<string, AcquisitionPreviewItem> = {};
+          for (const item of preview.items) next[item.input] = item;
+          setPreviews(next);
+        })
+        .catch(() => {
+          // keep last annotations
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [staged]);
+
+  // Elapsed-time ticker while the legacy exam job runs.
   useEffect(() => {
     if (!running || !job) return;
     const parsed = Date.parse(job.startedAt ?? job.createdAt);
@@ -719,19 +641,44 @@ function AddSourceView({
     if (running) return;
     setJob(null);
     onJobIdChange(null);
-    completedJobRef.current = null;
   }
 
-  async function startIngest() {
+  function stageCurrent() {
     const src = source.trim();
-    if (!src || !subject || runningRef.current) return;
-    runningRef.current = true;
+    if (!src) return;
+    setStaged((prev) => (prev.includes(src) ? prev : [...prev, src]));
+    setSource("");
+    setLocalError(null);
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function removeStaged(src: string) {
+    setStaged((prev) => prev.filter((s) => s !== src));
+  }
+
+  async function startCanonicalImport(sources: string[]) {
+    setImporting(true);
+    try {
+      const batch = await api.startImportBatch({ sources, subjectId: subject });
+      setSource("");
+      setStaged([]);
+      setLocalError(null);
+      onFocusBatch(batch.id);
+      onLibraryRefresh();
+      activityRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch (e) {
+      setLocalError((e as CommandError).message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function startExamSeeding(src: string) {
+    if (!subject) return;
     setJob(null);
     onJobIdChange(null);
-    setLocalError(null);
-    setPreview(null);
     try {
-      const started = await api.startIngest({ source: src, subjectId: subject, mode });
+      const started = await api.startIngest({ source: src, subjectId: subject, mode: "exam" });
       setJob(started);
       onJobIdChange(started.id);
     } catch (e) {
@@ -744,6 +691,30 @@ function AddSourceView({
         setLocalError(commandError.message);
       }
       runningRef.current = false;
+    }
+  }
+
+  async function startRun() {
+    if (runningRef.current) return;
+    const trimmed = source.trim();
+    // Canonical multi-source: submit staged (+ current input, if any) as ONE batch.
+    if (mode === "canonical" && staged.length > 0) {
+      const sources = [...staged, ...(trimmed ? [trimmed] : [])];
+      if (sources.length === 0) return;
+      setLocalError(null);
+      runningRef.current = true;
+      await startCanonicalImport(sources);
+      runningRef.current = false;
+      return;
+    }
+    if (!trimmed) return;
+    setLocalError(null);
+    runningRef.current = true;
+    if (mode === "canonical") {
+      await startCanonicalImport([trimmed]);
+      runningRef.current = false;
+    } else {
+      await startExamSeeding(trimmed);
     }
   }
 
@@ -767,51 +738,43 @@ function AddSourceView({
       clearFinishedJob();
       setSource(selected);
       setLocalError(null);
-      setPreview(null);
       window.requestAnimationFrame(() => inputRef.current?.focus());
     } catch (e) {
       setLocalError((e as Error).message || "Could not open the source picker.");
     }
   }
 
-  async function openRecent(entry: RecentIngestEntry) {
-    clearFinishedJob();
-    setLocalError(null);
-    setPreview({ entry, loading: true, frontmatter: null, body: null, error: null });
-    if (!entry.path) {
-      setPreview({ entry, loading: false, frontmatter: null, body: null, error: "note path unknown" });
-      return;
-    }
-    try {
-      const file = await api.readVaultFile(entry.path);
-      if (file.body == null) {
-        setPreview({ entry, loading: false, frontmatter: null, body: null, error: "file is binary or too large to preview" });
-        return;
-      }
-      const { frontmatter, body } = splitFrontmatter(file.body);
-      setPreview({ entry, loading: false, frontmatter, body, error: null });
-    } catch (e) {
-      setPreview({ entry, loading: false, frontmatter: null, body: null, error: (e as CommandError).message });
-    }
-  }
-
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      // The outline modal owns the keyboard while it is open (its own esc steps
+      // plan → outline → close); don't also run the ingest screen's shortcuts.
+      if (overlayActive) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       const isInput = tag === "input" || tag === "textarea";
-      if (event.key === "Enter" && isInput && event.target === inputRef.current && canRun) {
-        void startIngest();
+      if (event.key === "Enter" && isInput && event.target === inputRef.current) {
+        // With staged sources present, Enter stages the current input; the run
+        // button becomes the explicit import action. Otherwise Enter imports.
+        if (mode === "canonical" && staged.length > 0) {
+          if (source.trim()) stageCurrent();
+        } else if (canRun) {
+          void startRun();
+        }
       } else if (event.key === "Escape" && !running) {
-        setSource("");
-        clearFinishedJob();
+        // Stepped reset: input → staged list → job.
+        if (source) {
+          setSource("");
+        } else if (staged.length > 0) {
+          setStaged([]);
+        } else {
+          clearFinishedJob();
+        }
         setLocalError(null);
-        setPreview(null);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, subject, mode, running, canRun, jobId]);
+  }, [source, subject, mode, running, canRun, jobId, staged, overlayActive]);
 
   const modeChip = (m: Mode, icon: string, label: string) => {
     const sel = mode === m;
@@ -851,11 +814,11 @@ function AddSourceView({
         }}
       >
         <div style={{ textTransform: "uppercase", letterSpacing: "0.18em", color: COLOR.textFaint, fontSize: 11 }}>
-          ingest · canonical source staging
+          ingest · source library
         </div>
         <div style={{ marginTop: 10, fontSize: 13, color: COLOR.textDim, lineHeight: 1.65 }}>
-          stages external references as <span style={{ color: COLOR.green }}>source_type: canonical_source</span> notes, then
-          proposes learning objects &amp; practice items for review
+          imports register a <span style={{ color: COLOR.green }}>source revision + extraction</span> in the library; ready
+          sources are outlined &amp; selected into authoring batches, reviewed on the Proposals screen
           {subject && (
             <>
               {"  ·  "}
@@ -867,53 +830,34 @@ function AddSourceView({
       </div>
 
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "300px 1fr", minHeight: 0 }}>
-        {/* ── LEFT: recent ingests ── */}
+        {/* ── LEFT: source library ── */}
         <div style={{ borderRight: `1px solid ${COLOR.border}`, display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div
-            style={{
-              padding: "10px 14px",
-              fontSize: 12,
-              color: COLOR.amber,
-              textDecoration: "underline",
-              textUnderlineOffset: 3,
-              background: COLOR.bgElev,
-              borderBottom: `1px solid ${COLOR.border}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline"
+          <SourceLibrarySidebar
+            refreshToken={libraryRefresh}
+            onCreateStudyMap={onCreateStudyMap}
+            onOpenOutline={(card: SourceLibraryCard) => onOpenOutline(card.sourceId, card.canonicalUri, card.suggestedRole)}
+            onFocusSource={() => {
+              // No per-source batch mapping yet — bring the activity stack into view.
+              activityRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
             }}
-          >
-            <span>recent ingests</span>
-            {recent.length > 0 && <Faint style={{ fontSize: 11, textDecoration: "none" }}>{recent.length}</Faint>}
-          </div>
-          <div className="ll-scroll" style={{ flex: 1, overflowY: "auto" }}>
-            {recentLoading ? (
-              <div style={{ padding: "14px 12px", fontSize: 12, color: COLOR.textFaint }}>◐ loading…</div>
-            ) : recent.length === 0 ? (
-              <div style={{ padding: "14px 12px", fontSize: 12, color: COLOR.textFaint, lineHeight: 1.6 }}>
-                nothing ingested yet — staged sources will show up here.
-              </div>
-            ) : (
-              recent.map((r) => (
-                <RecentIngestRow
-                  key={r.noteId}
-                  row={r}
-                  selected={preview?.entry.noteId === r.noteId}
-                  onSelect={() => void openRecent(r)}
-                />
-              ))
-            )}
-          </div>
+            onOpenBatch={(batchId) => {
+              // "synthesize →" on a collection enqueues a build batch — focus it in
+              // the Activity stack and bring it into view.
+              onFocusBatch(batchId);
+              onLibraryRefresh();
+              activityRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+            }}
+          />
         </div>
 
-        {/* ── RIGHT: input + status + preview ── */}
+        {/* ── RIGHT: input + inline activity ── */}
         <div className="ll-scroll" style={{ padding: "18px 24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
             <SectionHeader style={{ marginTop: 0 }}>Source</SectionHeader>
             <span style={{ flex: 1 }} />
             <div style={{ display: "flex", gap: 6 }}>
               {modeChip("canonical", "📚", "canonical source")}
-              {modeChip("exam", "📝", "practice exam")}
+              {modeChip("exam", "📝", "exam seeding")}
             </div>
           </div>
 
@@ -922,11 +866,13 @@ function AddSourceView({
             style={{
               border: `1px solid ${source.trim() ? COLOR.amber : COLOR.border}`,
               background: COLOR.bgInput,
-              padding: "10px 92px 10px 36px",
-              position: "relative"
+              padding: "10px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10
             }}
           >
-            <span style={{ position: "absolute", left: 14, top: 12, color: COLOR.amber, fontWeight: 700 }}>❯</span>
+            <span style={{ color: COLOR.amber, fontWeight: 700, flexShrink: 0 }}>❯</span>
             <input
               ref={inputRef}
               value={source}
@@ -942,7 +888,8 @@ function AddSourceView({
                   : "paste a URL, arXiv id, PDF path, YouTube link, or local .md / .txt path"
               }
               style={{
-                width: "100%",
+                flex: 1,
+                minWidth: 0,
                 background: "transparent",
                 color: COLOR.text,
                 border: "none",
@@ -957,9 +904,7 @@ function AddSourceView({
                 if (!running) void chooseLocalSource();
               }}
               style={{
-                position: "absolute",
-                right: 12,
-                top: 10,
+                flexShrink: 0,
                 color: running ? COLOR.textFaint : COLOR.amberLink,
                 cursor: running ? "default" : "pointer",
                 fontSize: 11,
@@ -982,7 +927,17 @@ function AddSourceView({
 
           {/* subject + run button */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 4, flexWrap: "wrap" }}>
-            <Faint>subject</Faint>
+            <span
+              title={subjectTooltip}
+              style={{
+                color: COLOR.textFaint,
+                cursor: "help",
+                textDecoration: "underline dotted",
+                textUnderlineOffset: 3
+              }}
+            >
+              subject{mode === "canonical" ? " (optional)" : ""}
+            </span>
             <SubjectPicker
               subjects={subjects}
               value={subject}
@@ -994,15 +949,36 @@ function AddSourceView({
               creating={creatingSubject}
             />
             <span style={{ flex: 1 }} />
+            {stagingVisible && (
+              <span
+                onClick={() => {
+                  if (source.trim() && !running && !importing) stageCurrent();
+                }}
+                title="stage this source and keep adding more — they import together as one batch"
+                style={{
+                  padding: "8px 12px",
+                  border: `1px solid ${COLOR.border}`,
+                  background: "transparent",
+                  color: source.trim() && !running && !importing ? COLOR.textDim : COLOR.textFaint,
+                  fontSize: 12,
+                  fontFamily: FONT_MONO,
+                  cursor: source.trim() && !running && !importing ? "pointer" : "default",
+                  whiteSpace: "nowrap",
+                  opacity: source.trim() && !running && !importing ? 1 : 0.6
+                }}
+              >
+                + stage
+              </span>
+            )}
             <span
               onClick={() => {
-                if (canRun) void startIngest();
+                if (canRun) void startRun();
               }}
               style={{
                 padding: "8px 16px",
-                border: `1px solid ${running ? COLOR.cyan : canRun ? COLOR.amber : COLOR.border}`,
-                background: running ? "#10212a" : canRun ? "#241d12" : "transparent",
-                color: running ? COLOR.cyan : canRun ? COLOR.amber : COLOR.textFaint,
+                border: `1px solid ${running || importing ? COLOR.cyan : canRun ? COLOR.amber : COLOR.border}`,
+                background: running || importing ? "#10212a" : canRun ? "#241d12" : "transparent",
+                color: running || importing ? COLOR.cyan : canRun ? COLOR.amber : COLOR.textFaint,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: canRun ? "pointer" : "default",
@@ -1013,16 +989,79 @@ function AddSourceView({
                 whiteSpace: "nowrap"
               }}
             >
-              {running
+              {running || importing
                 ? "◐ ingesting…"
                 : job?.status === "failed" || job?.status === "cancelled"
                   ? "↻ retry ingest"
-                  : mode === "exam"
-                    ? "▶ ingest exam"
-                    : "▶ run ingest"}
-              {!running && canRun && <Faint style={{ color: COLOR.amber }}>↵</Faint>}
+                  : stagingVisible && hasStaged
+                    ? `▶ import ${importCount} sources`
+                    : mode === "exam"
+                      ? "▶ seed exam"
+                      : "▶ import source"}
+              {!running && !importing && canRun && <Faint style={{ color: COLOR.amber }}>↵</Faint>}
             </span>
           </div>
+
+          {/* staged sources (canonical multi-source) */}
+          {stagingVisible && hasStaged && (
+            <Card style={{ marginTop: 4 }}>
+              <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>
+                staged sources · {staged.length}
+              </Faint>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                {staged.map((src) => {
+                  const rowKind = detectKind(src);
+                  const meta = rowKind ? KIND_META[rowKind] : null;
+                  const preview = previews[src];
+                  return (
+                    <div key={src} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, width: 150 }}>
+                        {meta ? (
+                          <>
+                            <span style={{ opacity: 0.7 }}>{meta.icon}</span>
+                            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>{meta.label}</span>
+                          </>
+                        ) : (
+                          <Faint style={{ fontFamily: FONT_MONO, fontSize: 11 }}>unknown</Faint>
+                        )}
+                      </span>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontFamily: FONT_MONO,
+                          fontSize: 12,
+                          color: COLOR.text,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                        title={src}
+                      >
+                        {src}
+                      </span>
+                      {preview?.duplicateOfInput && (
+                        <Pill color="amber" style={{ flexShrink: 0 }}>duplicate</Pill>
+                      )}
+                      {preview?.existingSourceId && (
+                        <Pill color="slate" style={{ flexShrink: 0 }}>already in library</Pill>
+                      )}
+                      {preview && preview.recognized === false && (
+                        <Pill color="red" style={{ flexShrink: 0 }}>unrecognized</Pill>
+                      )}
+                      <span
+                        onClick={() => removeStaged(src)}
+                        title="remove"
+                        style={{ flexShrink: 0, color: COLOR.textFaint, cursor: "pointer", fontSize: 12, fontFamily: FONT_MONO }}
+                      >
+                        ✕
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
 
           {mode === "exam" && !running && !result && (
             <div
@@ -1044,14 +1083,14 @@ function AddSourceView({
             </div>
           )}
 
-          {/* running state */}
+          {/* legacy exam job: running state */}
           {running && job && <RunningCard job={job} elapsed={elapsed} onCancel={() => void cancelIngest()} />}
 
           {/* error card */}
           {error && !running && (
             <Card style={{ borderLeft: `3px solid ${COLOR.red}`, marginTop: 4 }}>
               <div style={{ color: COLOR.red, fontWeight: 600, fontSize: 13 }}>
-                {job?.status === "cancelled" ? "ingest cancelled" : "ingest failed"}
+                {job?.status === "cancelled" ? "ingest cancelled" : job ? "ingest failed" : "import failed"}
                 {job?.error?.code ? <Faint style={{ marginLeft: 8 }}>{job.error.code}</Faint> : null}
               </div>
               <div
@@ -1071,19 +1110,20 @@ function AddSourceView({
               </div>
               {job?.error?.details.partial && (
                 <div style={{ marginTop: 8, color: COLOR.amber, fontSize: 11 }}>
-                  The source note may already be staged. Check recent ingests before retrying; content-addressed reuse prevents duplicate proposals.
+                  The source note may already be staged. Check the source library before retrying; content-addressed reuse
+                  prevents duplicate proposals.
                 </div>
               )}
             </Card>
           )}
 
-          {/* completion card */}
+          {/* legacy exam job: completion card */}
           {result && !running && (
             <Card style={{ borderLeft: `3px solid ${COLOR.green}`, marginTop: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14 }}>
                 <div>
                   <div style={{ color: COLOR.green, fontWeight: 600, fontSize: 13 }}>
-                    {result.reusedExisting ? "ingest complete · reused existing proposal" : "ingest complete · proposal ready"}
+                    {result.reusedExisting ? "exam ingest complete · reused existing proposal" : "exam ingest complete · proposal ready"}
                   </div>
                   <div style={{ marginTop: 6, color: COLOR.text, fontSize: 12, lineHeight: 1.6 }}>
                     <Faint>staged note</Faint> <span style={{ color: COLOR.amberLink }}>{result.sourceNoteId}</span>
@@ -1102,11 +1142,9 @@ function AddSourceView({
                     ) : (
                       <Faint>proposal record unavailable</Faint>
                     )}
-                    {job?.mode === "exam" && (
-                      <span style={{ marginLeft: 8 }}>
-                        <Faint>then</Faint> <Dim>learnloop seed-exam-attempts --outcomes &lt;file&gt;</Dim>
-                      </span>
-                    )}
+                    <span style={{ marginLeft: 8 }}>
+                      <Faint>then</Faint> <Dim>learnloop seed-exam-attempts --outcomes &lt;file&gt;</Dim>
+                    </span>
                   </div>
                 </div>
                 <div
@@ -1140,107 +1178,25 @@ function AddSourceView({
             </Card>
           )}
 
-          {/* recent-ingest note preview */}
-          {preview && (
-            <>
-              <SectionHeader>
-                Staged note · {preview.entry.path ?? preview.entry.noteId}
-              </SectionHeader>
-              <div
-                style={{
-                  border: `1px solid ${COLOR.border}`,
-                  background: COLOR.bg,
-                  display: "flex",
-                  flexDirection: "column",
-                  maxHeight: 420,
-                  overflow: "hidden"
-                }}
-              >
-                <div
-                  style={{
-                    padding: "8px 14px",
-                    background: COLOR.bgElev,
-                    borderBottom: `1px solid ${COLOR.border}`,
-                    fontSize: 12,
-                    color: COLOR.textDim,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 10
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: FONT_MONO,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      minWidth: 0
-                    }}
-                  >
-                    <span style={{ color: COLOR.green }}>{preview.entry.title}</span>
-                  </span>
-                  <span style={{ display: "inline-flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-                    {preview.entry.purpose === "exam_ingest" && <Pill color="pink">exam</Pill>}
-                    <Pill color="green">canonical_source</Pill>
-                    <Pill color={backendKindPill(preview.entry.kind, preview.entry.canonicalUri).color}>
-                      {backendKindPill(preview.entry.kind, preview.entry.canonicalUri).label}
-                    </Pill>
-                    {preview.entry.patchId && (
-                      <span
-                        onClick={() => {
-                          if (preview.entry.patchId) onProceedToPropose(preview.entry.patchId);
-                        }}
-                        style={{
-                          color: COLOR.amberLink,
-                          cursor: "pointer",
-                          textDecoration: "underline",
-                          textUnderlineOffset: 2,
-                          fontSize: 11
-                        }}
-                      >
-                        proposal →
-                      </span>
-                    )}
-                    <span
-                      onClick={() => setPreview(null)}
-                      style={{ color: COLOR.textFaint, cursor: "pointer", fontSize: 12, marginLeft: 4 }}
-                    >
-                      ✕
-                    </span>
-                  </span>
-                </div>
-                <div
-                  className="ll-scroll"
-                  style={{
-                    flex: 1,
-                    overflowY: "auto",
-                    padding: "12px 16px",
-                    fontFamily: FONT_MONO,
-                    fontSize: 12.5,
-                    lineHeight: 1.6,
-                    color: COLOR.text,
-                    whiteSpace: "pre-wrap"
-                  }}
-                >
-                  {preview.loading ? (
-                    <Faint>◐ loading note…</Faint>
-                  ) : preview.error ? (
-                    <span style={{ color: COLOR.red }}>{preview.error}</span>
-                  ) : (
-                    <>
-                      {preview.frontmatter && (
-                        <div style={{ color: COLOR.textFaint, marginBottom: 10 }}>{preview.frontmatter}</div>
-                      )}
-                      <div>{previewMD(preview.body ?? "")}</div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+          {/* ── inline batch activity ── */}
+          <div ref={activityRef}>
+            <SectionHeader style={{ marginTop: 8 }}>Activity</SectionHeader>
+            <Faint style={{ display: "block", fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>
+              each import runs as a durable batch — the checkpoint ladder shows its phases, token bars compare actual vs
+              estimated usage. running batches can be cancelled, failed ones resumed. when an import completes,{" "}
+              <span style={{ color: COLOR.amber }}>outline &amp; select →</span> chooses what the authoring model sees.
+            </Faint>
+            <IngestActivityStack
+              focusBatchId={focusBatchId}
+              onOpenOutline={(sourceId) => {
+                onLibraryRefresh();
+                onOpenOutline(sourceId, null);
+              }}
+              onError={(message) => setLocalError(message)}
+            />
+          </div>
 
-          {!source && !preview && !running && !result && !error && (
+          {!source && !running && !result && !error && (
             <div
               style={{
                 marginTop: 12,
@@ -1251,14 +1207,48 @@ function AddSourceView({
                 lineHeight: 1.6
               }}
             >
-              <span style={{ color: COLOR.amber }}>what does ingest do</span>
-              {"  "}
-              <Faint>·</Faint>
-              {"  "}
-              fetches the source, extracts clean Markdown, stages it as a{" "}
-              <span style={{ color: COLOR.green }}>source_type: canonical_source</span> note, and runs the canonical ingestor to
-              propose learning objects, concepts, and practice items — reviewed on the Proposals screen.{" "}
-              <Faint>select a recent ingest on the left to view its staged note.</Faint>
+              <div>
+                <span style={{ color: COLOR.amber }}>import</span>
+                {"  "}
+                <Faint>·</Faint>
+                {"  "}
+                downloads or reads the source, extracts its structure (chapters, sections, exercises), and files it in the{" "}
+                <span style={{ color: COLOR.green }}>source library</span> on the left. Importing commits you to nothing —
+                no subject, no role, no cost beyond extraction. Nothing is sent to a model.
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <span style={{ color: COLOR.amber }}>study map</span>
+                {"  "}
+                <Faint>·</Faint>
+                {"  "}
+                your working curriculum, built from the library: concepts, learning objects, evidence facets, and practice
+                items, all citing the exact source passages they came from. <Dim>outline &amp; select →</Dim> on a ready
+                source chooses which units (and how many tokens) feed the authoring run that proposes it — reviewed on the
+                Proposals screen before anything is applied.
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <span style={{ color: COLOR.amber }}>starting a vault</span>
+                {"  "}
+                <Faint>·</Faint>
+                {"  "}
+                import everything first: <Dim>+ stage</Dim> each book, page, or video and run them as one batch, then use{" "}
+                <Dim>＋ create study map</Dim> in the sidebar to bootstrap the curriculum from your library in a single
+                confirmed run. Later sources merge into the existing map instead of rebuilding it. Reach for{" "}
+                <Dim>create study map</Dim> when starting a topic from scratch (one confirmation); use the
+                import → outline → collection pipeline when adding to an existing map (append routes automatically) or when
+                you want manual control over units, role, and which sources synthesize together.
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <span style={{ color: COLOR.amber }}>roles</span>
+                {"  "}
+                <Faint>·</Faint>
+                {"  "}
+                a source's authority (<Dim>primary_textbook</Dim>, <Dim>alternate_explanation</Dim>, <Dim>problem_set</Dim>,{" "}
+                <Dim>exam</Dim>, …) is never fixed at import — the library suggests one, and you pick or override it on the{" "}
+                <Dim>outline &amp; select →</Dim> step (or in the study-map confirmation). Authority is finalized when the
+                source joins a collection — use <Dim>add to collection…</Dim> on a ready library row or on the build-plan
+                step to pin the role and revision.
+              </div>
             </div>
           )}
         </div>
@@ -1266,9 +1256,9 @@ function AddSourceView({
 
       <KeyBar
         keys={[
-          { key: "↵", label: running ? "running…" : "Run ingest" },
+          { key: "↵", label: running || importing ? "running…" : mode === "exam" ? "Seed exam" : "Import source" },
           { key: "^v", label: "Paste source" },
-          { key: "esc", label: "Reset" }
+          { key: "esc", label: "Back/reset" }
         ]}
         right={{ key: "^p", label: "palette" }}
       />

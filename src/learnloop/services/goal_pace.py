@@ -29,6 +29,7 @@ class GoalPace:
     needed_per_day: float | None     # attempts_remaining spread over the days left
     on_pace: bool | None             # None when either rate is undefined
     attempts_logged: int             # lifetime attempts on the goal's scope LOs
+    pace_kind: str = "qualifying"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +42,7 @@ class GoalPace:
             ),
             "on_pace": self.on_pace,
             "attempts_logged": self.attempts_logged,
+            "pace_kind": self.pace_kind,
         }
 
 
@@ -55,7 +57,13 @@ def compute_goal_pace(
     clock = clock or SystemClock()
     now = clock.now().astimezone(UTC)
 
-    daily = repository.daily_attempt_counts(days=PACE_WINDOW_DAYS, clock=clock)
+    scope_los = sorted(resolve_goal_scope(vault, goal, repository))
+    daily = repository.daily_qualifying_attempt_counts_for_learning_objects(
+        scope_los,
+        days=PACE_WINDOW_DAYS,
+        not_before=goal.created_at,
+        clock=clock,
+    )
     attempts_last_14d = sum(daily.values())
     attempts_per_day = attempts_last_14d / max(len(daily), 1)
 
@@ -76,7 +84,6 @@ def compute_goal_pace(
     if needed_per_day is not None:
         on_pace = attempts_per_day >= needed_per_day
 
-    scope_los = sorted(resolve_goal_scope(vault, goal, repository))
     attempts_logged = repository.attempt_count_for_learning_objects(scope_los)
 
     return GoalPace(

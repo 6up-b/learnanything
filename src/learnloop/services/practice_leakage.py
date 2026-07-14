@@ -274,6 +274,12 @@ def _span_text(repository: Repository, extraction_id: str, span_id: str) -> str 
 def _span_id_from_locator(locator: str | None) -> str | None:
     if not locator:
         return None
+    from learnloop.ingest.locators import parse_block_span
+
+    parsed = parse_block_span(locator)
+    if parsed is not None:
+        return parsed[1]
+    # Permanent compatibility with the malformed early-v2 `span:<span>` form.
     return locator[len("span:"):] if locator.startswith("span:") else locator
 
 

@@ -94,7 +94,7 @@ def build_due_queue(
     fsrs_weights = resolve_fsrs_weights(repository)
     episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {}
     episode_eligible_cache: dict[str, dict[str, EligibleInstrument]] = {}
-    pending_followups = repository.pending_followup_practice_items()
+    pending_followups = repository.pending_followup_practice_items(clock=clock)
     # KM2b: canonical shared facet state under mvp-0.7 (byte-identical legacy
     # per-LO reads under mvp-0.6). One reader build feeds the whole vault sweep.
     facet_states_by_lo = read_facet_states_by_lo(vault, repository)
@@ -477,8 +477,12 @@ def _insert_pending_followups(
             )
         components = dict(scheduled.components)
         action_type = pending.get("action_type") or "negative_surprise_followup"
-        component = "intervention_followup" if action_type == "intervention_followup" else "negative_surprise_followup"
-        reason = "intervention follow-up"
+        component = (
+            "intervention_followup"
+            if action_type in {"intervention_followup", "cold_retry"}
+            else "negative_surprise_followup"
+        )
+        reason = "unassisted cold retry" if action_type == "cold_retry" else "intervention follow-up"
         components[component] = 1.0
         reasons = [reason] + [existing for existing in scheduled.plain_english if existing != reason]
         followups.append(
@@ -645,6 +649,24 @@ def _priority(components: dict[str, float], config: LearnLoopConfig) -> float:
         + config.scheduler.recent_error_weight * components["recent_error"]
         + config.scheduler.probe_eig_weight * components["probe_eig"]
     )
+
+
+def dominant_scheduler_reason(components: dict[str, float], config: LearnLoopConfig) -> str:
+    """Stable learner-facing reason from the same weighted ranking terms."""
+
+    if components.get("intervention_followup", 0.0) > 0:
+        return "unassisted follow-up"
+    if components.get("negative_surprise_followup", 0.0) > 0:
+        return "recent surprising result"
+    candidates = {
+        "memory is due": config.scheduler.forgetting_risk_weight * components.get("forgetting_risk", 0.0),
+        "active goal frontier": config.scheduler.goal_frontier_weight * components.get("goal_frontier", 0.0),
+        "recent error": config.scheduler.recent_error_weight * components.get("recent_error", 0.0),
+        "diagnostic information": config.scheduler.probe_eig_weight * components.get("probe_eig", 0.0),
+        "boundary fit": components.get("boundary_target", 0.0),
+    }
+    reason, value = max(candidates.items(), key=lambda pair: (pair[1], pair[0]))
+    return reason if value > 0 else "best available practice"
 
 
 def _selection_propensities(

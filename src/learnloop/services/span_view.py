@@ -4,11 +4,10 @@ Resolves a ``block_span_v1`` locator (``extraction_id`` + ``span_id``) to the
 geometry and text the read-only viewer renders, and records a
 ``source_exposure`` event on EVERY view (§14). The viewer is minimal by design:
 
-* PDF spans carry a page + bbox/polygon. No page raster is persisted anywhere in
-  the source layer (``source_document_assets`` stores extracted figures, not page
-  images), so ``page_render`` is always ``None`` and ``viewer_mode`` is
-  ``pdf_text`` — the frontend outlines the span TEXT with page/region chrome
-  ("text view — page N, region highlighted"). An honest fallback, labelled.
+* PDF spans carry a page + bbox/polygon. When the pinned original is a readable
+  local PDF, its requested page is rendered on demand (never persisted) and the
+  frontend overlays the source geometry. Remote or unavailable originals use the
+  labelled ``pdf_text`` fallback.
 * HTML / plaintext spans have no page geometry; ``viewer_mode`` is
   ``text_anchor`` and the frontend scrolls to the block anchor and highlights it.
 
@@ -18,6 +17,9 @@ multi-span page context work without a second round-trip.
 
 from __future__ import annotations
 
+import base64
+import io
+from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock
@@ -39,6 +41,7 @@ _VALID_CONTEXTS = {
     "tutor_citation",
     "provenance_panel",
     "conflict_review",
+    "remediation",
 }
 
 
@@ -105,7 +108,10 @@ def build_span_view(
         next_blocks = [_neighbor(b) for b in ordered[index + 1:index + 1 + _NEIGHBOR_RADIUS]]
 
     has_geometry = block.page is not None and bool(block.bbox)
-    viewer_mode = "pdf_text" if has_geometry else "text_anchor"
+    page_render, page_render_size = _local_pdf_page_render(
+        original_uri or canonical_uri, block.page
+    )
+    viewer_mode = "pdf_page" if page_render else ("pdf_text" if has_geometry else "text_anchor")
     # Every span on the focused page (multi-span highlight on one page).
     same_page_spans: list[dict[str, Any]] = []
     if block.page is not None:
@@ -115,7 +121,9 @@ def build_span_view(
             if b.page == block.page and b.bbox
         ]
 
-    locator = f"span:{span_id}"
+    from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
+
+    locator = format_block_span(extraction_id, span_id)
     exposure_event_id: str | None = None
     if record:
         exposure_event_id = repo.insert_source_exposure_event(
@@ -150,9 +158,11 @@ def build_span_view(
         "section_path": list(block.section_path),
         "text": block.text,
         "locator": locator,
-        "locator_scheme": "block_span_v1",
-        # No page raster is persisted — the viewer renders the honest text fallback.
-        "page_render": None,
+        "locator_scheme": BLOCK_SPAN_V1,
+        # Render opportunistically from an available local original. This keeps
+        # the source layer byte-store-free while making local PDFs directly useful.
+        "page_render": page_render,
+        "page_render_size": page_render_size,
         "page_spans": same_page_spans,
         "previous_spans": previous_blocks,
         "next_spans": next_blocks,
@@ -160,3 +170,31 @@ def build_span_view(
         "entity_id": entity_id,
         "exposure_event_id": exposure_event_id,
     }
+
+
+def _local_pdf_page_render(
+    uri: str | None, page: int | None
+) -> tuple[str | None, list[float] | None]:
+    if not uri or page is None or uri.startswith(("http://", "https://")):
+        return None, None
+    candidate = uri[7:] if uri.startswith("file://") else uri
+    path = Path(candidate).expanduser()
+    if path.suffix.lower() != ".pdf" or not path.is_file():
+        return None, None
+    try:
+        import pypdfium2 as pdfium
+
+        document = pdfium.PdfDocument(str(path))
+        page_index = int(page)
+        if page_index < 0 or page_index >= len(document):
+            return None, None
+        pdf_page = document[page_index]
+        page_size = [float(value) for value in pdf_page.get_size()]
+        bitmap = pdf_page.render(scale=1.4)
+        image = bitmap.to_pil()
+        output = io.BytesIO()
+        image.save(output, format="PNG", optimize=True)
+        encoded = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+        return encoded, page_size
+    except Exception:
+        return None, None

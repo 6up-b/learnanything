@@ -62,6 +62,20 @@ from learnloop.vault.paths import VaultPaths
 APPEND_AGENT_PURPOSE = "append_reconciliation"
 APPEND_PROPOSAL_PURPOSE = "sourceset_append"
 
+
+def subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool:
+    """The bootstrap-vs-append discriminator (§8/§10).
+
+    A subject already carries a live study map once any learning object is scoped
+    to it — the same "a study map exists" existence check the CLI's ``--mode auto``
+    uses (``loaded.evidence_facets``), but subject-scoped so a multi-subject vault
+    routes each subject independently. When this is true, a newly added source
+    reconciles into the existing map through the bounded append vocabulary instead
+    of tripping the bootstrap identity-lock refusal.
+    """
+
+    return any(subject_id in lo.subjects for lo in vault.learning_objects.values())
+
 _AUTO_APPLY_RELATIONS = frozenset({"support", "alternate", "assessment_alignment"})
 
 
@@ -321,6 +335,8 @@ def _run_reconciliation(
         exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
     )
     result = run_method(context)
+    if _output_tokens(result) > budgets.append_output_tokens:
+        raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
     span_request_count = 0
     requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
     if requests:
@@ -336,7 +352,16 @@ def _run_reconciliation(
             exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
         )
         result = run_method(context)
+        if _output_tokens(result) > budgets.append_output_tokens:
+            raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
     return result, span_request_count
+
+
+def _output_tokens(result: Any) -> int:
+    import json
+
+    payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    return max(1, len(json.dumps(payload, default=str)) // 4)
 
 
 # --- normalization ----------------------------------------------------------

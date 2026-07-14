@@ -28,12 +28,13 @@ from dataclasses import dataclass, field
 from math import sqrt
 from typing import Any
 
+from learnloop.services.certification import is_demonstrated_credit
+
 from learnloop.db.repositories import Repository
 from learnloop.services.blueprint_projection import project_blueprint
 from learnloop.vault.models import LoadedVault
 
 # Ledger credit at/above which a (facet, capability) counts as Demonstrated.
-_DEMONSTRATED_CREDIT = 1.0
 
 
 @dataclass
@@ -147,7 +148,7 @@ def exam_readiness_report(
             demonstrated = 0
             for facet, capability in comps:
                 credit = ledger.get((vault.canonical_facet_id(facet), capability), 0.0)
-                is_demo = credit >= _DEMONSTRATED_CREDIT
+                is_demo = is_demonstrated_credit(credit)
                 demonstrated += 1 if is_demo else 0
                 facet_caps.append(
                     {

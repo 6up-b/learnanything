@@ -22,7 +22,11 @@ from typing import Any
 
 from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
-from learnloop.services.goal_projection import goal_report, resolve_goal_scope
+from learnloop.services.goal_projection import (
+    goal_report,
+    projected_ready_mean_at,
+    resolve_goal_scope,
+)
 from learnloop.services.replay import rebuild_derived_state
 from learnloop.vault.models import Goal, LoadedVault
 
@@ -39,6 +43,12 @@ class GoalSeriesPoint:
     examined_count: int
     attainment_fraction: float | None
     predicted_recall_mean: float | None
+    demonstrated_count: int = 0
+    ready_mean: float | None = None
+    projected_ready_mean: float | None = None
+    projection: bool = False
+    decay_estimated: int = 0
+    held_flat: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +60,12 @@ class GoalSeriesPoint:
             "examined_count": self.examined_count,
             "attainment_fraction": self.attainment_fraction,
             "predicted_recall_mean": self.predicted_recall_mean,
+            "demonstrated_count": self.demonstrated_count,
+            "ready_mean": self.ready_mean,
+            "projected_ready_mean": self.projected_ready_mean,
+            "projection": self.projection,
+            "decay_estimated": self.decay_estimated,
+            "held_flat": self.held_flat,
         }
 
 
@@ -62,6 +78,10 @@ def _point_from_report(at: datetime, report) -> GoalSeriesPoint:
         examined_count=report.examined_count,
         attainment_fraction=report.attainment_fraction,
         predicted_recall_mean=report.predicted_recall_mean,
+        demonstrated_count=report.demonstrated_count,
+        ready_mean=report.ready_current_mean,
+        decay_estimated=report.decay_estimated_count,
+        held_flat=report.held_flat_count,
     )
 
 
@@ -89,7 +109,35 @@ def goal_report_series(
         points.append(_historical_point(vault, repository, goal, scope_los, checkpoint))
     live = goal_report(vault, repository, goal, clock=FrozenClock(checkpoints[-1]))
     points.append(_point_from_report(checkpoints[-1], live))
+    due = parse_utc(goal.due_at)
+    if due is not None and due > now:
+        cursor = now + timedelta(days=1)
+        while cursor < due:
+            points.append(_decay_point(vault, repository, goal, live, cursor, now))
+            cursor += timedelta(days=1)
+        points.append(_decay_point(vault, repository, goal, live, due, now))
     return points
+
+
+def _decay_point(vault, repository, goal, live, at: datetime, now: datetime) -> GoalSeriesPoint:
+    projected, estimated, held = projected_ready_mean_at(
+        vault, repository, goal, at, clock=FrozenClock(now)
+    )
+    return GoalSeriesPoint(
+        at=at,
+        on_track_count=live.on_track_count,
+        total=live.total,
+        certified_count=live.certified_count,
+        examined_count=live.examined_count,
+        attainment_fraction=live.attainment_fraction,
+        predicted_recall_mean=live.predicted_recall_mean,
+        demonstrated_count=live.demonstrated_count,
+        ready_mean=None,
+        projected_ready_mean=projected,
+        projection=True,
+        decay_estimated=estimated,
+        held_flat=held,
+    )
 
 
 def _checkpoints(

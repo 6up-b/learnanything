@@ -15,11 +15,13 @@ DEFAULT_CONFIG_TEXT = """schema_version = 1
 sqlite_path = "state.sqlite"
 
 [algorithms]
-# mvp-0.6: probe/EIG redesign (spec_probe_eig_redesign.md). Legacy
-# `probe_<lo_id>` phases recorded under earlier versions replay through the
-# frozen path in services/probes.py forever; new diagnostic episodes replay
-# exclusively through probe_observations.
-algorithm_version = "mvp-0.6"
+# mvp-0.7: canonical shared-facet knowledge model (KM §15). New vaults start
+# here; only pre-existing vaults with legacy mvp-0.6 content need
+# `learnloop upgrade` to activate it. Legacy `probe_<lo_id>` phases recorded
+# under earlier versions replay through the frozen path in services/probes.py
+# forever; new diagnostic episodes replay exclusively through
+# probe_observations.
+algorithm_version = "mvp-0.7"
 
 # Single source of truth for per-attempt-type evidence (Fable's-take item 3).
 # evidence_mass weights ability-belief updates (mastery EKF / reliability);
@@ -141,6 +143,13 @@ require_misconception_discrimination = true
 # fixed horizon so the frontier stays defined.
 [goals]
 default_projection_horizon_days = 30
+
+[hypothesis]
+session_card_budget = 2
+claim_cooldown_days = 7
+
+[forecasts]
+default_horizon_days = 14
 
 # Automatic misconception resolution ("close the loop"): an active error event
 # is resolved once the learning object accumulates N clean attempts after the
@@ -609,6 +618,10 @@ class StorageConfig(BaseModel):
 
 
 class AlgorithmsConfig(BaseModel):
+    # Fallback for configs that omit the field, i.e. vaults created before the
+    # mvp-0.7 template. Treat them as legacy; activation must go through
+    # `learnloop upgrade`, never through a silent default flip. New vaults get
+    # an explicit "mvp-0.7" from DEFAULT_CONFIG_TEXT.
     algorithm_version: str = "mvp-0.6"
 
 
@@ -698,6 +711,15 @@ class GoalsConfig(BaseModel):
     # Projection horizon for goals without a due date: facet recall is
     # forward-projected this many days out when deciding on-track status.
     default_projection_horizon_days: int = 30
+
+
+class HypothesisConfig(BaseModel):
+    session_card_budget: int = Field(default=2, ge=0)
+    claim_cooldown_days: int = Field(default=7, ge=0)
+
+
+class ForecastsConfig(BaseModel):
+    default_horizon_days: int = Field(default=14, ge=1)
 
 
 class MasteryIRTConfig(BaseModel):
@@ -1534,6 +1556,8 @@ class LearnLoopConfig(BaseModel):
     evidence: EvidenceConfig = Field(default_factory=EvidenceConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     goals: GoalsConfig = Field(default_factory=GoalsConfig)
+    hypothesis: HypothesisConfig = Field(default_factory=HypothesisConfig)
+    forecasts: ForecastsConfig = Field(default_factory=ForecastsConfig)
     mastery: MasteryConfig = Field(default_factory=MasteryConfig)
     probe: ProbeConfig = Field(default_factory=ProbeConfig)
     recall_coverage: RecallCoverageConfig = Field(default_factory=RecallCoverageConfig)

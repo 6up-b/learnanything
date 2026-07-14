@@ -369,7 +369,10 @@ export function FacetEvidenceDrawer({ facetId, onClose }: { facetId: string; onC
             {corrections.length > 0 && <Pill color="red">{corrections.length} correction{corrections.length === 1 ? "" : "s"}</Pill>}{" "}
             {!timeline.supported && <Faint>legacy vault — no capability ledger</Faint>}
           </div>
-          <Dim>Demonstrated curve (exact fold over the immutable ledger; corrections step it, may go down)</Dim>
+          <Dim>
+            Demonstrated curve (evidence shape is exact; magnitude is an upper bound until grouped
+            contribution caps are unified; corrections step it and may go down)
+          </Dim>
           <div style={{ margin: "6px 0" }}>
             <DemonstratedCurve timeline={timeline} />
           </div>

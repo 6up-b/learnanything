@@ -153,10 +153,11 @@ def test_quick_add_one_url_one_confirmation_to_study_map(tmp_path):
     synth = job_types["bootstrap_synthesis"]
     assert synth["status"] == "completed"
 
-    # A study-map proposal now exists (left for review, not auto-applied).
+    # The one confirmation produces a directly usable study map; the proposal
+    # remains as the durable audit/review record.
     study_map = synth["result"]
     assert study_map["proposal_id"] is not None
-    assert study_map["applied"] is False
+    assert study_map["applied"] is True
     assert study_map["item_counts"]["facet"] >= 1
     assert not any(d["severity"] == "hard_fail" for d in study_map["gate_diagnostics"])
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from learnloop.db.repositories import Repository
+from learnloop.services.certification import is_demonstrated_credit
 from learnloop.services.capability_mapping import default_capability_for
 from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop.vault.models import LearningObject, LoadedVault, recipe_components
@@ -94,7 +95,7 @@ def demonstrated_capabilities_for_facet(
     canonical = vault.canonical_facet_id(facet_id)
     demonstrated: set[str] = set()
     for cell in repository.facet_capability_evidence_for_facet(canonical):
-        if cell.certification_credit > 0.0:
+        if is_demonstrated_credit(cell.certification_credit):
             demonstrated.add(cell.capability)
     return demonstrated
 

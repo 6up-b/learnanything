@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppSnapshot,
+  AnswerCalibrationReportDto,
   AttemptResultDto,
   CliCommandResult,
   CommandError,
@@ -43,6 +44,8 @@ import type {
   StartImportBatchInput,
   SourceLibrarySnapshot,
   SourceOutline,
+  SelectionPreviewDto,
+  EffectiveOutlineDto,
   SaveUnitSelectionInput,
   UnitSelectionState,
   AcquisitionPreview,
@@ -96,6 +99,7 @@ import type {
   SourceCoverageDto,
   StartInventoryInput,
   CreateStudyMapInput,
+  BuildStudyMapInput,
   StudyMapDto,
   AppendResultDto,
   AppendSourceInput,
@@ -106,6 +110,12 @@ import type {
   SourceConflictDto,
   ResolveConflictInput,
   ExamReadinessReportDto,
+  ClaimCandidateDto,
+  ForecastTrackRecordDto,
+  HypothesisEventDto,
+  PresentedClaimDto,
+  RemediationDto,
+  ReviewLogDto,
 } from "./dto";
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -171,6 +181,8 @@ export const api = {
     latencySeconds?: number | null;
     probePresentationId?: string | null;
     answerConfidence?: number | null;
+    assessmentContractVersionId?: string | null;
+    submissionId?: string | null;
   }) => call<AttemptResultDto>("submit_dont_know", { input }),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     call<QueueSnapshot>("skip_practice_item", { input }),
@@ -203,6 +215,12 @@ export const api = {
   getSourceLibrary: () => call<SourceLibrarySnapshot>("get_source_library"),
   getSourceOutline: (extractionRef: string) =>
     call<SourceOutline>("get_source_outline", { extractionRef }),
+  getSelectionPreview: (extractionRef: string, selectedUnitIds?: string[] | null) =>
+    call<SelectionPreviewDto>("get_selection_preview", {
+      input: { extractionRef, selectedUnitIds: selectedUnitIds ?? null }
+    }),
+  getEffectiveOutline: (extractionRef: string, boundaryOverrides: Record<string, unknown>[]) =>
+    call<EffectiveOutlineDto>("get_effective_outline", { input: { extractionRef, boundaryOverrides } }),
   saveUnitSelection: (input: SaveUnitSelectionInput) =>
     call<{ version: number } & UnitSelectionState & { extractionId: string }>("save_unit_selection", { input }),
   getAcquisitionPreview: (inputs: string[]) =>
@@ -222,6 +240,10 @@ export const api = {
     call<IngestBatchDto>("start_inventory", { input }),
   createStudyMap: (input: CreateStudyMapInput) =>
     call<{ version: number; studyMap: StudyMapDto }>("create_study_map", { input }),
+  // Enqueue a collection's study-map build as a durable Activity batch (inventory
+  // members → bootstrap_synthesis). The multi-member, in-app counterpart to Quick
+  // add's confirm step; returns the batch view (IngestBatchDto).
+  buildStudyMap: (input: BuildStudyMapInput) => call<IngestBatchDto>("build_study_map", { input }),
   // ING M7 — Update study map (§10), maintenance feed (§11), exam readiness (§15).
   appendSource: (input: AppendSourceInput) =>
     call<{ version: number; append: AppendResultDto }>("append_source", { input }),
@@ -364,5 +386,29 @@ export const api = {
   recordProbeDialogueTurn: (dialogueState: string, presentationId: string) =>
     call<RecordProbeDialogueTurnResult>("record_probe_dialogue_turn", { dialogueState, presentationId }),
   endProbeDialogue: (dialogueState: string) =>
-    call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState })
+    call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState }),
+  presentClaims: (claims: ClaimCandidateDto[], context: { sessionId?: string | null; visitId?: string | null }) =>
+    call<{ version: number; claims: PresentedClaimDto[] }>("present_claims", {
+      input: { claims, sessionId: context.sessionId ?? null, visitId: context.visitId ?? null }
+    }),
+  respondClaim: (presentationId: string, responsePayload: Record<string, unknown>) =>
+    call<{ version: number; event: HypothesisEventDto }>("respond_claim", {
+      input: { presentationId, responsePayload }
+    }),
+  dismissClaim: (presentationId: string) =>
+    call<{ version: number; event: HypothesisEventDto }>("dismiss_claim", { presentationId }),
+  exportClaims: () => call<{ version: number; events: HypothesisEventDto[] }>("export_claims"),
+  purgeClaims: () => call<{ version: number; purged: number }>("purge_claims"),
+  getReviewLog: () => call<ReviewLogDto>("get_review_log"),
+  startRemediation: (misconceptionId: string) =>
+    call<RemediationDto>("start_remediation", { misconceptionId }),
+  prescribeRemediation: (episodeId: string) =>
+    call<RemediationDto>("prescribe_remediation", { episodeId }),
+  startRemediationTreatment: (episodeId: string) =>
+    call<RemediationDto>("start_remediation_treatment", { episodeId }),
+  getRemediation: (episodeId: string) => call<RemediationDto>("get_remediation", { episodeId }),
+  getForecastTrackRecord: (goalId?: string | null) =>
+    call<ForecastTrackRecordDto>("get_forecast_track_record", { input: { goalId: goalId ?? null } }),
+  getAnswerCalibration: () =>
+    call<AnswerCalibrationReportDto>("get_answer_calibration")
 };

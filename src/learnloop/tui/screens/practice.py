@@ -208,9 +208,10 @@ class PracticeScreen(Screen):
 
     def _draft(self, attempt_type: str | None = None) -> AttemptDraft:
         # §12: an active diagnostic block forces the recording attempt type
-        # (dont_know remains a valid diagnostic outcome, §5.4).
+        # while declared_dont_know preserves the outcome separately (§5.4).
+        declared_dont_know = attempt_type == "dont_know"
         resolved_type = attempt_type or self.attempt_type
-        if self.probe_presentation_id is not None and resolved_type != "dont_know":
+        if self.probe_presentation_id is not None:
             resolved_type = "diagnostic_probe"
         return AttemptDraft(
             practice_item_id=self.practice_item.id,
@@ -218,6 +219,7 @@ class PracticeScreen(Screen):
             attempt_type=resolved_type,
             hints_used=self.hints_used,
             probe_presentation_id=self.probe_presentation_id,
+            declared_dont_know=declared_dont_know,
         )
 
     # ── actions ──────────────────────────────────────────────────────────

@@ -53,6 +53,7 @@ from learnloop.ids import new_ulid
 from learnloop.services.concepts import ConceptMergeError, merge_concepts
 from learnloop.services.doctor import run_doctor
 from learnloop.services.followups import evaluate_attempt_intervention_followup
+from learnloop.services.hypothesis_claims import export_claim_events, purge_claim_events
 from learnloop.services.observations import (
     ObservationTemplateError,
     parse_template_yaml,
@@ -209,6 +210,37 @@ def _load_vault_or_exit(vault_root: Path, *, json_output: bool = False):
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
+
+
+claims_app = typer.Typer(no_args_is_help=True, help="Inspect, export, or delete local claim telemetry.")
+app.add_typer(claims_app, name="claims")
+
+
+@claims_app.command("export")
+def claims_export(
+    output: Annotated[Path | None, typer.Option("--output", help="Optional JSON output path.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Explicitly export the vault-local hypothesis event ledger."""
+
+    payload = {"version": 1, "events": export_claim_events(_repository(_root(vault)))}
+    rendered = jsonlib.dumps(payload, sort_keys=True, indent=2)
+    if output is None:
+        typer.echo(rendered)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(rendered + "\n", encoding="utf-8")
+    typer.echo(f"Exported {len(payload['events'])} claim events to {output}")
+
+
+@claims_app.command("purge")
+def claims_purge(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Delete all local hypothesis presentations and responses."""
+
+    purged = purge_claim_events(_repository(_root(vault)))
+    typer.echo(f"Purged {purged} claim events.")
 
 
 def _split_items(items: str | None) -> list[str] | None:
@@ -775,7 +807,7 @@ def _batch_json(runner, batch_id: str) -> dict[str, Any]:
 def import_sources(
     sources: Annotated[list[str], typer.Argument(help="URLs, arXiv ids, or local files to import.")],
     subject: Annotated[str | None, typer.Option("--subject", help="Optional subject id for the batch.")] = None,
-    inventory: Annotated[bool, typer.Option("--inventory", help="Also queue role-specific unit inventories (M3 seam).")] = False,
+    inventory: Annotated[bool, typer.Option("--inventory", help="Also queue role-specific unit inventories.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the durable batch as JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:

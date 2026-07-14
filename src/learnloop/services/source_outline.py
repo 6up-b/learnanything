@@ -180,6 +180,9 @@ def _unit_health_flags(page_start: int | None, page_end: int | None, health) -> 
 def _derive_title(artifact, revision, ir: DocumentIR) -> str:
     """Deterministic display title from artifact metadata, never an LLM guess."""
 
+    display_title = artifact.get("display_title") if artifact else None
+    if isinstance(display_title, str) and display_title.strip():
+        return display_title
     for candidate in (
         revision.get("original_uri") if revision else None,
         artifact.get("canonical_uri") if artifact else None,

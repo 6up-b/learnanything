@@ -285,6 +285,11 @@ def _promote_candidate(
     """Mint a durable compositional misconception from a promoted candidate (§10.2)."""
 
     signature = candidate.get("signature")
+    correction_statement, correction_spans = _authored_correction(
+        vault,
+        candidate.get("target_facet"),
+        candidate.get("confused_with_facet"),
+    )
     misconception_id = repository.insert_misconception(
         learning_object_id=candidate["learning_object_id"],
         statement=candidate["statement"],
@@ -299,6 +304,8 @@ def _promote_candidate(
         confused_with_facet=candidate.get("confused_with_facet"),
         expected_signatures=[signature] if signature else [],
         promotion_reason=reason,
+        correction_statement=correction_statement,
+        correction_source_span_ids=correction_spans,
         clock=clock,
     )
     repository.update_misconception_candidate(
@@ -318,6 +325,40 @@ def _promote_candidate(
         clock=clock,
     )
     return misconception_id
+
+
+def _authored_correction(
+    vault: LoadedVault,
+    target_facet_id: str | None,
+    confused_with_facet_id: str | None,
+) -> tuple[str | None, list[str]]:
+    """Freeze correction copy from reviewed canonical facet contracts.
+
+    This runs only at promotion time. Rendering later reads the stored sentence;
+    it never synthesizes a distinction from live content.
+    """
+
+    if not target_facet_id:
+        return None, []
+    target = vault.evidence_facets.get(vault.canonical_facet_id(target_facet_id))
+    confused = (
+        vault.evidence_facets.get(vault.canonical_facet_id(confused_with_facet_id))
+        if confused_with_facet_id
+        else None
+    )
+    if target is None or not target.claim:
+        return None, []
+    if confused is not None and confused.claim:
+        correction = f"Use this distinction: {target.claim} By contrast, {confused.claim}"
+    else:
+        correction = target.claim
+    refs = [
+        ref.ref_id
+        for facet in (target, confused)
+        if facet is not None
+        for ref in facet.provenance.source_refs
+    ]
+    return correction, list(dict.fromkeys(refs))
 
 
 def _normalize_compositional(
@@ -537,12 +578,22 @@ def update_misconception_posteriors_and_resolve(
         posterior = misconception_posterior(vault, repository, record)
         should_resolve = posterior < tau
         if should_resolve and record.status != "resolved":
-            repository.update_misconception(record.id, status="resolved", clock=clock)
+            repository.update_misconception(
+                record.id,
+                status="resolved",
+                transition_source="posterior",
+                clock=clock,
+            )
             for event_id in record.source_error_event_ids:
                 repository.resolve_error_event(event_id, clock=clock)
             resolved_ids.append(record.id)
         elif not should_resolve and record.status == "resolved":
-            repository.update_misconception(record.id, status="active", clock=clock)
+            repository.update_misconception(
+                record.id,
+                status="active",
+                transition_source="posterior",
+                clock=clock,
+            )
     return resolved_ids
 
 

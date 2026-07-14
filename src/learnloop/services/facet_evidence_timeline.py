@@ -19,14 +19,9 @@ Design notes (deliberate phase-1 simplifications, documented):
   the same primitive the KM2 canonical projection banks (``certification_credit``
   over ``allocate_success_mass``). Assisted attempts earn zero credit (§5.4), so
   a hinted attempt is a flat point, not a rise.
-* Independence is tracked by first-appearance of each surface/correlation group
-  in event order; a repeat surface is discounted (``repeat_surface_discount``),
-  matching the projection's per-group novelty rule. The per-group certification
-  *cap* and the attempt-wide ceiling the batch projection applies are not
-  reproduced point-by-point — an honest phase-1 approximation of magnitude that
-  preserves the exact shape (rises on fresh direct evidence, steps on
-  correction). The final value is therefore an upper-ish bound on the banked
-  ledger credit, never a different sign of movement.
+* Independence, correlation-group budgets, and the attempt-wide ceiling use the
+  same shared contribution calculator as the canonical projection. The final
+  timeline value therefore equals the banked ledger credit exactly.
 * Each graded attempt contributes exactly its *latest grading epoch*'s credit.
   A regrade replaces the attempt's previous contribution (not adds to it), so the
   running total is always ``Σ latest-epoch-credit`` — the "as-of" invariant that
@@ -35,6 +30,7 @@ Design notes (deliberate phase-1 simplifications, documented):
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from learnloop.db.repositories import Repository
@@ -54,6 +50,7 @@ from learnloop.services.canonical_projection import (
     surface_group_id,
 )
 from learnloop.services.evidence import attempt_evidence_mass
+from learnloop.services.receipt_contributions import cap_observation_contributions
 from learnloop.vault.models import LoadedVault
 
 
@@ -73,6 +70,9 @@ class ObservationEvent:
     assisted: bool
     # positive pseudo-mass allocated to the facet in this epoch, per capability
     per_capability_positive: dict[str, float] = field(default_factory=dict)
+    # Repository-derived events already contain final capped credit. The false
+    # default preserves the small DB-free fold fixture API.
+    authoritative: bool = False
 
     @property
     def raw_positive(self) -> float:
@@ -133,7 +133,13 @@ def fold_demonstrated_timeline(
         seen_groups.add(event.surface_group)
 
         new_caps: dict[str, float] = {}
-        if not event.assisted:
+        if event.authoritative:
+            new_caps = {
+                capability: max(float(credit), 0.0)
+                for capability, credit in event.per_capability_positive.items()
+                if credit > 0.0
+            }
+        elif not event.assisted:
             for capability, positive in event.per_capability_positive.items():
                 credit = certification_credit(
                     positive * discount, relationship="direct", assistance="unassisted"
@@ -173,16 +179,19 @@ def fold_demonstrated_timeline(
     return series
 
 
-def _epoch_positive_mass(
+def _epoch_certification_credit(
     vault: LoadedVault,
     item,
     rubric,
-    canonical_facet: str,
     *,
     rows_by_criterion: dict[str, dict],
     attempt_type: str,
-) -> dict[str, float]:
-    """Positive pseudo-mass allocated to ``canonical_facet`` in one grading epoch.
+    surface_group: str,
+    assisted: bool,
+    seen_groups_by_cell: dict[tuple[str, str], set[str]],
+    resolve,
+) -> tuple[dict[tuple[str, str], float], set[tuple[str, str]]]:
+    """Final capped certification credit for every cell in one grading epoch.
 
     Mirrors the KM2 canonical projection's per-attempt accumulation: localize the
     criterion DAG, drop unassessable descendants of a first error (share 0, §5.3),
@@ -208,7 +217,11 @@ def _epoch_positive_mass(
     localized = {c.criterion_id: c for c in localize_criterion_outcomes(outcomes)}
     criteria_by_id = {c.id: c for c in rubric.criteria}
 
-    per_capability: dict[str, float] = {}
+    staged: dict[str, dict[tuple[str, str], float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
+    touched: set[tuple[str, str]] = set()
+    repeat_discount = _repeat_discount(vault)
     for outcome in outcomes:
         local = localized[outcome.criterion_id]
         if not local.assessable:
@@ -218,17 +231,45 @@ def _epoch_positive_mass(
         fraction = 0.0
         if row is not None and criterion.points > 0:
             fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
-        targets = compile_criterion_targets(item, criterion, resolved_rubric=rubric)
+        # Assessment contracts always carry compiled targets. `item` is only
+        # needed for pre-contract legacy evidence whose criterion had none.
+        targets = (
+            list(criterion.targets)
+            if criterion.targets
+            else compile_criterion_targets(item, criterion, resolved_rubric=rubric)
+            if item is not None
+            else []
+        )
         if not targets:
             continue
         pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
         for alloc in allocate_success_mass(targets, pmass):
-            if vault.canonical_facet_id(alloc.facet) != canonical_facet:
-                continue
-            per_capability[alloc.capability] = (
-                per_capability.get(alloc.capability, 0.0) + alloc.pseudo_mass * fraction
+            cell = (resolve(alloc.facet), alloc.capability)
+            touched.add(cell)
+            discount = (
+                1.0
+                if surface_group not in seen_groups_by_cell.get(cell, set())
+                else repeat_discount
             )
-    return per_capability
+            relationship = "embedded" if alloc.role == "supporting" else "direct"
+            credit = certification_credit(
+                alloc.pseudo_mass * fraction * discount,
+                relationship=relationship,
+                assistance="hinted" if assisted else "unassisted",
+            )
+            correlation_group = criterion.correlation_group or surface_group
+            staged[correlation_group][cell] += credit
+    cert_cfg = vault.config.evidence.certification
+    return (
+        cap_observation_contributions(
+            staged,
+            attempt_type=attempt_type,
+            evidence_mass=emass,
+            group_budget_overrides=dict(cert_cfg.group_budgets),
+            max_groups_per_attempt=cert_cfg.max_groups_per_attempt,
+        ),
+        touched,
+    )
 
 
 def _observation_events(
@@ -242,47 +283,100 @@ def _observation_events(
     """
 
     events: list[ObservationEvent] = []
+    seen_groups_by_cell: dict[tuple[str, str], set[str]] = defaultdict(set)
+    merge_map = repository.facet_merge_map()
+
+    def resolve(facet_id: str) -> str:
+        current = vault.canonical_facet_id(facet_id)
+        seen: set[str] = set()
+        while current in merge_map and current not in seen:
+            seen.add(current)
+            current = merge_map[current]
+        return current
+
     for attempt in repository.list_attempt_history():
         item = vault.practice_items.get(attempt["practice_item_id"])
-        if item is None:
-            continue
-        # Does this attempt's item touch the facet at all? (cheap pre-filter)
-        item_facets = {vault.canonical_facet_id(str(f)) for f in item.evidence_facets}
-        if canonical_facet not in item_facets:
-            continue
-        rubric = vault.rubric_for_item(item)
-        if rubric is None or not rubric.criteria:
-            continue
         rows = repository.fetch_grading_evidence(attempt["id"], include_superseded=True)
         if not rows:
             continue
-        # Group evidence rows into grading epochs by their created_at (a regrade
-        # supersedes the whole prior set and inserts a fresh one).
-        epochs: dict[str, dict[str, dict]] = {}
-        epoch_order: list[str] = []
+        # Group by immutable grading revision when present. Timestamp remains the
+        # compatibility key for legacy/manual regrades; a FrozenClock can give
+        # revisions the same timestamp, so it cannot be the primary new-data key.
+        epochs: dict[tuple[str, str], list] = {}
         for record in rows:
-            key = record.created_at
-            if key not in epochs:
-                epochs[key] = {}
-                epoch_order.append(key)
-            epochs[key][record.criterion_id] = {
-                "points_awarded": record.points_awarded,
-            }
-        epoch_order.sort()
+            revision_key = (
+                f"revision:{record.grading_revision}"
+                if record.grading_revision is not None
+                else f"legacy:{record.created_at}"
+            )
+            epochs.setdefault((record.created_at, revision_key), []).append(record)
         assisted = (
             attempt["attempt_type"] in ASSISTED_ATTEMPT_TYPES
             or int(attempt.get("hints_used") or 0) > 0
         )
-        group = surface_group_id(item)
-        for index, epoch_at in enumerate(epoch_order):
-            per_capability = _epoch_positive_mass(
+        # A correction replaces this attempt's contribution; it must keep the
+        # attempt's original novelty position rather than becoming a repeat.
+        prior_seen = {cell: set(groups) for cell, groups in seen_groups_by_cell.items()}
+        touched_for_attempt: set[tuple[str, str]] = set()
+        groups_for_attempt: set[str] = set()
+        for index, ((epoch_at, _revision_key), records) in enumerate(sorted(epochs.items())):
+            version_ids = {
+                record.assessment_contract_version_id
+                for record in records
+                if record.assessment_contract_version_id
+            }
+            contract = None
+            if len(version_ids) == 1:
+                stored = repository.fetch_assessment_contract_version(next(iter(version_ids)))
+                contract = stored.get("contract") if stored is not None else None
+            if contract is not None:
+                from learnloop.services.assessment_contracts import rubric_from_contract
+
+                rubric = rubric_from_contract(contract)
+                fingerprint = contract.get("evidence_fingerprint") or {}
+                group = next(
+                    (
+                        str(fingerprint[key])
+                        for key in ("shared_stimulus_id", "source_family", "solution_recipe_family")
+                        if fingerprint.get(key)
+                    ),
+                    str(contract.get("surface_family") or f"item:{attempt['practice_item_id']}"),
+                )
+            else:
+                rubric = vault.rubric_for_item(item) if item is not None else None
+                group = surface_group_id(item) if item is not None else f"item:{attempt['practice_item_id']}"
+            if rubric is None or not rubric.criteria:
+                continue
+            rows_by_criterion = {
+                record.criterion_id: {"points_awarded": record.points_awarded}
+                for record in records
+            }
+            credits, touched = _epoch_certification_credit(
                 vault,
                 item,
                 rubric,
-                canonical_facet,
-                rows_by_criterion=epochs[epoch_at],
+                rows_by_criterion=rows_by_criterion,
                 attempt_type=attempt["attempt_type"],
+                surface_group=group,
+                assisted=assisted,
+                seen_groups_by_cell=prior_seen,
+                resolve=resolve,
             )
+            touched_for_attempt.update(touched)
+            groups_for_attempt.add(group)
+            per_capability = {
+                capability: credit
+                for (facet, capability), credit in credits.items()
+                if facet == canonical_facet
+            }
+            # Avoid an event for a facet this historical epoch never targeted.
+            historical_facets = {
+                resolve(target.facet)
+                for criterion in rubric.criteria
+                for target in criterion.targets
+            }
+            if not per_capability and canonical_facet not in historical_facets:
+                continue
             events.append(
                 ObservationEvent(
                     attempt_id=attempt["id"],
@@ -291,8 +385,11 @@ def _observation_events(
                     surface_group=group,
                     assisted=assisted,
                     per_capability_positive=per_capability,
+                    authoritative=True,
                 )
             )
+        for cell in touched_for_attempt:
+            seen_groups_by_cell[cell].update(groups_for_attempt)
     # Stable global order: by event time, then attempt id, then original order.
     events.sort(key=lambda event: (event.event_at, event.attempt_id))
     return events

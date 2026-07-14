@@ -80,6 +80,7 @@ class FacetProjection:
     required_capabilities: tuple[str, ...] = ()    # capabilities the facet is required at for this LO
     demonstrated_capabilities: tuple[str, ...] = ()  # of those, the ones with direct capability-matched credit
     demonstrated_from_legacy_default: bool = False  # capabilities resolved from a mode default, not blueprints
+    decay_estimated: bool = False                    # at least one supporting item has FSRS state
 
     @property
     def ready(self) -> float:
@@ -141,6 +142,24 @@ class GoalReport:
         if not self.facets:
             return None
         return sum(facet.predicted_at_horizon for facet in self.facets) / len(self.facets)
+
+    @property
+    def ready_current_mean(self) -> float | None:
+        if not self.facets:
+            return None
+        return sum(facet.predicted_current for facet in self.facets) / len(self.facets)
+
+    @property
+    def demonstrated_count(self) -> int:
+        return sum(1 for facet in self.facets if facet.demonstrated)
+
+    @property
+    def decay_estimated_count(self) -> int:
+        return sum(1 for facet in self.facets if facet.decay_estimated)
+
+    @property
+    def held_flat_count(self) -> int:
+        return sum(1 for facet in self.facets if not facet.decay_estimated)
 
     @property
     def attempts_remaining(self) -> int:
@@ -227,7 +246,7 @@ def _retention_ratio(
     horizon: datetime,
     item_states: dict[str, PracticeItemState],
     fsrs_weights: tuple[float, ...],
-) -> float:
+) -> tuple[float, bool]:
     """Evidence-weighted FSRS retention ratio (horizon vs now) for one facet.
 
     1.0 when no supporting item carries decay information — *no decay
@@ -258,8 +277,8 @@ def _retention_ratio(
         numerator += weight * retention_ratio
         weight_total += weight
     if weight_total <= 0.0:
-        return 1.0
-    return numerator / weight_total
+        return 1.0, False
+    return numerator / weight_total, True
 
 
 def _attempts_to_certify(
@@ -346,7 +365,7 @@ def _facet_projections(
             evidence_mass = (
                 max(recall_state.independent_evidence_mass, 0.0) if recall_state is not None else 0.0
             )
-            retention = _retention_ratio(
+            retention, decay_estimated = _retention_ratio(
                 vault,
                 learning_object_id,
                 facet_id,
@@ -397,6 +416,7 @@ def _facet_projections(
                     demonstrated_from_legacy_default=(
                         demonstration.from_legacy_default if demonstration else False
                     ),
+                    decay_estimated=decay_estimated,
                 )
             )
     return projections
@@ -517,6 +537,42 @@ def goal_report(
             facet_states_by_lo=facet_states_by_lo,
             mastery_states=mastery_states,
         ),
+    )
+
+
+def projected_ready_mean_at(
+    vault: LoadedVault,
+    repository: Repository,
+    goal: Goal,
+    at: datetime,
+    *,
+    clock: Clock | None = None,
+) -> tuple[float | None, int, int]:
+    """Do-nothing Ready mean at ``at`` using only facets with FSRS support.
+
+    Held-flat facets are disclosed in coverage but deliberately excluded from
+    the curve: no decay information is not evidence of no decay.
+    """
+
+    now = (clock or SystemClock()).now().astimezone(UTC)
+    item_states = repository.practice_item_states()
+    facets = _facet_projections(
+        vault,
+        repository,
+        goal,
+        now=now,
+        horizon=at.astimezone(UTC),
+        item_states=item_states,
+        facet_states_by_lo=read_facet_states_by_lo(vault, repository),
+        mastery_states=repository.mastery_states(),
+        fsrs_weights=resolve_fsrs_weights(repository),
+        include_demonstration=False,
+    )
+    estimated = [facet.predicted_at_horizon for facet in facets if facet.decay_estimated]
+    return (
+        sum(estimated) / len(estimated) if estimated else None,
+        len(estimated),
+        sum(1 for facet in facets if not facet.decay_estimated),
     )
 
 

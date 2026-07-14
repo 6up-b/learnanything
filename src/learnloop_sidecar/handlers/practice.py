@@ -74,6 +74,8 @@ class SubmitAttemptInput(ParamsModel):
     probe_presentation_id: str | None = None
     # Probe redesign §7.1: learner answer confidence (1-5), logged-only.
     answer_confidence: int | None = None
+    assessment_contract_version_id: str | None = None
+    submission_id: str | None = None
 
 
 class DontKnowInput(ParamsModel):
@@ -84,6 +86,8 @@ class DontKnowInput(ParamsModel):
     self_grade: SelfGradeInputDto | None = None
     probe_presentation_id: str | None = None
     answer_confidence: int | None = None
+    assessment_contract_version_id: str | None = None
+    submission_id: str | None = None
 
 
 class SkipInput(ParamsModel):
@@ -254,6 +258,10 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
 @method("submit_attempt", SubmitAttemptInput)
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    submission_id = _submission_id(params.submission_id, params.probe_presentation_id)
+    cached = _cached_submission(repository, submission_id, params.practice_item_id)
+    if cached is not None:
+        return cached
     _require_open_session(repository, params.session_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # Substantive tutor questions asked mid-attempt count as hints: fold them
@@ -275,6 +283,8 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         primed=params.primed,
         probe_presentation_id=params.probe_presentation_id,
         answer_confidence=params.answer_confidence,
+        assessment_contract_version_id=params.assessment_contract_version_id,
+        submission_id=submission_id,
     )
     self_grade = _self_grade(params.self_grade)
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
@@ -341,24 +351,33 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     repository.clear_session_checkpoint(params.session_id)
     _log_attempt_recorded(repository, params.session_id, params.answer_md, result)
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
-    return _attempt_result(result, repository)
+    payload = _attempt_result(result, repository)
+    _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    return payload
 
 
 @method("submit_dont_know", DontKnowInput)
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    submission_id = _submission_id(params.submission_id, params.probe_presentation_id)
+    cached = _cached_submission(repository, submission_id, params.practice_item_id)
+    if cached is not None:
+        return cached
     _require_open_session(repository, params.session_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",
-        attempt_type="dont_know",
+        attempt_type="diagnostic_probe" if params.probe_presentation_id else "dont_know",
         hints_used=params.hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
         probe_presentation_id=params.probe_presentation_id,
         answer_confidence=params.answer_confidence,
+        assessment_contract_version_id=params.assessment_contract_version_id,
+        submission_id=submission_id,
+        declared_dont_know=True,
     )
     try:
         result = complete_self_graded_attempt(vault, repository, draft, grade)
@@ -369,7 +388,59 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     repository.clear_session_checkpoint(params.session_id)
     _log_attempt_recorded(repository, params.session_id, "", result)
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
-    return _attempt_result(result, repository)
+    payload = _attempt_result(result, repository)
+    _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    return payload
+
+
+def _submission_id(client_id: str | None, presentation_id: str | None) -> str | None:
+    """Return the stable retry key; old probe clients inherit one for free."""
+
+    if client_id and client_id.strip():
+        return client_id.strip()
+    if presentation_id:
+        return f"probe:{presentation_id}"
+    return None
+
+
+def _cached_submission(repository, submission_id: str | None, practice_item_id: str) -> dict[str, Any] | None:
+    if submission_id is None:
+        return None
+    receipt = repository.attempt_submission_receipt(submission_id)
+    if receipt is not None:
+        if receipt["practice_item_id"] != practice_item_id:
+            raise SidecarError("validation_error", "submission id was already used for another item")
+        return receipt["result"]
+    # A process can stop in the tiny interval after the attempt transaction and
+    # before its response receipt. Never grade or write the same submission a
+    # second time; the original response can be recovered by reopening feedback.
+    existing = repository.practice_attempt_by_submission_id(submission_id)
+    if existing is not None:
+        if existing["practice_item_id"] != practice_item_id:
+            raise SidecarError("validation_error", "submission id was already used for another item")
+        raise SidecarError(
+            "submission_committed",
+            f"Attempt {existing['id']} was recorded; reopen its feedback to continue.",
+            retryable=False,
+        )
+    return None
+
+
+def _store_submission_receipt(
+    repository,
+    submission_id: str | None,
+    attempt_id: str,
+    practice_item_id: str,
+    payload: dict[str, Any],
+) -> None:
+    if submission_id is None:
+        return
+    repository.insert_attempt_submission_receipt(
+        submission_id=submission_id,
+        attempt_id=attempt_id,
+        practice_item_id=practice_item_id,
+        result=payload,
+    )
 
 
 @method("skip_practice_item", SkipInput)

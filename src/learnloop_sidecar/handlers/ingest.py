@@ -13,6 +13,7 @@ from learnloop.services.source_outline import (
 )
 from learnloop.services.source_unit_selection import (
     SelectionValidationError,
+    compute_effective_units,
     save_unit_selection,
 )
 from learnloop_sidecar.context import SidecarContext
@@ -223,6 +224,7 @@ class SaveUnitSelectionInput(ParamsModel):
     extraction_id: str
     selected_unit_ids: list[str]
     boundary_overrides: list[dict[str, Any]] = []
+    role_override: str | None = None
 
 
 class AcquisitionPreviewInput(ParamsModel):
@@ -266,8 +268,71 @@ def get_source_outline(ctx: SidecarContext, params: SourceOutlineInput) -> dict[
         "selected_unit_ids": selection.get("selected_unit_ids") if selection else [],
         "boundary_overrides": selection.get("boundary_overrides") if selection else [],
         "needs_review": selection.get("needs_review") if selection else [],
+        "role_override": selection.get("role_override") if selection else None,
     }
     return versioned(payload)
+
+
+class SelectionPreviewInput(ParamsModel):
+    extraction_ref: str
+    selected_unit_ids: list[str] | None = None
+
+
+@method("get_selection_preview", SelectionPreviewInput)
+def get_selection_preview(ctx: SidecarContext, params: SelectionPreviewInput) -> dict[str, Any]:
+    """Byte-exact display markdown for a unit selection — the same
+    ``render_ir_markdown`` output synthesis feeds the model (§2.3), so the
+    learner can inspect what the LLM will see before starting a batch.
+    ``selected_unit_ids`` omitted → the persisted selection, or the whole
+    document when none exists. Deterministic; zero agent runs."""
+
+    from learnloop.ingest.ir import render_ir_markdown
+
+    _vault, repository = ctx.require_vault()
+    extraction_id = resolve_extraction_id(repository, params.extraction_ref)
+    if extraction_id is None:
+        raise SidecarError("extraction_not_found", f"No extraction resolves for '{params.extraction_ref}'.")
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None or not ir.blocks:
+        raise SidecarError("extraction_not_found", f"No persisted document IR for '{params.extraction_ref}'.")
+    unit_ids = params.selected_unit_ids
+    if unit_ids is None:
+        selection = repository.get_unit_selection(extraction_id)
+        unit_ids = (selection or {}).get("selected_unit_ids") or None
+    markdown = render_ir_markdown(ir, selected_unit_ids=unit_ids)
+    return versioned(
+        {
+            "extraction_id": extraction_id,
+            "selected_unit_ids": unit_ids or [],
+            "markdown": markdown,
+            "approx_tokens": max(1, len(markdown) // 4) if markdown else 0,
+        }
+    )
+
+
+class EffectiveOutlineInput(ParamsModel):
+    extraction_ref: str
+    boundary_overrides: list[dict[str, Any]] = []
+
+
+@method("get_effective_outline", EffectiveOutlineInput)
+def get_effective_outline(ctx: SidecarContext, params: EffectiveOutlineInput) -> dict[str, Any]:
+    """Deterministic effective-unit shape after boundary overrides (§5.3).
+
+    Zero LLM: walks the persisted IR and folds/partitions units per the learner's
+    merge/split intents so the outline screen can render the resulting shape live
+    as overrides change. ``boundary_overrides`` omitted → the extraction's units
+    pass through unchanged."""
+
+    _vault, repository = ctx.require_vault()
+    extraction_id = resolve_extraction_id(repository, params.extraction_ref)
+    if extraction_id is None:
+        raise SidecarError("extraction_not_found", f"No extraction resolves for '{params.extraction_ref}'.")
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        raise SidecarError("extraction_not_found", f"No persisted document IR for '{params.extraction_ref}'.")
+    units = compute_effective_units(ir, params.boundary_overrides)
+    return versioned({"extraction_id": extraction_id, "units": units})
 
 
 @method("save_unit_selection", SaveUnitSelectionInput)
@@ -281,6 +346,7 @@ def save_unit_selection_rpc(ctx: SidecarContext, params: SaveUnitSelectionInput)
             params.extraction_id,
             params.selected_unit_ids,
             boundary_overrides=params.boundary_overrides,
+            role_override=params.role_override,
         )
     except SelectionValidationError as exc:
         raise SidecarError("invalid_unit_selection", str(exc)) from exc
@@ -290,6 +356,7 @@ def save_unit_selection_rpc(ctx: SidecarContext, params: SaveUnitSelectionInput)
             "selected_unit_ids": selection.get("selected_unit_ids", []),
             "boundary_overrides": selection.get("boundary_overrides", []),
             "needs_review": selection.get("needs_review", []),
+            "role_override": selection.get("role_override"),
         }
     )
 
@@ -438,10 +505,13 @@ def get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[
     """Deterministic coverage + readiness preview for a collection (§9.3)."""
 
     from learnloop.services.source_coverage import build_source_coverage
+    from learnloop.services.coverage_rollup import coverage_rollup
 
     vault, repository = ctx.require_vault()
     source_set = _source_set_or_error(vault, params.source_set_id)
-    return versioned({"coverage": build_source_coverage(repository, vault, source_set)})
+    coverage = build_source_coverage(repository, vault, source_set)
+    coverage["rollup"] = coverage_rollup(vault, repository, source_set)
+    return versioned({"coverage": coverage})
 
 
 class CreateStudyMapInput(ParamsModel):
@@ -484,6 +554,95 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
     if params.apply:
         ctx.reload(maintenance=False)
     return versioned({"studyMap": result.as_dict()})
+
+
+class BuildStudyMapInput(ParamsModel):
+    source_set_id: str
+    brief: dict[str, Any] = {}
+    mode: str = "auto"
+
+
+@method("build_study_map", BuildStudyMapInput)
+def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict[str, Any]:
+    """Enqueue a mode-aware study-map build batch for a collection (§1/§8/§10),
+    surfaced as a durable Activity batch. This is the in-app, multi-member
+    counterpart to Quick add's confirm step (which is single-source).
+
+    Routing mirrors the CLI's ``--mode auto``: when the subject has no live study
+    map this BOOTSTRAPS (inventory every member's scoped units, then
+    ``bootstrap_synthesis`` over the set). When a map already exists this APPENDS —
+    it inventories only the NEW (not-yet-synthesized) members and reconciles them
+    into the existing map through the bounded affected neighborhood, never resending
+    or rebuilding the map. Members added in the app aren't inventoried yet, so the
+    batch inventories first and synthesis gates run once."""
+
+    from learnloop.services.source_append import subject_has_applied_study_map
+    from learnloop.services.source_outline import resolve_extraction_id
+
+    vault, repository = ctx.require_vault()
+    source_set = _source_set_or_error(vault, params.source_set_id)
+    if not source_set.members:
+        raise SidecarError("empty_source_set", "This collection has no members to synthesize.")
+
+    resolved_mode = params.mode
+    if resolved_mode == "auto":
+        resolved_mode = "append" if subject_has_applied_study_map(vault, source_set.subject_id) else "bootstrap"
+
+    members_payload: list[dict[str, Any]] = []
+    new_revision_ids: list[str] = []
+    for member in source_set.members:
+        extraction_id = resolve_extraction_id(repository, member.revision_id)
+        if extraction_id is None:
+            raise SidecarError(
+                "extraction_not_found",
+                f"No extraction resolves for revision '{member.revision_id}'.",
+            )
+        scope_units = [scope.unit_id for scope in member.scope]
+        if not scope_units:
+            ir = repository.load_document_ir(extraction_id)
+            if ir is not None:
+                scope_units = [unit.unit_id for unit in ir.units]
+        role_overrides = {s.unit_id: s.role_override for s in member.scope if s.role_override}
+        units = [
+            {"unit_id": unit_id, "role": role_overrides.get(unit_id) or member.default_role}
+            for unit_id in scope_units
+        ]
+        if not units:
+            raise SidecarError(
+                "no_units",
+                f"Member '{member.source_id}' has no units to inventory.",
+            )
+        entry = {"extraction_id": extraction_id, "units": units}
+        # A member is "new / not yet synthesized" when its revision carries no unit
+        # inventories yet — the in-app add path leaves them un-inventoried, so this
+        # cleanly scopes the append to freshly added material.
+        is_new = not repository.unit_inventories_for_revision(member.revision_id)
+        if resolved_mode == "bootstrap" or is_new:
+            members_payload.append(entry)
+        if is_new:
+            new_revision_ids.append(member.revision_id)
+
+    if resolved_mode == "append":
+        batch_id = ctx.ingest_jobs.enqueue_source_set_append(
+            members=members_payload,
+            source_set_id=params.source_set_id,
+            new_revision_ids=new_revision_ids or None,
+            subject_id=source_set.subject_id,
+            brief=dict(params.brief or {}),
+            input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
+        )
+    else:
+        batch_id = ctx.ingest_jobs.enqueue_source_set_build(
+            members=members_payload,
+            source_set_id=params.source_set_id,
+            subject_id=source_set.subject_id,
+            brief=dict(params.brief or {}),
+            mode=params.mode,
+            input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
+        )
+    batch_view = ctx.ingest_jobs.get_batch(batch_id) or {}
+    batch_view["mode"] = resolved_mode
+    return versioned(batch_view)
 
 
 class AppendSourceInput(ParamsModel):
@@ -591,6 +750,9 @@ def maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> d
     from learnloop.services.maintenance_feed import generate_maintenance_feed
 
     vault, repository = ctx.require_vault()
+    from learnloop.services.forecast_ledger import resolve_due_forecasts
+
+    resolve_due_forecasts(repository)
     feed = generate_maintenance_feed(vault, repository)
     if params.subject_id is not None:
         feed = [n for n in feed if n.get("subject_id") in (None, params.subject_id)]
@@ -774,6 +936,9 @@ def start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[st
 
 
 def _artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str:
+    display_title = artifact.get("display_title")
+    if isinstance(display_title, str) and display_title.strip():
+        return display_title
     if revision is not None and revision.get("original_uri"):
         return str(revision["original_uri"])
     return str(artifact.get("canonical_uri") or artifact["id"])

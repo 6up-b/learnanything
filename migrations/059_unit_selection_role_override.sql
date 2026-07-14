@@ -1,0 +1,16 @@
+-- Optional role override captured at unit selection (spec_source_ingestion_v2 §4.2).
+--
+-- Source-role authority lives on source-set MEMBERSHIP, not on the artifact or its
+-- selection: a source can carry different roles in different collections. The
+-- outline & build-plan flow, however, has no collection yet — its "start batch"
+-- routes through the durable import queue, not the quick-add source-set path — so
+-- there is nowhere to record the learner's role choice for that flow.
+--
+-- This column persists that choice alongside the per-extraction unit selection so
+-- the UI can round-trip it. It is NOT authority: downstream synthesis on the
+-- import-batch path does not consume it yet. When a source joins a collection the
+-- membership's default_role (source_sets) remains the single source of truth.
+-- Nullable: absence means "no override — fall back to the library's suggested role".
+--
+-- ING M3 owns 040; ING M4 owns 041. This late column extends M3's selection row.
+ALTER TABLE source_unit_selections ADD COLUMN role_override TEXT;

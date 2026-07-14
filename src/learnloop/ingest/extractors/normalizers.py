@@ -34,10 +34,14 @@ def markdown_to_ir(
     *,
     title: str | None,
     extractor_name: str,
-    extractor_version: str = "1",
+    extractor_version: str = "2",
 ) -> DocumentIR:
     """Build trivial IR from a markdown body: blocks by paragraph, units by
-    top-level heading (heading-path section trail, no geometry)."""
+    top-level heading, with a level-2 (##) fallback when the level-1 structure
+    collapses to a single unit (heading-path section trail, no geometry).
+
+    Version history: "1" derived units from level-1 headings only; "2" adds the
+    level-2 fallback, so cached "1" extractions must not be reused for it."""
 
     blocks: list[DocumentBlock] = []
     section_path: list[str] = ["root"]
@@ -121,6 +125,12 @@ def _units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> l
             groups.append((key, [block]))
 
     if len(groups) <= 1:
+        # A single level-1 heading (or none) collapses the whole document into one
+        # unit, which makes unit selection useless. Before falling back to the
+        # whole-document unit, try to derive units from the level-2 (##) structure.
+        level2 = _units_from_level2(blocks)
+        if level2 is not None:
+            return level2
         return [
             DocumentUnit(
                 unit_id="u1",
@@ -142,6 +152,49 @@ def _units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> l
                 label=key,
                 ordinal=ordinal,
                 locator={"scheme": "heading_path", "path": f"root/{key}"},
+                semantic_hash=semantic_hash(group),
+                span_ids=[block.span_id for block in group],
+            )
+        )
+    return units
+
+
+def _units_from_level2(blocks: list[DocumentBlock]) -> list[DocumentUnit] | None:
+    """Derive units from the level-2 (##) section trail.
+
+    Used only when the level-1 heading structure yields a single unit. Groups
+    blocks by the second ``section_path`` segment (contiguous runs, first-seen
+    order). Blocks with no second segment — content before the first ``##`` —
+    form a leading ``(intro)`` unit. Returns ``None`` when there is no level-2
+    structure at all, so the caller keeps the whole-document fallback."""
+
+    l1 = blocks[0].section_path[0] if blocks[0].section_path else "root"
+    groups: list[tuple[str | None, list[DocumentBlock]]] = []
+    for block in blocks:
+        seg = block.section_path[1] if len(block.section_path) >= 2 else None
+        if groups and groups[-1][0] == seg:
+            groups[-1][1].append(block)
+        else:
+            groups.append((seg, [block]))
+
+    if not any(seg is not None for seg, _ in groups):
+        return None
+
+    units: list[DocumentUnit] = []
+    for ordinal, (seg, group) in enumerate(groups, start=1):
+        if seg is None:
+            label = "(intro)"
+            path = f"root/{l1}"
+        else:
+            label = seg
+            path = f"root/{l1}/{seg}"
+        units.append(
+            DocumentUnit(
+                unit_id=f"u{ordinal}",
+                parent_unit_id=None,
+                label=label,
+                ordinal=ordinal,
+                locator={"scheme": "heading_path", "path": path},
                 semantic_hash=semantic_hash(group),
                 span_ids=[block.span_id for block in group],
             )

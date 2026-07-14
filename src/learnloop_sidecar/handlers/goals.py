@@ -31,7 +31,7 @@ _series_cache: dict[tuple, list[dict[str, Any]]] = {}
 
 # Bump when GoalSeriesPoint.as_dict gains/loses keys so a hot-reloaded process
 # can never serve a stale-shape cached payload.
-_SERIES_PAYLOAD_VERSION = 2
+_SERIES_PAYLOAD_VERSION = 3
 
 
 class GoalIdInput(ParamsModel):
@@ -42,6 +42,10 @@ class GoalSeriesInput(ParamsModel):
     goal_id: str
     interval_days: int = 7
     max_points: int = 26
+
+
+class ForecastTrackRecordInput(ParamsModel):
+    goal_id: str | None = None
 
 
 class CreateGoalInput(ParamsModel):
@@ -106,6 +110,12 @@ def _report_dto(
         "examined_count": report.examined_count,
         "attainment_fraction": report.attainment_fraction,
         "predicted_recall_mean": report.predicted_recall_mean,
+        "ready_current_mean": report.ready_current_mean,
+        "demonstrated_count": report.demonstrated_count,
+        "model_coverage": {
+            "decay_estimated": report.decay_estimated_count,
+            "held_flat": report.held_flat_count,
+        },
         "attempts_remaining": report.attempts_remaining,
         "attempts_remaining_is_partial": report.attempts_remaining_is_partial,
     }
@@ -266,6 +276,14 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
             "uncovered_concepts": uncovered,
         }
     )
+
+
+@method("get_forecast_track_record", ForecastTrackRecordInput)
+def get_forecast_track_record(ctx: SidecarContext, params: ForecastTrackRecordInput) -> dict[str, Any]:
+    from learnloop.services.forecast_ledger import forecast_track_record
+
+    _vault, repository = ctx.require_vault()
+    return versioned({"track_record": forecast_track_record(repository, params.goal_id)})
 
 
 def _slugify(title: str) -> str:

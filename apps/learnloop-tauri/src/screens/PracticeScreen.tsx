@@ -16,7 +16,7 @@ import type {
   TeachBackTurnDto
 } from "../api/dto";
 import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui";
-import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor } from "../components/term";
+import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
@@ -122,8 +122,10 @@ export function PracticeScreen({
   // When this item was opened — the ask overlay reports secondsIntoAttempt
   // from it (there is no other attempt timer on this screen).
   const openedAtMs = useRef(Date.now());
+  const submissionId = useRef(crypto.randomUUID());
   useEffect(() => {
     openedAtMs.current = Date.now();
+    submissionId.current = crypto.randomUUID();
     setAnswerConfidence(null);
   }, [practiceItemId]);
   const openAsk = (options?: { proactiveOpen?: boolean }) =>
@@ -388,7 +390,9 @@ export function PracticeScreen({
         hintsUsed,
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
-        answerConfidence: probeActive ? answerConfidence : null,
+        answerConfidence,
+        assessmentContractVersionId: item.assessmentContractVersionId,
+        submissionId: submissionId.current,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
         selfGrade: fallbackRequired ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) } : null
@@ -419,7 +423,9 @@ export function PracticeScreen({
         practiceItemId: item.id,
         hintsUsed,
         probePresentationId: probeActive ? probe?.presentationId : null,
-        answerConfidence: probeActive ? answerConfidence : null
+        answerConfidence,
+        assessmentContractVersionId: item.assessmentContractVersionId,
+        submissionId: submissionId.current
       });
       suppressDraftFlush.current = true;
       await clearCheckpoint();
@@ -488,25 +494,6 @@ export function PracticeScreen({
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, opacity: 0.85 }}>
-                  <Faint>confidence</Faint>
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      className="queue-row"
-                      style={{
-                        padding: "0 6px",
-                        fontFamily: FONT_MONO,
-                        opacity: answerConfidence === level ? 1 : 0.45
-                      }}
-                      onClick={() => setAnswerConfidence(answerConfidence === level ? null : level)}
-                      title="how confident are you in your answer? (optional, 1 = guessing, 5 = certain)"
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </span>
                 <button
                   type="button"
                   className="queue-row"
@@ -566,6 +553,25 @@ export function PracticeScreen({
           </div>
           <div ref={belowRef}>
             <div className="queue-meta">{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
+            {answer.trim() ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11 }}>
+                <Faint>How likely is this answer to be correct? (optional)</Faint>
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    className="queue-row"
+                    style={{ padding: "0 7px", fontFamily: FONT_MONO, opacity: answerConfidence === level ? 1 : 0.45 }}
+                    onClick={() => setAnswerConfidence(answerConfidence === level ? null : level)}
+                    disabled={submitting}
+                    aria-pressed={answerConfidence === level}
+                    aria-label={`answer confidence ${level} of 5`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {item.hints.slice(0, hintsUsed).map((hint, index) => (
               <div className="hint-banner" key={hint}>
                 <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill> {hint}
@@ -902,13 +908,12 @@ function SelfGradePanel({
         ) : null}
         <label>
           confidence
-          <select
-            className="text-input"
-            value={value.confidence}
-            onChange={(event) => setValue({ ...value, confidence: Number(event.target.value) })}
-          >
-            {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <TermSelect
+            value={String(value.confidence)}
+            options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))}
+            onChange={(v) => setValue({ ...value, confidence: Number(v) })}
+            width={110}
+          />
           {fieldErrors.confidence ? <span className="field-error">{fieldErrors.confidence}</span> : null}
         </label>
         <label>

@@ -55,6 +55,8 @@ fn main() {
             resume_ingest_batch,
             get_source_library,
             get_source_outline,
+            get_selection_preview,
+            get_effective_outline,
             save_unit_selection,
             get_acquisition_preview,
             get_build_plan,
@@ -64,6 +66,7 @@ fn main() {
             get_source_coverage,
             start_inventory,
             create_study_map,
+            build_study_map,
             append_source,
             refresh_revision,
             maintenance_feed,
@@ -126,7 +129,19 @@ fn main() {
             begin_probe_dialogue,
             next_probe_dialogue_turn,
             record_probe_dialogue_turn,
-            end_probe_dialogue
+            end_probe_dialogue,
+            present_claims,
+            respond_claim,
+            dismiss_claim,
+            export_claims,
+            purge_claims,
+            get_review_log,
+            start_remediation,
+            prescribe_remediation,
+            start_remediation_treatment,
+            get_remediation,
+            get_forecast_track_record,
+            get_answer_calibration
         ])
         .run(tauri::generate_context!())
         .expect("error while running LearnLoop");

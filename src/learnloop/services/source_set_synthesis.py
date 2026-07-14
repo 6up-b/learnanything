@@ -356,6 +356,8 @@ def _span_refs(
     Role/source/revision are resolved from the citation's extraction (untrusted-
     text discipline: never trust the model's claimed role)."""
 
+    from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
+
     gate_refs: list[ProvenanceRef] = []
     yaml_refs: list[dict[str, Any]] = []
     span_ids: list[str] = []
@@ -389,7 +391,8 @@ def _span_refs(
                 "source_id": source_id,
                 "revision_id": revision_id,
                 "extraction_id": extraction_id,
-                "locator": ref.get("locator") or f"span:{span_id}",
+                "locator": ref.get("locator") or format_block_span(extraction_id, span_id),
+                "locator_scheme": BLOCK_SPAN_V1,
                 "relation": relation if relation in {"primary", "support", "alternate", "exercise", "assessment_alignment"} else "support",
                 "role": role,
                 "span_hash": ref.get("span_hash"),
@@ -963,9 +966,22 @@ def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, bud
     span_request_count = 0
     resolved_hashes: list[str] = []
     calls = 0
+    input_tokens_estimate = 0
     from learnloop.codex.schemas import SourceSetSynthesis
 
+    base_input_tokens = sum(
+        max(1, len(json.dumps(entry, default=str)) // 4)
+        for entry in inputs.unit_inventories
+    )
+    if base_input_tokens > budgets.synthesis_total_input_ceiling:
+        raise StudyMapError(
+            "budget_exceeded",
+            "Selected inventories exceed the synthesis total-input ceiling; narrow the source scope.",
+        )
+
     for ordinal, shard in enumerate(shards):
+        shard_tokens = sum(max(1, len(json.dumps(entry, default=str)) // 4) for entry in shard)
+        input_tokens_estimate += shard_tokens
         context = SourceSetSynthesisContext(
             source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
             brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
@@ -973,6 +989,8 @@ def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, bud
         )
         result = run_method(context)
         calls += 1
+        if _result_tokens(result) > budgets.synthesis_shard_output_tokens:
+            raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
         requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
         if requests:
             span_request_count += len(requests)
@@ -987,14 +1005,37 @@ def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, bud
                 brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
                 registry_index=registry, resolved_spans=resolved, shard_ordinal=ordinal, shard_count=len(shards),
             )
+            second_round_tokens = shard_tokens + sum(
+                max(1, len(json.dumps(span, default=str)) // 4) for span in resolved
+            )
+            if input_tokens_estimate + second_round_tokens > budgets.synthesis_total_input_ceiling:
+                raise StudyMapError(
+                    "budget_exceeded",
+                    "The requested evidence spans would exceed the synthesis total-input ceiling.",
+                )
+            input_tokens_estimate += second_round_tokens
             result = run_method(context)
             calls += 1
+            if _result_tokens(result) > budgets.synthesis_shard_output_tokens:
+                raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
         merged = _merge_synthesis(merged, result) if merged is not None else result
 
     if merged is None:
         merged = SourceSetSynthesis()
-    usage = {"calls": calls}
+    if _result_tokens(merged) > budgets.synthesis_output_tokens:
+        raise StudyMapError("budget_exceeded", "Merged synthesis exceeded its total output budget.")
+    usage = {"calls": calls, "input_tokens_estimate": input_tokens_estimate}
     return merged, span_request_count, resolved_hashes, usage
+
+
+def _result_tokens(result: Any) -> int:
+    if hasattr(result, "model_dump"):
+        payload = result.model_dump(mode="json")
+    elif isinstance(result, dict):
+        payload = result
+    else:
+        payload = str(result)
+    return max(1, len(json.dumps(payload, default=str)) // 4)
 
 
 def _merge_synthesis(base: Any, extra: Any) -> Any:

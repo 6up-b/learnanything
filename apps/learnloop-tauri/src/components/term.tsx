@@ -3,6 +3,7 @@
 // the handoff layout language (Today, Graph, Library). The desktop shell/nav in
 // ui.tsx keeps its own CSS-class styling; these primitives style screen *bodies*.
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 export const COLOR = {
@@ -98,6 +99,234 @@ export function modePillColor(mode: string | null | undefined): PillColor {
     if (pattern.test(m)) return color;
   }
   return "purple";
+}
+
+// Terminal-styled dropdown that replaces native <select>. Closed state is a
+// bordered chip (amber border/text when open); the open list is an absolutely
+// positioned panel below the control. Keyboard: ↑/↓ move highlight, Enter picks,
+// Home/End jump, Esc closes WITHOUT bubbling (so screen-level esc handlers do not
+// also fire). Click-outside closes. If a parent with overflow:hidden clips the
+// list (e.g. a scrollable dialog body), the list is positioned with fixed
+// coordinates from getBoundingClientRect so it escapes the clip.
+export type TermSelectOption = { value: string; label: string };
+
+export function TermSelect({
+  value,
+  options,
+  onChange,
+  placeholder,
+  disabled = false,
+  width,
+  style = {}
+}: {
+  value: string;
+  options: Array<TermSelectOption> | Array<string>;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  width?: number | string;
+  style?: CSSProperties;
+}) {
+  const opts: TermSelectOption[] = useMemo(
+    () =>
+      (options as Array<TermSelectOption | string>).map((o) =>
+        typeof o === "string" ? { value: o, label: o } : o
+      ),
+    [options]
+  );
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const [fixedRect, setFixedRect] = useState<{ left: number; top: number; width: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const controlRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const selected = opts.find((o) => o.value === value);
+  const selectedIndex = opts.findIndex((o) => o.value === value);
+
+  // Close when clicking anywhere outside the control or the (possibly fixed) list.
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocMouseDown, true);
+    return () => document.removeEventListener("mousedown", onDocMouseDown, true);
+  }, [open]);
+
+  // Detect clipping: if any ancestor clips overflow, anchor the list with fixed
+  // coordinates so it renders on top of the clip.
+  useEffect(() => {
+    if (!open) {
+      setFixedRect(null);
+      return;
+    }
+    setHighlight(selectedIndex >= 0 ? selectedIndex : 0);
+    let clipped = false;
+    let node = controlRef.current?.parentElement ?? null;
+    while (node) {
+      const overflow = getComputedStyle(node).overflow + getComputedStyle(node).overflowY + getComputedStyle(node).overflowX;
+      if (/hidden|auto|scroll/.test(overflow)) {
+        clipped = true;
+        break;
+      }
+      node = node.parentElement;
+    }
+    if (clipped && controlRef.current) {
+      const r = controlRef.current.getBoundingClientRect();
+      setFixedRect({ left: r.left, top: r.bottom, width: r.width });
+    } else {
+      setFixedRect(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const commit = (idx: number) => {
+    const opt = opts[idx];
+    if (!opt) return;
+    onChange(opt.value);
+    setOpen(false);
+    controlRef.current?.focus();
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      } else if (highlight >= 0) {
+        commit(highlight);
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setHighlight((h) => Math.min(opts.length - 1, h + 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setHighlight((h) => Math.max(0, h - 1));
+      return;
+    }
+    if (e.key === "Home" && open) {
+      e.preventDefault();
+      setHighlight(0);
+      return;
+    }
+    if (e.key === "End" && open) {
+      e.preventDefault();
+      setHighlight(opts.length - 1);
+    }
+  };
+
+  const listStyle: CSSProperties = {
+    background: COLOR.bgElev,
+    border: `1px solid ${COLOR.borderStrong}`,
+    maxHeight: 240,
+    overflowY: "auto",
+    zIndex: 400,
+    boxShadow: "0 12px 40px rgba(0,0,0,0.55)",
+    ...(fixedRect
+      ? { position: "fixed", left: fixedRect.left, top: fixedRect.top, width: fixedRect.width }
+      : { position: "absolute", left: 0, top: "calc(100% + 2px)", minWidth: "100%" })
+  };
+
+  const list = open ? (
+    <div ref={listRef} className="ll-scroll" style={listStyle} role="listbox">
+      {opts.map((o, i) => {
+        const isSel = o.value === value;
+        const isHi = i === highlight;
+        return (
+          <div
+            key={o.value}
+            role="option"
+            aria-selected={isSel}
+            onMouseEnter={() => setHighlight(i)}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              commit(i);
+            }}
+            style={{
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              padding: "5px 12px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              color: isSel ? COLOR.amber : COLOR.text,
+              background: isSel ? "#241d12" : isHi ? COLOR.bgInput : "transparent",
+              borderLeft: isSel ? `2px solid ${COLOR.amber}` : "2px solid transparent"
+            }}
+          >
+            {o.label}
+          </div>
+        );
+      })}
+      {opts.length === 0 ? (
+        <div style={{ fontFamily: FONT_MONO, fontSize: 12, padding: "5px 12px", color: COLOR.textFaint }}>no options</div>
+      ) : null}
+    </div>
+  ) : null;
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", display: "inline-block", width, ...style }}>
+      <div
+        ref={controlRef}
+        tabIndex={disabled ? -1 : 0}
+        role="combobox"
+        aria-expanded={open}
+        onKeyDown={onKeyDown}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((v) => !v);
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          boxSizing: "border-box",
+          width: width != null ? "100%" : undefined,
+          fontFamily: FONT_MONO,
+          fontSize: 12,
+          padding: "4px 12px",
+          background: COLOR.bgInput,
+          border: `1px solid ${open ? COLOR.amber : COLOR.border}`,
+          color: open ? COLOR.amber : selected ? COLOR.text : COLOR.textFaint,
+          cursor: disabled ? "default" : "pointer",
+          opacity: disabled ? 0.6 : 1,
+          pointerEvents: disabled ? "none" : "auto",
+          outline: "none",
+          userSelect: "none"
+        }}
+      >
+        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {selected ? selected.label : placeholder ?? ""}
+        </span>
+        <span style={{ color: open ? COLOR.amber : COLOR.textFaint, fontSize: 11 }}>{open ? "▴" : "▾"}</span>
+      </div>
+      {list}
+    </div>
+  );
 }
 
 export function SectionHeader({ children, style = {} }: { children: ReactNode; style?: CSSProperties }) {

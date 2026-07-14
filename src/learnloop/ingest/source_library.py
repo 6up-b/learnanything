@@ -38,12 +38,19 @@ def register_source_revision(
     original_uri: str | None = None,
     retrieved_at: str | None = None,
     work_id: str | None = None,
+    display_title: str | None = None,
     clock: Clock | None = None,
 ) -> RegisteredRevision:
     """Register (or reuse) the artifact/revision rows for one acquisition.
 
     Idempotent: identical artifact identity + identical bytes reuse the same
     revision; changed bytes link a new revision to the same artifact.
+
+    ``display_title`` is a human-readable label captured at fetch time (e.g. a
+    YouTube video's "<title> — <author>"). It is stored on first registration of
+    an artifact and, being COALESCE-merged, never overwritten by a later re-import
+    that omits it. Sources without knowable metadata pass ``None`` and fall back
+    to the URL as before.
     """
 
     digest = asset_hash(raw_bytes)
@@ -61,6 +68,7 @@ def register_source_revision(
             acquisition_kind=acquisition_kind,
             canonical_uri=canonical_uri,
             work_id=work_id,
+            display_title=display_title,
             clock=clock,
         )
     else:

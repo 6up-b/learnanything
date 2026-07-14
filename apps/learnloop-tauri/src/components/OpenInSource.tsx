@@ -1,7 +1,7 @@
 // Open-in-source viewer (§9.2): read-only. Resolves a block_span_v1 locator to
 // its geometry + text and records a source_exposure event on every view. No page
-// raster is persisted, so PDF spans render an honest text fallback labelled with
-// the page + region; HTML/text spans scroll-to-anchor with a highlight.
+// raster is persisted. Local originals are rendered on demand; unavailable PDFs
+// use an honest text fallback. HTML/text spans scroll to the block anchor.
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
@@ -73,7 +73,7 @@ export function OpenInSource({
           <span style={{ fontSize: 13, color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {heading}
           </span>
-          {view ? <Pill color={view.viewerMode === "pdf_text" ? "amber" : "cyan"}>{view.viewerMode}</Pill> : null}
+          {view ? <Pill color={view.viewerMode.startsWith("pdf_") ? "amber" : "cyan"}>{view.viewerMode}</Pill> : null}
           <span style={{ marginLeft: "auto", cursor: "pointer", color: COLOR.textFaint, fontSize: 12 }} onClick={onClose}>
             esc ✕
           </span>
@@ -89,11 +89,21 @@ export function OpenInSource({
                 {view.locator} · {view.locatorScheme}
               </div>
 
-              {view.viewerMode === "pdf_text" ? (
+              {view.viewerMode === "pdf_text" || view.viewerMode === "pdf_page" ? (
                 <div>
                   <Faint style={{ fontSize: 11 }}>
-                    text view — page {view.page ?? "?"}, region highlighted
+                    {view.pageRender ? "source page" : "text fallback"} — page {view.page ?? "?"}, cited region highlighted
                   </Faint>
+                  {view.pageRender ? (
+                    <div style={{ position: "relative", marginTop: 8 }}>
+                      <img
+                        src={view.pageRender}
+                        alt={`Source page ${view.page ?? ""}`}
+                        style={{ width: "100%", display: "block", border: `1px solid ${COLOR.border}` }}
+                      />
+                      <PdfRegion bbox={view.bbox} pageSize={view.pageRenderSize} />
+                    </div>
+                  ) : null}
                   <div style={pageBoxStyle}>
                     <div style={highlightBlockStyle}>{view.text}</div>
                   </div>
@@ -154,6 +164,31 @@ export function OpenInSource({
   );
 }
 
+function PdfRegion({ bbox, pageSize }: { bbox: number[] | null; pageSize: number[] | null }) {
+  if (!bbox || bbox.length < 4 || !pageSize || pageSize.length < 2 || pageSize[0] <= 0 || pageSize[1] <= 0) return null;
+  const [x0, y0, x1, y1] = bbox;
+  const left = Math.max(0, Math.min(100, (x0 / pageSize[0]) * 100));
+  const top = Math.max(0, Math.min(100, (y0 / pageSize[1]) * 100));
+  const width = Math.max(0.5, Math.min(100 - left, ((x1 - x0) / pageSize[0]) * 100));
+  const height = Math.max(0.5, Math.min(100 - top, ((y1 - y0) / pageSize[1]) * 100));
+  return (
+    <div
+      aria-label="cited source region"
+      style={{
+        position: "absolute",
+        left: `${left}%`,
+        top: `${top}%`,
+        width: `${width}%`,
+        height: `${height}%`,
+        border: `2px solid ${COLOR.amber}`,
+        background: "rgba(245, 166, 35, 0.12)",
+        boxShadow: `0 0 0 1px ${COLOR.bg}`,
+        pointerEvents: "none"
+      }}
+    />
+  );
+}
+
 // ── YouTube embedded player (§9.2) ──────────────────────────────────────────
 // media-extended-style: seek the privacy-enhanced (youtube-nocookie.com) IFrame to
 // the cited range's start. Loading it is an explicit-action fetch of the already-
@@ -181,7 +216,7 @@ function youtubeVideoId(uri: string): string | null {
 /** Parse a time_range_v1 locator (`t=<start>-<end>`, seconds) → [start, end]. The
  *  span-view locator wraps it, e.g. `span:t=12-30` or `t=12.5-30`. */
 function timeRange(view: SpanViewDto): { start: number; end: number | null } {
-  const raw = (view.locator || "").replace(/^span:/, "");
+  const raw = (view.locator || "").replace(/^span:(?:[^/]+\/)?/, "");
   const match = /^t=([0-9]+(?:\.[0-9]+)?)-([0-9]+(?:\.[0-9]+)?)$/.exec(raw);
   if (match) return { start: Math.floor(Number(match[1])), end: Math.floor(Number(match[2])) };
   return { start: 0, end: null };

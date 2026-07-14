@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { api } from "../api/client";
 import type { FacetContractCardDto, IdentifiabilityWarningDto, SubjectRegistryDto } from "../api/dto";
 import { ProvenancePanel } from "../components/ProvenancePanel";
-import { COLOR, Faint, FONT_MONO, Pill, SectionHeader } from "../components/term";
+import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "../components/term";
 
 export function RegistryReviewScreen({
   subjectId,
@@ -75,14 +75,13 @@ export function RegistryReviewScreen({
     <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
         <SectionHeader style={{ marginTop: 0 }}>Registry review</SectionHeader>
-        <select style={selectStyle} value={subjectId ?? ""} onChange={(e) => onSelectSubject(e.target.value)}>
-          <option value="">— pick a subject —</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
+        <TermSelect
+          value={subjectId ?? ""}
+          options={subjects.map((s) => ({ value: s.id, label: s.title }))}
+          onChange={onSelectSubject}
+          placeholder="— pick a subject —"
+          width={240}
+        />
         {registry ? <Faint>{registry.facetCount} facets · {registry.lockedCount} locked</Faint> : null}
       </div>
 
@@ -177,13 +176,7 @@ function FacetCard({ card, facetOptions, onMerge, onOpenSource }: { card: FacetC
         {mergeOpen && card.canMerge ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <Faint style={{ fontSize: 11 }}>into</Faint>
-            <select style={selectStyle} value={survivor} onChange={(e) => setSurvivor(e.target.value)}>
-              {others.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </select>
+            <TermSelect value={survivor} options={others} onChange={setSurvivor} width={200} />
             <button
               style={{ ...smallBtn, opacity: survivor ? 1 : 0.4 }}
               disabled={!survivor}
@@ -225,16 +218,6 @@ function ListBlock({ label, items }: { label: string; items: string[] }) {
     </div>
   );
 }
-
-const selectStyle: CSSProperties = {
-  background: COLOR.bgInput,
-  color: COLOR.text,
-  border: `1px solid ${COLOR.border}`,
-  padding: "5px 8px",
-  fontSize: 12,
-  fontFamily: FONT_MONO,
-  outline: "none"
-};
 
 const smallBtn: CSSProperties = {
   padding: "4px 10px",

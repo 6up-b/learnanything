@@ -7,7 +7,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type { CommandError, QuickAddPlanDto, StudyMapBriefDto } from "../api/dto";
 import { StudyMapBriefWizard } from "./StudyMapBriefWizard";
-import { COLOR, Faint, FONT_MONO, Pill } from "./term";
+import { COLOR, Faint, FONT_MONO, Pill, TermSelect } from "./term";
 
 const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"];
 
@@ -136,16 +136,26 @@ export function QuickAddDialog({
               </div>
 
               <Label style={{ marginTop: 18 }}>subject</Label>
-              <select style={selectStyle} value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
-                  </option>
-                ))}
-              </select>
+              <TermSelect
+                value={subjectId}
+                options={subjects.map((s) => ({ value: s.id, label: s.title }))}
+                onChange={setSubjectId}
+                placeholder="pick a subject"
+                width={280}
+              />
 
               <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ cursor: "pointer", color: COLOR.amberLink, fontSize: 12 }} onClick={() => setBriefOpen(true)}>
+                <span
+                  onClick={() => setBriefOpen(true)}
+                  title="the brief is where your intent lives — your level, target depth, exam-prep vs general learning, notation preferences. The same source becomes an intro course or an advanced treatment depending on it; the synthesis model reads it when proposing the study map."
+                  style={{
+                    cursor: "help",
+                    color: COLOR.amberLink,
+                    fontSize: 12,
+                    textDecoration: "underline dotted",
+                    textUnderlineOffset: 3
+                  }}
+                >
                   {brief ? "edit brief" : "customize brief"}
                 </span>
                 {brief ? <Faint style={{ fontSize: 12 }}>brief: {brief.outcome ?? "general_learning"} · {brief.depth ?? "standard"}</Faint> : <Faint style={{ fontSize: 12 }}>default brief will be used</Faint>}
@@ -185,13 +195,7 @@ export function QuickAddDialog({
 
               <Label style={{ marginTop: 18 }}>role</Label>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <select style={selectStyle} value={roleOverride} onChange={(e) => setRoleOverride(e.target.value)}>
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                <TermSelect value={roleOverride} options={ROLES} onChange={setRoleOverride} width={280} />
                 {plan.roleAmbiguous ? <Pill color="amber">role ambiguous — flagged</Pill> : null}
               </div>
 
@@ -310,16 +314,6 @@ const footerStyle: CSSProperties = {
   alignItems: "center",
   gap: 12,
   flexShrink: 0
-};
-
-const selectStyle: CSSProperties = {
-  background: COLOR.bgInput,
-  color: COLOR.text,
-  border: `1px solid ${COLOR.border}`,
-  padding: "7px 10px",
-  fontSize: 13,
-  fontFamily: FONT_MONO,
-  outline: "none"
 };
 
 const primaryBtn: CSSProperties = {

@@ -313,6 +313,63 @@ def test_sidecar_submit_attempt_persists_feedback_bundle(tmp_path):
     assert isinstance(tau, (int, float)) and tau > 0
 
 
+def test_sidecar_submission_retry_returns_one_attempt_and_one_response(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    session_id = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}},
+        ]
+    )[1]["result"]["sessionId"]
+    payload = {
+        "sessionId": session_id,
+        "practiceItemId": "pi_svd_define_001",
+        "answerMd": "SVD is U Sigma V transpose.",
+        "attemptType": "independent_attempt",
+        "submissionId": "submission-retry-001",
+        "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
+    }
+    responses = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "submit_attempt", "params": payload},
+            {"jsonrpc": "2.0", "id": 3, "method": "submit_attempt", "params": payload},
+        ]
+    )
+    assert responses[1]["result"] == responses[2]["result"]
+    history = Repository(paths.sqlite_path).list_attempt_history()
+    assert [row["id"] for row in history] == [responses[1]["result"]["attemptId"]]
+
+
+def test_inspector_opens_probe_episode_drilldown(tmp_path):
+    from learnloop.clock import FrozenClock
+    from learnloop.services.probe_episodes import enter_episode
+    from tests.helpers import NOW, admit_probe_instrument_card
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    admit_probe_instrument_card(repository, items=("pi_svd_define_001",))
+    episode = enter_episode(
+        load_vault(vault_root),
+        repository,
+        "lo_svd_definition",
+        clock=FrozenClock(NOW),
+    )
+
+    inspected = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "inspect_entity", "params": {"id": episode.id}},
+        ]
+    )[1]["result"]
+    assert inspected["kind"] == "probe_episode"
+    assert inspected["detail"]["learningObjectId"] == "lo_svd_definition"
+    assert inspected["detail"]["requiredFacets"] == ["recall"]
+    assert inspected["detail"]["observations"] == []
+
+
 def test_sidecar_load_vault_config_carries_display_thresholds(tmp_path):
     # The frontend reads mastery display banding and the τ fallback from the
     # config payload instead of hardcoding algorithm opinions.
@@ -1831,6 +1888,49 @@ def test_sidecar_get_knowledge_map_deterministic_and_geometric(tmp_path):
     # Sanity geometry: items testing the same LO must land closer together than
     # items with disjoint facet vocabularies in different concepts.
     assert dist(*same_lo_pair) < dist(*disjoint_pair)
+
+
+def test_knowledge_field_is_recipe_topological_and_uses_pooled_ready(tmp_path):
+    from learnloop.clock import FrozenClock
+    from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.services.state_sync import sync_vault_state
+    from tests.helpers import NOW
+    from tests.test_km3_projections import COMP_A, COMP_B, INTEG, build_blueprint_vault
+
+    paths = build_blueprint_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft("pi_comp_a", "answer"),
+        SelfGradeInput(criterion_points={"c1": 4}, confidence=5),
+        clock=FrozenClock(NOW),
+    )
+
+    field = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(paths.root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "get_knowledge_map"},
+        ]
+    )[1]["result"]["facetField"]
+    by_id = {point["id"]: point for point in field["points"]}
+    assert set(by_id) == {COMP_A, COMP_B, INTEG}
+    assert {
+        tuple(sorted((edge["source"], edge["target"]))) for edge in field["edges"]
+    } == {
+        tuple(sorted(pair))
+        for pair in ((COMP_A, COMP_B), (COMP_A, INTEG), (COMP_B, INTEG))
+    }
+    demonstrated = by_id[COMP_A]
+    assert demonstrated["readyGhost"] > 0.5  # pooled capability slices, not a missing `shared` row
+    assert 0.0 <= demonstrated["ready"] <= demonstrated["readyGhost"]
+    assert demonstrated["demonstratedMass"] == 1.0
+    assert demonstrated["demonstratedCapabilities"] == ["procedure_execution"]
+    assert field["layoutVersion"].startswith("sha256:")
+    assert field["layoutValid"] is True
+    assert field["nextGap"] is not None
 
 
 def test_sidecar_get_knowledge_map_history_empty_and_after_attempt(tmp_path):

@@ -307,7 +307,34 @@ def fetch_pdf(source: str) -> FetchedSource:
     )
 
 
-def _youtube_oembed_title(video_id: str) -> str | None:
+def compose_youtube_title(
+    video_title: str | None, author: str | None, video_id: str
+) -> str:
+    """Assemble the display label for a YouTube source.
+
+    "<title> — <author>" when both are known; the title alone when the author is
+    missing; and the ``youtube · <id>``-shaped last-resort fallback (as a bare
+    ``YouTube video <id>``) only when no metadata is available at all.
+    """
+
+    title = (video_title or "").strip()
+    who = (author or "").strip()
+    if title and who:
+        return f"{title} — {who}"
+    if title:
+        return title
+    return f"YouTube video {video_id}"
+
+
+def youtube_oembed_metadata(video_id: str) -> tuple[str | None, str | None]:
+    """Best-effort (title, author) from YouTube's public oEmbed endpoint.
+
+    No API key: ``https://www.youtube.com/oembed`` returns the video title and
+    the uploading channel as ``author_name``. Any failure (offline, private
+    video, malformed JSON) returns ``(None, None)`` so callers degrade to a URL
+    title rather than failing the import.
+    """
+
     url = (
         "https://www.youtube.com/oembed?format=json&url="
         f"https://www.youtube.com/watch?v={video_id}"
@@ -315,9 +342,12 @@ def _youtube_oembed_title(video_id: str) -> str | None:
     try:
         import json
 
-        return json.loads(_http_get_text(url, timeout=10)).get("title")
-    except Exception:  # pragma: no cover - title is best-effort
-        return None
+        data = json.loads(_http_get_text(url, timeout=10))
+        title = (data.get("title") or "").strip() or None
+        author = (data.get("author_name") or "").strip() or None
+        return title, author
+    except Exception:  # pragma: no cover - metadata is best-effort
+        return None, None
 
 
 def fetch_youtube(source: str) -> FetchedSource:
@@ -336,15 +366,16 @@ def fetch_youtube(source: str) -> FetchedSource:
     body = transcript_to_markdown(list(segments))
     if not body:
         raise SourceFetchError(f"YouTube video {video_id} returned an empty transcript")
-    title = _youtube_oembed_title(video_id) or f"YouTube video {video_id}"
+    video_title, author = youtube_oembed_metadata(video_id)
+    title = compose_youtube_title(video_title, author, video_id)
     return FetchedSource(
         kind="youtube",
         title=title,
         text_md=body,
         canonical_url=f"https://www.youtube.com/watch?v={video_id}",
         locator=video_id,
-        authors=(),
-        extra={"video_id": video_id},
+        authors=(author,) if author else (),
+        extra={"video_id": video_id, "video_title": video_title},
     )
 
 

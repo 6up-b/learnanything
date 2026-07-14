@@ -613,7 +613,7 @@ function QueueRow({
         borderLeft: `3px solid ${borderLeft}`,
         cursor: "pointer",
         display: "grid",
-        gridTemplateColumns: "34px 1fr 200px 130px",
+        gridTemplateColumns: "34px 1fr 180px 200px 130px",
         gap: 18,
         alignItems: "center",
         transition: "background 100ms ease"
@@ -660,6 +660,11 @@ function QueueRow({
           <Faint>·</Faint>
           <Pill color={modePillColor(item.practiceMode)}>{item.practiceMode}</Pill>
         </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.35 }}>
+        <Faint>chosen because</Faint>
+        <div style={{ color: COLOR.text, marginTop: 3 }}>{item.dominantReason}</div>
       </div>
 
       <span style={{ display: "inline-flex", gap: 10, alignItems: "center", fontSize: 12 }}>

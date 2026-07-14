@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import Any, Mapping
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -26,14 +27,14 @@ from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
 from learnloop.services.capability_mapping import (
     CriterionOutcome,
     allocate_success_mass,
-    cap_certification_by_group,
     certification_credit,
     compile_criterion_targets,
     criterion_pseudo_mass,
     localize_criterion_outcomes,
 )
 from learnloop.services.evidence import attempt_evidence_mass
-from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.services.receipt_contributions import cap_observation_contributions
+from learnloop.vault.models import CriterionTarget, LoadedVault, PracticeItem
 
 # Outcome fraction below which a criterion counts as failed (matches the legacy
 # recall-coverage failure threshold so mvp-0.7 semantics stay comparable).
@@ -93,6 +94,103 @@ class _CapAcc:
     groups: set[str] = field(default_factory=set)
 
 
+@dataclass(frozen=True)
+class _HistoricalCriterion:
+    id: str
+    points: float
+    depends_on: tuple[str, ...]
+    correlation_group: str | None
+    targets: tuple[CriterionTarget, ...]
+
+
+def _historical_contract(
+    repository: Repository, evidence: list[dict[str, Any]]
+) -> Mapping[str, Any] | None:
+    """Resolve the immutable assessment contract attached to this grading.
+
+    A grading revision is expected to use one contract version across all of its
+    criterion observations. Mixed/missing lineage is treated as legacy data and
+    falls back to the live item below; new writes require lineage in attempts.py.
+    """
+
+    version_ids = {
+        str(row["assessment_contract_version_id"])
+        for row in evidence
+        if row.get("assessment_contract_version_id")
+    }
+    if len(version_ids) != 1:
+        return None
+    stored = repository.fetch_assessment_contract_version(next(iter(version_ids)))
+    return stored.get("contract") if stored is not None else None
+
+
+def _contract_criteria(contract: Mapping[str, Any]) -> list[_HistoricalCriterion]:
+    criteria: list[_HistoricalCriterion] = []
+    for raw in contract.get("criteria") or []:
+        targets = tuple(
+            CriterionTarget(
+                facet=str(target["facet"]),
+                capability=str(target["capability"]),
+                role=str(target.get("role") or "primary"),
+            )
+            for target in raw.get("targets") or []
+        )
+        criteria.append(
+            _HistoricalCriterion(
+                id=str(raw["id"]),
+                points=float(raw.get("max_points") or 0.0),
+                depends_on=tuple(str(value) for value in raw.get("depends_on") or []),
+                correlation_group=(
+                    str(raw["correlation_group"])
+                    if raw.get("correlation_group") is not None
+                    else None
+                ),
+                targets=targets,
+            )
+        )
+    return criteria
+
+
+def _contract_surface_group(contract: Mapping[str, Any], practice_item_id: str) -> str:
+    fingerprint = contract.get("evidence_fingerprint") or {}
+    for key in ("shared_stimulus_id", "source_family", "solution_recipe_family"):
+        if fingerprint.get(key):
+            return str(fingerprint[key])
+    if contract.get("surface_family"):
+        return str(contract["surface_family"])
+    return f"item:{practice_item_id}"
+
+
+def _attribution_weights(
+    raw: object, targets: list[CriterionTarget]
+) -> dict[tuple[str, str], float]:
+    """Normalize persisted failure attribution over the criterion targets."""
+
+    if isinstance(raw, Mapping):
+        entries = raw.get("targets") or raw.get("distribution") or []
+    else:
+        entries = raw if isinstance(raw, list) else []
+    allowed = {(target.facet, target.capability) for target in targets}
+    weights: dict[tuple[str, str], float] = defaultdict(float)
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        facet = str(entry.get("facet") or "")
+        capability = str(entry.get("capability") or "")
+        key = (facet, capability)
+        if key not in allowed:
+            continue
+        try:
+            weight = max(0.0, float(entry.get("weight", entry.get("probability", 0.0))))
+        except (TypeError, ValueError):
+            continue
+        weights[key] += weight
+    total = sum(weights.values())
+    if total <= 0:
+        return {}
+    return {key: weight / total for key, weight in weights.items()}
+
+
 def _repeat_discount(vault: LoadedVault) -> float:
     extra = getattr(vault.config.evidence.correlation, "__pydantic_extra__", None) or {}
     value = extra.get("repeat_surface_discount")
@@ -131,17 +229,40 @@ def project_canonical_facet_state(
 
     for attempt in repository.canonical_observation_ledger():
         item = vault.practice_items.get(attempt["practice_item_id"])
-        if item is None:
-            continue
-        rubric = vault.rubric_for_item(item)
-        if rubric is None or not rubric.criteria:
+        contract = _historical_contract(repository, attempt["evidence"])
+        if contract is not None:
+            criteria = _contract_criteria(contract)
+            rubric_total = float(contract.get("rubric_total") or 0.0)
+            group_key = _contract_surface_group(contract, attempt["practice_item_id"])
+        else:
+            # Frozen legacy/compatibility observations predate assessment-contract
+            # lineage. New mvp-0.7 observations never take this branch.
+            if item is None:
+                continue
+            rubric = vault.rubric_for_item(item)
+            if rubric is None or not rubric.criteria:
+                continue
+            criteria = [
+                _HistoricalCriterion(
+                    id=criterion.id,
+                    points=criterion.points,
+                    depends_on=tuple(criterion.depends_on),
+                    correlation_group=criterion.correlation_group,
+                    targets=tuple(
+                        compile_criterion_targets(item, criterion, resolved_rubric=rubric)
+                    ),
+                )
+                for criterion in rubric.criteria
+            ]
+            rubric_total = sum(max(criterion.points, 0.0) for criterion in criteria)
+            group_key = surface_group_id(item)
+        if not criteria:
             continue
         evidence_by_criterion = {
             row["criterion_id"]: row for row in attempt["evidence"]
         }
-        rubric_total = sum(max(c.points, 0.0) for c in rubric.criteria) or 1.0
+        rubric_total = rubric_total or 1.0
         emass = attempt_evidence_mass(attempt["attempt_type"], vault.config.evidence)
-        group_key = surface_group_id(item)
         assisted = (
             attempt["attempt_type"] in ASSISTED_ATTEMPT_TYPES
             or int(attempt["hints_used"]) > 0
@@ -150,7 +271,7 @@ def project_canonical_facet_state(
         created_at = attempt["created_at"]
 
         outcomes: list[CriterionOutcome] = []
-        for criterion in rubric.criteria:
+        for criterion in criteria:
             row = evidence_by_criterion.get(criterion.id)
             fraction = 0.0
             if row is not None and criterion.points > 0:
@@ -163,7 +284,7 @@ def project_canonical_facet_state(
                 )
             )
         localized = {c.criterion_id: c for c in localize_criterion_outcomes(outcomes)}
-        criteria_by_id = {c.id: c for c in rubric.criteria}
+        criteria_by_id = {c.id: c for c in criteria}
 
         # certification credit staged per (facet, capability, correlation group)
         # so the per-group cap and attempt ceiling can be applied jointly.
@@ -180,57 +301,98 @@ def project_canonical_facet_state(
             fraction = 0.0
             if row is not None and criterion.points > 0:
                 fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
-            targets = compile_criterion_targets(item, criterion, resolved_rubric=rubric)
+            targets = list(criterion.targets)
             if not targets:
                 continue
             pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
             corr_group = criterion.correlation_group or group_key
 
-            # Ambiguous localized failure over several candidate targets with no
-            # resolving attribution -> unresolved joint cause set, never marginal
-            # damage to every listed facet (§5.3).
-            attribution = row.get("attribution_json") if row is not None else None
-            if local.first_error and len(targets) > 1 and not attribution:
+            attribution = _attribution_weights(
+                row.get("attribution_json") if row is not None else None, targets
+            )
+            negative_fraction = 1.0 - fraction
+            unresolved_negative = negative_fraction > 0 and len(targets) > 1 and not attribution
+            if unresolved_negative:
                 unresolved.append(
                     {
                         "attempt_id": attempt["attempt_id"],
-                        "observation_id": f"{attempt['attempt_id']}:{criterion.id}:0",
+                        "observation_id": (
+                            row.get("observation_id")
+                            if row is not None and row.get("observation_id")
+                            else f"{attempt['attempt_id']}:{criterion.id}:0"
+                        ),
                         "candidate_causes": [
                             {"facet": resolve(t.facet), "capability": t.capability}
                             for t in targets
                         ],
                     }
                 )
-                continue
-
+            # Success mass follows authored role weights. Failure mass is handled
+            # separately below from the persisted attribution distribution.
             allocations = allocate_success_mass(targets, pmass)
+            criterion_discounts: dict[tuple[str, str], tuple[float, bool]] = {}
             for alloc in allocations:
                 facet = resolve(alloc.facet)
                 capability = alloc.capability
                 key = (facet, capability)
                 is_new_group = group_key not in cap[key].groups
                 discount = 1.0 if is_new_group else repeat_discount
+                criterion_discounts[key] = (discount, is_new_group)
                 w = alloc.pseudo_mass * discount
                 positive = w * fraction
-                negative = w * (1.0 - fraction)
-                # relationship: a declared criterion target is direct evidence.
-                cap[key].direct_positive_mass += positive
-                cap[key].direct_negative_mass += negative
+                if positive <= 0:
+                    continue
+                relationship = "embedded" if alloc.role == "supporting" else "direct"
+                if relationship == "embedded":
+                    cap[key].embedded_positive_mass += positive
+                else:
+                    cap[key].direct_positive_mass += positive
                 if is_new_group:
                     cap[key].groups.add(group_key)
                 credit = certification_credit(
-                    positive, relationship="direct", assistance=assistance
+                    positive, relationship=relationship, assistance=assistance
                 )
                 staged_credit[corr_group][key] += credit
 
-                for scope in (None, item.id):
+                for scope in (None, attempt["practice_item_id"]):
                     acc = recall[(facet, capability, scope)]
                     if acc.created_at is None:
                         acc.created_at = created_at
                     acc.alpha += positive
-                    acc.beta += negative
                     acc.independent_mass += w if is_new_group else 0.0
                     acc.raw_mass += alloc.pseudo_mass
+                    acc.last_observed_at = created_at
+
+            if negative_fraction <= 0 or unresolved_negative:
+                continue
+            if not attribution and len(targets) == 1:
+                attribution = {(targets[0].facet, targets[0].capability): 1.0}
+            for target in targets:
+                share = attribution.get((target.facet, target.capability), 0.0)
+                if share <= 0:
+                    continue
+                facet = resolve(target.facet)
+                key = (facet, target.capability)
+                discount, is_new_group = criterion_discounts.get(
+                    key,
+                    (
+                        1.0 if group_key not in cap[key].groups else repeat_discount,
+                        group_key not in cap[key].groups,
+                    ),
+                )
+                negative = pmass * negative_fraction * share * discount
+                relationship = "embedded" if target.role == "supporting" else "direct"
+                if relationship == "embedded":
+                    cap[key].embedded_negative_mass += negative
+                else:
+                    cap[key].direct_negative_mass += negative
+                if is_new_group:
+                    cap[key].groups.add(group_key)
+                for scope in (None, attempt["practice_item_id"]):
+                    acc = recall[(facet, target.capability, scope)]
+                    if acc.created_at is None:
+                        acc.created_at = created_at
+                    acc.beta += negative
                     acc.last_observed_at = created_at
                     if fraction < FAILURE_THRESHOLD:
                         acc.last_error_at = created_at
@@ -238,24 +400,16 @@ def project_canonical_facet_state(
                     else:
                         acc.consecutive_failures = 0
 
-        # Apply per-group budget + attempt-wide ceiling, then bank the credit.
-        group_totals = {
-            group: sum(cells.values()) for group, cells in staged_credit.items()
-        }
-        capped = cap_certification_by_group(
-            group_totals,
+        # Apply the shared receipt/projection caps, then bank the credit.
+        capped_cells = cap_observation_contributions(
+            staged_credit,
             attempt_type=attempt["attempt_type"],
             evidence_mass=emass,
-            overrides=overrides,
+            group_budget_overrides=overrides,
             max_groups_per_attempt=max_groups,
         )
-        for group, cells in staged_credit.items():
-            raw_total = group_totals[group]
-            if raw_total <= 0:
-                continue
-            scale = capped[group] / raw_total
-            for key, credit in cells.items():
-                cap[key].certification_credit += credit * scale
+        for key, credit in capped_cells.items():
+            cap[key].certification_credit += credit
 
     recall_rows = []
     for (facet, capability, scope), acc in recall.items():
