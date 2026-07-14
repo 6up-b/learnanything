@@ -25,6 +25,8 @@ from learnloop.vault.models import LoadedVault
 
 _EPS = 1e-6
 _BIN_COUNT = 10
+MINIMUM_CURVE_N = 30
+_ANSWER_CONFIDENCE_PROBABILITY = {1: 0.10, 2: 0.30, 3: 0.50, 4: 0.70, 5: 0.90}
 
 
 def _reliability_table(pairs: list[tuple[float, float]], *, bins: int = _BIN_COUNT) -> dict[str, Any]:
@@ -113,11 +115,33 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
         for facet_id, pairs in sorted(facet_by_id.items())
     }
 
+    items = _reliability_table(item_pairs)
+    items["minimum_n"] = MINIMUM_CURVE_N
+    items["curve_available"] = items["n"] >= MINIMUM_CURVE_N
+
+    duel_rows = repository.calibration_duel_pairs()
+    learner_brier = None
+    model_brier = None
+    if duel_rows:
+        learner_brier = sum(
+            (_ANSWER_CONFIDENCE_PROBABILITY[int(row["answer_confidence"])] - float(row["correctness"])) ** 2
+            for row in duel_rows
+        ) / len(duel_rows)
+        model_brier = sum(
+            (float(row["model_predicted_correctness"]) - float(row["correctness"])) ** 2
+            for row in duel_rows
+        ) / len(duel_rows)
+
     return {
         "version": 1,
-        "items": _reliability_table(item_pairs),
+        "items": items,
         "facets": {
             **_reliability_table(facet_pairs),
             "by_facet": facet_breakdown,
+        },
+        "duel": {
+            "n": len(duel_rows),
+            "learner_brier": learner_brier,
+            "model_brier": model_brier,
         },
     }

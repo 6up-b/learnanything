@@ -314,11 +314,6 @@ def init_vault(root: Path, clock: Clock | None = None) -> Path:
         vault_root / "subjects",
         vault_root / "rubrics",
         vault_root / "errors",
-        vault_root / "prompts",
-        vault_root / "sessions",
-        vault_root / "exports",
-        vault_root / ".learnloop" / "backups",
-        vault_root / ".learnloop" / "session-checkpoints",
     ]:
         directory.mkdir(parents=True, exist_ok=True)
 

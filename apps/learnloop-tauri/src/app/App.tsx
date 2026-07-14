@@ -17,6 +17,8 @@ import { MaintenanceScreen } from "../screens/MaintenanceScreen";
 import { PracticeScreen } from "../screens/PracticeScreen";
 import { ProposalsScreen } from "../screens/ProposalsScreen";
 import { RegistryReviewScreen } from "../screens/RegistryReviewScreen";
+import { RepairScreen } from "../screens/RepairScreen";
+import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { OpenInSource } from "../components/OpenInSource";
@@ -88,6 +90,10 @@ export function App() {
     []
   );
   const [libraryNoteId, setLibraryNoteId] = useState<string | null>(null);
+  // F6 Repair (§4.10): a detail overlay launched with a misconception id. Not a
+  // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
+  // this" and Today cards as well (pass onRepair={openRepair}).
+  const [repairMisconceptionId, setRepairMisconceptionId] = useState<string | null>(null);
   const startupStartedRef = useRef(false);
   // Whether the practice screen is currently a teach-back conversation. Only
   // PracticeScreen knows the item's mode; it reports it up so the
@@ -281,6 +287,12 @@ export function App() {
     if (next !== "today") setTodayStage("queue");
   }
 
+  // Launch the F6 Repair flow (§4.10) for a misconception. Shared entry point
+  // for Review's working hypotheses and (once wired) Feedback / Today.
+  function openRepair(misconceptionId: string) {
+    setRepairMisconceptionId(misconceptionId);
+  }
+
   // Enter the practice-exam overlay from the goal banner.
   function openExam(goalId: string) {
     setExamGoalId(goalId);
@@ -359,6 +371,7 @@ export function App() {
         setBlockReview(null);
         setInspectorId(null);
         setCalibrationSessionId(null);
+        setRepairMisconceptionId(null);
         setIngestJobId(null);
         setProposalFocusPatchId(null);
         setTodayStage("queue");
@@ -442,6 +455,8 @@ export function App() {
         return (
           <FeedbackScreen
             attemptId={attemptId}
+            sessionId={session?.sessionId ?? null}
+            onOpenRepair={openRepair}
             onNext={() => setTodayStage("queue")}
             onBack={() => setTodayStage("queue")}
             onOpenNotes={() => gotoTab("library")}
@@ -532,6 +547,10 @@ export function App() {
         />
       );
     }
+    // F2 Review (§4.9) — keeps the stable tab id "errors".
+    if (tab === "errors") {
+      return <ReviewScreen onError={onError} onRepair={openRepair} />;
+    }
     return <EmptyPlaceholder title={tab} />;
   }
 
@@ -579,6 +598,17 @@ export function App() {
             setTab("ingest");
             setToast("Study map building — track it in Ingest");
           }}
+        />
+      ) : null}
+      {repairMisconceptionId ? (
+        <RepairScreen
+          misconceptionId={repairMisconceptionId}
+          onClose={() => setRepairMisconceptionId(null)}
+          onPractice={(practiceItemId) => {
+            setRepairMisconceptionId(null);
+            openPrimedRetry(practiceItemId);
+          }}
+          onError={onError}
         />
       ) : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />

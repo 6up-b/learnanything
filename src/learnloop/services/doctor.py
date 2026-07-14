@@ -218,11 +218,6 @@ def _check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None:
         paths.root / "subjects",
         paths.root / "rubrics",
         paths.root / "errors",
-        paths.root / "prompts",
-        paths.root / "sessions",
-        paths.root / "exports",
-        paths.root / ".learnloop" / "backups",
-        paths.root / ".learnloop" / "session-checkpoints",
     ]:
         if not directory.is_dir():
             issues.append(_issue("error", "layout:missing_directory", f"Required directory is missing: {directory.relative_to(paths.root)}", directory))

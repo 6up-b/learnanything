@@ -12,6 +12,7 @@ from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.services.facet_state_reader import facet_recall_state_for_lo
 from learnloop.services.followups import FollowupDecision, evaluate_intervention_followup
 from learnloop.services.state_sync import sync_vault_state
+from learnloop.services.vault_upgrade import KM_ALGORITHM_VERSION, LEGACY_ALGORITHM_VERSION
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_concept, upsert_learning_object, upsert_practice_item
@@ -204,6 +205,19 @@ def _run_scenario(root: Path, scenario: str) -> RecallCalibrationRow:
 def _fresh_calibration_vault(root: Path):
     clock = FrozenClock(CALIBRATION_NOW)
     init_vault(root, clock=clock)
+    # The severity examples this harness asserts against use the legacy
+    # (mvp-0.6) error vocabulary and bands; `learnloop init` now writes
+    # mvp-0.7, so pin the scaffold vault to the model being calibrated.
+    config_path = root / "learnloop.toml"
+    config_text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(
+        config_text.replace(
+            f'algorithm_version = "{KM_ALGORITHM_VERSION}"',
+            f'algorithm_version = "{LEGACY_ALGORITHM_VERSION}"',
+            1,
+        ),
+        encoding="utf-8",
+    )
     add_subject(root, "calibration", "Calibration", clock=clock)
     upsert_concept(
         root,

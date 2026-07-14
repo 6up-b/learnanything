@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable
@@ -117,6 +118,16 @@ class AttemptDraft:
     # Probe redesign §7.1: the learner's committed answer confidence (1-5).
     # Logged-only observation feature — never consumed by grading or scheduling.
     answer_confidence: int | None = None
+    # Immutable item/rubric contract captured when the item was presented. UI
+    # callers round-trip this opaque id; non-interactive callers snapshot at the
+    # attempt boundary as a compatibility fallback.
+    assessment_contract_version_id: str | None = None
+    # Client-generated retry identity. Persisted on the attempt under a unique
+    # index so one submission cannot create two formal attempts.
+    submission_id: str | None = None
+    # A diagnostic presentation keeps its measurement attempt type while this
+    # flag records the learner's explicit "I don't know" outcome.
+    declared_dont_know: bool = False
 
 
 @dataclass(frozen=True)
@@ -375,7 +386,8 @@ def _complete_attempt_with_agent_fallback(
     failure_prefix: str,
     clock: Clock | None = None,
 ) -> AttemptResult:
-    item, _learning_object, _rubric = _resolve_attempt_target(vault, draft)
+    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    contract = _assessment_contract(repository, draft)
     if not runtime.ready or ai_client is None:
         reason = runtime.status if not runtime.ready else missing_client_reason
         result = complete_self_graded_attempt(vault, repository, draft, fallback_grade, clock=clock)
@@ -387,6 +399,8 @@ def _complete_attempt_with_agent_fallback(
         item,
         attempt_id=attempt_id,
         learner_answer_md=draft.learner_answer_md,
+        rubric=rubric,
+        assessment_contract=contract,
     )
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -479,13 +493,16 @@ def _complete_attempt_with_agent_required(
         reason = runtime.status if not runtime.ready else missing_client_reason
         raise CodexUnavailable(reason)
 
-    item, _learning_object, _rubric = _resolve_attempt_target(vault, draft)
+    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    contract = _assessment_contract(repository, draft)
     attempt_id = new_ulid()
     context = build_grading_context(
         vault,
         item,
         attempt_id=attempt_id,
         learner_answer_md=draft.learner_answer_md,
+        rubric=rubric,
+        assessment_contract=contract,
     )
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -530,7 +547,7 @@ def complete_self_graded_attempt(
 ) -> AttemptResult:
     now_iso = utc_now_iso(clock)
     attempt_id = new_ulid()
-    item, _learning_object, rubric = _resolve_attempt_target(vault, draft)
+    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
     grader_confidence = confidence_to_grader_confidence(grade.confidence)
     manual_review_reason = "low_self_confidence" if grader_confidence < 0.4 else None
     manual_review_reason = _attempt_manual_review_reason(manual_review_reason, draft)
@@ -539,7 +556,7 @@ def complete_self_graded_attempt(
     _validate_fatal_errors(rubric, fatal_errors)
     attribution_error_type = grade.error_type
     per_criterion_attributions = _validated_self_grade_attributions(rubric, grade.error_attributions)
-    if draft.attempt_type == "dont_know":
+    if draft.attempt_type == "dont_know" or draft.declared_dont_know:
         criterion_points = {criterion.id: 0.0 for criterion in rubric.criteria}
         fatal_errors = []
         per_criterion_attributions = []
@@ -589,7 +606,7 @@ def complete_self_graded_attempt(
     # often enough becomes a candidate rubric fatal error, queued for review only.
     # Runs across every distinct attributed error (legacy single tag, fatal errors,
     # and the per-criterion picks); the promotion gate itself ignores non-misconceptions.
-    if draft.attempt_type != "dont_know":
+    if draft.attempt_type != "dont_know" and not draft.declared_dont_know:
         for promoted_error_type in dict.fromkeys(
             attribution.error_type for attribution in error_attributions
         ):
@@ -610,7 +627,7 @@ def complete_codex_graded_attempt(
     grading_source: str = "codex",
     clock: Clock | None = None,
 ) -> AttemptResult:
-    item, _learning_object, _rubric = _resolve_attempt_target(vault, draft)
+    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
     expected_attempt_id = attempt_id or proposal.attempt_id
     try:
         validated = validate_codex_grading_proposal(
@@ -619,6 +636,7 @@ def complete_codex_graded_attempt(
             item=item,
             vault=vault,
             learner_answer_md=draft.learner_answer_md,
+            rubric=rubric,
         )
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
@@ -674,6 +692,16 @@ def replay_existing_attempt(
         session_id=attempt.get("session_id"),
         probe_presentation_id=attempt.get("probe_presentation_id"),
         answer_confidence=attempt.get("answer_confidence"),
+        assessment_contract_version_id=next(
+            (
+                row.assessment_contract_version_id
+                for row in evidence
+                if row.assessment_contract_version_id is not None
+            ),
+            None,
+        ),
+        submission_id=attempt.get("submission_id"),
+        declared_dont_know=bool(attempt.get("declared_dont_know")),
     )
     error_type = attempt.get("error_type")
     return apply_attempt(
@@ -725,7 +753,29 @@ def _with_fallback(result: AttemptResult, reason: str, *, agent_run_id: str | No
     return replace(result, grading_source="self", fallback_reason=reason, agent_run_id=agent_run_id)
 
 
-def _resolve_attempt_target(vault: LoadedVault, draft: AttemptDraft, *, replay: bool = False):
+def _assessment_contract(
+    repository: Repository, draft: AttemptDraft
+) -> dict[str, Any] | None:
+    if draft.assessment_contract_version_id is None:
+        return None
+    stored = repository.fetch_assessment_contract_version(
+        draft.assessment_contract_version_id
+    )
+    if stored is None or stored.get("practice_item_id") != draft.practice_item_id:
+        raise AttemptValidationError(
+            "assessment contract is missing or does not belong to the presented item"
+        )
+    return stored.get("contract") or {}
+
+
+def _resolve_attempt_target(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    replay: bool = False,
+    clock: Clock | None = None,
+):
     unsupported = unsupported_attempt_types([draft.attempt_type])
     if unsupported:
         supported = ", ".join(SUPPORTED_ATTEMPT_TYPES)
@@ -769,7 +819,13 @@ def _resolve_attempt_target(vault: LoadedVault, draft: AttemptDraft, *, replay: 
     ):
         raise AttemptValidationError(f"{draft.attempt_type} is not allowed for {item.id}")
     try:
-        rubric = resolved_rubric(vault, item)
+        contract = _assessment_contract(repository, draft)
+        if contract is not None:
+            from learnloop.services.assessment_contracts import rubric_from_contract
+
+            rubric = rubric_from_contract(contract)
+        else:
+            rubric = resolved_rubric(vault, item)
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
     if draft.hints_used < 0:
@@ -778,6 +834,13 @@ def _resolve_attempt_target(vault: LoadedVault, draft: AttemptDraft, *, replay: 
         raise AttemptValidationError("latency_seconds must be non-negative")
     if draft.answer_confidence is not None and not 1 <= draft.answer_confidence <= 5:
         raise AttemptValidationError("answer_confidence must be between 1 and 5")
+    if not replay:
+        cold_task = repository.active_followup_task_for_item(
+            draft.practice_item_id, at=utc_now_iso(clock)
+        )
+        if cold_task is not None and cold_task.get("kind") == "cold_retry":
+            if draft.primed or draft.hints_used > 0 or draft.attempt_type == "hinted_attempt":
+                raise AttemptValidationError("a cold retry must be unassisted and unprimed")
     return item, learning_object, rubric
 
 
@@ -807,6 +870,9 @@ def apply_attempt(
         replace_existing=attempt.replace_existing,
         write_legacy_facet_state=not is_canonical_state_vault(vault),
     )
+    from learnloop.services.remediation import record_remediation_attempt
+
+    record_remediation_attempt(repository, application.attempt_record, clock=clock)
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
     _project_canonical_belief(vault, repository, clock=clock)
     if attempt.record_probe_update:
@@ -817,7 +883,9 @@ def apply_attempt(
         from learnloop.services.probe_episodes import record_episode_evidence
 
         grading_source = (
-            "deterministic" if attempt.draft.attempt_type == "dont_know" else attempt.grading_source
+            "deterministic"
+            if attempt.draft.attempt_type == "dont_know" or attempt.draft.declared_dont_know
+            else attempt.grading_source
         )
         block_end = record_episode_evidence(
             vault,
@@ -938,11 +1006,24 @@ def _stamp_observation_lineage(
     item = vault.practice_items.get(attempt.draft.practice_item_id)
     if item is None:
         return
-    try:
+    version_id = attempt.draft.assessment_contract_version_id
+    if version_id is not None:
+        stored = repository.fetch_assessment_contract_version(version_id)
+        if (
+            stored is None
+            or stored.get("practice_item_id") != item.id
+        ):
+            raise AttemptValidationError(
+                "assessment contract is missing or does not belong to the presented item"
+            )
+    else:
         version_id = snapshot_for_presentation(repository, vault, item, clock=clock)
-    except Exception:
-        # A snapshot is additive lineage; never block an attempt on it.
-        return
+    stored = repository.fetch_assessment_contract_version(version_id)
+    contract = stored.get("contract") if stored is not None else {}
+    criteria = {
+        str(criterion.get("id")): criterion
+        for criterion in contract.get("criteria") or []
+    }
     attempt_id = application.result.attempt_id
     revision = 0
     for row in application.evidence_rows:
@@ -953,7 +1034,38 @@ def _stamp_observation_lineage(
         row.setdefault("grading_revision", revision)
         row.setdefault("observation_id", f"{attempt_id}:{criterion_id}:{revision}")
         if row.get("correlation_group") is None:
-            row["correlation_group"] = _criterion_correlation_group(item, str(criterion_id))
+            historical = criteria.get(str(criterion_id)) or {}
+            row["correlation_group"] = historical.get("correlation_group")
+            if row["correlation_group"] is None:
+                row["correlation_group"] = _criterion_correlation_group(item, str(criterion_id))
+        if row.get("attribution_json") is None:
+            criterion = criteria.get(str(criterion_id)) or {}
+            targets = criterion.get("targets") or []
+            target_keys = {
+                (str(target.get("facet") or ""), str(target.get("capability") or ""))
+                for target in targets
+            }
+            selected: set[tuple[str, str]] = set()
+            for attribution in attempt.grade.error_attributions:
+                if (
+                    attribution.target_criterion_ids
+                    and str(criterion_id) not in attribution.target_criterion_ids
+                ):
+                    continue
+                for facet in attribution.target_evidence_families:
+                    selected.update(key for key in target_keys if key[0] == facet)
+            if selected:
+                weight = 1.0 / len(selected)
+                row["attribution_json"] = json.dumps(
+                    {
+                        "targets": [
+                            {"facet": facet, "capability": capability, "weight": weight}
+                            for facet, capability in sorted(selected)
+                        ]
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
 
 
 def _criterion_correlation_group(item: PracticeItem, criterion_id: str) -> str | None:
@@ -1127,7 +1239,9 @@ def _compute_resolved_grade_application(
     prior_state: AttemptPriorState | None = None,
     replay: bool = False,
 ) -> AttemptApplication:
-    item, learning_object, rubric = _resolve_attempt_target(vault, draft, replay=replay)
+    item, learning_object, rubric = _resolve_attempt_target(
+        vault, repository, draft, replay=replay, clock=clock
+    )
     observed_at = (clock or SystemClock()).now().astimezone(UTC)
     now_iso = utc_now_iso(clock)
     correctness = grade.rubric_score / max(rubric.max_points, 1)
@@ -1374,6 +1488,8 @@ def _compute_resolved_grade_application(
         "primed": draft.primed,
         "probe_presentation_id": draft.probe_presentation_id,
         "answer_confidence": draft.answer_confidence,
+        "submission_id": draft.submission_id,
+        "declared_dont_know": draft.declared_dont_know,
     }
     error_event_ids = [
         error_event_ids_override[index]
@@ -1588,6 +1704,7 @@ def _self_grade_attributions(
                 severity=_error_severity(vault, selected_error_type),
                 is_misconception=_is_misconception(vault, selected_error_type),
                 evidence=evidence,
+                target_criterion_ids=list(criteria),
             )
         )
     return resolved

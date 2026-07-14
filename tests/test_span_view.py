@@ -57,11 +57,13 @@ def test_open_in_source_records_source_exposure_event(tmp_path):
         clock=_CLOCK,
     )
 
-    # PDF geometry: page + bbox highlighted; honest text fallback (no raster).
+    # PDF geometry: page + bbox highlighted; this fixture has no local original,
+    # so the viewer uses its honest text fallback.
     assert view["viewer_mode"] == "pdf_text"
     assert view["page"] == 1
     assert view["bbox"] == [10.0, 50.0, 200.0, 90.0]
     assert view["locator_scheme"] == "block_span_v1"
+    assert view["locator"] == "span:ext1/s1"
     assert view["page_render"] is None
     assert view["text"].startswith("A real square matrix")
     # Neighboring spans for prev/next; same-page spans for multi-highlight.
@@ -98,6 +100,29 @@ def test_span_view_text_anchor_mode_without_geometry(tmp_path):
     assert view["page"] is None
     assert view["bbox"] is None
     assert len(repo.source_exposure_events(extraction_id="ext1")) == 1
+
+
+def test_span_view_renders_available_local_pdf_page(tmp_path):
+    from pypdf import PdfWriter
+
+    repo = _setup(tmp_path)
+    pdf_path = tmp_path / "book.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=300, height=400)
+    writer.add_blank_page(width=300, height=400)
+    with pdf_path.open("wb") as output:
+        writer.write(output)
+    with repo.connection() as connection:
+        connection.execute(
+            "UPDATE source_revisions SET original_uri = ? WHERE id = 'rev1'",
+            (str(pdf_path),),
+        )
+        connection.commit()
+
+    view = build_span_view(repo, "ext1", "s1", record=False)
+    assert view["viewer_mode"] == "pdf_page"
+    assert view["page_render"].startswith("data:image/png;base64,")
+    assert view["page_render_size"] == [300.0, 400.0]
 
 
 def test_span_view_typed_errors(tmp_path):

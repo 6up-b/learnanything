@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 import re
 from typing import Any
 
@@ -30,6 +31,32 @@ def inspect_entity(ctx: SidecarContext, params: InspectInput) -> dict[str, Any]:
     note_detail = _note_detail(vault, params.id)
     if note_detail is not None:
         return versioned({"kind": "note", "id": params.id, "detail": note_detail})
+    episode = repository.probe_episode(params.id)
+    if episode is not None:
+        observations = repository.probe_observations_for_episode(episode.id)
+        return versioned(
+            {
+                "kind": "probe_episode",
+                "id": params.id,
+                "detail": {
+                    **asdict(episode),
+                    "observations": [
+                        {
+                            "attempt_id": row["observation"].attempt_id,
+                            "practice_item_id": row["practice_item_id"],
+                            "eligible_for_completion": row["observation"].eligible_for_completion,
+                            "updates_belief": row["observation"].updates_belief,
+                            "entropy_before": row["observation"].entropy_before,
+                            "entropy_after": row["observation"].entropy_after,
+                            "realized_information_gain": row["observation"].realized_information_gain,
+                            "contamination": row["observation"].contamination,
+                            "created_at": row["observation"].created_at,
+                        }
+                        for row in observations
+                    ],
+                },
+            }
+        )
     record = repository.find_record(params.id)
     if record is not None:
         kind, payload = record

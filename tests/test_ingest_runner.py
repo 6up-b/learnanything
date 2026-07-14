@@ -7,7 +7,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit
+from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth, PageHealth
 from learnloop.services.ingest_runner import (
     IngestRunner,
     JobContext,
@@ -310,6 +310,119 @@ def test_import_retry_reuses_revision_and_extraction(tmp_path):
     assert (artifacts, revisions, runs) == (1, 1, 1)
 
 
+def test_import_cache_hit_skips_extractor_and_restores_health(tmp_path):
+    calls = {"extract": 0}
+
+    def extract(fetched, category, ctx):
+        calls["extract"] += 1
+        ir = _stub_ir()
+        ir.health = ExtractionHealth(
+            flags=["needs_review"],
+            pages=[PageHealth(page=1, flags=["low_text_density"])],
+        )
+        return ir
+
+    base = _import_services()
+    services = RunnerServices(fetch=base.fetch, extract=extract)
+    runner = _runner(tmp_path, services=services)
+    source = str(tmp_path / "notes.md")
+    first = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+    extraction_id = runner.repo.ingest_jobs_for_batch(first)[0]["result"]["extraction_id"]
+    second = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+
+    assert calls["extract"] == 1
+    assert runner.repo.ingest_jobs_for_batch(second)[0]["result"]["reused_extraction"] is True
+    restored = runner.repo.load_document_ir(extraction_id)
+    assert restored.health.flags == ["needs_review"]
+    assert restored.health.flagged_pages() == [1]
+
+
+def test_import_retry_replaces_ir_left_by_interrupted_run(tmp_path):
+    services = _import_services()
+    runner = _runner(tmp_path, services=services)
+    source = str(tmp_path / "notes.md")
+    # Seed the exact request as an interrupted/running run with already-written
+    # children, reproducing a crash between persist_document_ir and completion.
+    from learnloop.ingest.hashing import extraction_request_hash
+    from learnloop.ingest.ir import IR_SCHEMA_VERSION
+    from learnloop.ingest.source_library import register_source_revision
+
+    fetched = services.fetch(source, "textfile", None)
+    registered = register_source_revision(
+        runner.repo,
+        acquisition_kind="textfile",
+        canonical_uri=source,
+        raw_bytes=fetched.raw_bytes,
+        original_uri=source,
+        retrieved_at=fetched.retrieved_at,
+        clock=_clock(),
+    )
+    request_hash = extraction_request_hash(
+        revision_id=registered.revision_id,
+        extractor="text",
+        extractor_version="1",
+        ir_schema_version=IR_SCHEMA_VERSION,
+    )
+    runner.repo.insert_extraction_run(
+        id="ext_interrupted",
+        revision_id=registered.revision_id,
+        extractor="text",
+        extractor_version="1",
+        extraction_request_hash=request_hash,
+        ir_schema_version=IR_SCHEMA_VERSION,
+        status="running",
+        clock=_clock(),
+    )
+    runner.repo.persist_document_ir("ext_interrupted", _stub_ir())
+
+    batch = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+    job = runner.repo.ingest_jobs_for_batch(batch)[0]
+    assert job["status"] == "completed"
+    assert job["result"]["extraction_id"] == "ext_interrupted"
+    assert runner.repo.get_extraction_run("ext_interrupted")["status"] == "completed"
+
+
+def test_public_import_inventory_dependency_resolves_extraction_and_units(tmp_path):
+    from learnloop.codex.schemas import InventoryConceptMention, SourceUnitInventory
+
+    class Client:
+        def __init__(self):
+            self.calls = 0
+
+        def run_source_unit_inventory(self, context):
+            self.calls += 1
+            span_id = context.unit_view["blocks"][0]["span_id"]
+            return SourceUnitInventory(
+                concept_mentions=[InventoryConceptMention(name="eigenvector", span_ids=[span_id])]
+            )
+
+    client = Client()
+    base = _import_services()
+    services = RunnerServices(
+        fetch=base.fetch,
+        extract=base.extract,
+        inventory_client_factory=lambda ctx: client,
+    )
+    runner = _runner(tmp_path, services=services)
+    batch = runner.enqueue_batch(
+        "import_inventory",
+        [
+            JobSpec("import", {"source": str(tmp_path / "notes.md")}),
+            JobSpec("inventory", {"role": "reference"}, depends_on=(0,)),
+        ],
+    )
+    runner.drain()
+
+    jobs = runner.repo.ingest_jobs_for_batch(batch)
+    assert [job["status"] for job in jobs] == ["completed", "completed"]
+    assert jobs[1]["result"]["extraction_id"] == jobs[0]["result"]["extraction_id"]
+    assert [row["unit_id"] for row in jobs[1]["result"]["units"]] == ["u1"]
+    assert client.calls == 1
+
+
 def test_legacy_ingest_handler_wraps_pipeline_with_stub_client(tmp_path):
     class _FakeResult:
         codex_calls = 2
@@ -338,15 +451,15 @@ def test_legacy_ingest_handler_wraps_pipeline_with_stub_client(tmp_path):
     assert seen == {"source": "notes.md", "subject_id": "linear-algebra", "mode": "canonical"}
 
 
-def test_reserved_job_types_fail_with_not_implemented_seam(tmp_path):
-    # `inventory` landed in ING M4 and `bootstrap_synthesis` in ING M6;
-    # `append_synthesis` remains a reserved seam for M7.
+def test_append_synthesis_job_is_implemented(tmp_path):
+    # The public append job is wired to the bounded reconciliation service. A
+    # nonexistent set fails validation/loading, never at a reserved seam.
     runner = _runner(tmp_path)
     batch_id = runner.enqueue_batch("update_study_map", [JobSpec("append_synthesis", {"set_id": "s1"})])
     runner.drain()
     job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
     assert job["status"] == "failed"
-    assert job["error"]["code"] == "not_implemented"
+    assert job["error"]["code"] != "not_implemented"
 
 
 def test_bootstrap_synthesis_job_validates_payload(tmp_path):

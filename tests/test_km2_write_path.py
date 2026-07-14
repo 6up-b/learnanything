@@ -13,11 +13,19 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.services.attempts import (
+    ApplyAttemptInput,
+    AttemptDraft,
+    GradeAttribution,
+    ResolvedGrade,
+    SelfGradeInput,
+    apply_attempt,
+    complete_self_graded_attempt,
+)
 from learnloop.services.replay import rebuild_derived_state
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from learnloop.vault.yaml_io import write_yaml
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import (
     NOW,
@@ -278,6 +286,58 @@ def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
     assert repository.open_unresolved_cause_observation_ids()
 
 
+def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):
+    vault, repository = mvp07
+    clock = FrozenClock(NOW)
+    apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id="pi_svd_ambiguous_001",
+                learner_answer_md="I selected the wrong method.",
+            ),
+            attempt_id="att_explicit_method_failure",
+            grade=ResolvedGrade(
+                rubric_score=0,
+                criterion_points={"whole_item": 0.0},
+                evidence_rows=[
+                    {
+                        "id": "ge_explicit_method_failure",
+                        "criterion_id": "whole_item",
+                        "points_awarded": 0.0,
+                        "evidence": "Method-selection error was localized.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": NOW_ISO,
+                    }
+                ],
+                error_attributions=[
+                    GradeAttribution(
+                        "conceptual_slip",
+                        0.8,
+                        target_evidence_families=[SELECT],
+                        target_criterion_ids=["whole_item"],
+                    )
+                ],
+                grader_confidence=1.0,
+                confidence=5,
+                manual_review_reason=None,
+            ),
+        ),
+        clock=clock,
+    )
+
+    selected = repository.canonical_facet_recall_state(
+        SELECT, "method_selection", None
+    )
+    unselected = repository.canonical_facet_recall_state(SHARED, "retrieval", None)
+    assert selected is not None and selected.recall_beta > 1.0
+    assert unselected is None
+    assert not repository.open_unresolved_cause_observation_ids()
+
+
 def test_golden_replay_identity_mvp07(mvp07):
     vault, repository = mvp07
     clock = FrozenClock(NOW)
@@ -313,3 +373,53 @@ def test_golden_replay_identity_mvp07(mvp07):
 
     assert live == replayed_once
     assert replayed_once == replayed_twice
+
+
+def test_rebuild_uses_presented_contract_after_live_target_change(tmp_path):
+    paths = build_mvp07_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repository, clock=clock)
+    _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
+
+    def canonical_snapshot():
+        return (
+            [
+                (
+                    row.facet_id,
+                    row.capability_key,
+                    row.practice_item_id,
+                    row.recall_alpha,
+                    row.recall_beta,
+                    row.independent_evidence_mass,
+                )
+                for row in repository.canonical_facet_recall_states()
+            ],
+            [
+                (
+                    row.facet_id,
+                    row.capability,
+                    row.direct_positive_mass,
+                    row.direct_negative_mass,
+                    row.certification_credit,
+                    tuple(row.independent_surface_groups),
+                )
+                for row in repository.facet_capability_evidence_all()
+            ],
+        )
+
+    live = canonical_snapshot()
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    changed = read_yaml(item_path)
+    changed["evidence_facets"] = [SELECT]
+    changed["evidence_weights"] = {SELECT: 1.0}
+    changed["grading_rubric"] = _rubric(
+        "new_live_criterion",
+        [{"facet": SELECT, "capability": "method_selection", "role": "primary"}],
+    )
+    write_yaml(item_path, changed)
+
+    mutated_vault = load_vault(paths.root)
+    rebuild_derived_state(mutated_vault, repository)
+    assert canonical_snapshot() == live

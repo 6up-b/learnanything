@@ -3,7 +3,7 @@
 Each cell encodes the dual axis for a (facet, capability) pair:
 
 * **Demonstrated** — capability-matched direct/embedded certification credit
-  (``facet_capability_evidence.certification_credit > 0``); the honest answer to
+  meeting the shared certification threshold; the honest answer to
   "certified for retrieval but never tested on selection".
 * **Ready** — the pooled expected-performance prediction over the shared facet
   mean (capability-agnostic at launch, §4.2, so the same Ready value tiles a
@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from learnloop.db.repositories import Repository
+from learnloop.services.certification import is_demonstrated_credit
 from learnloop.services.blueprint_projection import LoReadiness
 from learnloop.services.facet_diagnostics import required_facets
 from learnloop.services.facet_state_reader import (
@@ -140,7 +141,7 @@ def capability_grid(
                     facet_id=facet,
                     capability=capability,
                     required=capability in required_caps,
-                    demonstrated=credit > 0.0,
+                    demonstrated=is_demonstrated_credit(credit),
                     certification_credit=credit,
                     direct_positive_mass=pos,
                     direct_negative_mass=neg,

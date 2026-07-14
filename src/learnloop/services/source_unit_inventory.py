@@ -31,6 +31,7 @@ and an exam occurrence never becomes a canonical claim.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
@@ -352,6 +353,7 @@ def run_unit_inventory(
     provider: str | None = None,
     model: str | None = None,
     input_budget_tokens: int = 20000,
+    output_budget_tokens: int = 3000,
     clock: Clock | None = None,
     prompt_version: str = SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     schema_version: int = INVENTORY_SCHEMA_VERSION,
@@ -408,7 +410,13 @@ def run_unit_inventory(
     windows = build_inventory_windows(ir, unit_id, input_budget_tokens=input_budget_tokens)
     valid_span_ids = {block["span_id"] for window in windows for block in window["blocks"]}
     per_window: list[SourceUnitInventory] = []
-    usage: dict[str, Any] = {"calls": 0}
+    usage: dict[str, Any] = {
+        "calls": 0,
+        "input_tokens_estimate": sum(
+            max(1, len(json.dumps(window, default=str)) // _CHARS_PER_TOKEN)
+            for window in windows
+        ),
+    }
     for window in windows:
         context = SourceUnitInventoryContext(
             unit_id=unit.unit_id,
@@ -427,6 +435,13 @@ def run_unit_inventory(
     merged = merge_windows(per_window)
     merged.unit_id = unit.unit_id
     merged.semantic_hash = unit.semantic_hash
+    usage["output_tokens_estimate"] = max(
+        1, len(merged.model_dump_json()) // _CHARS_PER_TOKEN
+    )
+    if usage["output_tokens_estimate"] > output_budget_tokens:
+        raise InventoryValidationError(
+            "inventory output exceeded its configured token budget"
+        )
 
     inventory_id = f"inv_{new_ulid()}"
     repo.insert_unit_inventory(

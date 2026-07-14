@@ -2,18 +2,21 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   CandidateErrorTypeDto,
+  ClaimCandidateDto,
   CriterionEvidenceRowDto,
   ErrorEventDto,
   FeedbackBundle,
   FollowupGateDiagnosticsDto,
   FollowupGateSignalDto,
   MasteryDto,
+  MatchedMisconceptionDto,
   PracticeItemDetail,
   ResolvedSourceRefDto,
 } from "../api/dto";
 import { EntityLink, KeyBar, Pill } from "../components/ui";
 import { modePillColor } from "../components/term";
 import { AttemptTraceView, UnresolvedCauseCard } from "../components/KnowledgeModel";
+import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -770,13 +773,130 @@ function SourceReviewPanel({ f, onPrimedRetry, onOpenLibraryFile, onNoteCapture,
   );
 }
 
+// ── §4.7 misconception statement-pair card ────────────────────────────────────
+// Renders the evidence-relation copy for a matched registry misconception, mounted
+// as a hot `diagnosis` claim so the fits / doesn't-fit / partly / edit affordances
+// and exposure logging come from ClaimSurface. Two hard rules from §4.7:
+//   • states an evidence relation ("consistent with confusing …"), never a belief
+//     attribution ("you appear to believe …");
+//   • the misconception is NEVER shown without its authored correction in the same
+//     visual unit — the correction is always part of the claim text.
+// Caller guarantees `m.correctionStatement` is present; this card *replaces*
+// UnresolvedCauseCard for the attempt (never both — no two diagnoses at once).
+function statementPairCopy(m: MatchedMisconceptionDto): string {
+  const correction = m.correctionStatement.trim();
+  const x = m.targetFacet?.trim();
+  const y = m.confusedWithFacet?.trim();
+  const head =
+    x && y
+      ? `Your last answer was consistent with confusing ${x} and ${y}.`
+      : `Your last answer was consistent with this misconception — ${m.statement.trim()}.`;
+  return `${head} The distinction to use here: ${correction}`;
+}
+
+function MisconceptionStatementCard({
+  m,
+  attemptId,
+  sessionId,
+  visitId,
+  onOpenRepair,
+  onError,
+}: {
+  m: MatchedMisconceptionDto;
+  attemptId: string;
+  sessionId?: string | null;
+  visitId: string;
+  onOpenRepair?: (misconceptionId: string) => void;
+  onError: (message: string) => void;
+}) {
+  const claim: ClaimCandidateDto = useMemo(
+    () => ({
+      claimClass: "diagnosis",
+      claimType: "misconception",
+      claimRef: { misconceptionId: m.id, attemptId },
+      claimVersion: `misconception:${m.status}`,
+      producerVersion: "feedback-f3",
+      surface: "feedback",
+      temperature: "hot",
+      claimText: statementPairCopy(m),
+      provenance: m.mechanism ? `mechanism · ${m.mechanism}` : undefined,
+    }),
+    [m, attemptId]
+  );
+
+  return (
+    <>
+      <FbHeader>Diagnosis</FbHeader>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <ClaimSurface claim={claim} sessionId={sessionId} visitId={visitId} onError={onError} />
+        {onOpenRepair && (
+          <div style={{ fontFamily: MONO, fontSize: 12 }}>
+            <span
+              style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer" }}
+              onClick={() => onOpenRepair(m.id)}
+            >
+              repair this →
+            </span>
+            {"   "}
+            <Faint>work the distinction with side-by-side canonical spans</Faint>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── §4.6/§4.7 regrade ledger-fact ─────────────────────────────────────────────
+// A regrade is a system-authored ledger fact, not a hot diagnosis: the old→new
+// receipt is visible and the only affordance is "request review" (ClaimSurface's
+// regrade variant) — no confirm button, no verdict solicitation.
+type RegradeReceipt = { before: { score: number; max: number }; after: { score: number; max: number } };
+
+function RegradeLedgerCard({
+  receipt,
+  attemptId,
+  sessionId,
+  visitId,
+  onError,
+}: {
+  receipt: RegradeReceipt;
+  attemptId: string;
+  sessionId?: string | null;
+  visitId: string;
+  onError: (message: string) => void;
+}) {
+  const { before, after } = receipt;
+  const claim: ClaimCandidateDto = useMemo(
+    () => ({
+      claimClass: "ledger_fact",
+      claimType: "regrade",
+      claimRef: { attemptId, kind: "regrade" },
+      claimVersion: `regrade:${before.score}->${after.score}`,
+      producerVersion: "feedback-f3",
+      surface: "feedback_regrade",
+      temperature: "cold",
+      claimText: `Regrade recorded — score ${before.score} / ${before.max} → ${after.score} / ${after.max}. This is a ledger fact, not a request for your verdict.`,
+    }),
+    [attemptId, before.score, before.max, after.score, after.max]
+  );
+
+  return (
+    <>
+      <FbHeader>Regrade</FbHeader>
+      <ClaimSurface claim={claim} sessionId={sessionId} visitId={visitId} onError={onError} />
+    </>
+  );
+}
+
 // ── FeedbackScreen ────────────────────────────────────────────────────────────
 export function FeedbackScreen({
   attemptId,
+  sessionId,
   onNext,
   onBack,
   onOpenNotes,
   onPrimedRetry,
+  onOpenRepair,
   onOpenLibraryFile,
   onInspect,
   onPaletteEntities,
@@ -784,11 +904,17 @@ export function FeedbackScreen({
   onError,
 }: {
   attemptId: string;
+  /** Active session, when known — lets claim exposure attribute to the session
+   *  (a per-mount visitId is always minted as a fallback). */
+  sessionId?: string | null;
   onNext: () => void;
   onBack: () => void;
   onOpenNotes: () => void;
   /** Open a sibling practice item as a primed retry. */
   onPrimedRetry: (practiceItemId: string) => void;
+  /** Launch the §4.10 Repair flow for a matched misconception (the statement
+   *  card's "repair this" action). Orchestrator wires App.tsx. */
+  onOpenRepair?: (misconceptionId: string) => void;
   /** Open a vault file in the Library (source panel "view in Library"). */
   onOpenLibraryFile?: (path: string) => void;
   onInspect: (id: string) => void;
@@ -800,6 +926,14 @@ export function FeedbackScreen({
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [trace, setTrace] = useState<AttemptTraceDto | null>(null);
   const [regrading, setRegrading] = useState(false);
+  // Old→new receipt captured when the learner triggers a regrade on this
+  // screen; drives the ledger-fact claim. On a fresh load with no in-screen
+  // trigger, the persisted `feedback.regrade` marker supplies the receipt
+  // instead (see the render below), so out-of-session regrades still surface.
+  const [regradeReceipt, setRegradeReceipt] = useState<RegradeReceipt | null>(null);
+  // Stable per-mount visit id so claim exposure is attributable even when no
+  // session id is threaded into this screen (present_claims needs one of them).
+  const visitId = useRef(mintVisitId()).current;
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [addingError, setAddingError] = useState(false);
   const [errorTypeInput, setErrorTypeInput] = useState("");
@@ -881,9 +1015,11 @@ export function FeedbackScreen({
   const handleRegrade = async () => {
     if (!feedback || regrading) return;
     setRegrading(true);
+    const before = { score: feedback.rubricScore, max: feedback.maxPoints };
     try {
       const updated = await api.triggerRegrade(feedback.attemptId);
       setFeedback(updated);
+      setRegradeReceipt({ before, after: { score: updated.rubricScore, max: updated.maxPoints } });
     } catch (error) {
       onError((error as Error).message);
     } finally {
@@ -1055,6 +1191,13 @@ export function FeedbackScreen({
   // Surprise threshold from the bundle; config-level τ for legacy bundles.
   const tau = f.surprise.followupThresholdNats ?? algoConfig().tauFollowupNats;
   const interventionNeed = f.interventionNeed;
+  // §4.7: only render the statement-pair card when the matched row carries an
+  // authored correction (never show a misconception naked). Without it, fall
+  // back to the unresolved-cause card.
+  const matchedMisconception =
+    f.matchedMisconception && f.matchedMisconception.correctionStatement?.trim()
+      ? f.matchedMisconception
+      : null;
 
   return (
     <div className="screen">
@@ -1180,15 +1323,55 @@ export function FeedbackScreen({
           </>
         )}
 
-        {/* ── unresolved-cause diagnostic card ── */}
-        {(f.unresolvedCauses?.length ?? 0) > 0 && (
+        {/* ── diagnosis (§4.7 card hierarchy) ──
+            A matched registry misconception WITH an authored correction renders
+            the statement-pair card and *replaces* the unresolved-cause card —
+            never both, never two diagnoses at once. Rows without a correction
+            (the backend shouldn't send them, but guard anyway) fall back to the
+            unresolved-cause card. */}
+        {matchedMisconception ? (
+          <MisconceptionStatementCard
+            m={matchedMisconception}
+            attemptId={f.attemptId}
+            sessionId={sessionId}
+            visitId={visitId}
+            onOpenRepair={onOpenRepair}
+            onError={onError}
+          />
+        ) : (f.unresolvedCauses?.length ?? 0) > 0 ? (
           <div style={{ marginTop: 16 }}>
             <UnresolvedCauseCard
               causes={f.unresolvedCauses ?? []}
               onRunDiagnostic={() => void handleTriggerFollowup()}
             />
           </div>
-        )}
+        ) : null}
+
+        {/* ── regrade ledger fact ──
+            Prefer the transient receipt captured by an in-screen regrade this
+            visit; otherwise fall back to the persisted marker on the bundle, so
+            an out-of-session regrade renders on a fresh load. Only ever one
+            card — the transient path already refreshed the bundle, so we never
+            render both for the same regrade. */}
+        {(() => {
+          const receipt: RegradeReceipt | null =
+            regradeReceipt ??
+            (f.regrade
+              ? {
+                  before: { score: f.regrade.oldScore, max: f.regrade.maxPoints },
+                  after: { score: f.regrade.newScore, max: f.regrade.maxPoints },
+                }
+              : null);
+          return receipt ? (
+            <RegradeLedgerCard
+              receipt={receipt}
+              attemptId={f.attemptId}
+              sessionId={sessionId}
+              visitId={visitId}
+              onError={onError}
+            />
+          ) : null;
+        })()}
 
         {/* ── error attribution ── */}
         {f.errorAttributions.length > 0 && (

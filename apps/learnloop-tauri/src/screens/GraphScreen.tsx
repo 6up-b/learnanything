@@ -11,7 +11,6 @@ import type {
 import { EntityLink } from "../components/ui";
 import { BlockBar, COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, type PillColor } from "../components/term";
 import { masteryTone } from "../app/algoConfig";
-import { FacetRadarView } from "./FacetRadarScreen";
 import { KnowledgeMapView } from "./KnowledgeMapScreen";
 
 const NODE_W = 200;
@@ -127,7 +126,7 @@ function edgePath(source: Position, target: Position): string {
   return `M ${sx} ${sy} L ${mid} ${sy} L ${mid} ${ty} L ${tx} ${ty}`;
 }
 
-type GraphView = "map" | "facets" | "knowledge";
+type GraphView = "map" | "knowledge";
 
 export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) => void; onError: (message: string) => void }) {
   const [view, setView] = useState<GraphView>("map");
@@ -243,7 +242,7 @@ export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) =>
         fontSize: 12
       }}
     >
-      {(["map", "facets", "knowledge"] as const).map((id) => (
+      {(["map", "knowledge"] as const).map((id) => (
         <button
           key={id}
           type="button"
@@ -257,20 +256,11 @@ export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) =>
             cursor: "pointer"
           }}
         >
-          {id === "map" ? "concept map" : id === "facets" ? "facet radar" : "knowledge map"}
+          {id === "map" ? "concept map" : "knowledge field"}
         </button>
       ))}
     </div>
   );
-
-  if (view === "facets") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        {viewToggle}
-        <FacetRadarView onInspect={onInspect} onError={onError} />
-      </div>
-    );
-  }
 
   if (view === "knowledge") {
     return (

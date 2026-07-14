@@ -152,13 +152,25 @@ def build_grading_context(
     *,
     attempt_id: str,
     learner_answer_md: str,
+    rubric: Rubric | None = None,
+    assessment_contract: dict[str, Any] | None = None,
 ) -> GradingContext:
-    rubric = resolved_rubric(vault, item)
-    expected_answer = item.expected_answer if isinstance(item.expected_answer, str) else json.dumps(item.expected_answer, sort_keys=True)
+    rubric = rubric or resolved_rubric(vault, item)
+    prompt = (
+        assessment_contract.get("prompt", item.prompt)
+        if assessment_contract is not None
+        else item.prompt
+    )
+    expected_value = (
+        assessment_contract.get("expected_answer", item.expected_answer)
+        if assessment_contract is not None
+        else item.expected_answer
+    )
+    expected_answer = expected_value if isinstance(expected_value, str) else json.dumps(expected_value, sort_keys=True)
     return GradingContext(
         attempt_id=attempt_id,
         practice_item_id=item.id,
-        prompt=item.prompt,
+        prompt=prompt,
         expected_answer=expected_answer,
         learner_answer_md=learner_answer_md,
         rubric=rubric.model_dump(mode="json", exclude_none=False),
@@ -220,8 +232,9 @@ def validate_codex_grading_proposal(
     item: PracticeItem,
     vault: LoadedVault,
     learner_answer_md: str | None = None,
+    rubric: Rubric | None = None,
 ) -> ValidatedCodexGrade:
-    rubric = resolved_rubric(vault, item)
+    rubric = rubric or resolved_rubric(vault, item)
     if proposal.attempt_id != attempt_id:
         raise GradingValidationError(f"Grading attempt_id {proposal.attempt_id} does not match {attempt_id}")
     if proposal.practice_item_id != item.id:
@@ -263,6 +276,9 @@ def validate_codex_grading_proposal(
         raise GradingValidationError("Fatal errors must cap rubric_score")
 
     known_facets = set(item.evidence_facets)
+    known_facets.update(
+        target.facet for criterion in rubric.criteria for target in criterion.targets
+    )
     unknown_target_families: set[str] = set()
     unknown_target_criteria: set[str] = set()
     criterion_facet_weights = criterion_facet_weights_for_item(item, rubric)

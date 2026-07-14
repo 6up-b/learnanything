@@ -861,6 +861,38 @@ pub async fn goal_feasibility(
 }
 
 #[tauri::command]
+pub async fn get_overconfidence_list(
+    goal_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_overconfidence_list", json!({"goalId": goal_id})).await
+}
+
+#[tauri::command]
+pub async fn get_reentry_summary(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_reentry_summary", input).await
+}
+
+#[tauri::command]
+pub async fn get_decay_pressure(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_decay_pressure", input).await
+}
+
+#[tauri::command]
+pub async fn start_overconfidence_probe(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "start_overconfidence_probe", input).await
+}
+
+#[tauri::command]
 pub async fn create_goal(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -993,4 +1025,64 @@ pub async fn end_probe_dialogue(
         json!({"dialogueState": dialogue_state}),
     )
     .await
+}
+
+#[tauri::command]
+pub async fn present_claims(input: Value, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "present_claims", input).await
+}
+
+#[tauri::command]
+pub async fn respond_claim(input: Value, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "respond_claim", input).await
+}
+
+#[tauri::command]
+pub async fn dismiss_claim(presentation_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "dismiss_claim", json!({"presentationId": presentation_id})).await
+}
+
+#[tauri::command]
+pub async fn export_claims(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "export_claims", json!({})).await
+}
+
+#[tauri::command]
+pub async fn purge_claims(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "purge_claims", json!({})).await
+}
+
+#[tauri::command]
+pub async fn get_review_log(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_review_log", json!({})).await
+}
+
+#[tauri::command]
+pub async fn start_remediation(misconception_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "start_remediation", json!({"misconceptionId": misconception_id})).await
+}
+
+#[tauri::command]
+pub async fn prescribe_remediation(episode_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "prescribe_remediation", json!({"episodeId": episode_id})).await
+}
+
+#[tauri::command]
+pub async fn start_remediation_treatment(episode_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "start_remediation_treatment", json!({"episodeId": episode_id})).await
+}
+
+#[tauri::command]
+pub async fn get_remediation(episode_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_remediation", json!({"episodeId": episode_id})).await
+}
+
+#[tauri::command]
+pub async fn get_forecast_track_record(input: Value, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_forecast_track_record", input).await
+}
+
+#[tauri::command]
+pub async fn get_answer_calibration(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_answer_calibration", json!({})).await
 }

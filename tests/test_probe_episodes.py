@@ -132,6 +132,7 @@ def _submit(
     attempt_id: str | None = None,
     session_id: str | None = None,
     error_attributions=None,
+    declared_dont_know: bool = False,
 ):
     attempt_id = attempt_id or new_ulid()
     result = apply_attempt(
@@ -145,6 +146,7 @@ def _submit(
                 hints_used=hints_used,
                 session_id=session_id,
                 probe_presentation_id=presentation_id,
+                declared_dont_know=declared_dont_know,
             ),
             attempt_id=attempt_id,
             grade=_grade(score, error_attributions=error_attributions),
@@ -391,6 +393,29 @@ def test_retried_submission_is_idempotent(tmp_path):
     posterior = episode_posterior(loaded, repository, repository.probe_episode(episode.id))
     assert posterior.qualifying_observations == 1
     assert posterior.total_observations == 1
+
+
+def test_declared_dont_know_keeps_probe_measurement_type(tmp_path):
+    _, loaded, repository = _setup(tmp_path)
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    presentation = _commit(loaded, repository, episode)
+
+    result = _submit(
+        loaded,
+        repository,
+        presentation_id=presentation.id,
+        score=0,
+        attempt_type="diagnostic_probe",
+        grading_source="deterministic",
+        declared_dont_know=True,
+    )
+
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    observation = repository.probe_observation_for_attempt(result.attempt_id)
+    assert attempt["attempt_type"] == "diagnostic_probe"
+    assert attempt["declared_dont_know"] is True
+    assert observation is not None and observation.eligible_for_completion
+    assert observation.grader_channel["observed_outcome"] == "unanswered"
 
 
 def test_consumed_presentation_cannot_qualify_second_attempt(tmp_path):

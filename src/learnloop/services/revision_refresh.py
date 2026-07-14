@@ -60,8 +60,13 @@ class RefreshResult:
 
 def _span_id_from_locator(link: dict[str, Any]) -> str | None:
     locator = str(link.get("locator") or "")
+    from learnloop.ingest.locators import parse_block_span
+
+    parsed = parse_block_span(locator)
+    if parsed is not None:
+        return parsed[1]
     if locator.startswith("span:"):
-        return locator.split(":", 1)[1]
+        return locator.split(":", 1)[1]  # malformed early-v2 compatibility
     return None
 
 

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
+  ClaimCandidateDto,
+  DecayPressureDto,
   GoalDto,
+  OverconfidentFacetDto,
   PracticeItemDetail,
   QueueSection,
   QueueSnapshot,
+  ReentrySummaryDto,
   ScheduledItemDto,
   SchedulerComponents,
   SessionEndSummary,
@@ -12,6 +16,7 @@ import type {
 } from "../api/dto";
 import { EmptyPlaceholder, EntityLink } from "../components/ui";
 import { BlockBar, COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, modePillColor, Pill, SectionHeader } from "../components/term";
+import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { GoalBanner } from "../components/GoalBanner";
 import { GoalWizard } from "../components/GoalWizard";
 import { GoalReviewCard, type ReviewReason } from "../components/GoalReviewCard";
@@ -60,6 +65,12 @@ export function TodayScreen({
   const queueRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot>; id: number } | null>(null);
   const queueRequestSeqRef = useRef(0);
   const now = useNowMinute();
+  // F5/F7 hypothesis surfaces: one visit id per Today visit for schedule_choice
+  // claim telemetry (§2.2 — outside a practice session).
+  const visitIdRef = useRef<string>(mintVisitId());
+  const [overconfidence, setOverconfidence] = useState<OverconfidentFacetDto[]>([]);
+  const [reentry, setReentry] = useState<ReentrySummaryDto | null>(null);
+  const [decayPressure, setDecayPressure] = useState<DecayPressureDto | null>(null);
 
   const refreshGoals = useCallback(() => {
     api
@@ -136,6 +147,51 @@ export function TodayScreen({
       .catch(() => { if (alive) setNextGap(null); });
     return () => { alive = false; };
   }, [primaryGoalId]);
+
+  // F5 overconfidence list + F7 welcome-back diff, both anchored on the primary
+  // active goal (§4.3, §4.4). Refetched when the goal or queue changes.
+  const hasActiveGoal = activeGoals.length > 0;
+  useEffect(() => {
+    if (!primaryGoalId) {
+      setOverconfidence([]);
+      setReentry(null);
+      return;
+    }
+    let alive = true;
+    api
+      .getOverconfidenceList(primaryGoalId)
+      .then((snap) => { if (alive) setOverconfidence(snap.facets); })
+      .catch(() => { if (alive) setOverconfidence([]); });
+    api
+      .getReentrySummary(primaryGoalId)
+      .then((snap) => { if (alive) setReentry(snap.summary.show ? snap.summary : null); })
+      .catch(() => { if (alive) setReentry(null); });
+    return () => { alive = false; };
+  }, [primaryGoalId, queue?.totalItems]);
+
+  // F7 no-goal / fresh-vault fallback (§4.5): decay pressure fills the hero slot
+  // only when there is no active goal.
+  useEffect(() => {
+    if (hasActiveGoal) { setDecayPressure(null); return; }
+    if (goals == null) return;
+    let alive = true;
+    api
+      .getDecayPressure(null)
+      .then((snap) => { if (alive) setDecayPressure(snap.pressure); })
+      .catch(() => { if (alive) setDecayPressure(null); });
+    return () => { alive = false; };
+  }, [hasActiveGoal, goals]);
+
+  const startOverconfidenceProbe = useCallback(
+    (facet: OverconfidentFacetDto) => {
+      api
+        .startOverconfidenceProbe(facet.learningObjectId, facet.facetId)
+        .then(() => refreshQueue({ force: true }))
+        .catch((error) => onError((error as Error).message));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onError]
+  );
 
   // One deterministic line from the built queue composition (§9.6, §11.2).
   const sessionNarrative = useMemo(() => {
@@ -291,6 +347,9 @@ export function TodayScreen({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      {/* F7 welcome-back diff (§4.4): survival-first, BEFORE the hero. */}
+      {reentry ? <ReentryPanel summary={reentry} /> : null}
+
       <TodayHero
         session={session}
         now={now}
@@ -298,6 +357,8 @@ export function TodayScreen({
         probeCount={probeCount}
         laterCount={laterCount}
         narrative={sessionNarrative}
+        overconfidence={overconfidence}
+        onProbe={startOverconfidenceProbe}
         queueReady={Boolean(queue?.totalItems)}
         gradingReady={gradingReady}
         gradingProvider={gradingProvider}
@@ -315,12 +376,26 @@ export function TodayScreen({
             onNewGoal={() => setWizardOpen(true)}
           />
         ) : (
-          <div style={{ margin: "16px 24px 0", fontSize: 12, color: COLOR.textFaint, fontFamily: FONT_MONO }}>
-            no active goal —{" "}
-            <span onClick={() => setWizardOpen(true)} style={{ color: COLOR.amberLink, cursor: "pointer" }}>
-              set one ↵
-            </span>
-          </div>
+          <NoGoalFallback
+            pressure={decayPressure}
+            onSetGoal={() => setWizardOpen(true)}
+            onReadFirst={() => {
+              const first = items[0];
+              if (first) onInspect(first.learningObjectId);
+              else onError("Nothing to read yet — import a source first.");
+            }}
+            onDiagnostic={() => {
+              const first = items.find((item) => !item.isProbe) ?? items[0];
+              if (first) {
+                api
+                  .startOverconfidenceProbe(first.learningObjectId, null)
+                  .then(() => refreshQueue({ force: true }))
+                  .catch((error) => onError((error as Error).message));
+              } else {
+                onError("No learning objects to diagnose yet.");
+              }
+            }}
+          />
         )
       ) : null}
 
@@ -334,11 +409,10 @@ export function TodayScreen({
         />
       ) : null}
 
-      {wizardOpen ? (
-        <GoalWizard onClose={() => setWizardOpen(false)} onCreated={refreshAfterGoalChange} onError={onError} />
-      ) : null}
-
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+      <div
+        className={wizardOpen ? "modal-underlay-obscured" : undefined}
+        style={{ flex: 1, display: "flex", minHeight: 0 }}
+      >
         {/* Master list */}
         <div className="library-tree" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           {bannerOpen && followup ? (
@@ -386,8 +460,12 @@ export function TodayScreen({
           <QueueDetail
             item={focusedItem}
             detail={detail}
+            sessionId={session?.sessionId ?? null}
+            visitId={visitIdRef.current}
+            producerVersion={algorithmVersion}
             onPractice={() => focusedItem && onOpenPractice(focusedItem.practiceItemId)}
             onInspect={onInspect}
+            onError={onError}
           />
         </div>
       </div>
@@ -402,6 +480,10 @@ export function TodayScreen({
         ]}
         right={{ key: "^p", label: "palette" }}
       />
+
+      {wizardOpen ? (
+        <GoalWizard onClose={() => setWizardOpen(false)} onCreated={refreshAfterGoalChange} onError={onError} />
+      ) : null}
     </div>
   );
 }
@@ -413,6 +495,8 @@ function TodayHero({
   probeCount,
   laterCount,
   narrative,
+  overconfidence,
+  onProbe,
   queueReady,
   gradingReady,
   gradingProvider,
@@ -425,6 +509,8 @@ function TodayHero({
   probeCount: number;
   laterCount: number;
   narrative: string | null;
+  overconfidence: OverconfidentFacetDto[];
+  onProbe: (facet: OverconfidentFacetDto) => void;
   queueReady: boolean;
   gradingReady: boolean;
   gradingProvider: string;
@@ -483,6 +569,8 @@ function TodayHero({
         {narrative && (
           <div style={{ marginTop: 10, fontSize: 13, color: COLOR.amber }}>{narrative}</div>
         )}
+
+        <OverconfidenceList facets={overconfidence} onProbe={onProbe} />
 
         <div style={{ marginTop: 12, fontSize: 13, color: COLOR.textDim, lineHeight: 1.65 }}>
           vault <span style={{ color: COLOR.green }}>● healthy</span>
@@ -613,7 +701,7 @@ function QueueRow({
         borderLeft: `3px solid ${borderLeft}`,
         cursor: "pointer",
         display: "grid",
-        gridTemplateColumns: "34px 1fr 200px 130px",
+        gridTemplateColumns: "34px 1fr 180px 200px 130px",
         gap: 18,
         alignItems: "center",
         transition: "background 100ms ease"
@@ -660,6 +748,11 @@ function QueueRow({
           <Faint>·</Faint>
           <Pill color={modePillColor(item.practiceMode)}>{item.practiceMode}</Pill>
         </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.35 }}>
+        <Faint>chosen because</Faint>
+        <div style={{ color: COLOR.text, marginTop: 3 }}>{item.dominantReason}</div>
       </div>
 
       <span style={{ display: "inline-flex", gap: 10, alignItems: "center", fontSize: 12 }}>
@@ -790,13 +883,21 @@ function WhyRow({ label, value, color }: { label: string; value: number; color: 
 function QueueDetail({
   item,
   detail,
+  sessionId,
+  visitId,
+  producerVersion,
   onPractice,
-  onInspect
+  onInspect,
+  onError
 }: {
   item: ScheduledItemDto | null;
   detail: PracticeItemDetail | null;
+  sessionId: string | null;
+  visitId: string | null;
+  producerVersion: string;
   onPractice: () => void;
   onInspect: (id: string) => void;
+  onError: (message: string) => void;
 }) {
   if (!item) {
     return <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>no item selected</div>;
@@ -865,6 +966,21 @@ function QueueDetail({
         ) : null}
       </div>
 
+      {/* F5 reason column as a schedule_choice policy claim (§4.3). Affordances
+          only on the focused/expanded row, keeping the queue itself light. */}
+      {item.dominantReason ? (
+        <>
+          <SectionHeader>Scheduler choice</SectionHeader>
+          <ClaimSurface
+            key={`${item.practiceItemId}:${item.dominantReason}`}
+            claim={scheduleChoiceClaim(item, producerVersion)}
+            sessionId={sessionId}
+            visitId={visitId}
+            onError={onError}
+          />
+        </>
+      ) : null}
+
       <SectionHeader>Why this position</SectionHeader>
       {WHY_ROWS.map((row) => (
         <WhyRow key={row.key} label={row.label} value={components[row.key] ?? 0} color={row.color} />
@@ -917,6 +1033,189 @@ function QueueRankingStrip({ algorithmVersion }: { algorithmVersion: string }) {
         <Faint>algorithm</Faint> <Dim>{algorithmVersion}</Dim>
         <span style={{ margin: "0 10px" }}>·</span>
         <Faint>focus a row to see its per-component breakdown</Faint>
+      </div>
+    </div>
+  );
+}
+
+// F5: build a schedule_choice policy claim for a queue item (§2.1, §4.3). The
+// claim_ref is the structured item identity; claim_version keys on the reason so
+// a materially changed reason re-presents (§2.2). producer_version stamps the
+// selection policy that produced the reason.
+function scheduleChoiceClaim(item: ScheduledItemDto, producerVersion: string): ClaimCandidateDto {
+  return {
+    claimClass: "policy",
+    claimType: "schedule_choice",
+    claimRef: { practiceItemId: item.practiceItemId, learningObjectId: item.learningObjectId },
+    claimVersion: `reason:${item.dominantReason ?? ""}`,
+    producerVersion,
+    surface: "today",
+    temperature: "cold",
+    claimText: `Chosen next because ${item.dominantReason}`,
+    provenance: item.practiceItemId
+  };
+}
+
+// F5 overconfidence list (§4.3): compact expandable list anchored on the session
+// narrative. One tap starts a probe (origin='overconfidence_list').
+function OverconfidenceList({
+  facets,
+  onProbe
+}: {
+  facets: OverconfidentFacetDto[];
+  onProbe: (facet: OverconfidentFacetDto) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [started, setStarted] = useState<Set<string>>(() => new Set());
+  if (facets.length === 0) return null;
+  return (
+    <div style={{ marginTop: 8, fontSize: 12 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        style={{
+          background: "transparent",
+          border: "none",
+          padding: 0,
+          color: COLOR.pink,
+          cursor: "pointer",
+          fontFamily: FONT_MONO,
+          fontSize: 12
+        }}
+        aria-expanded={open}
+      >
+        {open ? "▾" : "▸"} {facets.length} facet{facets.length === 1 ? "" : "s"} you may be overconfident about
+      </button>
+      {open ? (
+        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+          {facets.map((facet) => {
+            const key = `${facet.learningObjectId}:${facet.facetId}`;
+            const done = started.has(key);
+            return (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ color: COLOR.text }}>{facet.facetId.replace(/^facet_/, "")}</span>
+                <Faint style={{ fontSize: 11 }}>ready {facet.ready.toFixed(2)} · not demonstrated</Faint>
+                <span style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  disabled={done}
+                  onClick={() => { onProbe(facet); setStarted((prev) => new Set(prev).add(key)); }}
+                  className="queue-row"
+                  style={{ fontSize: 11 }}
+                >
+                  {done ? "probe queued" : "probe this"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// F7 welcome-back diff (§4.4): survival-first ordering. Never leads with losses;
+// never mentions the streak.
+function ReentryPanel({ summary }: { summary: ReentrySummaryDto }) {
+  const named = summary.slippedTop.map((f) => f.facetId.replace(/^facet_/, "")).join(", ");
+  return (
+    <div
+      style={{
+        margin: "16px 24px 0",
+        padding: "14px 18px",
+        border: `1px solid ${COLOR.borderStrong}`,
+        borderLeft: `3px solid ${COLOR.green}`,
+        background: COLOR.bgElev
+      }}
+    >
+      <div style={{ fontSize: 11, color: COLOR.green, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+        welcome back — {summary.gapDays} days away
+      </div>
+      <div style={{ marginTop: 8, fontSize: 13, color: COLOR.text, lineHeight: 1.6 }}>
+        <span style={{ color: COLOR.green }}>Still solid: {summary.solidCount} facets.</span>{" "}
+        {summary.slippedCount > 0 ? (
+          <>
+            Slipped below target while you were away: {summary.slippedCount}
+            {named ? <Faint> — {named}</Faint> : null}.{" "}
+          </>
+        ) : null}
+        <span style={{ color: COLOR.amber }}>Your best next session: {summary.refresherCount} refreshers.</span>
+      </div>
+    </div>
+  );
+}
+
+// F7 no-goal / fresh-vault fallback (§4.5). With FSRS history: the decay-pressure
+// list fills the hero slot. Fresh vault (no history): three real actions.
+function NoGoalFallback({
+  pressure,
+  onSetGoal,
+  onReadFirst,
+  onDiagnostic
+}: {
+  pressure: DecayPressureDto | null;
+  onSetGoal: () => void;
+  onReadFirst: () => void;
+  onDiagnostic: () => void;
+}) {
+  const action = (label: string, onClick: () => void) => (
+    <span
+      onClick={onClick}
+      style={{
+        padding: "6px 14px",
+        border: `1px solid ${COLOR.amber}`,
+        background: "#241d12",
+        color: COLOR.amber,
+        fontFamily: FONT_MONO,
+        fontSize: 12,
+        cursor: "pointer"
+      }}
+    >
+      {label}
+    </span>
+  );
+
+  if (pressure && pressure.hasHistory && pressure.facets.length > 0) {
+    return (
+      <div style={{ margin: "16px 24px 0", padding: "14px 18px", border: `1px solid ${COLOR.border}` }}>
+        <div style={{ fontSize: 11, color: COLOR.amber, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+          decay pressure — no active goal
+        </div>
+        <div style={{ marginTop: 4, fontSize: 11, color: COLOR.textFaint }}>
+          facets crossing the recall target soonest
+          {pressure.heldFlatCount > 0 ? ` · ${pressure.heldFlatCount} held flat (not enough history)` : ""}
+        </div>
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 5 }}>
+          {pressure.facets.slice(0, 8).map((facet) => (
+            <div key={`${facet.learningObjectId}:${facet.facetId}`} style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12, fontSize: 12, alignItems: "baseline" }}>
+              <span style={{ color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {facet.facetId.replace(/^facet_/, "")} <Faint style={{ fontSize: 11 }}>· {facet.learningObjectTitle}</Faint>
+              </span>
+              <span style={{ fontFamily: FONT_MONO, color: COLOR.amber, textAlign: "right" }}>
+                {facet.crossesInDays == null
+                  ? "stable"
+                  : facet.crossesInDays === 0
+                    ? "below target"
+                    : `crosses in ~${facet.crossesInDays}d`}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 12 }}>{action("set a goal ↵", onSetGoal)}</div>
+      </div>
+    );
+  }
+
+  // Fresh vault: no goal, no history.
+  return (
+    <div style={{ margin: "16px 24px 0", padding: "14px 18px", border: `1px dashed ${COLOR.border}` }}>
+      <div style={{ fontSize: 13, color: COLOR.textDim, lineHeight: 1.6 }}>
+        No goal yet, and not enough practice history to project decay. Start here:
+      </div>
+      <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {action("read first", onReadFirst)}
+        {action("set a goal", onSetGoal)}
+        {action("run a short diagnostic", onDiagnostic)}
       </div>
     </div>
   );

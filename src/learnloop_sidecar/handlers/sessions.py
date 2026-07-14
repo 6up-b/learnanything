@@ -32,7 +32,11 @@ class SessionCheckpointInput(ParamsModel):
 
 @method("start_session", SessionStartInput)
 def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, Any]:
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
+    from learnloop.services.forecast_ledger import issue_goal_forecasts, resolve_due_forecasts
+
+    resolve_due_forecasts(repository)
+    issue_goal_forecasts(vault, repository)
     session_id = repository.create_session(
         energy=params.energy,
         sleep_quality=params.sleep_quality,
@@ -71,12 +75,15 @@ def clear_session_checkpoint(ctx: SidecarContext, params: SessionIdInput) -> dic
 
 @method("end_session", SessionIdInput)
 def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     row = repository.end_session(params.session_id)
     if row is None:
         raise SidecarError("not_found", f"Session {params.session_id} was not found.")
     repository.clear_session_checkpoint(params.session_id)
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
+    from learnloop.services.session_learning_diff import session_learning_diff
+
+    learning_diff = session_learning_diff(vault, repository, params.session_id)
     return versioned(
         {
             "session_id": row["id"],
@@ -86,6 +93,7 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
             "items_reviewed": counts["items_reviewed"],
             "followups_queued": _session_followups_queued(repository, params.session_id),
             "streak": repository.session_day_streak(),
+            **learning_diff,
         }
     )
 

@@ -34,6 +34,7 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
 from learnloop_sidecar.handlers.goals import GoalIdInput, _find_goal
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.dto import EmptyParams
 
 
 class StartExamInput(ParamsModel):
@@ -48,6 +49,16 @@ class SubmitExamAnswerInput(ParamsModel):
 
 class FinishExamInput(ParamsModel):
     session_id: str
+
+
+@method("get_answer_calibration")
+def get_answer_calibration(
+    ctx: SidecarContext, _params: EmptyParams
+) -> dict[str, Any]:
+    from learnloop.services.exam_calibration import calibration_report
+
+    vault, repository = ctx.require_vault()
+    return versioned(calibration_report(vault, repository))
 
 
 @method("get_exam_status", GoalIdInput)

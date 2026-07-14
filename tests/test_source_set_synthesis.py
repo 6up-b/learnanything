@@ -193,10 +193,12 @@ def _setup(tmp_path: Path, *, with_exam: bool = True, mvp07: bool = True):
     init_vault(root, clock=_CLOCK)
     add_subject(root, "linear-algebra", "Linear Algebra", clock=_CLOCK)
     paths_sqlite = root / "state.sqlite"
-    if mvp07:
-        from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.paths import VaultPaths
 
-        set_algorithm_version(VaultPaths(root, load_vault(root).config), "mvp-0.7")
+    set_algorithm_version(
+        VaultPaths(root, load_vault(root).config),
+        "mvp-0.7" if mvp07 else "mvp-0.6",
+    )
     repo = Repository(paths_sqlite)
 
     inv_client = FakeInventoryClient()

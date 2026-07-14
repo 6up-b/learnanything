@@ -321,6 +321,8 @@ def _run_reconciliation(
         exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
     )
     result = run_method(context)
+    if _output_tokens(result) > budgets.append_output_tokens:
+        raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
     span_request_count = 0
     requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
     if requests:
@@ -336,7 +338,16 @@ def _run_reconciliation(
             exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
         )
         result = run_method(context)
+        if _output_tokens(result) > budgets.append_output_tokens:
+            raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
     return result, span_request_count
+
+
+def _output_tokens(result: Any) -> int:
+    import json
+
+    payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
+    return max(1, len(json.dumps(payload, default=str)) // 4)
 
 
 # --- normalization ----------------------------------------------------------

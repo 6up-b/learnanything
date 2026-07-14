@@ -119,6 +119,38 @@ export function SessionFinishHud({
     const streakActive = summary.streak.activeToday;
     const bestStreak = `BEST STREAK ${summary.streak.longest}D`;
 
+    // The session diff (spec §4.8): the learning fields, guarded because older
+    // summaries predate them. Up/down predictions are NEVER netted, corrections
+    // are always shown when nonzero, and downward movement is rendered plainly.
+    const facetsDemonstrated = summary.facetsDemonstrated ?? 0;
+    const movedUp = summary.predictionsMoved?.up ?? 0;
+    const movedDown = summary.predictionsMoved?.down ?? 0;
+    const corrections = summary.corrections ?? 0;
+    const mscResolved = summary.misconceptionsTouched?.resolved ?? 0;
+    const mscReturned = summary.misconceptionsTouched?.returned ?? 0;
+
+    // Candidate diff lines; each carries a weight (informativeness) and whether
+    // it MUST appear when present (corrections, for non-monotone honesty).
+    type DiffLine = { text: string; color: ColorId; weight: number; force: boolean };
+    const candidates: DiffLine[] = [];
+    if (facetsDemonstrated > 0) {
+      candidates.push({ text: `▲ ${facetsDemonstrated} facets demonstrated`, color: C.green, weight: facetsDemonstrated, force: false });
+    }
+    if (movedUp > 0 || movedDown > 0) {
+      candidates.push({ text: `predictions ▲${movedUp} up  ▼${movedDown} down`, color: C.amber, weight: movedUp + movedDown, force: false });
+    }
+    if (corrections > 0) {
+      candidates.push({ text: `± ${corrections} corrections applied`, color: C.amberHi, weight: corrections, force: true });
+    }
+    if (mscResolved > 0 || mscReturned > 0) {
+      candidates.push({ text: `misconceptions ✓${mscResolved} resolved  ↩${mscReturned} returned`, color: C.amber, weight: mscResolved + mscReturned, force: false });
+    }
+    // Keep forced lines, then fill the remaining slots (cap 3) by weight.
+    const forced = candidates.filter((c) => c.force);
+    const optional = candidates.filter((c) => !c.force).sort((a, b) => b.weight - a.weight);
+    const diffLines = [...forced, ...optional].slice(0, 3);
+    const hasMoreDiff = candidates.length > diffLines.length;
+
     let cols = 0;
     let rows = 0;
     let grid: string[] = [];
@@ -306,6 +338,18 @@ export function SessionFinishHud({
           put(Math.round(cy) + 5, col, s, color);
           col += s.length;
         }
+
+        // Session diff (≤3 lines) — a low-energy moment, so no more than three.
+        let diffRow = Math.round(cy) + 7;
+        for (const line of diffLines) {
+          if (diffRow > rows - 6) break;
+          putCenter(diffRow, line.text, line.color);
+          diffRow++;
+        }
+        if (diffLines.length && diffRow <= rows - 6) {
+          putCenter(diffRow, hasMoreDiff ? "+ more · full changelog in review" : "full changelog in review", C.faint);
+        }
+
         putCenter(rows - 4, `▍ PRESS ANY KEY TO CONTINUE · ELAPSED ${elapsed}`, C.dim);
       }
 

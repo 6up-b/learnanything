@@ -22,10 +22,11 @@ import type {
 import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Divider, Faint, FONT_MONO, Pill, SectionHeader, type PillColor } from "../components/term";
 
-// Locators produced by append are `span:<spanId>`; legacy refs
+// Canonical locators are `span:<extraction>/<span>`; the optional extraction
+// group preserves the malformed pre-v2 `span:<span>` compatibility shape.
 // (heading_path_v1 / time_range_v1) carry no span the viewer can open.
 function spanIdFromLocator(locator: string | null): string | null {
-  return locator && locator.startsWith("span:") ? locator.slice(5) : null;
+  return /^span:(?:[^/]+\/)?(.+)$/.exec(locator ?? "")?.[1] ?? null;
 }
 
 const SEVERITY_PILL: Record<MaintenanceSeverity, PillColor> = {

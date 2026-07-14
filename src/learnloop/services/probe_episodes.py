@@ -139,6 +139,7 @@ def enter_episode(
     learning_object_id: str,
     *,
     trigger: str = "initial",
+    origin: str | None = None,
     clock: Clock | None = None,
     ai_client: object | None = None,
 ) -> ProbeEpisodeRecord:
@@ -148,10 +149,26 @@ def enter_episode(
     episode enters ``in_progress`` when an eligible instrument exists locally,
     otherwise ``pending_items`` with one deduplicated generation need (§10) —
     which never blocks ordinary practice on the LO.
+
+    ``origin`` records how the episode was launched (e.g.
+    ``'overconfidence_list'``, spec §4.3) so analytics can separate adversarial
+    selection from drift. It is persisted into the dedicated ``origin`` column
+    (migration 059) at creation, so it survives target selection — which
+    overwrites ``target_decision_json`` and previously erased the origin.
     """
 
     existing = repository.open_probe_episode(learning_object_id)
     if existing is not None:
+        if (
+            existing.status == "pending_items"
+            and vault.config.probe.generation.auto_generate_on_entry
+        ):
+            from learnloop.services.probe_instance_generation import generate_instances_for_episode
+
+            generate_instances_for_episode(
+                repository, vault, existing.id, clock=clock, ai_client=ai_client
+            )
+            return repository.probe_episode(existing.id) or existing
         return existing
 
     ensure_builtin_families(repository, clock=clock)
@@ -183,6 +200,8 @@ def enter_episode(
         trigger=trigger,
         hypothesis_set_id=hypothesis_set_id,
         active_state_segment_id=None,
+        target_decision=None,
+        origin=origin,
         algorithm_version=algorithm_version,
         required_facets=sorted(required_facets(vault, learning_object_id, repository)),
         minimum_independent_observations=episode_config.minimum_independent_observations,
@@ -1360,10 +1379,17 @@ def _record_presentation_observation(
     before = episode_posterior(vault, repository, episode, hypothesis_set=hypothesis_set)
     posterior_before = before.posterior if before is not None else dict(hypothesis_set.prior)
 
+    persisted_attempt = repository.fetch_practice_attempt(attempt_id) or {}
+    # "I don't know" is an observation outcome, not an attempt channel.  Keep
+    # the committed probe type for eligibility, but feed the explicit outcome
+    # to the deterministic signature matcher so replay selects `unanswered`.
+    outcome_attempt_type = (
+        "dont_know" if persisted_attempt.get("declared_dont_know") else attempt_type
+    )
     outcome = classify_outcome(
         instrument,
         rubric_score=_attempt_rubric_score(repository, attempt_id),
-        attempt_type=attempt_type,
+        attempt_type=outcome_attempt_type,
         fired_error_types=_fired_error_types(repository, attempt_id),
     )
 
@@ -1396,9 +1422,9 @@ def _record_presentation_observation(
         contamination["hints_used"] = hints_used
     if tutor_contaminated:
         contamination["tutor_help"] = True
-    # §5.4: `dont_know` is a valid diagnostic outcome of the selected
-    # observation; any other non-diagnostic type contaminates it.
-    if attempt_type not in ("diagnostic_probe", "dont_know"):
+    # The explicit don't-know outcome retains the presentation's
+    # `diagnostic_probe` type; any other type contaminates the measurement.
+    if attempt_type != "diagnostic_probe":
         contamination["attempt_type"] = attempt_type
     contaminated = bool(contamination)
 
@@ -1420,7 +1446,7 @@ def _record_presentation_observation(
     entropy_after = _entropy(posterior_after)
     eligible = (
         not contaminated
-        and attempt_type in ("diagnostic_probe", "dont_know")
+        and attempt_type == "diagnostic_probe"
         and grading_source in APPROVED_DIAGNOSTIC_GRADING_SOURCES
     )
     repository.insert_probe_observation(

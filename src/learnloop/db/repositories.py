@@ -176,6 +176,8 @@ class MisconceptionRecord:
     first_divergence: list[str] = field(default_factory=list)
     non_applicable_controls: list[str] = field(default_factory=list)
     promotion_reason: str | None = None
+    correction_statement: str | None = None
+    correction_source_span_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -256,6 +258,7 @@ class ProbeEpisodeRecord:
     hypothesis_set_id: str | None
     active_state_segment_id: str | None
     target_decision: dict[str, Any] | None
+    origin: str | None
     required_facets: list[str]
     minimum_independent_observations: int
     maximum_observations: int
@@ -655,6 +658,53 @@ class Repository:
                 (attempt_id,),
             ).fetchone()
         return _decode_attempt(row) if row is not None else None
+
+    def practice_attempt_by_submission_id(self, submission_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM practice_attempts WHERE submission_id = ?",
+                (submission_id,),
+            ).fetchone()
+        return _decode_attempt(row) if row is not None else None
+
+    def attempt_submission_receipt(self, submission_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM attempt_submission_receipts WHERE submission_id = ?",
+                (submission_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["result"] = _loads(payload.pop("result_json"), {})
+        return payload
+
+    def insert_attempt_submission_receipt(
+        self,
+        *,
+        submission_id: str,
+        attempt_id: str,
+        practice_item_id: str,
+        result: Mapping[str, Any],
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO attempt_submission_receipts(
+                  submission_id, attempt_id, practice_item_id, result_json, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(submission_id) DO NOTHING
+                """,
+                (
+                    submission_id,
+                    attempt_id,
+                    practice_item_id,
+                    _json(result),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
 
     def upsert_attempt_feedback_metadata(
         self,
@@ -1120,6 +1170,8 @@ class Repository:
         first_divergence: Iterable[str] | None = None,
         non_applicable_controls: Iterable[str] | None = None,
         promotion_reason: str | None = None,
+        correction_statement: str | None = None,
+        correction_source_span_ids: Iterable[str] | None = None,
         clock: Clock | None = None,
     ) -> str:
         if status not in {"active", "resolving", "resolved"}:
@@ -1137,9 +1189,10 @@ class Repository:
                   mechanism, operation, target_facet, confused_with_facet,
                   trigger_conditions_json, expected_signatures_json,
                   first_divergence_json, non_applicable_controls_json,
-                  promotion_reason
+                  promotion_reason, correction_statement,
+                  correction_source_span_ids_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     misconception_id,
@@ -1163,7 +1216,17 @@ class Repository:
                     _json([str(d) for d in (first_divergence or [])]),
                     _json([str(c) for c in (non_applicable_controls or [])]),
                     promotion_reason,
+                    correction_statement,
+                    _json([str(span) for span in (correction_source_span_ids or [])]),
                 ),
+            )
+            connection.execute(
+                """
+                INSERT INTO misconception_transition_events(
+                  id, misconception_id, from_status, to_status, at, source
+                ) VALUES (?, ?, NULL, ?, ?, 'created')
+                """,
+                (new_ulid(), misconception_id, status, now),
             )
             connection.commit()
         return misconception_id
@@ -1255,6 +1318,9 @@ class Repository:
         severity: float | None = None,
         status: str | None = None,
         append_source_error_event_ids: Iterable[str] | None = None,
+        correction_statement: str | None = None,
+        correction_source_span_ids: Iterable[str] | None = None,
+        transition_source: str = "repository",
         clock: Clock | None = None,
     ) -> MisconceptionRecord | None:
         if status is not None and status not in {"active", "resolving", "resolved"}:
@@ -1277,6 +1343,16 @@ class Repository:
             )
             new_severity = float(severity) if severity is not None else current.severity
             new_status = status if status is not None else current.status
+            new_correction = (
+                correction_statement
+                if correction_statement is not None
+                else current.correction_statement
+            )
+            new_correction_spans = (
+                [str(span) for span in correction_source_span_ids]
+                if correction_source_span_ids is not None
+                else current.correction_source_span_ids
+            )
             source_ids = list(current.source_error_event_ids)
             if append_source_error_event_ids:
                 for event_id in append_source_error_event_ids:
@@ -1292,7 +1368,8 @@ class Repository:
                 UPDATE misconceptions
                 SET statement = ?, signature = ?, facet_ids_json = ?, severity = ?,
                     status = ?, source_error_event_ids_json = ?, updated_at = ?,
-                    resolved_at = ?
+                    resolved_at = ?, correction_statement = ?,
+                    correction_source_span_ids_json = ?
                 WHERE id = ?
                 """,
                 (
@@ -1304,11 +1381,36 @@ class Repository:
                     _json(source_ids),
                     now,
                     resolved_at,
+                    new_correction,
+                    _json(new_correction_spans),
                     misconception_id,
                 ),
             )
+            if new_status != current.status:
+                connection.execute(
+                    """
+                    INSERT INTO misconception_transition_events(
+                      id, misconception_id, from_status, to_status, at, source
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_ulid(), misconception_id, current.status,
+                        new_status, now, transition_source,
+                    ),
+                )
             connection.commit()
         return self.misconception(misconception_id)
+
+    def misconception_transition_events(self, misconception_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM misconception_transition_events
+                WHERE misconception_id = ? ORDER BY at, id
+                """,
+                (misconception_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     # -- Misconception candidates (KM4 §10.3 promotion discipline) -----------
 
@@ -1647,12 +1749,44 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def pending_followup_practice_item_ids(self) -> list[str]:
+    def calibration_duel_pairs(self) -> list[dict[str, Any]]:
+        """Matched pre-outcome learner/model predictions on ordinary cold attempts."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT a.id AS attempt_id,
+                       a.answer_confidence AS answer_confidence,
+                       a.correctness AS correctness,
+                       c.predicted_correctness AS model_predicted_correctness
+                FROM practice_attempts a
+                JOIN scheduler_slate_candidates c
+                  ON c.id = a.scheduler_candidate_id OR c.chosen_attempt_id = a.id
+                WHERE a.answer_confidence IS NOT NULL
+                  AND a.correctness IS NOT NULL
+                  AND c.predicted_correctness IS NOT NULL
+                  AND COALESCE(a.primed, 0) = 0
+                  AND COALESCE(a.hints_used, 0) = 0
+                  AND a.attempt_type NOT IN (
+                    'hinted_attempt', 'guided_walkthrough', 'self_report',
+                    'dont_know', 'skip'
+                  )
+                ORDER BY a.created_at, a.id
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def pending_followup_practice_item_ids(self, *, clock: Clock | None = None) -> list[str]:
         """Return queued follow-up item ids that have not yet been attempted."""
 
-        return [item["practice_item_id"] for item in self.pending_followup_practice_items()]
+        return [
+            item["practice_item_id"]
+            for item in self.pending_followup_practice_items(clock=clock)
+        ]
 
-    def pending_followup_practice_items(self) -> list[dict[str, str]]:
+    def pending_followup_practice_items(
+        self, *, clock: Clock | None = None
+    ) -> list[dict[str, str]]:
         """Return queued follow-ups that have not yet been attempted.
 
         Follow-up insertion is represented in MVP as an action recorded on
@@ -1660,8 +1794,17 @@ class Repository:
         attempt exists for the chosen Practice Item.
         """
 
-        pending: list[dict[str, str]] = []
-        seen: set[str] = set()
+        task_rows = self.due_followup_tasks(clock=clock)
+        pending: list[dict[str, str]] = [
+            {
+                "practice_item_id": str(task["selected_item_id"]),
+                "action_type": "cold_retry",
+                "followup_task_id": str(task["id"]),
+            }
+            for task in task_rows
+            if task.get("selected_item_id")
+        ]
+        seen: set[str] = {item["practice_item_id"] for item in pending}
         with self.connection() as connection:
             rows = connection.execute(
                 """
@@ -1692,6 +1835,182 @@ class Repository:
                     seen.add(practice_item_id)
                     pending.append({"practice_item_id": practice_item_id, "action_type": action_type})
         return pending
+
+    # -- Structured remediation episodes and delayed follow-ups -----------
+
+    def create_remediation_episode(
+        self,
+        *,
+        case_kind: str,
+        case_ref: str,
+        passages_shown: Sequence[Mapping[str, Any]] = (),
+        state: str = "diagnosis",
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        episode_id = new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO remediation_episodes(
+                  id, case_kind, case_ref, state, passages_shown_json,
+                  created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (episode_id, case_kind, case_ref, state, _json(list(passages_shown)), now, now),
+            )
+            connection.commit()
+        episode = self.remediation_episode(episode_id)
+        assert episode is not None
+        return episode
+
+    def remediation_episode(self, episode_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM remediation_episodes WHERE id = ?", (episode_id,)
+            ).fetchone()
+        return _decode_remediation_episode(row) if row is not None else None
+
+    def update_remediation_episode(
+        self, episode_id: str, *, clock: Clock | None = None, **changes: Any
+    ) -> dict[str, Any] | None:
+        allowed = {
+            "state", "passages_shown", "primed_item_id", "cold_item_id",
+            "primed_attempt_id", "cold_attempt_id", "completed_at",
+        }
+        values = {key: value for key, value in changes.items() if key in allowed}
+        if not values:
+            return self.remediation_episode(episode_id)
+        assignments: list[str] = []
+        params: list[Any] = []
+        for key, value in values.items():
+            column = "passages_shown_json" if key == "passages_shown" else key
+            assignments.append(f"{column} = ?")
+            params.append(_json(value) if key == "passages_shown" else value)
+        assignments.append("updated_at = ?")
+        params.extend([utc_now_iso(clock), episode_id])
+        with self.connection() as connection:
+            connection.execute(
+                f"UPDATE remediation_episodes SET {', '.join(assignments)} WHERE id = ?",
+                params,
+            )
+            connection.commit()
+        return self.remediation_episode(episode_id)
+
+    def open_remediation_episode_for_primed_item(self, practice_item_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM remediation_episodes
+                WHERE primed_item_id = ? AND primed_attempt_id IS NULL
+                  AND state = 'treatment'
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                (practice_item_id,),
+            ).fetchone()
+        return _decode_remediation_episode(row) if row is not None else None
+
+    def create_followup_task(
+        self,
+        *,
+        kind: str,
+        case_kind: str,
+        case_ref: str,
+        not_before: str,
+        selected_item_id: str | None,
+        source_attempt_id: str | None = None,
+        remediation_episode_id: str | None = None,
+        expires_at: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        task_id = new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO followup_tasks(
+                  id, kind, case_kind, case_ref, source_attempt_id,
+                  remediation_episode_id, not_before, expires_at, status,
+                  selected_item_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                """,
+                (
+                    task_id, kind, case_kind, case_ref, source_attempt_id,
+                    remediation_episode_id, not_before, expires_at,
+                    selected_item_id, now, now,
+                ),
+            )
+            connection.commit()
+        task = self.followup_task(task_id)
+        assert task is not None
+        return task
+
+    def followup_task(self, task_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute("SELECT * FROM followup_tasks WHERE id = ?", (task_id,)).fetchone()
+        return dict(row) if row is not None else None
+
+    def due_followup_tasks(self, *, clock: Clock | None = None) -> list[dict[str, Any]]:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks SET status = 'expired', updated_at = ?
+                WHERE status IN ('pending', 'served') AND expires_at IS NOT NULL
+                  AND expires_at < ?
+                """,
+                (now, now),
+            )
+            rows = connection.execute(
+                """
+                SELECT * FROM followup_tasks
+                WHERE status IN ('pending', 'served') AND not_before <= ?
+                  AND (expires_at IS NULL OR expires_at >= ?)
+                ORDER BY not_before, created_at, id
+                """,
+                (now, now),
+            ).fetchall()
+            ids = [row["id"] for row in rows if row["status"] == "pending"]
+            if ids:
+                placeholders = ",".join("?" for _ in ids)
+                connection.execute(
+                    f"UPDATE followup_tasks SET status = 'served', updated_at = ? WHERE id IN ({placeholders})",
+                    (now, *ids),
+                )
+            connection.commit()
+        return [dict(row) | {"status": "served"} for row in rows]
+
+    def active_followup_task_for_item(
+        self, practice_item_id: str, *, at: str | None = None
+    ) -> dict[str, Any] | None:
+        now = at or utc_now_iso()
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM followup_tasks
+                WHERE selected_item_id = ? AND status IN ('pending', 'served')
+                  AND not_before <= ? AND (expires_at IS NULL OR expires_at >= ?)
+                ORDER BY not_before, created_at, id LIMIT 1
+                """,
+                (practice_item_id, now, now),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def consume_followup_task(
+        self, task_id: str, attempt_id: str, *, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks
+                SET status = 'consumed', consumed_attempt_id = ?, updated_at = ?
+                WHERE id = ? AND status IN ('pending', 'served')
+                """,
+                (attempt_id, now, task_id),
+            )
+            connection.commit()
+        return self.followup_task(task_id)
 
     def followup_source_attempt(self, attempt_id: str) -> str | None:
         """Gate-decision attempt whose queued follow-up this attempt answered.
@@ -2832,7 +3151,8 @@ class Repository:
                 evidence = connection.execute(
                     """
                     SELECT criterion_id, points_awarded, attribution_json,
-                           correlation_group, recipe_id
+                           correlation_group, recipe_id, observation_id,
+                           grading_revision, assessment_contract_version_id
                     FROM grading_evidence
                     WHERE attempt_id = ? AND superseded_at IS NULL
                     ORDER BY created_at, criterion_id
@@ -2848,7 +3168,13 @@ class Repository:
                         "practice_mode": attempt["practice_mode"],
                         "hints_used": attempt["hints_used"] or 0,
                         "created_at": attempt["created_at"],
-                        "evidence": [dict(row) for row in evidence],
+                        "evidence": [
+                            {
+                                **dict(row),
+                                "attribution_json": _loads(row["attribution_json"], None),
+                            }
+                            for row in evidence
+                        ],
                     }
                 )
         return ledger
@@ -3860,6 +4186,7 @@ class Repository:
         active_state_segment_id: str | None,
         algorithm_version: str,
         target_decision: Mapping[str, Any] | None = None,
+        origin: str | None = None,
         required_facets: list[str] | None = None,
         minimum_independent_observations: int = 2,
         maximum_observations: int = 4,
@@ -3874,12 +4201,12 @@ class Repository:
                 """
                 INSERT INTO probe_episodes(
                   id, learning_object_id, status, trigger, hypothesis_set_id,
-                  active_state_segment_id, target_decision_json, required_facets_json,
+                  active_state_segment_id, target_decision_json, origin, required_facets_json,
                   minimum_independent_observations, maximum_observations,
                   entered_at, completed_at, completion_reason, algorithm_version,
                   created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
                 """,
                 (
                     episode_id,
@@ -3889,6 +4216,7 @@ class Repository:
                     hypothesis_set_id,
                     active_state_segment_id,
                     _json(dict(target_decision)) if target_decision is not None else None,
+                    origin,
                     _json(list(required_facets or [])),
                     minimum_independent_observations,
                     maximum_observations,
@@ -5660,6 +5988,19 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def most_recent_ended_at(self) -> str | None:
+        """The end timestamp of the most recently completed session, or None.
+
+        Powers the F7 welcome-back diff (§4.4): the "time since last session
+        end" gap the re-entry panel is gated on. Read-only, outside replay.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT MAX(ended_at) AS latest FROM sessions WHERE ended_at IS NOT NULL"
+            ).fetchone()
+        return row["latest"] if row is not None else None
+
     def session_day_streak(self, *, clock: Clock | None = None) -> dict[str, Any]:
         """Consecutive-day study streak derived from session start timestamps.
 
@@ -5745,6 +6086,68 @@ class Repository:
             ).fetchone()
         return int(row["n"]) if row is not None else 0
 
+    def daily_qualifying_attempt_counts_for_learning_objects(
+        self,
+        learning_object_ids: list[str],
+        *,
+        days: int = 14,
+        not_before: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[date, int]:
+        """Zero-filled, goal-scoped certification-capable attempts by local day."""
+
+        days = max(days, 1)
+        now = (clock or SystemClock()).now()
+        today = now.astimezone().date()
+        configured_start = today - timedelta(days=days - 1)
+        goal_start = parse_utc(not_before)
+        window_start = (
+            max(configured_start, goal_start.astimezone().date())
+            if goal_start is not None
+            else configured_start
+        )
+        counts: dict[date, int] = {
+            window_start + timedelta(days=offset): 0
+            for offset in range(max((today - window_start).days + 1, 1))
+        }
+        if not learning_object_ids:
+            return counts
+
+        placeholders = ",".join("?" for _ in learning_object_ids)
+        cutoff_iso = (
+            now.astimezone(UTC) - timedelta(days=max((today - window_start).days + 2, 2))
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        params: list[Any] = [*learning_object_ids, cutoff_iso]
+        not_before_clause = ""
+        if not_before is not None:
+            not_before_clause = "AND created_at >= ?"
+            params.append(not_before)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT created_at
+                FROM practice_attempts
+                WHERE learning_object_id IN ({placeholders})
+                  AND created_at >= ?
+                  {not_before_clause}
+                  AND COALESCE(primed, 0) = 0
+                  AND COALESCE(hints_used, 0) = 0
+                  AND attempt_type IN (
+                    'independent_attempt', 'open_text', 'diagnostic_probe',
+                    'exam_attempt', 'teach_back'
+                  )
+                """,
+                params,
+            ).fetchall()
+        for row in rows:
+            created = parse_utc(row["created_at"])
+            if created is None:
+                continue
+            day = created.astimezone().date()
+            if day in counts:
+                counts[day] += 1
+        return counts
+
     def end_open_sessions_except(self, session_id: str, *, clock: Clock | None = None) -> int:
         now = utc_now_iso(clock)
         with self.connection() as connection:
@@ -5789,14 +6192,367 @@ class Repository:
                 SELECT COUNT(*) AS attempts_recorded,
                        COUNT(DISTINCT practice_item_id) AS items_reviewed
                 FROM practice_attempts
-                WHERE created_at >= ? AND created_at <= ?
+                WHERE session_id = ?
+                   OR (
+                     session_id IS NULL
+                     AND created_at >= ? AND created_at <= ?
+                   )
                 """,
-                (started_at, ended_at),
+                (session_id, started_at, ended_at),
             ).fetchone()
         return {
             "attempts_recorded": int(row["attempts_recorded"] if row is not None else 0),
             "items_reviewed": int(row["items_reviewed"] if row is not None else 0),
         }
+
+    def review_session_rows(self) -> list[dict[str, Any]]:
+        """Reverse-chronological session spine for the Review surface."""
+
+        with self.connection() as connection:
+            sessions = connection.execute(
+                "SELECT * FROM sessions WHERE ended_at IS NOT NULL ORDER BY ended_at DESC, id DESC"
+            ).fetchall()
+            result: list[dict[str, Any]] = []
+            for session in sessions:
+                attempts = connection.execute(
+                    """
+                    SELECT a.id, a.practice_item_id, a.learning_object_id,
+                           a.created_at, s.surprise_direction
+                    FROM practice_attempts a
+                    LEFT JOIN attempt_surprise s ON s.attempt_id = a.id
+                    WHERE a.session_id = ? OR (
+                      a.session_id IS NULL AND a.created_at >= ? AND a.created_at <= ?
+                    )
+                    ORDER BY a.created_at, a.id
+                    """,
+                    (session["id"], session["started_at"], session["ended_at"]),
+                ).fetchall()
+                result.append(
+                    dict(session)
+                    | {
+                        "attempts": [dict(row) for row in attempts],
+                        "predictions_up": sum(row["surprise_direction"] == "positive" for row in attempts),
+                        "predictions_down": sum(row["surprise_direction"] == "negative" for row in attempts),
+                    }
+                )
+        return result
+
+    def grading_correction_count_between(self, started_at: str, ended_at: str) -> int:
+        """Count grading epochs after the original grade in a time window."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT attempt_id, grading_revision, created_at
+                FROM grading_evidence
+                ORDER BY attempt_id, created_at,
+                         COALESCE(grading_revision, -1), id
+                """
+            ).fetchall()
+        epochs_by_attempt: dict[str, dict[str, str]] = {}
+        for row in rows:
+            epoch_key = (
+                f"revision:{row['grading_revision']}"
+                if row["grading_revision"] is not None
+                else f"legacy:{row['created_at']}"
+            )
+            epochs_by_attempt.setdefault(str(row["attempt_id"]), {}).setdefault(
+                epoch_key, str(row["created_at"])
+            )
+        count = 0
+        for epochs in epochs_by_attempt.values():
+            ordered = sorted(epochs.items(), key=lambda pair: (pair[1], pair[0]))
+            count += sum(started_at <= at <= ended_at for _key, at in ordered[1:])
+        return count
+
+    def misconception_transition_counts_between(
+        self, started_at: str, ended_at: str
+    ) -> dict[str, int]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT from_status, to_status
+                FROM misconception_transition_events
+                WHERE at >= ? AND at <= ?
+                """,
+                (started_at, ended_at),
+            ).fetchall()
+        return {
+            "resolved": sum(row["to_status"] == "resolved" for row in rows),
+            "returned": sum(
+                row["from_status"] == "resolved"
+                and row["to_status"] in {"active", "resolving"}
+                for row in rows
+            ),
+        }
+
+    # -- Typed learner-facing hypothesis events ---------------------------
+
+    def insert_hypothesis_event(
+        self,
+        *,
+        event_type: str,
+        claim_class: str,
+        claim_type: str,
+        claim_ref: str,
+        claim_version: str,
+        producer_version: str,
+        surface: str,
+        temperature: str,
+        presentation_id: str | None = None,
+        visible_at: str | None = None,
+        suppression_reason: str | None = None,
+        response_payload: Mapping[str, Any] | None = None,
+        session_id: str | None = None,
+        visit_id: str | None = None,
+        id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        event_id = id or new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO hypothesis_events(
+                  id, created_at, presentation_id, event_type, claim_class,
+                  claim_type, claim_ref, claim_version, producer_version,
+                  surface, temperature, visible_at, suppression_reason,
+                  response_payload_json, session_id, visit_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    now,
+                    presentation_id,
+                    event_type,
+                    claim_class,
+                    claim_type,
+                    claim_ref,
+                    claim_version,
+                    producer_version,
+                    surface,
+                    temperature,
+                    visible_at,
+                    suppression_reason,
+                    _json(dict(response_payload)) if response_payload is not None else None,
+                    session_id,
+                    visit_id,
+                ),
+            )
+            connection.commit()
+        event = self.hypothesis_event(event_id)
+        assert event is not None
+        return event
+
+    def hypothesis_event(self, event_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM hypothesis_events WHERE id = ?", (event_id,)
+            ).fetchone()
+        return _decode_hypothesis_event(row) if row is not None else None
+
+    def find_hypothesis_presentation(
+        self,
+        *,
+        claim_ref: str,
+        claim_version: str,
+        surface: str,
+        session_id: str | None,
+        visit_id: str | None,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM hypothesis_events
+                WHERE event_type = 'presented'
+                  AND claim_ref = ? AND claim_version = ? AND surface = ?
+                  AND COALESCE(session_id, '') = COALESCE(?, '')
+                  AND COALESCE(visit_id, '') = COALESCE(?, '')
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (claim_ref, claim_version, surface, session_id, visit_id),
+            ).fetchone()
+        return _decode_hypothesis_event(row) if row is not None else None
+
+    def mark_hypothesis_visible(self, presentation_id: str, visible_at: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE hypothesis_events
+                SET visible_at = COALESCE(visible_at, ?)
+                WHERE id = ? AND event_type = 'presented'
+                """,
+                (visible_at, presentation_id),
+            )
+            connection.commit()
+        return self.hypothesis_event(presentation_id)
+
+    def soliciting_hypothesis_count(
+        self, *, session_id: str | None = None, visit_id: str | None = None
+    ) -> int:
+        if session_id is None and visit_id is None:
+            return 0
+        column = "session_id" if session_id is not None else "visit_id"
+        value = session_id if session_id is not None else visit_id
+        with self.connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT COUNT(*) AS n FROM hypothesis_events
+                WHERE event_type = 'presented'
+                  AND suppression_reason IS NULL
+                  AND {column} = ?
+                """,
+                (value,),
+            ).fetchone()
+        return int(row["n"] if row is not None else 0)
+
+    def cold_hypothesis_count_for_visit(self, visit_id: str) -> int:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS n FROM hypothesis_events
+                WHERE event_type = 'presented' AND visit_id = ?
+                  AND temperature = 'cold' AND suppression_reason IS NULL
+                """,
+                (visit_id,),
+            ).fetchone()
+        return int(row["n"] if row is not None else 0)
+
+    def last_hypothesis_response_at(self, claim_ref: str, claim_version: str) -> str | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT created_at FROM hypothesis_events
+                WHERE event_type = 'responded'
+                  AND claim_ref = ? AND claim_version = ?
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                (claim_ref, claim_version),
+            ).fetchone()
+        return str(row["created_at"]) if row is not None else None
+
+    def list_hypothesis_events(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM hypothesis_events ORDER BY created_at, id"
+            ).fetchall()
+        return [_decode_hypothesis_event(row) for row in rows]
+
+    def purge_hypothesis_events(self) -> int:
+        with self.connection() as connection:
+            row = connection.execute("SELECT COUNT(*) AS n FROM hypothesis_events").fetchone()
+            count = int(row["n"] if row is not None else 0)
+            connection.execute("DELETE FROM hypothesis_events")
+            connection.commit()
+        return count
+
+    # -- Frozen forecast ledger -------------------------------------------
+
+    def insert_forecast(self, values: Mapping[str, Any]) -> dict[str, Any]:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO forecasts(
+                  id, goal_id, kind, issued_at, as_of_input_snapshot_hash,
+                  algorithm_version, resolution_rule_version, horizon,
+                  target_metric, predicted_value, model_coverage_json, status,
+                  resolved_value, resolved_at, projection_drift
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    values["id"], values["goal_id"], values["kind"], values["issued_at"],
+                    values["as_of_input_snapshot_hash"], values["algorithm_version"],
+                    values["resolution_rule_version"], values["horizon"],
+                    values["target_metric"], float(values["predicted_value"]),
+                    _json(dict(values.get("model_coverage") or {})),
+                    values.get("status", "open"), values.get("resolved_value"),
+                    values.get("resolved_at"), values.get("projection_drift"),
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM forecasts
+                WHERE goal_id = ? AND kind = ? AND as_of_input_snapshot_hash = ?
+                """,
+                (
+                    values["goal_id"], values["kind"],
+                    values["as_of_input_snapshot_hash"],
+                ),
+            ).fetchone()
+            connection.commit()
+        assert row is not None
+        return _decode_forecast(row)
+
+    def forecast(self, forecast_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute("SELECT * FROM forecasts WHERE id = ?", (forecast_id,)).fetchone()
+        return _decode_forecast(row) if row is not None else None
+
+    def due_forecasts(self, at: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM forecasts
+                WHERE status = 'open' AND horizon <= ?
+                ORDER BY horizon, issued_at, id
+                """,
+                (at,),
+            ).fetchall()
+        return [_decode_forecast(row) for row in rows]
+
+    def update_forecast_resolution(
+        self,
+        forecast_id: str,
+        *,
+        status: str,
+        resolved_at: str,
+        resolved_value: float | None = None,
+        projection_drift: float | None = None,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE forecasts
+                SET status = ?, resolved_value = ?, resolved_at = ?, projection_drift = ?
+                WHERE id = ? AND status = 'open'
+                """,
+                (status, resolved_value, resolved_at, projection_drift, forecast_id),
+            )
+            connection.commit()
+        return self.forecast(forecast_id)
+
+    def list_forecasts(self, goal_id: str | None = None) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if goal_id is None:
+                rows = connection.execute(
+                    "SELECT * FROM forecasts ORDER BY issued_at, id"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM forecasts WHERE goal_id = ? ORDER BY issued_at, id",
+                    (goal_id,),
+                ).fetchall()
+        return [_decode_forecast(row) for row in rows]
+
+    def open_forecasts(self, goal_id: str) -> list[dict[str, Any]]:
+        """Read-only: open (unresolved) forecast rows for a goal, oldest first.
+
+        Rendering reads these to reference the current issued forecast id; it
+        never issues one (spec §4.1).
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM forecasts
+                WHERE goal_id = ? AND status = 'open'
+                ORDER BY issued_at, id
+                """,
+                (goal_id,),
+            ).fetchall()
+        return [_decode_forecast(row) for row in rows]
 
     def update_session_checkpoint(
         self,
@@ -6235,6 +6991,33 @@ class Repository:
                 }
             )
         return factors
+
+    def open_unresolved_cause_factors(self) -> list[dict[str, Any]]:
+        """Every open positional-ambiguity factor for diagnostic surfaces."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, attempt_id, observation_id, candidate_causes_json,
+                       status, algorithm_version, created_at, updated_at
+                FROM unresolved_cause_factors
+                WHERE status = 'open'
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "attempt_id": row["attempt_id"],
+                "observation_id": row["observation_id"],
+                "candidate_causes": _loads(row["candidate_causes_json"], []),
+                "status": row["status"],
+                "algorithm_version": row["algorithm_version"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
 
     def retire_unresolved_cause_factor(
         self, observation_id: str, *, clock: Clock | None = None
@@ -6776,9 +7559,10 @@ class Repository:
               rubric_score, correctness, confidence, latency_seconds, hints_used,
               error_type, grader_confidence, manual_review, manual_review_reason,
               created_at, updated_at, session_id, scheduler_slate_id, scheduler_candidate_id,
-              primed, probe_presentation_id, answer_confidence
+              primed, probe_presentation_id, answer_confidence, submission_id,
+              declared_dont_know
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 attempt["id"],
@@ -6808,6 +7592,8 @@ class Repository:
                 1 if attempt.get("primed") else 0,
                 attempt.get("probe_presentation_id"),
                 attempt.get("answer_confidence"),
+                attempt.get("submission_id"),
+                1 if attempt.get("declared_dont_know") else 0,
             ),
         )
 
@@ -7798,21 +8584,54 @@ class Repository:
         return _decode_extraction_run(row) if row is not None else None
 
     def complete_extraction_run(
-        self, extraction_id: str, *, extraction_result_hash: str, status: str = "completed", clock: Clock | None = None
+        self,
+        extraction_id: str,
+        *,
+        extraction_result_hash: str,
+        status: str = "completed",
+        health: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
     ) -> None:
         with self.connection() as connection:
             connection.execute(
                 """
                 UPDATE source_extraction_runs
-                   SET extraction_result_hash = ?, status = ?, completed_at = ?
+                   SET extraction_result_hash = ?, status = ?,
+                       health_json = COALESCE(?, health_json), completed_at = ?
                  WHERE id = ?
                 """,
-                (extraction_result_hash, status, utc_now_iso(clock), extraction_id),
+                (
+                    extraction_result_hash,
+                    status,
+                    _json(dict(health)) if health is not None else None,
+                    utc_now_iso(clock),
+                    extraction_id,
+                ),
             )
             connection.commit()
 
     def persist_document_ir(self, extraction_id: str, ir: DocumentIR) -> None:
         with self.connection() as connection:
+            # A worker may stop after persisting some/all IR but before marking
+            # the run complete. Replacing the run-local children makes that
+            # retry converge instead of colliding on primary keys or retaining
+            # stale blocks from the interrupted output.
+            connection.execute(
+                "DELETE FROM source_document_assets WHERE extraction_id = ?",
+                (extraction_id,),
+            )
+            connection.execute(
+                "DELETE FROM source_document_blocks WHERE extraction_id = ?",
+                (extraction_id,),
+            )
+            connection.execute(
+                "DELETE FROM source_document_units WHERE extraction_id = ?",
+                (extraction_id,),
+            )
+            connection.execute(
+                "UPDATE source_extraction_runs SET health_json = ? WHERE id = ?",
+                (_json(ir.health.model_dump(mode="json")), extraction_id),
+            )
             for unit in ir.units:
                 connection.execute(
                     """
@@ -7901,6 +8720,8 @@ class Repository:
                 "SELECT * FROM source_document_assets WHERE extraction_id = ? ORDER BY id",
                 (extraction_id,),
             ).fetchall()
+        from learnloop.ingest.ir import ExtractionHealth
+
         return DocumentIR(
             ir_schema_version=run["ir_schema_version"],
             extractor=run["extractor"],
@@ -7908,6 +8729,7 @@ class Repository:
             blocks=[_decode_document_block(row) for row in block_rows],
             units=[_decode_document_unit(row) for row in unit_rows],
             assets=[_decode_document_asset(row) for row in asset_rows],
+            health=ExtractionHealth.model_validate(run.get("health") or {}),
         )
 
     def insert_span_reanchor(
@@ -9323,6 +10145,139 @@ class Repository:
             ).fetchall()
         return [_decode_apply_intent(row) for row in rows]
 
+    # -- Learner Review changelog read models (§4.9) ----------------------
+    #
+    # Read models over grading_evidence / derived_state_rebuilds for the
+    # system-authored Review changelog entries. Both reconstruct grading
+    # "epochs" exactly as ``grading_correction_count_between`` does (distinct
+    # ``grading_revision``, or legacy ``created_at``) so the regrade entries and
+    # the per-session ``corrections`` count partition the same event set —
+    # never double-counting a single regrade.
+
+    def _grading_epoch_transitions(
+        self, rows: list[sqlite3.Row]
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Group ordered ``grading_evidence`` rows into per-attempt epochs and
+        return, per attempt, the ordered old→new transitions (each grading epoch
+        after the first). ``rows`` must already be ordered by attempt then time.
+        """
+
+        epochs_by_attempt: dict[str, dict[str, dict[str, Any]]] = {}
+        for row in rows:
+            attempt_id = str(row["attempt_id"])
+            epoch_key = (
+                f"revision:{row['grading_revision']}"
+                if row["grading_revision"] is not None
+                else f"legacy:{row['created_at']}"
+            )
+            epochs = epochs_by_attempt.setdefault(attempt_id, {})
+            epoch = epochs.get(epoch_key)
+            if epoch is None:
+                epoch = {
+                    "at": str(row["created_at"]),
+                    "points": 0.0,
+                    "practice_item_id": str(row["practice_item_id"]),
+                    "learning_object_id": str(row["learning_object_id"]),
+                }
+                epochs[epoch_key] = epoch
+            epoch["points"] += float(row["points_awarded"] or 0.0)
+        transitions: dict[str, list[dict[str, Any]]] = {}
+        for attempt_id, epochs in epochs_by_attempt.items():
+            ordered = sorted(epochs.items(), key=lambda pair: (pair[1]["at"], pair[0]))
+            attempt_transitions: list[dict[str, Any]] = []
+            for (_prev_key, prev), (_curr_key, curr) in zip(ordered, ordered[1:]):
+                attempt_transitions.append(
+                    {
+                        "attempt_id": attempt_id,
+                        "practice_item_id": curr["practice_item_id"],
+                        "learning_object_id": curr["learning_object_id"],
+                        "old_points": prev["points"],
+                        "new_points": curr["points"],
+                        "at": curr["at"],
+                    }
+                )
+            if attempt_transitions:
+                transitions[attempt_id] = attempt_transitions
+        return transitions
+
+    def regrade_epoch_transitions(self) -> list[dict[str, Any]]:
+        """Every post-original grading epoch across all attempts, as an old→new
+        transition with the attempt's item/LO references and the epoch time.
+        A regrade is a grading epoch after the first for an attempt.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT e.attempt_id, e.grading_revision, e.created_at,
+                       e.points_awarded, a.practice_item_id, a.learning_object_id
+                FROM grading_evidence e
+                JOIN practice_attempts a ON a.id = e.attempt_id
+                ORDER BY e.attempt_id, e.created_at,
+                         COALESCE(e.grading_revision, -1), e.id
+                """
+            ).fetchall()
+        transitions: list[dict[str, Any]] = []
+        for attempt_transitions in self._grading_epoch_transitions(rows).values():
+            transitions.extend(attempt_transitions)
+        transitions.sort(key=lambda t: (t["at"], t["attempt_id"]))
+        return transitions
+
+    def attempt_regrade_marker(self, attempt_id: str) -> dict[str, Any] | None:
+        """The most recent regrade (old→new score) persisted for one attempt, or
+        ``None`` when the attempt has only its original grading epoch. Derived
+        from ``grading_evidence`` epochs — a template-rendered ledger fact.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT e.attempt_id, e.grading_revision, e.created_at,
+                       e.points_awarded, a.practice_item_id, a.learning_object_id
+                FROM grading_evidence e
+                JOIN practice_attempts a ON a.id = e.attempt_id
+                WHERE e.attempt_id = ?
+                ORDER BY e.created_at, COALESCE(e.grading_revision, -1), e.id
+                """,
+                (attempt_id,),
+            ).fetchall()
+        attempt_transitions = self._grading_epoch_transitions(rows).get(attempt_id)
+        if not attempt_transitions:
+            return None
+        return attempt_transitions[-1]
+
+    def derived_state_rebuild_version_changes(self) -> list[dict[str, Any]]:
+        """Recalibration boundaries: each derived-state rebuild whose
+        ``algorithm_version`` differs from the immediately preceding rebuild.
+        Collapses consecutive same-version rebuilds so a version bump surfaces
+        as exactly one entry, regardless of how many learning objects/facets it
+        recomputed. Ordered oldest-first.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, algorithm_version, created_at
+                FROM derived_state_rebuilds
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        changes: list[dict[str, Any]] = []
+        previous_version: str | None = None
+        for row in rows:
+            version = str(row["algorithm_version"])
+            if previous_version is not None and version != previous_version:
+                changes.append(
+                    {
+                        "id": str(row["id"]),
+                        "algorithm_version": version,
+                        "previous_algorithm_version": previous_version,
+                        "at": str(row["created_at"]),
+                    }
+                )
+            previous_version = version
+        return changes
+
 
 def _decode_source_conflict(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
@@ -9670,6 +10625,7 @@ def _probe_episode_record(row: sqlite3.Row) -> ProbeEpisodeRecord:
         hypothesis_set_id=row["hypothesis_set_id"],
         active_state_segment_id=row["active_state_segment_id"],
         target_decision=_loads(row["target_decision_json"], None),
+        origin=row["origin"],
         required_facets=_loads(row["required_facets_json"], []),
         minimum_independent_observations=row["minimum_independent_observations"],
         maximum_observations=row["maximum_observations"],
@@ -9930,6 +10886,25 @@ def _decode_attempt(row: sqlite3.Row) -> dict[str, Any]:
     payload["evidence_weights"] = _loads(payload.pop("evidence_weights_json"), {})
     payload["manual_review"] = bool(payload["manual_review"])
     payload["primed"] = bool(payload.get("primed", 0))
+    payload["declared_dont_know"] = bool(payload.get("declared_dont_know", 0))
+    return payload
+
+
+def _decode_hypothesis_event(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["response_payload"] = _loads(payload.pop("response_payload_json"), None)
+    return payload
+
+
+def _decode_forecast(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["model_coverage"] = _loads(payload.pop("model_coverage_json"), {})
+    return payload
+
+
+def _decode_remediation_episode(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["passages_shown"] = _loads(payload.pop("passages_shown_json"), [])
     return payload
 
 
@@ -9970,6 +10945,10 @@ def _decode_misconception(row: sqlite3.Row) -> MisconceptionRecord:
         first_divergence=_loads(_row_opt(row, "first_divergence_json"), []),
         non_applicable_controls=_loads(_row_opt(row, "non_applicable_controls_json"), []),
         promotion_reason=_row_opt(row, "promotion_reason"),
+        correction_statement=_row_opt(row, "correction_statement"),
+        correction_source_span_ids=_loads(
+            _row_opt(row, "correction_source_span_ids_json"), []
+        ),
     )
 
 
@@ -10137,6 +11116,7 @@ def _decode_extraction_run(row: sqlite3.Row) -> dict[str, Any]:
     payload["model_versions"] = _loads(payload.pop("model_versions_json", None), {})
     payload["config"] = _loads(payload.pop("config_json", None), {})
     payload["page_selection"] = _loads(payload.pop("page_selection_json", None), None)
+    payload["health"] = _loads(payload.pop("health_json", None), {})
     return payload
 
 

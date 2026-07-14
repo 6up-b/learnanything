@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -60,6 +61,11 @@ def seed_due_item(paths: VaultPaths) -> Repository:
 def create_basic_vault(root: Path) -> VaultPaths:
     clock = FrozenClock(NOW)
     init_vault(root, clock=clock)
+    # The basic vault is the legacy (mvp-0.6) baseline: its items declare ad-hoc
+    # facets with no facets.yaml registry, which is exactly the pre-KM2 world.
+    # `learnloop init` now writes mvp-0.7, so pin the legacy version here; KM
+    # tests that want mvp-0.7 flip it explicitly via set_algorithm_version.
+    _set_algorithm_version_at(root, ALGORITHM_VERSION)
     add_subject(root, "linear-algebra", "Linear Algebra", clock=clock)
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
@@ -242,12 +248,19 @@ def admit_probe_instrument_card(
 def set_algorithm_version(paths: VaultPaths, version: str) -> None:
     """Rewrite learnloop.toml's algorithm_version in place (KM1 mvp-0.7 tests)."""
 
-    toml_path = paths.root / "learnloop.toml"
+    _set_algorithm_version_at(paths.root, version)
+
+
+def _set_algorithm_version_at(root: Path, version: str) -> None:
+    toml_path = root / "learnloop.toml"
     text = toml_path.read_text(encoding="utf-8")
-    updated = text.replace(
-        'algorithm_version = "mvp-0.6"', f'algorithm_version = "{version}"'
+    updated, count = re.subn(
+        r'algorithm_version = "[^"]+"',
+        f'algorithm_version = "{version}"',
+        text,
+        count=1,
     )
-    if updated == text:
+    if count == 0:
         raise AssertionError("algorithm_version line not found in learnloop.toml")
     toml_path.write_text(updated, encoding="utf-8")
 

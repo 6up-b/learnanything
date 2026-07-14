@@ -109,6 +109,7 @@ class RunnerServices:
 
     fetch: Callable[[str, str, "JobContext"], FetchedBytes] | None = None
     extract: Callable[[FetchedBytes, str, "JobContext"], Any] | None = None
+    describe_extraction: Callable[[FetchedBytes, str, "JobContext"], Mapping[str, Any]] | None = None
     run_legacy_ingest: Callable[..., Any] | None = None
     inventory_client_factory: Callable[["JobContext"], Any] | None = None
     synthesis_client_factory: Callable[["JobContext"], Any] | None = None
@@ -118,6 +119,11 @@ class RunnerServices:
 
     def extract_ir(self, fetched: FetchedBytes, category: str, ctx: "JobContext") -> Any:
         return (self.extract or default_extract)(fetched, category, ctx)
+
+    def extraction_identity(
+        self, fetched: FetchedBytes, category: str, ctx: "JobContext"
+    ) -> Mapping[str, Any]:
+        return (self.describe_extraction or default_extraction_identity)(fetched, category, ctx)
 
     def legacy_ingest(self, **kwargs: Any) -> Any:
         return (self.run_legacy_ingest or default_run_legacy_ingest)(**kwargs)
@@ -284,6 +290,38 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     return markdown_to_ir(text, title=ctx.payload.get("title"), extractor_name="text")
 
 
+def default_extraction_identity(
+    fetched: FetchedBytes, category: str, ctx: JobContext
+) -> Mapping[str, Any]:
+    """Describe the chosen extractor before running it, making cache hits cheap."""
+
+    from learnloop.ingest.extractors import pdf_extractor_for
+
+    is_pdf = (
+        category == "pdf"
+        or (fetched.content_type or "").lower().startswith("application/pdf")
+        or fetched.raw_bytes[:5] == b"%PDF-"
+    )
+    config = dict(ctx.payload.get("pdf_config") or {})
+    if is_pdf:
+        extractor = pdf_extractor_for(config)
+        return {
+            "extractor": extractor.name,
+            "extractor_version": extractor.version(),
+            "model_versions": extractor.model_versions(),
+            "config": config,
+        }
+    if category == "youtube":
+        name = "youtube"
+    else:
+        text = fetched.raw_bytes[:512].decode("utf-8", errors="replace")
+        looks_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
+            re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
+        )
+        name = "html" if category in ("web", "arxiv") or looks_html else "text"
+    return {"extractor": name, "extractor_version": "1", "model_versions": {}, "config": {}}
+
+
 def _caption_cues(text: str) -> list[dict[str, Any]] | None:
     """Decode fetched YouTube caption bytes ({"cues": [...]} or a bare list)."""
 
@@ -421,13 +459,14 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     from learnloop.services.source_unit_inventory import run_unit_inventory
 
     payload = ctx.payload
-    extraction_id = str(payload.get("extraction_id") or "").strip()
+    extraction_id, units = _inventory_inputs(ctx, payload)
     if not extraction_id:
         raise IngestRunnerError("inventory job requires an 'extraction_id'.")
-    units = payload.get("units") or []
     if not units:
         raise IngestRunnerError("inventory job requires at least one unit.")
-    budget = _optional_int(payload.get("input_budget_tokens")) or 20000
+    budgets = _ingest_budgets(ctx)
+    budget = _optional_int(payload.get("input_budget_tokens")) or budgets.inventory_input_tokens
+    output_budget = _optional_int(payload.get("output_budget_tokens")) or budgets.inventory_output_tokens
 
     ctx.report("extracted", message="Preparing unit inventories")
     client = ctx.services.inventory_client(ctx)
@@ -452,6 +491,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             profile=spec.get("profile"),
             client=client,
             input_budget_tokens=budget,
+            output_budget_tokens=output_budget,
             clock=ctx.clock,
         )
         ctx.record_usage(dict(result.usage or {}))
@@ -473,6 +513,41 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     }
 
 
+def _ingest_budgets(ctx: JobContext):
+    """Load vault budgets, retaining service defaults for isolated workers/tests."""
+
+    from learnloop.config import IngestBudgetsConfig
+    from learnloop.vault.loader import load_vault
+
+    try:
+        return load_vault(ctx.vault_root).config.ingest.budgets
+    except FileNotFoundError:
+        return IngestBudgetsConfig()
+
+
+def _inventory_inputs(
+    ctx: JobContext, payload: Mapping[str, Any]
+) -> tuple[str, list[dict[str, Any]]]:
+    """Resolve public import→inventory shorthand from the completed dependency."""
+
+    extraction_id = str(payload.get("extraction_id") or "").strip()
+    units = [dict(unit) for unit in payload.get("units") or [] if isinstance(unit, Mapping)]
+    if not extraction_id:
+        for dep_id in ctx.repo.ingest_job_dependency_ids(ctx.job_id):
+            dependency = ctx.repo.get_ingest_job(dep_id)
+            if dependency is None or dependency.get("job_type") != "import":
+                continue
+            result = dependency.get("result") or {}
+            extraction_id = str(result.get("extraction_id") or "").strip()
+            if extraction_id:
+                break
+    if extraction_id and not units:
+        ir = ctx.repo.load_document_ir(extraction_id)
+        role = str(payload.get("role") or "reference")
+        units = [{"unit_id": unit.unit_id, "role": role} for unit in (ir.units if ir else [])]
+    return extraction_id, units
+
+
 def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     """bootstrap_synthesis: N-way study-map synthesis over a source set (ING M6).
 
@@ -488,6 +563,20 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     source_set_id = str(payload.get("source_set_id") or "").strip()
     if not source_set_id:
         raise IngestRunnerError("bootstrap_synthesis job requires a 'source_set_id'.")
+
+    # `auto` is a product journey, not an alias for bootstrap: once this subject
+    # has a live map, new sources reconcile into it through the bounded append
+    # vocabulary instead of tripping the identity-lock refusal.
+    if str(payload.get("mode") or "auto") == "auto":
+        from learnloop.vault.loader import load_vault
+
+        vault = load_vault(ctx.vault_root)
+        source_set = next((item for item in vault.source_sets if item.id == source_set_id), None)
+        if source_set is not None and any(
+            source_set.subject_id in learning_object.subjects
+            for learning_object in vault.learning_objects.values()
+        ):
+            return handle_append_synthesis(ctx)
 
     ctx.report("inventoried", message="Preparing study-map synthesis")
     client = ctx.services.synthesis_client(ctx)
@@ -506,12 +595,52 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     except StudyMapError as exc:
         raise IngestRunnerError(f"{exc.code}: {exc}")
 
-    ctx.record_usage({"calls": (result.item_counts and 1) or 0})
+    run = ctx.repo.synthesis_run(result.synthesis_run_id) if result.synthesis_run_id else None
+    ctx.record_usage(
+        (run or {}).get("actual_usage")
+        or {"calls": 0 if result.reused else ((result.item_counts and 1) or 0)}
+    )
     ctx.report("synthesized", message="Study map synthesized")
     if result.applied:
         ctx.report("applied", message="Study map applied")
     else:
         ctx.report("proposed", message="Study-map proposal ready for review")
+    return result.as_dict()
+
+
+def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
+    """append_synthesis: bounded reconciliation against an existing study map."""
+
+    from learnloop.services.source_append import append_source
+    from learnloop.services.source_set_synthesis import StudyMapError
+
+    payload = ctx.payload
+    source_set_id = str(payload.get("source_set_id") or payload.get("set_id") or "").strip()
+    if not source_set_id:
+        raise IngestRunnerError("append_synthesis job requires a 'source_set_id'.")
+    ctx.report("inventoried", message="Preparing bounded source reconciliation")
+    client = ctx.services.synthesis_client(ctx)
+    try:
+        result = append_source(
+            ctx.vault_root,
+            source_set_id,
+            client=client,
+            new_revision_ids=[str(value) for value in payload.get("new_revision_ids") or []] or None,
+            change_kind=str(payload.get("change_kind") or "source_added"),
+            revision_diff=dict(payload.get("revision_diff") or {}),
+            brief=dict(payload.get("brief") or {}),
+            auto_apply=bool(payload.get("apply", payload.get("auto_apply", True))),
+            repository=ctx.repo,
+            clock=ctx.clock,
+        )
+    except StudyMapError as exc:
+        raise IngestRunnerError(f"{exc.code}: {exc}") from exc
+    ctx.record_usage({"calls": 0 if result.reused else 1})
+    ctx.report("synthesized", message="Source reconciliation synthesized")
+    if result.auto_applied_item_ids:
+        ctx.report("applied", message="Safe source additions applied")
+    else:
+        ctx.report("proposed", message="Source reconciliation ready for review")
     return result.as_dict()
 
 
@@ -549,20 +678,51 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
     ctx.job["_revision_id"] = registered.revision_id
     ctx.report("registered", message="Registered source revision")
 
-    ir = ctx.services.extract_ir(fetched, category, ctx)
+    identity = dict(ctx.services.extraction_identity(fetched, category, ctx))
     request_hash = extraction_request_hash(
         revision_id=registered.revision_id,
-        extractor=ir.extractor,
-        extractor_version=ir.extractor_version,
+        extractor=str(identity.get("extractor") or "unknown"),
+        extractor_version=str(identity.get("extractor_version") or "unknown"),
+        model_versions=identity.get("model_versions") or {},
+        config=identity.get("config") or {},
         ir_schema_version=IR_SCHEMA_VERSION,
     )
     existing = ctx.repo.extraction_run_by_request_hash(registered.revision_id, request_hash)
     if existing is not None and existing.get("status") == "completed":
         extraction_id = existing["id"]
         reused_extraction = True
+        ir = ctx.repo.load_document_ir(extraction_id)
+        if ir is None:
+            raise IngestRunnerError(f"cached extraction '{extraction_id}' has no persisted IR")
     else:
+        ir = ctx.services.extract_ir(fetched, category, ctx)
+        # Injected/custom providers may refine the preflight identity. Persist
+        # under the actual identity and let subsequent retries hit that key.
+        actual_hash = extraction_request_hash(
+            revision_id=registered.revision_id,
+            extractor=ir.extractor,
+            extractor_version=ir.extractor_version,
+            model_versions=identity.get("model_versions") or {},
+            config=identity.get("config") or {},
+            ir_schema_version=IR_SCHEMA_VERSION,
+        )
+        if actual_hash != request_hash:
+            request_hash = actual_hash
+            existing = ctx.repo.extraction_run_by_request_hash(registered.revision_id, request_hash)
+            if existing is not None and existing.get("status") == "completed":
+                extraction_id = existing["id"]
+                loaded = ctx.repo.load_document_ir(extraction_id)
+                if loaded is None:
+                    raise IngestRunnerError(f"cached extraction '{extraction_id}' has no persisted IR")
+                ir = loaded
+                reused_extraction = True
+        if existing is not None and existing.get("status") == "completed":
+            extraction_id = existing["id"]
+            reused_extraction = True
+        else:
+            reused_extraction = False
         extraction_id = existing["id"] if existing is not None else f"ext_{new_ulid()}"
-        if existing is None:
+        if not reused_extraction and existing is None:
             ctx.repo.insert_extraction_run(
                 id=extraction_id,
                 revision_id=registered.revision_id,
@@ -570,16 +730,19 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 extractor_version=ir.extractor_version,
                 extraction_request_hash=request_hash,
                 ir_schema_version=IR_SCHEMA_VERSION,
+                model_versions=identity.get("model_versions") or {},
+                config=identity.get("config") or {},
                 status="running",
                 clock=ctx.clock,
             )
-        ctx.repo.persist_document_ir(extraction_id, ir)
-        ctx.repo.complete_extraction_run(
-            extraction_id,
-            extraction_result_hash=extraction_result_hash(request_hash, ir),
-            clock=ctx.clock,
-        )
-        reused_extraction = False
+        if not reused_extraction:
+            ctx.repo.persist_document_ir(extraction_id, ir)
+            ctx.repo.complete_extraction_run(
+                extraction_id,
+                extraction_result_hash=extraction_result_hash(request_hash, ir),
+                health=ir.health.model_dump(mode="json"),
+                clock=ctx.clock,
+            )
 
     ctx.report("extracted", message="Extracted document structure")
     return {
@@ -761,6 +924,7 @@ def handle_extraction_repair(ctx: JobContext) -> dict[str, Any]:
         ctx.repo.complete_extraction_run(
             repair_extraction_id,
             extraction_result_hash=extraction_result_hash(request_hash, repair_ir),
+            health=repair_ir.health.model_dump(mode="json"),
             clock=ctx.clock,
         )
 
@@ -856,7 +1020,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "exam_ingest": handle_legacy_ingest,
     "inventory": handle_inventory,
     "bootstrap_synthesis": handle_bootstrap_synthesis,
-    "append_synthesis": _not_implemented_handler("append_synthesis"),
+    "append_synthesis": handle_append_synthesis,
     "extraction_repair": handle_extraction_repair,
 }
 

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import type {
+  CoverageRollupDto,
   ProposalBatchDto,
   ProposalItemDto,
   ProposalsSnapshot,
+  SourceSetSummaryDto,
   VaultFileContent,
   VaultTreeNode,
   VaultTreeSnapshot
@@ -127,6 +129,7 @@ export function LibraryScreen({
 }) {
   const [snapshot, setSnapshot] = useState<VaultTreeSnapshot | null>(null);
   const [proposals, setProposals] = useState<ProposalsSnapshot | null>(null);
+  const [sourceSets, setSourceSets] = useState<SourceSetSummaryDto[] | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [proposalsOpen, setProposalsOpen] = useState(true);
   const [selected, setSelected] = useState<Selection>(null);
@@ -172,11 +175,29 @@ export function LibraryScreen({
       .catch((error) => {
         if (!cancelled) onError(error.message);
       });
+    // Source-set *list* is a light call; per-set coverage rollups are fetched
+    // lazily when a set is expanded (see CoverageSection) so a long library
+    // doesn't fan out N heavy coverage calls on mount.
+    api
+      .listSourceSets()
+      .then((next) => {
+        if (!cancelled) setSourceSets(next.sourceSets);
+      })
+      .catch((error) => {
+        if (!cancelled) onError(error.message);
+      });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onError]);
+
+  const reloadProposals = () => {
+    api
+      .getProposals()
+      .then(setProposals)
+      .catch((error) => onError((error as Error).message));
+  };
 
   // Honor a handoff from the feedback source panel: select that vault file.
   useEffect(() => {
@@ -525,6 +546,8 @@ export function LibraryScreen({
             onSelect={(patchId, itemId) => setSelected({ kind: "proposal", patchId, itemId })}
           />
 
+          <CoverageSection sourceSets={sourceSets} onError={onError} onGenerated={reloadProposals} />
+
           <div style={{ margin: "20px 12px", padding: "10px 12px", border: `1px dashed ${COLOR.border}`, fontSize: 11, color: COLOR.textDim }}>
             <Faint>legend</Faint>
             <div style={{ marginTop: 6, display: "grid", gap: 3 }}>
@@ -737,6 +760,224 @@ function ProposalsTree({
 function DecisionDot({ decision }: { decision: string }) {
   const color = decision === "accepted" ? COLOR.green : decision === "rejected" ? COLOR.red : COLOR.amber;
   return <span style={{ color, fontSize: 9, flexShrink: 0 }} title={decision}>●</span>;
+}
+
+// Distribute `cells` bar segments across bucket counts, giving any nonzero
+// bucket at least one cell so a small-but-real debt slice can never vanish.
+function allocCells(counts: number[], cells: number): number[] {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (total <= 0) return counts.map(() => 0);
+  const exact = counts.map((c) => (c / total) * cells);
+  const out = exact.map((e) => Math.floor(e));
+  counts.forEach((c, i) => {
+    if (c > 0 && out[i] === 0) out[i] = 1;
+  });
+  let used = out.reduce((a, b) => a + b, 0);
+  const byRemainder = exact.map((e, i) => ({ i, r: e - Math.floor(e) })).sort((a, b) => b.r - a.r);
+  let k = 0;
+  while (used < cells && byRemainder.length) {
+    out[byRemainder[k % byRemainder.length].i]++;
+    used++;
+    k++;
+  }
+  while (used > cells) {
+    let best = -1;
+    for (let i = 0; i < out.length; i++) {
+      const floor = counts[i] > 0 ? 1 : 0;
+      if (out[i] > floor && (best < 0 || out[i] > out[best])) best = i;
+    }
+    if (best < 0) break;
+    out[best]--;
+    used--;
+  }
+  return out;
+}
+
+// Three-bucket coverage bar (spec §4.11) with explicit precedence:
+// demonstrated ≻ assessed-but-not ≻ no-practice-supply. The third bucket is the
+// SYSTEM's debt (missing practice supply), so it is distinguished by glyph AND
+// color AND label — never color alone — and carries a text equivalent for AT.
+function CoverageBucketBar({ rollup, width = 26 }: { rollup: CoverageRollupDto; width?: number }) {
+  const dem = rollup.buckets.demonstrated.count;
+  const ass = rollup.buckets.assessed.count;
+  const debt = rollup.buckets.noPracticeSupply.count;
+  const total = rollup.total;
+  if (total <= 0) {
+    return <Faint style={{ fontSize: 11 }}>no facets mapped yet</Faint>;
+  }
+  const cells = Math.min(width, Math.max(total, 3));
+  const [demCells, assCells, debtCells] = allocCells([dem, ass, debt], cells);
+  const label = `coverage: ${dem} demonstrated, ${ass} assessed but not demonstrated, ${debt} with no practice items yet (system debt), of ${total} facets`;
+  return (
+    <span role="img" aria-label={label} style={{ fontFamily: FONT_MONO, fontSize: 12, letterSpacing: 1, whiteSpace: "nowrap" }}>
+      <span style={{ color: COLOR.green }}>{"▓".repeat(demCells)}</span>
+      <span style={{ color: COLOR.amber }}>{"▒".repeat(assCells)}</span>
+      {/* debt: hatched glyph + pink so it reads as debt with color OFF, too */}
+      <span style={{ color: COLOR.pink }}>{"▚".repeat(debtCells)}</span>
+    </span>
+  );
+}
+
+function CoverageLegendRow({ glyph, color, count, label }: { glyph: string; color: string; count: number; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 6, fontSize: 11 }}>
+      <span style={{ color, fontFamily: FONT_MONO, width: 10, flexShrink: 0 }}>{glyph}</span>
+      <span style={{ color: COLOR.text, fontFamily: FONT_MONO }}>{count}</span>
+      <span style={{ color: COLOR.textDim }}>{label}</span>
+    </div>
+  );
+}
+
+// One expandable source-set row. Coverage is fetched lazily on first expand.
+function SourceSetCoverageRow({
+  set,
+  onError,
+  onGenerated
+}: {
+  set: SourceSetSummaryDto;
+  onError: (message: string) => void;
+  onGenerated: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [rollup, setRollup] = useState<CoverageRollupDto | "unavailable" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const fetched = useRef(false);
+
+  const load = () => {
+    if (fetched.current) return;
+    fetched.current = true;
+    setLoading(true);
+    api
+      .getSourceCoverage(set.id)
+      .then((r) => setRollup(r.coverage.rollup ?? "unavailable"))
+      .catch((error) => {
+        fetched.current = false;
+        onError((error as Error).message);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const toggle = () => {
+    setExpanded((open) => {
+      if (!open) load();
+      return !open;
+    });
+  };
+
+  const generate = async () => {
+    setGenerating(true);
+    setNote(null);
+    try {
+      // The only practice-item generation flow reachable from Library: study-map
+      // synthesis in propose-only mode, so items land in proposals/ for review.
+      const res = await api.createStudyMap({ sourceSetId: set.id, apply: false });
+      const n = Object.values(res.studyMap.itemCounts ?? {}).reduce((a, b) => a + (b || 0), 0);
+      setNote(n > 0 ? `proposed ${n} item(s) — review in proposals/ above` : "no new practice items proposed");
+      onGenerated();
+      fetched.current = false;
+      load();
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const debt = rollup && rollup !== "unavailable" ? rollup.buckets.noPracticeSupply.count : 0;
+
+  return (
+    <div style={{ borderTop: `1px solid ${COLOR.border}` }}>
+      <div
+        onClick={toggle}
+        style={{ padding: "3px 8px 3px 20px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}
+      >
+        <span style={{ color: COLOR.amber, width: 10, flexShrink: 0, fontFamily: FONT_MONO }}>{expanded ? "▾" : "▸"}</span>
+        <span style={{ color: COLOR.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1, fontFamily: FONT_MONO }}>
+          {set.title}
+        </span>
+        <Faint style={{ fontSize: 11 }}>{set.memberCount}</Faint>
+      </div>
+      {expanded ? (
+        <div style={{ padding: "4px 12px 10px 30px", display: "grid", gap: 6 }}>
+          {loading ? (
+            <Faint style={{ fontSize: 11 }}>loading coverage…</Faint>
+          ) : rollup === "unavailable" ? (
+            <Faint style={{ fontSize: 11 }}>coverage rollup unavailable for this set</Faint>
+          ) : rollup ? (
+            <>
+              <CoverageBucketBar rollup={rollup} />
+              <div style={{ display: "grid", gap: 2 }}>
+                <CoverageLegendRow glyph="▓" color={COLOR.green} count={rollup.buckets.demonstrated.count} label="demonstrated" />
+                <CoverageLegendRow glyph="▒" color={COLOR.amber} count={rollup.buckets.assessed.count} label="assessed, not demonstrated" />
+                <CoverageLegendRow
+                  glyph="▚"
+                  color={COLOR.pink}
+                  count={rollup.buckets.noPracticeSupply.count}
+                  label="no practice items yet — system debt"
+                />
+              </div>
+              {debt > 0 ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={generating ? undefined : generate}
+                  onKeyDown={(event) => {
+                    if (!generating && (event.key === "Enter" || event.key === " ")) {
+                      event.preventDefault();
+                      void generate();
+                    }
+                  }}
+                  style={{
+                    justifySelf: "start",
+                    padding: "2px 10px",
+                    border: `1px solid ${COLOR.pink}`,
+                    color: generating ? COLOR.textFaint : COLOR.pink,
+                    background: "transparent",
+                    fontFamily: FONT_MONO,
+                    fontSize: 11,
+                    cursor: generating ? "wait" : "pointer",
+                    borderRadius: 2
+                  }}
+                >
+                  {generating ? "generating…" : "+ create practice items"}
+                </span>
+              ) : null}
+              {note ? <Faint style={{ fontSize: 11 }}>{note}</Faint> : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Coverage section (spec §4.11) — one three-bucket bar per source set. The set
+// list is loaded on mount; each set's coverage rollup loads lazily on expand.
+function CoverageSection({
+  sourceSets,
+  onError,
+  onGenerated
+}: {
+  sourceSets: SourceSetSummaryDto[] | null;
+  onError: (message: string) => void;
+  onGenerated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!sourceSets || sourceSets.length === 0) return null;
+  return (
+    <div style={{ borderTop: `1px solid ${COLOR.border}` }}>
+      <div onClick={() => setOpen((value) => !value)} style={{ padding: "4px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
+        <span style={{ color: COLOR.amber, width: 10, flexShrink: 0, fontFamily: FONT_MONO }}>{open ? "▾" : "▸"}</span>
+        <span style={{ color: COLOR.amber, flex: 1 }}>coverage/</span>
+        <Faint style={{ fontSize: 11 }}>{sourceSets.length}</Faint>
+      </div>
+      {open
+        ? sourceSets.map((set) => <SourceSetCoverageRow key={set.id} set={set} onError={onError} onGenerated={onGenerated} />)
+        : null}
+    </div>
+  );
 }
 
 function ViewerHeader({

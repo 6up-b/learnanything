@@ -30,11 +30,11 @@ function truncate(value: string, max = 12): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
-// A block_span_v1 locator is stored as "span:<span_id>"; Open-in-source needs
-// the bare span id + the extraction it belongs to.
+// Canonical block_span_v1 is `span:<extraction>/<span>`; keep accepting the
+// pre-v2 malformed `span:<span>` shape during permanent back-compat.
 function spanFromLocator(locator: string | null): string | null {
   if (!locator) return null;
-  const match = /^span:(.+)$/.exec(locator.trim());
+  const match = /^span:(?:[^/]+\/)?(.+)$/.exec(locator.trim());
   return match ? match[1] : null;
 }
 

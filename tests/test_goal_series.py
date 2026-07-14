@@ -63,6 +63,12 @@ def test_series_reflects_evidence_arriving_over_time(tmp_path):
         "examined_count",
         "attainment_fraction",
         "predicted_recall_mean",
+        "demonstrated_count",
+        "ready_mean",
+        "projected_ready_mean",
+        "projection",
+        "decay_estimated",
+        "held_flat",
     }
 
 

@@ -9,6 +9,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.writer import (
     upsert_concept,
     upsert_error_type,
+    upsert_facet,
     upsert_learning_object,
     upsert_practice_item,
 )
@@ -41,6 +42,16 @@ def _write_content(vault_root) -> None:
             "concept": "singular_value_decomposition",
             "knowledge_type": "definition",
             "summary": "SVD factorizes a matrix into orthogonal factors and singular values.",
+        },
+    )
+    # New vaults are mvp-0.7: facet-bearing items must reference a registered
+    # canonical facet with a complete semantic contract (claim + kind).
+    upsert_facet(
+        vault_root,
+        {
+            "id": "recall",
+            "kind": "definition",
+            "claim": "SVD factorizes a matrix into U, Sigma, and V transpose.",
         },
     )
     upsert_practice_item(

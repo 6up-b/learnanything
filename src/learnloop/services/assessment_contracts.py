@@ -21,7 +21,15 @@ from typing import Any
 from learnloop.clock import Clock
 from learnloop.services.capability_mapping import compile_criterion_targets
 from learnloop.services.grading import resolved_rubric
-from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem, Rubric, recipe_components
+from learnloop.vault.models import (
+    LearningObject,
+    LoadedVault,
+    PracticeItem,
+    Rubric,
+    RubricCriterion,
+    RubricFatalError,
+    recipe_components,
+)
 
 # Activation gate: the snapshot path only runs on vaults upgraded to the new
 # knowledge model. Legacy vaults never compute or read snapshots.
@@ -83,6 +91,7 @@ def compile_assessment_contract(
             {
                 "id": criterion.id,
                 "max_points": criterion.points,
+                "description": criterion.description,
                 "tier": getattr(criterion, "tier", "core"),
                 "depends_on": sorted(criterion.depends_on),
                 "correlation_group": criterion.correlation_group,
@@ -95,10 +104,14 @@ def compile_assessment_contract(
         )
 
     fingerprint = getattr(item, "evidence_fingerprint", None)
+    if hasattr(fingerprint, "model_dump"):
+        fingerprint = fingerprint.model_dump(mode="json", exclude_none=True)
     contract = {
         "practice_item_id": item.id,
         "learning_object_id": item.learning_object_id,
         "practice_mode": item.practice_mode,
+        "prompt": item.prompt,
+        "expected_answer": item.expected_answer,
         "item_content_hash": _content_hash(
             {"prompt": item.prompt, "expected_answer": item.expected_answer}
         ),
@@ -107,7 +120,12 @@ def compile_assessment_contract(
         "rubric_max_points": resolved.max_points,
         "criteria": criteria,
         "fatal_errors": [
-            {"id": fatal.id, "max_grade": fatal.max_grade, "misconception_id": fatal.misconception_id}
+            {
+                "id": fatal.id,
+                "description": fatal.description,
+                "max_grade": fatal.max_grade,
+                "misconception_id": fatal.misconception_id,
+            }
             for fatal in resolved.fatal_errors
         ],
         "recipes": _blueprint_recipes(lo),
@@ -116,6 +134,36 @@ def compile_assessment_contract(
         "assistance": {"max_useful_hints": item.hint_policy.max_useful_hints},
     }
     return contract
+
+
+def rubric_from_contract(contract: dict[str, Any]) -> Rubric:
+    """Rehydrate the immutable grading rubric used at presentation time."""
+
+    return Rubric(
+        max_points=int(round(float(contract.get("rubric_max_points") or 4))),
+        criteria=[
+            RubricCriterion(
+                id=str(raw["id"]),
+                points=float(raw.get("max_points") or 0.0),
+                description=str(raw.get("description") or raw["id"]),
+                tier=str(raw.get("tier") or "core"),
+                targets=list(raw.get("targets") or []),
+                depends_on=list(raw.get("depends_on") or []),
+                correlation_group=raw.get("correlation_group"),
+                recipe_ids=list(raw.get("recipe_ids") or []),
+            )
+            for raw in contract.get("criteria") or []
+        ],
+        fatal_errors=[
+            RubricFatalError(
+                id=str(raw["id"]),
+                description=str(raw.get("description") or raw["id"]),
+                max_grade=int(raw.get("max_grade") or 0),
+                misconception_id=raw.get("misconception_id"),
+            )
+            for raw in contract.get("fatal_errors") or []
+        ],
+    )
 
 
 def contract_hash(contract: dict[str, Any]) -> str:

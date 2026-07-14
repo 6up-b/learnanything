@@ -10,8 +10,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { ExamStatusSnapshot, GoalAtRiskFacetDto, GoalDto, GoalSeriesPointDto } from "../api/dto";
+import type { ClaimCandidateDto, ExamStatusSnapshot, GoalAtRiskFacetDto, GoalDto, GoalPaceDto, GoalReportSummaryDto, GoalSeriesPointDto } from "../api/dto";
 import { GoalTrajectoryChart } from "./GoalTrajectoryChart";
+import { mintVisitId } from "./ClaimSurface";
+import { TrackRecordView } from "./TrackRecordView";
 import { BlockBar, COLOR, Faint, FONT_MONO, Pill } from "./term";
 
 function daysUntil(dueAt: string | null): number | null {
@@ -54,6 +56,49 @@ function actionOf(label: GoalAtRiskFacetDto["label"]): string {
 
 const pct = (value: number | null | undefined): string =>
   value == null ? "—" : `${Math.round(value * 100)}%`;
+
+const capitalize = (s: string): string => (s.length ? s[0].toUpperCase() + s.slice(1) : s);
+
+// The honest pace sentence (spec §4.2). Qualifying-attempt debt, projected against the
+// learner's recent rate — with every edge state (zero pace, passed due date, unknowable
+// remaining work) said out loud. Days, never minutes; "roughly", never a precise date.
+function buildPaceSentence(report: GoalReportSummaryDto, pace: GoalPaceDto, dueAt: string | null): string {
+  const remaining = report.attemptsRemaining ?? pace.attemptsRemaining;
+  const partial = report.attemptsRemainingIsPartial === true;
+  const dLeft = pace.daysLeft;
+  const overdue = (daysUntil(dueAt) ?? 0) < 0;
+
+  if (remaining == null) {
+    return "the remaining work isn't fully knowable yet — some facets have no practice items, so there's no attempt count to project.";
+  }
+  if (remaining === 0) {
+    return "all facets certified — hold the line until the due date.";
+  }
+
+  const head = `≈ ${remaining} qualifying attempts outstanding${partial ? ", at least" : ""}`;
+  // Until the numerator is qualification-scoped the copy must say "recent activity".
+  const paceNoun = pace.paceKind === "qualifying" ? "goal pace" : "recent activity";
+
+  const allow =
+    dLeft == null
+      ? "the due date is open-ended"
+      : overdue
+        ? `the due date passed ${Math.abs(dLeft)} ${Math.abs(dLeft) === 1 ? "day" : "days"} ago`
+        : `the due date allows ${dLeft} ${dLeft === 1 ? "day" : "days"}`;
+
+  // Zero recent pace: no rate to project — never fabricate a completion horizon.
+  if (pace.attemptsLast14d <= 0 || pace.attemptsPerDay <= 0) {
+    return `${head} — no goal practice in 14 days, so no pace to project. ${capitalize(allow)}.`;
+  }
+
+  const days = Math.max(1, Math.ceil(remaining / pace.attemptsPerDay));
+  const verdict = overdue
+    ? "Behind — past due."
+    : pace.onPace
+      ? "On pace."
+      : `Behind pace — ${pace.neededPerDay ?? "?"}/day needed.`;
+  return `${head} — at your recent ${paceNoun} of ${pace.attemptsPerDay}/day that's roughly ${days} ${days === 1 ? "day" : "days"}; ${allow}. ${verdict}`;
+}
 
 // Tri-state monospace coverage bar: certified ▓ / examined ▒ / untouched ░.
 function SegmentBar({
@@ -107,6 +152,13 @@ export function GoalBanner({
 
   const [exam, setExam] = useState<ExamStatusSnapshot | null>(null);
   const [celebrateCount, setCelebrateCount] = useState<number | null>(null);
+
+  const [showTrackRecord, setShowTrackRecord] = useState(false);
+  const [showPlanning, setShowPlanning] = useState(false);
+  const [scenarioDays, setScenarioDays] = useState<number | null>(null); // learner's study-days/week
+  const [presentationId, setPresentationId] = useState<string | null>(null);
+  const [overrideSaved, setOverrideSaved] = useState(false);
+  const [visitId] = useState(() => mintVisitId());
 
   const goalId = goal?.id;
   const report = goal?.report ?? null;
@@ -182,6 +234,11 @@ export function GoalBanner({
     setAtRisk(null);
     setAtRiskError(null);
     setCelebrateCount(null);
+    setShowTrackRecord(false);
+    setShowPlanning(false);
+    setScenarioDays(null);
+    setPresentationId(null);
+    setOverrideSaved(false);
   }, [goalId]);
 
   // Milestone celebration: a facet certified since this goal was last rendered.
@@ -220,8 +277,67 @@ export function GoalBanner({
   const pace = report?.pace ?? null;
   const atRiskCount = report?.atRiskCount ?? 0;
   const showExamButton = Boolean(onTakeExam && goal.exam.enabled && exam && exam.poolItemCount > 0);
-  const paceTone =
-    (daysUntil(goal.dueAt) ?? 0) < 0 ? COLOR.pink : pace?.onPace === false ? COLOR.amber : COLOR.green;
+  const paceOverdue = (daysUntil(goal.dueAt) ?? 0) < 0;
+  const paceZero = pace != null && (pace.attemptsLast14d <= 0 || pace.attemptsPerDay <= 0);
+  const paceRemaining = report?.attemptsRemaining ?? pace?.attemptsRemaining ?? null;
+  const paceTone = paceOverdue
+    ? COLOR.pink
+    : paceZero || paceRemaining == null
+      ? COLOR.textDim
+      : pace?.onPace === false
+        ? COLOR.amber
+        : COLOR.green;
+
+  // The forecast claim behind the pace sentence. When an open pace forecast row
+  // has been issued (session start / maintenance), its id reaches the boundary on
+  // report.activeForecasts.pace and the planning-override claim references it
+  // directly; otherwise the ref falls back to a goal-scoped one, labeled as such.
+  const paceForecast = report?.activeForecasts?.pace ?? null;
+  const paceSentence = report && pace ? buildPaceSentence(report, pace, goal.dueAt) : null;
+
+  // Planning override: recompute the horizon under "n study days/week", clearly the
+  // learner's scenario, and log it to the forecast ledger via respondClaim.
+  const canProject = pace != null && pace.attemptsPerDay > 0 && paceRemaining != null && paceRemaining > 0;
+  async function applyPlanningOverride(daysPerWeek: number) {
+    setScenarioDays(daysPerWeek);
+    if (!goalId || !report || !paceSentence) return;
+    try {
+      let pid = presentationId;
+      if (!pid) {
+        const candidate: ClaimCandidateDto = {
+          claimClass: "estimate",
+          claimType: "forecast",
+          claimRef: paceForecast
+            ? { forecastId: paceForecast.id, issuedAt: paceForecast.issuedAt, goalId, kind: "pace_forecast" }
+            : { goalId, kind: "pace_forecast", ref: "goal_scoped" },
+          claimVersion: "goal-pace-1",
+          producerVersion: "goal_banner_f4",
+          surface: "today_goal_hero",
+          temperature: "cold",
+          claimText: paceSentence
+        };
+        const result = await api.presentClaims([{ ...candidate, visibleAt: new Date().toISOString() }], { visitId });
+        pid = result.claims[0]?.presentationId ?? null;
+        setPresentationId(pid);
+      }
+      if (pid) {
+        const rate = pace?.attemptsPerDay ?? 0;
+        const projected =
+          canProject && rate > 0
+            ? Math.max(1, Math.ceil((paceRemaining as number) / (rate * (daysPerWeek / 7))))
+            : null;
+        await api.respondClaim(pid, {
+          response: "planning_override",
+          studyDaysPerWeek: daysPerWeek,
+          projectedDays: projected,
+          basePaceKind: pace?.paceKind ?? null
+        });
+        setOverrideSaved(true);
+      }
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
 
   return (
     <div
@@ -346,18 +462,93 @@ export function GoalBanner({
             </div>
           ) : null}
 
-          {/* work remaining + pace */}
-          {hasDualAxis && pace ? (
-            <div style={{ marginTop: 6, fontSize: 12, color: paceTone, fontFamily: FONT_MONO }}>
-              {pace.attemptsRemaining == null
-                ? "work remaining unknown — some facets need new practice items"
-                : pace.attemptsRemaining === 0
-                  ? "all facets certified — hold the line until the due date"
-                  : `≈ ${pace.attemptsRemaining} attempts to certify` +
-                    (pace.neededPerDay != null ? ` · need ~${pace.neededPerDay}/day` : "") +
-                    ` · pace ${pace.attemptsPerDay}/day` +
-                    (report?.attemptsRemainingIsPartial ? " · + facets needing new items" : "")}
+          {/* work remaining + pace — the honest pace sentence (spec §4.2) */}
+          {hasDualAxis && paceSentence ? (
+            <div style={{ marginTop: 8, fontSize: 12, color: paceTone, fontFamily: FONT_MONO, lineHeight: 1.55 }}>
+              {paceSentence}
             </div>
+          ) : null}
+
+          {/* content-gap callout (spec §4.2 / §4.11). Goal summary DTO exposes only the
+              boolean attemptsRemainingIsPartial — no per-facet no-supply count — so we
+              use the at-risk list (once loaded) as a lower bound and otherwise qualify. */}
+          {hasDualAxis && report?.attemptsRemainingIsPartial ? (
+            (() => {
+              const noSupply = atRisk ? atRisk.filter((f) => f.attemptsToCertify == null).length : null;
+              return (
+                <div style={{ marginTop: 6, fontSize: 11, color: COLOR.pink, fontFamily: FONT_MONO }}>
+                  ⚠ {noSupply != null && noSupply > 0 ? `${noSupply}+ ` : "some "}facets have no practice items yet — create practice so they can count.
+                </div>
+              );
+            })()
+          ) : null}
+
+          {/* planning override + track record — one tap from the forecast hero */}
+          {hasDualAxis && paceSentence ? (
+            <div style={{ marginTop: 8, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+              {canProject ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPlanning((v) => !v)}
+                  style={{ background: "transparent", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11 }}
+                >
+                  {showPlanning ? "▾" : "▸"} plan around my week
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowTrackRecord((v) => !v)}
+                style={{ background: "transparent", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11 }}
+              >
+                {showTrackRecord ? "▾" : "▸"} how good are these forecasts?
+              </button>
+            </div>
+          ) : null}
+
+          {showPlanning && canProject && pace ? (
+            <div style={{ marginTop: 8, padding: "8px 10px", border: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 11 }}>
+              <div style={{ color: COLOR.textDim, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span>use my usual</span>
+                {[2, 3, 4, 5, 6, 7].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => void applyPlanningOverride(n)}
+                    aria-pressed={scenarioDays === n}
+                    style={{
+                      minWidth: 22,
+                      padding: "1px 6px",
+                      border: `1px solid ${scenarioDays === n ? COLOR.amber : COLOR.borderStrong}`,
+                      background: scenarioDays === n ? COLOR.amber : "transparent",
+                      color: scenarioDays === n ? COLOR.bg : COLOR.text,
+                      cursor: "pointer",
+                      fontFamily: FONT_MONO,
+                      fontSize: 11
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <span>study days/week</span>
+              </div>
+              {scenarioDays != null ? (
+                <div style={{ marginTop: 6, color: COLOR.cyan }}>
+                  your scenario — {scenarioDays} days/week at ~{pace.attemptsPerDay}/study-day →{" "}
+                  {(() => {
+                    const projected = Math.max(1, Math.ceil((paceRemaining as number) / (pace.attemptsPerDay * (scenarioDays / 7))));
+                    return `roughly ${projected} ${projected === 1 ? "day" : "days"}`;
+                  })()}
+                  {pace.daysLeft != null ? `; the due date allows ${pace.daysLeft} ${pace.daysLeft === 1 ? "day" : "days"}` : ""}.
+                  <Faint style={{ display: "block", marginTop: 2, fontSize: 10 }}>
+                    your what-if, not a system forecast{overrideSaved ? " · saved to your forecast ledger" : ""}
+                  </Faint>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {showTrackRecord ? (
+            <TrackRecordView goalId={goalId} onClose={() => setShowTrackRecord(false)} onError={onError} />
           ) : null}
 
           {/* milestone celebration */}
@@ -458,7 +649,7 @@ export function GoalBanner({
         {/* right: trajectory chart */}
         <div style={{ flex: "0 0 auto", minWidth: 260 }}>
           <div style={{ fontSize: 10, color: COLOR.textFaint, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: FONT_MONO, marginBottom: 4 }}>
-            trajectory · predicted recall vs target
+            trajectory · demonstrated + ready lanes
           </div>
           {seriesError ? (
             <Faint style={{ color: COLOR.red, fontSize: 11 }}>{seriesError}</Faint>

@@ -114,6 +114,10 @@ fn main() {
             get_goal_report,
             get_goal_report_series,
             goal_feasibility,
+            get_overconfidence_list,
+            get_reentry_summary,
+            get_decay_pressure,
+            start_overconfidence_probe,
             create_goal,
             update_goal_status,
             get_exam_status,
@@ -126,7 +130,19 @@ fn main() {
             begin_probe_dialogue,
             next_probe_dialogue_turn,
             record_probe_dialogue_turn,
-            end_probe_dialogue
+            end_probe_dialogue,
+            present_claims,
+            respond_claim,
+            dismiss_claim,
+            export_claims,
+            purge_claims,
+            get_review_log,
+            start_remediation,
+            prescribe_remediation,
+            start_remediation_treatment,
+            get_remediation,
+            get_forecast_track_record,
+            get_answer_calibration
         ])
         .run(tauri::generate_context!())
         .expect("error while running LearnLoop");

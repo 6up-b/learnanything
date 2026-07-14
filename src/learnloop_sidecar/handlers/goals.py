@@ -8,10 +8,12 @@ see ``services/goal_projection`` and ``services/goal_series``.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from typing import Any
 
-from learnloop.clock import utc_now_iso
+from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.services.forecast_ledger import active_forecasts
 from learnloop.services.goal_pace import compute_goal_pace
 from learnloop.services.goal_projection import GoalReport, goal_report, resolve_goal_scope
 from learnloop.services.goal_series import goal_report_series
@@ -31,7 +33,7 @@ _series_cache: dict[tuple, list[dict[str, Any]]] = {}
 
 # Bump when GoalSeriesPoint.as_dict gains/loses keys so a hot-reloaded process
 # can never serve a stale-shape cached payload.
-_SERIES_PAYLOAD_VERSION = 2
+_SERIES_PAYLOAD_VERSION = 3
 
 
 class GoalIdInput(ParamsModel):
@@ -42,6 +44,14 @@ class GoalSeriesInput(ParamsModel):
     goal_id: str
     interval_days: int = 7
     max_points: int = 26
+
+
+class ForecastTrackRecordInput(ParamsModel):
+    goal_id: str | None = None
+
+
+class OptionalGoalInput(ParamsModel):
+    goal_id: str | None = None
 
 
 class CreateGoalInput(ParamsModel):
@@ -71,6 +81,21 @@ def _find_goal(vault: LoadedVault, goal_id: str) -> Goal:
         if goal.id == goal_id:
             return goal
     raise SidecarError("goal_not_found", f"Goal {goal_id} does not exist.")
+
+
+def _nearest_active_goal(vault: LoadedVault) -> Goal | None:
+    """The active goal with the nearest due date (ties -> higher priority)."""
+
+    active = [goal for goal in vault.goals if goal.status == "active"]
+    if not active:
+        return None
+    return min(
+        active,
+        key=lambda goal: (
+            parse_utc(goal.due_at) or datetime.max.replace(tzinfo=UTC),
+            -goal.priority,
+        ),
+    )
 
 
 def _latest_exam_dto(repository: Repository, goal: Goal) -> dict[str, Any] | None:
@@ -106,12 +131,24 @@ def _report_dto(
         "examined_count": report.examined_count,
         "attainment_fraction": report.attainment_fraction,
         "predicted_recall_mean": report.predicted_recall_mean,
+        "ready_current_mean": report.ready_current_mean,
+        "demonstrated_count": report.demonstrated_count,
+        "model_coverage": {
+            "decay_estimated": report.decay_estimated_count,
+            "held_flat": report.held_flat_count,
+        },
         "attempts_remaining": report.attempts_remaining,
         "attempts_remaining_is_partial": report.attempts_remaining_is_partial,
     }
     if repository is not None and goal is not None:
         payload["pace"] = compute_goal_pace(vault, repository, goal, report).as_dict()
         payload["latest_exam"] = _latest_exam_dto(repository, goal)
+        # Reference the current open issued forecast rows (decay/pace) so the
+        # renderer's claims can point at the forecast id (spec §4.1). Read-only:
+        # rendering never issues a forecast. Absent when no open row exists.
+        active = active_forecasts(repository, goal.id)
+        if active:
+            payload["active_forecasts"] = active
     if include_facets:
         payload["at_risk"] = [
             {
@@ -266,6 +303,67 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
             "uncovered_concepts": uncovered,
         }
     )
+
+
+@method("get_forecast_track_record", ForecastTrackRecordInput)
+def get_forecast_track_record(ctx: SidecarContext, params: ForecastTrackRecordInput) -> dict[str, Any]:
+    from learnloop.services.forecast_ledger import forecast_track_record
+
+    _vault, repository = ctx.require_vault()
+    return versioned({"track_record": forecast_track_record(repository, params.goal_id)})
+
+
+@method("get_overconfidence_list", GoalIdInput)
+def get_overconfidence_list(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
+    """F5 overconfidence list (§4.3): Ready-high / Demonstrated-false facets."""
+
+    from learnloop.services.overconfidence import overconfidence_facets
+
+    vault, repository = ctx.require_vault()
+    goal = _find_goal(vault, params.goal_id)
+    facets = overconfidence_facets(vault, repository, goal)
+    return versioned({"goal_id": goal.id, "facets": [facet.as_dict() for facet in facets]})
+
+
+@method("get_reentry_summary", OptionalGoalInput)
+def get_reentry_summary(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]:
+    """F7 welcome-back diff (§4.4): survival-first re-entry summary for a goal.
+
+    With no goal id, the nearest active goal is used; when the vault has no
+    active goal the panel simply does not show.
+    """
+
+    from learnloop.services.reentry_summary import reentry_summary
+
+    vault, repository = ctx.require_vault()
+    goal = _find_goal(vault, params.goal_id) if params.goal_id else _nearest_active_goal(vault)
+    if goal is None:
+        return versioned(
+            {
+                "summary": {
+                    "show": False,
+                    "gap_days": 0,
+                    "threshold_days": vault.config.hypothesis.reentry_gap_days,
+                    "last_ended_at": None,
+                    "solid_count": 0,
+                    "slipped_count": 0,
+                    "refresher_count": 0,
+                    "slipped_top": [],
+                }
+            }
+        )
+    return versioned({"summary": reentry_summary(vault, repository, goal).as_dict()})
+
+
+@method("get_decay_pressure", OptionalGoalInput)
+def get_decay_pressure(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]:
+    """F7 no-goal fallback (§4.5): facets ranked by soonest target crossing."""
+
+    from learnloop.services.decay_pressure import decay_pressure
+
+    vault, repository = ctx.require_vault()
+    goal = _find_goal(vault, params.goal_id) if params.goal_id else None
+    return versioned({"pressure": decay_pressure(vault, repository, goal=goal).as_dict()})
 
 
 def _slugify(title: str) -> str:

@@ -53,6 +53,7 @@ from learnloop.ids import new_ulid
 from learnloop.services.concepts import ConceptMergeError, merge_concepts
 from learnloop.services.doctor import run_doctor
 from learnloop.services.followups import evaluate_attempt_intervention_followup
+from learnloop.services.hypothesis_claims import export_claim_events, purge_claim_events
 from learnloop.services.observations import (
     ObservationTemplateError,
     parse_template_yaml,
@@ -209,6 +210,37 @@ def _load_vault_or_exit(vault_root: Path, *, json_output: bool = False):
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
+
+
+claims_app = typer.Typer(no_args_is_help=True, help="Inspect, export, or delete local claim telemetry.")
+app.add_typer(claims_app, name="claims")
+
+
+@claims_app.command("export")
+def claims_export(
+    output: Annotated[Path | None, typer.Option("--output", help="Optional JSON output path.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Explicitly export the vault-local hypothesis event ledger."""
+
+    payload = {"version": 1, "events": export_claim_events(_repository(_root(vault)))}
+    rendered = jsonlib.dumps(payload, sort_keys=True, indent=2)
+    if output is None:
+        typer.echo(rendered)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(rendered + "\n", encoding="utf-8")
+    typer.echo(f"Exported {len(payload['events'])} claim events to {output}")
+
+
+@claims_app.command("purge")
+def claims_purge(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Delete all local hypothesis presentations and responses."""
+
+    purged = purge_claim_events(_repository(_root(vault)))
+    typer.echo(f"Purged {purged} claim events.")
 
 
 def _split_items(items: str | None) -> list[str] | None:
@@ -775,7 +807,7 @@ def _batch_json(runner, batch_id: str) -> dict[str, Any]:
 def import_sources(
     sources: Annotated[list[str], typer.Argument(help="URLs, arXiv ids, or local files to import.")],
     subject: Annotated[str | None, typer.Option("--subject", help="Optional subject id for the batch.")] = None,
-    inventory: Annotated[bool, typer.Option("--inventory", help="Also queue role-specific unit inventories (M3 seam).")] = False,
+    inventory: Annotated[bool, typer.Option("--inventory", help="Also queue role-specific unit inventories.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the durable batch as JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
@@ -1375,6 +1407,99 @@ def exam_readiness_command(
         )
     if report.has_calibration:
         typer.echo("Calibration overlay: past practice-exam predictions available (Brier); see --json.")
+
+
+def _find_goal_or_exit(loaded, goal_id: str):
+    for goal in loaded.goals:
+        if goal.id == goal_id:
+            return goal
+    typer.echo(f"Goal {goal_id} not found.")
+    raise typer.Exit(1)
+
+
+@app.command("overconfidence")
+def overconfidence_command(
+    goal_id: Annotated[str, typer.Argument(help="Goal id to inspect.")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """F5 overconfidence list (§4.3): Ready-high / Demonstrated-false facets."""
+
+    from learnloop.services.overconfidence import overconfidence_facets
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    goal = _find_goal_or_exit(loaded, goal_id)
+    facets = overconfidence_facets(loaded, repository, goal)
+    if json_output:
+        typer.echo(_dump({"version": 1, "facets": [f.as_dict() for f in facets]}))
+        return
+    typer.echo(f"Overconfidence list — {len(facets)} facet(s)")
+    for facet in facets:
+        typer.echo(
+            f"  {facet.facet_id} ({facet.learning_object_title}): "
+            f"ready={facet.ready:.2f} weight={facet.blueprint_weight:.2f} "
+            f"mass={facet.evidence_mass:.2f} score={facet.score:.3f}"
+        )
+
+
+@app.command("reentry-summary")
+def reentry_summary_command(
+    goal_id: Annotated[str, typer.Argument(help="Goal id to inspect.")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """F7 welcome-back diff (§4.4): survival-first re-entry summary."""
+
+    from learnloop.services.reentry_summary import reentry_summary
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    goal = _find_goal_or_exit(loaded, goal_id)
+    summary = reentry_summary(loaded, repository, goal)
+    if json_output:
+        typer.echo(_dump({"version": 1, "summary": summary.as_dict()}))
+        return
+    if not summary.show:
+        typer.echo(f"No welcome-back panel (gap {summary.gap_days}d ≤ {summary.threshold_days}d).")
+        return
+    named = ", ".join(f.facet_id for f in summary.slipped_top) or "none"
+    typer.echo(
+        f"Welcome back ({summary.gap_days}d away). Still solid: {summary.solid_count}. "
+        f"Slipped: {summary.slipped_count} — {named}. "
+        f"Best next session: {summary.refresher_count} refreshers."
+    )
+
+
+@app.command("decay-pressure")
+def decay_pressure_command(
+    goal_id: Annotated[str | None, typer.Option("--goal", help="Scope to a goal (else whole vault).")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """F7 no-goal fallback (§4.5): facets by soonest target crossing."""
+
+    from learnloop.services.decay_pressure import decay_pressure
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    goal = _find_goal_or_exit(loaded, goal_id) if goal_id else None
+    pressure = decay_pressure(loaded, repository, goal=goal)
+    if json_output:
+        typer.echo(_dump({"version": 1, "pressure": pressure.as_dict()}))
+        return
+    typer.echo(
+        f"Decay pressure — {len(pressure.facets)} facet(s), "
+        f"{pressure.held_flat_count} held flat (not enough history)"
+    )
+    for facet in pressure.facets:
+        when = "now" if facet.crosses_in_days == 0 else (
+            f"~{facet.crosses_in_days}d" if facet.crosses_in_days is not None else ">horizon"
+        )
+        typer.echo(f"  {facet.facet_id} ({facet.learning_object_title}): crosses {when}")
 
 
 @app.command("source-outcomes")

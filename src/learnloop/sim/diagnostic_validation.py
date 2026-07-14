@@ -461,7 +461,16 @@ def _submit_response(
             draft=AttemptDraft(
                 practice_item_id=practice_item_id,
                 learner_answer_md=f"[planted response score={response.score}]",
-                attempt_type=response.attempt_type,
+                # In production an explicit "I don't know" during a committed
+                # probe remains a diagnostic observation.  The outcome is a
+                # separate flag; changing the attempt type would contaminate
+                # the measurement and make it ineligible for completion.
+                attempt_type=(
+                    "diagnostic_probe"
+                    if response.attempt_type == "dont_know"
+                    else response.attempt_type
+                ),
+                declared_dont_know=response.attempt_type == "dont_know",
                 hints_used=0,
                 probe_presentation_id=presentation_id,
             ),

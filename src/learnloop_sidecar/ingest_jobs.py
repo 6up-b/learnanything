@@ -169,7 +169,8 @@ class DurableIngestJobs:
     ) -> str:
         """Enqueue an Import (or Import & inventory) batch (§6.1). One import job
         per source; when ``inventory`` is set, a dependent inventory job is queued
-        per source (an M3 seam — it fails cleanly with ``not_implemented`` today).
+        per source. The handler derives extraction + units from the completed
+        import dependency, so the public shorthand is directly executable.
 
         A build-plan ``estimate`` (when a batch is started from a plan) is
         snapshotted onto each import job's payload (§8.6.2)."""
@@ -273,6 +274,9 @@ class DurableIngestJobs:
             "source_set_id": source_set_id,
             "brief": dict(brief or {}),
             "mode": mode,
+            # Quick Add's promise is a usable study map after its one explicit
+            # confirmation, not a second hidden proposal-acceptance step.
+            "apply": True,
         }
         batch_id = runner.enqueue_batch(
             "bootstrap_synthesis",

@@ -16,6 +16,14 @@ def test_init_creates_vault_and_applies_migration(tmp_path):
     assert (vault / "concepts" / "concepts.yaml").exists()
     assert (vault / "errors" / "error_types.yaml").exists()
     assert (vault / "state.sqlite").exists()
+    for unused_directory in [
+        "prompts",
+        "sessions",
+        "exports",
+        ".learnloop/backups",
+        ".learnloop/session-checkpoints",
+    ]:
+        assert not (vault / unused_directory).exists()
 
     with sqlite3.connect(vault / "state.sqlite") as connection:
         row = connection.execute("SELECT version, name FROM schema_migrations").fetchone()

@@ -56,6 +56,8 @@ def test_daily_attempt_counts_is_zero_filled_and_buckets_by_day(tmp_path):
 def test_compute_goal_pace_with_due_date(tmp_path):
     vault, repository = _loaded(tmp_path)
     goal = vault.goals[0]
+    # Pace starts when the goal exists; earlier vault activity must not count.
+    goal.created_at = (NOW - timedelta(days=10)).isoformat()
     goal.due_at = (NOW + timedelta(days=5)).isoformat()
     _insert_attempt(repository, "attempt_a", _iso(1))
     _insert_attempt(repository, "attempt_b", _iso(2))
@@ -64,7 +66,7 @@ def test_compute_goal_pace_with_due_date(tmp_path):
     pace = compute_goal_pace(vault, repository, goal, report, clock=FrozenClock(NOW))
 
     assert pace.attempts_last_14d == 2
-    assert pace.attempts_per_day == pytest.approx(2 / PACE_WINDOW_DAYS)
+    assert pace.attempts_per_day == pytest.approx(2 / 11)  # goal age, inclusive
     assert pace.days_left == pytest.approx(5.0, abs=0.01)
     assert pace.attempts_remaining == report.attempts_remaining
     assert pace.needed_per_day == pytest.approx(report.attempts_remaining / 5.0, rel=0.01)
@@ -127,4 +129,6 @@ def test_pace_as_dict_shape(tmp_path):
         "needed_per_day",
         "on_pace",
         "attempts_logged",
+        "pace_kind",
     }
+    assert payload["pace_kind"] == "qualifying"

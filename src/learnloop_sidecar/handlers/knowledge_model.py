@@ -12,7 +12,10 @@ from typing import Any
 
 from learnloop.services.attempt_trace import build_attempt_trace
 from learnloop.services.capability_grid import capability_grid, lo_blueprint_readiness
-from learnloop.services.facet_evidence_timeline import facet_evidence_timeline
+from learnloop.services.facet_evidence_timeline import (
+    facet_evidence_timeline,
+    facet_ready_derivation,
+)
 from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -67,6 +70,7 @@ def get_facet_evidence_timeline(ctx: SidecarContext, params: FacetIdInput) -> di
     vault, repository = ctx.require_vault()
     canonical = vault.canonical_facet_id(params.facet_id)
     series = facet_evidence_timeline(vault, repository, canonical)
+    ready = facet_ready_derivation(vault, repository, canonical, series)
     # "Also counted toward X and Y": LOs whose items exercise this canonical facet.
     counted_toward: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -89,5 +93,6 @@ def get_facet_evidence_timeline(ctx: SidecarContext, params: FacetIdInput) -> di
             "demonstrated": demonstrated,
             "points": [point.as_dict() for point in series],
             "counted_toward": counted_toward,
+            "ready": ready.as_dict() if ready is not None else None,
         }
     )

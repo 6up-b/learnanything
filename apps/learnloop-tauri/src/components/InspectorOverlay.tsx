@@ -17,6 +17,7 @@ import type {
   InspectorSearchResult,
   LearningObjectDetail,
   NoteInspectorDetail,
+  ProbeEpisodeInspectorDetail,
   PracticeItemDetail,
   ErrorEventDto,
   CapabilityGridResult,
@@ -33,7 +34,8 @@ const KIND_PILL: Record<string, { color: PillColor; label: string }> = {
   learning_object: { color: "purple", label: "learning_object" },
   attempt: { color: "amber", label: "attempt" },
   error_event: { color: "red", label: "error_event" },
-  note: { color: "cyan", label: "note" }
+  note: { color: "cyan", label: "note" },
+  probe_episode: { color: "red", label: "probe_episode" }
 };
 
 function masteryColor(mastery: number): string {
@@ -233,7 +235,9 @@ function InspectorEntityView({
           ? entity.detail.errorTitle ?? entity.detail.errorType
           : entity.kind === "note"
             ? entity.detail.title
-            : entity.id;
+            : entity.kind === "probe_episode"
+              ? `Diagnostic episode · ${entity.detail.learningObjectId}`
+              : entity.id;
 
   return (
     <>
@@ -253,11 +257,40 @@ function InspectorEntityView({
           <ErrorEventBody detail={entity.detail} onGo={onGo} />
         ) : entity.kind === "note" ? (
           <NoteBody detail={entity.detail} onGo={onGo} />
+        ) : entity.kind === "probe_episode" ? (
+          <ProbeEpisodeBody detail={entity.detail} onGo={onGo} />
         ) : (
           <AttemptBody id={entity.id} detail={entity.detail} onGo={onGo} />
         )}
       </div>
     </>
+  );
+}
+
+function ProbeEpisodeBody({ detail, onGo }: { detail: ProbeEpisodeInspectorDetail; onGo: (id: string) => void }) {
+  return (
+    <div>
+      <InspectorRow label="learning_object"><IdLink id={detail.learningObjectId} onGo={onGo} /></InspectorRow>
+      <InspectorRow label="status"><Pill color={detail.status === "complete" ? "green" : "red"}>{detail.status}</Pill></InspectorRow>
+      <InspectorRow label="trigger"><Dim>{detail.trigger}</Dim></InspectorRow>
+      <InspectorRow label="required_facets"><Dim>{detail.requiredFacets.join(" · ") || "none"}</Dim></InspectorRow>
+      <InspectorRow label="observations"><Dim style={{ fontFamily: FONT_MONO }}>{detail.observations.filter((row) => row.eligibleForCompletion).length}/{detail.minimumIndependentObservations} qualifying · max {detail.maximumObservations}</Dim></InspectorRow>
+      {detail.completionReason ? <InspectorRow label="completion_reason"><Dim>{detail.completionReason}</Dim></InspectorRow> : null}
+      <SectionHeader>Posterior transitions</SectionHeader>
+      {detail.observations.length ? detail.observations.map((row) => (
+        <div key={row.attemptId} style={{ padding: "8px 0", borderBottom: `1px solid ${COLOR.border}`, fontSize: 12 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <IdLink id={row.attemptId} onGo={onGo} />
+            <Pill color={row.eligibleForCompletion ? "green" : "slate"}>{row.eligibleForCompletion ? "qualifying" : "incidental"}</Pill>
+            <span style={{ marginLeft: "auto", color: row.realizedInformationGain >= 0 ? COLOR.green : COLOR.red, fontFamily: FONT_MONO }}>
+              ΔH {row.realizedInformationGain >= 0 ? "+" : ""}{row.realizedInformationGain.toFixed(3)}
+            </span>
+          </div>
+          <div style={{ marginTop: 4 }}><Faint>entropy {row.entropyBefore.toFixed(3)} → {row.entropyAfter.toFixed(3)} · {relTime(row.createdAt)}</Faint></div>
+          {row.contamination ? <div style={{ marginTop: 3, color: COLOR.amber }}>contaminated · {formatUnknown(row.contamination)}</div> : null}
+        </div>
+      )) : <Faint>no submitted observations yet</Faint>}
+    </div>
   );
 }
 

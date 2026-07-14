@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppSnapshot,
+  AnswerCalibrationReportDto,
   AttemptResultDto,
   CliCommandResult,
   CommandError,
@@ -106,6 +107,16 @@ import type {
   SourceConflictDto,
   ResolveConflictInput,
   ExamReadinessReportDto,
+  ClaimCandidateDto,
+  ForecastTrackRecordDto,
+  HypothesisEventDto,
+  PresentedClaimDto,
+  RemediationDto,
+  ReviewLogDto,
+  OverconfidenceSnapshot,
+  StartOverconfidenceProbeResult,
+  ReentrySummarySnapshot,
+  DecayPressureSnapshot,
 } from "./dto";
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -171,6 +182,8 @@ export const api = {
     latencySeconds?: number | null;
     probePresentationId?: string | null;
     answerConfidence?: number | null;
+    assessmentContractVersionId?: string | null;
+    submissionId?: string | null;
   }) => call<AttemptResultDto>("submit_dont_know", { input }),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     call<QueueSnapshot>("skip_practice_item", { input }),
@@ -343,6 +356,16 @@ export const api = {
     call<GoalSeriesSnapshot>("get_goal_report_series", { input: { goalId, ...(opts ?? {}) } }),
   goalFeasibility: (input: GoalFeasibilityInput) =>
     call<GoalFeasibilityResult>("goal_feasibility", { input }),
+  getOverconfidenceList: (goalId: string) =>
+    call<OverconfidenceSnapshot>("get_overconfidence_list", { goalId }),
+  startOverconfidenceProbe: (learningObjectId: string, facetId?: string | null) =>
+    call<StartOverconfidenceProbeResult>("start_overconfidence_probe", {
+      input: { learningObjectId, facetId: facetId ?? null }
+    }),
+  getReentrySummary: (goalId?: string | null) =>
+    call<ReentrySummarySnapshot>("get_reentry_summary", { input: { goalId: goalId ?? null } }),
+  getDecayPressure: (goalId?: string | null) =>
+    call<DecayPressureSnapshot>("get_decay_pressure", { input: { goalId: goalId ?? null } }),
   createGoal: (input: CreateGoalInput) => call<CreateGoalResult>("create_goal", { input }),
   updateGoalStatus: (goalId: string, status: GoalDto["status"]) =>
     call<CreateGoalResult>("update_goal_status", { input: { goalId, status } }),
@@ -364,5 +387,29 @@ export const api = {
   recordProbeDialogueTurn: (dialogueState: string, presentationId: string) =>
     call<RecordProbeDialogueTurnResult>("record_probe_dialogue_turn", { dialogueState, presentationId }),
   endProbeDialogue: (dialogueState: string) =>
-    call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState })
+    call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState }),
+  presentClaims: (claims: ClaimCandidateDto[], context: { sessionId?: string | null; visitId?: string | null }) =>
+    call<{ version: number; claims: PresentedClaimDto[] }>("present_claims", {
+      input: { claims, sessionId: context.sessionId ?? null, visitId: context.visitId ?? null }
+    }),
+  respondClaim: (presentationId: string, responsePayload: Record<string, unknown>) =>
+    call<{ version: number; event: HypothesisEventDto }>("respond_claim", {
+      input: { presentationId, responsePayload }
+    }),
+  dismissClaim: (presentationId: string) =>
+    call<{ version: number; event: HypothesisEventDto }>("dismiss_claim", { presentationId }),
+  exportClaims: () => call<{ version: number; events: HypothesisEventDto[] }>("export_claims"),
+  purgeClaims: () => call<{ version: number; purged: number }>("purge_claims"),
+  getReviewLog: () => call<ReviewLogDto>("get_review_log"),
+  startRemediation: (misconceptionId: string) =>
+    call<RemediationDto>("start_remediation", { misconceptionId }),
+  prescribeRemediation: (episodeId: string) =>
+    call<RemediationDto>("prescribe_remediation", { episodeId }),
+  startRemediationTreatment: (episodeId: string) =>
+    call<RemediationDto>("start_remediation_treatment", { episodeId }),
+  getRemediation: (episodeId: string) => call<RemediationDto>("get_remediation", { episodeId }),
+  getForecastTrackRecord: (goalId?: string | null) =>
+    call<ForecastTrackRecordDto>("get_forecast_track_record", { input: { goalId: goalId ?? null } }),
+  getAnswerCalibration: () =>
+    call<AnswerCalibrationReportDto>("get_answer_calibration")
 };

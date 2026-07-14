@@ -148,6 +148,64 @@ def test_goal_feasibility_transient_probe(ctx):
     assert missing["uncoveredConcepts"] == ["concept_nonexistent"]
 
 
+def _issue(repository, goal_id, *, kind, snapshot):
+    from learnloop.services.forecast_ledger import issue_forecast
+
+    return issue_forecast(
+        repository,
+        goal_id=goal_id,
+        kind=kind,
+        input_snapshot_hash=snapshot,
+        algorithm_version="mvp-0.7",
+        horizon="2026-08-15T00:00:00Z",
+        target_metric="cold_correctness" if kind == "decay" else "qualifying_attempts_per_day",
+        predicted_value=0.8 if kind == "decay" else 1.0,
+    )
+
+
+def test_report_omits_active_forecasts_when_none_open(ctx):
+    report = _call(ctx, "goals_list", {})["goals"][0]["report"]
+    assert "activeForecasts" not in report
+    detail = _call(ctx, "get_goal_report", {"goalId": "goal_linear_algebra_ml"})["report"]
+    assert "activeForecasts" not in detail
+
+
+def test_report_exposes_open_forecast_ids_read_only(ctx):
+    vault, repository = ctx.require_vault()
+    goal_id = "goal_linear_algebra_ml"
+
+    pace = _issue(repository, goal_id, kind="pace", snapshot="snap-pace")
+
+    # Only the pace kind is open: it surfaces, decay stays absent.
+    report = _call(ctx, "goals_list", {})["goals"][0]["report"]
+    assert report["activeForecasts"]["pace"] == {"id": pace["id"], "issuedAt": pace["issued_at"]}
+    assert "decay" not in report["activeForecasts"]
+
+    decay = _issue(repository, goal_id, kind="decay", snapshot="snap-decay")
+    detail = _call(ctx, "get_goal_report", {"goalId": goal_id})["report"]
+    assert detail["activeForecasts"]["pace"]["id"] == pace["id"]
+    assert detail["activeForecasts"]["decay"]["id"] == decay["id"]
+
+    # Rendering references issued rows; it must never issue one. Repeated reads
+    # across both handlers leave the ledger row count unchanged (spec §4.1).
+    rows_before = len(repository.list_forecasts(goal_id))
+    _call(ctx, "goals_list", {})
+    _call(ctx, "get_goal_report", {"goalId": goal_id})
+    _call(ctx, "goals_list", {})
+    assert len(repository.list_forecasts(goal_id)) == rows_before
+
+
+def test_resolved_forecast_drops_out_of_active_set(ctx):
+    vault, repository = ctx.require_vault()
+    goal_id = "goal_linear_algebra_ml"
+    pace = _issue(repository, goal_id, kind="pace", snapshot="snap-pace")
+    repository.update_forecast_resolution(
+        pace["id"], status="resolved", resolved_at="2026-08-16T00:00:00Z", resolved_value=1.0
+    )
+    report = _call(ctx, "goals_list", {})["goals"][0]["report"]
+    assert "activeForecasts" not in report
+
+
 def test_goal_report_series_endpoint(ctx):
     out = _call(
         ctx,

@@ -438,10 +438,13 @@ def get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[
     """Deterministic coverage + readiness preview for a collection (§9.3)."""
 
     from learnloop.services.source_coverage import build_source_coverage
+    from learnloop.services.coverage_rollup import coverage_rollup
 
     vault, repository = ctx.require_vault()
     source_set = _source_set_or_error(vault, params.source_set_id)
-    return versioned({"coverage": build_source_coverage(repository, vault, source_set)})
+    coverage = build_source_coverage(repository, vault, source_set)
+    coverage["rollup"] = coverage_rollup(vault, repository, source_set)
+    return versioned({"coverage": coverage})
 
 
 class CreateStudyMapInput(ParamsModel):
@@ -591,6 +594,9 @@ def maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> d
     from learnloop.services.maintenance_feed import generate_maintenance_feed
 
     vault, repository = ctx.require_vault()
+    from learnloop.services.forecast_ledger import resolve_due_forecasts
+
+    resolve_due_forecasts(repository)
     feed = generate_maintenance_feed(vault, repository)
     if params.subject_id is not None:
         feed = [n for n in feed if n.get("subject_id") in (None, params.subject_id)]
