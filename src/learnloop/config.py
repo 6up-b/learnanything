@@ -64,6 +64,26 @@ hinted_attempt = 0.65
 multiple_choice = 0.45
 self_report = 0.25
 
+# Vault-wide evidence correlation lookup (knowledge-model spec §6): discounts
+# for repeated/near-clone/shared-stimulus surfaces once facet state is global.
+# Reserved for KM2; parsed now so vault TOMLs can set values early.
+[evidence.correlation]
+
+# Capability-aware certification budgets (knowledge-model spec §5.4).
+# group_budget defaults to evidence_mass(attempt_type) per correlation group;
+# max_groups_per_attempt caps the attempt-wide certification ceiling.
+[evidence.certification]
+max_groups_per_attempt = 3
+
+# Blueprint recipe likelihood defaults (knowledge-model spec §9.2): noisy-AND
+# core with slip, plus a guess floor by response format.
+[evidence.blueprints]
+slip = 0.05
+
+[evidence.blueprints.guess_by_format]
+multiple_choice = 0.25
+constructed_response = 0.0
+
 [scheduler]
 forgetting_risk_weight = 1.0
 # Goal facet frontier: fraction of an item's evidence facets not yet on track
@@ -376,6 +396,24 @@ llm_base_url = ""
 llm_model = ""
 llm_api_key_env = "LEARNLOOP_PDF_LLM_API_KEY"
 
+# Per-stage token budgets for ingestion v2 (source-ingestion spec §3.1).
+# Preflight/build-plan estimates read these; a stage exceeding its ceiling
+# shards or pauses for narrower scope — it never silently truncates.
+[ingest.budgets]
+inventory_input_tokens = 20000
+inventory_output_tokens = 3000
+synthesis_shard_input_tokens = 40000
+synthesis_shard_output_tokens = 10000
+evidence_span_input_tokens = 12000
+synthesis_total_input_ceiling = 48000
+synthesis_output_tokens = 16000
+append_neighborhood_input_tokens = 24000
+append_output_tokens = 10000
+
+# Per-provider context/output limits consulted by preflight, keyed by the
+# [ai.providers.<name>] entries (source-ingestion spec §3.1), e.g.
+# [ingest.providers.codex] context_tokens / max_output_tokens.
+
 [ai]
 active_provider = "codex"
 fallback_provider = ""
@@ -478,6 +516,17 @@ lo_mastery_delta = 0.0
 local_severity_gain = 0.35
 
 # Cross-LO propagation gates per error type (spec §"Error-type gate").
+# Capability damping/shrinkage for shared-parent facet belief (knowledge-model
+# spec §4.2). Reserved for KM2+; residual activation ships default-off.
+[capabilities]
+
+# Identity-lock policy (knowledge-model spec §3.4): a facet's semantic identity
+# locks at direct evidence in >=2 distinct surface/correlation groups, at
+# facet_lock_mass independent evidence mass, or on entering an active goal's
+# certified scope — whichever comes first.
+[locks]
+facet_lock_mass = 2.0
+
 [cross_lo_propagation.default]
 max_depth = 3
 hop_decay = 0.5
@@ -1129,12 +1178,39 @@ class PdfIngestConfig(BaseModel):
     marker_options: dict[str, Any] = Field(default_factory=dict)
 
 
+class IngestBudgetsConfig(BaseModel):
+    """Per-stage token budgets for ingestion v2 (source-ingestion spec §3.1)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    inventory_input_tokens: int = 20000
+    inventory_output_tokens: int = 3000
+    synthesis_shard_input_tokens: int = 40000
+    synthesis_shard_output_tokens: int = 10000
+    evidence_span_input_tokens: int = 12000
+    synthesis_total_input_ceiling: int = 48000
+    synthesis_output_tokens: int = 16000
+    append_neighborhood_input_tokens: int = 24000
+    append_output_tokens: int = 10000
+
+
+class IngestProviderLimits(BaseModel):
+    """Per-provider context/output limits consulted by preflight (spec §3.1)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    context_tokens: int | None = None
+    max_output_tokens: int | None = None
+
+
 class IngestConfig(BaseModel):
     window_char_cap: int = 150000
     min_content_chars: int = 400
     default_goal_priority: float = 0.5
     allow_auto_captions: bool = False
     pdf: PdfIngestConfig = Field(default_factory=PdfIngestConfig)
+    budgets: IngestBudgetsConfig = Field(default_factory=IngestBudgetsConfig)
+    providers: dict[str, IngestProviderLimits] = Field(default_factory=dict)
 
 
 class CodexConfig(BaseModel):
@@ -1309,6 +1385,38 @@ def default_practice_mode_item_coverage() -> dict[str, float]:
     }
 
 
+class EvidenceCorrelationConfig(BaseModel):
+    """Vault-wide surface-correlation discounting (knowledge-model spec §6).
+
+    Reserved in Phase 0 of the KM/ingestion-v2 plan; consumed from KM2.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+
+class EvidenceCertificationConfig(BaseModel):
+    """Capability-aware certification budgets (knowledge-model spec §5.4)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Attempt-wide ceiling: evidence_mass(attempt_type) * max_groups_per_attempt.
+    max_groups_per_attempt: int = 3
+    # Per-(attempt_type, correlation group) budget overrides; default budget is
+    # evidence_mass(attempt_type) from [evidence.attempt_types].
+    group_budget_overrides: dict[str, float] = Field(default_factory=dict)
+
+
+class EvidenceBlueprintsConfig(BaseModel):
+    """Blueprint recipe likelihood defaults (knowledge-model spec §9.2)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    slip: float = 0.05
+    guess_by_format: dict[str, float] = Field(
+        default_factory=lambda: {"multiple_choice": 0.25, "constructed_response": 0.0}
+    )
+
+
 class EvidenceConfig(BaseModel):
     """Single source of truth for per-attempt-type evidence carried.
 
@@ -1322,6 +1430,11 @@ class EvidenceConfig(BaseModel):
         default_factory=default_practice_mode_item_coverage
     )
     item_coverage_default: float = 0.75
+    correlation: EvidenceCorrelationConfig = Field(default_factory=EvidenceCorrelationConfig)
+    certification: EvidenceCertificationConfig = Field(
+        default_factory=EvidenceCertificationConfig
+    )
+    blueprints: EvidenceBlueprintsConfig = Field(default_factory=EvidenceBlueprintsConfig)
 
     @model_validator(mode="after")
     def _merge_defaults(self) -> "EvidenceConfig":
@@ -1332,6 +1445,23 @@ class EvidenceConfig(BaseModel):
         for mode, coverage in default_practice_mode_item_coverage().items():
             self.item_coverage_by_practice_mode.setdefault(mode, coverage)
         return self
+
+
+class CapabilitiesConfig(BaseModel):
+    """Capability damping/shrinkage (knowledge-model spec §4.2).
+
+    Reserved in Phase 0; residual activation ships behind config, default off.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+
+class LocksConfig(BaseModel):
+    """Independence-gated identity-lock policy (knowledge-model spec §3.4)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    facet_lock_mass: float = 2.0
 
 
 class LearnLoopConfig(BaseModel):
@@ -1356,6 +1486,8 @@ class LearnLoopConfig(BaseModel):
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     codex: CodexConfig = Field(default_factory=CodexConfig)
+    capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
+    locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)
     cross_lo_propagation: CrossLoPropagationConfig = Field(default_factory=CrossLoPropagationConfig)
     fitting: FittingConfig = Field(default_factory=FittingConfig)
