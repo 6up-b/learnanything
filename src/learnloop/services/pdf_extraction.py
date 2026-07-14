@@ -60,7 +60,7 @@ def extract_pdf_markdown(
     if engine == "pypdf":
         return _extract_with_pypdf(raw_bytes)
     options = _marker_options(config)
-    cache_key = _cache_key(raw_bytes, options)
+    cache_key = _cache_key(raw_bytes, options, _marker_cache_fingerprint())
     cached = _read_cache(cache_dir, cache_key)
     if cached is not None:
         return cached
@@ -164,10 +164,34 @@ def _extract_with_pypdf(raw_bytes: bytes) -> PdfExtraction:
     return PdfExtraction(markdown=markdown + "\n", engine="pypdf")
 
 
-def _cache_key(raw_bytes: bytes, options: dict[str, Any]) -> str:
+def _marker_cache_fingerprint() -> str:
+    """Version fingerprint mixed into the extraction cache key (ING §2.2/§2.5).
+
+    Including the marker package version and the IR schema version means a marker
+    upgrade changes the cache key — fixing the stale-cache bug where an upgraded
+    marker silently served output cached under the old version. Best-effort: an
+    unresolvable version degrades to a stable placeholder, never an exception.
+    """
+
+    from learnloop.ingest.ir import IR_SCHEMA_VERSION
+
+    try:
+        from importlib.metadata import version
+
+        marker_version = version("marker-pdf")
+    except Exception:  # pragma: no cover - best effort
+        marker_version = "unknown"
+    return f"marker={marker_version};ir={IR_SCHEMA_VERSION}"
+
+
+def _cache_key(raw_bytes: bytes, options: dict[str, Any], version_fingerprint: str = "") -> str:
     fingerprint = {key: value for key, value in options.items() if key != "openai_api_key"}
     payload = json.dumps(
-        {"pdf_sha256": hashlib.sha256(raw_bytes).hexdigest(), "options": fingerprint},
+        {
+            "pdf_sha256": hashlib.sha256(raw_bytes).hexdigest(),
+            "options": fingerprint,
+            "version": version_fingerprint,
+        },
         sort_keys=True,
         default=str,
     )

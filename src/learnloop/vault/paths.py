@@ -57,6 +57,39 @@ class VaultPaths:
     def note_path(self, subject_id: str, note_id: str) -> Path:
         return self.subject_dir(subject_id) / "notes" / f"{note_id}.md"
 
+    # --- Vault-level source library (spec_source_ingestion_v2 §4.1) ----------
+    # New canonical sources live at vault level, not under subjects/<id>/notes/.
+    # Legacy subject-scoped source notes remain readable in place forever.
+
+    @property
+    def sources_dir(self) -> Path:
+        return self.root / "sources"
+
+    def source_dir(self, source_id: str) -> Path:
+        return self.sources_dir / source_id
+
+    def source_markdown_path(self, source_id: str) -> Path:
+        # artifact/work metadata + current revision pointer
+        return self.source_dir(source_id) / "source.md"
+
+    def source_revision_path(self, source_id: str, revision_id: str) -> Path:
+        # immutable normalized display rendering/frontmatter
+        return self.source_dir(source_id) / "revisions" / f"{revision_id}.md"
+
+    def canonical_source_raw_path(self, asset_hash: str) -> Path:
+        # content-addressed fetched bytes (shareable by mirrors)
+        return self.root / "canonical-sources" / "raw" / _sanitize_hash(asset_hash)
+
+    def source_extraction_cache_dir(self, extraction_id: str) -> Path:
+        # derived IR/assets/cache data
+        return self.root / ".learnloop" / "source-cache" / "extractions" / extraction_id
+
+
+def _sanitize_hash(asset_hash: str) -> str:
+    # asset_hash carries a "sha256:" prefix; strip the scheme separator so it is
+    # a safe path segment (content-addressed raw blob filename).
+    return asset_hash.replace(":", "-")
+
 
 def find_vault_root(start: Path) -> Path:
     current = start.resolve()

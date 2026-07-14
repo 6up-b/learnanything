@@ -133,6 +133,60 @@ def test_misconception_migration_applies_on_pre_025_db(tmp_path):
     assert fk_issues == []
 
 
+def test_source_layer_schema_is_available(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        run_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(source_extraction_runs)")
+        }
+        reanchor_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'source_span_reanchors'"
+        ).fetchone()["sql"]
+
+    for required in {
+        "source_artifacts",
+        "source_revisions",
+        "source_extraction_runs",
+        "source_document_units",
+        "source_document_blocks",
+        "source_document_assets",
+        "source_span_reanchors",
+        "source_locator_schemes",
+    }:
+        assert required in tables
+    assert {"extraction_request_hash", "extraction_result_hash"} <= run_columns
+    assert "exact_hash" in reanchor_sql and "geometry_section" in reanchor_sql
+
+
+def test_source_layer_migration_applies_on_pre_032_db(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    old_migrations = tmp_path / "old_migrations"
+    old_migrations.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 31:
+            shutil.copy2(migration.path, old_migrations / migration.path.name)
+
+    apply_migrations(sqlite_path, migrations_dir=old_migrations)
+    applied = apply_migrations(sqlite_path)
+    assert 32 in [migration.version for migration in applied]
+
+    with connect(sqlite_path) as connection:
+        fk_issues = connection.execute("PRAGMA foreign_key_check").fetchall()
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+    assert fk_issues == []
+    assert "source_extraction_runs" in tables
+
+
 def test_migrations_are_idempotent(tmp_path):
     sqlite_path = tmp_path / "state.sqlite"
     apply_migrations(sqlite_path)

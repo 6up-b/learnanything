@@ -11,6 +11,13 @@ from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
 from learnloop.ids import new_ulid
+from learnloop.ingest.ir import (
+    DocumentAsset,
+    DocumentBlock,
+    DocumentIR,
+    DocumentUnit,
+)
+from learnloop.ingest.locators import detect_locator_scheme
 from learnloop.numeric import beta_mean, beta_quantile
 
 
@@ -6403,6 +6410,375 @@ class Repository:
             ).fetchall()
         return [_decode_exam_answer(row) for row in rows]
 
+    # ------------------------------------------------------------------ #
+    # Source layer v2 (spec_source_ingestion_v2 §2 / migration 032).
+    # ------------------------------------------------------------------ #
+
+    def upsert_source_artifact(
+        self,
+        *,
+        id: str,
+        acquisition_kind: str,
+        canonical_uri: str | None = None,
+        work_id: str | None = None,
+        current_revision_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_artifacts(
+                  id, acquisition_kind, canonical_uri, work_id,
+                  current_revision_id, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  acquisition_kind = excluded.acquisition_kind,
+                  canonical_uri = excluded.canonical_uri,
+                  work_id = excluded.work_id,
+                  current_revision_id = COALESCE(excluded.current_revision_id, source_artifacts.current_revision_id),
+                  updated_at = excluded.updated_at
+                """,
+                (id, acquisition_kind, canonical_uri, work_id, current_revision_id, now, now),
+            )
+            connection.commit()
+
+    def get_source_artifact(self, source_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_artifacts WHERE id = ?", (source_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def source_artifact_by_uri(self, acquisition_kind: str, canonical_uri: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_artifacts WHERE acquisition_kind = ? AND canonical_uri = ?",
+                (acquisition_kind, canonical_uri),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def set_source_current_revision(
+        self, source_id: str, revision_id: str, *, clock: Clock | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE source_artifacts SET current_revision_id = ?, updated_at = ? WHERE id = ?",
+                (revision_id, utc_now_iso(clock), source_id),
+            )
+            connection.commit()
+
+    def insert_source_revision(
+        self,
+        *,
+        id: str,
+        source_id: str,
+        asset_hash: str,
+        note_id: str | None = None,
+        original_uri: str | None = None,
+        retrieved_at: str | None = None,
+        supersedes_revision_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_revisions(
+                  id, source_id, asset_hash, note_id, original_uri,
+                  retrieved_at, supersedes_revision_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    id,
+                    source_id,
+                    asset_hash,
+                    note_id,
+                    original_uri,
+                    retrieved_at,
+                    supersedes_revision_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def get_source_revision(self, revision_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_revisions WHERE id = ?", (revision_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def source_revision_by_asset_hash(self, source_id: str, asset_hash: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_revisions WHERE source_id = ? AND asset_hash = ?",
+                (source_id, asset_hash),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def source_revisions_for(self, source_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_revisions WHERE source_id = ? ORDER BY created_at, id",
+                (source_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_extraction_run(
+        self,
+        *,
+        id: str,
+        revision_id: str,
+        extractor: str,
+        extractor_version: str,
+        extraction_request_hash: str,
+        ir_schema_version: str,
+        model_versions: Mapping[str, str] | None = None,
+        config: Mapping[str, Any] | None = None,
+        page_selection: Iterable[int] | None = None,
+        parent_extraction_id: str | None = None,
+        status: str = "queued",
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_extraction_runs(
+                  id, revision_id, parent_extraction_id, extractor, extractor_version,
+                  model_versions_json, config_json, page_selection_json, ir_schema_version,
+                  extraction_request_hash, extraction_result_hash, status,
+                  created_at, completed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)
+                """,
+                (
+                    id,
+                    revision_id,
+                    parent_extraction_id,
+                    extractor,
+                    extractor_version,
+                    _json(dict(sorted((model_versions or {}).items()))),
+                    _json(dict(config or {})),
+                    _json(sorted(page_selection) if page_selection is not None else None),
+                    ir_schema_version,
+                    extraction_request_hash,
+                    status,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def get_extraction_run(self, extraction_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_extraction_runs WHERE id = ?", (extraction_id,)
+            ).fetchone()
+        return _decode_extraction_run(row) if row is not None else None
+
+    def extraction_run_by_request_hash(
+        self, revision_id: str, extraction_request_hash: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_extraction_runs WHERE revision_id = ? AND extraction_request_hash = ?",
+                (revision_id, extraction_request_hash),
+            ).fetchone()
+        return _decode_extraction_run(row) if row is not None else None
+
+    def complete_extraction_run(
+        self, extraction_id: str, *, extraction_result_hash: str, status: str = "completed", clock: Clock | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE source_extraction_runs
+                   SET extraction_result_hash = ?, status = ?, completed_at = ?
+                 WHERE id = ?
+                """,
+                (extraction_result_hash, status, utc_now_iso(clock), extraction_id),
+            )
+            connection.commit()
+
+    def persist_document_ir(self, extraction_id: str, ir: DocumentIR) -> None:
+        with self.connection() as connection:
+            for unit in ir.units:
+                connection.execute(
+                    """
+                    INSERT INTO source_document_units(
+                      extraction_id, unit_id, parent_unit_id, label, ordinal,
+                      locator_json, semantic_hash, page_start, page_end, span_ids_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        extraction_id,
+                        unit.unit_id,
+                        unit.parent_unit_id,
+                        unit.label,
+                        unit.ordinal,
+                        _json(unit.locator),
+                        unit.semantic_hash,
+                        unit.page_start,
+                        unit.page_end,
+                        _json(unit.span_ids),
+                    ),
+                )
+            for block in ir.blocks:
+                connection.execute(
+                    """
+                    INSERT INTO source_document_blocks(
+                      extraction_id, span_id, extractor_block_id, block_type, role_hint,
+                      page, bbox_json, polygon_json, section_path_json, text,
+                      content_hash, asset_ids_json, ordinal
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        extraction_id,
+                        block.span_id,
+                        block.extractor_block_id,
+                        block.block_type,
+                        block.role_hint,
+                        block.page,
+                        _json(block.bbox),
+                        _json(block.polygon),
+                        _json(block.section_path),
+                        block.text,
+                        block.content_hash,
+                        _json(block.asset_ids),
+                        block.ordinal,
+                    ),
+                )
+            for asset in ir.assets:
+                connection.execute(
+                    """
+                    INSERT INTO source_document_assets(
+                      id, extraction_id, media_type, content_hash, path,
+                      caption, page, geometry_json, neighboring_span_ids_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        asset.id,
+                        extraction_id,
+                        asset.media_type,
+                        asset.content_hash,
+                        asset.path,
+                        asset.caption,
+                        asset.page,
+                        _json(asset.geometry),
+                        _json(asset.neighboring_span_ids),
+                    ),
+                )
+            connection.commit()
+
+    def load_document_ir(self, extraction_id: str) -> DocumentIR | None:
+        run = self.get_extraction_run(extraction_id)
+        if run is None:
+            return None
+        with self.connection() as connection:
+            unit_rows = connection.execute(
+                "SELECT * FROM source_document_units WHERE extraction_id = ? ORDER BY ordinal",
+                (extraction_id,),
+            ).fetchall()
+            block_rows = connection.execute(
+                "SELECT * FROM source_document_blocks WHERE extraction_id = ? ORDER BY ordinal",
+                (extraction_id,),
+            ).fetchall()
+            asset_rows = connection.execute(
+                "SELECT * FROM source_document_assets WHERE extraction_id = ? ORDER BY id",
+                (extraction_id,),
+            ).fetchall()
+        return DocumentIR(
+            ir_schema_version=run["ir_schema_version"],
+            extractor=run["extractor"],
+            extractor_version=run["extractor_version"],
+            blocks=[_decode_document_block(row) for row in block_rows],
+            units=[_decode_document_unit(row) for row in unit_rows],
+            assets=[_decode_document_asset(row) for row in asset_rows],
+        )
+
+    def insert_span_reanchor(
+        self,
+        *,
+        from_extraction_id: str,
+        from_span_id: str,
+        to_extraction_id: str,
+        to_span_id: str,
+        match_kind: str,
+        confidence: float | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_span_reanchors(
+                  from_extraction_id, from_span_id, to_extraction_id, to_span_id,
+                  match_kind, confidence, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    from_extraction_id,
+                    from_span_id,
+                    to_extraction_id,
+                    to_span_id,
+                    match_kind,
+                    confidence,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def span_reanchors_from(self, from_extraction_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_span_reanchors WHERE from_extraction_id = ? ORDER BY from_span_id",
+                (from_extraction_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def backfill_locator_schemes(
+        self, locators: Iterable[str], *, clock: Clock | None = None
+    ) -> dict[str, str]:
+        """Shape-detect and stamp a declared scheme onto each existing ref (§2.4).
+
+        Already-declared refs are never re-detected/converted. Returns the
+        locator -> scheme map for every ref with a recognized shape.
+        """
+
+        now = utc_now_iso(clock)
+        stamped: dict[str, str] = {}
+        with self.connection() as connection:
+            for locator in locators:
+                existing = connection.execute(
+                    "SELECT scheme FROM source_locator_schemes WHERE locator = ?", (locator,)
+                ).fetchone()
+                if existing is not None:
+                    stamped[locator] = existing["scheme"]
+                    continue
+                scheme = detect_locator_scheme(locator)
+                if scheme is None:
+                    continue
+                connection.execute(
+                    "INSERT INTO source_locator_schemes(locator, scheme, detected_at) VALUES (?, ?, ?)",
+                    (locator, scheme, now),
+                )
+                stamped[locator] = scheme
+            connection.commit()
+        return stamped
+
+    def locator_scheme(self, locator: str) -> str | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT scheme FROM source_locator_schemes WHERE locator = ?", (locator,)
+            ).fetchone()
+        if row is not None:
+            return row["scheme"]
+        return detect_locator_scheme(locator)
+
 
 def _practice_item_state(row: sqlite3.Row) -> PracticeItemState:
     return PracticeItemState(
@@ -6987,6 +7363,58 @@ def _decode_proposal_item(row: sqlite3.Row) -> dict[str, Any]:
     payload["edited_payload"] = _loads(payload.pop("edited_payload_json"), None)
     payload["validation_errors"] = _loads(payload.pop("validation_errors_json"), [])
     return payload
+
+
+def _decode_extraction_run(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["model_versions"] = _loads(payload.pop("model_versions_json", None), {})
+    payload["config"] = _loads(payload.pop("config_json", None), {})
+    payload["page_selection"] = _loads(payload.pop("page_selection_json", None), None)
+    return payload
+
+
+def _decode_document_block(row: sqlite3.Row) -> DocumentBlock:
+    return DocumentBlock(
+        span_id=row["span_id"],
+        extractor_block_id=row["extractor_block_id"],
+        block_type=row["block_type"],
+        role_hint=row["role_hint"],
+        page=row["page"],
+        bbox=_loads(row["bbox_json"], None),
+        polygon=_loads(row["polygon_json"], None),
+        section_path=_loads(row["section_path_json"], []),
+        text=row["text"],
+        content_hash=row["content_hash"],
+        asset_ids=_loads(row["asset_ids_json"], []),
+        ordinal=row["ordinal"],
+    )
+
+
+def _decode_document_unit(row: sqlite3.Row) -> DocumentUnit:
+    return DocumentUnit(
+        unit_id=row["unit_id"],
+        parent_unit_id=row["parent_unit_id"],
+        label=row["label"],
+        ordinal=row["ordinal"],
+        locator=_loads(row["locator_json"], {}),
+        semantic_hash=row["semantic_hash"],
+        page_start=row["page_start"],
+        page_end=row["page_end"],
+        span_ids=_loads(row["span_ids_json"], []),
+    )
+
+
+def _decode_document_asset(row: sqlite3.Row) -> DocumentAsset:
+    return DocumentAsset(
+        id=row["id"],
+        media_type=row["media_type"],
+        content_hash=row["content_hash"],
+        path=row["path"],
+        caption=row["caption"],
+        page=row["page"],
+        geometry=_loads(row["geometry_json"], None),
+        neighboring_span_ids=_loads(row["neighboring_span_ids_json"], []),
+    )
 
 
 def _content_event_has_source_grounding(row: sqlite3.Row) -> bool:

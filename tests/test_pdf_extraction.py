@@ -150,6 +150,26 @@ def test_cache_key_excludes_api_key(monkeypatch):
     assert key_one == key_two
 
 
+def test_marker_upgrade_changes_cache_key(monkeypatch):
+    # The extraction cache key must be version-pinned so a marker upgrade does not
+    # silently serve stale output (ING §2.2/§2.5). The version fingerprint is a
+    # first-class cache-key input.
+    options = pdf_extraction._marker_options(PdfIngestConfig())
+    key_v1 = pdf_extraction._cache_key(b"pdf", options, "marker=1.9.0;ir=ir-1")
+    key_v2 = pdf_extraction._cache_key(b"pdf", options, "marker=2.0.0;ir=ir-1")
+    assert key_v1 != key_v2
+    # Same fingerprint is deterministic.
+    assert key_v1 == pdf_extraction._cache_key(b"pdf", options, "marker=1.9.0;ir=ir-1")
+
+
+def test_marker_cache_fingerprint_includes_ir_schema_version():
+    from learnloop.ingest.ir import IR_SCHEMA_VERSION
+
+    fingerprint = pdf_extraction._marker_cache_fingerprint()
+    assert IR_SCHEMA_VERSION in fingerprint
+    assert fingerprint.startswith("marker=")
+
+
 def test_marker_torch_device_pin_sets_env(monkeypatch):
     captured: dict = {}
     _install_fake_marker(monkeypatch, captured=captured)
