@@ -265,6 +265,7 @@ def default_run_legacy_ingest(
     mode: str,
     progress: Callable[[str, dict[str, Any]], None] | None,
     clock: Clock | None,
+    ir_markdown: str | None = None,
     **_ignored: Any,
 ) -> Any:
     """Run the legacy one-shot pipeline in-process with a ready provider client.
@@ -319,6 +320,7 @@ def default_run_legacy_ingest(
         model=getattr(client, "model", None),
         codex_revision=getattr(runtime, "actual_revision", None),
         purpose=purpose,
+        ir_markdown=ir_markdown,
         clock=clock,
         progress=progress,
     )
@@ -425,6 +427,13 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
 
     ctx.report("acquired", message="Preparing ingestion")
 
+    # M3.5 v2-lite: when this legacy_ingest depends on a completed import job, the
+    # source was already extracted once into a Document IR. Feed synthesis the IR's
+    # display rendering (selected units only, if a selection was persisted) rather
+    # than re-fetching/re-extracting. No import dependency (legacy call path) →
+    # ir_markdown is None and the pipeline keeps its byte-identical legacy behavior.
+    ir_markdown = _legacy_ir_markdown(ctx)
+
     def _progress(phase: str, details: dict[str, Any]) -> None:
         ladder = _LEGACY_PHASE_TO_LADDER.get(phase, "acquired")
         ctx.report(
@@ -439,12 +448,45 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
         source=source,
         subject_id=subject_id,
         mode=mode,
+        ir_markdown=ir_markdown,
         progress=_progress,
         clock=ctx.clock,
     )
     ctx.record_usage({"calls": int(getattr(result, "codex_calls", 0) or 0)})
     ctx.report("applied", message="Ingest complete")
     return result.as_dict() if hasattr(result, "as_dict") else dict(result)
+
+
+def _legacy_ir_markdown(ctx: JobContext) -> str | None:
+    """Render the IR from this job's completed ``import`` dependency, if any (§2.3).
+
+    Returns the display markdown for the extraction the import stage produced,
+    filtered to a persisted unit selection when one exists. Returns ``None`` when
+    there is no import dependency or no persisted IR — the legacy path then runs
+    unchanged (extract-once-reuse-everywhere without deep coupling; §15 M3.5)."""
+
+    from learnloop.ingest.ir import render_ir_markdown
+
+    extraction_id: str | None = None
+    for dep_id in ctx.repo.ingest_job_dependency_ids(ctx.job_id):
+        dep = ctx.repo.get_ingest_job(dep_id)
+        if dep is None or dep.get("job_type") != "import" or dep.get("status") != "completed":
+            continue
+        result = dep.get("result")
+        if isinstance(result, Mapping):
+            candidate = result.get("extraction_id")
+            if candidate:
+                extraction_id = str(candidate)
+                break
+    if extraction_id is None:
+        return None
+
+    ir = ctx.repo.load_document_ir(extraction_id)
+    if ir is None or not ir.blocks:
+        return None
+    selection = ctx.repo.get_unit_selection(extraction_id)
+    selected = (selection or {}).get("selected_unit_ids") or None
+    return render_ir_markdown(ir, selected_unit_ids=selected)
 
 
 def handle_extraction_repair(ctx: JobContext) -> dict[str, Any]:

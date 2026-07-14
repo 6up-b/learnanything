@@ -96,12 +96,24 @@ class DurableIngestJobs:
             if active is not None:
                 raise ActiveIngestJobError(active["id"])
             job_type = "exam_ingest" if mode == "exam" else "legacy_ingest"
+            # v2-lite journey (§6.1 / §15 M3.5): extract once into a Document IR
+            # (import), then run legacy synthesis over the IR's display rendering.
+            # The legacy job depends on the import job, so synthesis reuses the
+            # extraction instead of re-fetching, and the IngestScreen form now
+            # feeds better extraction + unit selection into proposals.
             batch_id = runner.enqueue_batch(
                 "legacy_ingest",
-                [JobSpec(job_type, {"source": source, "subject_id": subject_id, "mode": mode})],
+                [
+                    JobSpec("import", {"source": source, "subject_id": subject_id}),
+                    JobSpec(
+                        job_type,
+                        {"source": source, "subject_id": subject_id, "mode": mode},
+                        depends_on=(0,),
+                    ),
+                ],
                 subject_id=subject_id,
             )
-            job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+            job = self._legacy_job_for_batch(runner, batch_id)
         self._ensure_worker()
         return _compat(job)
 
@@ -266,6 +278,16 @@ class DurableIngestJobs:
             if idle_rounds >= 3 and self._active_job_locked(runner) is None:
                 break
             time.sleep(self._poll_interval)
+
+    @staticmethod
+    def _legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]:
+        """The synthesis job the frontend polls (the batch also holds an import job)."""
+
+        jobs = runner.repo.ingest_jobs_for_batch(batch_id)
+        for job in jobs:
+            if job["job_type"] in _LEGACY_JOB_TYPES:
+                return job
+        return jobs[-1]
 
     def _active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None:
         for job in runner.repo.ingest_jobs_by_types(_LEGACY_JOB_TYPES, limit=_RECENT_LIMIT):

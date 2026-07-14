@@ -12,6 +12,7 @@ depends on these types, not on marker/pypdf classes.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -223,3 +224,122 @@ def _unit_touches_pages(unit: DocumentUnit, pages: set[int]) -> bool:
         return False
     end = unit.page_end if unit.page_end is not None else unit.page_start
     return any(unit.page_start <= page <= end for page in pages)
+
+
+# ---------------------------------------------------------------------------
+# Display / export rendering (§2.3)
+# ---------------------------------------------------------------------------
+#
+# Markdown is the *display/export* rendering of the IR — no longer the canonical
+# intermediate. ``render_ir_markdown`` is the one deterministic function that
+# turns persisted blocks back into a human/LLM-readable markdown body, honoring
+# section-path headings, keeping equations/tables verbatim, and emitting figure
+# placeholders with their captions. It powers the M3.5 v2-lite path where legacy
+# synthesis builds its chunk context from the IR instead of a separate extraction.
+
+# Block types (extractor-native, normalized) that carry verbatim structured
+# content we must not reflow; and the types we render as figure placeholders.
+_VERBATIM_BLOCK_TYPES = {
+    "equation",
+    "interlineequation",
+    "inlineequation",
+    "math",
+    "table",
+    "tablegroup",
+    "code",
+}
+_FIGURE_BLOCK_TYPES = {"figure", "picture", "image", "figuregroup"}
+
+
+def _normalized_block_type(block_type: str | None) -> str:
+    return (block_type or "").replace(" ", "").replace("_", "").lower()
+
+
+def _meaningful_section_path(section_path: Sequence[str]) -> list[str]:
+    """Drop the synthetic ``root`` segment; keep real heading segments."""
+
+    return [segment for segment in section_path if segment and segment != "root"]
+
+
+def _emit_headings(lines: list[str], emitted: list[str], section_path: Sequence[str]) -> list[str]:
+    """Emit markdown headings for the newly-entered section segments.
+
+    Heading level is the segment's depth in the trail (capped at 6). Segments
+    shared with the previously-emitted path are not re-emitted, so a run of
+    blocks under one heading yields exactly one heading line."""
+
+    meaningful = _meaningful_section_path(section_path)
+    common = 0
+    while (
+        common < len(meaningful)
+        and common < len(emitted)
+        and meaningful[common] == emitted[common]
+    ):
+        common += 1
+    for depth in range(common, len(meaningful)):
+        level = min(depth + 1, 6)
+        lines.append(f"{'#' * level} {meaningful[depth].strip()}")
+        lines.append("")
+    return meaningful
+
+
+def _figure_placeholder(block: DocumentBlock, assets: dict[str, DocumentAsset]) -> str:
+    captions: list[str] = []
+    for asset_id in block.asset_ids:
+        asset = assets.get(asset_id)
+        if asset is not None and asset.caption:
+            captions.append(asset.caption.strip())
+    caption = " ".join(captions).strip() or block.text.strip()
+    return f"[Figure: {caption}]" if caption else "[Figure]"
+
+
+def _render_block(block: DocumentBlock, assets: dict[str, DocumentAsset]) -> str:
+    text = block.text.strip()
+    normalized_type = _normalized_block_type(block.block_type)
+    if normalized_type in _FIGURE_BLOCK_TYPES or (block.role_hint or "").lower() == "figure":
+        return _figure_placeholder(block, assets)
+    # Equations, tables, and code keep their exact content verbatim (§2.3); plain
+    # prose/captions render as-is. Either way the persisted block text is authoritative.
+    return text
+
+
+def render_ir_markdown(
+    ir: DocumentIR,
+    *,
+    selected_unit_ids: Sequence[str] | None = None,
+) -> str:
+    """Deterministic markdown rendering of a Document IR (§2.3).
+
+    Blocks render in ``ordinal`` order under headings derived from their
+    ``section_path``; equations/tables/code stay verbatim; figures become
+    ``[Figure: caption]`` placeholders. When ``selected_unit_ids`` is given, only
+    blocks belonging to those units are rendered (respecting a persisted unit
+    selection — selected units only). ``None`` renders the whole document.
+
+    Pure and side-effect free; the same IR always renders the same bytes.
+    """
+
+    if selected_unit_ids is not None:
+        by_unit = {unit.unit_id: unit for unit in ir.units}
+        allowed: set[str] = set()
+        for unit_id in selected_unit_ids:
+            unit = by_unit.get(unit_id)
+            if unit is not None:
+                allowed.update(unit.span_ids)
+        blocks = [block for block in ir.blocks if block.span_id in allowed]
+    else:
+        blocks = list(ir.blocks)
+    blocks = sorted(blocks, key=lambda block: block.ordinal)
+
+    assets = {asset.id: asset for asset in ir.assets}
+    lines: list[str] = []
+    emitted: list[str] = []
+    for block in blocks:
+        emitted = _emit_headings(lines, emitted, block.section_path)
+        rendered = _render_block(block, assets)
+        if rendered:
+            lines.append(rendered)
+            lines.append("")
+
+    body = "\n".join(lines).strip()
+    return body + "\n" if body else ""

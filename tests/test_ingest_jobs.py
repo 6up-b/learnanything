@@ -11,7 +11,8 @@ from __future__ import annotations
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.ingest_runner import JobSpec, RunnerServices
+from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit
+from learnloop.services.ingest_runner import FetchedBytes, JobSpec, RunnerServices
 from learnloop_sidecar.ingest_jobs import ActiveIngestJobError, DurableIngestJobs, IngestJobManager
 
 
@@ -28,12 +29,32 @@ class _FakeResult:
         }
 
 
+def _stub_import_services(run_legacy) -> RunnerServices:
+    """Stub the import stage's fetch/extract seam (the v2-lite wrapper extracts
+    once before synthesis) so no network/marker runs. Synthesis stays stubbed."""
+
+    def fetch(source, category, ctx):
+        return FetchedBytes(
+            raw_bytes=b"eigenvectors and eigenvalues",
+            content_type="text/plain",
+            original_uri=source,
+            retrieved_at="2026-07-13T12:00:00Z",
+        )
+
+    def extract(fetched, category, ctx):
+        block = DocumentBlock.build(span_id="s1", block_type="Text", text="An eigenvector of A.", ordinal=1)
+        unit = DocumentUnit(unit_id="u1", label="Doc", ordinal=1, semantic_hash="sha256:x", span_ids=["s1"])
+        return DocumentIR(extractor="text", extractor_version="1", blocks=[block], units=[unit])
+
+    return RunnerServices(run_legacy_ingest=run_legacy, fetch=fetch, extract=extract)
+
+
 def _bind(tmp_path, run_legacy) -> DurableIngestJobs:
     jobs = DurableIngestJobs()
     jobs.bind(
         Repository(tmp_path / "state.sqlite"),
         tmp_path,
-        services=RunnerServices(run_legacy_ingest=run_legacy),
+        services=_stub_import_services(run_legacy),
         background=False,
     )
     return jobs
