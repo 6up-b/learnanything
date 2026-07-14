@@ -48,7 +48,6 @@ from learnloop.services.source_set_synthesis import (
     _resolve_span_requests,
     _row,
     _span_refs,
-    vault_subject,
 )
 from learnloop.services.synthesis_gates import GateItem, GateProposal, ProvenanceRef, run_synthesis_gates
 from learnloop.services.synthesis_manifests import (
@@ -235,7 +234,7 @@ def _append(
             subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
         )
         rows, gate_items, conflict_candidates, dispositions, auto_apply_ids = _normalize_append(
-            reconciliation, inputs, vault, neighborhood, now,
+            reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
         )
 
         gate_ctx = _gate_context(vault, repository, inputs, [])
@@ -343,7 +342,7 @@ def _run_reconciliation(
 # --- normalization ----------------------------------------------------------
 
 
-def _normalize_append(reconciliation, inputs, vault, neighborhood, now):
+def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id):
     """Map an AppendReconciliation to proposal rows + gate items + auto-apply ids."""
 
     def d(obj):
@@ -357,11 +356,10 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now):
         blueprints=getattr(reconciliation, "blueprints", []) or [],
         practice_items=getattr(reconciliation, "practice_items", []) or [],
     )
-    normalized = _normalize(coverage, inputs, vault, now)
+    normalized = _normalize(coverage, inputs, vault, now, subject_id=subject_id)
     rows = list(normalized.rows)
     gate_items = list(normalized.gate_items)
     auto_apply_ids: list[str] = []
-    subject_id = vault_subject(vault)
 
     # provenance_link items.
     for link in getattr(reconciliation, "provenance_links", []) or []:

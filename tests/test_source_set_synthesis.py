@@ -355,3 +355,23 @@ def test_replay_identical_after_apply(tmp_path):
     # rebuild must not raise and must leave the applied facets intact.
     rebuild_derived_state(load_vault(root), repo, clock=_CLOCK)
     assert "facet_symmetry_definition" in load_vault(root).evidence_facets
+
+
+def test_resolve_subject_id_prefers_source_set_over_vault(tmp_path):
+    # Dogfood regression: a fresh vault with a source set but no subjects
+    # crashed synthesis with StopIteration; multi-subject vaults silently got
+    # "first subject in the vault" instead of the set's own subject.
+    from types import SimpleNamespace
+
+    from learnloop.services.source_set_synthesis import StudyMapError, resolve_subject_id
+
+    vault = SimpleNamespace(subjects={"other-subject": object()})
+    assert resolve_subject_id(SimpleNamespace(subject_id="svd-pca"), vault) == "svd-pca"
+    assert resolve_subject_id(SimpleNamespace(subject_id=None), vault) == "other-subject"
+    empty = SimpleNamespace(subjects={})
+    try:
+        resolve_subject_id(SimpleNamespace(subject_id=None), empty)
+    except StudyMapError:
+        pass
+    else:
+        raise AssertionError("expected StudyMapError on subjectless vault without set subject")

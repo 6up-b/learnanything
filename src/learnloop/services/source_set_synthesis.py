@@ -400,7 +400,7 @@ def _span_refs(
     return gate_refs, yaml_refs, span_ids
 
 
-def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: str) -> _Normalized:
+def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: str, *, subject_id: str) -> _Normalized:
     rows: list[dict[str, Any]] = []
     gate_items: list[GateItem] = []
     facet_payloads: list[dict[str, Any]] = []
@@ -502,7 +502,7 @@ def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: st
             "concept_id": concept_id or None,
             "title": obj.get("title") or oid,
             "summary": obj.get("summary") or "",
-            "subjects": [vault_subject(vault)],
+            "subjects": [subject_id],
             "knowledge_type": obj.get("knowledge_type") or "concept",
             "prerequisites": obj.get("prerequisites") or [],
             "provenance": {"origin": "codex_proposal", "source_refs": yaml_refs},
@@ -687,8 +687,21 @@ def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: st
     )
 
 
-def vault_subject(vault: LoadedVault) -> str:
-    return next(iter(vault.subjects.keys()))
+def resolve_subject_id(source_set: Any, vault: LoadedVault) -> str:
+    """The subject a synthesized study map belongs to: the source set's own
+    subject_id (§4.3 — sets are subject-scoped), never "first subject in the
+    vault", which misfires on multi-subject vaults and crashes on fresh ones."""
+
+    sid = getattr(source_set, "subject_id", None) or (
+        source_set.get("subject_id") if isinstance(source_set, dict) else None
+    )
+    if sid:
+        return str(sid)
+    if vault.subjects:
+        return next(iter(vault.subjects.keys()))
+    raise StudyMapError(
+        "missing_subject", "source set has no subject_id and the vault has no subjects"
+    )
 
 
 def _row(item_type: str, entity_id: str, payload: dict[str, Any], depends_on: list[str],
@@ -863,7 +876,7 @@ def _create_study_map(
         merged, span_request_count, resolved_hashes, usage = _run_synthesis(
             run_method, repository, inputs, vault, source_set, brief, budgets, clock=clock,
         )
-        normalized = _normalize(merged, inputs, vault, now)
+        normalized = _normalize(merged, inputs, vault, now, subject_id=resolve_subject_id(source_set, vault))
 
         # 3. identifiability analysis (real §11.3 check) — findings drive both the
         #    gate hook and the persisted generate-discriminator needs.
