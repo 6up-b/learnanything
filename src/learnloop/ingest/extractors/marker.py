@@ -75,6 +75,28 @@ def _as_dict(block: Any) -> dict[str, Any]:
     }
 
 
+_BLOCK_ID_PAGE = re.compile(r"^/page/(\d+)(?:/|$)")
+
+
+def _block_page(block: dict[str, Any]) -> int | None:
+    """Page index for a chunk block.
+
+    The block id (``/page/3/Text/7``) is marker's canonical page identity.
+    ``FlatBlockOutput.page`` is preferred only when no id is present: on real
+    PDFs (observed with pypdf-sliced files) marker can emit internal page ids
+    (108, 358, ...) in ``page`` while the block id keeps the true 0-based
+    index — trusting ``page`` there breaks ToC unit assignment.
+    """
+
+    block_id = block.get("id")
+    if block_id is not None:
+        match = _BLOCK_ID_PAGE.match(str(block_id))
+        if match:
+            return int(match.group(1))
+    page = block.get("page")
+    return int(page) if page is not None else None
+
+
 def _section_path(section_hierarchy: dict | None) -> list[str]:
     if not section_hierarchy:
         return []
@@ -118,13 +140,19 @@ def chunk_output_to_ir(
     for index, raw in enumerate(blocks, start=1):
         block = _as_dict(raw)
         span_id = f"s{index}"
+        block["page"] = _block_page(block)
         block_type = str(block.get("block_type") or "Text")
         section_path = _section_path(block.get("section_hierarchy"))
         text = _block_text(block_type, str(block.get("html") or ""))
         images = block.get("images") or {}
-        asset_ids = list(images.keys()) if isinstance(images, dict) else []
-        for asset_key in asset_ids:
-            payload = str(images[asset_key])
+        # marker keys images by BlockId objects, not strings — coerce before
+        # they reach pydantic ids or the persisted asset_ids_json.
+        image_items = (
+            [(str(key), value) for key, value in images.items()] if isinstance(images, dict) else []
+        )
+        asset_ids = [key for key, _ in image_items]
+        for asset_key, image_value in image_items:
+            payload = str(image_value)
             assets.append(
                 DocumentAsset(
                     id=asset_key,

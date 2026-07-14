@@ -464,6 +464,24 @@ def init(
     typer.echo(f"Initialized LearnLoop vault at {created}")
 
 
+@app.command("upgrade")
+def upgrade(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Atomically activate the mvp-0.7 knowledge model for this vault (KM §15)."""
+
+    from learnloop.services.vault_upgrade import upgrade_to_mvp07
+
+    result = upgrade_to_mvp07(_root(vault))
+    if result.upgraded:
+        typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
+        return
+    typer.echo(f"Vault not upgraded (currently {result.from_version}):")
+    for problem in result.problems:
+        typer.echo(f"  - {problem}")
+    raise typer.Exit(code=1)
+
+
 @app.command("add-subject")
 def add_subject(
     subject_id: Annotated[str, typer.Argument(help="Kebab-case subject id.")],

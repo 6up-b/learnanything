@@ -47,6 +47,64 @@ def test_document_ir_round_trip():
     assert restored.blocks[0].content_hash == block_content_hash("hello world")
 
 
+class _FakeBlockId:
+    """Stands in for marker's BlockId, which is not a str but stringifies."""
+
+    def __str__(self) -> str:
+        return "/page/0/Figure/9"
+
+    __hash__ = object.__hash__
+
+
+def test_marker_image_keys_coerced_to_string_asset_ids():
+    # Real-source regression: marker keys block images by BlockId objects;
+    # DocumentAsset.id and asset_ids_json need plain strings.
+    ir = chunk_output_to_ir(
+        blocks=[
+            {
+                "id": "b1",
+                "block_type": "Figure",
+                "html": "<p>figure</p>",
+                "page": 0,
+                "bbox": [0, 0, 1, 1],
+                "polygon": None,
+                "section_hierarchy": {1: "Figures"},
+                "images": {_FakeBlockId(): b"png-bytes"},
+            }
+        ],
+        metadata={},
+        extractor_version="test",
+    )
+    assert ir.assets[0].id == "/page/0/Figure/9"
+    assert ir.blocks[0].asset_ids == ["/page/0/Figure/9"]
+
+
+def test_marker_block_page_derived_from_block_id():
+    # Real-source regression: marker emitted internal page ids (108, 358, ...)
+    # in FlatBlockOutput.page on a pypdf-sliced PDF while block ids kept the
+    # true 0-based page index; units then swept every block into the last one.
+    ir = chunk_output_to_ir(
+        blocks=[
+            {"id": "/page/0/Text/1", "block_type": "Text", "html": "<p>alpha</p>", "page": 140, "bbox": None, "polygon": None, "section_hierarchy": {1: "A"}, "images": None},
+            {"id": "/page/1/Text/1", "block_type": "Text", "html": "<p>beta</p>", "page": 167, "bbox": None, "polygon": None, "section_hierarchy": {1: "B"}, "images": None},
+        ],
+        metadata={"table_of_contents": [
+            {"title": "A", "heading_level": 1, "page_id": 0},
+            {"title": "B", "heading_level": 1, "page_id": 1},
+        ]},
+        extractor_version="test",
+    )
+    assert [block.page for block in ir.blocks] == [0, 1]
+    assert [unit.span_ids for unit in ir.units] == [["s1"], ["s2"]]
+    # No id → the page field is still honored.
+    fallback = chunk_output_to_ir(
+        blocks=[{"id": None, "block_type": "Text", "html": "<p>x</p>", "page": 3, "bbox": None, "polygon": None, "section_hierarchy": None, "images": None}],
+        metadata={},
+        extractor_version="test",
+    )
+    assert fallback.blocks[0].page == 3
+
+
 def test_semantic_hash_stable_under_cosmetic_html_changes():
     # Same normalized text, cosmetically different markup/whitespace → same hash (§2.2).
     plain = [_block("s1", "An eigenvector of A satisfies", ordinal=1)]

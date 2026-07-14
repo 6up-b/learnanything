@@ -18,7 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Bumping this participates in every extraction_request_hash (§2.2): a schema
 # change invalidates the extraction cache and forces re-extraction.
-IR_SCHEMA_VERSION = "ir-1"
+# ir-2: marker block.page derives from the block id (/page/N/...) — real PDFs
+# can carry bogus FlatBlockOutput.page values that broke ToC unit assignment.
+IR_SCHEMA_VERSION = "ir-2"
 
 
 def block_content_hash(text: str) -> str:

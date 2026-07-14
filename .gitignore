@@ -242,3 +242,4 @@ fixtures/**/state.sqlite-*
 # UI mockups
 learnloop-handoff2/
 learnloop-handoff/
+new_textbooks/
