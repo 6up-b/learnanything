@@ -38,6 +38,10 @@ from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemState, Repository
 from learnloop.numeric import clamp
 from learnloop.services.facet_diagnostics import facet_state_label, required_facets
+from learnloop.services.facet_state_reader import (
+    facet_states_by_lo as read_facet_states_by_lo,
+)
+from learnloop.services.facet_state_reader import facet_uncertainty_states_for_lo
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.fsrs import forgetting_curve
 from learnloop.services.recall_coverage import expected_facet_mass_gain
@@ -306,7 +310,7 @@ def _facet_projections(
                 recall_by_facet[key] = state
         uncertainty_by_facet = {
             vault.canonical_facet_id(state.facet_id): state
-            for state in repository.facet_uncertainty_states(learning_object_id)
+            for state in facet_uncertainty_states_for_lo(vault, repository, learning_object_id)
         }
         mastery = mastery_states.get(learning_object_id)
         mass_gain_by_facet = _lo_mass_gains(vault, learning_object_id, item_states)
@@ -376,10 +380,7 @@ def goal_report(
     now = (clock or SystemClock()).now().astimezone(UTC)
     due_at, horizon = _horizon(vault, goal, now)
     item_states = repository.practice_item_states()
-    facet_states_by_lo = {
-        learning_object_id: repository.facet_recall_states(learning_object_id)
-        for learning_object_id in vault.learning_objects
-    }
+    facet_states_by_lo = read_facet_states_by_lo(vault, repository)
     mastery_states = repository.mastery_states()
     fsrs_weights = resolve_fsrs_weights(repository)
     facets = _facet_projections(
@@ -430,10 +431,7 @@ def build_goal_frontier(
     if item_states is None:
         item_states = repository.practice_item_states()
     if facet_states_by_lo is None:
-        facet_states_by_lo = {
-            learning_object_id: repository.facet_recall_states(learning_object_id)
-            for learning_object_id in vault.learning_objects
-        }
+        facet_states_by_lo = read_facet_states_by_lo(vault, repository)
     if mastery_states is None:
         mastery_states = repository.mastery_states()
     fsrs_weights = resolve_fsrs_weights(repository)

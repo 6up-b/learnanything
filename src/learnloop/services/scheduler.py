@@ -24,6 +24,7 @@ from learnloop.services.probes import HypothesisSet
 from learnloop.numeric import clamp
 from learnloop.services.goal_projection import build_goal_frontier
 from learnloop.services.exam_pool import reserved_item_ids as reserved_exam_pool_item_ids
+from learnloop.services.facet_state_reader import facet_states_by_lo as read_facet_states_by_lo
 from learnloop.services.recall_coverage import (
     familiarity_discount,
     familiarity_discount_from_attempts,
@@ -94,10 +95,9 @@ def build_due_queue(
     episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {}
     episode_eligible_cache: dict[str, dict[str, EligibleInstrument]] = {}
     pending_followups = repository.pending_followup_practice_items()
-    facet_states_by_lo = {
-        learning_object_id: repository.facet_recall_states(learning_object_id)
-        for learning_object_id in vault.learning_objects
-    }
+    # KM2b: canonical shared facet state under mvp-0.7 (byte-identical legacy
+    # per-LO reads under mvp-0.6). One reader build feeds the whole vault sweep.
+    facet_states_by_lo = read_facet_states_by_lo(vault, repository)
     frontier = build_goal_frontier(
         vault,
         repository,

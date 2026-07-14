@@ -8,6 +8,11 @@ from learnloop.clock import Clock, parse_utc
 from learnloop.services.misconceptions import normalize_and_resolve_attempt
 from learnloop.db.repositories import MisconceptionRecord, Repository
 from learnloop.services.facet_diagnostics import candidate_facet_support
+from learnloop.services.facet_state_reader import (
+    facet_recall_state_for_lo,
+    facet_recall_states_for_lo,
+    facet_uncertainty_states_for_lo,
+)
 from learnloop.services.gate_score import (
     GATE_FEATURE_VERSION,
     GateScoreResult,
@@ -148,7 +153,7 @@ def evaluate_intervention_followup(
         item_failure_count = float(config.tau_repeated_item_failures) if repeated_same_item_failure else 0.0
     if repeated_same_facet_failure is None:
         facet_failure_count = float(
-            current_same_facet_failure_streak(repository, learning_object_id, target_facets)
+            current_same_facet_failure_streak(vault, repository, learning_object_id, target_facets)
         )
     else:
         facet_failure_count = float(config.tau_repeated_facet_failures) if repeated_same_facet_failure else 0.0
@@ -495,7 +500,9 @@ def evaluate_attempt_intervention_followup(
     debug_payload = result.debug_payload or {}
     facet_targets = _facet_targets_from_debug(debug_payload)
     aggregate_facet_states = [
-        state for state in repository.facet_recall_states(result.learning_object_id) if state.practice_item_id is None
+        state
+        for state in facet_recall_states_for_lo(vault, repository, result.learning_object_id)
+        if state.practice_item_id is None
     ]
     lo_independent_evidence_mass = sum(state.independent_evidence_mass for state in aggregate_facet_states)
     probe_state = repository.probe_state(result.learning_object_id)
@@ -943,7 +950,9 @@ def _active_misconceptions(
     return list(selected.values())
 
 
-def _demonstrated_facets(repository: Repository, learning_object_id: str) -> list[str]:
+def _demonstrated_facets(
+    vault: LoadedVault, repository: Repository, learning_object_id: str
+) -> list[str]:
     """Facets the learner has already passed, snapshotted for review (spec §5.3).
 
     Deterministic definition (the inverse of :func:`_is_known_gap_state`): a facet
@@ -953,7 +962,9 @@ def _demonstrated_facets(repository: Repository, learning_object_id: str) -> lis
     """
 
     demonstrated: list[str] = []
-    for state in repository.facet_uncertainty_states(learning_object_id, statuses=("resolved",)):
+    for state in facet_uncertainty_states_for_lo(
+        vault, repository, learning_object_id, statuses=("resolved",)
+    ):
         marginal = getattr(state, "hypothesis_marginal", {}) or {}
         if not marginal:
             continue
@@ -984,7 +995,7 @@ def _augment_diagnostic_focus_with_misconceptions(
     focus["misconception_ids"] = [record.id for record in active_mcs]
     focus["misconception_statements"] = {record.id: record.statement for record in active_mcs}
     focus["implicated_facets"] = sorted({facet for record in active_mcs for facet in record.facet_ids})
-    focus["demonstrated_facets"] = _demonstrated_facets(repository, learning_object_id)
+    focus["demonstrated_facets"] = _demonstrated_facets(vault, repository, learning_object_id)
     focus["source_practice_item_id"] = source_practice_item_id
     source_item = vault.practice_items.get(source_practice_item_id)
     focus["source_surface_family"] = source_item.surface_family if source_item is not None else None
@@ -1586,6 +1597,7 @@ def current_same_item_failure_streak(repository: Repository, practice_item_id: s
 
 
 def current_same_facet_failure_streak(
+    vault: LoadedVault,
     repository: Repository,
     learning_object_id: str,
     facets: list[str],
@@ -1601,7 +1613,7 @@ def current_same_facet_failure_streak(
     streaks = [
         state.consecutive_failures
         for facet in sorted(set(facets))
-        if (state := repository.facet_recall_state(learning_object_id, facet)) is not None
+        if (state := facet_recall_state_for_lo(vault, repository, learning_object_id, facet)) is not None
     ]
     return max(streaks, default=0)
 
@@ -1627,8 +1639,8 @@ def _record_followup_decision_features(
     manual_trigger: dict[str, Any] | None = None,
     clock: Clock | None,
 ) -> None:
-    uncertainties = repository.facet_uncertainty_states(
-        learning_object_id, statuses=("open", "resolving", "resolved")
+    uncertainties = facet_uncertainty_states_for_lo(
+        vault, repository, learning_object_id, statuses=("open", "resolving", "resolved")
     )
     source_debug = repository.attempt_debug_payload(attempt_id) or {}
     uncertainty_trace = source_debug.get("facet_uncertainty_trace")

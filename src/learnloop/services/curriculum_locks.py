@@ -21,6 +21,10 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from learnloop.db.repositories import Repository
+from learnloop.services.facet_state_reader import (
+    is_canonical_state_vault,
+    resolve_canonical_facet,
+)
 from learnloop.vault.models import LearningObject, LoadedVault, learning_object_facet_union
 
 # Destructive-operation vocabulary (source-ingestion §8.2): every op here breaks
@@ -247,6 +251,14 @@ def can_apply(vault: LoadedVault, repository: Repository, operation: Operation) 
 
     evidence_facets = repository.facet_ids_with_recall_evidence()
     misconception_facets = repository.active_misconception_facet_ids()
+    if is_canonical_state_vault(vault):
+        # KM2b item 4: a misconception's target/confused facets resolve canonically
+        # (aliases + merges) at read, so a lock still fires when the stored facet
+        # was retired into a surviving canonical parent after the row was written.
+        merge_map = repository.facet_merge_map()
+        misconception_facets = {
+            resolve_canonical_facet(vault, merge_map, facet) for facet in misconception_facets
+        }
     goal_scoped = _goal_scoped_facets(vault)
 
     reasons: list[LockReason] = []

@@ -13,6 +13,7 @@ from learnloop.config import LearnLoopConfig, load_config
 from learnloop.codex.runtime import CodexRuntimeReport, check_codex_runtime
 from learnloop.db.migrate import applied_versions, apply_migrations, discover_migrations
 from learnloop.db.repositories import Repository
+from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
 from learnloop.services.calibration import difficulty_miscalibration_flags
 from learnloop.services.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -119,7 +120,15 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
 
     repository = Repository(paths.sqlite_path)
     state_sync_result = sync_vault_state(vault, repository) if fix_state and paths.sqlite_path.exists() else None
-    if fix_state and paths.sqlite_path.exists() and vault.facet_aliases:
+    if (
+        fix_state
+        and paths.sqlite_path.exists()
+        and vault.facet_aliases
+        and vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION
+    ):
+        # KM2b: the legacy per-LO alias merge folds `evidence_facet_recall_state`
+        # rows in place — an mvp-0.6-only table. Under mvp-0.7 aliases + merges are
+        # resolved at read/projection time, so this legacy fold must not run.
         repository.merge_facet_recall_aliases(
             vault.facet_aliases,
             algorithm_version=vault.config.algorithms.algorithm_version,

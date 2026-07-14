@@ -112,6 +112,7 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
                 item_a=item_a,
                 item_b=item_b,
                 config=vault.config,
+                vault=vault,
             )
         top_facets = sorted(
             item.evidence_facets,

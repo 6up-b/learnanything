@@ -9,6 +9,7 @@ from learnloop.clock import FrozenClock
 from learnloop.config import SeverityExampleConfig, default_severity_examples
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.services.facet_state_reader import facet_recall_state_for_lo
 from learnloop.services.followups import FollowupDecision, evaluate_intervention_followup
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import add_subject, init_vault, load_vault
@@ -170,7 +171,7 @@ def _run_scenario(root: Path, scenario: str) -> RecallCalibrationRow:
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     event = (repository.error_events_for_attempt(result.attempt_id) or [{}])[0]
     debug = repository.attempt_debug_payload(result.attempt_id) or {}
-    facet = repository.facet_recall_state(result.learning_object_id, "recall")
+    facet = facet_recall_state_for_lo(vault, repository, result.learning_object_id, "recall")
     decision = _intervention_decision(vault, repository, result, event, debug)
     low, high = examples[scenario].expected_severity_band
     severity = float(event.get("severity") or 0.0)

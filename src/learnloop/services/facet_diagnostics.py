@@ -8,6 +8,10 @@ from typing import Any, Iterable, Mapping
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import FacetRecallState, FacetUncertaintyState, MasteryState, Repository
+from learnloop.services.facet_state_reader import (
+    facet_recall_states_for_lo,
+    facet_uncertainty_states_for_lo,
+)
 from learnloop.services.mastery import display_mastery
 from learnloop.services.probes import apply_facet_observation
 from learnloop.numeric import clamp
@@ -59,8 +63,8 @@ def lo_relative_coverage(
     required = required_facets(vault, learning_object_id, repository)
     open_uncertainties = {
         state.facet_id: state
-        for state in repository.facet_uncertainty_states(
-            learning_object_id, statuses=("open", "resolving")
+        for state in facet_uncertainty_states_for_lo(
+            vault, repository, learning_object_id, statuses=("open", "resolving")
         )
     }
     measured_required = set(open_uncertainties) if open_uncertainties else required
@@ -117,7 +121,7 @@ def covered_required_fraction(
         }
     state_by_facet: dict[str, Any] = {
         state.facet_id: state
-        for state in repository.facet_recall_states(learning_object_id)
+        for state in facet_recall_states_for_lo(vault, repository, learning_object_id)
         if state.practice_item_id is None
     }
     for facet, state in dict(aggregate_facet_recall or {}).items():
@@ -313,7 +317,7 @@ def unresolved_question_facet_counts(
     if recall_states is None:
         recall_states = {
             state.facet_id: state
-            for state in repository.facet_recall_states(learning_object_id)
+            for state in facet_recall_states_for_lo(vault, repository, learning_object_id)
             if state.practice_item_id is None
         }
     counts: dict[str, int] = {}
@@ -354,12 +358,12 @@ def mastery_diagnostic_view(
     display = display_mastery(mastery) if mastery is not None else None
     recall_states = {
         state.facet_id: state
-        for state in repository.facet_recall_states(learning_object_id)
+        for state in facet_recall_states_for_lo(vault, repository, learning_object_id)
         if state.practice_item_id is None
     }
     uncertainty_states = {
         state.facet_id: state
-        for state in repository.facet_uncertainty_states(learning_object_id)
+        for state in facet_uncertainty_states_for_lo(vault, repository, learning_object_id)
     }
     required = required_facets(vault, learning_object_id, repository)
     question_counts: dict[str, int] = {}

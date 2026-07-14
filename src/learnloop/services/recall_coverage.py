@@ -658,11 +658,23 @@ def predicted_correctness(
     item_a: float,
     item_b: float,
     config: LearnLoopConfig,
+    vault: LoadedVault | None = None,
 ) -> tuple[float, dict[str, float]]:
-    facet_states = {
-        facet: repository.facet_recall_state(learning_object_id, facet)
-        for facet in item.evidence_facets
-    }
+    # KM2b: when a vault is supplied, read facet priors through the canonical
+    # adapter (mvp-0.7) / legacy per-LO table (mvp-0.6). Vault-less callers keep
+    # the legacy read for backward compatibility.
+    if vault is not None:
+        from learnloop.services.facet_state_reader import facet_recall_state_for_lo
+
+        facet_states = {
+            facet: facet_recall_state_for_lo(vault, repository, learning_object_id, facet)
+            for facet in item.evidence_facets
+        }
+    else:
+        facet_states = {
+            facet: repository.facet_recall_state(learning_object_id, facet)
+            for facet in item.evidence_facets
+        }
     return predicted_correctness_from_prior(
         facet_states,
         item,

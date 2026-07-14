@@ -64,6 +64,10 @@ from learnloop.services.mastery import (
 )
 from learnloop.services.evidence import attempt_evidence_mass
 from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+from learnloop.services.facet_state_reader import (
+    CanonicalFacetStateReader,
+    is_canonical_state_vault,
+)
 from learnloop.services.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.services.recall_coverage import (
     build_facet_recall_updates,
@@ -794,7 +798,14 @@ def apply_attempt(
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
     application = _validate_probe_presentation(repository, application, attempt, clock=clock)
     _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
-    _persist_attempt_application(repository, application, replace_existing=attempt.replace_existing)
+    # KM2b item 2: under mvp-0.7 the canonical projection is the only facet-state
+    # write mechanism; the legacy per-LO recall/uncertainty bridge is retired.
+    _persist_attempt_application(
+        repository,
+        application,
+        replace_existing=attempt.replace_existing,
+        write_legacy_facet_state=not is_canonical_state_vault(vault),
+    )
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
     _project_canonical_belief(vault, repository, clock=clock)
     if attempt.record_probe_update:
@@ -959,7 +970,16 @@ def _persist_attempt_application(
     application: AttemptApplication,
     *,
     replace_existing: bool,
+    write_legacy_facet_state: bool = True,
 ) -> None:
+    # mvp-0.7 retires the legacy per-LO facet-state bridge: the derived updates
+    # are still computed (surprise/breadth/debug read them in memory) but never
+    # persisted — the canonical projection owns that state. The empty iterables
+    # also keep the repository hard-stop guard from ever tripping in normal flow.
+    facet_recall_states = application.facet_recall_states if write_legacy_facet_state else ()
+    facet_uncertainty_states = (
+        application.facet_uncertainty_states if write_legacy_facet_state else ()
+    )
     if replace_existing:
         repository.replace_attempt_derived_outcome(
             attempt=application.attempt_record,
@@ -967,8 +987,8 @@ def _persist_attempt_application(
             surprise=application.surprise_record,
             practice_item_state=application.practice_item_state,
             mastery_state=application.mastery_state,
-            facet_recall_states=application.facet_recall_states,
-            facet_uncertainty_states=application.facet_uncertainty_states,
+            facet_recall_states=facet_recall_states,
+            facet_uncertainty_states=facet_uncertainty_states,
             quality_state=application.quality_state,
             ability_transition=application.ability_transition,
             attempt_debug_payload=application.attempt_debug_payload,
@@ -982,8 +1002,8 @@ def _persist_attempt_application(
             surprise=application.surprise_record,
             practice_item_state=application.practice_item_state,
             mastery_state=application.mastery_state,
-            facet_recall_states=application.facet_recall_states,
-            facet_uncertainty_states=application.facet_uncertainty_states,
+            facet_recall_states=facet_recall_states,
+            facet_uncertainty_states=facet_uncertainty_states,
             quality_state=application.quality_state,
             ability_transition=application.ability_transition,
             attempt_debug_payload=application.attempt_debug_payload,
@@ -1054,6 +1074,20 @@ def load_attempt_prior_state(
         learning_object_id,
         now_iso,
     )
+    # KM2b: the belief priors this attempt reads come from the canonical shared
+    # state under mvp-0.7 (folded through aliases + merges) and from the legacy
+    # per-LO table under mvp-0.6 (byte-identical). One reader build per attempt.
+    if is_canonical_state_vault(vault):
+        reader = CanonicalFacetStateReader(vault, repository)
+
+        def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
+            return reader.state_for_facet(learning_object_id, facet, scope)
+
+    else:
+
+        def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
+            return repository.facet_recall_state(learning_object_id, facet, scope)
+
     return AttemptPriorState(
         mastery=mastery,
         active_errors=repository.active_errors_by_learning_object(learning_object_id),
@@ -1064,13 +1098,9 @@ def load_attempt_prior_state(
             limit=max(vault.config.recall_coverage.familiarity_recent_attempt_window, 20),
         ),
         recent_practice_item_attempts=repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5),
-        aggregate_facet_recall={
-            facet: repository.facet_recall_state(learning_object_id, facet)
-            for facet in facet_ids
-        },
+        aggregate_facet_recall={facet: _recall(facet) for facet in facet_ids},
         item_facet_recall={
-            facet: repository.facet_recall_state(learning_object_id, facet, practice_item_id)
-            for facet in facet_ids
+            facet: _recall(facet, practice_item_id) for facet in facet_ids
         },
         facet_uncertainty={
             facet: repository.facet_uncertainty_state(learning_object_id, facet)

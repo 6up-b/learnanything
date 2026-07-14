@@ -13,6 +13,7 @@ from learnloop.services.followups import (
     current_same_facet_failure_streak,
     current_same_item_failure_streak,
 )
+from learnloop.services.facet_state_reader import facet_recall_states_for_lo
 from learnloop.services.mastery import display_mastery
 from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -274,7 +275,7 @@ def build_diagnostic_practice_plan(
         mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
         facet_states = {
             state.facet_id: state
-            for state in repository.facet_recall_states(learning_object.id)
+            for state in facet_recall_states_for_lo(vault, repository, learning_object.id)
             if state.practice_item_id is None
         }
         facet_means = {
@@ -351,6 +352,7 @@ def _stale_repeat_failure_need(
     elif reason == "repeated_same_facet_failure":
         facets = [vault.canonical_facet_id(str(facet)) for facet in need.get("target_facets", [])]
         streak = current_same_facet_failure_streak(
+            vault,
             repository,
             str(need["learning_object_id"]),
             facets,

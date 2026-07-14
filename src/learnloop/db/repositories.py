@@ -6434,6 +6434,7 @@ class Repository:
         )
 
     def _upsert_facet_recall_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None:
+        _guard_legacy_facet_write(state)
         existing = connection.execute(
             """
             SELECT id FROM evidence_facet_recall_state
@@ -6510,6 +6511,7 @@ class Repository:
         )
 
     def _upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None:
+        _guard_legacy_facet_write(state)
         marginal = {
             str(label): float(probability)
             for label, probability in dict(state.get("hypothesis_marginal") or {}).items()
@@ -7854,6 +7856,25 @@ def _mastery_state(row: sqlite3.Row) -> MasteryState:
         algorithm_version=row["algorithm_version"],
         updated_at=row["updated_at"],
     )
+
+
+def _guard_legacy_facet_write(state: Mapping[str, Any]) -> None:
+    """KM2b hard stop (item 9): an mvp-0.7 vault must never write legacy per-LO
+    facet state. The canonical projection is the single mvp-0.7 write mechanism;
+    reaching this legacy upsert with an mvp-0.7 row is a re-key regression.
+
+    Lazy import: repositories sits below the services layer, so importing the
+    version constant at module scope would cycle back through grading/recall.
+    """
+
+    from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+
+    if state.get("algorithm_version") == KM_ALGORITHM_VERSION:
+        raise AssertionError(
+            "legacy facet state (evidence_facet_recall_state / facet_uncertainty) "
+            "must not be written under mvp-0.7; the canonical projection owns "
+            "facet belief state (KM2b)"
+        )
 
 
 def _facet_recall_state(row: sqlite3.Row) -> FacetRecallState:

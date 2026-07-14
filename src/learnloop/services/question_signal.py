@@ -36,6 +36,10 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import TutorPromotionConfig, TutorQAConfig
 from learnloop.db.repositories import FacetUncertaintyState, Repository
 from learnloop.services.facet_diagnostics import entropy, facet_state_label, normalize_distribution
+from learnloop.services.facet_state_reader import (
+    facet_recall_states_for_lo,
+    facet_uncertainty_states_for_lo,
+)
 from learnloop.vault.models import LoadedVault
 
 # Substantive question types (mirrors tutor_qa.HINT_EQUIVALENT_TYPES, which is
@@ -343,11 +347,12 @@ def _collect_gap_declarations(
     if not promotions:
         return {}
     uncertainty_states = {
-        state.facet_id: state for state in repository.facet_uncertainty_states(learning_object_id)
+        state.facet_id: state
+        for state in facet_uncertainty_states_for_lo(vault, repository, learning_object_id)
     }
     recall_states = {
         state.facet_id: state
-        for state in repository.facet_recall_states(learning_object_id)
+        for state in facet_recall_states_for_lo(vault, repository, learning_object_id)
         if state.practice_item_id is None
     }
     min_mass = vault.config.recall_coverage.min_facet_evidence_mass
@@ -397,7 +402,7 @@ def question_adjusted_uncertainty_states(
     """
 
     if states is None:
-        states = list(repository.facet_uncertainty_states(learning_object_id))
+        states = facet_uncertainty_states_for_lo(vault, repository, learning_object_id)
     if not vault.config.tutor_qa.apply_question_evidence:
         # Config-off disables the whole channel (marginal adjustment AND the
         # focus enrichment downstream reads from the signal) without scanning.

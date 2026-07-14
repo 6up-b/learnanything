@@ -4,9 +4,10 @@ Per the milestone trim guidance these keep the two load-bearing gates — shared
 facet belief MAE and attempts-to-certify improve vs the per-LO baseline, with no
 capability inflation — without driving the full sim sweep. They use the canonical
 belief re-key (`sim.metrics.canonical_facet_belief_mae`) and the KM2 write path
-directly. The per-LO baseline is read from the legacy per-LO recall table that
-the mvp-0.7 write path still maintains as a compatibility bridge, so the two
-keyings are compared on identical evidence.
+directly. Since KM2b retired the legacy per-LO bridge, the per-LO baseline is
+reconstructed from the canonical per-item marginals (each carrying a single LO's
+one observation), so the pooled parent and the split keyings are still compared
+on identical evidence.
 """
 
 from __future__ import annotations
@@ -55,12 +56,14 @@ def test_shared_facet_belief_mae_beats_per_lo(mvp07):
     canonical = canonical_facet_belief_mae(repository, student, final_day=1.0)
     canonical_mae = canonical["mae"]
 
-    # Per-LO baseline: the same shared facet, split across two LO keys, each with
-    # only one observation (more prior-pulled).
+    # Per-LO baseline: the same shared facet, split per LO. KM2b retired the
+    # legacy bridge, so the split belief is the canonical PER-ITEM marginal — each
+    # carries only that one LO's single observation (more prior-pulled) — instead
+    # of the pooled aggregate parent.
     per_lo_errors = []
-    for lo_id in ("lo_svd_definition", "lo_svd_application"):
-        state = repository.facet_recall_state(lo_id, SHARED, None)
-        assert state is not None  # legacy bridge maintained under mvp-0.7
+    for item_id in ("pi_svd_define_001", "pi_svd_apply_001"):
+        state = repository.canonical_facet_recall_state(SHARED, "retrieval", item_id)
+        assert state is not None  # per-item marginal: one observation, split keying
         per_lo_errors.append(abs(state.recall_mean - student.truth))
     per_lo_mae = sum(per_lo_errors) / len(per_lo_errors)
 

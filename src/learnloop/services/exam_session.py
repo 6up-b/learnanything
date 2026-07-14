@@ -32,6 +32,7 @@ from learnloop.services.attempts import (
     apply_attempt,
 )
 from learnloop.services.exam_pool import release_exam_pool
+from learnloop.services.facet_state_reader import facet_recall_states_for_lo
 from learnloop.services.goal_projection import goal_report, resolve_goal_scope
 from learnloop.services.selection_rewards import (
     ability_vector,
@@ -65,7 +66,7 @@ def _predicted_correctness_for_item(vault: LoadedVault, repository: Repository, 
     if learning_object is None:
         return 0.5
     mastery = repository.mastery_state(learning_object.id)
-    facet_states = repository.facet_recall_states(learning_object.id)
+    facet_states = facet_recall_states_for_lo(vault, repository, learning_object.id)
     active_errors = repository.active_errors_by_learning_object(learning_object.id)
     ability = ability_vector(
         learning_object.id, mastery, facet_states, active_errors, facet_aliases=vault.facet_aliases
