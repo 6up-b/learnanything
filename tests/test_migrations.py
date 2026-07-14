@@ -187,6 +187,64 @@ def test_source_layer_migration_applies_on_pre_032_db(tmp_path):
     assert "source_extraction_runs" in tables
 
 
+def test_durable_ingest_jobs_schema_is_available(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        job_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(ingest_jobs)")
+        }
+        batch_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ingest_batches'"
+        ).fetchone()["sql"]
+        job_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ingest_jobs'"
+        ).fetchone()["sql"]
+
+    assert {"ingest_batches", "ingest_jobs", "ingest_job_dependencies"} <= tables
+    assert {
+        "worker_id",
+        "heartbeat_at",
+        "phase",
+        "current_window",
+        "total_windows",
+        "usage_json",
+        "attempt_count",
+        "cancel_requested",
+    } <= job_columns
+    # Status is a closed CHECK vocabulary; workflow_type/job_type are open strings.
+    assert "waiting_for_input" in job_sql and "blocked" in job_sql
+    assert "CHECK" not in job_sql.split("job_type")[1].split(",")[0]
+    assert "waiting_for_input" in batch_sql
+
+
+def test_durable_ingest_jobs_migration_applies_on_pre_033_db(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    old_migrations = tmp_path / "old_migrations"
+    old_migrations.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 32:
+            shutil.copy2(migration.path, old_migrations / migration.path.name)
+
+    apply_migrations(sqlite_path, migrations_dir=old_migrations)
+    applied = apply_migrations(sqlite_path)
+    assert 33 in [migration.version for migration in applied]
+
+    with connect(sqlite_path) as connection:
+        fk_issues = connection.execute("PRAGMA foreign_key_check").fetchall()
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+    assert fk_issues == []
+    assert {"ingest_batches", "ingest_jobs", "ingest_job_dependencies"} <= tables
+
+
 def test_migrations_are_idempotent(tmp_path):
     sqlite_path = tmp_path / "state.sqlite"
     apply_migrations(sqlite_path)

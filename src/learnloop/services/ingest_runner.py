@@ -1,0 +1,825 @@
+"""Durable ingest runner (spec_source_ingestion_v2 §6.2).
+
+A repository-backed, leased, sequential drain that replaces the old in-memory job
+manager. Work survives restarts: batches/jobs/dependencies live in SQLite, exactly
+one worker drains at a time under a lease, and every stage is independently
+resumable along the checkpoint ladder::
+
+    acquired -> registered -> extracted -> inventoried -> synthesized -> proposed -> applied
+
+Design invariants (mirrors §6.2 and §14):
+
+- Eligibility = a ``queued`` job whose dependencies are all ``completed``.
+- A dependency that ends ``failed``/``blocked``/``cancelled`` makes every
+  downstream job ``blocked`` (never silently ``failed``).
+- ``waiting_for_input`` holds NO lease, so a question to the user cannot block the
+  drain of other eligible jobs.
+- Lease = ``worker_id`` + ``heartbeat_at``; on startup an expired ``running`` lease
+  is recovered to ``failed(interrupted)`` and its ``queued`` siblings resume.
+- Retries are keyed by the stage idempotency hash (asset hash for import,
+  extraction_request_hash for extract — reusing the M1 hash model), so a retry
+  reuses a completed revision/extraction instead of duplicating it.
+- ``usage_json`` accumulates as a deterministic sum over attempts, so retry usage
+  stays visible rather than being overwritten.
+
+The core drain is synchronous and clock-injectable: ``drain``/``run_next`` are
+callable directly in tests with a :class:`FrozenClock` and a stub
+:class:`RunnerServices`; no sleeps and no threads are required to exercise the
+machinery. Worker hosts (the sidecar background loop and the foreground CLI) wrap
+this same object.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import timedelta
+from pathlib import Path
+from typing import Any, Callable, Mapping, Sequence
+
+from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.db.repositories import Repository
+from learnloop.ids import new_ulid
+
+# The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
+CHECKPOINT_LADDER: tuple[str, ...] = (
+    "acquired",
+    "registered",
+    "extracted",
+    "inventoried",
+    "synthesized",
+    "proposed",
+    "applied",
+)
+
+TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
+_UNFINISHED_STATUSES = frozenset({"failed", "blocked", "cancelled"})
+
+# Application-validated open vocabularies (§6.2 — deliberately not SQL CHECKs).
+KNOWN_WORKFLOW_TYPES = frozenset(
+    {"import", "import_inventory", "legacy_ingest", "create_study_map", "update_study_map"}
+)
+KNOWN_JOB_TYPES = frozenset(
+    {
+        "import",
+        "extract",
+        "inventory",
+        "legacy_ingest",
+        "exam_ingest",
+        "bootstrap_synthesis",
+        "append_synthesis",
+        "extraction_repair",
+    }
+)
+
+
+class IngestRunnerError(ValueError):
+    """A job payload/type is invalid before any work starts."""
+
+
+class JobCancelled(Exception):
+    """Raised from ``report()`` when a cancellation was requested mid-stage."""
+
+
+class WaitingForInput(Exception):
+    """A handler pauses the job pending user input (unit choice, consent, budget).
+
+    Carries the actionable payload the Batch-progress UI renders as a card. The
+    job releases its lease so the rest of the queue keeps draining (§6.2)."""
+
+    def __init__(self, payload: Mapping[str, Any], *, message: str = "Waiting for input") -> None:
+        self.payload = dict(payload)
+        self.message = message
+        super().__init__(message)
+
+
+@dataclass(frozen=True)
+class FetchedBytes:
+    raw_bytes: bytes
+    content_type: str | None
+    original_uri: str
+    retrieved_at: str
+
+
+@dataclass
+class RunnerServices:
+    """The side-effecting seams the M2 handlers need. Real by default; tests
+    inject deterministic stubs so no network/LLM/marker runs."""
+
+    fetch: Callable[[str, str, "JobContext"], FetchedBytes] | None = None
+    extract: Callable[[FetchedBytes, str, "JobContext"], Any] | None = None
+    run_legacy_ingest: Callable[..., Any] | None = None
+
+    def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
+        return (self.fetch or default_fetch)(source, category, ctx)
+
+    def extract_ir(self, fetched: FetchedBytes, category: str, ctx: "JobContext") -> Any:
+        return (self.extract or default_extract)(fetched, category, ctx)
+
+    def legacy_ingest(self, **kwargs: Any) -> Any:
+        return (self.run_legacy_ingest or default_run_legacy_ingest)(**kwargs)
+
+
+@dataclass
+class JobContext:
+    """What a handler is handed: repository, vault root, payload, and the
+    checkpoint/usage/cancellation primitives the runner threads through."""
+
+    repo: Repository
+    vault_root: Path
+    job: dict[str, Any]
+    clock: Clock
+    worker_id: str
+    services: RunnerServices = field(default_factory=RunnerServices)
+    _usage: dict[str, Any] = field(default_factory=dict)
+    _phase: str | None = None
+
+    @property
+    def payload(self) -> dict[str, Any]:
+        return dict(self.job.get("payload") or {})
+
+    @property
+    def job_id(self) -> str:
+        return self.job["id"]
+
+    def report(
+        self,
+        phase: str,
+        *,
+        message: str | None = None,
+        current_window: int | None = None,
+        total_windows: int | None = None,
+    ) -> None:
+        """Advance the checkpoint ladder and refresh the lease heartbeat.
+
+        Raises :class:`JobCancelled` when cancellation was requested, so long
+        handlers abort cleanly at their next checkpoint (§6.2 — cancellation is
+        honored between stages)."""
+
+        if self._cancel_requested():
+            raise JobCancelled()
+        self._phase = phase
+        self.repo.heartbeat_ingest_job(
+            self.job_id,
+            worker_id=self.worker_id,
+            phase=phase,
+            message=message or _phase_message(phase),
+            current_window=current_window,
+            total_windows=total_windows,
+        )
+
+    def record_usage(self, usage: Mapping[str, Any]) -> None:
+        """Add one call's usage to the running per-attempt sum (§6.2)."""
+
+        for key, value in usage.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                self._usage[key] = _as_number(self._usage.get(key, 0)) + value
+            else:
+                self._usage[key] = value
+
+    def cancelled(self) -> bool:
+        return self._cancel_requested()
+
+    def _cancel_requested(self) -> bool:
+        fresh = self.repo.get_ingest_job(self.job_id)
+        if fresh is not None and fresh.get("cancel_requested"):
+            return True
+        batch = self.repo.get_ingest_batch(self.job["batch_id"])
+        return bool(batch and batch.get("cancel_requested"))
+
+
+Handler = Callable[[JobContext], dict[str, Any] | None]
+
+
+@dataclass(frozen=True)
+class JobSpec:
+    """One job in an enqueued batch. ``depends_on`` is a tuple of indices into
+    the batch's job list (topologically before this job)."""
+
+    job_type: str
+    payload: Mapping[str, Any] = field(default_factory=dict)
+    depends_on: tuple[int, ...] = ()
+
+
+# ---------------------------------------------------------------------------
+# Injectable side effects — real defaults, stubbed in tests.
+# ---------------------------------------------------------------------------
+
+
+def default_fetch(source: str, category: str, ctx: JobContext) -> FetchedBytes:
+    """Read raw bytes for one acquisition. Local files are read directly; URLs
+    reuse the source-ingestion fetcher so import stays honest for the web path."""
+
+    path = Path(source).expanduser()
+    if path.exists() and path.is_file():
+        return FetchedBytes(
+            raw_bytes=path.read_bytes(),
+            content_type=None,
+            original_uri=path.resolve().as_uri(),
+            retrieved_at=utc_now_iso(ctx.clock),
+        )
+    from learnloop.services import source_ingestion
+
+    kind = "youtube_video" if category == "youtube" else "website_page"
+    fetched = source_ingestion.fetch_source(
+        ctx.vault_root,
+        source,
+        kind=kind,
+        allow_auto_captions=True,
+        clock=ctx.clock,
+    )
+    return FetchedBytes(
+        raw_bytes=fetched.source_bytes or fetched.raw_bytes,
+        content_type=fetched.content_type,
+        original_uri=fetched.original_uri,
+        retrieved_at=fetched.retrieved_at,
+    )
+
+
+def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> Any:
+    """Produce Document IR from fetched bytes using the M1 extractor providers.
+
+    PDFs go through the least-expensive available PDF extractor; everything else
+    gets honest trivial IR from its decoded text (§2.3)."""
+
+    from learnloop.ingest.extractors import markdown_to_ir, pdf_extractor_for
+    from learnloop.ingest.extractors.base import ExtractionContext
+
+    is_pdf = (
+        category == "pdf"
+        or (fetched.content_type or "").lower().startswith("application/pdf")
+        or fetched.raw_bytes[:5] == b"%PDF-"
+    )
+    if is_pdf:
+        extractor = pdf_extractor_for(dict(ctx.payload.get("pdf_config") or {}))
+        context = ExtractionContext(revision_id=str(ctx.job.get("_revision_id") or "rev"))
+        return extractor.extract(fetched.raw_bytes, context)
+    text = fetched.raw_bytes.decode("utf-8", errors="replace")
+    return markdown_to_ir(text, title=ctx.payload.get("title"), extractor_name="text")
+
+
+def default_run_legacy_ingest(
+    *,
+    vault_root: Path,
+    source: str,
+    subject_id: str,
+    mode: str,
+    progress: Callable[[str, dict[str, Any]], None] | None,
+    clock: Clock | None,
+    **_ignored: Any,
+) -> Any:
+    """Run the legacy one-shot pipeline in-process with a ready provider client.
+
+    Mirrors the CLI's provider readiness (``learnloop ingest``) so the durable
+    ``legacy_ingest`` job keeps the current UX. Tests inject a stub that calls
+    ``ingest_canonical_source`` with a fake client (see test_source_ingestion)."""
+
+    from learnloop.ai.client import make_ai_provider_client
+    from learnloop.ai.routing import fallback_provider_for, provider_for_task
+    from learnloop.ai.runtime import check_ai_runtime
+    from learnloop.codex.client import make_codex_client
+    from learnloop.codex.runtime import check_codex_runtime
+    from learnloop.services.exam_seeding import exam_ingest_instructions
+    from learnloop.services.source_ingestion import ingest_canonical_source
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(vault_root)
+    config = vault.config
+
+    def _runtime(name: str):
+        if name == "codex":
+            return check_codex_runtime(vault_root, config.codex)
+        return check_ai_runtime(vault_root, config, provider_name=name)
+
+    def _client(name: str):
+        if name == "codex":
+            return make_codex_client(config.codex, vault_root)
+        return make_ai_provider_client(config, vault_root, provider_name=name)
+
+    selection = provider_for_task(config, "canonical_ingest")
+    provider_name = selection.provider_name
+    runtime = _runtime(provider_name)
+    client = _client(provider_name) if runtime.ready else None
+    if client is None:
+        fallback = fallback_provider_for(config, selection)
+        if fallback:
+            fallback_runtime = _runtime(fallback)
+            if fallback_runtime.ready:
+                provider_name, runtime, client = fallback, fallback_runtime, _client(fallback)
+    if client is None:
+        raise IngestRunnerError(runtime.message or f"Authoring provider is {runtime.status}.")
+
+    purpose = "exam_ingest" if mode == "exam" else "canonical_ingest"
+    instructions = exam_ingest_instructions(None) if mode == "exam" else None
+    return ingest_canonical_source(
+        vault_root,
+        source,
+        client,
+        subject_id=subject_id,
+        instructions=instructions,
+        model=getattr(client, "model", None),
+        codex_revision=getattr(runtime, "actual_revision", None),
+        purpose=purpose,
+        clock=clock,
+        progress=progress,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Handlers
+# ---------------------------------------------------------------------------
+
+
+def handle_import(ctx: JobContext) -> dict[str, Any]:
+    """import: fetch -> register artifact/revision -> extract to IR -> persist -> health.
+
+    Retries reuse a completed revision (keyed by asset hash) and a completed
+    extraction run (keyed by extraction_request_hash), so re-running never
+    duplicates identity rows (§2.1/§2.2)."""
+
+    from learnloop.ingest.hashing import extraction_request_hash, extraction_result_hash
+    from learnloop.ingest.ir import IR_SCHEMA_VERSION
+    from learnloop.ingest.resolution import resolve_source
+    from learnloop.ingest.source_library import register_source_revision
+
+    payload = ctx.payload
+    source = str(payload.get("source") or "").strip()
+    if not source:
+        raise IngestRunnerError("import job requires a 'source'.")
+    resolved = resolve_source(source)
+    category = resolved.category
+
+    ctx.report("acquired", message="Fetching source material")
+    fetched = ctx.services.fetch_bytes(resolved.source, category, ctx)
+
+    registered = register_source_revision(
+        ctx.repo,
+        acquisition_kind=category,
+        canonical_uri=resolved.source,
+        raw_bytes=fetched.raw_bytes,
+        original_uri=fetched.original_uri,
+        retrieved_at=fetched.retrieved_at,
+        clock=ctx.clock,
+    )
+    ctx.job["_revision_id"] = registered.revision_id
+    ctx.report("registered", message="Registered source revision")
+
+    ir = ctx.services.extract_ir(fetched, category, ctx)
+    request_hash = extraction_request_hash(
+        revision_id=registered.revision_id,
+        extractor=ir.extractor,
+        extractor_version=ir.extractor_version,
+        ir_schema_version=IR_SCHEMA_VERSION,
+    )
+    existing = ctx.repo.extraction_run_by_request_hash(registered.revision_id, request_hash)
+    if existing is not None and existing.get("status") == "completed":
+        extraction_id = existing["id"]
+        reused_extraction = True
+    else:
+        extraction_id = existing["id"] if existing is not None else f"ext_{new_ulid()}"
+        if existing is None:
+            ctx.repo.insert_extraction_run(
+                id=extraction_id,
+                revision_id=registered.revision_id,
+                extractor=ir.extractor,
+                extractor_version=ir.extractor_version,
+                extraction_request_hash=request_hash,
+                ir_schema_version=IR_SCHEMA_VERSION,
+                status="running",
+                clock=ctx.clock,
+            )
+        ctx.repo.persist_document_ir(extraction_id, ir)
+        ctx.repo.complete_extraction_run(
+            extraction_id,
+            extraction_result_hash=extraction_result_hash(request_hash, ir),
+            clock=ctx.clock,
+        )
+        reused_extraction = False
+
+    ctx.report("extracted", message="Extracted document structure")
+    return {
+        "source_id": registered.source_id,
+        "revision_id": registered.revision_id,
+        "asset_hash": registered.asset_hash,
+        "reused_revision": registered.reused_revision,
+        "extraction_id": extraction_id,
+        "reused_extraction": reused_extraction,
+        "unit_count": len(ir.units),
+        "block_count": len(ir.blocks),
+        "health": {
+            "flags": list(ir.health.flags),
+            "flagged_pages": ir.health.flagged_pages(),
+        },
+    }
+
+
+def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
+    """legacy_ingest: wrap the existing one-shot pipeline as one durable job so
+    the current single-source UX keeps working (Quick add compatibility, §6.1)."""
+
+    payload = ctx.payload
+    source = str(payload.get("source") or "").strip()
+    subject_id = str(payload.get("subject_id") or "").strip()
+    mode = str(payload.get("mode") or "canonical")
+    if not source:
+        raise IngestRunnerError("legacy_ingest job requires a 'source'.")
+
+    ctx.report("acquired", message="Preparing ingestion")
+
+    def _progress(phase: str, details: dict[str, Any]) -> None:
+        ladder = _LEGACY_PHASE_TO_LADDER.get(phase, "acquired")
+        ctx.report(
+            ladder,
+            message=_LEGACY_PHASE_MESSAGE.get(phase, phase.replace("_", " ").capitalize()),
+            current_window=_optional_int(details.get("current_window")),
+            total_windows=_optional_int(details.get("total_windows")),
+        )
+
+    result = ctx.services.legacy_ingest(
+        vault_root=ctx.vault_root,
+        source=source,
+        subject_id=subject_id,
+        mode=mode,
+        progress=_progress,
+        clock=ctx.clock,
+    )
+    ctx.record_usage({"calls": int(getattr(result, "codex_calls", 0) or 0)})
+    ctx.report("applied", message="Ingest complete")
+    return result.as_dict() if hasattr(result, "as_dict") else dict(result)
+
+
+def _not_implemented_handler(job_type: str) -> Handler:
+    def handler(_ctx: JobContext) -> dict[str, Any]:
+        raise NotImplementedError(
+            f"job_type '{job_type}' is a validated seam reserved for a later milestone (M3/M4/M6)."
+        )
+
+    return handler
+
+
+DEFAULT_HANDLERS: dict[str, Handler] = {
+    "import": handle_import,
+    "legacy_ingest": handle_legacy_ingest,
+    "exam_ingest": handle_legacy_ingest,
+    "inventory": _not_implemented_handler("inventory"),
+    "bootstrap_synthesis": _not_implemented_handler("bootstrap_synthesis"),
+    "append_synthesis": _not_implemented_handler("append_synthesis"),
+    "extraction_repair": _not_implemented_handler("extraction_repair"),
+}
+
+
+# ---------------------------------------------------------------------------
+# The runner
+# ---------------------------------------------------------------------------
+
+
+class IngestRunner:
+    def __init__(
+        self,
+        repo: Repository,
+        *,
+        vault_root: Path,
+        worker_id: str,
+        clock: Clock | None = None,
+        handlers: Mapping[str, Handler] | None = None,
+        services: RunnerServices | None = None,
+        lease_ttl_seconds: int = 120,
+    ) -> None:
+        self.repo = repo
+        self.vault_root = Path(vault_root)
+        self.worker_id = worker_id
+        self.clock = clock or SystemClock()
+        self.handlers: dict[str, Handler] = {**DEFAULT_HANDLERS, **dict(handlers or {})}
+        self.services = services or RunnerServices()
+        self.lease_ttl_seconds = lease_ttl_seconds
+
+    # -- enqueue -----------------------------------------------------------
+
+    def enqueue_batch(
+        self,
+        workflow_type: str,
+        jobs: Sequence[JobSpec],
+        *,
+        subject_id: str | None = None,
+        source_set_id: str | None = None,
+    ) -> str:
+        if not jobs:
+            raise IngestRunnerError("a batch needs at least one job.")
+        for spec in jobs:
+            if not spec.job_type:
+                raise IngestRunnerError("every job needs a job_type.")
+        batch_id = f"batch_{new_ulid()}"
+        self.repo.insert_ingest_batch(
+            id=batch_id,
+            workflow_type=workflow_type,
+            subject_id=subject_id,
+            source_set_id=source_set_id,
+            clock=self.clock,
+        )
+        job_ids: list[str] = []
+        for ordinal, spec in enumerate(jobs):
+            job_id = f"ijob_{new_ulid()}"
+            self.repo.insert_ingest_job(
+                id=job_id,
+                batch_id=batch_id,
+                ordinal=ordinal,
+                job_type=spec.job_type,
+                payload=dict(spec.payload),
+                clock=self.clock,
+            )
+            job_ids.append(job_id)
+        for ordinal, spec in enumerate(jobs):
+            for dep_index in spec.depends_on:
+                if dep_index < 0 or dep_index >= len(jobs) or dep_index == ordinal:
+                    raise IngestRunnerError(f"invalid dependency index {dep_index}.")
+                self.repo.add_ingest_job_dependency(job_ids[ordinal], job_ids[dep_index])
+        self._refresh_batch(batch_id)
+        return batch_id
+
+    # -- recovery / drive --------------------------------------------------
+
+    def recover_stale_leases(self) -> list[str]:
+        """Startup recovery (§6.2): expired ``running`` leases -> ``failed(interrupted)``;
+        their queued siblings simply resume. Returns the recovered job ids."""
+
+        cutoff = self._lease_cutoff_iso()
+        recovered: list[str] = []
+        for job in self.repo.expired_running_ingest_jobs(cutoff):
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="failed",
+                phase="failed",
+                message="Interrupted before completion",
+                error={"code": "interrupted", "message": "Worker lease expired before the job finished."},
+                clock=self.clock,
+            )
+            recovered.append(job["id"])
+            self._propagate_blocks(job["batch_id"])
+            self._refresh_batch(job["batch_id"])
+        return recovered
+
+    def run_next(self) -> bool:
+        """Claim and run one eligible job. Returns False when nothing was run
+        (no eligible job, or another worker holds the drain lease)."""
+
+        job = self.repo.claim_next_ingest_job(
+            worker_id=self.worker_id,
+            now_iso=utc_now_iso(self.clock),
+            lease_cutoff_iso=self._lease_cutoff_iso(),
+        )
+        if job is None:
+            return False
+        self._run_claimed(job)
+        return True
+
+    def drain(self, *, max_jobs: int | None = None) -> int:
+        """Drain eligible jobs sequentially until none remain (or ``max_jobs``)."""
+
+        ran = 0
+        while max_jobs is None or ran < max_jobs:
+            if not self.run_next():
+                break
+            ran += 1
+        return ran
+
+    # -- batch lifecycle ---------------------------------------------------
+
+    def cancel_batch(self, batch_id: str) -> None:
+        """Request cancellation. Completed artifacts are preserved; not-yet-run
+        jobs go straight to ``cancelled`` and a running job is flagged so its
+        handler stops at the next checkpoint (§6.2)."""
+
+        self.repo.request_ingest_batch_cancel(batch_id)
+        for job in self.repo.ingest_jobs_for_batch(batch_id):
+            if job["status"] in {"queued", "blocked", "waiting_for_input"}:
+                self.repo.finish_ingest_job(
+                    job["id"],
+                    status="cancelled",
+                    phase="cancelled",
+                    message="Batch cancelled",
+                    error={"code": "cancelled", "message": "The batch was cancelled."},
+                    clock=self.clock,
+                )
+        self._refresh_batch(batch_id)
+
+    def resume_batch(self, batch_id: str) -> None:
+        """Resume a partially-complete or cancelled batch: only unfinished jobs
+        (failed/blocked/cancelled) are re-queued; completed jobs are preserved,
+        so a resume creates new attempts only for what did not finish (§6.2)."""
+
+        batch = self.repo.get_ingest_batch(batch_id)
+        if batch is None:
+            raise IngestRunnerError(f"batch '{batch_id}' does not exist.")
+        with self.repo.connection() as connection:
+            connection.execute(
+                "UPDATE ingest_batches SET cancel_requested = 0 WHERE id = ?", (batch_id,)
+            )
+            connection.commit()
+        for job in self.repo.ingest_jobs_for_batch(batch_id):
+            if job["status"] in _UNFINISHED_STATUSES:
+                self.repo.requeue_ingest_job(job["id"], clock=self.clock)
+        self._refresh_batch(batch_id)
+
+    # -- internals ---------------------------------------------------------
+
+    def _run_claimed(self, job: dict[str, Any]) -> None:
+        batch_id = job["batch_id"]
+        self.repo.update_ingest_batch_status(batch_id, "running", mark_started=True, clock=self.clock)
+        ctx = JobContext(
+            repo=self.repo,
+            vault_root=self.vault_root,
+            job=dict(job),
+            clock=self.clock,
+            worker_id=self.worker_id,
+            services=self.services,
+            _usage=dict(job.get("usage") or {}),
+        )
+        if ctx.cancelled():
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="cancelled",
+                phase="cancelled",
+                message="Batch cancelled",
+                error={"code": "cancelled", "message": "The batch was cancelled."},
+                usage=ctx._usage or None,
+                clock=self.clock,
+            )
+            self._refresh_batch(batch_id)
+            return
+        handler = self.handlers.get(job["job_type"])
+        try:
+            if handler is None:
+                raise IngestRunnerError(f"unknown job_type '{job['job_type']}'.")
+            result = handler(ctx)
+        except JobCancelled:
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="cancelled",
+                phase="cancelled",
+                message="Cancelled",
+                error={"code": "cancelled", "message": "The job was cancelled."},
+                usage=ctx._usage or None,
+                clock=self.clock,
+            )
+        except WaitingForInput as waiting:
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="waiting_for_input",
+                phase="waiting_for_input",
+                message=waiting.message,
+                result={"waiting_for_input": waiting.payload},
+                usage=ctx._usage or None,
+                release_lease=True,
+                clear_finished=True,
+                clock=self.clock,
+            )
+        except NotImplementedError as exc:
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="failed",
+                phase="failed",
+                message=str(exc),
+                error={"code": "not_implemented", "message": str(exc)},
+                usage=ctx._usage or None,
+                clock=self.clock,
+            )
+            self._propagate_blocks(batch_id)
+        except Exception as exc:  # noqa: BLE001 — a failed job must never crash the drain
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="failed",
+                phase="failed",
+                message=str(exc) or exc.__class__.__name__,
+                error={"code": _error_code(exc), "message": str(exc) or exc.__class__.__name__},
+                usage=ctx._usage or None,
+                clock=self.clock,
+            )
+            self._propagate_blocks(batch_id)
+        else:
+            self.repo.finish_ingest_job(
+                job["id"],
+                status="completed",
+                phase=ctx._phase or "applied",
+                message="Completed",
+                result=result if result is not None else {},
+                usage=ctx._usage or None,
+                clock=self.clock,
+            )
+        self._refresh_batch(batch_id)
+
+    def _propagate_blocks(self, batch_id: str) -> None:
+        """Mark every downstream queued job blocked when a dependency failed,
+        blocked, or was cancelled — to a fixpoint (§6.2)."""
+
+        changed = True
+        while changed:
+            changed = False
+            jobs = {job["id"]: job for job in self.repo.ingest_jobs_for_batch(batch_id)}
+            for job in jobs.values():
+                if job["status"] != "queued":
+                    continue
+                for dep_id in self.repo.ingest_job_dependency_ids(job["id"]):
+                    dep = jobs.get(dep_id)
+                    if dep is not None and dep["status"] in _UNFINISHED_STATUSES:
+                        self.repo.finish_ingest_job(
+                            job["id"],
+                            status="blocked",
+                            phase="blocked",
+                            message="Blocked by a failed dependency",
+                            error={
+                                "code": "dependency_failed",
+                                "message": f"Dependency {dep_id} did not complete.",
+                            },
+                            clock=self.clock,
+                        )
+                        changed = True
+                        break
+
+    def _refresh_batch(self, batch_id: str) -> None:
+        jobs = self.repo.ingest_jobs_for_batch(batch_id)
+        status = derive_batch_status(jobs, self.repo.get_ingest_batch(batch_id))
+        terminal = status in {"completed", "failed", "cancelled"}
+        self.repo.update_ingest_batch_status(batch_id, status, mark_finished=terminal, clock=self.clock)
+
+    def _lease_cutoff_iso(self) -> str:
+        cutoff = self.clock.now() - timedelta(seconds=self.lease_ttl_seconds)
+        return utc_now_iso(_FixedClock(cutoff))
+
+
+@dataclass(frozen=True)
+class _FixedClock:
+    instant: Any
+
+    def now(self):
+        return self.instant
+
+
+def derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str:
+    """Batch status is derived from its member jobs and can represent partial
+    completion (§6.2)."""
+
+    statuses = [job["status"] for job in jobs]
+    if not statuses:
+        return "queued"
+    if all(status == "completed" for status in statuses):
+        return "completed"
+    if any(status == "running" for status in statuses):
+        return "running"
+    if any(status == "queued" for status in statuses):
+        return "queued" if all(s == "queued" for s in statuses) else "running"
+    if any(status == "waiting_for_input" for status in statuses):
+        return "waiting_for_input"
+    # No active jobs remain: everything is terminal or blocked.
+    if all(status == "cancelled" for status in statuses):
+        return "cancelled"
+    if batch is not None and batch.get("cancel_requested") and "cancelled" in statuses and "failed" not in statuses:
+        return "cancelled"
+    if any(status in {"failed", "blocked"} for status in statuses):
+        return "failed"
+    return "completed"
+
+
+_LEGACY_PHASE_TO_LADDER = {
+    "preparing": "acquired",
+    "fetching": "acquired",
+    "extracting": "extracted",
+    "staging": "proposed",
+    "authoring": "proposed",
+}
+
+_LEGACY_PHASE_MESSAGE = {
+    "preparing": "Checking the authoring provider",
+    "fetching": "Fetching source material",
+    "extracting": "Extracting clean structure",
+    "staging": "Staging the canonical-source note",
+    "authoring": "Generating the authoring proposal",
+}
+
+_PHASE_MESSAGES = {
+    "acquired": "Fetching source material",
+    "registered": "Registered source revision",
+    "extracted": "Extracted document structure",
+    "inventoried": "Building unit inventories",
+    "synthesized": "Synthesizing the study map",
+    "proposed": "Preparing the authoring proposal",
+    "applied": "Applied",
+}
+
+
+def _phase_message(phase: str) -> str:
+    return _PHASE_MESSAGES.get(phase, phase.replace("_", " ").capitalize())
+
+
+def _optional_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _as_number(value: Any) -> float | int:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value
+    return 0
+
+
+def _error_code(exc: Exception) -> str:
+    if isinstance(exc, IngestRunnerError):
+        return "invalid_job"
+    return exc.__class__.__name__
