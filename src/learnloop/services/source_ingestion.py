@@ -6,7 +6,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -146,6 +146,7 @@ def ingest_canonical_source(
     purpose: str = "canonical_ingest",
     pdf_engine: str | None = None,
     pdf_use_llm: bool | None = None,
+    ir_markdown: str | None = None,
     clock: Clock | None = None,
     progress: IngestProgress | None = None,
 ) -> IngestResult:
@@ -178,6 +179,14 @@ def ingest_canonical_source(
     )
     _report_progress(progress, "extracting", source_kind=resolved_kind)
     normalized = normalize_source(fetch_result, resolved_kind)
+    # M3.5 v2-lite (§2.3): when a durable ExtractionRun already produced a Document
+    # IR for this source, synthesis builds its chunk context from the IR's
+    # deterministic display rendering (respecting a persisted unit selection)
+    # instead of the legacy extraction. Sources without an IR pass ``ir_markdown``
+    # as None and keep the legacy markdown byte-for-byte. Caption-based sources
+    # (YouTube) still chunk from their cues, so only the display body is swapped.
+    if ir_markdown is not None:
+        normalized = replace(normalized, markdown=ir_markdown)
     content_hash = source_content_hash(normalized.markdown)
     chunks = chunk_normalized_source(normalized)
     _validate_usable_source(chunks, vault.config.ingest.min_content_chars)
