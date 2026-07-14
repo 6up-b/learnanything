@@ -85,6 +85,10 @@ class GateItem:
     manual_authority: bool = False
     # Test/enforcement seam for the lock guard when no vault/repository is wired.
     lock_reason: str | None = None
+    # Append vocabulary (§10.2): the §10.2 intent this item maps to. On an append
+    # proposal the gate uses this to enforce that any update/deactivate is a
+    # `restructure_unlocked` item and that additive item types stay create-only.
+    reconciliation_intent: str | None = None
 
     def is_semantic(self) -> bool:
         if self.establishes_semantic is not None:
@@ -123,6 +127,10 @@ class GateContext:
     truncated: bool = False
     # Lexical near-duplicate threshold (Jaccard over claim/title tokens).
     near_duplicate_threshold: float = 0.85
+    # Append mode (§10.2): when True, the append-vocabulary gate runs — any
+    # update/deactivate outside a `restructure_unlocked` item hard-fails, and the
+    # specialized additive item types must be create-only.
+    append_mode: bool = False
     registered_facet_texts: dict[str, str] = field(default_factory=dict)
     # Lock guard: when both are present, gates delegate to can_apply; otherwise
     # they fall back to each item's `lock_reason` field (pure unit tests).
@@ -627,6 +635,57 @@ def _gate_near_duplicate_facets(proposal: GateProposal, ctx: GateContext) -> lis
     return out
 
 
+_ADDITIVE_ITEM_TYPES: frozenset[str] = frozenset(
+    {"provenance_link", "notation_mapping", "source_conflict"}
+)
+
+
+def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
+    """Append vocabulary gate (§10.2/§10.3).
+
+    On an append proposal, pure additivity is VERIFIED from item type + payload,
+    never trusted from an intent label. Any update/deactivate that is not an
+    explicit `restructure_unlocked` item hard-fails; the specialized additive item
+    types (`provenance_link`/`notation_mapping`/`source_conflict`) must be
+    create-only — a `provenance_link` whose operation would mutate an entity is
+    rejected here."""
+
+    if not ctx.append_mode:
+        return []
+    out: list[GateDiagnostic] = []
+    for item in proposal.items:
+        if item.item_type in _ADDITIVE_ITEM_TYPES:
+            if item.operation != "create":
+                out.append(
+                    GateDiagnostic(
+                        gate="append_vocabulary",
+                        severity="hard_fail",
+                        entity_refs=item.refs(),
+                        message=(
+                            f"additive item type {item.item_type} must be operation=create, "
+                            f"not {item.operation} (specialized handlers never mutate an entity)"
+                        ),
+                        suggested_action="emit the additive item as a create, or route a real change through restructure_unlocked",
+                    )
+                )
+            continue
+        if item.operation in {"update", "deactivate"}:
+            if item.reconciliation_intent != "restructure_unlocked":
+                out.append(
+                    GateDiagnostic(
+                        gate="append_vocabulary",
+                        severity="hard_fail",
+                        entity_refs=item.refs(),
+                        message=(
+                            f"unexpected {item.operation} on {item.item_type} outside a "
+                            f"restructure_unlocked item (intent={item.reconciliation_intent!r})"
+                        ),
+                        suggested_action="use a provenance_link/notation_mapping/source_conflict item, or mark restructure_unlocked",
+                    )
+                )
+    return out
+
+
 def _default_identifiability(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
     """Degenerate identifiability check (SEAM for KM5's §11.3 doctor).
 
@@ -684,6 +743,7 @@ _GATES: tuple[Callable[[GateProposal, GateContext], list[GateDiagnostic]], ...] 
     _gate_practice_exam_only,
     _gate_duplicate_ids_dangling,
     _gate_near_duplicate_facets,
+    _gate_append_vocabulary,
 )
 
 

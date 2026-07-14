@@ -1210,15 +1210,21 @@ def source_coverage_command(
 @app.command("synthesize")
 def synthesize_command(
     set_id: Annotated[str, typer.Argument(help="Source-set id.")],
-    mode: Annotated[str, typer.Option("--mode", help="auto|bootstrap.")] = "auto",
+    mode: Annotated[str, typer.Option("--mode", help="auto|bootstrap|append.")] = "auto",
     brief_file: Annotated[Path | None, typer.Option("--brief-file", help="JSON synthesis brief (§8.3).")] = None,
     apply_map: Annotated[bool, typer.Option("--apply", help="Accept the study map under the vault lock (requires mvp-0.7).")] = False,
     create_goal: Annotated[bool, typer.Option("--create-goal", help="Create an exam-prep Goal wired to the minted facets.")] = False,
+    new_revision: Annotated[list[str] | None, typer.Option("--new-revision", help="Revision id(s) newly added/changed (append mode).")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     vault: Annotated[Path | None, typer.Option("--vault")] = None,
 ) -> None:
-    """Create a study map from a source set (bootstrap synthesis, §8)."""
+    """Create or UPDATE a study map from a source set (§8 bootstrap / §10 append).
 
+    mode=auto routes to append when the vault already has an applied study map
+    (facets present), else bootstrap — adding a member to a set with a study map
+    updates it incrementally with a bounded affected-neighborhood pass."""
+
+    from learnloop.services.source_append import append_source
     from learnloop.services.source_set_synthesis import StudyMapError, create_study_map
 
     vault_root = _root(vault)
@@ -1236,9 +1242,32 @@ def synthesize_command(
         typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
         raise typer.Exit(code=1)
 
+    resolved_mode = mode
+    if mode == "auto":
+        resolved_mode = "append" if loaded.evidence_facets else "bootstrap"
+
+    if resolved_mode == "append":
+        try:
+            append = append_source(vault_root, set_id, client=client, brief=brief,
+                                   new_revision_ids=new_revision)
+        except StudyMapError as exc:
+            if json_output:
+                typer.echo(_dump({"version": 1, "error": exc.code, "message": str(exc),
+                                  "diagnostics": exc.diagnostics}))
+            else:
+                typer.echo(f"{exc.code}: {exc}", err=True)
+            raise typer.Exit(code=1)
+        if json_output:
+            typer.echo(_dump({"version": 1, "append": append.as_dict()}))
+            return
+        typer.echo(f"Updated study map for {append.subject_id} ({append.change_kind}) — proposal {append.proposal_id}")
+        typer.echo(f"  auto-applied={len(append.auto_applied_item_ids)} review={len(append.review_item_ids)} items={append.item_counts}")
+        typer.echo(f"  study-map diff: {append.study_map_diff}")
+        return
+
     try:
         result = create_study_map(
-            vault_root, set_id, client=client, brief=brief, mode=mode,
+            vault_root, set_id, client=client, brief=brief, mode=resolved_mode,
             apply=apply_map, create_goal=create_goal,
         )
     except StudyMapError as exc:
@@ -1259,6 +1288,87 @@ def synthesize_command(
     for diag in result.gate_diagnostics:
         if diag["severity"] != "hard_fail":
             typer.echo(f"  ~ {diag['gate']}: {diag['message']}")
+
+
+@app.command("maintenance-feed")
+def maintenance_feed_command(
+    action: Annotated[str, typer.Option("--action", help="list|dismiss|snooze.")] = "list",
+    notice_id: Annotated[str | None, typer.Option("--notice", help="Notice id for dismiss/snooze.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Maintenance feed (§11): deterministic notices with per-type aging policies."""
+
+    from learnloop.services.maintenance_feed import dismiss_notice, generate_maintenance_feed, snooze_notice
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    if action == "dismiss" and notice_id:
+        dismiss_notice(repository, notice_id)
+    elif action == "snooze" and notice_id:
+        snooze_notice(repository, notice_id)
+    feed = generate_maintenance_feed(loaded, repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, "notices": feed}))
+        return
+    if not feed:
+        typer.echo("Maintenance feed is clear.")
+        return
+    for notice in feed:
+        typer.echo(f"[{notice['severity']}] {notice['notice_type']}: {notice['title']}  -> {notice['action'].get('action')} ({notice['id']})")
+
+
+@app.command("exam-readiness")
+def exam_readiness_command(
+    subject: Annotated[str | None, typer.Option("--subject", help="Restrict to one subject.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Lightweight exam-readiness-by-task-family report (§15) — deterministic, no LLM."""
+
+    from learnloop.services.exam_readiness import exam_readiness_report
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    report = exam_readiness_report(loaded, repository, subject_id=subject)
+    if json_output:
+        typer.echo(_dump({"version": 1, "report": report.as_dict()}))
+        return
+    typer.echo(f"Exam readiness (Ready vs Demonstrated) — {len(report.rows)} task families")
+    for row in report.rows:
+        ready = f"{row.ready:.2f}" if row.ready is not None else "n/a"
+        typer.echo(f"  {row.task_family}: weight={row.normalized_weight:.2f} ready={ready} demonstrated={row.demonstrated_fraction:.2f}")
+
+
+@app.command("resolve-conflict")
+def resolve_conflict_command(
+    conflict_id: Annotated[str, typer.Argument(help="source_conflict id.")],
+    kind: Annotated[str, typer.Option("--kind", help="prefer_for_context|keep_both_scoped|notation_mapping|dismiss.")],
+    resolution_file: Annotated[Path | None, typer.Option("--resolution-file", help="JSON resolution payload.")] = None,
+    rationale: Annotated[str | None, typer.Option("--rationale")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Resolve an open source conflict (§10.2) — never applies either side."""
+
+    from learnloop.services.conflict_resolution import ConflictResolutionError, resolve_conflict
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    payload = jsonlib.loads(resolution_file.read_text(encoding="utf-8")) if resolution_file else {}
+    try:
+        conflict = resolve_conflict(repository, conflict_id, resolution_kind=kind,
+                                    resolution=payload, actor="cli", rationale=rationale)
+    except ConflictResolutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump({"version": 1, "conflict": conflict}))
+        return
+    typer.echo(f"Conflict {conflict_id} -> {conflict['status']} ({kind})")
 
 
 @app.command("synthesis-eval")

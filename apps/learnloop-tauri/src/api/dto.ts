@@ -2203,3 +2203,158 @@ export interface ExamReportSnapshot {
     observedCorrectness: number | null;
   }>;
 }
+
+// --- ING M7: Update study map (append reconciliation, §10-§11, §15) ---------
+
+export interface StudyMapDiffDto {
+  newFacets: string[];
+  removedFacets: string[];
+  newLinks: number;
+  newConflicts: number;
+  newNotations: number;
+  staleLinksRepaired: number;
+  blueprintDistributionShift: Array<Record<string, unknown>>;
+  hasChanges: boolean;
+}
+
+export interface MergeReviewProposalDto {
+  leftFacetId: string;
+  rightFacetId: string;
+  similarity: number;
+  reason: string;
+  action: string;
+}
+
+export interface AppendResultDto {
+  sourceSetId: string;
+  subjectId: string;
+  changeKind: string;
+  manifestHash: string;
+  synthesisRunId: string | null;
+  proposalId: string | null;
+  reused: boolean;
+  autoAppliedItemIds: string[];
+  reviewItemIds: string[];
+  itemCounts: Record<string, number>;
+  gateDiagnostics: Record<string, unknown>[];
+  neighborhood: Record<string, unknown>;
+  spanRequestCount: number;
+  studyMapDiff: Partial<StudyMapDiffDto>;
+  mergeReviewProposals: MergeReviewProposalDto[];
+}
+
+export interface AppendSourceInput {
+  sourceSetId: string;
+  newRevisionIds?: string[] | null;
+  changeKind?: string;
+  brief?: Record<string, unknown>;
+  autoApply?: boolean;
+}
+
+export interface RefreshResultDto {
+  sourceId: string;
+  oldRevisionId: string;
+  newRevisionId: string;
+  membershipAdvanced: boolean;
+  unchangedLinks: string[];
+  reanchoredLinks: string[];
+  staleLinks: string[];
+  needsReanchorLinks: string[];
+  affectedEntities: Array<{ entityType: string; entityId: string }>;
+  appendResult: AppendResultDto | null;
+}
+
+export interface RefreshRevisionInput {
+  sourceSetId: string;
+  sourceId: string;
+  oldRevisionId: string;
+  newRevisionId: string;
+  newExtractionId?: string | null;
+  confirm?: boolean;
+}
+
+export type MaintenanceSeverity = "info" | "warning" | "action_needed";
+
+export interface MaintenanceNoticeDto {
+  id: string;
+  subjectId: string | null;
+  noticeType: string;
+  dedupKey: string;
+  severity: MaintenanceSeverity;
+  agingPolicy: "auto_resolution" | "auto_expiry" | "escalation";
+  entityType: string | null;
+  entityId: string | null;
+  title: string;
+  detail: Record<string, unknown> | null;
+  action: { action?: string; label?: string } & Record<string, unknown>;
+  status: string;
+  snoozeCount: number;
+  snoozedUntil: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+export interface MaintenanceFeedSnapshot {
+  version: number;
+  notices: MaintenanceNoticeDto[];
+}
+
+export type ConflictResolutionKind =
+  | "prefer_for_context"
+  | "keep_both_scoped"
+  | "notation_mapping"
+  | "dismiss";
+
+export interface SourceConflictDto {
+  id: string;
+  subjectId: string | null;
+  entityType: string;
+  entityId: string;
+  leftSourceId: string | null;
+  leftRevisionId: string | null;
+  leftLocator: string | null;
+  leftExtractionId: string | null;
+  rightSourceId: string | null;
+  rightRevisionId: string | null;
+  rightLocator: string | null;
+  rightExtractionId: string | null;
+  statement: string;
+  status: string;
+  resolution: Record<string, unknown> | null;
+  resolutions?: Array<Record<string, unknown>>;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface ResolveConflictInput {
+  conflictId: string;
+  resolutionKind: ConflictResolutionKind;
+  resolution?: Record<string, unknown>;
+  rationale?: string | null;
+}
+
+export interface FacetCapabilityStateDto {
+  facet: string;
+  capability: string;
+  demonstrated: boolean;
+  certificationCredit: number;
+  recallMean: number;
+}
+
+export interface TaskFamilyReadinessDto {
+  taskFamily: string;
+  weight: number;
+  normalizedWeight: number;
+  learningObjectIds: string[];
+  ready: number | null;
+  demonstratedFraction: number;
+  facetCapabilities: FacetCapabilityStateDto[];
+  calibration: { brier: number | null; sample: number } | null;
+}
+
+export interface ExamReadinessReportDto {
+  subjectId: string | null;
+  displayRule: "ready_vs_demonstrated";
+  rows: TaskFamilyReadinessDto[];
+  hasCalibration: boolean;
+}

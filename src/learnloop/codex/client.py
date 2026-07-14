@@ -31,6 +31,8 @@ from learnloop.codex.prompts import (
     PROBE_INSTANCE_PROMPT_VERSION,
     PROMOTION_ANALYSIS_PROMPT,
     PROMOTION_ANALYSIS_PROMPT_VERSION,
+    APPEND_RECONCILIATION_PROMPT,
+    APPEND_RECONCILIATION_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     SOURCE_UNIT_INVENTORY_PROMPT,
@@ -47,6 +49,7 @@ from learnloop.codex.schemas import (
     ProbeFamilyTrials,
     ProbeInstanceSurfaces,
     PromotionAnalysis,
+    AppendReconciliation,
     SourceSetSynthesis,
     SourceUnitInventory,
     TeachBackQuestion,
@@ -345,6 +348,30 @@ class SourceSetSynthesisContext:
     unit_inventories: list = field(default_factory=list)
     exam_profile: dict = field(default_factory=dict)
     registry_index: dict = field(default_factory=dict)
+    resolved_spans: list = field(default_factory=list)
+    shard_ordinal: int = 0
+    shard_count: int = 1
+
+
+@dataclass
+class AppendReconciliationContext:
+    """Bounded input for one append reconciliation pass/shard (§10.1).
+
+    Carries the NEW/changed role-specific unit inventories, the brief, the bounded
+    affected-map neighborhood (NEVER the full map — the scaling gate proves it), and
+    the exam assessment-alignment view. ``change_kind`` is ``source_added`` or
+    ``source_revision_changed``; for the latter, ``revision_diff`` holds the
+    deterministic old/new span diff. All text is untrusted; the prompt delimits it
+    and cites provided span ids only."""
+
+    source_set_id: str
+    subject_id: str
+    change_kind: str  # source_added | source_revision_changed
+    brief: dict = field(default_factory=dict)
+    new_inventories: list = field(default_factory=list)
+    neighborhood: dict = field(default_factory=dict)
+    exam_profile: dict = field(default_factory=dict)
+    revision_diff: dict = field(default_factory=dict)
     resolved_spans: list = field(default_factory=list)
     shard_ordinal: int = 0
     shard_count: int = 1
@@ -705,6 +732,23 @@ class SdkCodexClient:
             purpose="source_set_synthesis",
         )
         return SourceSetSynthesis.model_validate_json(text)
+
+    def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
+        """Reconcile new/changed material into an existing map (§10.1/§10.2).
+
+        Deliberately NOT on the ``CodexClient`` Protocol — the append service
+        discovers it via ``getattr(client, "run_append_reconciliation", None)`` and
+        degrades when the provider lacks it. Output is candidate-only, span-cited,
+        and dependency-annotated; the service verifies additivity from item type +
+        payload, runs the §8.7 gates plus the append-vocabulary gate, and persists
+        through the existing proposal pipeline."""
+
+        text = self._run_structured(
+            _append_reconciliation_prompt(context),
+            _codex_output_schema(AppendReconciliation),
+            purpose="append_reconciliation",
+        )
+        return AppendReconciliation.model_validate_json(text)
 
     def _run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
         _ensure_sdk_importable(self.sdk_python_path)
@@ -1197,6 +1241,19 @@ def _source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str:
         SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
         {
             "task": SOURCE_SET_SYNTHESIS_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _append_reconciliation_prompt(context: AppendReconciliationContext) -> str:
+    """Append reconciliation prompt (source-ingestion §10.2)."""
+
+    return _json_prompt(
+        "learnloop append reconciliation",
+        APPEND_RECONCILIATION_PROMPT_VERSION,
+        {
+            "task": APPEND_RECONCILIATION_PROMPT,
             "context": asdict(context),
         },
     )

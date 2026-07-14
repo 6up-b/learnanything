@@ -46,6 +46,11 @@ class CompiledPatch:
     event_type: str
     summary: str
     apply: Callable[[Path, Clock | None], Path | None]
+    # Specialized additive item types (§10.2 provenance_link / notation_mapping /
+    # source_conflict) write a DB table row, NOT the target LO YAML. ``apply`` is a
+    # no-op for them; the write-ahead protocol carries this side effect in the
+    # durable intent and performs it idempotently at apply/recovery time.
+    db_side_effect: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +162,8 @@ def compute_target_hash(vault: LoadedVault, item_type: str, entity_id: str) -> s
         entity = vault.concepts.get(entity_id)
     elif item_type == "error_type":
         entity = vault.error_types.get(entity_id)
+    elif item_type == "facet":
+        entity = vault.evidence_facets.get(entity_id)
     elif item_type == "rubric":
         item = vault.practice_items.get(entity_id)
         entity = item.grading_rubric if item is not None else None
@@ -262,7 +269,162 @@ def compile_proposal_item(vault: LoadedVault, item: dict[str, Any]) -> CompiledP
         return _compile_facet(vault, item, payload)
     if item_type == "task_blueprint":
         return _compile_task_blueprint(vault, item, payload)
+    if item_type == "provenance_link":
+        return _compile_provenance_link(vault, item, payload)
+    if item_type == "notation_mapping":
+        return _compile_notation_mapping(vault, item, payload)
+    if item_type == "source_conflict":
+        return _compile_source_conflict(vault, item, payload)
     raise PatchApplicationError(f"Unsupported proposal item type {item_type}")
+
+
+# --- specialized additive apply handlers (§10.2/§10.3) ----------------------
+
+_LINK_RELATIONS = frozenset({"primary", "support", "alternate", "exercise", "assessment_alignment"})
+
+
+def _noop_apply(root: Path, clock: Clock | None) -> None:
+    return None
+
+
+def _compile_provenance_link(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
+    """`provenance_link` create: insert a supporting entity_source_links row (§10.3).
+
+    Purely additive — it attaches an existing entity to a new span and NEVER
+    rewrites the target YAML. `assessment_alignment` may only target task/blueprint
+    metadata or provenance, never a facet semantic contract (§4.2 authority)."""
+
+    if item["operation"] != "create":
+        raise PatchApplicationError("provenance_link items must be operation=create")
+    target_type = str(payload.get("target_entity_type") or "")
+    target_id = str(payload.get("target_entity_id") or "")
+    relation = str(payload.get("relation") or "support")
+    locator = str(payload.get("locator") or "")
+    if not target_type or not target_id:
+        raise PatchApplicationError(f"provenance_link {item['id']} requires a target entity")
+    if not locator:
+        raise PatchApplicationError(f"provenance_link {item['id']} requires a span locator")
+    if relation not in _LINK_RELATIONS:
+        raise PatchApplicationError(f"provenance_link {item['id']} has invalid relation {relation}")
+    if relation == "assessment_alignment" and target_type == "facet":
+        raise PatchApplicationError(
+            "assessment_alignment may not attach to a facet semantic contract (§4.2)"
+        )
+    link_id = str(payload.get("link_id") or new_ulid())
+    side_effect = {
+        "kind": "provenance_link",
+        "row": {
+            "id": link_id,
+            "entity_type": target_type,
+            "entity_id": target_id,
+            "source_id": payload.get("source_id"),
+            "revision_id": payload.get("revision_id"),
+            "locator": locator,
+            "locator_scheme": payload.get("locator_scheme"),
+            "relation": relation,
+            "extraction_id": payload.get("extraction_id"),
+            "asset_hash": payload.get("asset_hash"),
+            "span_hash": payload.get("span_hash"),
+            "status": "current",
+        },
+    }
+    return CompiledPatch(
+        proposal_item_id=item["id"],
+        entity_type="provenance_link",
+        entity_id=link_id,
+        subject=payload.get("subject_id"),
+        event_type="created",
+        summary=f"attach {relation} span to {target_type} {target_id}",
+        apply=_noop_apply,
+        db_side_effect=side_effect,
+    )
+
+
+def _compile_notation_mapping(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
+    """`notation_mapping` create: append a contextual notation equivalence (§10.2)."""
+
+    if item["operation"] != "create":
+        raise PatchApplicationError("notation_mapping items must be operation=create")
+    entity_type = str(payload.get("target_entity_type") or payload.get("entity_type") or "")
+    entity_id = str(payload.get("target_entity_id") or payload.get("entity_id") or "")
+    canonical = str(payload.get("canonical_notation") or "")
+    alternate = str(payload.get("alternate_notation") or "")
+    if not entity_type or not entity_id:
+        raise PatchApplicationError(f"notation_mapping {item['id']} requires a target entity")
+    if not canonical or not alternate:
+        raise PatchApplicationError(f"notation_mapping {item['id']} requires both notations")
+    mapping_id = str(payload.get("mapping_id") or new_ulid())
+    side_effect = {
+        "kind": "notation_mapping",
+        "row": {
+            "id": mapping_id,
+            "subject_id": payload.get("subject_id"),
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "canonical_notation": canonical,
+            "alternate_notation": alternate,
+            "context": payload.get("context"),
+            "source_id": payload.get("source_id"),
+            "revision_id": payload.get("revision_id"),
+            "locator": payload.get("locator"),
+            "status": "active",
+        },
+    }
+    return CompiledPatch(
+        proposal_item_id=item["id"],
+        entity_type="notation_mapping",
+        entity_id=mapping_id,
+        subject=payload.get("subject_id"),
+        event_type="created",
+        summary=f"notation mapping {alternate} == {canonical} on {entity_type} {entity_id}",
+        apply=_noop_apply,
+        db_side_effect=side_effect,
+    )
+
+
+def _compile_source_conflict(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
+    """`source_conflict` create: persist an OPEN two-sided conflict (§10.2).
+
+    Accepting acknowledges/persists the conflict; it never applies either competing
+    side. Resolution is a separate later action with its own audit."""
+
+    if item["operation"] != "create":
+        raise PatchApplicationError("source_conflict items must be operation=create")
+    entity_type = str(payload.get("entity_type") or "")
+    entity_id = str(payload.get("entity_id") or "")
+    statement = str(payload.get("statement") or "")
+    if not entity_type or not entity_id or not statement:
+        raise PatchApplicationError(f"source_conflict {item['id']} requires entity + statement")
+    conflict_id = str(payload.get("conflict_id") or new_ulid())
+    left = payload.get("left") or {}
+    right = payload.get("right") or {}
+    side_effect = {
+        "kind": "source_conflict",
+        "row": {
+            "id": conflict_id,
+            "subject_id": payload.get("subject_id"),
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "left_source_id": left.get("source_id"),
+            "left_revision_id": left.get("revision_id"),
+            "left_locator": left.get("locator"),
+            "right_source_id": right.get("source_id"),
+            "right_revision_id": right.get("revision_id"),
+            "right_locator": right.get("locator"),
+            "statement": statement,
+            "status": "open",
+        },
+    }
+    return CompiledPatch(
+        proposal_item_id=item["id"],
+        entity_type="source_conflict",
+        entity_id=conflict_id,
+        subject=payload.get("subject_id"),
+        event_type="created",
+        summary=f"open conflict on {entity_type} {entity_id}: {statement[:60]}",
+        apply=_noop_apply,
+        db_side_effect=side_effect,
+    )
 
 
 def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: str) -> None:
@@ -341,6 +503,10 @@ def _proposal_apply_order(item: dict[str, Any]) -> tuple[int, int, str]:
         "practice_item": 5,
         "rubric": 6,
         "concept_edge": 7,
+        # Additive append items apply after the curriculum they annotate.
+        "provenance_link": 8,
+        "notation_mapping": 8,
+        "source_conflict": 8,
     }
     return (
         operation_order.get(str(item.get("operation")), 9),

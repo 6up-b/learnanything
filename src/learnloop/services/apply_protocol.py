@@ -203,10 +203,21 @@ def stage_target_contents(
                     "source_links": _entity_source_link_rows(
                         compiled.entity_type, compiled.entity_id, payload, patch_id
                     ),
+                    "db_side_effect": _stamp_side_effect(compiled.db_side_effect, patch_id),
                 }
             )
         targets = _diff_targets(real_root, staging_root)
     return targets, db_plan
+
+
+def _stamp_side_effect(side_effect: dict[str, Any] | None, patch_id: str) -> dict[str, Any] | None:
+    """Stamp the accepting patch id onto a specialized additive side effect (§10.2)."""
+
+    if not side_effect:
+        return None
+    stamped = {"kind": side_effect["kind"], "row": dict(side_effect["row"])}
+    stamped["row"]["patch_id"] = patch_id
+    return stamped
 
 
 def _diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]:
@@ -362,6 +373,9 @@ def perform_db_effects(
         existing = repository.proposal_item(entry["item_id"])
         already_accepted = bool(existing) and existing.get("decision") == "accepted"
         if not already_accepted:
+            # Specialized side effect FIRST + idempotently: if a crash lands between
+            # it and the accept mark, recovery re-runs both harmlessly (§10.2).
+            _perform_side_effect(repository, entry.get("db_side_effect"), entry["created_at"], clock)
             repository.record_applied_proposal_item(
                 proposal_item_id=entry["item_id"],
                 change_batch={
@@ -404,6 +418,74 @@ def perform_db_effects(
                 created_at=entry["created_at"],
             )
     return change_batch_ids
+
+
+def _perform_side_effect(
+    repository: Repository, side_effect: dict[str, Any] | None, created_at: str, clock: Clock | None
+) -> None:
+    """Apply a specialized additive item's DB write (§10.2). Runs only inside the
+    not-already-accepted guard, so recovery re-runs harmlessly; ids are fixed in the
+    durable intent, and the specialized tables' inserts are keyed on those ids."""
+
+    if not side_effect:
+        return
+    kind = side_effect["kind"]
+    row = side_effect["row"]
+    if kind == "provenance_link":
+        repository.insert_entity_source_link(
+            link_id=row["id"],
+            entity_type=row["entity_type"],
+            entity_id=row["entity_id"],
+            locator=row["locator"],
+            relation=row["relation"],
+            source_id=row.get("source_id"),
+            revision_id=row.get("revision_id"),
+            locator_scheme=row.get("locator_scheme"),
+            extraction_id=row.get("extraction_id"),
+            asset_hash=row.get("asset_hash"),
+            span_hash=row.get("span_hash"),
+            patch_id=row.get("patch_id"),
+            status=row.get("status", "current"),
+            created_at=created_at,
+        )
+    elif kind == "notation_mapping":
+        existing = repository.notation_mappings_for_entity(row["entity_type"], row["entity_id"])
+        if any(m["id"] == row["id"] for m in existing):
+            return
+        repository.insert_notation_mapping(
+            mapping_id=row["id"],
+            entity_type=row["entity_type"],
+            entity_id=row["entity_id"],
+            canonical_notation=row["canonical_notation"],
+            alternate_notation=row["alternate_notation"],
+            subject_id=row.get("subject_id"),
+            context=row.get("context"),
+            source_id=row.get("source_id"),
+            revision_id=row.get("revision_id"),
+            locator=row.get("locator"),
+            patch_id=row.get("patch_id"),
+            status=row.get("status", "active"),
+            clock=clock,
+        )
+    elif kind == "source_conflict":
+        if repository.source_conflict(row["id"]) is not None:
+            return
+        repository.insert_source_conflict(
+            conflict_id=row["id"],
+            entity_type=row["entity_type"],
+            entity_id=row["entity_id"],
+            statement=row["statement"],
+            subject_id=row.get("subject_id"),
+            left_source_id=row.get("left_source_id"),
+            left_revision_id=row.get("left_revision_id"),
+            left_locator=row.get("left_locator"),
+            right_source_id=row.get("right_source_id"),
+            right_revision_id=row.get("right_revision_id"),
+            right_locator=row.get("right_locator"),
+            status=row.get("status", "open"),
+            patch_id=row.get("patch_id"),
+            clock=clock,
+        )
 
 
 # --- recovery ---------------------------------------------------------------

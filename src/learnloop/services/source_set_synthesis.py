@@ -754,18 +754,14 @@ def create_study_map(
     clock: Clock | None = None,
 ) -> StudyMapResult:
     vault = load_vault(root)
-    owns_repo = repository is None
     if repository is None:
+        # Repository opens a fresh sqlite connection per call; nothing to close.
         repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
-    try:
-        return _create_study_map(
-            vault, repository, root, source_set_id,
-            client=client, brief=brief or {}, mode=mode, apply=apply,
-            create_goal=create_goal, clock=clock,
-        )
-    finally:
-        if owns_repo:
-            repository.close()
+    return _create_study_map(
+        vault, repository, root, source_set_id,
+        client=client, brief=brief or {}, mode=mode, apply=apply,
+        create_goal=create_goal, clock=clock,
+    )
 
 
 def _create_study_map(

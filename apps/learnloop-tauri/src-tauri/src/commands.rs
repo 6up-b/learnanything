@@ -417,6 +417,62 @@ pub async fn create_study_map(
 }
 
 #[tauri::command]
+pub async fn append_source(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "append_source", input).await
+}
+
+#[tauri::command]
+pub async fn refresh_revision(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "refresh_revision", input).await
+}
+
+#[tauri::command]
+pub async fn maintenance_feed(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "maintenance_feed", input).await
+}
+
+#[tauri::command]
+pub async fn maintenance_notice_action(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "maintenance_notice_action", input).await
+}
+
+#[tauri::command]
+pub async fn list_source_conflicts(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "list_source_conflicts", input).await
+}
+
+#[tauri::command]
+pub async fn resolve_source_conflict(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "resolve_source_conflict", input).await
+}
+
+#[tauri::command]
+pub async fn exam_readiness(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "exam_readiness", input).await
+}
+
+#[tauri::command]
 pub async fn start_extraction_repair(
     input: Value,
     sidecar: State<'_, SidecarManager>,

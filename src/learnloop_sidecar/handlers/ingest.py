@@ -486,6 +486,175 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
     return versioned({"studyMap": result.as_dict()})
 
 
+class AppendSourceInput(ParamsModel):
+    source_set_id: str
+    new_revision_ids: list[str] | None = None
+    change_kind: str = "source_added"
+    brief: dict[str, Any] = {}
+    auto_apply: bool = True
+
+
+@method("append_source", AppendSourceInput)
+def append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[str, Any]:
+    """Update study map: bounded affected-neighborhood append reconciliation (§10)."""
+
+    from learnloop.services.source_append import append_source as run_append
+    from learnloop.services.source_set_synthesis import StudyMapError
+    from learnloop_sidecar.handlers.ai_providers import _codex_client
+
+    vault, repository = ctx.require_vault()
+    _source_set_or_error(vault, params.source_set_id)
+    client = _codex_client(vault)
+    if client is None:
+        raise SidecarError("codex_unavailable", "Codex runtime is unavailable for append.", retryable=True)
+    try:
+        result = run_append(
+            vault.root, params.source_set_id, client=client, brief=dict(params.brief or {}),
+            new_revision_ids=params.new_revision_ids, change_kind=params.change_kind,
+            auto_apply=params.auto_apply, repository=repository,
+        )
+    except StudyMapError as exc:
+        raise SidecarError(exc.code, str(exc), details={"diagnostics": exc.diagnostics})
+    if result.auto_applied_item_ids:
+        ctx.reload(maintenance=False)
+    return versioned({"append": result.as_dict()})
+
+
+class RefreshRevisionInput(ParamsModel):
+    source_set_id: str
+    source_id: str
+    old_revision_id: str
+    new_revision_id: str
+    new_extraction_id: str | None = None
+    confirm: bool = False
+
+
+@method("refresh_revision", RefreshRevisionInput)
+def refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> dict[str, Any]:
+    """Adopt a new source revision (§10.4). Pinned membership advances only on confirm."""
+
+    from learnloop.services.revision_refresh import refresh_revision
+    from learnloop_sidecar.handlers.ai_providers import _codex_client
+
+    vault, repository = ctx.require_vault()
+    _source_set_or_error(vault, params.source_set_id)
+    client = _codex_client(vault) if params.confirm else None
+    result = refresh_revision(
+        vault.root, params.source_set_id, source_id=params.source_id,
+        old_revision_id=params.old_revision_id, new_revision_id=params.new_revision_id,
+        new_extraction_id=params.new_extraction_id, confirm=params.confirm,
+        client=client, repository=repository,
+    )
+    if params.confirm:
+        ctx.reload(maintenance=False)
+    return versioned({"refresh": result.as_dict()})
+
+
+class ExamReadinessInput(ParamsModel):
+    subject_id: str | None = None
+
+
+@method("exam_readiness", ExamReadinessInput)
+def exam_readiness_rpc(ctx: SidecarContext, params: ExamReadinessInput) -> dict[str, Any]:
+    """Lightweight deterministic exam-readiness-by-task-family report (§15)."""
+
+    from learnloop.services.exam_readiness import exam_readiness_report
+
+    vault, repository = ctx.require_vault()
+    report = exam_readiness_report(vault, repository, subject_id=params.subject_id)
+    return versioned({"report": report.as_dict()})
+
+
+class MaintenanceFeedInput(ParamsModel):
+    subject_id: str | None = None
+
+
+@method("maintenance_feed", MaintenanceFeedInput)
+def maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> dict[str, Any]:
+    """Generate + return the maintenance feed (§11), deterministic from state."""
+
+    from learnloop.services.maintenance_feed import generate_maintenance_feed
+
+    vault, repository = ctx.require_vault()
+    feed = generate_maintenance_feed(vault, repository)
+    if params.subject_id is not None:
+        feed = [n for n in feed if n.get("subject_id") in (None, params.subject_id)]
+    return versioned({"notices": feed})
+
+
+class MaintenanceNoticeActionInput(ParamsModel):
+    notice_id: str
+    action: Literal["dismiss", "snooze"]
+    snoozed_until: str | None = None
+
+
+@method("maintenance_notice_action", MaintenanceNoticeActionInput)
+def maintenance_notice_action_rpc(ctx: SidecarContext, params: MaintenanceNoticeActionInput) -> dict[str, Any]:
+    """Dismiss or snooze a notice WITHOUT changing source or curriculum state (§11)."""
+
+    from learnloop.services.maintenance_feed import dismiss_notice, snooze_notice
+
+    _vault, repository = ctx.require_vault()
+    if params.action == "dismiss":
+        dismiss_notice(repository, params.notice_id)
+    else:
+        snooze_notice(repository, params.notice_id, until=params.snoozed_until)
+    return versioned({"notice": repository.maintenance_notice(params.notice_id)})
+
+
+class ListConflictsInput(ParamsModel):
+    status: str = "open"
+
+
+@method("list_source_conflicts", ListConflictsInput)
+def list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -> dict[str, Any]:
+    """List source conflicts by status (§10.2) for the conflict review surface.
+
+    Each side is enriched with its resolved ``extraction_id`` (from the cited
+    revision) so the client can open both bounded spans side by side through the
+    M6-UX ``get_span_view``/Open-in-source viewer."""
+
+    from learnloop.services.source_outline import resolve_extraction_id
+
+    _vault, repository = ctx.require_vault()
+    conflicts = repository.source_conflicts_by_status(params.status)
+    extraction_cache: dict[str, str | None] = {}
+
+    def _extraction_for(revision_id: str | None) -> str | None:
+        if not revision_id:
+            return None
+        if revision_id not in extraction_cache:
+            extraction_cache[revision_id] = resolve_extraction_id(repository, revision_id)
+        return extraction_cache[revision_id]
+
+    for conflict in conflicts:
+        conflict["left_extraction_id"] = _extraction_for(conflict.get("left_revision_id"))
+        conflict["right_extraction_id"] = _extraction_for(conflict.get("right_revision_id"))
+    return versioned({"conflicts": conflicts})
+
+
+class ResolveConflictInput(ParamsModel):
+    conflict_id: str
+    resolution_kind: str
+    resolution: dict[str, Any] = {}
+    rationale: str | None = None
+
+
+@method("resolve_source_conflict", ResolveConflictInput)
+def resolve_source_conflict_rpc(ctx: SidecarContext, params: ResolveConflictInput) -> dict[str, Any]:
+    """Resolve an open conflict (§10.2) — never applies either competing side."""
+
+    from learnloop.services.conflict_resolution import ConflictResolutionError, conflict_with_audit, resolve_conflict
+
+    _vault, repository = ctx.require_vault()
+    try:
+        resolve_conflict(repository, params.conflict_id, resolution_kind=params.resolution_kind,
+                         resolution=dict(params.resolution or {}), actor="user", rationale=params.rationale)
+    except ConflictResolutionError as exc:
+        raise SidecarError("conflict_resolution_failed", str(exc))
+    return versioned({"conflict": conflict_with_audit(repository, params.conflict_id)})
+
+
 class PlanQuickAddInput(ParamsModel):
     source: str
     subject_id: str | None = None

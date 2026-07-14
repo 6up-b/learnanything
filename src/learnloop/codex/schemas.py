@@ -726,3 +726,90 @@ class SourceSetSynthesis(BaseModel):
     conflicts: list[SynthConflict] = Field(default_factory=list)
     non_conflict_dispositions: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+# --- Append reconciliation (§10.2) ------------------------------------------
+
+
+class AppendProvenanceLink(BaseModel):
+    """A `provenance_link` additive item (span_attach / alternate_explanation /
+    assessment_alignment, §10.2). Purely attaches an existing entity to a new span
+    — it never mutates the target. The intent label is untrusted; the apply handler
+    only ever writes an entity_source_links row."""
+
+    client_item_id: str = ""
+    reconciliation_intent: Literal[
+        "span_attach", "alternate_explanation", "assessment_alignment"
+    ] = "span_attach"
+    target_entity_type: Literal[
+        "facet", "learning_object", "task_blueprint", "practice_item", "concept"
+    ] = "facet"
+    target_entity_id: str = ""
+    expected_target_hash: str = ""
+    relation: Literal["support", "alternate", "assessment_alignment"] = "support"
+    span: SynthSpanRef = Field(default_factory=SynthSpanRef)
+
+
+class AppendNotationMapping(BaseModel):
+    """A contextual notation equivalence (`notation_mapping`, review-required)."""
+
+    client_item_id: str = ""
+    target_entity_type: Literal["facet", "learning_object", "concept"] = "facet"
+    target_entity_id: str = ""
+    canonical_notation: str = ""
+    alternate_notation: str = ""
+    context: str = ""
+    span: SynthSpanRef = Field(default_factory=SynthSpanRef)
+
+
+class AppendConflict(BaseModel):
+    """A two-sided conflict (`source_conflict`, always reviewed). Accepting persists
+    an OPEN conflict; it never applies either competing side."""
+
+    client_item_id: str = ""
+    entity_type: Literal["facet", "learning_object", "concept"] = "facet"
+    entity_id: str = ""
+    statement: str = ""
+    left: SynthSpanRef = Field(default_factory=SynthSpanRef)
+    right: SynthSpanRef = Field(default_factory=SynthSpanRef)
+
+
+class AppendRestructure(BaseModel):
+    """A semantic replacement/removal (`restructure_unlocked`; update/deactivate).
+
+    Legal only when the touched identity is unlocked and the target hash matches;
+    always review-required, invalid (not merely reviewed) on a locked entity."""
+
+    client_item_id: str = ""
+    target_entity_type: Literal["learning_object", "concept", "practice_item"] = "learning_object"
+    target_entity_id: str = ""
+    operation: Literal["update", "deactivate"] = "update"
+    expected_target_hash: str = ""
+    payload: dict = Field(default_factory=dict)
+
+
+class AppendReconciliation(BaseModel):
+    """The §10.2 append reconciliation contract (candidate-only, span-cited).
+
+    Context = new/changed inventories + brief + the bounded affected neighborhood
+    (NEVER the full map). Additive intents use specialized append-only item types;
+    pure additivity is verified from item type + payload by the gate/handlers, never
+    trusted from these intent labels. Discovered via getattr like
+    run_source_set_synthesis."""
+
+    summary: str = ""
+    span_requests: list[SynthSpanRequest] = Field(default_factory=list)
+    # new_coverage reuses the bootstrap curriculum vocabulary (operation=create).
+    concepts: list[SynthConcept] = Field(default_factory=list)
+    facets: list[SynthFacet] = Field(default_factory=list)
+    learning_objects: list[SynthLearningObject] = Field(default_factory=list)
+    blueprints: list[SynthBlueprint] = Field(default_factory=list)
+    practice_items: list[SynthPracticeItem] = Field(default_factory=list)
+    # specialized additive item types.
+    provenance_links: list[AppendProvenanceLink] = Field(default_factory=list)
+    notation_mappings: list[AppendNotationMapping] = Field(default_factory=list)
+    conflicts: list[AppendConflict] = Field(default_factory=list)
+    restructures: list[AppendRestructure] = Field(default_factory=list)
+    conflict_candidates: list[str] = Field(default_factory=list)
+    non_conflict_dispositions: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
