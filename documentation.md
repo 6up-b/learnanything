@@ -108,6 +108,20 @@ The desktop app selects an existing vault; the CLI is the reliable way to initia
 
 The AI menu in the top bar reports and switches the configured grading provider. Manual mode is a supported fallback for ordinary practice. It is not sufficient for a qualifying diagnostic observation because a learner cannot independently validate a test whose purpose is to distinguish hidden hypotheses about that learner.
 
+### AI providers
+
+AI backends are configured per vault under `[ai.providers.<name>]` in `learnloop.toml`; the entries in that table are exactly the options the AI menu offers. Besides the Codex profile, two provider types speak to any OpenAI-compatible endpoint: `openai_chat` (explicit `base_url`, e.g. the bundled DeepSeek profiles) and `openrouter`, which defaults to `https://openrouter.ai/api/v1` and accepts **any OpenRouter model slug**:
+
+~~~toml
+[ai.providers.openrouter]
+type = "openrouter"
+model = "anthropic/claude-sonnet-4.5"   # any OpenRouter slug
+api_key_env = "OPENROUTER_API_KEY"
+response_format = "json_object"          # or "json_schema" on supporting models
+~~~
+
+API keys are never written to `learnloop.toml`; the profile names an environment variable, and the key is read from the shell environment, the vault-local `.env`, or `~/.config/learnloop/settings.env` (in that precedence order). Switch every AI task to a provider with `LEARNLOOP_AI_PROVIDER=openrouter`, set `active_provider = "openrouter"` in `[ai]`, or mix providers per task via `[ai.routing]` — `canonical_ingest` also covers unit inventory, study-map synthesis, and append reconciliation, so a vault can, for example, keep Codex for synthesis while OpenRouter grades practice. Most CLI commands accept `--ai-provider <name>` for a one-off override.
+
 The command palette opens with Ctrl/Cmd+P or `:`. Useful commands include `today`, `ask`, `review`, `why <practice-item-id>`, `show <id>`, `attempt <practice-item-id>`, `calibrate [goal-id]`, and `doctor`. Alt+1 through Alt+8 switches the first eight navigation tabs.
 
 ## 4. The mental model

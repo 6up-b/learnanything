@@ -631,3 +631,56 @@ def test_youtube_import_without_metadata_falls_back_to_url(tmp_path):
     # Transcript unit keeps the neutral default label when no title is known.
     ir = runner.repo.load_document_ir(job["result"]["extraction_id"])
     assert ir.units[0].label == "Transcript"
+
+
+# --------------------------------------------------------------------------
+# default_inventory_client provider routing
+# --------------------------------------------------------------------------
+
+
+def test_default_inventory_client_routes_via_canonical_ingest(tmp_path, monkeypatch):
+    """[ai.routing].canonical_ingest picks the inventory/synthesis provider, so
+    an openrouter-routed vault resolves an OpenRouter client instead of codex."""
+
+    import types
+
+    from learnloop.services.ingest_runner import default_inventory_client
+
+    from tests.helpers import create_basic_vault
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    toml_path = vault_root / "learnloop.toml"
+    text = toml_path.read_text(encoding="utf-8")
+    assert 'canonical_ingest = "codex"' in text
+    toml_path.write_text(
+        text.replace('canonical_ingest = "codex"', 'canonical_ingest = "openrouter"'),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    install_fake_openai(monkeypatch)
+
+    client = default_inventory_client(types.SimpleNamespace(vault_root=vault_root))
+
+    assert client.provider_type == "openrouter"
+    assert client.model == "deepseek/deepseek-chat"
+
+
+def test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable(tmp_path, monkeypatch):
+    """Default routing still resolves codex, which is unavailable in tests — the
+    runner raises a typed error instead of silently switching providers."""
+
+    import types
+
+    from learnloop.services.ingest_runner import IngestRunnerError, default_inventory_client
+
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+
+    with pytest.raises(IngestRunnerError):
+        default_inventory_client(types.SimpleNamespace(vault_root=vault_root))

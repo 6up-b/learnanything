@@ -50,6 +50,10 @@ def make_ai_provider_client_from_profile(
         from learnloop.ai.openai_chat import OpenAIChatProviderClient
 
         return OpenAIChatProviderClient(provider_name, profile)
+    if provider_type == "openrouter":
+        from learnloop.ai.openrouter import OpenRouterProviderClient
+
+        return OpenRouterProviderClient(provider_name, profile)
     if provider_type == "codex_sdk":
         from learnloop.ai.codex_sdk import CodexSDKProviderClient
 

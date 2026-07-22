@@ -1179,6 +1179,7 @@ def inventory_command(
     units: Annotated[list[str] | None, typer.Option("--unit", help="Unit id to inventory (repeatable).")] = None,
     role: Annotated[str, typer.Option("--role", help="Confirmed role (§4.2).")] = "reference",
     profile: Annotated[str | None, typer.Option("--profile", help="semantic|practice|assessment|combined.")] = None,
+    ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for inventory.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     vault: Annotated[Path | None, typer.Option("--vault")] = None,
 ) -> None:
@@ -1202,10 +1203,9 @@ def inventory_command(
         typer.echo("No units to inventory (pass --unit or record a selection first).", err=True)
         raise typer.Exit(code=1)
 
-    runtime = check_codex_runtime(vault_root, loaded.config.codex)
-    client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+    _provider, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "canonical_ingest", ai_provider)
     if client is None:
-        typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+        typer.echo(runtime.message or "AI provider is unavailable.", err=True)
         raise typer.Exit(code=1)
 
     results = []
@@ -1265,6 +1265,7 @@ def synthesize_command(
     apply_map: Annotated[bool, typer.Option("--apply", help="Accept the study map under the vault lock (requires mvp-0.7).")] = False,
     create_goal: Annotated[bool, typer.Option("--create-goal", help="Create an exam-prep Goal wired to the minted facets.")] = False,
     new_revision: Annotated[list[str] | None, typer.Option("--new-revision", help="Revision id(s) newly added/changed (append mode).")] = None,
+    ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for synthesis.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     vault: Annotated[Path | None, typer.Option("--vault")] = None,
 ) -> None:
@@ -1286,10 +1287,9 @@ def synthesize_command(
     if brief_file is not None:
         brief = jsonlib.loads(brief_file.read_text(encoding="utf-8"))
 
-    runtime = check_codex_runtime(vault_root, loaded.config.codex)
-    client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+    _provider, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "canonical_ingest", ai_provider)
     if client is None:
-        typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+        typer.echo(runtime.message or "AI provider is unavailable.", err=True)
         raise typer.Exit(code=1)
 
     resolved_mode = mode
@@ -1568,6 +1568,7 @@ def synthesis_eval_command(
     subject: Annotated[str, typer.Argument(help="Fixture subject id (informational; keyed per prompt version).")],
     set_id: Annotated[str | None, typer.Option("--set", help="Source set to synthesize + score (live provider run).")] = None,
     gold: Annotated[Path | None, typer.Option("--gold", help="Gold registry YAML (defaults to the bundled fixture).")] = None,
+    ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for synthesis.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     vault: Annotated[Path | None, typer.Option("--vault")] = None,
 ) -> None:
@@ -1588,10 +1589,9 @@ def synthesis_eval_command(
     vault_root = _root(vault)
     loaded = load_vault(vault_root)
     if set_id is not None:
-        runtime = check_codex_runtime(vault_root, loaded.config.codex)
-        client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+        _provider, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "canonical_ingest", ai_provider)
         if client is None:
-            typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+            typer.echo(runtime.message or "AI provider is unavailable.", err=True)
             raise typer.Exit(code=1)
         create_study_map(vault_root, set_id, client=client, brief={}, apply=True)
         loaded = load_vault(vault_root)

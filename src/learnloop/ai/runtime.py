@@ -85,8 +85,9 @@ def check_ai_runtime(
             provider_revision=report.actual_revision,
             message=report.message,
         )
-    if provider_type == "openai_chat":
-        api_key_env = profile.api_key_env or "OPENAI_API_KEY"
+    if provider_type in {"openai_chat", "openrouter"}:
+        default_env = "OPENROUTER_API_KEY" if provider_type == "openrouter" else "OPENAI_API_KEY"
+        api_key_env = profile.api_key_env or default_env
         if not os.environ.get(api_key_env):
             return AIRuntimeReport(
                 status="provider_auth_required",

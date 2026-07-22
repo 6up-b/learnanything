@@ -458,19 +458,45 @@ def default_run_legacy_ingest(
 
 
 def default_inventory_client(ctx: JobContext) -> Any:
-    """Resolve a codex client for unit inventory (§7). Codex-only: the inventory
-    method is getattr-discovered on the SDK client, so a provider lacking it
+    """Resolve the unit-inventory/synthesis client through ai routing (§7).
+
+    Routed via the ``canonical_ingest`` task (empty routing follows
+    ai.active_provider, which defaults to codex). The inventory/synthesis
+    methods are getattr-discovered on the client, so a provider lacking them
     degrades to an explicit unavailable error rather than fabricating rows."""
 
+    from learnloop.ai.client import make_ai_provider_client
+    from learnloop.ai.routing import fallback_provider_for, provider_for_task
+    from learnloop.ai.runtime import check_ai_runtime
     from learnloop.codex.client import make_codex_client
     from learnloop.codex.runtime import check_codex_runtime
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
-    runtime = check_codex_runtime(ctx.vault_root, vault.config.codex)
-    if not runtime.ready:
-        raise IngestRunnerError(runtime.message or f"Codex runtime is {runtime.status}.")
-    return make_codex_client(vault.config.codex, ctx.vault_root)
+    config = vault.config
+
+    def _runtime(name: str):
+        if name == "codex":
+            return check_codex_runtime(ctx.vault_root, config.codex)
+        return check_ai_runtime(ctx.vault_root, config, provider_name=name)
+
+    def _client(name: str):
+        if name == "codex":
+            return make_codex_client(config.codex, ctx.vault_root)
+        return make_ai_provider_client(config, ctx.vault_root, provider_name=name)
+
+    selection = provider_for_task(config, "canonical_ingest")
+    runtime = _runtime(selection.provider_name)
+    if runtime.ready:
+        return _client(selection.provider_name)
+    fallback = fallback_provider_for(config, selection)
+    if fallback:
+        fallback_runtime = _runtime(fallback)
+        if fallback_runtime.ready:
+            return _client(fallback)
+    raise IngestRunnerError(
+        runtime.message or f"AI provider {selection.provider_name!r} is {runtime.status}."
+    )
 
 
 # ---------------------------------------------------------------------------

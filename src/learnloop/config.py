@@ -431,6 +431,10 @@ quick_add_scope_input_tokens = 40000
 # Per-provider context/output limits consulted by preflight, keyed by the
 # [ai.providers.<name>] entries (source-ingestion spec §3.1), e.g.
 # [ingest.providers.codex] context_tokens / max_output_tokens.
+# For openrouter, set these to the chosen model's real limits, e.g.
+# [ingest.providers.openrouter]
+# context_tokens = 128000
+# max_output_tokens = 32768
 
 # Durable ingest-queue worker settings (source-ingestion spec §6.2). One worker
 # (sidecar background loop or foreground CLI) drains queued jobs at a time under
@@ -499,6 +503,21 @@ thinking = "enabled"
 reasoning_effort = "high"
 max_tokens = 16384
 timeout_seconds = 180
+
+# Any OpenRouter model slug works here: "anthropic/claude-sonnet-4.5",
+# "openai/gpt-5-mini", "deepseek/deepseek-chat", ... Set OPENROUTER_API_KEY in
+# the vault .env or ~/.config/learnloop/settings.env.
+[ai.providers.openrouter]
+type = "openrouter"
+model = "deepseek/deepseek-chat"
+api_key_env = "OPENROUTER_API_KEY"
+response_format = "json_object"
+timeout_seconds = 180
+# base_url = "https://openrouter.ai/api/v1"  # default; override for proxies
+# response_format = "json_schema"            # strict per-request schema on supporting models
+# reasoning_effort = "medium"                # OpenRouter unified reasoning effort
+# http_referer = ""                          # optional attribution header
+# x_title = "LearnLoop"                      # optional attribution header
 
 [codex]
 provider = "sdk"
@@ -1309,6 +1328,9 @@ class AIProviderConfig(BaseModel):
     reasoning_summary: str | None = None
     max_tokens: int | None = None
     timeout_seconds: int | None = None
+    # OpenRouter attribution headers (type = "openrouter" only).
+    http_referer: str | None = None
+    x_title: str | None = None
 
     checkout_path: str | None = None
     revision: str | None = None
@@ -1615,6 +1637,7 @@ class LearnLoopConfig(BaseModel):
             self.ai.providers["codex"] = ai_provider_from_codex(self.codex)
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
+        self.ai.providers.setdefault("openrouter", openrouter_provider())
         if not self.ai.routing.grading:
             self.ai.routing.grading = self.ai.active_provider
         if not self.ai.routing.canonical_ingest:
@@ -1688,6 +1711,18 @@ def deepseek_pro_provider() -> AIProviderConfig:
         thinking="enabled",
         reasoning_effort="high",
         max_tokens=16384,
+        timeout_seconds=180,
+    )
+
+
+def openrouter_provider() -> AIProviderConfig:
+    # base_url defaults inside the client; max_tokens stays unset so
+    # synthesis-sized outputs are never truncated by a blanket cap.
+    return AIProviderConfig(
+        type="openrouter",
+        model="deepseek/deepseek-chat",
+        api_key_env="OPENROUTER_API_KEY",
+        response_format="json_object",
         timeout_seconds=180,
     )
 
