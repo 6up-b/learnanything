@@ -51,6 +51,28 @@ def test_sidecar_loads_linear_algebra_fixture_vault(tmp_path):
     assert queue["totalItems"] >= 3
 
 
+def test_sidecar_config_reports_ai_routing(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    config = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "get_config", "params": {}},
+        ]
+    )[1]["result"]
+
+    routing = config["ai"]["routing"]
+    # Default vault: legacy codex routes upgraded to workload-specific profiles.
+    assert routing["grading"] == "codex_low"
+    assert routing["canonicalIngest"] == "codex_medium"
+    assert routing["canonicalIngestRetry"] == "codex_medium"
+    assert routing["authoring"] == "codex_medium"
+    assert routing["tutorQa"] == "codex_low"
+    assert routing["teachBack"] == "codex_low"
+    assert routing["rungVariant"] == "codex_low"
+
+
 def test_sidecar_initialize_start_session_and_queue(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)

@@ -149,6 +149,19 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "ai": {
                 "active_provider": config.ai.active_provider,
                 "fallback_provider": config.ai.fallback_provider,
+                # Per-task provider routes (the Settings tab edits these).
+                "routing": {
+                    task: getattr(config.ai.routing, task)
+                    for task in (
+                        "grading",
+                        "canonical_ingest",
+                        "canonical_ingest_retry",
+                        "authoring",
+                        "tutor_qa",
+                        "teach_back",
+                        "rung_variant",
+                    )
+                },
                 "providers": {
                     name: {
                         "type": profile.type,
