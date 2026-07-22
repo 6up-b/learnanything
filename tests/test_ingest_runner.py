@@ -1262,3 +1262,95 @@ def test_native_audio_failure_is_typed_and_never_switches_routes(tmp_path, monke
     # Exactly one chat call — no silent fallback to the transcription endpoint.
     assert len(fake.instances[0].requests) == 1
     assert not fake.instances[0].transcription_requests
+
+
+# --------------------------------------------------------------------------
+# Native PDF engine ([ingest.pdf] engine = "native")
+# --------------------------------------------------------------------------
+
+
+def _native_pdf_vault(tmp_path, monkeypatch, *, input_modalities=("pdf",)):
+    from learnloop.services.settings_store import apply_config_updates
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "pdf", "engine"): "native",
+            ("ingest", "native", "enabled"): True,
+            ("ai", "routing", "canonical_ingest"): "openrouter",
+            ("ai", "providers", "openrouter", "input_modalities"): list(input_modalities),
+        },
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    return vault_root
+
+
+def _pdf_fetched(tmp_path):
+    from learnloop.services.ingest_runner import FetchedBytes
+
+    return FetchedBytes(
+        raw_bytes=b"%PDF-1.4 fake",
+        content_type="application/pdf",
+        original_uri=str(tmp_path / "chapter.pdf"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+
+def test_native_pdf_engine_extracts_markdown_via_chat_provider(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import default_extract, default_extraction_identity
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch, "# Chapter 1\n\nNative extraction body.")
+
+    identity = default_extraction_identity(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
+    ir = default_extract(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
+
+    assert identity["extractor"] == "pdf_native"
+    assert identity["model_versions"] == {"chat_model": "deepseek/deepseek-chat"}
+    assert ir.extractor == "pdf_native"
+    assert "Native extraction body" in " ".join(block.text for block in ir.blocks)
+    request = fake.instances[0].requests[0]
+    assert "response_format" not in request
+    parts = request["messages"][1]["content"]
+    assert parts[1]["type"] == "file"
+    assert parts[1]["file"]["filename"] == "chapter.pdf"
+
+
+def test_native_pdf_engine_rejects_page_selection(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import IngestRunnerError, JobContext, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch)
+    install_fake_openai(monkeypatch)
+    ctx = JobContext(
+        repo=None,
+        vault_root=vault_root,
+        job={"payload": {"page_selection": [0, 1]}},
+        clock=_clock(),
+        worker_id="w1",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(_pdf_fetched(tmp_path), "pdf", ctx)
+
+    assert excinfo.value.code == "native_pdf_unavailable"
+
+
+def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import IngestRunnerError, default_extraction_identity
+    from tests.openai_fakes import install_fake_openai
+
+    # pdf modality not declared -> engine "native" cannot run; fails closed.
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch, input_modalities=())
+    install_fake_openai(monkeypatch)
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extraction_identity(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
+
+    assert excinfo.value.code == "native_pdf_unavailable"
+    assert excinfo.value.retryable is True

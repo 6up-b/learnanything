@@ -148,6 +148,8 @@ def _configured_extractor(category: str, config: LearnLoopConfig) -> str:
                 return "pypdf"
             if engine == "marker":
                 return "marker"
+            if engine == "native":
+                return "pdf_native"
             return "marker" if marker_available() else "pypdf"
     return _NORMALIZER_BY_CATEGORY.get(category, "text_normalizer")
 
@@ -162,6 +164,15 @@ def _potential_external(category: str, config: LearnLoopConfig) -> list[dict]:
                 "base_url": config.ingest.pdf.llm_base_url or None,
                 "model": config.ingest.pdf.llm_model or None,
                 "reason": "marker VLM boost sends difficult pages to an external service",
+            }
+        )
+    if category == "pdf" and config.ingest.pdf.engine == "native":
+        external.append(
+            {
+                "kind": "pdf_native_extraction",
+                "base_url": None,
+                "model": None,
+                "reason": "engine \"native\" sends the whole PDF to the routed chat provider",
             }
         )
     if category == "audio":

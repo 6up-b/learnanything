@@ -1341,7 +1341,7 @@ export interface IngestJobsSnapshot {
   jobs: IngestJobDto[];
 }
 
-export type PdfEngine = "auto" | "marker" | "pypdf";
+export type PdfEngine = "auto" | "marker" | "pypdf" | "native";
 
 export interface StartIngestInput {
   source: string;

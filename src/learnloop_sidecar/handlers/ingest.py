@@ -36,7 +36,7 @@ class StartIngestInput(ParamsModel):
     mode: Literal["canonical", "exam"] = "canonical"
     # PDF extraction engine: marker-pdf (structured Markdown, math, OCR) or the
     # pypdf native-text fallback. "auto" defers to the vault's [ingest.pdf].
-    pdf_engine: Literal["auto", "marker", "pypdf"] = "auto"
+    pdf_engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
 
 
 class IngestJobInput(ParamsModel):
@@ -70,7 +70,7 @@ class StartImportBatchInput(ParamsModel):
     reader_disabled_sources: list[str] = []
     # PDF extraction engine for this batch: marker-pdf or the pypdf fallback.
     # "auto" defers to the vault's [ingest.pdf] configuration.
-    pdf_engine: Literal["auto", "marker", "pypdf"] = "auto"
+    pdf_engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
 
 
 class IngestBatchInput(ParamsModel):

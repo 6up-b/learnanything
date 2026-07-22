@@ -371,6 +371,8 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     )
     if is_pdf:
         pdf_config = _pdf_payload_config(ctx)
+        if pdf_config.get("engine") == "native":
+            return _extract_pdf_native(fetched, ctx)
         try:
             extractor = pdf_extractor_for(pdf_config)
         except MarkerUnavailableError as exc:
@@ -476,6 +478,14 @@ def default_extraction_identity(
     )
     config = _pdf_payload_config(ctx)
     if is_pdf:
+        if config.get("engine") == "native":
+            route = _require_native_pdf_route(ctx)
+            return {
+                "extractor": "pdf_native",
+                "extractor_version": "1",
+                "model_versions": {"chat_model": route.model or ""},
+                "config": {"provider": route.provider_name},
+            }
         try:
             extractor = pdf_extractor_for(config)
         except MarkerUnavailableError as exc:
@@ -684,6 +694,50 @@ def _extract_audio_native(
         extractor_name="audio_native",
         extractor_version="1",
     )
+
+
+def _require_native_pdf_route(ctx: JobContext) -> NativeMediaRoute:
+    route = _native_media_route(ctx, "pdf")
+    if route is None:
+        raise IngestRunnerError(
+            'PDF engine "native" requires [ingest.native] enabled with pdf = true and a '
+            'canonical_ingest route to an OpenAI-compatible provider declaring "pdf" in '
+            "input_modalities.",
+            code="native_pdf_unavailable",
+            retryable=True,
+        )
+    return route
+
+
+def _extract_pdf_native(fetched: FetchedBytes, ctx: JobContext) -> Any:
+    """PDF → chat file part → Markdown → IR ([ingest.pdf] engine "native")."""
+
+    from learnloop.ai.multimodal import PdfExtractionContextNative
+    from learnloop.codex.client import CodexUnavailable
+    from learnloop.ingest.extractors import markdown_to_ir
+
+    route = _require_native_pdf_route(ctx)
+    if ctx.payload.get("page_selection"):
+        raise IngestRunnerError(
+            "Native PDF ingestion does not support page selection; use the marker or "
+            "pypdf engine for page ranges.",
+            code="native_pdf_unavailable",
+        )
+    filename = _audio_filename(fetched)
+    if "." not in filename:
+        filename = f"{filename}.pdf"
+    client = _native_media_client(ctx, route)
+    try:
+        markdown = client.run_media_markdown(
+            PdfExtractionContextNative(
+                media_bytes=fetched.raw_bytes,
+                filename=filename,
+                title=ctx.payload.get("title") or fetched.title,
+            )
+        )
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="native_pdf_failed", retryable=True) from exc
+    return markdown_to_ir(markdown, title=ctx.payload.get("title"), extractor_name="pdf_native")
 
 
 def _caption_cues(text: str) -> list[dict[str, Any]] | None:
