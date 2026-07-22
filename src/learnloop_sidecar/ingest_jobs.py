@@ -402,6 +402,20 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch_id
 
+    def enqueue_concept_animation(self, *, animation_id: str, subject_id: str | None = None) -> str:
+        """Enqueue one explainer-animation generation (interactive band — the
+        learner clicked generate and is watching the status)."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "concept_animation",
+            [JobSpec("concept_animation", {"animation_id": animation_id})],
+            subject_id=subject_id,
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
     def enqueue_inventory(
         self,
         *,
