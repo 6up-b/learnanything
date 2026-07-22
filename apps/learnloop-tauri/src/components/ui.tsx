@@ -15,8 +15,9 @@ export const navTabs = [
   { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 
-// `errors` is an overlay-only route used by `learnloop diff`, not a visible tab.
-export type TopTab = (typeof navTabs)[number]["id"] | "errors";
+// `errors` is an overlay-only route used by `learnloop diff`, not a visible
+// tab; `settings` is reached via the nav-status chip (or Alt+S), not navTabs.
+export type TopTab = (typeof navTabs)[number]["id"] | "errors" | "settings";
 
 function getAppWindow(): ReturnType<typeof getCurrentWindow> | null {
   try {
@@ -101,82 +102,31 @@ function VaultPath({ root, onSelect }: { root: string; onSelect: (path: string) 
   );
 }
 
-// Fallback when the sidecar health snapshot doesn't advertise its provider
-// list (older sidecar). "manual" is always appended by the menu itself.
-const DEFAULT_PROVIDERS = ["codex", "deepseek_flash", "deepseek_pro"];
-
-// The nav-bar "ai:<provider>" health chip, now a dropdown: click to switch the
-// grading backend between the configured AI providers and manual (self) grading.
-function AiProviderMenu({
+// The nav-bar "ai:<provider>" health chip. It keeps the at-a-glance
+// ready/unready color and opens the Settings screen, which replaced the old
+// inline provider dropdown.
+function SettingsChip({
   ready,
   label,
   manual,
-  providers,
-  onSelect
+  active,
+  onOpen
 }: {
   ready: boolean;
   label: string;
   manual: boolean;
-  providers: string[];
-  onSelect?: (provider: string) => void;
+  active: boolean;
+  onOpen: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("click", close);
-    window.addEventListener("keydown", onEscape);
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("keydown", onEscape);
-    };
-  }, [open]);
-
-  const options = [...(providers.length ? providers : DEFAULT_PROVIDERS).filter((p) => p !== "manual"), "manual"];
-  const optionLabel = (p: string) => (p === "manual" ? "manual grading" : p);
-
   return (
-    <span className="ai-menu-wrap" onClick={(event) => event.stopPropagation()}>
-      <span
-        className={ready || manual ? "health ok" : "health bad"}
-        role="button"
-        tabIndex={0}
-        title={`AI provider: ${label} · click to switch`}
-        style={{ cursor: onSelect ? "pointer" : undefined }}
-        onClick={() => onSelect && setOpen((o) => !o)}
-        onKeyDown={(event) => {
-          if (onSelect && (event.key === "Enter" || event.key === " ")) {
-            event.preventDefault();
-            setOpen((o) => !o);
-          }
-        }}
-      >
-        ai:{label}{onSelect ? (open ? " ▴" : " ▾") : ""}
-      </span>
-      {open ? (
-        <div className="ai-menu" role="menu">
-          {options.map((provider) => (
-            <button
-              key={provider}
-              type="button"
-              role="menuitem"
-              className={provider === label ? "active" : ""}
-              onClick={() => {
-                setOpen(false);
-                onSelect?.(provider);
-              }}
-            >
-              {provider === label ? "● " : "  "}
-              {optionLabel(provider)}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </span>
+    <button
+      type="button"
+      className={`nav-settings ${ready || manual ? "health ok" : "health bad"}${active ? " open" : ""}`}
+      title={`AI provider: ${label} · open settings (Alt+S)`}
+      onClick={onOpen}
+    >
+      ai:{label} ⚙
+    </button>
   );
 }
 
@@ -187,8 +137,6 @@ export function TerminalFrame({
   aiReady,
   aiLabel,
   aiManual = false,
-  aiProviders = [],
-  onSelectAiProvider,
   vaultRoot,
   onSelectVault
 }: {
@@ -198,8 +146,6 @@ export function TerminalFrame({
   aiReady: boolean;
   aiLabel: string;
   aiManual?: boolean;
-  aiProviders?: string[];
-  onSelectAiProvider?: (provider: string) => void;
   vaultRoot?: string | null;
   onSelectVault: (path: string) => void;
 }) {
@@ -220,12 +166,12 @@ export function TerminalFrame({
           ))}
           <div className="nav-status">
             {vaultRoot ? <VaultPath root={vaultRoot} onSelect={onSelectVault} /> : null}
-            <AiProviderMenu
+            <SettingsChip
               ready={aiReady}
               label={aiLabel}
               manual={aiManual}
-              providers={aiProviders}
-              onSelect={onSelectAiProvider}
+              active={active === "settings"}
+              onOpen={() => onTab("settings")}
             />
           </div>
         </nav>

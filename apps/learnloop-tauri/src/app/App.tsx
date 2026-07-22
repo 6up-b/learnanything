@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { AppSnapshot, ProbeBlockEndDto, SessionEndSummary, SessionSnapshot } from "../api/dto";
+import type { AppSnapshot, ProbeBlockEndDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
@@ -14,6 +14,7 @@ import { GraphScreen } from "../screens/GraphScreen";
 import { IngestScreen } from "../screens/IngestScreen";
 import { LibraryScreen } from "../screens/LibraryScreen";
 import { MaintenanceScreen } from "../screens/MaintenanceScreen";
+import { SettingsScreen } from "../screens/SettingsScreen";
 import { PracticeScreen } from "../screens/PracticeScreen";
 import { ProposalsScreen } from "../screens/ProposalsScreen";
 import { RegistryReviewScreen } from "../screens/RegistryReviewScreen";
@@ -181,6 +182,10 @@ export function App() {
           event.preventDefault();
         }
       }
+      if (event.altKey && event.key.toLowerCase() === "s") {
+        gotoTab("settings");
+        event.preventDefault();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -209,7 +214,10 @@ export function App() {
   // not an outage) — but practice screens must still start in self-grade mode.
   const gradingReady = (snapshot?.health.ai?.ready ?? snapshot?.health.codex.ready ?? false) && !manualGrading;
   const gradingProvider = snapshot?.health.ai?.activeProvider ?? "codex";
-  const availableProviders = snapshot?.health.ai?.availableGradingProviders ?? [];
+
+  const applyHealth = useCallback((health: RuntimeHealth) => {
+    setSnapshot((current) => (current ? { ...current, health } : current));
+  }, []);
 
   const changeGradingProvider = useCallback(
     async (provider: string) => {
@@ -643,6 +651,17 @@ export function App() {
         />
       );
     }
+    if (tab === "settings") {
+      return (
+        <SettingsScreen
+          manualGrading={manualGrading}
+          onSelectGradingProvider={changeGradingProvider}
+          onHealthChanged={applyHealth}
+          onToast={setToast}
+          onError={onError}
+        />
+      );
+    }
     return <EmptyPlaceholder title={tab} />;
   }
 
@@ -654,8 +673,6 @@ export function App() {
         aiReady={gradingReady}
         aiLabel={gradingProvider}
         aiManual={manualGrading}
-        aiProviders={availableProviders}
-        onSelectAiProvider={changeGradingProvider}
         vaultRoot={snapshot?.vault?.root}
         onSelectVault={changeVault}
       >
