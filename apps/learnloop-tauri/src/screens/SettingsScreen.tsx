@@ -10,7 +10,8 @@ import { SectionHeader } from "../components/ui";
 const USE_CASES: Array<{ id: string; label: string; hint: string; primaryRoute: string }> = [
   { id: "grading", label: "grading", hint: "attempt grading + misconception match", primaryRoute: "grading" },
   { id: "ingest", label: "ingest / synthesis", hint: "canonical ingest, study-map synthesis, authoring", primaryRoute: "canonicalIngest" },
-  { id: "tutor", label: "tutor", hint: "tutor Q&A, teach-back, rung variants", primaryRoute: "tutorQa" }
+  { id: "tutor", label: "tutor", hint: "tutor Q&A, teach-back, rung variants", primaryRoute: "tutorQa" },
+  { id: "animation", label: "animation", hint: "manim explainer-scene authoring", primaryRoute: "animation" }
 ];
 
 export const PALETTE_STORAGE_KEY = "learnloop.palette";

@@ -44,6 +44,8 @@ from learnloop.codex.prompts import (
     READING_QUICK_CHECK_PROMPT_VERSION,
     APPEND_RECONCILIATION_PROMPT,
     APPEND_RECONCILIATION_PROMPT_VERSION,
+    CONCEPT_ANIMATION_PROMPT,
+    CONCEPT_ANIMATION_PROMPT_VERSION,
     CONCEPT_GRAPH_STRUCTURING_PROMPT,
     CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT,
@@ -69,6 +71,7 @@ from learnloop.codex.schemas import (
     ReadingQuickCheck,
     AppendReconciliation,
     ConceptGraphStructuring,
+    ManimAnimation,
     SourceSetSynthesis,
     SourceUnitInventory,
     TeachBackQuestion,
@@ -487,6 +490,26 @@ class ConceptGraphContext:
     source_skeletons: list = field(default_factory=list)
     registry_concepts: list = field(default_factory=list)
     registry_edges: list = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ConceptAnimationContext:
+    """Bounded input for one Manim explainer-scene authoring call.
+
+    Carries the concept's title/description plus a few learning-object
+    excerpts — never raw source text. ``repair`` (when present) holds the
+    previous scene code and either validator violations or renderer stderr for
+    the one bounded repair round-trip. The returned scene code is candidate
+    only: an AST allowlist validates it and a constrained subprocess renders
+    it, with per-run learner consent as the actual boundary."""
+
+    concept_id: str
+    concept_title: str
+    concept_description: str = ""
+    learning_objects: list = field(default_factory=list)
+    max_duration_seconds: int = 45
+    latex_available: bool = False
+    repair: dict | None = None
 
 
 @dataclass
@@ -1036,6 +1059,21 @@ class SdkCodexClient:
             purpose="concept_graph_structuring",
         )
         return ConceptGraphStructuring.model_validate_json(text)
+
+    def run_concept_animation(self, context: ConceptAnimationContext) -> ManimAnimation:
+        """Author one Manim CE explainer scene for a concept.
+
+        Deliberately NOT on the ``CodexClient`` Protocol — the animation service
+        discovers it via ``getattr(client, "run_concept_animation", None)`` and
+        fails typed when the provider lacks it. Output is candidate-only: the
+        service AST-validates and renders it in a constrained subprocess."""
+
+        text = self._run_structured(
+            _concept_animation_prompt(context),
+            _codex_output_schema(ManimAnimation),
+            purpose="concept_animation",
+        )
+        return ManimAnimation.model_validate_json(text)
 
     def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
         """Reconcile new/changed material into an existing map (§10.1/§10.2).
@@ -1704,6 +1742,19 @@ def _concept_graph_structuring_prompt(context: ConceptGraphContext) -> str:
         CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION,
         {
             "task": CONCEPT_GRAPH_STRUCTURING_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _concept_animation_prompt(context: ConceptAnimationContext) -> str:
+    """Manim explainer-scene authoring prompt (spec_fork_features §2)."""
+
+    return _json_prompt(
+        "learnloop concept animation",
+        CONCEPT_ANIMATION_PROMPT_VERSION,
+        {
+            "task": CONCEPT_ANIMATION_PROMPT,
             "context": asdict(context),
         },
     )

@@ -160,6 +160,7 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                         "tutor_qa",
                         "teach_back",
                         "rung_variant",
+                        "animation",
                     )
                 },
                 "providers": {

@@ -12,6 +12,9 @@ AITask = Literal[
     # constrained, gate-checked — routed to the fast low-effort profile so the
     # request feels interactive rather than riding the synthesis route.
     "rung_variant",
+    # Manim explainer-scene authoring (services/concept_animation): code
+    # generation is judgment-heavy, so it defaults to the medium-effort profile.
+    "animation",
 ]
 
 

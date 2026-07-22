@@ -2452,7 +2452,7 @@ def test_get_settings_reports_routing_providers_and_key_presence(tmp_path, monke
     assert "deepseek_flash" in provider_names
     assert result["openrouter"]["keyPresent"] is False
     assert "settingsEnvPath" in result["openrouter"]
-    assert sorted(result["ai"]["useCases"]) == ["grading", "ingest", "tutor"]
+    assert sorted(result["ai"]["useCases"]) == ["animation", "grading", "ingest", "tutor"]
 
 
 def test_update_ai_settings_persists_openrouter_grading_route(tmp_path, monkeypatch):

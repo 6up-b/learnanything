@@ -478,6 +478,19 @@ lease_ttl_seconds = 120
 heartbeat_interval_seconds = 15
 poll_interval_seconds = 1.0
 
+# AI-generated Manim explainer animations (concept inspector -> "generate
+# animation"). enabled is a hard kill-switch; every run ALSO requires a
+# per-generation consent click — the LLM-written scene code is AST-validated
+# and rendered by a local manim subprocess (install with: pip install
+# learnloop[animation]). The authoring model follows [ai.routing] animation.
+[animation]
+enabled = true
+quality = "ql"
+timeout_seconds = 300
+max_duration_seconds = 45
+latex_enabled = false
+auto_repair = true
+
 [ai]
 active_provider = "codex"
 fallback_provider = ""
@@ -491,6 +504,7 @@ authoring = "codex_medium"
 tutor_qa = "codex_low"
 teach_back = "codex_low"
 rung_variant = "codex_low"
+animation = "codex_medium"
 
 [ai.providers.codex]
 type = "codex_sdk"
@@ -1295,6 +1309,27 @@ class PdfIngestConfig(BaseModel):
     marker_options: dict[str, Any] = Field(default_factory=dict)
 
 
+class AnimationConfig(BaseModel):
+    """AI-generated Manim explainer animations (spec_fork_features §2).
+
+    ``enabled`` is a hard kill-switch; every generation additionally requires a
+    per-run learner consent click (server-side re-checked) — that consent is
+    the security boundary for executing LLM-written scene code. The AST
+    allowlist and constrained subprocess are best-effort hardening around it."""
+
+    enabled: bool = True
+    # manim render quality: "ql" (low, fast) | "qm" | "qh".
+    quality: str = "ql"
+    timeout_seconds: int = 300
+    max_duration_seconds: int = 45
+    # Tex/MathTex requires a LaTeX toolchain; off by default.
+    latex_enabled: bool = False
+    # One stderr round-trip back to the model when a render fails.
+    auto_repair: bool = True
+    # Override the renderer executable; default: sys.executable -m manim.
+    manim_executable: str | None = None
+
+
 class AudioIngestConfig(BaseModel):
     """Audio-source ingestion (.mp3/.wav/...): transcription endpoint settings.
 
@@ -1493,6 +1528,9 @@ class AIRoutingConfig(BaseModel):
     # Learner-requested easier/harder variant authoring (services/rung_variants):
     # a small, gate-checked task — defaults to the low-effort profile.
     rung_variant: str | None = None
+    # Manim explainer-scene authoring (services/concept_animation): code
+    # generation, defaults to the medium-effort profile.
+    animation: str | None = None
 
 
 class AIConfig(BaseModel):
@@ -1518,6 +1556,7 @@ DEFAULT_CODEX_TASK_ROUTES = {
     "tutor_qa": CODEX_LOW_PROVIDER,
     "teach_back": CODEX_LOW_PROVIDER,
     "rung_variant": CODEX_LOW_PROVIDER,
+    "animation": CODEX_MEDIUM_PROVIDER,
 }
 
 
@@ -1758,6 +1797,7 @@ class LearnLoopConfig(BaseModel):
     tutor_promotion: TutorPromotionConfig = Field(default_factory=TutorPromotionConfig)
     teach_back: TeachBackConfig = Field(default_factory=TeachBackConfig)
     rung_variants: RungVariantsConfig = Field(default_factory=RungVariantsConfig)
+    animation: AnimationConfig = Field(default_factory=AnimationConfig)
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     codex: CodexConfig = Field(default_factory=CodexConfig)

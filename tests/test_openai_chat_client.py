@@ -9,6 +9,7 @@ from learnloop.ai.openai_chat import OpenAIChatProviderClient
 from learnloop.codex.client import (
     AppendReconciliationContext,
     CodexUnavailable,
+    ConceptAnimationContext,
     ConceptGraphContext,
     DepthEdgeInstanceContext,
     GradingContext,
@@ -25,6 +26,7 @@ from learnloop.codex.client import (
 from learnloop.codex.schemas import (
     AppendReconciliation,
     ConceptGraphStructuring,
+    ManimAnimation,
     DepthEdgeInstanceBatch,
     DiagnosticTrials,
     MisconceptionMatch,
@@ -221,6 +223,12 @@ EXTENDED_METHOD_CASES = [
         ConceptGraphContext(source_set_id="set_1", subject_id="subj_1"),
         ConceptGraphStructuring(),
         "learnloop concept graph structuring",
+    ),
+    (
+        "run_concept_animation",
+        ConceptAnimationContext(concept_id="singular_value_decomposition", concept_title="SVD"),
+        ManimAnimation(),
+        "learnloop concept animation",
     ),
 ]
 

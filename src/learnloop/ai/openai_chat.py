@@ -24,6 +24,7 @@ from learnloop.codex.client import (
     AuthoringContext,
     CanonicalIngestContext,
     CodexUnavailable,
+    ConceptAnimationContext,
     ConceptGraphContext,
     DepthEdgeInstanceContext,
     GradingContext,
@@ -41,6 +42,7 @@ from learnloop.codex.client import (
     _authoring_prompt,
     _canonical_ingest_prompt,
     _codex_output_schema,
+    _concept_animation_prompt,
     _concept_graph_structuring_prompt,
     _depth_edge_instance_prompt,
     _diagnostic_trials_prompt,
@@ -62,6 +64,7 @@ from learnloop.codex.schemas import (
     AppendReconciliation,
     AuthoringProposal,
     ConceptGraphStructuring,
+    ManimAnimation,
     DepthEdgeInstanceBatch,
     DiagnosticTrials,
     GradingProposal,
@@ -176,6 +179,9 @@ class OpenAIChatProviderClient:
 
     def run_concept_graph_structuring(self, context: ConceptGraphContext) -> ConceptGraphStructuring:
         return self._run_json_model(_concept_graph_structuring_prompt(context), ConceptGraphStructuring)
+
+    def run_concept_animation(self, context: ConceptAnimationContext) -> ManimAnimation:
+        return self._run_json_model(_concept_animation_prompt(context), ManimAnimation)
 
     def run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript:
         """Native-multimodal audio → timestamped transcript ([ingest.native]).

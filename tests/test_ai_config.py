@@ -68,6 +68,24 @@ def test_default_config_contains_audio_and_native_ingest(tmp_path):
         assert config.ai.providers["openrouter"].input_modalities == []
 
 
+def test_animation_config_and_routing_parity(tmp_path):
+    init_vault(tmp_path)
+
+    loaded = load_config(tmp_path / "learnloop.toml")
+    in_memory = LearnLoopConfig()
+
+    for config in (loaded, in_memory):
+        assert config.ai.routing.animation == "codex_medium"
+        animation = config.animation
+        assert animation.enabled is True
+        assert animation.quality == "ql"
+        assert animation.timeout_seconds == 300
+        assert animation.max_duration_seconds == 45
+        assert animation.latex_enabled is False
+        assert animation.auto_repair is True
+        assert animation.manim_executable is None
+
+
 def test_pdf_native_engine_and_input_modalities_parse():
     config = LearnLoopConfig.model_validate(
         {

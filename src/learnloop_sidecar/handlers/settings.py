@@ -42,6 +42,7 @@ _ROUTING_TASKS = (
     "tutor_qa",
     "teach_back",
     "rung_variant",
+    "animation",
 )
 
 

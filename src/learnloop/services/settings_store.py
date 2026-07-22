@@ -38,6 +38,7 @@ USE_CASE_ROUTES: dict[str, tuple[str, ...]] = {
     "grading": ("grading",),
     "ingest": ("canonical_ingest", "canonical_ingest_retry", "authoring"),
     "tutor": ("tutor_qa", "teach_back", "rung_variant"),
+    "animation": ("animation",),
 }
 
 
