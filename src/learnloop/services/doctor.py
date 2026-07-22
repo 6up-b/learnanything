@@ -14,7 +14,10 @@ from learnloop.config import LearnLoopConfig, load_config
 from learnloop.codex.runtime import CodexRuntimeReport, check_codex_runtime
 from learnloop.db.migrate import applied_versions, apply_migrations, discover_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+from learnloop.services.assessment_contracts import (
+    CANONICAL_STATE_VERSIONS,
+    KM_ALGORITHM_VERSION,
+)
 from learnloop.services.calibration import difficulty_miscalibration_flags
 from learnloop.services.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -128,7 +131,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         fix_state
         and paths.sqlite_path.exists()
         and vault.facet_aliases
-        and vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION
+        and vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS
     ):
         # KM2b: the legacy per-LO alias merge folds `evidence_facet_recall_state`
         # rows in place — an mvp-0.6-only table. Under mvp-0.7 aliases + merges are
@@ -151,6 +154,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_registry_near_duplicate_facets(vault, issues)
     _check_learning_object_merge_candidates(vault, issues)
     _check_duplicate_diagnostic_proposals(vault, repository, issues)
+    _check_contract_drift(vault, repository, issues)
     _check_mvp07_canonical_state(vault, repository, issues)
     _check_pre_first_practice_identifiability(vault, repository, issues, fix_state=fix_state)
 
@@ -732,7 +736,7 @@ def _check_mvp07_canonical_state(vault: LoadedVault, repository: Repository, iss
     is an error. Legacy vaults never write these rows, so the check is a no-op.
     """
 
-    if vault.config.algorithms.algorithm_version != "mvp-0.7":
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     known = set(vault.evidence_facets)
     if not known:
@@ -766,7 +770,7 @@ def _mvp07_facet_severity(vault: LoadedVault) -> Severity:
     is gated by the vault-global algorithm version.
     """
 
-    if vault.config.algorithms.algorithm_version == "mvp-0.7":
+    if vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS:
         return "error"
     return "warning"
 
@@ -832,7 +836,7 @@ def _check_facet_contract_completeness(vault: LoadedVault, issues: list[HealthIs
 
     if not vault.evidence_facets:
         return
-    is_mvp07 = vault.config.algorithms.algorithm_version == "mvp-0.7"
+    is_mvp07 = vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS
     for facet in vault.evidence_facets.values():
         declares_contract = any(
             [
@@ -1301,7 +1305,7 @@ def _check_pre_first_practice_identifiability(
     coarsen need is scheduled per finding and the watermark advances.
     """
 
-    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
 
     from learnloop.services.identifiability import (
@@ -1351,6 +1355,31 @@ def _check_pre_first_practice_identifiability(
                 subject_id=subject_id,
                 registry_hash=registry_hash,
                 finding_count=len(findings),
+            )
+
+
+def _check_contract_drift(vault, repository, issues: list[HealthIssue]) -> None:
+    """Surface goal terminal-contract drift (P0.4 §3): a confirmed goal whose live
+    YAML draft fields diverge from the confirmed head. Never reconciles -- adoption
+    requires an explicit ``contracts amend``."""
+
+    from learnloop.services.goal_contracts import detect_contract_drift
+
+    for goal in vault.goals:
+        try:
+            report = detect_contract_drift(vault, repository, goal.id)
+        except Exception:
+            continue
+        if report.drifted:
+            issues.append(
+                _issue(
+                    "warning",
+                    "goal:contract_drift",
+                    f"{goal.id} YAML draft diverged from its confirmed terminal contract "
+                    f"(would mint {report.would_be_change_class}); run `learnloop contracts amend`.",
+                    entity_id=goal.id,
+                    details={"field_diff": report.field_diff, "change_class": report.would_be_change_class},
+                )
             )
 
 

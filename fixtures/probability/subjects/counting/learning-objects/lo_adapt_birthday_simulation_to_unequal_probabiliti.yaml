@@ -1,0 +1,54 @@
+schema_version: 1
+id: lo_adapt_birthday_simulation_to_unequal_probabiliti
+title: Adapt Birthday Simulation To Unequal Probabilities
+subjects:
+  - counting
+concept: concept_unequal_birthday_probabilities
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Recognize when the equal-probability formula no longer applies directly
+  and adapt the sampling step by specifying day probabilities.
+prerequisites:
+  - concept_birthday_monte_carlo_simulation
+confusables:
+  - concept_birthday_match_probability
+blueprints:
+  - id: bp_01KXKVFA_18
+    weight: 0.14
+    recipes:
+      - id: recipe_unequal_birthday_simulation
+        composition: conjunctive
+        all_of:
+          - facet: facet_when_birthday_probabilities_differ_by_day_the_eq
+            capability: method_selection
+            modality: hard
+          - facet: facet_when_birthday_probabilities_differ_by_day_the_eq
+            capability: procedure_execution
+            modality: path_specific
+        any_of: []
+        integration:
+          facet: facet_when_birthday_probabilities_differ_by_day_the_eq
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s350
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:03Z'
+updated_at: '2026-07-15T21:39:10Z'

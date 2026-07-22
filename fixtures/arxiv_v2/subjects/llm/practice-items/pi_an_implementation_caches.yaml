@@ -1,0 +1,119 @@
+schema_version: 1
+id: pi_an_implementation_caches
+learning_object_id: lo_trace_kv_cache_reuse_and_memory
+subjects:
+practice_mode: error diagnosis and resource estimation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_during_autoregressive_decoding_a_kv_cache_stores
+  - facet_kv_cache_storage_scales_with_sequence_length_lay
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: An implementation caches every prior query, key, and value vector and 
+  recomputes all prior keys and values for each new token. Diagnose both errors.
+  Then state the factors needed to estimate the corrected cache memory.
+expected_answer: Prior queries should not be persistent cache entries, and prior
+  keys and values should be reused rather than recomputed. Correct cache memory 
+  depends on cached key-plus-value dimensionality, bytes per element, number of 
+  distinct KV heads or groups, layer count, and cached sequence length.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.55
+scaffold_level: 0.2
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: far
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: cache_implementation_audit
+evidence_fingerprint:
+  source_family: kv_cache_explanation
+  shared_stimulus_id: faulty_cache_implementation
+  representation: implementation narrative
+  solution_recipe_family: kv_cache_reuse_and_scaling
+  answer_structure: two-error diagnosis plus factor list
+misconception_consistent_answer:
+repair_targets:
+  - facet_during_autoregressive_decoding_a_kv_cache_stores
+  - facet_kv_cache_storage_scales_with_sequence_length_lay
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_kv_reuse_diagnosis
+      points: 3.0
+      description: Explains that prior keys and values are reused and that prior
+        queries need not be cached.
+      tier: core
+      targets:
+        - facet: facet_during_autoregressive_decoding_a_kv_cache_stores
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_kv_cache_reuse
+      correlation_group: kv_cache_audit
+      recipe_ids:
+        - recipe_kv_cache
+    - id: criterion_kv_memory_factors
+      points: 3.0
+      description: Names key-plus-value size, precision, distinct KV heads or 
+        groups, layers, and cached sequence length as memory-scaling factors.
+      tier: transfer
+      targets:
+        - facet: facet_kv_cache_storage_scales_with_sequence_length_lay
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_kv_cache_scaling
+      correlation_group: kv_cache_audit
+      recipe_ids:
+        - recipe_kv_cache
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s177
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s198
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+created_at: '2026-07-21T05:07:23Z'
+updated_at: '2026-07-21T18:14:50Z'

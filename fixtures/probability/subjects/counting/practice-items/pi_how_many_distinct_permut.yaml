@@ -1,0 +1,118 @@
+schema_version: 1
+id: pi_how_many_distinct_permut
+learning_object_id: lo_use_standard_counting_patterns
+subjects:
+practice_mode: application
+attempt_types_allowed: []
+evidence_facets:
+  - facet_distinct_permutations_of_a_word_with_repeated_id
+  - facet_if_an_easier_counting_method_counts_every_valid_
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: How many distinct permutations does the word STATISTICS have? State how 
+  repeated letters are handled.
+expected_answer: STATISTICS has 10 letters with repeated S's, T's, and I's. 
+  Dividing the 10! labeled arrangements by 3! for the S's, 3! for the T's, and 
+  2! for the I's gives 10!/(3!3!2!)=50400.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.25
+scaffold_level: 0.3
+surface_family: repeated_letter_words
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: word_statistics
+  representation: word with repeated letters
+  solution_recipe_family: factorial_division_overcounting
+  answer_structure: formula plus numeric count
+misconception_consistent_answer:
+repair_targets:
+  - facet_distinct_permutations_of_a_word_with_repeated_id
+  - facet_if_an_easier_counting_method_counts_every_valid_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_word_multiplicities
+      points: 1.0
+      description: Identifies the repeated-letter multiplicities correctly.
+      tier: core
+      targets:
+        - facet: facet_distinct_permutations_of_a_word_with_repeated_id
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - f_repeated_letter_permutation
+      correlation_group: word_permutation
+      recipe_ids:
+        - r_standard_patterns
+    - id: crit_word_formula
+      points: 1.0
+      description: Divides 10! by all repeated-letter factorials rather than 
+        using 10! alone.
+      tier: core
+      targets:
+        - facet: facet_distinct_permutations_of_a_word_with_repeated_id
+          capability: procedure_execution
+          role: primary
+        - facet: facet_if_an_easier_counting_method_counts_every_valid_
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - f_repeated_letter_permutation
+        - f_uniform_overcounting
+      correlation_group: word_permutation
+      recipe_ids:
+        - r_standard_patterns
+    - id: crit_word_numeric
+      points: 1.0
+      description: Computes the count as 50400.
+      tier: core
+      targets:
+        - facet: facet_distinct_permutations_of_a_word_with_repeated_id
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - f_repeated_letter_permutation
+      correlation_group: word_permutation
+      recipe_ids:
+        - r_standard_patterns
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s199
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s200
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:15Z'
+updated_at: '2026-07-15T21:39:15Z'

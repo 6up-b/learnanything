@@ -1,0 +1,148 @@
+schema_version: 1
+id: pi_given_a_parameter_vector
+learning_object_id: lo_apply_and_interpret_a_gradient_descent_update
+subjects:
+practice_mode: numerical update and error diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_the_gradient_vector_contains_one_partial_derivat
+  - facet_to_reduce_loss_by_gradient_descent_update_each_p
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Given a parameter vector, its aligned gradient vector, and a positive 
+  learning rate, perform one gradient-descent update. Then explain the direction
+  of change for one positive-gradient parameter and one negative-gradient 
+  parameter, and diagnose a proposed update that adds the gradient.
+expected_answer: Each parameter is updated as θ_new=θ_old-αg; a positive 
+  gradient decreases its parameter, a negative gradient increases its parameter,
+  and adding the gradient moves locally toward increasing rather than decreasing
+  loss.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.35
+scaffold_level: 0.2
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+    - calculator
+task_feature_schema: p1_launch@1
+surface_family: numeric_gradient_step
+evidence_fingerprint:
+  source_family: gradient_update_table
+  shared_stimulus_id: held_out_parameter_vector
+  representation: numeric vectors and proposed update
+  solution_recipe_family: subtract_scaled_gradient
+  answer_structure: updated vector and sign diagnosis
+misconception_consistent_answer:
+repair_targets:
+  - facet_the_gradient_vector_contains_one_partial_derivat
+  - facet_to_reduce_loss_by_gradient_descent_update_each_p
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_update_alignment
+      points: 2.0
+      description: Maintains one-to-one alignment between parameters and 
+        gradient components.
+      tier: core
+      targets:
+        - facet: facet_the_gradient_vector_contains_one_partial_derivat
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_gradient_vector_definition
+      correlation_group: update
+      recipe_ids:
+        - recipe_gradient_update
+    - id: criterion_update_calculation
+      points: 3.0
+      description: Subtracts the learning-rate-scaled gradient from every 
+        parameter.
+      tier: core
+      targets:
+        - facet: facet_to_reduce_loss_by_gradient_descent_update_each_p
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_gradient_descent_update
+      correlation_group: update
+      recipe_ids:
+        - recipe_gradient_update
+    - id: criterion_update_diagnosis
+      points: 2.0
+      description: Correctly explains the effect of gradient sign and why adding
+        the gradient is unsuitable for loss minimization.
+      tier: transfer
+      targets:
+        - facet: facet_to_reduce_loss_by_gradient_descent_update_each_p
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_gradient_descent_update
+      correlation_group: direction
+      recipe_ids:
+        - recipe_gradient_update
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s249
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s255
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s256
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:27Z'
+updated_at: '2026-07-21T18:14:57Z'

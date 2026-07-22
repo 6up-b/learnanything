@@ -105,7 +105,13 @@ def test_confirm_quick_add_unknown_subject_typed_error(tmp_path):
         [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
             {"jsonrpc": "2.0", "id": 2, "method": "confirm_quick_add",
-             "params": {"source": str(md), "subjectId": "no-such-subject"}},
+             "params": {
+                 "source": str(md),
+                 "subjectId": "no-such-subject",
+                 "inventoryOutputTokens": 45_000,
+             }},
         ]
     )
+    # 45k is accepted by the request schema; validation reaches the handler and
+    # reports the deliberately unknown subject instead of generic Invalid params.
     assert results[1]["error"]["data"]["code"] == "unknown_subject"

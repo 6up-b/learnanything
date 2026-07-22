@@ -1,0 +1,69 @@
+schema_version: 1
+id: lo_count_unordered_selections_with_overcounting_and
+title: Count unordered selections with overcounting and binomial coefficients
+subjects:
+  - counting
+concept: concept_binomial_coefficient
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Use uniform overcounting adjustment to derive and apply binomial 
+  coefficients for committees, teams, untitled selections, and fixed-size 
+  subsets.
+prerequisites:
+  - concept_sampling_without_replacement
+  - concept_adjusting_for_overcounting
+confusables:
+  - concept_ordered_sampling
+blueprints:
+  - id: bp_01KXKVFA_7
+    weight: 0.22
+    recipes:
+      - id: r_binomial_from_overcounting
+        composition: conjunctive
+        all_of:
+          - facet: facet_if_an_easier_counting_method_counts_every_valid_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_the_binomial_coefficient_binom_n_k_is_the_number
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_the_binomial_coefficient_binom_n_k_is_the_number
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s178
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s190
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:59Z'
+updated_at: '2026-07-15T21:39:06Z'

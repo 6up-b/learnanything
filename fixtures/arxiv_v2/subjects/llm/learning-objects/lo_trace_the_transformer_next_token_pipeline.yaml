@@ -1,0 +1,80 @@
+schema_version: 1
+id: lo_trace_the_transformer_next_token_pipeline
+title: Trace the Transformer Next-Token Pipeline
+subjects:
+  - llm
+concept: concept_transformer_inference_pipeline
+knowledge_type: integrated procedure
+status: active
+contradicts:
+summary: Place tokenization, embedding lookup, contextual processing, 
+  unembedding, logits, and softmax in their correct order.
+prerequisites:
+  - concept_tokenization
+  - concept_token_embedding
+  - concept_contextualized_token_representation
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_4
+    weight: 0.2
+    recipes:
+      - id: recipe-transformer-pipeline-trace
+        composition: conjunctive
+        all_of:
+          - facet: facet_tokenization_divides_input_into_discrete_pieces_
+            capability: retrieval
+            modality: facilitating
+          - facet: facet_an_embedding_matrix_associates_each_vocabulary_t
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_attention_allows_information_encoded_at_one_toke
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_a_high_level_decoder_style_transformer_inference
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_logits_are_the_raw_unnormalized_vocabulary_score
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_softmax_converts_a_finite_list_of_logits_into_a_
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_a_high_level_decoder_style_transformer_inference
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s50
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s93
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+created_at: '2026-07-21T05:06:40Z'
+updated_at: '2026-07-21T05:06:58Z'

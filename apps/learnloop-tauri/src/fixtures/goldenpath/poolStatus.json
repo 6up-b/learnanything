@@ -1,0 +1,38 @@
+{
+  "events": [
+    {
+      "author": "owner",
+      "createdAt": "2026-07-20T01:27:46Z",
+      "detailJson": "{\"content_hash\":\"9e526c8c032a4cfdf76b8b9dce32fc77\"}",
+      "id": "01KXYJ5RPP797TRYP939NKQGD1",
+      "kind": "registered",
+      "poolId": "01KXYJ5RPPH3SAXG7DQZZAF7KX",
+      "surfaceSlug": null
+    }
+  ],
+  "pool": {
+    "blueprintVersionId": "01KXYJ5R3VFRJM2Q10WMRGW0M0",
+    "contentHash": "9e526c8c032a4cfdf76b8b9dce32fc77",
+    "minted": true,
+    "poolId": "01KXYJ5RPPH3SAXG7DQZZAF7KX",
+    "poolSlug": "pool_symmetric_method_selection",
+    "status": "draft",
+    "surfaces": [
+      {
+        "admissionStatus": "candidate",
+        "angle": "move_spotting",
+        "provenance": "llm_within_bounds",
+        "surfaceId": null,
+        "surfaceSlug": "surf_move_spotting_1"
+      },
+      {
+        "admissionStatus": "candidate",
+        "angle": "setup_only",
+        "provenance": "llm_within_bounds",
+        "surfaceId": null,
+        "surfaceSlug": "surf_setup_1"
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,23 @@
+{
+  "alternatives": [],
+  "anchorSampleId": null,
+  "autoCommitted": true,
+  "decisive": true,
+  "distribution": null,
+  "eventId": "01KXYJ5SQ715XSHW4X5NF2P61P",
+  "kind": "triaged",
+  "reason": "surface_or_grading_fault",
+  "route": {
+    "coldFollowUp": "replacement_administration_if_needed",
+    "firstIntervention": "quarantine_adjudicate_no_learner_repair",
+    "ladderEntryStage": "needs_review",
+    "reason": "surface_or_grading_fault",
+    "reopensDiagnostic": false,
+    "routeId": "surface_or_grading_fault"
+  },
+  "routed": false,
+  "routedTo": null,
+  "runId": "01KXYJ5SHF9TM9D8S0DW9NYQNS",
+  "tier": "one",
+  "version": 1
+}

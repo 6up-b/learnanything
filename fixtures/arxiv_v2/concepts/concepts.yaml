@@ -1,0 +1,428 @@
+schema_version: 1
+concepts:
+  concept_autoregressive_text_generation:
+    title: Autoregressive Text Generation
+    type: procedure
+    aliases:
+      - predict-sample-append loop
+    description: Repeatedly sampling a token, appending it to the context, and 
+      predicting again.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_autoregressive_text_generation
+  concept_contextualized_token_representation:
+    title: Contextualized Token Representation
+    type: concept
+    aliases:
+      - context-rich token vector
+      - contextual embedding
+    description: A token-position vector refined by attention and other 
+      transformer operations to incorporate relevant context.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_contextualized_token_representation
+  concept_logits:
+    title: Logits
+    type: concept
+    aliases:
+      - raw output scores
+    description: Raw unnormalized vocabulary scores produced by the model output
+      transformation.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_logits
+  concept_sampling_temperature:
+    title: Sampling Temperature
+    type: concept
+    aliases:
+      - temperature scaling
+    description: A control that changes the sharpness of a next-token sampling 
+      distribution.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_sampling_temperature
+  concept_token_embedding:
+    title: Token Embedding
+    type: concept
+    aliases:
+      - embedding lookup
+      - initial token vector
+    description: The initial vector representation associated with a vocabulary 
+      token before contextual refinement.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_token_embedding
+  concept_tokenization:
+    title: Tokenization
+    type: procedure
+    aliases:
+      - token sequence construction
+    description: Dividing model input into a sequence of tokens such as words, 
+      word pieces, character combinations, image patches, or audio chunks.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_tokenization
+  concept_transformer_inference_pipeline:
+    title: Transformer Inference Pipeline
+    type: procedure
+    aliases:
+      - transformer forward pipeline
+    description: The sequence of embedding, contextual processing, and output 
+      operations used to produce a next-token distribution.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_transformer_inference_pipeline
+  concept_backpropagation:
+    title: Backpropagation
+    type: procedure
+    aliases:
+      - backprop
+      - backward propagation of error signals
+      - back propagation
+    description: Computing neural-network cost gradients by propagating local 
+      chain-rule sensitivities backward through a feedforward computation graph,
+      including aggregation across paths and training examples.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_backpropagation
+  concept_causal_self_attention_and_kv_caching:
+    title: Causal Self-Attention and KV Caching
+    type: procedure
+    aliases:
+      - causal attention
+      - key-value caching
+      - KV caching
+    description: Computing causal scaled dot-product attention and reusing prior
+      key and value projections during autoregressive decoding.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_causal_self_attention_and_kv_caching
+  concept_multi_head_latent_attention:
+    title: Multi-Head Latent Attention
+    type: procedure
+    aliases:
+      - MLA
+      - multi-head latent attention
+      - Multi-head latent attention
+    description: Compressing attention inputs into a shared latent cache while 
+      retaining head-specific reconstructed behavior through learned projections
+      and inference-time weight absorption.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_multi_head_latent_attention
+  concept_sparse_autoencoder_interpretability:
+    title: Sparse Autoencoder Interpretability
+    type: procedure
+    aliases:
+      - SAE interpretability
+      - sparse feature extraction
+    description: Learning sparse feature representations of model activations 
+      for interpretation and causal steering while accounting for 
+      polysemanticity and incomplete feature coverage.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_sparse_autoencoder_interpretability
+  concept_causal_masking:
+    title: Causal masking
+    type: procedure
+    aliases:
+      - masked self-attention
+      - causal attention
+    description: Prevents an autoregressive position from attending to future 
+      positions by masking disallowed attention logits before normalization.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_causal_masking
+  concept_grouped_query_attention:
+    title: Grouped-query attention
+    type: concept
+    aliases:
+      - GQA
+      - group query attention
+    description: Partitions query heads into groups whose members share key and 
+      value representations.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_grouped_query_attention
+  concept_kv_caching:
+    title: KV caching
+    type: procedure
+    aliases:
+      - key-value caching
+      - KV cache
+    description: Reuses previously computed key and value vectors during 
+      autoregressive decoding.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_kv_caching
+  concept_multi_head_attention:
+    title: Multi-head attention
+    type: concept
+    aliases:
+      - MHA
+    description: Uses multiple query, key, and value projection sets to model 
+      distinct token relationships and combines their outputs.
+    tags: []
+    created_at: '2026-07-21T05:06:10Z'
+    updated_at: '2026-07-21T05:06:10Z'
+    id: concept_multi_head_attention
+  concept_multi_query_attention:
+    title: Multi-query attention
+    type: concept
+    aliases:
+      - MQA
+    description: Shares one key-value projection set across multiple query heads
+      to reduce cache storage.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_multi_query_attention
+  concept_scaled_self_attention:
+    title: Scaled self-attention
+    type: procedure
+    aliases:
+      - scaled dot-product self-attention
+      - self-attention
+    description: Computes contextual token representations from learned query, 
+      key, and value projections, scaled relevance scores, softmax weights, and 
+      weighted value aggregation.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_scaled_self_attention
+  concept_affine_multiclass_classifier:
+    title: Affine multiclass classifier
+    type: concept
+    aliases:
+      - linear softmax classifier
+      - linear neuron classifier
+      - Multiclass affine-softmax classification
+      - multiclass linear classifier
+    description: A classifier that assigns each class an affine score from the 
+      input features before converting the scores into probabilities.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_affine_multiclass_classifier
+  concept_chain_rule:
+    title: Chain rule
+    type: procedure
+    aliases: []
+    description: Composition of local derivatives through a multistage 
+      computation.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_chain_rule
+  concept_cross_entropy_loss:
+    title: Cross-entropy loss
+    type: concept
+    aliases:
+      - negative log-likelihood for the correct outcome
+    description: Negative-log loss based on the probability assigned to the 
+      correct class or token.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_cross_entropy_loss
+  concept_gradient_vector:
+    title: Gradient vector
+    type: concept
+    aliases:
+      - gradient
+    description: The vector containing one loss derivative for each trainable 
+      parameter.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_gradient_vector
+  concept_gradient_descent:
+    title: Gradient descent
+    type: procedure
+    aliases: []
+    description: Iterative parameter optimization by subtracting a 
+      learning-rate-scaled gradient.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_gradient_descent
+  concept_loss_landscape:
+    title: Loss landscape
+    type: concept
+    aliases:
+      - loss surface
+    description: The loss viewed as a function of model parameters, used to 
+      reason about optimization behavior.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_loss_landscape
+  concept_softmax_function:
+    title: Softmax function
+    type: procedure
+    aliases:
+      - soft max
+      - Softmax Probability Distribution
+      - next-token probability distribution
+    description: Exponentiation and joint normalization of class logits into a 
+      probability distribution.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_softmax_function
+  concept_neural_representation_geometry:
+    title: Neural representation geometry
+    type: concept
+    aliases:
+      - map of language
+      - embedding-space geometry
+    description: Geometric interpretation of token embeddings and intermediate 
+      residual-stream activations in a high-dimensional learned space.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_neural_representation_geometry
+  concept_softmax_classification_gradients:
+    title: Softmax classification gradients
+    type: procedure
+    aliases:
+      - softmax-loss gradients
+      - parameter derivatives
+    description: Computing slope and bias derivatives for affine class scores 
+      under the displayed softmax classification loss.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_softmax_classification_gradients
+  concept_universal_approximation:
+    title: Universal approximation
+    type: concept
+    aliases:
+      - Universal Approximation Theorem
+    description: The representational existence result for sufficiently wide 
+      neural networks, distinguished from optimization success and 
+      architecture-size guarantees.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_universal_approximation
+  concept_decision_region_visualization:
+    title: Decision-region visualization
+    type: procedure
+    aliases:
+      - decision-boundary visualization
+      - class-region map
+    description: Evaluating a classifier on a two-dimensional probe grid and 
+      rendering its predicted class regions.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_decision_region_visualization
+  concept_feedforward_classifier_implementation:
+    title: Feedforward classifier implementation
+    type: procedure
+    aliases:
+      - PyTorch ReLU classifier
+    description: Constructing a configurable two-input, two-output ReLU 
+      classifier and performing its forward computation.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_feedforward_classifier_implementation
+  concept_relu_linear_region_count_analysis:
+    title: ReLU linear-region count analysis
+    type: procedure
+    aliases:
+      - region-count upper bounds
+      - linear-region analysis
+    description: Computing and interpreting theoretical upper bounds and 
+      observed counts of linear regions in ReLU networks.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_relu_linear_region_count_analysis
+  concept_geometric_expressivity_of_relu_networks:
+    title: Geometric expressivity of ReLU networks
+    type: concept
+    aliases:
+      - bent-plane geometry
+      - ReLU folding geometry
+      - ReLU network expressivity
+      - piecewise-linear neural-network geometry
+    description: How stacked piecewise-linear ReLU transformations fold and 
+      partition an input space into linear regions.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_geometric_expressivity_of_relu_networks
+  concept_neural_network_representation_versus_trainabilit:
+    title: Neural-network representation versus trainability
+    type: concept
+    aliases:
+      - representational capacity versus optimization
+      - existence versus learnability
+    description: The distinction between a network architecture's ability to 
+      represent a function and an optimization method's ability to find suitable
+      parameters.
+    tags: []
+    created_at: '2026-07-21T05:06:11Z'
+    updated_at: '2026-07-21T05:06:11Z'
+    id: concept_neural_network_representation_versus_trainabilit
+  concept_stochastic_neural_network_training:
+    title: Stochastic neural-network training
+    type: procedure
+    aliases:
+      - single-example training
+    description: Training and monitoring a classifier through repeated 
+      single-example gradient updates and periodic full-sample evaluation.
+    tags: []
+    created_at: '2026-07-21T05:06:12Z'
+    updated_at: '2026-07-21T05:06:12Z'
+    id: concept_stochastic_neural_network_training
+  concept_supervised_coordinate_data_preparation:
+    title: Supervised coordinate-data preparation
+    type: procedure
+    aliases:
+      - binary coordinate-data preprocessing
+    description: Sampling, labeling, jointly shuffling, tensorizing, and 
+      visualizing two-dimensional coordinate examples for binary classification.
+    tags: []
+    created_at: '2026-07-21T05:06:12Z'
+    updated_at: '2026-07-21T05:06:12Z'
+    id: concept_supervised_coordinate_data_preparation
+  concept_representational_capacity_guarantees_successful_:
+    title: Representational capacity guarantees successful learning
+    type: misconception
+    aliases:
+      - neural networks can learn anything
+    description: The mistaken inference that existence of good parameters 
+      guarantees that gradient-based training will find them.
+    tags: []
+    created_at: '2026-07-21T05:06:12Z'
+    updated_at: '2026-07-21T05:06:12Z'
+    id: concept_representational_capacity_guarantees_successful_
+  concept_maximum_region_count_predicts_trained_behavior:
+    title: Maximum region count predicts trained behavior
+    type: misconception
+    aliases:
+      - upper bound equals observed region count
+    description: The mistaken identification of a theoretical region-count upper
+      bound with the number of regions a trained network will realize.
+    tags: []
+    created_at: '2026-07-21T05:06:12Z'
+    updated_at: '2026-07-21T05:06:12Z'
+    id: concept_maximum_region_count_predicts_trained_behavior

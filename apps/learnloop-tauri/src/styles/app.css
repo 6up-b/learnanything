@@ -1035,24 +1035,10 @@ button { color: inherit; }
   background: transparent;
 }
 
-/* ── ingest · indeterminate pipeline bar ── */
-.ll-ingest-bar {
-  position: relative;
-  height: 3px;
-  background: #181818;
-  overflow: hidden;
-}
-.ll-ingest-bar::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -40%;
-  width: 40%;
-  background: linear-gradient(90deg, transparent, #e3a063, transparent);
-  animation: ll-ingest-slide 1.4s ease-in-out infinite;
-}
-@keyframes ll-ingest-slide {
-  from { left: -40%; }
-  to { left: 100%; }
+/* PDF reader find hits: text-layer spans containing the ctrl+F query. The
+   text layer is transparent glyphs over the canvas, so a wash reads as a
+   standard find highlight. */
+.textLayer span.ll-find-hit {
+  background: rgba(255, 213, 79, 0.45);
+  border-radius: 2px;
 }

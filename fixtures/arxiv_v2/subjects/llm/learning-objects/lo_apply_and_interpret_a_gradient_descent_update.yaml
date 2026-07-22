@@ -1,0 +1,80 @@
+schema_version: 1
+id: lo_apply_and_interpret_a_gradient_descent_update
+title: Apply and interpret a gradient-descent update
+subjects:
+  - llm
+concept: concept_gradient_descent
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Align gradient components with parameters, subtract the 
+  learning-rate-scaled gradient, and interpret update directions.
+prerequisites:
+  - concept_gradient_vector
+  - concept_backpropagation
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_20
+    weight: 1.0
+    recipes:
+      - id: recipe_gradient_update
+        composition: conjunctive
+        all_of:
+          - facet: facet_the_gradient_vector_contains_one_partial_derivat
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_to_reduce_loss_by_gradient_descent_update_each_p
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_reduce_loss_by_gradient_descent_update_each_p
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s249
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s255
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s256
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:46Z'
+updated_at: '2026-07-21T05:07:05Z'

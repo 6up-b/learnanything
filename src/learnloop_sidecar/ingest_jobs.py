@@ -25,6 +25,20 @@ from learnloop.db.repositories import Repository
 from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
 
 _LEGACY_JOB_TYPES = ("legacy_ingest", "exam_ingest")
+# Job types whose completion can change vault content (an applied study map or
+# canonical note). The sidecar must reload its in-memory vault after one of
+# these finishes in the background drain, or screens that read the loaded vault
+# (Today, knowledge map) keep serving the pre-apply snapshot.
+_APPLYING_JOB_TYPES = (
+    "legacy_ingest",
+    "exam_ingest",
+    "bootstrap_synthesis",
+    "append_synthesis",
+    # Reader-driven progressive generation auto-applies grounded items.
+    "practice_expansion",
+    # Learner-requested easier/harder variants auto-apply when grounded.
+    "rung_variant",
+)
 _ACTIVE_STATUSES = {"queued", "running", "waiting_for_input"}
 _RECENT_LIMIT = 30
 
@@ -51,6 +65,12 @@ class DurableIngestJobs:
         self._poll_interval = 1.0
         self._worker_thread: threading.Thread | None = None
         self._stop = threading.Event()
+        # Demand-paged reader synthesis: the same worker thread drains queued
+        # reader_background_requests with a real model client (spec §6.4 — the
+        # drain was previously never invoked, so requests sat queued forever).
+        self._reader_synth_client_factory: Any = None
+        self._reader_client: Any = None
+        self._reader_client_checked = False
 
     # -- wiring ------------------------------------------------------------
 
@@ -62,12 +82,17 @@ class DurableIngestJobs:
         clock: Clock | None = None,
         services: RunnerServices | None = None,
         lease_ttl_seconds: int = 120,
+        heartbeat_interval_seconds: float = 15,
         poll_interval_seconds: float = 1.0,
         background: bool = True,
+        reader_synth_client_factory: Any = None,
     ) -> None:
         """Attach the wrapper to a loaded vault. Called from SidecarContext.load."""
 
         with self._lock:
+            self._reader_synth_client_factory = reader_synth_client_factory
+            self._reader_client = None
+            self._reader_client_checked = False
             self._runner = IngestRunner(
                 repository,
                 vault_root=vault_root,
@@ -75,11 +100,18 @@ class DurableIngestJobs:
                 clock=clock,
                 services=services,
                 lease_ttl_seconds=lease_ttl_seconds,
+                heartbeat_interval_seconds=heartbeat_interval_seconds,
             )
             self._background = background
             self._poll_interval = poll_interval_seconds
         # Recover anything a prior process left mid-flight before draining.
         self._runner.recover_stale_leases()
+        # Jobs that finished before this bind are already reflected in the vault
+        # load that accompanies it; only jobs completing AFTER this point should
+        # trigger a reload from the batch-polling handlers.
+        for job in self._runner.repo.ingest_jobs_by_types(_APPLYING_JOB_TYPES):
+            if job["status"] == "completed":
+                self._reloaded.add(job["id"])
 
     def _require_runner(self) -> IngestRunner:
         if self._runner is None:
@@ -94,6 +126,7 @@ class DurableIngestJobs:
         source: str,
         subject_id: str,
         mode: Literal["canonical", "exam"],
+        pdf_engine: str | None = None,
     ) -> dict[str, Any]:
         runner = self._require_runner()
         with self._lock:
@@ -106,10 +139,19 @@ class DurableIngestJobs:
             # The legacy job depends on the import job, so synthesis reuses the
             # extraction instead of re-fetching, and the IngestScreen form now
             # feeds better extraction + unit selection into proposals.
+            # Exam papers are assessment material, not reading material — they
+            # default OUT of the reader loop (per-source flag, owner-overridable).
+            import_payload: dict[str, Any] = {"source": source, "subject_id": subject_id}
+            if mode == "exam":
+                import_payload["reader_enabled"] = False
+            if pdf_engine in ("marker", "pypdf"):
+                # An explicit engine choice is part of the extraction identity;
+                # "auto" stays implicit so unchanged sources keep their cache.
+                import_payload["pdf_config"] = {"engine": pdf_engine}
             batch_id = runner.enqueue_batch(
                 "legacy_ingest",
                 [
-                    JobSpec("import", {"source": source, "subject_id": subject_id}),
+                    JobSpec("import", import_payload),
                     JobSpec(
                         job_type,
                         {"source": source, "subject_id": subject_id, "mode": mode},
@@ -165,6 +207,10 @@ class DurableIngestJobs:
         subject_id: str | None = None,
         inventory: bool = False,
         estimate: dict[str, Any] | None = None,
+        page_selection: list[int] | None = None,
+        page_selections: dict[str, list[int]] | None = None,
+        reader_disabled_sources: set[str] | frozenset[str] | None = None,
+        pdf_engine: str | None = None,
         priority: int = 0,
     ) -> str:
         """Enqueue an Import (or Import & inventory) batch (§6.1). One import job
@@ -180,6 +226,14 @@ class DurableIngestJobs:
         for source in sources:
             import_index = len(specs)
             payload: dict[str, Any] = {"source": source}
+            source_pages = (page_selections or {}).get(source, page_selection)
+            if source_pages is not None:
+                payload["page_selection"] = source_pages
+            if reader_disabled_sources and source in reader_disabled_sources:
+                payload["reader_enabled"] = False
+            if pdf_engine in ("marker", "pypdf"):
+                # See start(): explicit engines join the extraction identity.
+                payload["pdf_config"] = {"engine": pdf_engine}
             if estimate is not None:
                 payload["estimate"] = estimate
             specs.append(JobSpec("import", payload))
@@ -222,6 +276,66 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch_id
 
+    def enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str) -> str:
+        """Enqueue one section's quick-check authoring (reader producer slice).
+
+        Interactive priority (quick-add band) so a reader-initiated question
+        drains ahead of bulk batches; the handler is idempotent per section so
+        duplicate enqueues while one is queued/running resolve without a second
+        model call."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "reader_quick_check",
+            [JobSpec("reader_quick_check", {"extraction_id": extraction_id, "section_id": section_id})],
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_practice_expansion(
+        self,
+        *,
+        learning_object_ids: list[str],
+        subject_id: str | None = None,
+        reason: str | None = None,
+    ) -> str:
+        """Enqueue per-LO practice generation (reader-first progressive seeding).
+
+        Background priority (default band): generation after a section completes
+        must never starve reader quick-checks or interactive quick-add builds."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "practice_expansion",
+            [
+                JobSpec(
+                    "practice_expansion",
+                    {
+                        "learning_object_ids": list(learning_object_ids),
+                        "reason": reason or "reader_section_completed",
+                    },
+                )
+            ],
+            subject_id=subject_id,
+        )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_rung_variant(self, *, request_id: str, subject_id: str | None = None) -> str:
+        """Enqueue one learner-requested variant authoring (interactive band —
+        the learner is waiting on it, like a quick-add build)."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "rung_variant",
+            [JobSpec("rung_variant", {"request_id": request_id})],
+            subject_id=subject_id,
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
     def enqueue_inventory(
         self,
         *,
@@ -230,6 +344,8 @@ class DurableIngestJobs:
         subject_id: str | None = None,
         source_set_id: str | None = None,
         input_budget_tokens: int | None = None,
+        output_budget_tokens: int | None = None,
+        unlimited_token_budget: bool = False,
         priority: int = 0,
     ) -> str:
         """Enqueue a role-aware unit-inventory batch (§7). Cached units cost zero
@@ -239,6 +355,10 @@ class DurableIngestJobs:
         payload: dict[str, Any] = {"extraction_id": extraction_id, "units": units}
         if input_budget_tokens is not None:
             payload["input_budget_tokens"] = input_budget_tokens
+        if output_budget_tokens is not None:
+            payload["output_budget_tokens"] = output_budget_tokens
+        if unlimited_token_budget:
+            payload["unlimited_token_budget"] = True
         batch_id = runner.enqueue_batch(
             "import_inventory",
             [JobSpec("inventory", payload)],
@@ -259,6 +379,8 @@ class DurableIngestJobs:
         brief: dict[str, Any] | None = None,
         mode: str = "auto",
         input_budget_tokens: int | None = None,
+        output_budget_tokens: int | None = None,
+        unlimited_token_budget: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
         """Enqueue the Quick-add build batch (§1): inventory(selected units) then
@@ -270,6 +392,10 @@ class DurableIngestJobs:
         inventory_payload: dict[str, Any] = {"extraction_id": extraction_id, "units": units}
         if input_budget_tokens is not None:
             inventory_payload["input_budget_tokens"] = input_budget_tokens
+        if output_budget_tokens is not None:
+            inventory_payload["output_budget_tokens"] = output_budget_tokens
+        if unlimited_token_budget:
+            inventory_payload["unlimited_token_budget"] = True
         synthesis_payload: dict[str, Any] = {
             "source_set_id": source_set_id,
             "brief": dict(brief or {}),
@@ -278,6 +404,8 @@ class DurableIngestJobs:
             # confirmation, not a second hidden proposal-acceptance step.
             "apply": True,
         }
+        if unlimited_token_budget:
+            synthesis_payload["unlimited_token_budget"] = True
         batch_id = runner.enqueue_batch(
             "bootstrap_synthesis",
             [
@@ -300,6 +428,8 @@ class DurableIngestJobs:
         brief: dict[str, Any] | None = None,
         mode: str = "auto",
         input_budget_tokens: int | None = None,
+        output_budget_tokens: int | None = None,
+        unlimited_token_budget: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
         """Enqueue a study-map build batch for an EXISTING source set (§1/§8): one
@@ -324,6 +454,10 @@ class DurableIngestJobs:
             }
             if input_budget_tokens is not None:
                 inventory_payload["input_budget_tokens"] = input_budget_tokens
+            if output_budget_tokens is not None:
+                inventory_payload["output_budget_tokens"] = output_budget_tokens
+            if unlimited_token_budget:
+                inventory_payload["unlimited_token_budget"] = True
             specs.append(JobSpec("inventory", inventory_payload))
         synthesis_payload: dict[str, Any] = {
             "source_set_id": source_set_id,
@@ -334,6 +468,8 @@ class DurableIngestJobs:
             # mirroring Quick add rather than leaving a second review step.
             "apply": True,
         }
+        if unlimited_token_budget:
+            synthesis_payload["unlimited_token_budget"] = True
         specs.append(
             JobSpec("bootstrap_synthesis", synthesis_payload, depends_on=tuple(range(len(members))))
         )
@@ -357,6 +493,8 @@ class DurableIngestJobs:
         subject_id: str | None = None,
         brief: dict[str, Any] | None = None,
         input_budget_tokens: int | None = None,
+        output_budget_tokens: int | None = None,
+        unlimited_token_budget: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
         """Enqueue a bounded-neighborhood APPEND batch for a collection whose subject
@@ -379,6 +517,10 @@ class DurableIngestJobs:
             }
             if input_budget_tokens is not None:
                 inventory_payload["input_budget_tokens"] = input_budget_tokens
+            if output_budget_tokens is not None:
+                inventory_payload["output_budget_tokens"] = output_budget_tokens
+            if unlimited_token_budget:
+                inventory_payload["unlimited_token_budget"] = True
             specs.append(JobSpec("inventory", inventory_payload))
         append_payload: dict[str, Any] = {
             "source_set_id": source_set_id,
@@ -390,6 +532,8 @@ class DurableIngestJobs:
             # stays a pending review proposal.
             "apply": True,
         }
+        if unlimited_token_budget:
+            append_payload["unlimited_token_budget"] = True
         specs.append(
             JobSpec("append_synthesis", append_payload, depends_on=tuple(range(len(members))))
         )
@@ -402,6 +546,81 @@ class DurableIngestJobs:
         )
         self._ensure_worker()
         return batch_id
+
+    def retry_synthesis(
+        self,
+        batch_id: str,
+        *,
+        synthesis_budgets: dict[str, int] | None = None,
+        reuse_candidate: bool = False,
+        repair_candidate: bool = False,
+        repair_ops: list[dict[str, Any]] | None = None,
+        unlimited_token_budget: bool = False,
+    ) -> dict[str, Any]:
+        """Retry only a failed synthesis stage with revised execution ceilings.
+
+        Inventory dependencies must already be complete. Their durable outputs
+        remain in place and are neither requeued nor regenerated.
+
+        ``reuse_candidate`` finishes the pipeline from the failed attempt's
+        preserved merged candidate — normalization/gates/persistence re-run with
+        ZERO model calls. Requires the failed job to have recorded a preserved
+        candidate's synthesis run id in its error details.
+
+        ``repair_candidate`` additionally derives mechanically-safe repair ops
+        over that candidate before the gates rerun (dangling criterion-id
+        dependencies and similar); ``repair_ops`` applies explicit user- or
+        agent-authored ops. Both require ``reuse_candidate``.
+        """
+
+        runner = self._require_runner()
+        jobs = runner.repo.ingest_jobs_for_batch(batch_id)
+        synthesis_jobs = [
+            job for job in jobs
+            if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
+            and job["status"] in {"failed", "blocked", "cancelled"}
+        ]
+        if len(synthesis_jobs) != 1:
+            raise ValueError("batch must contain exactly one unfinished synthesis job")
+        if any(job["job_type"] == "inventory" and job["status"] != "completed" for job in jobs):
+            raise ValueError("all inventory jobs must be completed before retrying synthesis")
+
+        synthesis_job = synthesis_jobs[0]
+        payload = dict(synthesis_job.get("payload") or {})
+        payload.pop("reuse_candidate", None)
+        payload.pop("synthesis_run_id", None)
+        payload.pop("repair_candidate", None)
+        payload.pop("repair_ops", None)
+        payload["unlimited_token_budget"] = unlimited_token_budget
+        if (repair_candidate or repair_ops) and not reuse_candidate:
+            raise ValueError("candidate repair requires reuse_candidate")
+        if reuse_candidate:
+            details = ((synthesis_job.get("error") or {}).get("details")) or {}
+            synthesis_run_id = str(details.get("synthesis_run_id") or "")
+            if not details.get("candidate_preserved") or not synthesis_run_id:
+                raise ValueError(
+                    "the failed synthesis attempt preserved no candidate; retry synthesis instead"
+                )
+            run = runner.repo.synthesis_run(synthesis_run_id)
+            if run is None or not run.get("candidate_output"):
+                raise ValueError(
+                    "the preserved candidate is no longer available; retry synthesis instead"
+                )
+            payload["reuse_candidate"] = True
+            payload["synthesis_run_id"] = synthesis_run_id
+            if repair_candidate:
+                payload["repair_candidate"] = True
+            if repair_ops:
+                payload["repair_ops"] = [dict(op) for op in repair_ops]
+        if synthesis_budgets:
+            payload["synthesis_budgets"] = {
+                **dict(payload.get("synthesis_budgets") or {}),
+                **synthesis_budgets,
+            }
+        runner.repo.update_ingest_job_payload(synthesis_job["id"], payload)
+        runner.resume_batch(batch_id)
+        self._ensure_worker()
+        return self.get_batch(batch_id) or {}
 
     def get_batch(self, batch_id: str) -> dict[str, Any] | None:
         runner = self._require_runner()
@@ -462,10 +681,87 @@ class DurableIngestJobs:
                 ran = runner.drain()
             except Exception:  # noqa: BLE001 — the drain thread must never die silently on one bad job
                 ran = 0
+            try:
+                ran += self._drain_reader_requests(runner)
+            except Exception:  # noqa: BLE001 — reader synthesis must never kill the ingest drain
+                pass
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
             if idle_rounds >= 3 and self._active_job_locked(runner) is None:
                 break
             time.sleep(self._poll_interval)
+
+    # -- demand-paged reader synthesis drain (spec §6.4) --------------------
+
+    def kick_reader_drain(self) -> None:
+        """Ensure queued demand-paged reader requests get drained.
+
+        Background mode starts (or keeps) the worker thread; foreground mode
+        (tests, CLI-less contexts) drains once synchronously. Called by the
+        reader handlers whenever a request may have been enqueued — a nudge,
+        so it never raises into the RPC whose capture already succeeded."""
+
+        runner = self._runner
+        if runner is None:
+            return
+        if not self._background:
+            try:
+                self._drain_reader_requests(runner)
+            except Exception:  # noqa: BLE001 — the nudge must not fail the capture RPC
+                pass
+            return
+        # Re-probe provider readiness for each drain burst: the provider may
+        # have come up since the last (failed) resolution.
+        with self._lock:
+            self._reader_client_checked = False
+        self._ensure_worker()
+
+    def _drain_reader_requests(self, runner: IngestRunner) -> int:
+        """Drain queued reader requests with a real synthesize client.
+
+        Provider unavailable → requests stay ``queued`` (never failed by the
+        infrastructure); the next kick re-probes. Bounded per cycle so a large
+        backlog cannot starve ingest jobs between polls."""
+
+        from learnloop.services import reader_requests as RR
+
+        if not runner.repo.has_queued_reader_requests():
+            return 0
+        client = self._resolve_reader_client(runner)
+        if client is None:
+            return 0
+        result = RR.drain_requests(
+            runner.repo,
+            worker_id=f"sidecar-{os.getpid()}",
+            synthesize=RR.model_synthesis(client),
+            limit=3,
+        )
+        return len(result["completed"]) + len(result["failed"]) + len(result["partial"])
+
+    def _resolve_reader_client(self, runner: IngestRunner) -> Any:
+        with self._lock:
+            if self._reader_client_checked:
+                return self._reader_client
+            factory = self._reader_synth_client_factory
+        if factory is not None:
+            client = factory()
+        else:
+            try:
+                from learnloop.codex.client import make_codex_client
+                from learnloop.codex.runtime import check_codex_runtime
+                from learnloop.vault.loader import load_vault
+
+                vault = load_vault(runner.vault_root)
+                runtime = check_codex_runtime(runner.vault_root, vault.config.codex)
+                client = (
+                    make_codex_client(vault.config.codex, runner.vault_root)
+                    if runtime.ready else None
+                )
+            except Exception:  # noqa: BLE001 — an unresolvable provider leaves requests queued
+                client = None
+        with self._lock:
+            self._reader_client = client
+            self._reader_client_checked = True
+        return client
 
     @staticmethod
     def _legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]:

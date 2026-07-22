@@ -1,0 +1,27 @@
+{
+  "current": {
+    "angle": "move_spotting",
+    "exposureStatus": "unknown",
+    "fresh": false,
+    "needsRotation": false,
+    "reducedEvidence": true,
+    "surfaceId": "01KXYJ5RSWTYSWMBGPAPM7V8FJ",
+    "surfaceSlug": "surf_move_spotting_1",
+    "warmth": 0.0
+  },
+  "fallback": false,
+  "poolId": "01KXYJ5RPPH3SAXG7DQZZAF7KX",
+  "reason": "serving_current",
+  "rotated": false,
+  "spare": {
+    "angle": "setup_only",
+    "exposureStatus": "unknown",
+    "fresh": false,
+    "needsRotation": false,
+    "reducedEvidence": true,
+    "surfaceId": "01KXYJ5RSGYQ9JM2QBDJRY5WSE",
+    "surfaceSlug": "surf_setup_1",
+    "warmth": 0.0
+  },
+  "version": 1
+}

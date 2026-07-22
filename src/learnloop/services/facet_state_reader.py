@@ -37,14 +37,21 @@ from learnloop.db.repositories import (
     FacetUncertaintyState,
     Repository,
 )
-from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+from learnloop.services.assessment_contracts import (
+    CANONICAL_STATE_VERSIONS,
+    KM_ALGORITHM_VERSION,
+)
 from learnloop.vault.models import LoadedVault
 
 
 def is_canonical_state_vault(vault: LoadedVault) -> bool:
-    """True when this vault reads/writes canonical (mvp-0.7) facet state."""
+    """True when this vault reads/writes canonical (mvp-0.7 or mvp-0.8) facet state.
 
-    return vault.config.algorithms.algorithm_version == KM_ALGORITHM_VERSION
+    P0.3 adds mvp-0.8 (the authority-propagation projection) as a successor that
+    also reads/writes canonical shared-facet state; either version keeps the
+    legacy per-LO bridge retired (spec §7.2)."""
+
+    return vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS
 
 
 def resolve_canonical_facet(

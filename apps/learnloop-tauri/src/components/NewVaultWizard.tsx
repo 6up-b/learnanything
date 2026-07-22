@@ -1,8 +1,6 @@
-// 5-step onboarding wizard for a brand-new user: create a vault, bootstrap a
-// first canonical source into a study map, review the resulting proposals,
-// optionally create a goal, and finish with an orientation to the average
-// learning loop. Terminal aesthetic + keyboard model match GoalWizard: esc
-// cancels, Enter advances when the current step is valid (never inside inputs).
+// New-vault creation is intentionally short. Once the vault exists, onboarding
+// continues in the real Ingest/Quick Add surface so setup and everyday source
+// ingestion cannot drift into two subtly different workflows.
 //
 // Steps: 1 Vault (dir + optional first subject → create) · 2 First source
 // (classify + hand off to the ingest study-map build via QuickAddDialog) ·
@@ -16,13 +14,16 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
-import type { CommandError } from "../api/dto";
+import type { CommandError, StartingLevel } from "../api/dto";
 import type { TopTab } from "./ui";
 import { COLOR, Faint, FONT_MONO } from "./term";
 import { GoalWizard } from "./GoalWizard";
 import { QuickAddDialog } from "./QuickAddDialog";
+import { STARTING_LEVELS } from "./StudyMapBriefWizard";
+import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
+import { useSourceFileDrop } from "./useSourceFileDrop";
 
-const STEP_LABELS = ["vault", "first source", "proposals", "goal", "the loop"];
+const STEP_LABELS = ["vault"];
 
 function kebabCase(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -31,6 +32,7 @@ function kebabCase(value: string): string {
 export function NewVaultWizard({
   onClose,
   onActivateVault,
+  onContinueInIngest,
   onGotoTab,
   onToast,
   onError
@@ -39,6 +41,7 @@ export function NewVaultWizard({
   // Re-select + re-load the vault at `path` so the whole app rebinds to it
   // (App.changeVault). Resolves once the switch is complete.
   onActivateVault: (path: string) => Promise<void>;
+  onContinueInIngest: (subjectId: string | null) => void;
   onGotoTab: (tab: TopTab) => void;
   onToast: (message: string) => void;
   onError: (message: string) => void;
@@ -48,6 +51,7 @@ export function NewVaultWizard({
   // step 1 — vault
   const [path, setPath] = useState("");
   const [subjectTitle, setSubjectTitle] = useState("");
+  const [startingLevel, setStartingLevel] = useState<StartingLevel | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [vaultReady, setVaultReady] = useState(false);
@@ -59,6 +63,8 @@ export function NewVaultWizard({
 
   // step 2 — first source
   const [source, setSource] = useState("");
+  const [pageSelection, setPageSelection] = useState("");
+  const [dropNote, setDropNote] = useState<string | null>(null);
   const [kind, setKind] = useState<string | null>(null);
   const [classifying, setClassifying] = useState(false);
   const [bootstrapSubject, setBootstrapSubject] = useState<string | null>(null);
@@ -68,12 +74,21 @@ export function NewVaultWizard({
   const [bootstrapBatchId, setBootstrapBatchId] = useState<string | null>(null);
   const [buildRunning, setBuildRunning] = useState(false);
 
-  // step 3 — proposals
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-
-  // step 4 — goal
+  // step 4 — goal (declared before the drop hook because nested overlays pause it)
   const [goalWizardOpen, setGoalWizardOpen] = useState(false);
   const [goalCreated, setGoalCreated] = useState(false);
+
+  const fileDragging = useSourceFileDrop({
+    enabled: step === 1 && !quickAddOpen && !goalWizardOpen,
+    priority: 100,
+    onDrop: (paths) => {
+      setSource(paths[0]);
+      setDropNote(paths.length > 1 ? `Using ${paths[0]}; the first-source wizard accepts one file at a time.` : null);
+    }
+  });
+
+  // step 3 — proposals
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   const asCommandError = (err: unknown): string =>
     err && typeof err === "object" && "message" in err
@@ -104,14 +119,19 @@ export function NewVaultWizard({
     setCreating(true);
     setCreateError(null);
     try {
-      const result = await api.createVault({ path: trimmed, subject: subjectTitle.trim() || null });
+      const result = await api.createVault({
+        path: trimmed,
+        subject: subjectTitle.trim() || null,
+        startingLevel
+      });
       setVaultRoot(result.vaultRoot);
       setFirstSubjectId(result.subjectId);
       // Rebind the whole app to the new vault before running any further RPCs.
       await onActivateVault(result.vaultRoot);
       await refreshSubjects();
       setVaultReady(true);
-      setStep(1);
+      onContinueInIngest(result.subjectId);
+      onClose();
     } catch (err) {
       setCreateError(asCommandError(err));
     } finally {
@@ -299,6 +319,8 @@ export function NewVaultWizard({
               onBrowse={browseForDirectory}
               subjectTitle={subjectTitle}
               onSubjectTitle={setSubjectTitle}
+              startingLevel={startingLevel}
+              onStartingLevel={setStartingLevel}
               vaultReady={vaultReady}
               vaultRoot={vaultRoot}
               createError={createError}
@@ -306,7 +328,14 @@ export function NewVaultWizard({
           ) : step === 1 ? (
             <StepFirstSource
               source={source}
-              onSource={setSource}
+              onSource={(value) => {
+                setSource(value);
+                setDropNote(null);
+              }}
+              pageSelection={pageSelection}
+              onPageSelection={setPageSelection}
+              fileDragging={fileDragging}
+              dropNote={dropNote}
               kind={kind}
               classifying={classifying}
               subjects={subjects}
@@ -369,6 +398,8 @@ export function NewVaultWizard({
           subjects={subjects.map((s) => ({ id: s, title: s }))}
           defaultSubjectId={bootstrapSubject}
           defaultSource={source}
+          defaultPageSelection={pageSelection}
+          defaultBrief={startingLevel ? { startingLevel } : null}
           onClose={() => setQuickAddOpen(false)}
           onEnqueued={(batchId) => {
             setBootstrapBatchId(batchId);
@@ -400,6 +431,8 @@ function StepVault({
   onBrowse,
   subjectTitle,
   onSubjectTitle,
+  startingLevel,
+  onStartingLevel,
   vaultReady,
   vaultRoot,
   createError
@@ -409,6 +442,8 @@ function StepVault({
   onBrowse: () => void;
   subjectTitle: string;
   onSubjectTitle: (v: string) => void;
+  startingLevel: StartingLevel | null;
+  onStartingLevel: (v: StartingLevel | null) => void;
   vaultReady: boolean;
   vaultRoot: string | null;
   createError: string | null;
@@ -448,6 +483,33 @@ function StepVault({
         and create a subject on the next step.
       </div>
 
+      <Label style={{ marginTop: 20 }}>where are you starting from — optional</Label>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {STARTING_LEVELS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            disabled={vaultReady}
+            onClick={() => onStartingLevel(startingLevel === s.id ? null : s.id)}
+            style={{
+              padding: "6px 14px",
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              cursor: vaultReady ? "default" : "pointer",
+              border: `1px solid ${startingLevel === s.id ? COLOR.amber : COLOR.borderStrong}`,
+              background: startingLevel === s.id ? "#241d12" : "transparent",
+              color: startingLevel === s.id ? COLOR.amber : COLOR.textDim
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 12, color: COLOR.textFaint, lineHeight: 1.5 }}>
+        Your honest starting point for this vault's material. It calibrates how hard the first questions
+        are — practice adapts from your actual answers after that. Change it anytime from the ingest screen.
+      </div>
+
       {vaultReady && vaultRoot ? (
         <div style={okBox}>
           <span style={{ color: COLOR.green }}>✓ vault created</span> at{" "}
@@ -463,6 +525,10 @@ function StepVault({
 function StepFirstSource({
   source,
   onSource,
+  pageSelection,
+  onPageSelection,
+  fileDragging,
+  dropNote,
   kind,
   classifying,
   subjects,
@@ -478,6 +544,10 @@ function StepFirstSource({
 }: {
   source: string;
   onSource: (v: string) => void;
+  pageSelection: string;
+  onPageSelection: (v: string) => void;
+  fileDragging: boolean;
+  dropNote: string | null;
   kind: string | null;
   classifying: boolean;
   subjects: string[];
@@ -492,7 +562,7 @@ function StepFirstSource({
   onOpenBootstrap: () => void;
 }) {
   const hasSubject = bootstrapSubject !== null && subjects.includes(bootstrapSubject);
-  const canBootstrap = source.trim().length > 0 && hasSubject;
+  const canBootstrap = source.trim().length > 0 && hasSubject && pageSelectionError(pageSelection) === null;
   return (
     <div>
       <Prose>
@@ -507,7 +577,7 @@ function StepFirstSource({
         <input
           value={source}
           onChange={(e) => onSource(e.target.value)}
-          placeholder="paste a URL, arXiv id, PDF path, YouTube link, or .md / .txt path"
+          placeholder="paste a URL, arXiv id, PDF path, YouTube link, or .md / .txt / .vtt / .srt path"
           style={{ width: "100%", background: "transparent", color: COLOR.text, border: "none", outline: "none", fontFamily: FONT_MONO, fontSize: 13 }}
           autoFocus
         />
@@ -520,6 +590,27 @@ function StepFirstSource({
               ? <>detected: <span style={{ color: COLOR.cyan }}>{kind}</span></>
               : "unsupported or unresolved source"
           : "paste a source above"}
+      </div>
+
+      <div
+        style={{
+          marginTop: 10,
+          padding: "9px 12px",
+          border: `1px dashed ${fileDragging ? COLOR.amber : COLOR.border}`,
+          background: fileDragging ? "#241d12" : "transparent",
+          color: fileDragging ? COLOR.amber : COLOR.textFaint,
+          fontSize: 12
+        }}
+      >
+        {fileDragging ? "drop to use this source" : "or drop a PDF, Markdown, text, HTML, or transcript (.vtt/.srt) file here"}
+      </div>
+      {dropNote ? <Faint style={{ display: "block", marginTop: 5, fontSize: 11 }}>{dropNote}</Faint> : null}
+
+      <div style={{ marginTop: 14 }}>
+        <PageRangeSelector
+          value={pageSelection}
+          onChange={onPageSelection}
+        />
       </div>
 
       <Label style={{ marginTop: 20 }}>subject</Label>

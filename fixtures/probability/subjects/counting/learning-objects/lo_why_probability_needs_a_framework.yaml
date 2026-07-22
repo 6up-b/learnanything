@@ -1,0 +1,49 @@
+schema_version: 1
+id: lo_why_probability_needs_a_framework
+title: Why Probability Needs a Framework
+subjects:
+  - counting
+concept: concept_probability_as_a_framework_for_uncertainty
+knowledge_type: conceptual_framing
+status: active
+contradicts:
+summary: Use probability as a principled alternative to vague intuition when 
+  reasoning about uncertainty, randomness, variation, and applications across 
+  fields.
+prerequisites: []
+confusables: []
+blueprints: []
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s34
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s37
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:58Z'
+updated_at: '2026-07-15T21:38:58Z'

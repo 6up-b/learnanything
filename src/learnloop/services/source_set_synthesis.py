@@ -24,16 +24,20 @@ proposed_patch_items -> apply_accepted_items.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
+from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.codex.client import SourceSetSynthesisContext
 from learnloop.codex.prompts import SOURCE_SET_SYNTHESIS_PROMPT_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
+from learnloop.services.brief import validate_brief
 from learnloop.services.exam_profile import ExamUnitEntry, aggregate_exam_profile
+from learnloop.services.learner_profile import read_learner_profile
 from learnloop.services.identifiability import analyze_identifiability, build_proposal_view
 from learnloop.services.role_authority import role_authority
 from learnloop.services.source_outline import resolve_extraction_id
@@ -68,11 +72,15 @@ class StudyMapError(ValueError):
     """A typed bootstrap-synthesis failure (lock refusal / gate hard-fail)."""
 
     def __init__(self, code: str, message: str, *, diagnostics: list[dict[str, Any]] | None = None,
-                 lock_reasons: list[dict[str, Any]] | None = None):
+                 lock_reasons: list[dict[str, Any]] | None = None,
+                 synthesis_run_id: str | None = None,
+                 candidate_preserved: bool = False):
         super().__init__(message)
         self.code = code
         self.diagnostics = diagnostics or []
         self.lock_reasons = lock_reasons or []
+        self.synthesis_run_id = synthesis_run_id
+        self.candidate_preserved = candidate_preserved
 
 
 @dataclass
@@ -91,6 +99,7 @@ class StudyMapResult:
     generation_needs: list[dict[str, Any]] = field(default_factory=list)
     span_request_count: int = 0
     resolved_span_hashes: list[str] = field(default_factory=list)
+    candidate_repairs: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -108,6 +117,7 @@ class StudyMapResult:
             "generation_needs": list(self.generation_needs),
             "span_request_count": self.span_request_count,
             "resolved_span_hashes": list(self.resolved_span_hashes),
+            "candidate_repairs": list(self.candidate_repairs),
         }
 
 
@@ -258,6 +268,25 @@ def _registry_index(vault: LoadedVault) -> dict[str, Any]:
     }
 
 
+# progress(stage, message, current, total) — stage is one of "synthesis" /
+# "validation" / "persistence" / "apply"; the durable-job handler maps stages
+# onto checkpoint-ladder phases. Exceptions propagate: the runner's report()
+# raises JobCancelled here so a cancellation lands at the next stage boundary.
+ProgressFn = Callable[[str, str, int | None, int | None], None]
+
+
+def _notify(
+    progress: ProgressFn | None,
+    stage: str,
+    message: str,
+    *,
+    current: int | None = None,
+    total: int | None = None,
+) -> None:
+    if progress is not None:
+        progress(stage, message, current, total)
+
+
 def _shards(unit_inventories: list[dict[str, Any]], shard_input_tokens: int) -> list[list[dict[str, Any]]]:
     if not unit_inventories:
         return [[]]
@@ -346,6 +375,8 @@ class _Normalized:
     criterion_targets: list[dict[str, Any]]
     recipe_components: list[dict[str, Any]]
     facet_ids: list[str]
+    # Review diagnostics from concept-edge derivation (dropped/invalid edges).
+    edge_diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _span_refs(
@@ -403,12 +434,23 @@ def _span_refs(
     return gate_refs, yaml_refs, span_ids
 
 
-def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: str, *, subject_id: str) -> _Normalized:
+def _normalize(
+    synth: Any,
+    inputs: _SynthesisInputs,
+    vault: LoadedVault,
+    now: str,
+    *,
+    subject_id: str,
+    items_off: bool = False,
+) -> _Normalized:
     rows: list[dict[str, Any]] = []
     gate_items: list[GateItem] = []
     facet_payloads: list[dict[str, Any]] = []
     criterion_targets: list[dict[str, Any]] = []
+    dropped_diagnostics: list[dict[str, Any]] = []
     recipe_components: list[dict[str, Any]] = []
+    # (lo_entity_id, lo_concept_entity_id, prerequisite ids, confusable ids)
+    lo_relation_seeds: list[tuple[str, str, list[str], list[str]]] = []
 
     def d(obj: Any) -> dict[str, Any]:
         return obj if isinstance(obj, dict) else obj.model_dump()
@@ -584,6 +626,8 @@ def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: st
                 if dependency
             )
         )
+        if concept_id:
+            lo_relation_seeds.append((oid, concept_id, list(prerequisites), list(confusables)))
         rows.append(_row("learning_object", oid, payload, deps, client_id=lokey, now=now))
         gate_items.append(
             GateItem(
@@ -659,8 +703,25 @@ def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: st
             )
         )
 
-    # practice items (+ rubric criteria)
-    for item in getattr(synth, "practice_items", []) or []:
+    # practice items (+ rubric criteria). Under items-off ("as_you_read"
+    # bootstrap) any model-emitted items are dropped by a deterministic guard —
+    # never trust prompt compliance — and counted into the diagnostics.
+    emitted_items = list(getattr(synth, "practice_items", []) or [])
+    if items_off and emitted_items:
+        dropped_diagnostics.append(
+            {
+                "gate": "items_off",
+                "severity": "review",
+                "entity_refs": [],
+                "message": (
+                    f"dropped {len(emitted_items)} model-emitted practice item(s): "
+                    "this build authors items as-you-read"
+                ),
+                "suggested_action": "none — items accrue from reading progress",
+            }
+        )
+        emitted_items = []
+    for item in emitted_items:
         pi = d(item)
         client = pi.get("client_item_id") or ""
         pid = pi.get("id") or _slug("pi", pi.get("prompt", "")[:24], new_ulid()[:8])
@@ -747,6 +808,152 @@ def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: st
             )
         )
 
+    # concept edges — explicit relations (shard-local + graph-structuring pass)
+    # first, then the deterministic floor derived from LO prerequisites and
+    # confusables. Everything validates against this proposal's concepts plus
+    # the registry; invalid or cycle-forming edges drop with review diagnostics
+    # rather than failing the paid-for synthesis.
+    edge_diagnostics: list[dict[str, Any]] = []
+    existing_edges = {(edge.source, edge.target, edge.relation_type) for edge in vault.edges}
+    edge_signatures: set[tuple[str, str, str]] = set()
+    prereq_adjacency: dict[str, set[str]] = {}
+    part_of_parent: dict[str, str] = {}
+    for edge_source, edge_target, edge_type in existing_edges:
+        if edge_type == "prerequisite":
+            prereq_adjacency.setdefault(edge_source, set()).add(edge_target)
+        elif edge_type == "part_of":
+            part_of_parent.setdefault(edge_source, edge_target)
+
+    def resolve_endpoint(reference: Any) -> str | None:
+        reference = str(reference or "")
+        if not reference:
+            return None
+        if reference in concept_ids:
+            return concept_ids[reference]
+        if reference in concept_client_for_id or reference in vault.concepts:
+            return reference
+        return None
+
+    def edge_review(message: str, refs: list[str], action: str) -> None:
+        edge_diagnostics.append(
+            {
+                "gate": "concept_graph",
+                "severity": "review",
+                "message": message,
+                "entity_refs": [ref for ref in refs if ref],
+                "suggested_action": action,
+            }
+        )
+
+    def _reaches(adjacency: dict[str, set[str]], start: str, goal: str) -> bool:
+        stack, seen = [start], set()
+        while stack:
+            node = stack.pop()
+            if node == goal:
+                return True
+            if node in seen:
+                continue
+            seen.add(node)
+            stack.extend(adjacency.get(node, ()))
+        return False
+
+    def add_concept_edge(
+        source_ref: Any, target_ref: Any, relation_type: str, *, rationale: str, strength: float = 1.0
+    ) -> None:
+        source = resolve_endpoint(source_ref)
+        target = resolve_endpoint(target_ref)
+        if source is None or target is None:
+            edge_review(
+                f"concept relation {source_ref!r} -> {target_ref!r} ({relation_type}) has an unresolvable endpoint",
+                [str(source_ref or ""), str(target_ref or "")],
+                "create the concept or drop the relation",
+            )
+            return
+        if source == target:
+            return
+        signature = (source, target, relation_type)
+        if signature in edge_signatures or signature in existing_edges:
+            return
+        if relation_type == "confusable_with" and (
+            (target, source, relation_type) in edge_signatures
+            or (target, source, relation_type) in existing_edges
+        ):
+            return
+        if relation_type == "part_of":
+            if source in part_of_parent:
+                edge_review(
+                    f"concept {source} already has part_of parent {part_of_parent[source]}; dropped extra parent {target}",
+                    [source, target],
+                    "keep exactly one part_of parent per concept",
+                )
+                return
+            parent_adjacency = {child: {parent} for child, parent in part_of_parent.items()}
+            if _reaches(parent_adjacency, target, source):
+                edge_review(
+                    f"part_of relation {source} -> {target} would close a hierarchy cycle; dropped",
+                    [source, target],
+                    "restructure the part_of hierarchy",
+                )
+                return
+        if relation_type == "prerequisite" and _reaches(prereq_adjacency, target, source):
+            edge_review(
+                f"prerequisite relation {source} -> {target} would close a cycle; dropped",
+                [source, target],
+                "resolve the prerequisite direction",
+            )
+            return
+        edge_signatures.add(signature)
+        if relation_type == "prerequisite":
+            prereq_adjacency.setdefault(source, set()).add(target)
+        elif relation_type == "part_of":
+            part_of_parent[source] = target
+        edge_id = unique(f"edge_{relation_type}__{snake_case(source)[:40]}__{snake_case(target)[:40]}")
+        payload = {
+            "id": edge_id,
+            "source_concept_id": source,
+            "target_concept_id": target,
+            "relation_type": relation_type,
+            "strength": strength,
+            "rationale": rationale or None,
+        }
+        deps = [
+            client
+            for client in (concept_client_for_id.get(source), concept_client_for_id.get(target))
+            if client
+        ]
+        rows.append(_row("concept_edge", edge_id, payload, deps, client_id=edge_id, now=now))
+        gate_items.append(
+            GateItem(
+                client_item_id=edge_id,
+                item_type="concept_edge",
+                entity_id=edge_id,
+                payload={"source": source, "target": target, "relation_type": relation_type},
+                depends_on=deps,
+                establishes_semantic=False,
+            )
+        )
+
+    for relation in getattr(synth, "concept_relations", []) or []:
+        r = d(relation)
+        add_concept_edge(
+            r.get("source"),
+            r.get("target"),
+            str(r.get("relation_type") or "related"),
+            rationale=str(r.get("rationale") or "authored during synthesis"),
+            strength=float(r.get("strength", 1.0) or 1.0),
+        )
+    for lo_id, lo_concept_id, prerequisite_ids, confusable_ids in lo_relation_seeds:
+        for prerequisite_id in prerequisite_ids:
+            add_concept_edge(
+                prerequisite_id, lo_concept_id, "prerequisite",
+                rationale=f"derived from learning object {lo_id} prerequisites",
+            )
+        for confusable_id in confusable_ids:
+            add_concept_edge(
+                lo_concept_id, confusable_id, "confusable_with",
+                rationale=f"derived from learning object {lo_id} confusables",
+            )
+
     conflict_candidates = [str(c.get("entity_client_id") or c.get("statement") or "")
                            for c in (d(x) for x in getattr(synth, "conflicts", []) or [])]
     dispositions = set(getattr(synth, "non_conflict_dispositions", []) or [])
@@ -760,6 +967,7 @@ def _normalize(synth: Any, inputs: _SynthesisInputs, vault: LoadedVault, now: st
         criterion_targets=criterion_targets,
         recipe_components=recipe_components,
         facet_ids=list(facet_client_to_id.values()),
+        edge_diagnostics=edge_diagnostics + dropped_diagnostics,
     )
 
 
@@ -841,6 +1049,9 @@ def create_study_map(
     create_goal: bool = False,
     repository: Repository | None = None,
     clock: Clock | None = None,
+    budget_overrides: dict[str, int] | None = None,
+    unlimited_token_budget: bool = False,
+    progress: ProgressFn | None = None,
 ) -> StudyMapResult:
     vault = load_vault(root)
     if repository is None:
@@ -849,7 +1060,9 @@ def create_study_map(
     return _create_study_map(
         vault, repository, root, source_set_id,
         client=client, brief=brief or {}, mode=mode, apply=apply,
-        create_goal=create_goal, clock=clock,
+        create_goal=create_goal, clock=clock, budget_overrides=budget_overrides,
+        unlimited_token_budget=unlimited_token_budget,
+        progress=progress,
     )
 
 
@@ -865,11 +1078,30 @@ def _create_study_map(
     apply: bool,
     create_goal: bool,
     clock: Clock | None,
+    budget_overrides: dict[str, int] | None = None,
+    unlimited_token_budget: bool = False,
+    progress: ProgressFn | None = None,
 ) -> StudyMapResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
     subject_id = source_set.subject_id
+
+    # Normalize the brief (tolerant: a stale persisted brief must never fail a
+    # paid build) and inherit the vault's declared learner level when the brief
+    # doesn't carry one — the single choke point all synthesis callers share.
+    brief = validate_brief(brief, strict=False)
+    if not brief.get("starting_level"):
+        profile = read_learner_profile(VaultPaths(vault.root, vault.config))
+        if profile is not None:
+            brief["starting_level"] = profile["starting_level"]
+            if profile.get("level_note") and not brief.get("level"):
+                brief["level"] = profile["level_note"]
+    # Resolve the item-authoring mode NOW and stamp it into the brief so the
+    # manifest records the decision and revalidation replays it identically.
+    if brief.get("practice_items") not in ("upfront", "as_you_read"):
+        brief["practice_items"] = vault.config.ingest.bootstrap_practice_items
+    items_off = brief["practice_items"] == "as_you_read"
 
     resolved_mode = "bootstrap" if mode in {"auto", "bootstrap"} else mode
     if resolved_mode != "bootstrap":
@@ -889,7 +1121,7 @@ def _create_study_map(
         )
 
     inputs = _collect_inputs(repository, vault, source_set)
-    budgets = vault.config.ingest.budgets
+    budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
     # 2. immutable manifest BEFORE the agent run.
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
@@ -907,11 +1139,20 @@ def _create_study_map(
         provider=provider,
         model=model,
         assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
-        token_budget={
-            "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
-            "synthesis_total_input_ceiling": budgets.synthesis_total_input_ceiling,
-            "synthesis_output_tokens": budgets.synthesis_output_tokens,
-        },
+        token_budget=(
+            {
+                "unlimited": True,
+                # This remains a context-window shard size, not a spend ceiling.
+                "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
+            }
+            if unlimited_token_budget
+            else {
+                "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
+                "synthesis_shard_output_tokens": budgets.synthesis_shard_output_tokens,
+                "synthesis_total_input_ceiling": budgets.synthesis_total_input_ceiling,
+                "synthesis_output_tokens": budgets.synthesis_output_tokens,
+            }
+        ),
         clock=clock,
     )
     manifest_hash = manifest["manifest_hash"]
@@ -948,64 +1189,43 @@ def _create_study_map(
         manifest_id=manifest_id, mode=resolved_mode, agent_run_id=agent_run_id
     )
 
+    candidate_preserved = False
+    usage: dict[str, Any] | None = None
     try:
         merged, span_request_count, resolved_hashes, usage = _run_synthesis(
             run_method, repository, inputs, vault, source_set, brief, budgets, clock=clock,
+            client=client, provider=provider, model=model,
+            manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
+            progress=progress,
         )
-        normalized = _normalize(merged, inputs, vault, now, subject_id=resolve_subject_id(source_set, vault))
-
-        # 3. identifiability analysis (real §11.3 check) — findings drive both the
-        #    gate hook and the persisted generate-discriminator needs.
-        view = build_proposal_view(
-            facets=normalized.facet_payloads,
-            criterion_targets=normalized.criterion_targets,
-            recipe_components=normalized.recipe_components,
+        repository.save_synthesis_candidate(
+            synthesis_run_id,
+            merged.model_dump(mode="json") if hasattr(merged, "model_dump") else dict(merged),
         )
-        findings = analyze_identifiability(view)
-        gate_ctx = _gate_context(vault, repository, inputs, findings)
-        gate_proposal = GateProposal(
-            items=normalized.gate_items,
-            conflict_candidates=normalized.conflict_candidates,
-            non_conflict_dispositions=normalized.non_conflict_dispositions,
+        candidate_preserved = True
+        patch_id, diagnostics, generation_needs, normalized = _gate_and_persist(
+            vault, repository, source_set, merged, inputs,
+            subject_id=resolve_subject_id(source_set, vault),
+            agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
+            now=now, usage=usage, resolved_hashes=resolved_hashes,
+            clock=clock, progress=progress, items_off=items_off,
         )
-        report = run_synthesis_gates(gate_proposal, gate_ctx)
-        diagnostics = [diag.to_dict() for diag in report.diagnostics]
-
-        if report.blocked:
-            repository.complete_synthesis_run(synthesis_run_id, status="failed",
-                                              coverage_decisions={"gate_diagnostics": diagnostics})
-            repository.complete_agent_run(agent_run_id, status="failed",
-                                          error_message="synthesis gates hard-failed", clock=clock)
-            raise StudyMapError("synthesis_gate_failed",
-                                "Synthesis proposal failed hard quality gates.",
-                                diagnostics=diagnostics)
-
-        # 4. persist generate-discriminator / coarsen needs (FIRST, per §11.3).
-        generation_needs = _persist_generation_needs(repository, subject_id, source_set.id,
-                                                      synthesis_run_id, findings, clock=clock)
-
-        # 5. persist the dependency-annotated proposal.
-        patch_id = new_ulid()
-        repository.persist_proposal_batch(
-            {
-                "id": patch_id,
-                "agent_run_id": agent_run_id,
-                "purpose": BOOTSTRAP_PROPOSAL_PURPOSE,
-                "source_refs": [],
-                "summary": getattr(merged, "summary", "") or f"bootstrap study map for {subject_id}",
-                "created_at": now,
-                "updated_at": now,
-            },
-            normalized.rows,
-        )
+    except StudyMapError as exc:
+        if candidate_preserved:
+            exc.candidate_preserved = True
+            exc.synthesis_run_id = synthesis_run_id
         repository.complete_synthesis_run(
-            synthesis_run_id, status="completed", proposal_id=patch_id,
-            resolved_span_hashes=resolved_hashes,
-            coverage_decisions={"gate_diagnostics": diagnostics},
+            synthesis_run_id,
+            status="failed",
+            coverage_decisions={"gate_diagnostics": exc.diagnostics} if exc.diagnostics else None,
             actual_usage=usage,
         )
-        repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
-    except StudyMapError:
+        repository.complete_agent_run(
+            agent_run_id,
+            status="failed",
+            error_message=f"{exc.code}: {exc}",
+            clock=clock,
+        )
         raise
     except Exception as exc:  # pragma: no cover - defensive
         repository.complete_synthesis_run(synthesis_run_id, status="failed")
@@ -1025,6 +1245,7 @@ def _create_study_map(
     if apply:
         from learnloop.services.patches import apply_accepted_items
 
+        _notify(progress, "apply", "Applying the study map")
         apply_accepted_items(root, patch_id, clock=clock)
         result.applied = True
         if create_goal and _is_exam_prep(brief):
@@ -1032,29 +1253,391 @@ def _create_study_map(
     return result
 
 
-def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, budgets, *, clock):
+def _gate_and_persist(
+    vault: LoadedVault,
+    repository: Repository,
+    source_set: SourceSet,
+    merged: Any,
+    inputs: _SynthesisInputs,
+    *,
+    subject_id: str,
+    agent_run_id: str | None,
+    synthesis_run_id: str,
+    now: str,
+    usage: dict[str, Any] | None,
+    resolved_hashes: list[str],
+    clock: Clock | None,
+    progress: ProgressFn | None = None,
+    items_off: bool = False,
+) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]:
+    """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
+
+    Shared by the live synthesis path and candidate revalidation (which re-runs
+    exactly this stage over a preserved candidate with zero model calls). On any
+    failure the synthesis run and agent run are finalized as failed before the
+    typed error propagates."""
+
+    def _fail(error_message: str, coverage: Any = None) -> None:
+        repository.complete_synthesis_run(
+            synthesis_run_id, status="failed", coverage_decisions=coverage, actual_usage=usage
+        )
+        if agent_run_id:
+            repository.complete_agent_run(
+                agent_run_id, status="failed", error_message=error_message, clock=clock
+            )
+
+    _notify(progress, "validation", "Validating candidate structure")
+    normalized = _normalize(merged, inputs, vault, now, subject_id=subject_id, items_off=items_off)
+    duplicate_diagnostics = _duplicate_client_id_diagnostics(normalized.rows)
+    if duplicate_diagnostics:
+        _fail("duplicate synthesis client item ids", {"gate_diagnostics": duplicate_diagnostics})
+        raise StudyMapError(
+            "duplicate_client_item_ids",
+            "Synthesis shards produced colliding client item identifiers.",
+            diagnostics=duplicate_diagnostics,
+            synthesis_run_id=synthesis_run_id,
+            candidate_preserved=True,
+        )
+
+    # identifiability analysis (real §11.3 check) — findings drive both the
+    # gate hook and the persisted generate-discriminator needs.
+    _notify(progress, "validation", "Running quality gates")
+    view = build_proposal_view(
+        facets=normalized.facet_payloads,
+        criterion_targets=normalized.criterion_targets,
+        recipe_components=normalized.recipe_components,
+    )
+    findings = analyze_identifiability(view)
+    gate_ctx = _gate_context(vault, repository, inputs, findings)
+    gate_proposal = GateProposal(
+        items=normalized.gate_items,
+        conflict_candidates=normalized.conflict_candidates,
+        non_conflict_dispositions=normalized.non_conflict_dispositions,
+    )
+    report = run_synthesis_gates(gate_proposal, gate_ctx)
+    diagnostics = [diag.to_dict() for diag in report.diagnostics]
+    diagnostics.extend(normalized.edge_diagnostics)
+
+    if report.blocked:
+        _fail("synthesis gates hard-failed", {"gate_diagnostics": diagnostics})
+        raise StudyMapError(
+            "synthesis_gate_failed",
+            "Synthesis proposal failed hard quality gates.",
+            diagnostics=diagnostics,
+            synthesis_run_id=synthesis_run_id,
+            candidate_preserved=True,
+        )
+
+    # persist generate-discriminator / coarsen needs (FIRST, per §11.3).
+    generation_needs = _persist_generation_needs(repository, subject_id, source_set.id,
+                                                  synthesis_run_id, findings, clock=clock)
+
+    # persist the dependency-annotated proposal.
+    _notify(progress, "persistence", "Persisting the study-map proposal")
+    patch_id = new_ulid()
+    repository.persist_proposal_batch(
+        {
+            "id": patch_id,
+            "agent_run_id": agent_run_id,
+            "purpose": BOOTSTRAP_PROPOSAL_PURPOSE,
+            "source_refs": [],
+            "summary": getattr(merged, "summary", "") or f"bootstrap study map for {subject_id}",
+            "created_at": now,
+            "updated_at": now,
+        },
+        normalized.rows,
+    )
+    repository.complete_synthesis_run(
+        synthesis_run_id, status="completed", proposal_id=patch_id,
+        resolved_span_hashes=resolved_hashes,
+        coverage_decisions={"gate_diagnostics": diagnostics},
+        actual_usage=usage,
+    )
+    if agent_run_id:
+        repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    return patch_id, diagnostics, generation_needs, normalized
+
+
+_SHARD_PREFIX_RE = re.compile(r"^shard_\d+__")
+
+# Candidate item collections whose entries declare a ``client_item_id``.
+_CANDIDATE_ITEM_FIELDS = ("concepts", "facets", "learning_objects", "blueprints", "practice_items")
+
+
+def derive_candidate_repairs(candidate: dict[str, Any]) -> list[dict[str, Any]]:
+    """Mechanically-safe repair ops for a preserved synthesis candidate.
+
+    Only failure classes with a provably-correct fix are derived; anything
+    requiring judgment stays a hard gate failure for a human or agent to
+    resolve via explicit ``repair_ops``. Current classes:
+
+    - item-level dependencies that reference a rubric criterion id: criteria
+      are embedded inside practice-item rubrics and are never proposal items,
+      so the reference can never close. Criterion ordering already lives in
+      the rubric's own ``depends_on``; dropping the item-level echo loses
+      nothing.
+    """
+
+    declared: set[str] = set()
+    for field_name in _CANDIDATE_ITEM_FIELDS:
+        for entry in candidate.get(field_name) or []:
+            cid = str((entry or {}).get("client_item_id") or "")
+            if cid:
+                declared.add(cid)
+    criterion_ids = {
+        str((criterion or {}).get("id") or "")
+        for item in candidate.get("practice_items") or []
+        for criterion in (item or {}).get("criteria") or []
+    } - {""}
+
+    ops: list[dict[str, Any]] = []
+    for item in candidate.get("practice_items") or []:
+        item_cid = str((item or {}).get("client_item_id") or "")
+        for dep in (item or {}).get("depends_on_client_item_ids") or []:
+            dep = str(dep)
+            if dep in declared:
+                continue
+            bare = _SHARD_PREFIX_RE.sub("", dep)
+            if bare in criterion_ids:
+                ops.append(
+                    {
+                        "op": "drop_dependency",
+                        "item_client_id": item_cid,
+                        "dep": dep,
+                        "reason": (
+                            f"references rubric criterion '{bare}'; criterion ordering "
+                            "is already encoded in the rubric's own depends_on"
+                        ),
+                    }
+                )
+    return ops
+
+
+def apply_candidate_repairs(
+    candidate: dict[str, Any], ops: list[dict[str, Any]]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Apply typed repair ops to a candidate dict; returns (repaired, log).
+
+    Ops vocabulary (each targets one practice item's ``depends_on_client_item_ids``):
+
+    - ``drop_dependency``: {"op", "item_client_id", "dep"} — remove ``dep``.
+    - ``remap_dependency``: {"op", "item_client_id", "dep", "to"} — replace
+      ``dep`` with ``to``, which must be a declared client item id.
+
+    The input candidate is never mutated. Every op is logged with an
+    ``applied`` flag; an op that matches nothing is a recorded no-op so a
+    repair prepared against a stale diagnostic cannot corrupt anything."""
+
+    repaired = json.loads(json.dumps(candidate))
+    declared: set[str] = set()
+    for field_name in _CANDIDATE_ITEM_FIELDS:
+        for entry in repaired.get(field_name) or []:
+            cid = str((entry or {}).get("client_item_id") or "")
+            if cid:
+                declared.add(cid)
+    items_by_client = {
+        str((item or {}).get("client_item_id") or ""): item
+        for item in repaired.get("practice_items") or []
+    }
+
+    log: list[dict[str, Any]] = []
+    for op in ops:
+        kind = str(op.get("op") or "")
+        if kind not in {"drop_dependency", "remap_dependency"}:
+            raise StudyMapError("unknown_repair_op", f"Unsupported candidate repair op: '{kind}'.")
+        item = items_by_client.get(str(op.get("item_client_id") or ""))
+        dep = str(op.get("dep") or "")
+        deps = list((item or {}).get("depends_on_client_item_ids") or [])
+        applied = item is not None and dep in deps
+        if applied and kind == "drop_dependency":
+            item["depends_on_client_item_ids"] = [d for d in deps if d != dep]
+        elif applied and kind == "remap_dependency":
+            to = str(op.get("to") or "")
+            if to not in declared:
+                raise StudyMapError(
+                    "invalid_repair_target",
+                    f"remap_dependency target '{to}' is not a declared client item id.",
+                )
+            item["depends_on_client_item_ids"] = [to if d == dep else d for d in deps]
+        log.append({**op, "applied": applied})
+    return repaired, log
+
+
+def revalidate_synthesis_candidate(
+    root: Path,
+    synthesis_run_id: str,
+    *,
+    apply: bool = False,
+    create_goal: bool = False,
+    repair: bool = False,
+    repair_ops: list[dict[str, Any]] | None = None,
+    repository: Repository | None = None,
+    clock: Clock | None = None,
+    progress: ProgressFn | None = None,
+) -> StudyMapResult:
+    """Re-run normalization, gates, and persistence over a preserved candidate
+    with ZERO model calls.
+
+    A post-generation failure (gate hard-fail, id collision, persistence error)
+    leaves the expensive merged candidate staged on its synthesis run
+    (``candidate_output_json``). After the offending code/config is fixed, this
+    finishes the pipeline from that checkpoint instead of paying for another
+    model run. Gate failures re-raise typed, with the candidate still preserved.
+
+    ``repair=True`` first derives mechanically-safe repair ops from the
+    preserved candidate (see :func:`derive_candidate_repairs`); explicit
+    ``repair_ops`` — authored by a user or a repair agent from the gate
+    diagnostics — are applied after the derived ones. The stored candidate is
+    left untouched; the applied-op log travels on ``actual_usage`` and the
+    result for auditability."""
+
+    from learnloop.codex.schemas import SourceSetSynthesis
+
+    vault = load_vault(root)
+    if repository is None:
+        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    run = repository.synthesis_run(synthesis_run_id)
+    if run is None:
+        raise StudyMapError(
+            "synthesis_run_not_found", f"Synthesis run '{synthesis_run_id}' does not exist."
+        )
+    if run.get("status") == "completed":
+        raise StudyMapError(
+            "synthesis_already_completed",
+            f"Synthesis run '{synthesis_run_id}' already completed; nothing to revalidate.",
+        )
+    candidate = run.get("candidate_output")
+    if not candidate:
+        raise StudyMapError(
+            "no_saved_candidate",
+            f"Synthesis run '{synthesis_run_id}' preserved no candidate; retry synthesis instead.",
+        )
+    manifest = repository.synthesis_manifest(run["manifest_id"]) or {}
+    source_set_id = str(manifest.get("source_set_id") or "")
+    source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
+    if source_set is None:
+        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
+    subject_id = resolve_subject_id(source_set, vault)
+
+    lock_reasons = _bootstrap_lock_refusal(vault, repository)
+    if lock_reasons:
+        raise StudyMapError(
+            "subject_identity_locked",
+            f"Revalidation refused: subject '{subject_id}' has locked identities.",
+            lock_reasons=lock_reasons,
+        )
+
+    inputs = _collect_inputs(repository, vault, source_set)
+    ops = derive_candidate_repairs(candidate) if repair else []
+    ops.extend(repair_ops or [])
+    repair_log: list[dict[str, Any]] = []
+    if ops:
+        candidate, repair_log = apply_candidate_repairs(candidate, ops)
+    merged = SourceSetSynthesis.model_validate(candidate)
+    now = utc_now_iso(clock)
+    usage = dict(run.get("actual_usage") or {})
+    usage["revalidations"] = int(usage.get("revalidations") or 0) + 1
+    if repair_log:
+        usage["candidate_repairs"] = list(usage.get("candidate_repairs") or []) + repair_log
+    try:
+        patch_id, diagnostics, generation_needs, normalized = _gate_and_persist(
+            vault, repository, source_set, merged, inputs,
+            subject_id=subject_id,
+            agent_run_id=run.get("agent_run_id"),
+            synthesis_run_id=synthesis_run_id,
+            now=now, usage=usage,
+            resolved_hashes=[str(h) for h in run.get("resolved_span_hashes") or []],
+            clock=clock, progress=progress,
+            # Replay the item-authoring decision stamped into the manifest brief.
+            items_off=(dict(manifest.get("brief") or {}).get("practice_items") == "as_you_read"),
+        )
+    except StudyMapError as exc:
+        exc.candidate_preserved = True
+        exc.synthesis_run_id = synthesis_run_id
+        raise
+
+    result = StudyMapResult(
+        source_set_id=source_set.id, subject_id=subject_id,
+        mode=str(run.get("mode") or "bootstrap"),
+        manifest_hash=str(manifest.get("manifest_hash") or ""),
+        synthesis_run_id=synthesis_run_id, proposal_id=patch_id,
+        item_counts=_count_items(normalized.rows), gate_diagnostics=diagnostics,
+        generation_needs=generation_needs, candidate_repairs=repair_log,
+    )
+    if apply:
+        from learnloop.services.patches import apply_accepted_items
+
+        _notify(progress, "apply", "Applying the study map")
+        apply_accepted_items(root, patch_id, clock=clock)
+        result.applied = True
+        brief = dict(manifest.get("brief") or {})
+        if create_goal and _is_exam_prep(brief):
+            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock)
+    return result
+
+
+def _run_synthesis(
+    run_method, repository, inputs, vault, source_set, brief, budgets, *, clock,
+    client: Any = None, provider: str | None = None, model: str | None = None,
+    manifest_hash: str | None = None, unlimited_token_budget: bool = False,
+    progress: ProgressFn | None = None,
+):
     registry = _registry_index(vault)
     shards = _shards(inputs.unit_inventories, budgets.synthesis_shard_input_tokens)
     merged = None
     span_request_count = 0
     resolved_hashes: list[str] = []
     calls = 0
+    reused_shards = 0
     input_tokens_estimate = 0
     from learnloop.codex.schemas import SourceSetSynthesis
 
+    def entry_tokens(entries: list[dict[str, Any]]) -> int:
+        return sum(max(1, len(json.dumps(entry, default=str)) // 4) for entry in entries)
+
+    # Durable per-shard checkpoints: resolve every shard's cache slot up front so
+    # the total-input preflight only charges for shards that will actually run.
+    shard_states: list[tuple[int, list[dict[str, Any]], str, dict[str, Any] | None]] = []
+    for ordinal, shard in enumerate(shards):
+        key = _shard_checkpoint_key(
+            source_set=source_set, brief=brief, registry=registry,
+            exam_profile=inputs.exam_profile, shard=shard,
+            ordinal=ordinal, count=len(shards), provider=provider, model=model,
+        )
+        cached = repository.synthesis_shard_result(key)
+        shard_states.append((ordinal, shard, key, cached if cached and cached.get("output") else None))
+
     base_input_tokens = sum(
-        max(1, len(json.dumps(entry, default=str)) // 4)
-        for entry in inputs.unit_inventories
+        entry_tokens(shard) for _, shard, _, cached in shard_states if cached is None
     )
-    if base_input_tokens > budgets.synthesis_total_input_ceiling:
+    if (
+        not unlimited_token_budget
+        and base_input_tokens > budgets.synthesis_total_input_ceiling
+    ):
         raise StudyMapError(
             "budget_exceeded",
             "Selected inventories exceed the synthesis total-input ceiling; narrow the source scope.",
         )
 
-    for ordinal, shard in enumerate(shards):
-        shard_tokens = sum(max(1, len(json.dumps(entry, default=str)) // 4) for entry in shard)
+    for ordinal, shard, shard_key, cached in shard_states:
+        if cached is not None:
+            output = cached["output"]
+            result = SourceSetSynthesis.model_validate(output.get("result") or {})
+            span_request_count += int(output.get("span_request_count") or 0)
+            resolved_hashes.extend(str(h) for h in output.get("resolved_span_hashes") or [])
+            reused_shards += 1
+            _notify(progress, "synthesis",
+                    f"Reusing completed shard {ordinal + 1} of {len(shards)}",
+                    current=ordinal + 1, total=len(shards))
+            result = _namespace_synthesis_shard(result, ordinal)
+            merged = _merge_synthesis(merged, result) if merged is not None else result
+            continue
+
+        shard_tokens = entry_tokens(shard)
         input_tokens_estimate += shard_tokens
+        _notify(progress, "synthesis",
+                f"Synthesizing shard {ordinal + 1} of {len(shards)}",
+                current=ordinal + 1, total=len(shards))
         context = SourceSetSynthesisContext(
             source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
             brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
@@ -1062,17 +1645,24 @@ def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, bud
         )
         result = run_method(context)
         calls += 1
-        if _result_tokens(result) > budgets.synthesis_shard_output_tokens:
+        if (
+            not unlimited_token_budget
+            and _result_tokens(result) > budgets.synthesis_shard_output_tokens
+        ):
             raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
+        shard_span_requests = 0
+        shard_hashes: list[str] = []
         requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
         if requests:
-            span_request_count += len(requests)
-            resolved, hashes = _resolve_span_requests(
+            shard_span_requests = len(requests)
+            _notify(progress, "synthesis",
+                    f"Resolving evidence spans for shard {ordinal + 1} of {len(shards)}",
+                    current=ordinal + 1, total=len(shards))
+            resolved, shard_hashes = _resolve_span_requests(
                 repository, requests, inputs,
                 max_count=budgets.synthesis_span_request_max_count,
                 char_cap=budgets.synthesis_span_char_cap,
             )
-            resolved_hashes.extend(hashes)
             context = SourceSetSynthesisContext(
                 source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
                 brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
@@ -1081,7 +1671,11 @@ def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, bud
             second_round_tokens = shard_tokens + sum(
                 max(1, len(json.dumps(span, default=str)) // 4) for span in resolved
             )
-            if input_tokens_estimate + second_round_tokens > budgets.synthesis_total_input_ceiling:
+            if (
+                not unlimited_token_budget
+                and input_tokens_estimate + second_round_tokens
+                > budgets.synthesis_total_input_ceiling
+            ):
                 raise StudyMapError(
                     "budget_exceeded",
                     "The requested evidence spans would exceed the synthesis total-input ceiling.",
@@ -1089,15 +1683,55 @@ def _run_synthesis(run_method, repository, inputs, vault, source_set, brief, bud
             input_tokens_estimate += second_round_tokens
             result = run_method(context)
             calls += 1
-            if _result_tokens(result) > budgets.synthesis_shard_output_tokens:
+            if (
+                not unlimited_token_budget
+                and _result_tokens(result) > budgets.synthesis_shard_output_tokens
+            ):
                 raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
+        span_request_count += shard_span_requests
+        resolved_hashes.extend(shard_hashes)
+        # Checkpoint AFTER the output-budget check so an oversized shard is
+        # regenerated on retry rather than reused into the same failure.
+        repository.save_synthesis_shard_result(
+            shard_key=shard_key, shard_ordinal=ordinal, shard_count=len(shards),
+            manifest_hash=manifest_hash,
+            result={
+                "result": result.model_dump(mode="json"),
+                "span_request_count": shard_span_requests,
+                "resolved_span_hashes": shard_hashes,
+            },
+            clock=clock,
+        )
+        result = _namespace_synthesis_shard(result, ordinal)
         merged = _merge_synthesis(merged, result) if merged is not None else result
 
     if merged is None:
         merged = SourceSetSynthesis()
-    if _result_tokens(merged) > budgets.synthesis_output_tokens:
+    usage: dict[str, Any] = {}
+    merged = _consolidate_same_title_concepts(merged)
+    merged, structuring_usage = _model_graph_structuring(
+        merged, client, source_set, inputs, repository, vault,
+        shard_count=len(shards),
+        input_tokens_estimate=input_tokens_estimate,
+        total_input_ceiling=(
+            None if unlimited_token_budget else budgets.synthesis_total_input_ceiling
+        ),
+        progress=progress,
+    )
+    calls += int(structuring_usage.pop("calls", 0))
+    input_tokens_estimate += int(structuring_usage.pop("input_tokens_estimate", 0))
+    usage.update(structuring_usage)
+    if (
+        not unlimited_token_budget
+        and _result_tokens(merged) > budgets.synthesis_output_tokens
+    ):
         raise StudyMapError("budget_exceeded", "Merged synthesis exceeded its total output budget.")
-    usage = {"calls": calls, "input_tokens_estimate": input_tokens_estimate}
+    usage.update({
+        "calls": calls,
+        "input_tokens_estimate": input_tokens_estimate,
+        "shard_count": len(shards),
+        "reused_shards": reused_shards,
+    })
     return merged, span_request_count, resolved_hashes, usage
 
 
@@ -1112,9 +1746,390 @@ def _result_tokens(result: Any) -> int:
 
 
 def _merge_synthesis(base: Any, extra: Any) -> Any:
-    for field_name in ("concepts", "facets", "learning_objects", "blueprints", "practice_items", "conflicts", "non_conflict_dispositions", "notes"):
+    for field_name in ("concepts", "facets", "learning_objects", "blueprints", "practice_items", "conflicts", "non_conflict_dispositions", "concept_relations", "notes"):
         getattr(base, field_name).extend(getattr(extra, field_name))
     return base
+
+
+def _namespace_synthesis_shard(result: Any, ordinal: int) -> Any:
+    """Make model-authored client ids local to one synthesis shard.
+
+    Shards are independent model calls and commonly choose the same descriptive
+    client ids. Prefixing both declarations and references before concatenation
+    preserves each shard's dependency graph and prevents database collisions.
+    Canonical entity ids and source span ids are deliberately untouched.
+    """
+
+    prefix = f"shard_{ordinal + 1}__"
+
+    # Relation endpoints ("source"/"target") reference concept client ids OR
+    # registered concept ids; only the shard's own declarations are prefixed.
+    declared_concepts = {
+        getattr(concept, "client_item_id", None) or (concept.get("client_item_id") if isinstance(concept, dict) else None)
+        for concept in getattr(result, "concepts", []) or (result.get("concepts") if isinstance(result, dict) else []) or []
+    } - {None, ""}
+
+    def rewrite(value: Any, key: str | None = None) -> Any:
+        if isinstance(value, list):
+            if key and (key.endswith("_client_ids") or key == "depends_on_client_item_ids"):
+                return [f"{prefix}{item}" if item else item for item in value]
+            return [rewrite(item) for item in value]
+        if isinstance(value, dict):
+            return {child_key: rewrite(child, child_key) for child_key, child in value.items()}
+        if isinstance(value, str) and value and key and (
+            key == "client_item_id" or key.endswith("_client_id")
+        ):
+            return f"{prefix}{value}"
+        if isinstance(value, str) and key in ("source", "target") and value in declared_concepts:
+            return f"{prefix}{value}"
+        return value
+
+    if hasattr(result, "model_dump"):
+        return result.__class__.model_validate(rewrite(result.model_dump(mode="python")))
+    return rewrite(result)
+
+
+def _shard_checkpoint_key(
+    *,
+    source_set: Any,
+    brief: dict[str, Any],
+    registry: dict[str, Any],
+    exam_profile: dict[str, Any] | None,
+    shard: list[dict[str, Any]],
+    ordinal: int,
+    count: int,
+    provider: str | None,
+    model: str | None,
+) -> str:
+    """Durable checkpoint identity for one synthesis shard.
+
+    Content-keyed (NOT manifest-keyed): the manifest hash includes the token
+    budgets, so a retry with revised ceilings mints a new manifest while its
+    shard inputs are identical — exactly the case per-shard reuse must survive.
+    Everything that shapes the model call participates: prompt version,
+    provider/model, brief, registry index, exam profile, the shard's inventory
+    entries, and the shard's position (the prompt sees ordinal/count)."""
+
+    import hashlib
+
+    payload = json.dumps(
+        {
+            "prompt_version": SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
+            "provider": provider,
+            "model": model,
+            "source_set_id": source_set.id,
+            "subject_id": source_set.subject_id,
+            "brief": brief,
+            "registry_index": registry,
+            "exam_profile": exam_profile or {},
+            "shard": shard,
+            "ordinal": ordinal,
+            "count": count,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return "shard:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+# --- cross-shard concept consolidation ---------------------------------------
+
+
+def _consolidate_same_title_concepts(result: Any) -> Any:
+    """Deterministic pass: fold concepts whose normalized titles are identical.
+
+    Independent shards routinely re-declare the same concept ("Sample Space" in
+    chapters 1 and 2). Same-title duplicates are unambiguous, so they merge
+    without a model call; the semantic near-duplicates are left to the
+    model-assisted pass."""
+
+    by_title: dict[str, Any] = {}
+    mapping: dict[str, str] = {}
+    for concept in getattr(result, "concepts", []) or []:
+        client_id = getattr(concept, "client_item_id", "") or ""
+        key = snake_case(getattr(concept, "title", "") or "")
+        if not key or not client_id:
+            continue
+        first = by_title.get(key)
+        if first is None:
+            by_title[key] = concept
+        elif getattr(first, "client_item_id", ""):
+            mapping[client_id] = first.client_item_id
+    if not mapping:
+        return result
+    return _apply_concept_merges(result, mapping)
+
+
+def _source_skeletons(repository: Repository, inputs: _SynthesisInputs) -> list[dict[str, Any]]:
+    """Compact per-source big-picture views from already-paid-for artifacts.
+
+    The deterministic unit/heading tree comes from the persisted Document IR;
+    each selected unit is enriched with its CACHED inventory's outline summary,
+    prerequisite hints, and concept mentions. No raw source text and no new
+    model calls — this is the graph-structuring pass's whole-span context."""
+
+    inventories_by_unit = {
+        (entry["extraction_id"], entry["unit_id"]): entry["inventory"]
+        for entry in inputs.unit_inventories
+    }
+    skeletons: list[dict[str, Any]] = []
+    for extraction_id in inputs.extraction_ids:
+        ir = repository.load_document_ir(extraction_id)
+        if ir is None:
+            continue
+        origin = inputs.span_origin.get(extraction_id, {})
+        units_out: list[dict[str, Any]] = []
+        for unit in ir.units:
+            entry: dict[str, Any] = {
+                "unit_id": unit.unit_id,
+                "label": (unit.label or "")[:120],
+                "parent_unit_id": unit.parent_unit_id,
+                "page_start": unit.page_start,
+                "page_end": unit.page_end,
+            }
+            inventory = inventories_by_unit.get((extraction_id, unit.unit_id))
+            if inventory:
+                summary = str(inventory.get("outline_summary") or "")[:400]
+                if summary:
+                    entry["summary"] = summary
+                hints: list[str] = []
+                for claim in inventory.get("claims") or []:
+                    for hint in claim.get("prerequisite_hints") or []:
+                        if hint and hint not in hints:
+                            hints.append(str(hint))
+                if hints:
+                    entry["prerequisite_hints"] = hints[:12]
+                mentions = [
+                    str(mention.get("name"))
+                    for mention in inventory.get("concept_mentions") or []
+                    if mention.get("name")
+                ]
+                if mentions:
+                    entry["concept_mentions"] = list(dict.fromkeys(mentions))[:16]
+            units_out.append(entry)
+        skeletons.append(
+            {
+                "source_id": origin.get("source_id"),
+                "role": origin.get("role"),
+                "units": units_out,
+            }
+        )
+    return skeletons
+
+
+def _model_graph_structuring(
+    merged: Any,
+    client: Any,
+    source_set: Any,
+    inputs: _SynthesisInputs,
+    repository: Repository,
+    vault: LoadedVault,
+    *,
+    shard_count: int,
+    input_tokens_estimate: int,
+    total_input_ceiling: int | None,
+    progress: ProgressFn | None = None,
+) -> tuple[Any, dict[str, Any]]:
+    """One bounded model pass over the WHOLE merged candidate (§8.5): folds
+    semantic duplicate concepts AND authors the big-picture concept relations
+    (part_of hierarchy, prerequisites, confusables) across every shard and
+    source, using the compact source skeletons as whole-span context.
+
+    Strictly best-effort: the shards are already paid for, so any failure here
+    degrades to the deterministic same-title merge (and whatever relations the
+    shards authored locally) rather than failing the synthesis. The model only
+    NOMINATES merges/relations; validation and application stay deterministic."""
+
+    structure = getattr(client, "run_concept_graph_structuring", None) if client is not None else None
+    concepts = list(getattr(merged, "concepts", []) or [])
+    # Single-shard synthesis already saw its whole span and authors relations
+    # inline; the global pass earns its call when shards were blind to each
+    # other, or when a single shard produced no structure at all.
+    needed = shard_count >= 2 or not list(getattr(merged, "concept_relations", []) or [])
+    if structure is None or len(concepts) < 2 or not needed:
+        return merged, {}
+    from learnloop.codex.client import ConceptGraphContext
+
+    compact = [
+        {
+            "client_item_id": concept.client_item_id,
+            "title": concept.title,
+            "type": concept.type,
+            "aliases": list(concept.aliases or []),
+            "description": (concept.description or "")[:280],
+        }
+        for concept in concepts
+        if getattr(concept, "client_item_id", "")
+    ]
+    skeletons = _source_skeletons(repository, inputs)
+    registry_concepts = sorted(vault.concepts.keys())
+    registry_edges = [
+        {"source": edge.source, "target": edge.target, "relation_type": edge.relation_type}
+        for edge in vault.edges
+    ]
+    context = ConceptGraphContext(
+        source_set_id=source_set.id,
+        subject_id=source_set.subject_id,
+        concepts=compact,
+        source_skeletons=skeletons,
+        registry_concepts=registry_concepts,
+        registry_edges=registry_edges,
+    )
+    estimate = max(
+        1, len(json.dumps([compact, skeletons, registry_concepts, registry_edges], default=str)) // 4
+    )
+    if (
+        total_input_ceiling is not None
+        and input_tokens_estimate + estimate > total_input_ceiling
+    ):
+        return merged, {"graph_structuring_skipped": "total-input ceiling reached"}
+    _notify(progress, "synthesis", "Structuring the concept graph across sources")
+    try:
+        outcome = structure(context)
+    except Exception as exc:  # noqa: BLE001 — never discard paid-for shards over this
+        return merged, {"graph_structuring_skipped": f"{exc.__class__.__name__}: {exc}"}
+    mapping = _validated_merge_mapping(outcome, merged)
+    if mapping:
+        merged = _apply_concept_merges(merged, mapping)
+    known = {
+        concept.client_item_id
+        for concept in getattr(merged, "concepts", []) or []
+        if getattr(concept, "client_item_id", "")
+    } | set(registry_concepts)
+    authored = 0
+    for relation in getattr(outcome, "relations", []) or []:
+        source = mapping.get(relation.source, relation.source)
+        target = mapping.get(relation.target, relation.target)
+        if not source or not target or source == target:
+            continue
+        if source not in known or target not in known:
+            continue
+        merged.concept_relations.append(
+            relation.model_copy(update={"source": source, "target": target})
+        )
+        authored += 1
+    usage = {
+        "calls": 1,
+        "input_tokens_estimate": estimate,
+        "consolidated_concepts": len(mapping),
+        "authored_relations": authored,
+    }
+    return merged, usage
+
+
+def _validated_merge_mapping(consolidation: Any, result: Any) -> dict[str, str]:
+    """duplicate client id -> canonical client id, from validated merge groups.
+
+    Unknown ids, self-merges, re-used duplicates, and chained groups (a canonical
+    that is itself merged away) are dropped — an invalid nomination is a no-op,
+    never an error."""
+
+    known = {
+        concept.client_item_id
+        for concept in getattr(result, "concepts", []) or []
+        if getattr(concept, "client_item_id", "")
+    }
+    mapping: dict[str, str] = {}
+    for group in getattr(consolidation, "merge_groups", []) or []:
+        canonical = str(getattr(group, "canonical_client_id", "") or "")
+        if canonical not in known:
+            continue
+        for duplicate in getattr(group, "duplicate_client_ids", []) or []:
+            duplicate = str(duplicate or "")
+            if duplicate in known and duplicate != canonical and duplicate not in mapping:
+                mapping[duplicate] = canonical
+    # Break chains conservatively: a canonical that is itself merged away
+    # invalidates the entries pointing at it.
+    return {dup: canon for dup, canon in mapping.items() if canon not in mapping}
+
+
+def _apply_concept_merges(result: Any, mapping: dict[str, str]) -> Any:
+    """Fold duplicate concepts into their canonical and rewrite all references.
+
+    The dropped concept's title and aliases become aliases of the canonical (so
+    later same-name references still resolve through the concept index), and
+    every reference — ``*_client_id`` fields, ``*_client_ids`` lists,
+    ``depends_on_client_item_ids``, and canonical-id ``concept_id``/
+    ``prerequisites``/``confusables`` entries — is rewritten to the canonical."""
+
+    data = result.model_dump(mode="python") if hasattr(result, "model_dump") else dict(result)
+    concepts = data.get("concepts") or []
+    by_client = {c.get("client_item_id"): c for c in concepts if c.get("client_item_id")}
+    dropped_declared_ids: dict[str, str] = {}
+    for duplicate, canonical in mapping.items():
+        dup_concept = by_client.get(duplicate)
+        canon_concept = by_client.get(canonical)
+        if dup_concept is None or canon_concept is None:
+            continue
+        aliases = list(canon_concept.get("aliases") or [])
+        for alias in [dup_concept.get("title"), *(dup_concept.get("aliases") or [])]:
+            if alias and alias != canon_concept.get("title") and alias not in aliases:
+                aliases.append(alias)
+        canon_concept["aliases"] = aliases
+        if not canon_concept.get("description") and dup_concept.get("description"):
+            canon_concept["description"] = dup_concept["description"]
+        if dup_concept.get("id"):
+            # Canonical-id references to the dropped concept resolve through the
+            # surviving concept's client id (always resolvable in _normalize).
+            dropped_declared_ids[dup_concept["id"]] = canonical
+    data["concepts"] = [c for c in concepts if c.get("client_item_id") not in mapping]
+
+    def rewrite(value: Any, key: str | None = None) -> Any:
+        if isinstance(value, list):
+            if key and (key.endswith("_client_ids") or key == "depends_on_client_item_ids"):
+                return list(dict.fromkeys(mapping.get(item, item) for item in value))
+            if key in ("prerequisites", "confusables"):
+                return list(dict.fromkeys(dropped_declared_ids.get(item, item) for item in value))
+            return [rewrite(item) for item in value]
+        if isinstance(value, dict):
+            return {child_key: rewrite(child, child_key) for child_key, child in value.items()}
+        if isinstance(value, str) and value and key:
+            if key.endswith("_client_id"):
+                return mapping.get(value, value)
+            if key == "concept_id":
+                return dropped_declared_ids.get(value, value)
+            if key in ("source", "target"):
+                return mapping.get(value, value)
+        return value
+
+    data = rewrite(data)
+    # Folding duplicates can turn a relation between them into a self-edge, or
+    # make two relations identical — drop/dedupe rather than propagate.
+    seen_relations: set[tuple[str, str, str]] = set()
+    surviving_relations = []
+    for relation in data.get("concept_relations") or []:
+        signature = (
+            str(relation.get("source") or ""),
+            str(relation.get("target") or ""),
+            str(relation.get("relation_type") or ""),
+        )
+        if not signature[0] or not signature[1] or signature[0] == signature[1]:
+            continue
+        if signature in seen_relations:
+            continue
+        seen_relations.add(signature)
+        surviving_relations.append(relation)
+    data["concept_relations"] = surviving_relations
+
+    if hasattr(result, "model_dump"):
+        return result.__class__.model_validate(data)
+    return data
+
+
+def _duplicate_client_id_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    counts = Counter(str(row.get("client_item_id") or "") for row in rows)
+    duplicates = sorted(client_id for client_id, count in counts.items() if client_id and count > 1)
+    return [
+        {
+            "gate": "client_item_id_uniqueness",
+            "severity": "hard_fail",
+            "message": f"client item id {client_id!r} occurs {counts[client_id]} times",
+            "entity_refs": [client_id],
+            "suggested_action": "retry synthesis with shard-local identifiers",
+        }
+        for client_id in duplicates
+    ]
 
 
 def _gate_context(vault, repository, inputs, findings) -> GateContext:
@@ -1126,6 +2141,7 @@ def _gate_context(vault, repository, inputs, findings) -> GateContext:
 
     return GateContext(
         registered_facet_ids=registered_facets,
+        registered_concept_ids=set(vault.concepts.keys()),
         registered_capabilities=set(CAPABILITY_VOCABULARY),
         selected_revision_ids=set(inputs.selected_revision_ids),
         extraction_units=inputs.extraction_units,

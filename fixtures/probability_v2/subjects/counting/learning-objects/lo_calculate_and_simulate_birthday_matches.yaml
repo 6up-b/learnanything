@@ -1,0 +1,108 @@
+schema_version: 1
+id: lo_calculate_and_simulate_birthday_matches
+title: Calculate and simulate birthday matches
+subjects:
+  - counting
+concept: concept_birthday_matching_problem
+knowledge_type: conceptual_and_procedural
+status: active
+contradicts:
+summary: Use complements, built-in birthday functions, and Monte Carlo 
+  simulation for pair, triple, equal-probability, and nonuniform birthday 
+  models.
+prerequisites:
+  - concept_random_sampling_in_r
+  - concept_monte_carlo_probability_estimation
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_16
+    weight: 0.3
+    recipes:
+      - id: recipe_birthday_exact_or_builtin
+        composition: conjunctive
+        all_of:
+          - facet: facet_under_the_equal_probability_365_day_model_comput
+            capability: procedure_execution
+            modality: hard
+        any_of:
+          - facet: facet_use_pbirthday_k_when_group_size_is_known_and_a_m
+            capability: method_selection
+            modality: path_specific
+        integration:
+          facet: facet_under_the_equal_probability_365_day_model_comput
+          capability: schema_interpretation
+          modality: hard
+      - id: recipe_birthday_simulation
+        composition: conjunctive
+        all_of:
+          - facet: facet_simulate_birthday_matches_by_sampling_one_day_pe
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_supply_a_prob_vector_to_sample_to_assign_weights
+            capability: method_selection
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_simulate_birthday_matches_by_sampling_one_day_pe
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s342
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s345
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s349
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s350
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:06Z'
+updated_at: '2026-07-21T00:54:11Z'

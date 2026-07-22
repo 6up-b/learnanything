@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable
@@ -65,7 +66,11 @@ from learnloop.services.mastery import (
     update_mastery_traced,
 )
 from learnloop.services.evidence import attempt_evidence_mass
-from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+from learnloop.services.assessment_contracts import (
+    CANONICAL_STATE_VERSIONS,
+    KM_ALGORITHM_VERSION,
+    P0_ALGORITHM_VERSION,
+)
 from learnloop.services.facet_state_reader import (
     CanonicalFacetStateReader,
     is_canonical_state_vault,
@@ -803,7 +808,10 @@ def _resolve_attempt_target(
     # "exam_attempt" is a held-out practice-exam answer applied at exam finish.
     # The pooled item is a regular practice item that only lists its live
     # attempt types, so the exam attempt type is exempt (like exam_evidence).
-    exempt_attempt_types = {"dont_know", "exam_evidence", "exam_attempt"}
+    # "self_report" is a mode-agnostic learner self-assessment (e.g. the
+    # rung-variant request evidence write) — it never depends on the item's
+    # live attempt-type list, so it is exempt like the other recording types.
+    exempt_attempt_types = {"dont_know", "exam_evidence", "exam_attempt", "self_report"}
     if draft.attempt_type == "teach_back" and (replay or item.practice_mode == "teach_back"):
         exempt_attempt_types.add("teach_back")
     # Probe redesign §12: an active diagnostic episode forces the recording
@@ -844,6 +852,72 @@ def _resolve_attempt_target(
     return item, learning_object, rubric
 
 
+def _dual_write_grade_channel(
+    vault: LoadedVault,
+    repository: Repository,
+    attempt: ApplyAttemptInput,
+    application: "AttemptApplication",
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """P0.2 dual-write (spec_p0_measurement_correctness §4.1, §7.2): append a raw
+    grade event + calibrated interpretation alongside the legacy attempt summary.
+
+    Fail-safe: never raises into the legacy path (§7.3). Ordinary practice attempts
+    only -- diagnostic-probe attempts (record_probe_update) and exam attempts are
+    dual-written by their own entry points (probe_episodes / exam_session)."""
+
+    try:
+        attempt_type = attempt.draft.attempt_type
+        # Diagnostic-probe attempts are dual-written by the probe-episode path when
+        # they carry a presentation; exam attempts by exam_session. Everything else
+        # routed through apply_attempt is an ordinary practice attempt.
+        if attempt_type == "diagnostic_probe" or "exam" in attempt_type:
+            return
+        item = vault.practice_items.get(attempt.draft.practice_item_id)
+        if item is None:
+            return
+        grade = attempt.grade
+        rubric = vault.rubric_for_item(item)
+        max_points = rubric.max_points if rubric is not None else 4
+        criterion_max = (
+            {c.id: c.points for c in rubric.criteria} if rubric is not None else None
+        )
+        from learnloop.services.grade_resolution import record_grade_dual_write
+
+        record_grade_dual_write(
+            vault,
+            repository,
+            item=item,
+            purpose="practice",
+            grading_source=attempt.grading_source or application.result.grading_source,
+            attempt_id=application.result.attempt_id,
+            response_text=attempt.draft.learner_answer_md,
+            rubric_score=grade.rubric_score,
+            max_points=max_points,
+            grader_confidence=grade.grader_confidence,
+            has_fatal=bool(grade.fatal_errors),
+            signature_matched=any(
+                getattr(a, "is_misconception", False)
+                for a in (grade.error_attributions or [])
+            ),
+            criterion_points=grade.criterion_points,
+            criterion_max=criterion_max,
+            agent_run_id=application.result.agent_run_id,
+            domain=application.result.learning_object_id,
+            clock=clock,
+        )
+    except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
+        # record_grade_dual_write anchors its own degradation telemetry; this outer
+        # guard only catches failures BEFORE it is reached (item/rubric lookup).
+        # Never silent: degradation is visible, recoverable debt (audit B2).
+        logging.getLogger(__name__).warning(
+            "grade dual-write channel degraded before resolution for attempt %s",
+            getattr(getattr(attempt, "draft", None), "practice_item_id", None),
+            exc_info=True,
+        )
+
+
 def apply_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -859,6 +933,13 @@ def apply_attempt(
     events, ability transition audit, and debug trace.
     """
 
+    # Reading-signal firewall (§8.2, design §C.2): the evidence-ingestion chokepoint
+    # hard-rejects any input carrying salience-only authority. Reading is never
+    # evidence -- a salience signal can never reach the belief pipeline.
+    from learnloop.services.salience_firewall import reject_salience
+
+    reject_salience(attempt, context="apply_attempt")
+
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
     application = _validate_probe_presentation(repository, application, attempt, clock=clock)
     _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
@@ -870,6 +951,8 @@ def apply_attempt(
         replace_existing=attempt.replace_existing,
         write_legacy_facet_state=not is_canonical_state_vault(vault),
     )
+    _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
+
     from learnloop.services.remediation import record_remediation_attempt
 
     record_remediation_attempt(repository, application.attempt_record, clock=clock)
@@ -914,7 +997,7 @@ def _project_canonical_belief(
     observation ledger, so live state and replayed state coincide by construction.
     """
 
-    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     from learnloop.services.canonical_projection import project_canonical_facet_state
 
@@ -999,7 +1082,7 @@ def _stamp_observation_lineage(
         snapshot_for_presentation,
     )
 
-    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     if attempt.replace_existing or not application.evidence_rows:
         return
@@ -1306,11 +1389,41 @@ def _compute_resolved_grade_application(
         attempt_type=draft.attempt_type,
         error_attributions=grade_attributions,
     )
+    # P0.3 (§4.3/§4.4): for new-version (mvp-0.8) writes the grader-confidence
+    # FACTOR is sourced from the calibrated interpretation's certainty LCB -- the
+    # SAME certainty certification consumes -- so mastery and certification cannot
+    # disagree about grader trust. The product SHAPE (clamp x hint x attempt_mass)
+    # is unchanged (pinned by test_characterization_mastery_reliability). Legacy
+    # versions keep the raw grader_confidence. Fail-safe: any resolution failure
+    # falls back to the legacy source (§7.3).
+    grader_confidence_source = grade.grader_confidence
+    if (
+        vault.config.algorithms.algorithm_version == P0_ALGORITHM_VERSION
+        and draft.attempt_type != "dont_know"
+    ):
+        try:
+            from learnloop.services.grade_resolution import response_certainty_lcb
+
+            grader_confidence_source = response_certainty_lcb(
+                vault,
+                repository,
+                item=item,
+                grading_source="ai",
+                rubric_score=grade.rubric_score,
+                max_points=rubric.max_points,
+                grader_confidence=grade.grader_confidence,
+                has_fatal=bool(grade.error_attributions),
+                response_text=draft.learner_answer_md,
+                domain=learning_object.id,
+                clock=clock,
+            )
+        except Exception:  # noqa: BLE001 - fail-safe reliability source (§7.3)
+            grader_confidence_source = grade.grader_confidence
     reliability = resolve_reliability(
         item,
         attempt_type=draft.attempt_type,
         hints_used=draft.hints_used,
-        grader_confidence=grade.grader_confidence,
+        grader_confidence=grader_confidence_source,
         evidence=vault.config.evidence,
     )
     familiarity = familiarity_discount_from_attempts(
@@ -1458,9 +1571,44 @@ def _compute_resolved_grade_application(
     fsrs_weights_fitted = fsrs_weights is not FSRS6_DEFAULT_WEIGHTS
     elapsed_days = _elapsed_days(previous_state, observed_at)
     previous_memory = _memory_state(previous_state)
-    next_memory = apply_review(previous_memory, fsrs_rating, elapsed_days, fsrs_weights)
-    interval_days = interval_for_retention(next_memory.stability, weights=fsrs_weights) * surprise.fsrs_interval_factor
-    due_at = (observed_at + timedelta(days=interval_days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    # P1 step 5/9 (§3.10, §7.4): purpose-specific administration adapter seam. The
+    # purpose-adapter path is the LIVE scheduling authority for mvp-0.8 vaults (the
+    # step-9 cutover); legacy vaults keep the purpose-blind path byte-identical.
+    #
+    # The REAL evidence eligibility of the practice observation is threaded into the
+    # decision (§3.8): a practice administration is scheduling-eligible unless its
+    # evidence is ineligible (feedback revealed before response, quarantined /
+    # out-of-band). For an eligible practice attempt -- the common case that reaches
+    # apply_attempt -- the review still applies, so both paths are byte-identical; on a
+    # LIVE mvp-0.8 vault an INELIGIBLE observation now correctly leaves card scheduling
+    # state EXACTLY as it was (no memory rewrite, no due-date recompute). A legacy vault
+    # bypasses the decision entirely (unconditional write, characterization-pinned).
+    from learnloop.services.activities import evidence_eligibility_for
+    from learnloop.services.administration_adapters import hot_path_applies_practice_review
+
+    evidence_eligibility, _eligibility_reason = evidence_eligibility_for(
+        purpose="practice", feedback_condition=None
+    )
+    observation_eligible = evidence_eligibility == "practice"
+    if hot_path_applies_practice_review(
+        attempt_type=draft.attempt_type,
+        eligible=observation_eligible,
+        algorithm_version=vault.config.algorithms.algorithm_version,
+    ):
+        next_memory = apply_review(previous_memory, fsrs_rating, elapsed_days, fsrs_weights)
+        interval_days = (
+            interval_for_retention(next_memory.stability, weights=fsrs_weights)
+            * surprise.fsrs_interval_factor
+        )
+        due_at = (observed_at + timedelta(days=interval_days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    else:
+        # LIVE mvp-0.8 + ineligible observation: scheduling state is left EXACTLY as it
+        # was (§3.8). A first-ever ineligible observation creates NO memory state
+        # (never apply_review(None, ...)); a retained prior memory keeps its stored
+        # interval / due_at unchanged (never a rewritten due-date).
+        next_memory = previous_memory
+        interval_days = None
+        due_at = previous_state.due_at if previous_state is not None else None
 
     attempt_record = {
         "id": attempt_id,
@@ -1607,9 +1755,9 @@ def _compute_resolved_grade_application(
     }
     practice_state = PracticeItemState(
         practice_item_id=item.id,
-        difficulty=next_memory.difficulty,
-        stability=next_memory.stability,
-        retrievability=next_memory.retrievability,
+        difficulty=next_memory.difficulty if next_memory is not None else None,
+        stability=next_memory.stability if next_memory is not None else None,
+        retrievability=next_memory.retrievability if next_memory is not None else None,
         due_at=due_at,
         active=True,
         content_hash=practice_item_hash(item),

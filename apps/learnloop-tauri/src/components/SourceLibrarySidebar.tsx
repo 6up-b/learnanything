@@ -5,10 +5,12 @@ import type {
   SourceLibraryCard,
   SourceReadiness,
   SourceSetDto,
-  SourceSetSummaryDto
+  SourceSetSummaryDto,
+  StudyMapBriefDto
 } from "../api/dto";
-import { COLOR, Faint, FONT_MONO, Pill } from "./term";
+import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox } from "./term";
 import { AddToCollectionPanel } from "./AddToCollection";
+import { StudyMapBriefWizard } from "./StudyMapBriefWizard";
 import { youtubeVideoId } from "./sourceTail";
 
 // Left-sidebar successor to the legacy "recent ingests" column: the v2
@@ -24,6 +26,7 @@ const READINESS_META: Record<SourceReadiness, { color: string; label: string }> 
   processing: { color: COLOR.cyan, label: "processing…" },
   needs_extraction: { color: COLOR.amber, label: "needs extraction" }
 };
+const DEFAULT_INVENTORY_OUTPUT_TOKENS = 12_000;
 
 // Backend titles for local files are raw file:// URIs — show a readable tail
 // (basename) instead; the full title stays available in the hover tooltip.
@@ -304,6 +307,12 @@ function CollectionsSection({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [inventoryBudgets, setInventoryBudgets] = useState<Record<string, number>>({});
+  const [unlimitedBudgets, setUnlimitedBudgets] = useState<Record<string, boolean>>({});
+  // Per-collection synthesis brief; unset collections use the default brief
+  // (which inherits the vault's persisted learner level server-side).
+  const [briefs, setBriefs] = useState<Record<string, StudyMapBriefDto>>({});
+  const [briefEditorFor, setBriefEditorFor] = useState<string | null>(null);
 
   const titleFor = useCallback(
     (sourceId: string): string => {
@@ -350,11 +359,17 @@ function CollectionsSection({
   }
 
   async function synthesize(id: string) {
+    const inventoryOutputTokens = inventoryBudgets[id] ?? DEFAULT_INVENTORY_OUTPUT_TOKENS;
+    const unlimitedTokenBudget = Boolean(unlimitedBudgets[id]);
+    if (!unlimitedTokenBudget && (inventoryOutputTokens < 1_000 || inventoryOutputTokens > 100_000)) {
+      setError("Inventory output budget must be between 1,000 and 100,000 tokens per unit.");
+      return;
+    }
     setBusy(id);
     setError(null);
     setNotice(null);
     try {
-      const batch = await api.buildStudyMap({ sourceSetId: id });
+      const batch = await api.buildStudyMap({ sourceSetId: id, brief: briefs[id], inventoryOutputTokens, unlimitedTokenBudget });
       setNotice(
         batch.mode === "append"
           ? "appending new material via the bounded neighborhood — the map is not rebuilt"
@@ -454,6 +469,46 @@ function CollectionsSection({
               )}
               {open && detail !== "loading" && (
                 <div style={{ padding: "0 12px 8px 30px", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4, color: COLOR.textFaint, fontSize: 10, fontFamily: FONT_MONO }}>
+                    <span>inventory output / unit</span>
+                    <input
+                      type="number"
+                      min={1000}
+                      max={100000}
+                      step={1000}
+                      value={inventoryBudgets[set.id] ?? DEFAULT_INVENTORY_OUTPUT_TOKENS}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setInventoryBudgets((prev) => ({ ...prev, [set.id]: Number(e.target.value) }))}
+                      disabled={Boolean(unlimitedBudgets[set.id])}
+                      style={{ width: 82, padding: "3px 5px", border: `1px solid ${COLOR.border}`, background: COLOR.bgInput, color: unlimitedBudgets[set.id] ? COLOR.textFaint : COLOR.text, fontFamily: FONT_MONO, fontSize: 10, opacity: unlimitedBudgets[set.id] ? 0.55 : 1 }}
+                    />
+                    <TermCheckbox
+                      checked={Boolean(unlimitedBudgets[set.id])}
+                      onChange={(checked) => setUnlimitedBudgets((prev) => ({ ...prev, [set.id]: checked }))}
+                      label="no ceiling"
+                      compact
+                    />
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBriefEditorFor(set.id);
+                      }}
+                      title="the synthesis brief: your level, target depth, outcome, notation, topics — the model reads it when proposing the study map"
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 10,
+                        color: COLOR.amberLink,
+                        cursor: "pointer",
+                        textDecoration: "underline dotted",
+                        textUnderlineOffset: 3
+                      }}
+                    >
+                      {briefs[set.id] ? "edit brief" : "brief"}
+                    </span>
+                  </div>
+                  {unlimitedBudgets[set.id] ? (
+                    <Faint style={{ marginBottom: 4, fontSize: 9 }}>provider limits and context sharding still apply</Faint>
+                  ) : null}
                   {detail.members.length === 0 ? (
                     <Faint style={{ fontSize: 11 }}>no members</Faint>
                   ) : (
@@ -483,6 +538,17 @@ function CollectionsSection({
           );
         })
       )}
+      {briefEditorFor ? (
+        <StudyMapBriefWizard
+          initialBrief={briefs[briefEditorFor]}
+          submitLabel="Use brief"
+          onSubmit={(brief) => {
+            setBriefs((prev) => ({ ...prev, [briefEditorFor]: brief }));
+            setBriefEditorFor(null);
+          }}
+          onClose={() => setBriefEditorFor(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -209,7 +209,16 @@ def _resolve_extraction(repo, source_id: str) -> tuple[str, str] | None:
     return None
 
 
-def _default_brief(brief_overrides: dict[str, Any] | None, title: str, subject_id: str | None) -> dict[str, Any]:
+def _default_brief(
+    brief_overrides: dict[str, Any] | None,
+    title: str,
+    subject_id: str | None,
+    vault=None,
+) -> dict[str, Any]:
+    from learnloop.services.brief import validate_brief
+    from learnloop.services.learner_profile import read_learner_profile
+    from learnloop.vault.paths import VaultPaths
+
     brief: dict[str, Any] = {
         "outcome": "general_learning",
         "scope": "relevant",
@@ -218,9 +227,15 @@ def _default_brief(brief_overrides: dict[str, Any] | None, title: str, subject_i
         brief["subject"] = subject_id
     if title:
         brief["source_title"] = title
-    for key, value in (brief_overrides or {}).items():
+    for key, value in validate_brief(brief_overrides, strict=False).items():
         if value is not None:
             brief[key] = value
+    # Surface the vault's declared learner level in the plan preview; the
+    # synthesis choke point (_create_study_map) merges it again regardless.
+    if vault is not None and not brief.get("starting_level"):
+        profile = read_learner_profile(VaultPaths(vault.root, vault.config))
+        if profile is not None:
+            brief["starting_level"] = profile["starting_level"]
     return brief
 
 
@@ -264,7 +279,7 @@ def plan_quick_add(
     except OutlineNotFound as exc:
         raise QuickAddError("extraction_not_found", str(exc)) from exc
 
-    brief = _default_brief(brief_overrides, outline.title, subject_id)
+    brief = _default_brief(brief_overrides, outline.title, subject_id, vault=vault)
     keywords = _keywords(brief, vault, subject_id)
     cap = config.ingest.budgets.quick_add_scope_input_tokens
     unit_ids, labels, tokens, whole = select_relevant_units(outline, keywords=keywords, cap_tokens=cap)
@@ -323,6 +338,8 @@ def enqueue_quick_add(
     plan: QuickAddPlan,
     *,
     role_override: str | None = None,
+    output_budget_tokens: int | None = None,
+    unlimited_token_budget: bool = False,
 ) -> dict[str, Any]:
     """Post-confirmation step: create the source set from the plan and enqueue the
     priority [inventory(selected) -> bootstrap_synthesis] build batch (§1)."""
@@ -360,6 +377,8 @@ def enqueue_quick_add(
         subject_id=plan.subject_id,
         brief=plan.brief,
         mode="auto",
+        output_budget_tokens=output_budget_tokens,
+        unlimited_token_budget=unlimited_token_budget,
     )
     return {
         "batch_id": batch_id,

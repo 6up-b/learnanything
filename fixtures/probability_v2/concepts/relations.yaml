@@ -1,0 +1,420 @@
+schema_version: 1
+edges:
+  - id: 
+      edge_confusable_with__concept_complement_counting__concept_inclusion_exclusion
+    relation_type: confusable_with
+    source: concept_complement_counting
+    target: concept_inclusion_exclusion
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_use_complement_counting_for_collision_events confusables
+    created_at: '2026-07-21T00:54:19Z'
+    updated_at: '2026-07-21T00:54:19Z'
+  - id: 
+      edge_confusable_with__concept_ordered_sampling__concept_binomial_coefficients
+    relation_type: confusable_with
+    source: concept_ordered_sampling
+    target: concept_binomial_coefficients
+    strength: 0.95
+    rationale: Learners commonly substitute ordered-sample counts for binomial 
+      coefficients when a selection should ignore order.
+    created_at: '2026-07-21T00:54:19Z'
+    updated_at: '2026-07-21T00:54:19Z'
+  - id: 
+      edge_confusable_with__concept_permutations_and_factorials__concept_permutations_with_repeated_objec
+    relation_type: confusable_with
+    source: concept_permutations_and_factorials
+    target: concept_permutations_with_repeated_objects
+    strength: 0.92
+    rationale: Using ordinary factorial counts when repeated objects are 
+      indistinguishable produces systematic overcounting.
+    created_at: '2026-07-21T00:54:20Z'
+    updated_at: '2026-07-21T00:54:20Z'
+  - id: 
+      edge_confusable_with__concept_unjustified_equiprobability__concept_naive_probability
+    relation_type: confusable_with
+    source: concept_unjustified_equiprobability
+    target: concept_naive_probability
+    strength: 0.95
+    rationale: Learners may substitute an unsupported equal-likelihood 
+      assumption for the applicability check required by naive probability.
+    created_at: '2026-07-21T00:54:20Z'
+    updated_at: '2026-07-21T00:54:20Z'
+  - id: 
+      edge_part_of__concept_binomial_coefficients__concept_uniform_overcounting_correction
+    relation_type: part_of
+    source: concept_binomial_coefficients
+    target: concept_uniform_overcounting_correction
+    strength: 0.91
+    rationale: Binomial coefficients arise by correcting the uniform ordering 
+      multiplicity of fixed-size subsets.
+    created_at: '2026-07-21T00:54:21Z'
+    updated_at: '2026-07-21T00:54:21Z'
+  - id: edge_part_of__concept_complement_counting__concept_event_operations
+    relation_type: part_of
+    source: concept_complement_counting
+    target: concept_event_operations
+    strength: 0.93
+    rationale: Complement counting is a problem-solving technique based on the 
+      complement operation on events.
+    created_at: '2026-07-21T00:54:21Z'
+    updated_at: '2026-07-21T00:54:21Z'
+  - id: edge_part_of__concept_event_operations__concept_sample_spaces_and_events
+    relation_type: part_of
+    source: concept_event_operations
+    target: concept_sample_spaces_and_events
+    strength: 0.98
+    rationale: Unions, intersections, and complements operate on events 
+      represented as subsets of a sample space.
+    created_at: '2026-07-21T00:54:22Z'
+    updated_at: '2026-07-21T00:54:22Z'
+  - id: edge_part_of__concept_inclusion_exclusion__concept_event_operations
+    relation_type: part_of
+    source: concept_inclusion_exclusion
+    target: concept_event_operations
+    strength: 0.94
+    rationale: Inclusion–exclusion computes unions by accounting for 
+      intersections among events.
+    created_at: '2026-07-21T00:54:22Z'
+    updated_at: '2026-07-21T00:54:22Z'
+  - id: 
+      edge_part_of__concept_permutations_and_factorials__concept_ordered_sampling
+    relation_type: part_of
+    source: concept_permutations_and_factorials
+    target: concept_ordered_sampling
+    strength: 0.95
+    rationale: Permutation counting is the full-arrangement special case of 
+      ordered sampling without replacement.
+    created_at: '2026-07-21T00:54:23Z'
+    updated_at: '2026-07-21T00:54:23Z'
+  - id: 
+      edge_part_of__concept_permutations_with_repeated_objec__concept_uniform_overcounting_correction
+    relation_type: part_of
+    source: concept_permutations_with_repeated_objects
+    target: concept_uniform_overcounting_correction
+    strength: 0.94
+    rationale: Repeated-object permutation formulas divide labeled arrangements 
+      by uniform multiplicities from indistinguishable occurrences.
+    created_at: '2026-07-21T00:54:23Z'
+    updated_at: '2026-07-21T00:54:23Z'
+  - id: 
+      edge_prerequisite__concept_binomial_coefficients__concept_combinatorial_computation_in_r
+    relation_type: prerequisite
+    source: concept_binomial_coefficients
+    target: concept_combinatorial_computation_in_r
+    strength: 0.93
+    rationale: Choosing factorial, binomial-coefficient, or logarithmic R 
+      functions requires understanding the combinatorial quantities being 
+      computed.
+    created_at: '2026-07-21T00:54:24Z'
+    updated_at: '2026-07-21T00:54:24Z'
+  - id: 
+      edge_prerequisite__concept_binomial_coefficients__concept_inclusion_exclusion
+    relation_type: prerequisite
+    source: concept_binomial_coefficients
+    target: concept_inclusion_exclusion
+    strength: 0.75
+    rationale: Symmetric inclusion-exclusion groups the number of r-way 
+      intersections using binomial coefficients.
+    created_at: '2026-07-21T00:54:24Z'
+    updated_at: '2026-07-21T00:54:24Z'
+  - id: 
+      edge_prerequisite__concept_binomial_coefficients__concept_permutations_with_repeated_objec
+    relation_type: prerequisite
+    source: concept_binomial_coefficients
+    target: concept_permutations_with_repeated_objects
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_count_arrangements_with_repeated_objects prerequisites
+    created_at: '2026-07-21T00:54:25Z'
+    updated_at: '2026-07-21T00:54:25Z'
+  - id: 
+      edge_prerequisite__concept_complement_counting__concept_birthday_matching_problem
+    relation_type: prerequisite
+    source: concept_complement_counting
+    target: concept_birthday_matching_problem
+    strength: 0.97
+    rationale: The standard birthday-match calculation counts the complementary 
+      event that all birthdays are distinct.
+    created_at: '2026-07-21T00:54:25Z'
+    updated_at: '2026-07-21T00:54:25Z'
+  - id: edge_prerequisite__concept_event_operations__concept_naive_probability
+    relation_type: prerequisite
+    source: concept_event_operations
+    target: concept_naive_probability
+    strength: 0.8
+    rationale: Constructing target events and complements supports direct and 
+      complement-based counting calculations.
+    created_at: '2026-07-21T00:54:25Z'
+    updated_at: '2026-07-21T00:54:25Z'
+  - id: 
+      edge_prerequisite__concept_monte_carlo_probability_estimati__concept_birthday_matching_problem
+    relation_type: prerequisite
+    source: concept_monte_carlo_probability_estimation
+    target: concept_birthday_matching_problem
+    strength: 0.8
+    rationale: The simulation treatment of birthday matches applies 
+      repeated-trial relative-frequency estimation.
+    created_at: '2026-07-21T00:54:26Z'
+    updated_at: '2026-07-21T00:54:26Z'
+  - id: 
+      edge_prerequisite__concept_multiplication_rule_for_counting__concept_complement_counting
+    relation_type: prerequisite
+    source: concept_multiplication_rule_for_counting
+    target: concept_complement_counting
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_use_complement_counting_for_collision_events prerequisites
+    created_at: '2026-07-21T00:54:27Z'
+    updated_at: '2026-07-21T00:54:27Z'
+  - id: 
+      edge_prerequisite__concept_multiplication_rule_for_counting__concept_ordered_sampling
+    relation_type: prerequisite
+    source: concept_multiplication_rule_for_counting
+    target: concept_ordered_sampling
+    strength: 1.0
+    rationale: Both replacement models are derived by multiplying the number of 
+      choices at successive ordered positions.
+    created_at: '2026-07-21T00:54:27Z'
+    updated_at: '2026-07-21T00:54:27Z'
+  - id: 
+      edge_prerequisite__concept_naive_probability__concept_complement_counting
+    relation_type: prerequisite
+    source: concept_naive_probability
+    target: concept_complement_counting
+    strength: 0.9
+    rationale: Complement counting in probability relies on interpreting 
+      probability as favorable outcomes over the total and subtracting from one.
+    created_at: '2026-07-21T00:54:28Z'
+    updated_at: '2026-07-21T00:54:28Z'
+  - id: 
+      edge_prerequisite__concept_naive_probability__concept_inclusion_exclusion
+    relation_type: prerequisite
+    source: concept_naive_probability
+    target: concept_inclusion_exclusion
+    strength: 0.81
+    rationale: Applying inclusion–exclusion probabilistically requires first 
+      understanding probabilities assigned to events and their overlaps.
+    created_at: '2026-07-21T00:54:28Z'
+    updated_at: '2026-07-21T00:54:28Z'
+  - id: 
+      edge_prerequisite__concept_naive_probability__concept_monte_carlo_probability_estimati
+    relation_type: prerequisite
+    source: concept_naive_probability
+    target: concept_monte_carlo_probability_estimation
+    strength: 0.82
+    rationale: A simulation estimate requires a clear target event probability 
+      and an interpretation of relative frequency as its estimate.
+    created_at: '2026-07-21T00:54:29Z'
+    updated_at: '2026-07-21T00:54:29Z'
+  - id: 
+      edge_prerequisite__concept_naive_probability__concept_multiplication_rule_for_counting
+    relation_type: prerequisite
+    source: concept_naive_probability
+    target: concept_multiplication_rule_for_counting
+    strength: 0.84
+    rationale: The source introduces counting rules as tools for evaluating 
+      favorable and total outcome counts in naive probability models.
+    created_at: '2026-07-21T00:54:29Z'
+    updated_at: '2026-07-21T00:54:29Z'
+  - id: 
+      edge_prerequisite__concept_ordered_sampling__concept_binomial_coefficients
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_binomial_coefficients
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_count_unordered_selections_by_correcting_overcou prerequisites
+    created_at: '2026-07-21T00:54:30Z'
+    updated_at: '2026-07-21T00:54:30Z'
+  - id: 
+      edge_prerequisite__concept_ordered_sampling__concept_birthday_matching_problem
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_birthday_matching_problem
+    strength: 0.91
+    rationale: The no-match birthday calculation models birthday assignments as 
+      ordered sampling with replacement and distinct assignments as sampling 
+      without replacement.
+    created_at: '2026-07-21T00:54:30Z'
+    updated_at: '2026-07-21T00:54:30Z'
+  - id: edge_prerequisite__concept_ordered_sampling__concept_complement_counting
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_complement_counting
+    strength: 0.85
+    rationale: The birthday complement calculation contrasts a with-replacement 
+      total with a no-repeat falling-product count.
+    created_at: '2026-07-21T00:54:31Z'
+    updated_at: '2026-07-21T00:54:31Z'
+  - id: 
+      edge_prerequisite__concept_ordered_sampling__concept_permutations_and_factorials
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_permutations_and_factorials
+    strength: 0.95
+    rationale: A permutation is the full-length special case of ordered sampling
+      without replacement.
+    created_at: '2026-07-21T00:54:31Z'
+    updated_at: '2026-07-21T00:54:31Z'
+  - id: 
+      edge_prerequisite__concept_ordered_sampling__concept_random_sampling_in_r
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_random_sampling_in_r
+    strength: 0.89
+    rationale: Using sample correctly requires distinguishing ordered draws and 
+      the effects of sampling with or without replacement.
+    created_at: '2026-07-21T00:54:32Z'
+    updated_at: '2026-07-21T00:54:32Z'
+  - id: 
+      edge_prerequisite__concept_ordered_sampling__concept_uniform_overcounting_correction
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_uniform_overcounting_correction
+    strength: 0.91
+    rationale: Uniform overcounting correction begins with an ordered or labeled
+      construction whose repeated representations can be counted.
+    created_at: '2026-07-21T00:54:32Z'
+    updated_at: '2026-07-21T00:54:32Z'
+  - id: 
+      edge_prerequisite__concept_permutations_and_factorials__concept_binomial_coefficients
+    relation_type: prerequisite
+    source: concept_permutations_and_factorials
+    target: concept_binomial_coefficients
+    strength: 0.9
+    rationale: The binomial coefficient formula uses falling products and 
+      factorials to remove ordering multiplicity.
+    created_at: '2026-07-21T00:54:33Z'
+    updated_at: '2026-07-21T00:54:33Z'
+  - id: 
+      edge_prerequisite__concept_permutations_and_factorials__concept_permutations_with_repeated_objec
+    relation_type: prerequisite
+    source: concept_permutations_and_factorials
+    target: concept_permutations_with_repeated_objects
+    strength: 0.9
+    rationale: Repeated-object arrangements begin with the factorial count of 
+      labeled positions.
+    created_at: '2026-07-21T00:54:33Z'
+    updated_at: '2026-07-21T00:54:33Z'
+  - id: 
+      edge_prerequisite__concept_random_sampling_in_r__concept_birthday_matching_problem
+    relation_type: prerequisite
+    source: concept_random_sampling_in_r
+    target: concept_birthday_matching_problem
+    strength: 0.85
+    rationale: The birthday simulations require sampling days with replacement 
+      and may require weighted sampling for unequal day probabilities.
+    created_at: '2026-07-21T00:54:34Z'
+    updated_at: '2026-07-21T00:54:34Z'
+  - id: 
+      edge_prerequisite__concept_random_sampling_in_r__concept_monte_carlo_probability_estimati
+    relation_type: prerequisite
+    source: concept_random_sampling_in_r
+    target: concept_monte_carlo_probability_estimation
+    strength: 0.9
+    rationale: The presented Monte Carlo procedures generate each trial through 
+      random sampling before aggregating event indicators.
+    created_at: '2026-07-21T00:54:35Z'
+    updated_at: '2026-07-21T00:54:35Z'
+  - id: 
+      edge_prerequisite__concept_sample_spaces_and_events__concept_event_operations
+    relation_type: prerequisite
+    source: concept_sample_spaces_and_events
+    target: concept_event_operations
+    strength: 0.95
+    rationale: Compound event operations require events already represented as 
+      subsets of a common sample space.
+    created_at: '2026-07-21T00:54:35Z'
+    updated_at: '2026-07-21T00:54:35Z'
+  - id: 
+      edge_prerequisite__concept_sample_spaces_and_events__concept_multiplication_rule_for_counting
+    relation_type: prerequisite
+    source: concept_sample_spaces_and_events
+    target: concept_multiplication_rule_for_counting
+    strength: 0.65
+    rationale: The multiplication rule is used to count compound outcomes that 
+      populate a sample space or event.
+    created_at: '2026-07-21T00:54:36Z'
+    updated_at: '2026-07-21T00:54:36Z'
+  - id: 
+      edge_prerequisite__concept_sample_spaces_and_events__concept_naive_probability
+    relation_type: prerequisite
+    source: concept_sample_spaces_and_events
+    target: concept_naive_probability
+    strength: 0.95
+    rationale: Naive probability requires a defined finite sample space and 
+      target event before their cardinalities can be counted.
+    created_at: '2026-07-21T00:54:36Z'
+    updated_at: '2026-07-21T00:54:36Z'
+  - id: 
+      edge_prerequisite__concept_sample_spaces_and_events__concept_unjustified_equiprobability
+    relation_type: prerequisite
+    source: concept_sample_spaces_and_events
+    target: concept_unjustified_equiprobability
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_detect_unjustified_equal_likelihood_assumptions prerequisites
+    created_at: '2026-07-21T00:54:36Z'
+    updated_at: '2026-07-21T00:54:36Z'
+  - id: 
+      edge_prerequisite__concept_uniform_overcounting_correction__concept_binomial_coefficients
+    relation_type: prerequisite
+    source: concept_uniform_overcounting_correction
+    target: concept_binomial_coefficients
+    strength: 1.0
+    rationale: Unordered subset counts are derived by dividing the ordered count
+      by the uniform k! multiplicity.
+    created_at: '2026-07-21T00:54:37Z'
+    updated_at: '2026-07-21T00:54:37Z'
+  - id: 
+      edge_prerequisite__concept_uniform_overcounting_correction__concept_inclusion_exclusion
+    relation_type: prerequisite
+    source: concept_uniform_overcounting_correction
+    target: concept_inclusion_exclusion
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_correct_overlapping_union_counts_with_inclusion_ prerequisites
+    created_at: '2026-07-21T00:54:38Z'
+    updated_at: '2026-07-21T00:54:38Z'
+  - id: 
+      edge_prerequisite__concept_uniform_overcounting_correction__concept_permutations_with_repeated_objec
+    relation_type: prerequisite
+    source: concept_uniform_overcounting_correction
+    target: concept_permutations_with_repeated_objects
+    strength: 1.0
+    rationale: Factorials for identical occurrences are divided out as uniform 
+      internal reorderings.
+    created_at: '2026-07-21T00:54:38Z'
+    updated_at: '2026-07-21T00:54:38Z'
+  - id: 
+      edge_related__concept_combinatorial_computation_in_r__concept_birthday_matching_problem
+    relation_type: related
+    source: concept_combinatorial_computation_in_r
+    target: concept_birthday_matching_problem
+    strength: 0.35
+    rationale: Both support computational treatment of counting-based 
+      probability problems, though the cited birthday procedures use complements
+      and specialized functions rather than the factorial functions directly.
+    created_at: '2026-07-21T00:54:39Z'
+    updated_at: '2026-07-21T00:54:39Z'
+  - id: edge_related__concept_complement_counting__concept_inclusion_exclusion
+    relation_type: related
+    source: concept_complement_counting
+    target: concept_inclusion_exclusion
+    strength: 0.7
+    rationale: Both address at-least-one conditions, but complement counting 
+      avoids enumerating overlaps while inclusion-exclusion corrects them 
+      explicitly.
+    created_at: '2026-07-21T00:54:39Z'
+    updated_at: '2026-07-21T00:54:39Z'
+  - id: 
+      edge_related__concept_monte_carlo_probability_estimati__concept_birthday_matching_problem
+    relation_type: related
+    source: concept_monte_carlo_probability_estimation
+    target: concept_birthday_matching_problem
+    strength: 0.88
+    rationale: Birthday matching is a prominent application used to compare 
+      exact probability calculations with Monte Carlo estimates.
+    created_at: '2026-07-21T00:54:40Z'
+    updated_at: '2026-07-21T00:54:40Z'

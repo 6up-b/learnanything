@@ -1,56 +1,28 @@
 schema_version: 1
 edges:
-  - id: edge_factorization_to_singular_values
+  - id: edge_covariance_to_variance
+    relation_type: related
+    source: concept_covariance_matrix
+    target: concept_variance_additivity
+    strength: 0.7
+    rationale: Both concepts describe how projected data variance is calculated 
+      and decomposed.
+    created_at: '2026-05-26T00:00:26Z'
+    updated_at: '2026-05-26T00:00:26Z'
+  - id: edge_orth_diag_to_spectral
     relation_type: prerequisite
-    source: concept_svd_factorization
-    target: concept_singular_values_vectors
-    strength: 0.84
-    rationale: Understanding where singular values and vectors live depends on 
-      first parsing the decomposition.
-    created_at: '2026-05-21T20:51:10Z'
-    updated_at: '2026-05-21T20:51:10Z'
-  - id: edge_singular_values_to_geometry
+    source: concept_orthogonal_diagonalization
+    target: concept_spectral_theorem_real_symmetric
+    strength: 0.9
+    rationale: Learners need the meaning of A = QDQ^T before using the theorem.
+    created_at: '2026-05-26T00:00:26Z'
+    updated_at: '2026-05-26T00:00:26Z'
+  - id: edge_symmetry_to_spectral
     relation_type: prerequisite
-    source: concept_singular_values_vectors
-    target: concept_svd_geometry
-    strength: 0.79
-    rationale: The geometry is expressed through the scaling and directional 
-      roles of singular values and vectors.
-    created_at: '2026-05-21T20:51:10Z'
-    updated_at: '2026-05-21T20:51:10Z'
-  - id: edge_singular_values_to_truncated
-    relation_type: prerequisite
-    source: concept_singular_values_vectors
-    target: concept_truncated_svd
-    strength: 0.88
-    rationale: Truncation is defined by retaining the largest singular values 
-      and their associated vectors.
-    created_at: '2026-05-21T20:51:10Z'
-    updated_at: '2026-05-21T20:51:10Z'
-  - id: edge_factorization_to_geometry
-    relation_type: prerequisite
-    source: concept_svd_factorization
-    target: concept_svd_geometry
-    strength: 0.88
-    rationale: Learners normally need to parse V^T, Σ, and U before they can 
-      explain the sequence of rotate-stretch-rotate actions.
-    created_at: '2026-05-24T01:15:18Z'
-    updated_at: '2026-05-24T01:15:18Z'
-  - id: edge_factorization_to_truncated_svd
-    relation_type: prerequisite
-    source: concept_svd_factorization
-    target: concept_truncated_svd
-    strength: 0.86
-    rationale: Constructing a rank-k truncation requires knowing which singular 
-      directions and values are retained or discarded in the factorization.
-    created_at: '2026-05-24T01:15:18Z'
-    updated_at: '2026-05-24T01:15:18Z'
-  - id: edge_singular_values_to_factorization
-    relation_type: prerequisite
-    source: concept_singular_values_vectors
-    target: concept_svd_factorization
-    strength: 0.73
-    rationale: Factorization syntax is easier to interpret once the learner 
-      already knows what singular values and singular vectors denote.
-    created_at: '2026-05-24T01:15:18Z'
-    updated_at: '2026-05-24T01:15:18Z'
+    source: concept_symmetric_matrix
+    target: concept_spectral_theorem_real_symmetric
+    strength: 0.95
+    rationale: The spectral theorem characterizes orthogonal diagonalizability 
+      exactly in terms of symmetry.
+    created_at: '2026-05-26T00:01:14Z'
+    updated_at: '2026-05-26T00:01:14Z'

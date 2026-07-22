@@ -1,0 +1,151 @@
+schema_version: 1
+id: pi_design_a_probe_to_compar
+learning_object_id: lo_probe_and_interpret_intermediate_transformer_rep
+subjects:
+practice_mode: method_design
+attempt_types_allowed: []
+evidence_facets:
+  - facet_to_visualize_intermediate_representation_geometr
+  - facet_intermediate_activations_for_varied_contexts_may
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Design a probe to compare intermediate representations for contexts 
+  whose next token is one of three target city tokens. Specify the sampled model
+  state, token position, dimensionality-reduction step, and two cautions 
+  required when interpreting the resulting clusters.
+expected_answer: Run labeled contexts through the model to a selected 
+  intermediate layer, sample the final residual-stream position for each 
+  context, collect the high-dimensional vectors, and project them to two 
+  dimensions with UMAP. The plot is a reduced visualization rather than the 
+  original representation space, and separate intermediate context clusters may 
+  later map toward the same target-token embedding.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.5
+scaffold_level: 0.3
+capability: coordination
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - verbal
+    - code
+  response: structured_steps
+  scaffolding: partial
+  span: whole_task
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: transformer_probe_design
+evidence_fingerprint:
+  source_family: primary_textbook_llama_probe
+  shared_stimulus_id: three_city_next_token_contexts
+  representation: experimental design and projected scatter plot
+  solution_recipe_family: sample_project_interpret
+  answer_structure: procedure plus interpretation cautions
+misconception_consistent_answer:
+repair_targets:
+  - facet_to_visualize_intermediate_representation_geometr
+  - facet_intermediate_activations_for_varied_contexts_may
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_probe_sampling
+      points: 3.0
+      description: Selects an intermediate layer and samples the final 
+        residual-stream position for each labeled context.
+      tier: core
+      targets:
+        - facet: facet_to_visualize_intermediate_representation_geometr
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group: probe_design
+      recipe_ids:
+        - recipe_representation_probe
+    - id: criterion_probe_projection
+      points: 2.0
+      description: Projects collected high-dimensional vectors to two dimensions
+        with UMAP.
+      tier: core
+      targets:
+        - facet: facet_to_visualize_intermediate_representation_geometr
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - criterion_probe_sampling
+      correlation_group: probe_design
+      recipe_ids:
+        - recipe_representation_probe
+    - id: criterion_probe_interpretation
+      points: 3.0
+      description: Distinguishes a reduced visualization from the original space
+        and intermediate context clusters from later target-token consolidation.
+      tier: transfer
+      targets:
+        - facet: facet_intermediate_activations_for_varied_contexts_may
+          capability: coordination
+          role: primary
+        - facet: facet_to_visualize_intermediate_representation_geometr
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - criterion_probe_projection
+      correlation_group: representation_interpretation
+      recipe_ids:
+        - recipe_representation_probe
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s315
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s322
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s393
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:33Z'
+updated_at: '2026-07-21T18:14:51Z'

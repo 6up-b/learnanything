@@ -15,13 +15,15 @@ DEFAULT_CONFIG_TEXT = """schema_version = 1
 sqlite_path = "state.sqlite"
 
 [algorithms]
-# mvp-0.7: canonical shared-facet knowledge model (KM §15). New vaults start
-# here; only pre-existing vaults with legacy mvp-0.6 content need
-# `learnloop upgrade` to activate it. Legacy `probe_<lo_id>` phases recorded
-# under earlier versions replay through the frozen path in services/probes.py
-# forever; new diagnostic episodes replay exclusively through
-# probe_observations.
-algorithm_version = "mvp-0.7"
+# mvp-0.8: authority-propagation projection (P0.5 cutover, spec §7.2). New vaults
+# start here -- mvp-0.8 is a strict superset of the mvp-0.7 canonical shared-facet
+# knowledge model plus the P0.2/P0.3 calibrated grade channel, robust composition,
+# and reliability-discounted certification. Pre-existing mvp-0.7 vaults activate it
+# via `learnloop upgrade`; pre-existing legacy mvp-0.6 content upgrades to mvp-0.7
+# first. Legacy `probe_<lo_id>` phases recorded under earlier versions replay
+# through the frozen path forever; new diagnostic episodes replay exclusively
+# through probe_observations under the pinned channel snapshot.
+algorithm_version = "mvp-0.8"
 
 # Single source of truth for per-attempt-type evidence (Fable's-take item 3).
 # evidence_mass weights ability-belief updates (mastery EKF / reliability);
@@ -351,6 +353,8 @@ default_learner_confidence = 3
 max_questions_practice = 3
 max_questions_feedback = 5
 max_questions_library = 8
+max_questions_reader = 8
+reader_enabled = true
 apply_uncertainty_effect = true
 uncertainty_evidence_mass = 0.15
 
@@ -451,19 +455,17 @@ fallback_provider = ""
 timeout_seconds = 60
 
 [ai.routing]
-grading = "codex"
-canonical_ingest = "codex"
-canonical_ingest_retry = ""
-authoring = "codex"
-# Empty = follow ai.active_provider; point at any configured provider to route
-# tutor Q&A elsewhere (a vault decision, not forced-cheap).
-tutor_qa = ""
-# Empty = follow ai.active_provider; teach-back questions + grading routing.
-teach_back = ""
+grading = "codex_low"
+canonical_ingest = "codex_medium"
+canonical_ingest_retry = "codex_medium"
+authoring = "codex_medium"
+tutor_qa = "codex_low"
+teach_back = "codex_low"
+rung_variant = "codex_low"
 
 [ai.providers.codex]
 type = "codex_sdk"
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 # Per-machine; set LEARNLOOP_CODEX_CHECKOUT_PATH in ~/.config/learnloop/settings.env.
 checkout_path = ""
 revision = "<pinned-commit>"
@@ -471,7 +473,7 @@ startup_command = ""
 startup_timeout_seconds = 20
 healthcheck_timeout_seconds = 5
 auth_mode = "chatgpt"
-reasoning_effort = "medium"
+reasoning_effort = "low"
 reasoning_summary = "none"
 sdk_python_path = "sdk/python/src"
 sdk_codex_bin = ""
@@ -528,8 +530,8 @@ startup_command = ""
 startup_timeout_seconds = 20
 healthcheck_timeout_seconds = 5
 auth_mode = "chatgpt"
-model = "gpt-5.5"
-reasoning_effort = "medium"
+model = "gpt-5.6-sol"
+reasoning_effort = "low"
 reasoning_summary = "none"
 sdk_python_path = "sdk/python/src"
 sdk_codex_bin = ""
@@ -1149,6 +1151,14 @@ class TutorQAConfig(BaseModel):
     max_questions_practice: int = Field(default=3, ge=0)
     max_questions_feedback: int = Field(default=5, ge=0)
     max_questions_library: int = Field(default=8, ge=0)
+    # U-033 (§7.6): span-grounded reader Ask budget, per source span per UTC day.
+    max_questions_reader: int = Field(default=8, ge=0)
+    # Owner decision 2026-07-20: the reader is on by default for fresh vaults
+    # (lead-user journey needs it without hand-editing config). The §12.3.2
+    # invariant — the golden path completes with reader dialogue disabled —
+    # is preserved by tests that disable it explicitly; the spine never imports
+    # the reader module regardless of this flag.
+    reader_enabled: bool = True
     apply_uncertainty_effect: bool = True
     uncertainty_evidence_mass: float = Field(default=0.15, ge=0.0, le=1.0)
     # Write-path question evidence (decision-time, read-side): substantive
@@ -1285,10 +1295,36 @@ class IngestConfig(BaseModel):
     min_content_chars: int = 400
     default_goal_priority: float = 0.5
     allow_auto_captions: bool = False
+    # Bootstrap item authoring when the brief is silent: "upfront" authors
+    # practice items at synthesis time (legacy behavior; CLI/append unchanged);
+    # "as_you_read" authors none — items accrue progressively from reading. The
+    # product UI sends the brief field explicitly, so this default only governs
+    # briefless callers.
+    bootstrap_practice_items: str = "upfront"
     pdf: PdfIngestConfig = Field(default_factory=PdfIngestConfig)
     budgets: IngestBudgetsConfig = Field(default_factory=IngestBudgetsConfig)
     providers: dict[str, IngestProviderLimits] = Field(default_factory=dict)
     runner: IngestRunnerConfig = Field(default_factory=IngestRunnerConfig)
+
+
+class RungVariantsConfig(BaseModel):
+    """Learner-initiated re-runging (services/rung_variants).
+
+    The score fractions drive the deterministic self-graded ``self_report``
+    attempt the request records on the SOURCE item (evidence mass stays the
+    global ``self_report`` entry, 0.3): easier = declared soft failure, harder
+    = success. Claim levels seed the per-LO cold-state prior.
+    """
+
+    easier_score_fraction: float = 0.25
+    harder_score_fraction: float = 1.0
+    # Maps to grader_confidence 0.6 — above the 0.4 manual-review threshold.
+    self_grade_confidence: int = 3
+    easier_claim_level: float = 0.25
+    harder_claim_level: float = 0.70
+    claim_pseudo_count: float = 2.0
+    max_pending_per_item: int = 1
+    retry_on_rung_violation: bool = True
 
 
 class CodexConfig(BaseModel):
@@ -1299,8 +1335,8 @@ class CodexConfig(BaseModel):
     startup_timeout_seconds: int = 20
     healthcheck_timeout_seconds: int = 5
     auth_mode: str = "chatgpt"
-    model: str = "gpt-5.5"
-    reasoning_effort: str = "medium"
+    model: str = "gpt-5.6-sol"
+    reasoning_effort: str = "low"
     reasoning_summary: str = "none"
     sdk_python_path: str = "sdk/python/src"
     sdk_codex_bin: str = ""
@@ -1359,6 +1395,9 @@ class AIRoutingConfig(BaseModel):
     # Teach-back naive-student questions + transcript grading. Empty = follow
     # ai.active_provider (same fallback chain as tutor_qa).
     teach_back: str | None = None
+    # Learner-requested easier/harder variant authoring (services/rung_variants):
+    # a small, gate-checked task — defaults to the low-effort profile.
+    rung_variant: str | None = None
 
 
 class AIConfig(BaseModel):
@@ -1367,6 +1406,24 @@ class AIConfig(BaseModel):
     timeout_seconds: int = 60
     providers: dict[str, AIProviderConfig] = Field(default_factory=dict)
     routing: AIRoutingConfig = Field(default_factory=AIRoutingConfig)
+
+
+DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
+DEFAULT_CODEX_REASONING_EFFORT = "low"
+LEGACY_CODEX_MODEL = "gpt-5.5"
+CODEX_LOW_PROVIDER = "codex_low"
+CODEX_MEDIUM_PROVIDER = "codex_medium"
+CODEX_PROVIDER_NAMES = frozenset({"codex", CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER})
+
+DEFAULT_CODEX_TASK_ROUTES = {
+    "grading": CODEX_LOW_PROVIDER,
+    "canonical_ingest": CODEX_MEDIUM_PROVIDER,
+    "canonical_ingest_retry": CODEX_MEDIUM_PROVIDER,
+    "authoring": CODEX_MEDIUM_PROVIDER,
+    "tutor_qa": CODEX_LOW_PROVIDER,
+    "teach_back": CODEX_LOW_PROVIDER,
+    "rung_variant": CODEX_LOW_PROVIDER,
+}
 
 
 class ErrorImpact(BaseModel):
@@ -1605,6 +1662,7 @@ class LearnLoopConfig(BaseModel):
     tutor_qa: TutorQAConfig = Field(default_factory=TutorQAConfig)
     tutor_promotion: TutorPromotionConfig = Field(default_factory=TutorPromotionConfig)
     teach_back: TeachBackConfig = Field(default_factory=TeachBackConfig)
+    rung_variants: RungVariantsConfig = Field(default_factory=RungVariantsConfig)
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     codex: CodexConfig = Field(default_factory=CodexConfig)
@@ -1633,8 +1691,27 @@ class LearnLoopConfig(BaseModel):
 
     @model_validator(mode="after")
     def _ensure_ai_legacy_codex_profile(self) -> "LearnLoopConfig":
+        if self.codex.model == LEGACY_CODEX_MODEL:
+            self.codex.model = DEFAULT_CODEX_MODEL
+            self.codex.reasoning_effort = DEFAULT_CODEX_REASONING_EFFORT
         if "codex" not in self.ai.providers:
             self.ai.providers["codex"] = ai_provider_from_codex(self.codex)
+        elif self.ai.providers["codex"].model == LEGACY_CODEX_MODEL:
+            self.ai.providers["codex"].model = DEFAULT_CODEX_MODEL
+            self.ai.providers["codex"].reasoning_effort = DEFAULT_CODEX_REASONING_EFFORT
+        codex_runtime_profile = self.ai.providers["codex"]
+        self.ai.providers.setdefault(
+            CODEX_LOW_PROVIDER,
+            codex_runtime_profile.model_copy(
+                update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": "low"}
+            ),
+        )
+        self.ai.providers.setdefault(
+            CODEX_MEDIUM_PROVIDER,
+            codex_runtime_profile.model_copy(
+                update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": "medium"}
+            ),
+        )
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
@@ -1772,6 +1849,10 @@ def _apply_global_overrides(config: LearnLoopConfig) -> LearnLoopConfig:
         provider = config.ai.providers.get("codex")
         if provider is not None:
             provider.checkout_path = resolved
+        for provider_name in (CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER):
+            provider = config.ai.providers.get(provider_name)
+            if provider is not None:
+                provider.checkout_path = resolved
     return config
 
 

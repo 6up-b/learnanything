@@ -1,0 +1,73 @@
+schema_version: 1
+id: lo_build_counting_models_for_probability
+title: Build counting models for probability
+subjects:
+  - counting
+concept: concept_labeling_objects_for_counting
+knowledge_type: coordination
+status: active
+contradicts:
+summary: Before using counts as probabilities, label distinguishable objects, 
+  represent equally likely outcomes correctly, and use complement counting for 
+  events such as birthday matches.
+prerequisites:
+  - concept_ordered_sampling
+  - concept_sampling_with_replacement
+  - concept_sampling_without_replacement
+confusables:
+  - concept_common_counting_misconceptions
+blueprints:
+  - id: bp_01KXKVFA_9
+    weight: 0.18
+    recipes:
+      - id: r_probability_counting_model
+        composition: conjunctive
+        all_of:
+          - facet: facet_when_the_intended_sample_space_model_distinguish
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_under_the_365_day_equally_likely_independent_bir
+            capability: procedure_execution
+            modality: path_specific
+          - facet: facet_ordered_outcomes_distinguish_positions_or_time_o
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_under_the_365_day_equally_likely_independent_bir
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s171
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s159
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:00Z'
+updated_at: '2026-07-15T21:39:06Z'

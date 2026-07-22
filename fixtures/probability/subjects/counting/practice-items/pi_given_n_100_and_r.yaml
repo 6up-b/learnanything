@@ -1,0 +1,100 @@
+schema_version: 1
+id: pi_given_n_100_and_r
+learning_object_id: lo_simulate_card_fixed_position_matches
+subjects:
+practice_mode: worked_code_interpretation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_to_simulate_fixed_position_matches_in_a_shuffled
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Given n <- 100 and r <- replicate(10^4,sum(sample(n)==(1:n))), explain 
+  what sum(r>=1)/10^4 estimates and why r>=1 is used.
+expected_answer: It estimates the probability that at least one card is in its 
+  original position across random shuffles; each r value is a count of 
+  fixed-position matches, and r>=1 converts that count into the event of at 
+  least one match.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.2
+scaffold_level: 0.35
+surface_family: R simulation interpretation
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: card_fixed_point_r_code
+  representation: R code and empirical estimate
+  solution_recipe_family: threshold simulated counts and average indicators
+  answer_structure: short explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_to_simulate_fixed_position_matches_in_a_shuffled
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_card_counts_fixed_points
+      points: 1.0
+      description: Identifies sum(sample(n)==(1:n)) as the count of 
+        fixed-position matches in one random permutation.
+      tier: core
+      targets:
+        - facet: facet_to_simulate_fixed_position_matches_in_a_shuffled
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: card_fixed_point_simulation
+      recipe_ids:
+        - recipe_card_fixed_point_simulation
+    - id: crit_card_event_threshold
+      points: 1.0
+      description: Explains that r>=1 encodes the event of at least one match 
+        before averaging over repetitions.
+      tier: core
+      targets:
+        - facet: facet_to_simulate_fixed_position_matches_in_a_shuffled
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_card_counts_fixed_points
+      correlation_group: card_fixed_point_simulation
+      recipe_ids:
+        - recipe_card_fixed_point_simulation
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s339
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s340
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:19Z'
+updated_at: '2026-07-15T21:39:19Z'

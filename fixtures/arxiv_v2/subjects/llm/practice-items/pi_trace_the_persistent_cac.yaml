@@ -1,0 +1,126 @@
+schema_version: 1
+id: pi_trace_the_persistent_cac
+learning_object_id: lo_explain_mla_latent_kv_compression
+subjects:
+practice_mode: architecture trace and misconception discrimination
+attempt_types_allowed: []
+evidence_facets:
+  - facet_multi_head_latent_attention_compresses_a_token_r
+  - facet_kv_cache_storage_scales_with_sequence_length_lay
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Trace the persistent cache path in MLA from a token representation to 
+  the attention heads. Identify what is compressed, what is cached, what is 
+  reconstructed, and why compressing queries alone would not produce the stated 
+  KV-cache saving.
+expected_answer: A learned down-projection compresses the token representation 
+  into a latent key-value vector. That latent vector is cached. Learned 
+  up-projections reconstruct distinct keys and values for the attention heads 
+  when needed. Query compression may affect other memory or computation, but it 
+  does not replace the persistent cached keys and values, so it is not the 
+  source of KV-cache reduction.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.5
+scaffold_level: 0.2
+capability: schema_interpretation
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: latent_attention_path_trace
+evidence_fingerprint:
+  source_family: mla_architecture_explanation
+  shared_stimulus_id: mla_projection_path
+  representation: verbal architecture trace
+  solution_recipe_family: latent_kv_cache_trace
+  answer_structure: compressed-cached-reconstructed distinction
+misconception_consistent_answer:
+repair_targets:
+  - facet_multi_head_latent_attention_compresses_a_token_r
+  - facet_kv_cache_storage_scales_with_sequence_length_lay
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_mla_cache_trace
+      points: 4.0
+      description: Correctly traces down-projection, latent KV caching, and 
+        head-specific key/value reconstruction.
+      tier: core
+      targets:
+        - facet: facet_multi_head_latent_attention_compresses_a_token_r
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_mla_latent_cache
+      correlation_group: mla_cache_path
+      recipe_ids:
+        - recipe_mla_latent_cache
+    - id: criterion_mla_query_distinction
+      points: 2.0
+      description: Explains why query compression alone does not replace 
+        persistent KV-cache entries.
+      tier: transfer
+      targets:
+        - facet: facet_multi_head_latent_attention_compresses_a_token_r
+          capability: coordination
+          role: primary
+        - facet: facet_kv_cache_storage_scales_with_sequence_length_lay
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_mla_latent_cache
+        - facet_kv_cache_scaling
+      correlation_group: mla_cache_path
+      recipe_ids:
+        - recipe_mla_latent_cache
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s301
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s331
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+created_at: '2026-07-21T05:07:24Z'
+updated_at: '2026-07-21T18:14:59Z'

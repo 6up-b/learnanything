@@ -2,43 +2,58 @@
 
 **A local-first learning system that turns trusted sources into adaptive practice.**
 
-LearnLoop builds a durable, inspectable model of what you are learning, what you
+LearnLoop builds an inspectable model of what you are learning, what you
 have demonstrated, what is becoming forgettable, and what to practice next. It
-combines editable Markdown/YAML content with a replayable SQLite event store,
-deterministic scheduling, and optional AI-assisted authoring and feedback.
+combines editable Markdown/YAML content with a SQLite event store,
+FSRS scheduling, learner-aware misconception detection and remediation, and AI-assisted authoring and feedback.
 
 > [!NOTE]
 > LearnLoop is under active development. The desktop app currently runs from a
-> source checkout, and installer bundling is not yet enabled.
+> source checkout, and installer bundling is not yet enabled
 
 ## What LearnLoop does
 
-- Imports webpages, arXiv papers, PDFs, YouTube transcripts, and local files.
-- Extracts source structure before synthesis so you can inspect scope, health,
-  and estimated model usage.
-- Builds reviewable study maps containing concepts, facets, learning objects,
-  rubrics, and practice items.
-- Schedules ordinary review, repair, transfer practice, teach-back, and bounded
-  diagnostic probes from one Today queue.
-- Tracks item memory, mastery, demonstrated evidence, errors, goals, and exam
-  readiness without collapsing them into a single score.
-- Grounds feedback and tutor answers in source spans and preserves provenance.
-- Keeps generated changes in proposals or maintenance queues when human review
+- Imports webpages, arXiv papers, PDFs, YouTube transcripts, caption files
+  (`.vtt`/`.srt`), and local text/Markdown files into a versioned source
+  library with immutable revisions and content-addressed extraction.
+- Extracts source structure before synthesis so you can inspect scope, page
+  health, and estimated model usage — and pay only for the chapters you select.
+- Builds reviewable study maps containing concepts, canonical facets, learning
+  objects with performance blueprints and recipes, rubrics, and practice items.
+  Generated changes stay in proposals or maintenance queues when human review
   is needed.
-- Explains why an item was selected and retains raw attempts so derived learning
-  state can be rebuilt after algorithm changes.
+- Lets you read the source in-app: an embedded Reader (including a real PDF
+  reader over the original bytes) with annotations, span-grounded tutor
+  questions, owner-placed reading questions, and optional as-you-read practice
+  generation.
+- Schedules ordinary review, repair, transfer practice, teach-back, and bounded
+  diagnostic probes from one Today queue — and explains, term by term, why an
+  item was selected.
+- Tracks item memory, predicted ability, demonstrated evidence, errors, claims,
+  forecasts, goals, and exam readiness without collapsing them into a single
+  score. Prediction is never presented as certification.
+- Grounds feedback and tutor answers in exact source spans and preserves
+  provenance end to end. Raw attempts are retained so derived learning state
+  can be deterministically replayed after algorithm changes.
+- Supports learner authoring: write your own practice cards, promote useful
+  tutor exchanges, request easier/harder variants of an item, and run a
+  narrow end-to-end certifying "golden path" over one task family.
 
 The core loop is:
 
-1. Add trustworthy source material.
+1. Add high quality source material.
 2. Select the useful parts and build a study map.
 3. Review proposed content and provenance.
-4. Start a time- and energy-bounded session.
-5. Practice, receive feedback, and repair specific weaknesses.
-6. Let new evidence update future scheduling.
+4. Read the source in the Reader, learn through questions asked to you and you asking questions.
+5. Start a time- and energy-bounded session.
+6. Practice, receive feedback, and repair specific weaknesses.
+7. Let new evidence update future scheduling, and return for cold retrieval.
 
-For a detailed description of the learner model and current behavior, read the
-[user and algorithm guide](documentation.md).
+For a step-by-step walkthrough, start with the
+[quick start](documentation.md#quick-start) in the
+[user and algorithm guide](documentation.md), which covers vault creation,
+Quick Add versus deliberate ingestion, what the pipeline does mechanistically,
+and the daily practice loop — then drills into the learner model behind it.
 
 ## Quick start: desktop app
 
@@ -56,8 +71,20 @@ On Debian or Ubuntu, Tauri currently requires:
 ```bash
 sudo apt update
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
-  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good
 ```
+
+On Arch Linux, install the matching GStreamer runtime plugins for embedded
+audio and video playback:
+
+```bash
+sudo pacman -Syu --needed gst-plugins-base gst-plugins-good
+```
+
+`gst-plugins-good` provides `autoaudiosink`, which WebKitGTK requires when the
+Reader plays embedded video. If it is missing, the WebKit web process can exit
+when playback starts.
 
 ### Run from a checkout
 
@@ -73,8 +100,7 @@ npm run dev
 `marker-pdf` is not required for canonical source ingestion. Webpages, YouTube
 transcripts, Markdown, HTML, and text files do not use it, and text-based PDFs
 fall back to the base `pypdf` dependency. Marker is an optional, heavier PDF
-provider that preserves richer layout, tables, math, figures, and geometry; it
-is required for scanned or image-only PDFs that need OCR, or when
+provider that preserves richer layout, tables, math, figures, and geometry (I would reccomend using marker when possible). It's enabled when
 `[ingest.pdf].engine` is explicitly set to `"marker"`. Install it with:
 
 ```bash
@@ -84,7 +110,7 @@ uv sync --extra dev --extra pdf
 The Tauri shell starts the Python `learnloop_sidecar` automatically. When the
 tracked linear-algebra fixture is present, it is used as the development default.
 Click the green vault path in the app header to select another vault, or use the
-new-vault wizard to create and bootstrap one.
+new-vault wizard on the Start screen to create and bootstrap one.
 
 To open a particular vault immediately:
 
@@ -99,18 +125,38 @@ $env:LEARNLOOP_VAULT = "C:\path\to\my-vault"
 npm run dev
 ```
 
-Useful shortcuts in the desktop app:
+### Finding your way around
+
+The app has ten navigation tabs:
+
+| Tab | Purpose |
+|---|---|
+| Start | Session start (energy/time), new-vault wizard |
+| Today | The practice queue, goal wizard, write-a-card |
+| Graph | Concepts, LOs, evidence state, knowledge-map views (terrain / well / strata) |
+| Ingest | Single-screen source import, study-map creation, exam seeding, activity feed |
+| Proposals | Accept / reject / edit synthesized content |
+| Registry | Canonical facet claims, warnings, error taxonomy |
+| Library | Source and learner notes |
+| Golden Path | Narrow end-to-end certifying runs over one task family |
+| Reader | In-app reading with annotations and span-grounded Ask |
+| Maintain | Source updates, conflicts, exam readiness |
+
+Review and Repair open as overlays (palette `review`/`diff`, or from feedback)
+rather than as tabs.
+
+Useful shortcuts:
 
 | Shortcut | Action |
 |---|---|
 | `Ctrl/Cmd+P` or `:` | Open the command palette |
-| `Alt+1` … `Alt+8` | Switch among the first eight tabs |
+| `Alt+1` … `Alt+9`, `Alt+0` | Switch among the ten tabs |
 | `Esc` | Close the current overlay or return to the queue |
 | `j` / `k` | Move through list-oriented screens |
 
 The command palette accepts navigation commands as well as CLI-style queries
-such as `today`, `review`, `why <practice-item-id>`, `show <id>`, `attempt
-<practice-item-id>`, `calibrate`, and `doctor`.
+such as `today`, `review` (alias `diff`), `why <practice-item-id>`, `show <id>`,
+`attempt <practice-item-id>`, `calibrate`, and `doctor`.
 
 ## Create a vault from the CLI
 
@@ -124,7 +170,8 @@ uv run learnloop add-subject linear-algebra "Linear Algebra" \
 uv run learnloop doctor --fix-state --vault ~/LearnLoop/my-vault
 ```
 
-Then add a source and inspect the queue:
+A fresh vault starts at `algorithm_version = "mvp-0.8"`. Then add a source and
+inspect the queue:
 
 ```bash
 uv run learnloop quick-add "https://example.com/source" \
@@ -132,6 +179,12 @@ uv run learnloop quick-add "https://example.com/source" \
   --vault ~/LearnLoop/my-vault
 uv run learnloop today --vault ~/LearnLoop/my-vault
 ```
+
+Quick Add collapses import → outline → unit selection → inventory → synthesis
+into one confirmation. The deliberate step-by-step path (`import`,
+`source-outline`, `source-set`, `source-coverage`, `build-plan`, `synthesize`)
+runs the same machinery with you at each decision point — see the
+[quick start](documentation.md#quick-start) for when to prefer which.
 
 Run `uv run learnloop --help` for the complete command list, or append `--help`
 to any subcommand. Most read-oriented commands also support stable JSON output
@@ -150,13 +203,14 @@ my-vault/
 ├── subjects/            # study maps, notes, learning objects, and practice items
 ├── profile/             # goals and learner-owned state
 ├── errors/              # misconception and error taxonomy
-├── canonical-sources/   # registered artifacts, revisions, and extractions
+├── canonical-sources/   # registered artifacts, revisions, extractions, and raw originals
 └── facets.yaml          # canonical assessable claims
 ```
 
 Markdown and YAML hold editable learning content. SQLite holds event history,
 runtime state, indexes, and model projections. Raw attempts are retained so
-derived state can be deterministically replayed and rebuilt.
+derived state can be deterministically replayed and rebuilt
+(`learnloop rebuild-derived-state`).
 
 Before moving, scripting, or directly editing a vault, close LearnLoop or ensure
 no other process is writing to it. Run `doctor` after manual content changes.
@@ -177,10 +231,15 @@ Provider profiles and per-workflow routing live in the vault's `learnloop.toml`:
 active_provider = "codex"
 
 [ai.routing]
-grading = "codex"
-canonical_ingest = "codex"
-authoring = "codex"
+grading = "codex_low"
+canonical_ingest = "codex_medium"
+authoring = "codex_medium"
+tutor_qa = "codex_low"
+teach_back = "codex_low"
 ```
+
+Both derived Codex profiles use `gpt-5.6-sol`. Canonical ingestion and authoring
+use medium reasoning; interactive grading, Tutor Ask, and teach-back use low.
 
 Secrets and machine-specific values should not be committed to a vault. LearnLoop
 loads them in this order:
@@ -212,7 +271,7 @@ React + TypeScript + Vite
           │ Tauri invoke
           ▼
 Rust desktop shell and command layer
-          │ JSON-RPC over stdio
+          │ JSON-RPC over stdio   (+ llpdf:// protocol for original PDF bytes)
           ▼
 Python learnloop_sidecar
           │
@@ -266,10 +325,14 @@ For sidecar diagnostics, set `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG` (or
 `LEARNLOOP_SIDECAR_DEBUG=1`). Use `LEARNLOOP_SIDECAR_DEBUG_LOG` to send logs to a
 specific file.
 
+To enable the desktop webview's native zoom hotkeys for debugging, launch the
+Tauri app with `LEARNLOOP_TAURI_DEBUG_ZOOM=1`. Use `Ctrl+=`, `Ctrl+-`, and
+`Ctrl+0` to zoom in, zoom out, and reset the zoom level.
+
 ## Further reading
 
-- [User and algorithm guide](documentation.md) — current supported behavior,
-  first-use journey, learner model, and operational details
+- [User and algorithm guide](documentation.md) — quick start, first-use
+  journey, learner model, and operational details for current behavior
 - [Product definition](product_definition.md) — product goals and design thesis
 - [Technical specification](spec.md) — data model and algorithm contracts
 - [Architecture pivot](architecture_pivot.md) — longer-term strategy for learned

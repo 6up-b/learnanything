@@ -1,0 +1,78 @@
+schema_version: 1
+id: lo_configure_random_samples_and_permutations
+title: Configure random samples and permutations
+subjects:
+  - counting
+concept: concept_random_sampling_in_r
+knowledge_type: procedural
+status: active
+contradicts:
+summary: Select replacement and probability settings that match a sampling 
+  experiment, including uniform permutations and weighted draws.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_14
+    weight: 0.25
+    recipes:
+      - id: recipe_sampling_configuration
+        composition: conjunctive
+        all_of:
+          - facet: facet_sample_n_k_draws_k_distinct_values_from_1_throug
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_supply_a_prob_vector_to_sample_to_assign_weights
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_sample_n_k_draws_k_distinct_values_from_1_throug
+          capability: schema_interpretation
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s320
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s322
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s328
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:07Z'
+updated_at: '2026-07-21T00:54:12Z'

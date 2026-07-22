@@ -1,0 +1,81 @@
+schema_version: 1
+id: lo_compute_causal_attention_and_update_a_kv_cache
+title: Compute causal attention and update a KV cache
+subjects:
+  - llm
+concept: concept_causal_self_attention_and_kv_caching
+knowledge_type: procedure and scaling analysis
+status: active
+contradicts:
+summary: Trace the QKV attention pipeline and determine exactly which rows are 
+  reused, computed, and cached when one token is appended.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_9
+    weight: 1.0
+    recipes:
+      - id: recipe_attention_cache_complete
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_causal_self_attention_head_projects_token_repr
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_when_one_token_is_appended_during_causal_decodin
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_dense_attention_pattern_storage_scales_quadratic
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_when_one_token_is_appended_during_causal_decodin
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s102
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s217
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s265
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+created_at: '2026-07-21T05:06:41Z'
+updated_at: '2026-07-21T05:06:59Z'

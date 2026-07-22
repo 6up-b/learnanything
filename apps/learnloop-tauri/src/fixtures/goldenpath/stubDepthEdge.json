@@ -1,0 +1,21 @@
+{
+  "burden": {
+    "minutes": 15
+  },
+  "capabilityDelta": [],
+  "direction": "transfer",
+  "edgeId": "edge_symmetric_transfer_1",
+  "exitEvidence": {
+    "kind": "cold_assessment_success"
+  },
+  "freshProofRule": "distinct_fresh_surface",
+  "milestoneSlug": "m_method_selection_transfer",
+  "reviewed": true,
+  "successorActivityPath": {
+    "pattern": "whole_task_integration"
+  },
+  "supportDelta": {},
+  "taskFeatureDelta": {
+    "span": 1
+  }
+}

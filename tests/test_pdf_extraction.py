@@ -114,11 +114,24 @@ def test_marker_engine_converts_and_caches(monkeypatch, tmp_path):
     assert "$$Av = \\lambda v$$" in extraction.markdown
     assert not extraction.from_cache
     assert captured["filepath"].endswith("source.pdf")
+    assert captured["config"]["pdftext_workers"] == 1
     assert list(cache_dir.glob("*.md")), "converted markdown should be cached"
 
     again = extract_pdf_markdown(raw, config=PdfIngestConfig(), cache_dir=cache_dir)
     assert again.from_cache
     assert again.markdown == extraction.markdown
+
+
+def test_marker_pdftext_worker_override_is_preserved(monkeypatch):
+    captured: dict = {}
+    _install_fake_marker(monkeypatch, captured=captured)
+
+    extract_pdf_markdown(
+        _make_pdf_bytes(["chapter text"]),
+        config=PdfIngestConfig(marker_options={"pdftext_workers": 2}),
+    )
+
+    assert captured["config"]["pdftext_workers"] == 2
 
 
 def test_marker_llm_options_map_to_openai_service(monkeypatch, tmp_path):

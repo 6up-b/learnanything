@@ -1,0 +1,82 @@
+schema_version: 1
+id: lo_compute_and_vet_naive_probabilities
+title: Compute and Vet Naive Probabilities
+subjects:
+  - counting
+concept: concept_naive_probability
+knowledge_type: procedure_and_applicability
+status: active
+contradicts:
+summary: Apply |A|/|S| only in finite equally likely sample spaces, count 
+  favorable and total outcomes, and reject unjustified 50-50 reasoning.
+prerequisites:
+  - concept_sample_space
+  - concept_event
+  - concept_equal_likelihood_assumptions
+confusables:
+  - concept_naive_50_50_fallacy
+blueprints:
+  - id: bp_01KXKVFA_3
+    weight: 0.32
+    recipes:
+      - id: r_compute_naive_probability
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_equal_likelihood_must_be_justified_by_symmetry_o
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s87
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s100
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s101
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:58Z'
+updated_at: '2026-07-15T21:39:05Z'

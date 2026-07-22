@@ -151,6 +151,21 @@ def reserve_exam_pool(
         )
 
     selected = _select(candidates, requested)
+    # Dual-authority mutual exclusion (design §A.2 rule 3), asserted at reserve time:
+    # _candidates already dropped staged-owned items, so a hit here means a staged
+    # ownership assignment raced the reservation -- refuse with a typed error rather than
+    # quarantine a staged-owned item into a held-out pool.
+    from learnloop.services.controller_ownership import staged_owned_practice_item_ids
+
+    _staged_owned = staged_owned_practice_item_ids(vault, repository)
+    _conflict = {candidate.item_id for candidate in selected} & _staged_owned
+    if _conflict:
+        from learnloop.services.controller_ownership import ExamReservationOwnershipConflict
+
+        raise ExamReservationOwnershipConflict(
+            f"exam reservation for goal {goal.id} would cover staged-owned items: "
+            f"{sorted(_conflict)}"
+        )
     covered = sorted({facet for candidate in selected for facet in candidate.facets})
     strata = {}
     for candidate in selected:
@@ -170,6 +185,41 @@ def reserve_exam_pool(
     ]
     if rows:
         repository.insert_exam_pool_items(rows)
+
+    # P0.4 §3.4 pin wiring: when the goal has a CONFIRMED terminal contract, dual-write
+    # an activity_surface_reservation carrying target_contract_version_id +
+    # target_support_hash (the 065 columns) alongside the legacy exam_pool_items,
+    # so the assessment reserve pins the exact version + support hash at reservation.
+    # Fully inert for unconfirmed goals (legacy exam path unchanged).
+    from learnloop.services.goal_contracts import resolve_head
+
+    head = resolve_head(repository, goal.id)
+    if head is not None:
+        from learnloop.services.activities import (
+            SurfaceAlreadyReserved,
+            reserve_surface,
+            resolve_legacy_item,
+        )
+
+        for candidate in selected:
+            item = vault.practice_items.get(candidate.item_id)
+            if item is None:
+                continue
+            resolved = resolve_legacy_item(
+                vault, repository, item, purpose="assessment", clock=clock
+            )
+            try:
+                reserve_surface(
+                    repository,
+                    surface_id=resolved.surface_id,
+                    purpose="assessment",
+                    goal_id=goal.id,
+                    target_contract_version_id=head.id,
+                    target_support_hash=head.support_hash,
+                    clock=clock,
+                )
+            except SurfaceAlreadyReserved:
+                continue
 
     return ExamPoolReport(
         goal_id=goal.id,
@@ -198,13 +248,24 @@ def _candidates(
     reserved_elsewhere = repository.reserved_exam_pool_item_ids() - own_reserved_ids
     item_states = repository.practice_item_states()
     practiced_surfaces = _practiced_surface_families(vault, attempted)
+    # P4 §14.2 step 3 dual-authority (design §A.2 rule 3): the held-out exam is an
+    # administration surface. A staged-owned P2 commitment's items are never reservable --
+    # exam reservation and staged ownership are mutually exclusive. Empty (no-op) for a
+    # vault with no ownership rows, so the legacy exam pool is byte-identical.
+    from learnloop.services import controller_ownership as _ownership
+
+    staged_owned = _ownership.staged_owned_practice_item_ids(vault, repository)
 
     candidates: list[_Candidate] = []
     for item in vault.practice_items.values():
+        if item.status != "active":
+            continue
         scope_facets = scope.get(item.learning_object_id)
         if not scope_facets:
             continue
         if item.id in attempted or item.id in reserved_elsewhere:
+            continue
+        if item.id in staged_owned:
             continue
         state = item_states.get(item.id)
         if state is not None and not state.active:

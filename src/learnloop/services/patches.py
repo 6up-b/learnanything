@@ -9,6 +9,7 @@ from typing import Any, Callable
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
+from learnloop.services.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.services.vault_lock import vault_mutation_lock
 from learnloop.vault.loader import load_vault
@@ -435,10 +436,10 @@ def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: s
     but ACCEPTANCE refuses with a typed reason, so no attempts can accrue against
     a partially-upgraded map."""
 
-    if vault.config.algorithms.algorithm_version != "mvp-0.7":
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         raise PatchApplicationError(
             f"bootstrap_evidence_refused: cannot apply learnable {item_type} {entity_id} "
-            f"in a legacy vault (requires algorithm_version mvp-0.7)"
+            f"in a legacy vault (requires the canonical model mvp-0.7/mvp-0.8)"
         )
 
 
@@ -684,7 +685,7 @@ def _reject_unregistered_facets(vault: LoadedVault, entity_id: str, data: dict[s
     lenient behavior (doctor warns instead), so frozen content is untouched.
     """
 
-    if vault.config.algorithms.algorithm_version != "mvp-0.7":
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     if not vault.evidence_facets:
         return

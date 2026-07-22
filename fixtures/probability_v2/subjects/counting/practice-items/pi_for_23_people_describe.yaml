@@ -1,0 +1,175 @@
+schema_version: 1
+id: pi_for_23_people_describe
+learning_object_id: lo_calculate_and_simulate_birthday_matches
+subjects:
+practice_mode: constructed_response
+attempt_types_allowed: []
+evidence_facets:
+  - facet_under_the_equal_probability_365_day_model_comput
+  - facet_use_pbirthday_k_when_group_size_is_known_and_a_m
+  - facet_simulate_birthday_matches_by_sampling_one_day_pe
+  - facet_supply_a_prob_vector_to_sample_to_assign_weights
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'For 23 people, describe two valid ways to obtain the probability of at least
+  one shared birthday under the equal-probability 365-day model: one complement-based
+  calculation and one Monte Carlo simulation. Then state how the simulation must change
+  if day probabilities are unequal, and name the R query for the group size giving
+  a target probability p of at least one triple match.'
+expected_answer: For the calculation, compute one minus the all-distinct 
+  probability, for example 1-prod((365-23+1):365)/365^23, or use pbirthday(23). 
+  For simulation, repeatedly sample 23 days from 1:365 with replace=TRUE, 
+  tabulate frequencies, test whether the maximum is at least 2, and take the 
+  qualifying proportion. For unequal probabilities, pass the day-probability 
+  vector through prob. For the target group size for a triple match, use 
+  qbirthday(p,coincident=3).
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.6
+scaffold_level: 0.25
+surface_family: birthday_problem_methods
+evidence_fingerprint:
+  source_family: primary_textbook_birthday_problem
+  shared_stimulus_id: birthday_pair_triple_and_nonuniform_tasks
+  representation: R formula, function selection, and simulation design
+  solution_recipe_family: coordinate_exact_and_simulation_methods
+  answer_structure: calculation, simulation, model extension, and function query
+misconception_consistent_answer:
+repair_targets:
+  - facet_under_the_equal_probability_365_day_model_comput
+  - facet_use_pbirthday_k_when_group_size_is_known_and_a_m
+  - facet_simulate_birthday_matches_by_sampling_one_day_pe
+  - facet_supply_a_prob_vector_to_sample_to_assign_weights
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_birthday_complement
+      points: 3.0
+      description: Uses the complement of all birthdays being distinct and 
+        preserves the equal-probability model assumptions.
+      tier: core
+      targets:
+        - facet: facet_under_the_equal_probability_365_day_model_comput
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_birthday_complement
+      correlation_group: birthday_methods
+      recipe_ids:
+        - recipe_birthday_exact_or_builtin
+    - id: criterion_birthday_simulation
+      points: 3.0
+      description: Coordinates replacement sampling, frequency tabulation, a 
+        maximum-at-least-two event test, repetition, and relative-frequency 
+        aggregation.
+      tier: core
+      targets:
+        - facet: facet_simulate_birthday_matches_by_sampling_one_day_pe
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_birthday_simulation
+        - facet_monte_carlo_relative_frequency
+      correlation_group: birthday_methods
+      recipe_ids:
+        - recipe_birthday_simulation
+    - id: criterion_nonuniform_and_triple_transfer
+      points: 2.0
+      description: Adds an explicit probability vector for unequal days and 
+        selects qbirthday(p,coincident=3) for a target triple-match group size.
+      tier: transfer
+      targets:
+        - facet: facet_supply_a_prob_vector_to_sample_to_assign_weights
+          capability: method_selection
+          role: supporting
+        - facet: facet_use_pbirthday_k_when_group_size_is_known_and_a_m
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_weighted_sampling
+        - facet_birthday_function_selection
+      correlation_group: birthday_methods
+      recipe_ids:
+        - recipe_birthday_exact_or_builtin
+        - recipe_birthday_simulation
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s342
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s345
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s347
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s349
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s350
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:17Z'
+updated_at: '2026-07-21T00:54:17Z'

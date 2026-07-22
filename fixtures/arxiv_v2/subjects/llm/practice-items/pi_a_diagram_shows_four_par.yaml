@@ -1,0 +1,92 @@
+schema_version: 1
+id: pi_a_diagram_shows_four_par
+learning_object_id: lo_interpret_multi_head_attention_structure
+subjects:
+practice_mode: architecture interpretation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_multi_head_attention_applies_attention_through_m
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A diagram shows four parallel attention heads followed by concatenation 
+  and an output matrix. Explain what distinguishes the heads, how their outputs 
+  are combined, and why this is not equivalent to a single projection set.
+expected_answer: Each head has its own learned query, key, and value projections
+  and can operate in a different representation subspace. The head outputs are 
+  concatenated and transformed by an output projection. A single projection set 
+  supplies only one attention subspace and lacks these distinct per-head 
+  projections.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.25
+scaffold_level: 0.3
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - diagram
+    - verbal
+  response: long_constructed
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: attention_architecture_diagram
+evidence_fingerprint:
+  source_family: transformer_architecture_lecture
+  shared_stimulus_id: four_head_attention_diagram
+  representation: architecture diagram description
+  solution_recipe_family: multi_head_structure
+  answer_structure: component mapping and contrast
+misconception_consistent_answer:
+repair_targets:
+  - facet_multi_head_attention_applies_attention_through_m
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_multi_head_schema
+      points: 4.0
+      description: Identifies distinct per-head QKV projection sets, 
+        concatenation, and the final output projection, and contrasts them with 
+        single-head attention.
+      tier: core
+      targets:
+        - facet: facet_multi_head_attention_applies_attention_through_m
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_multi_head_construction
+      correlation_group: multi_head_schema
+      recipe_ids:
+        - recipe_multi_head_structure
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      path:
+      locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s194
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+      role: lecture
+      source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      span_hash:
+created_at: '2026-07-21T05:07:25Z'
+updated_at: '2026-07-21T18:14:44Z'

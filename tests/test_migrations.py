@@ -600,3 +600,113 @@ def _insert_attempt(connection, *, attempt_id: str, attempt_type: str) -> None:
             "2026-05-19T12:00:00Z",
         ),
     )
+
+
+def test_source_exposure_indexes_present_on_fresh_vault(tmp_path):
+    # F6 regression: migration 092 rebuilt source_exposure_events via
+    # temp-then-rename but had omitted the two indexes 049/052/058 restore;
+    # 092 now recreates them and 097 backfills already-migrated vaults.
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        indexes = {
+            row["name"]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'index' AND tbl_name = 'source_exposure_events'"
+            )
+        }
+
+    assert "idx_source_exposure_events_span" in indexes
+    assert "idx_source_exposure_events_entity" in indexes
+
+
+def test_source_exposure_index_backfill_is_idempotent_on_092_only_vault(tmp_path):
+    # Simulate a vault that applied through 092 (which now recreates the
+    # indexes) and then applied 097 on top: the IF NOT EXISTS backfill is a
+    # no-op and both indexes remain exactly once.
+    sqlite_path = tmp_path / "state.sqlite"
+    through_092 = tmp_path / "through_092"
+    through_092.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 92:
+            shutil.copy2(migration.path, through_092 / migration.path.name)
+    apply_migrations(sqlite_path, migrations_dir=through_092)
+
+    # Now apply the full set (adds 093..097 including the backfill).
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        indexes = [
+            row["name"]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'index' AND tbl_name = 'source_exposure_events'"
+            )
+        ]
+
+    assert indexes.count("idx_source_exposure_events_span") == 1
+    assert indexes.count("idx_source_exposure_events_entity") == 1
+
+
+def test_controller_snapshot_schema_is_available(tmp_path):
+    # P4 steps 1-2 (migration 096): the staged-controller substrate.
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        decision_cols = {
+            row["name"] for row in connection.execute("PRAGMA table_info(controller_decisions)")
+        }
+
+    assert {
+        "controller_snapshots", "controller_constraint_manifests", "controller_decisions",
+        "controller_candidates", "attention_blocks", "attention_block_events",
+        "controller_shadow_predictions",
+    } <= tables
+    assert {
+        "snapshot_hash", "staged_rule", "action", "constraint_manifest_hash",
+        "decision_params_hash", "comparator_json", "trace_json", "receipt_key", "mode",
+    } <= decision_cols
+
+
+def test_controller_decision_action_and_shadow_authority_checks(tmp_path):
+    # The action vocabulary is closed and shadow rows may only carry authority='none'.
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+    with connect(sqlite_path) as connection:
+        snap_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'controller_decisions'"
+        ).fetchone()["sql"]
+        shadow_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'controller_shadow_predictions'"
+        ).fetchone()["sql"]
+    assert "measure_diagnostic" in snap_sql and "expand_model" in snap_sql
+    assert "authority IN ('none')" in shadow_sql
+
+
+def test_controller_snapshot_migration_applies_on_pre_096_db(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    old_migrations = tmp_path / "old_migrations"
+    old_migrations.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 95:
+            shutil.copy2(migration.path, old_migrations / migration.path.name)
+
+    apply_migrations(sqlite_path, migrations_dir=old_migrations)
+    applied = apply_migrations(sqlite_path)
+    assert 96 in [migration.version for migration in applied]
+
+    with connect(sqlite_path) as connection:
+        fk_issues = connection.execute("PRAGMA foreign_key_check").fetchall()
+        tables = {
+            row["name"]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+    assert fk_issues == []
+    assert "controller_snapshots" in tables

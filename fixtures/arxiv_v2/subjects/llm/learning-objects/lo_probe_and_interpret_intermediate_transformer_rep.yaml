@@ -1,0 +1,66 @@
+schema_version: 1
+id: lo_probe_and_interpret_intermediate_transformer_rep
+title: Probe and interpret intermediate transformer representations
+subjects:
+  - llm
+concept: concept_neural_representation_geometry
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Collect final-position residual-stream vectors, project them with UMAP,
+  and distinguish intermediate context clusters from later target-token 
+  consolidation.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_25
+    weight: 0.18
+    recipes:
+      - id: recipe_representation_probe
+        composition: conjunctive
+        all_of:
+          - facet: facet_to_visualize_intermediate_representation_geometr
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_intermediate_activations_for_varied_contexts_may
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_intermediate_activations_for_varied_contexts_may
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s315
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s322
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:49Z'
+updated_at: '2026-07-21T05:07:09Z'

@@ -14,6 +14,12 @@ from learnloop.ai.routing import fallback_provider_for, provider_for_task
 from learnloop.ai.runtime import check_ai_runtime
 from learnloop.codex.client import CodexUnavailable, make_codex_client
 from learnloop.codex.runtime import check_codex_runtime
+from learnloop.config import (
+    CODEX_LOW_PROVIDER,
+    CODEX_MEDIUM_PROVIDER,
+    CODEX_PROVIDER_NAMES,
+    DEFAULT_CODEX_MODEL,
+)
 from learnloop.services.attempts import (
     AttemptDraft,
     AttemptResult,
@@ -202,7 +208,7 @@ class FeedbackScreen(Screen):
             fatal_errors=self.fatal_errors or None,
             error_type=self.error_type,
         )
-        if provider_name == "codex":
+        if provider_name in CODEX_PROVIDER_NAMES:
             result = complete_attempt_with_codex_fallback(
                 self.state.vault,
                 self.state.repository,
@@ -233,7 +239,7 @@ class FeedbackScreen(Screen):
             )
             return None
         try:
-            if provider_name == "codex":
+            if provider_name in CODEX_PROVIDER_NAMES:
                 result = await asyncio.to_thread(
                     complete_attempt_with_codex_required,
                     self.state.vault,
@@ -275,10 +281,21 @@ class FeedbackScreen(Screen):
                 return fallback, fallback_runtime, self._client_for_provider(fallback)
         return provider_name, runtime, None
 
+    def _codex_config_for_provider(self, provider_name: str):
+        if provider_name not in {CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER}:
+            return self.state.vault.config.codex
+        effort = "low" if provider_name == CODEX_LOW_PROVIDER else "medium"
+        return self.state.vault.config.codex.model_copy(
+            update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": effort}
+        )
+
     def _runtime_for_provider(self, provider_name: str):
-        if provider_name == "codex":
-            runtime = self.state.startup_maintenance.codex_runtime if self.state.startup_maintenance else None
-            return runtime or check_codex_runtime(self.state.vault.root, self.state.vault.config.codex)
+        if provider_name in CODEX_PROVIDER_NAMES:
+            if provider_name == "codex":
+                runtime = self.state.startup_maintenance.codex_runtime if self.state.startup_maintenance else None
+                if runtime is not None:
+                    return runtime
+            return check_codex_runtime(self.state.vault.root, self._codex_config_for_provider(provider_name))
         runtime = self.state.startup_maintenance.ai_runtime if self.state.startup_maintenance else None
         if runtime is not None and runtime.active_provider == provider_name:
             return runtime
@@ -286,8 +303,8 @@ class FeedbackScreen(Screen):
 
     def _client_for_provider(self, provider_name: str):
         try:
-            if provider_name == "codex":
-                return make_codex_client(self.state.vault.config.codex, self.state.vault.root)
+            if provider_name in CODEX_PROVIDER_NAMES:
+                return make_codex_client(self._codex_config_for_provider(provider_name), self.state.vault.root)
             return make_ai_provider_client(self.state.vault.config, self.state.vault.root, provider_name=provider_name)
         except CodexUnavailable:
             return None
@@ -298,7 +315,7 @@ class FeedbackScreen(Screen):
 
     def _provider_label(self) -> str:
         provider_name, _runtime, _client = self._grading_provider()
-        return "Codex" if provider_name == "codex" else f"AI provider {provider_name}"
+        return "Codex" if provider_name in CODEX_PROVIDER_NAMES else f"AI provider {provider_name}"
 
     def _complete_result(self, result: AttemptResult) -> None:
         _provider_name, runtime, client = self._grading_provider()

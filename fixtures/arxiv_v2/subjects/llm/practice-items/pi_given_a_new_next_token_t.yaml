@@ -1,0 +1,149 @@
+schema_version: 1
+id: pi_given_a_new_next_token_t
+learning_object_id: lo_reconstruct_token_averaged_language_model_loss
+subjects:
+practice_mode: table reconstruction and diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+  - facet_to_reconstruct_an_example_level_language_model_l
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: "Given a new next-token table containing the correct token, the model's top
+  prediction, and the probability assigned to the correct token at each scored position:
+  compute every token cross-entropy, average the token losses, identify the highest-
+  and lowest-loss positions, and explain a possible framework mismatch by checking
+  token inclusion and label shifting."
+expected_answer: Each token loss equals -ln(P_correct); the example loss is the 
+  arithmetic mean of the included token losses; extrema are explained by inverse
+  probability-loss behavior; any mismatch diagnosis refers to scoring positions 
+  rather than substituting top-token probabilities.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.45
+scaffold_level: 0.25
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+    - calculator
+task_feature_schema: p1_launch@1
+surface_family: token_loss_table
+evidence_fingerprint:
+  source_family: language_model_token_table
+  shared_stimulus_id: held_out_token_sequence
+  representation: next-token probability table
+  solution_recipe_family: token_negative_log_then_mean
+  answer_structure: completed losses, average, extrema, mismatch diagnosis
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+  - facet_to_reconstruct_an_example_level_language_model_l
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_token_selection
+      points: 2.0
+      description: Uses the probability assigned to the correct next token 
+        rather than the top-prediction probability.
+      tier: core
+      targets:
+        - facet: facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_cross_entropy_correct_probability
+      correlation_group: token_loss
+      recipe_ids:
+        - recipe_token_loss
+    - id: criterion_token_transform
+      points: 3.0
+      description: Correctly applies -ln to each included correct-token 
+        probability.
+      tier: core
+      targets:
+        - facet: facet_to_reconstruct_an_example_level_language_model_l
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_token_loss_aggregation
+      correlation_group: token_loss
+      recipe_ids:
+        - recipe_token_loss
+    - id: criterion_token_average_diagnosis
+      points: 3.0
+      description: Averages token losses and diagnoses discrepancies using token
+        inclusion or causal-label shifting conventions.
+      tier: transfer
+      targets:
+        - facet: facet_to_reconstruct_an_example_level_language_model_l
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_token_loss_aggregation
+      correlation_group: aggregation
+      recipe_ids:
+        - recipe_token_loss
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s138
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s142
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s149
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: alternate
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:30Z'
+updated_at: '2026-07-21T18:14:56Z'

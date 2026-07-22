@@ -6,7 +6,7 @@ from typing import Any
 from learnloop.ids import kebab_case
 from learnloop.vault.loader import add_subject, init_vault
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
@@ -17,6 +17,12 @@ class CreateVaultInput(ParamsModel):
     # The NewVault wizard uses this so the bootstrap study-map build has a
     # subject to bind to; omit it and the vault is created with no subjects.
     subject: str | None = None
+    # Optional declared learner level (closed ordinal, services.brief.STARTING_LEVELS).
+    # Persists profile/learner.yaml and seeds the global init-wizard learner claim
+    # so initial mastery/ability/difficulty calibration start from the learner's
+    # self-report instead of the uninformative 0.5 prior.
+    starting_level: str | None = None
+    level_note: str | None = None
 
 
 @method("create_vault", CreateVaultInput)
@@ -60,4 +66,88 @@ def create_vault(ctx: SidecarContext, params: CreateVaultInput) -> dict[str, Any
         subject_id = kebab_case(subject_title)
         add_subject(created, subject_id, subject_title)
 
+    if params.starting_level:
+        _write_learner_level(created, params.starting_level, params.level_note)
+
     return versioned({"vault_root": str(created), "subject_id": subject_id})
+
+
+def _write_learner_level(root: Path, starting_level: str, level_note: str | None) -> None:
+    """Persist profile/learner.yaml and seed the global learner claim.
+
+    Instantiating Repository applies migrations, so this also creates
+    state.sqlite for a brand-new vault — the claim exists before any synthesis
+    or state sync runs.
+    """
+
+    from learnloop.config import load_config
+    from learnloop.db.repositories import Repository
+    from learnloop.services.brief import STARTING_LEVELS
+    from learnloop.services.learner_profile import seed_global_learner_claim, write_learner_profile
+    from learnloop.vault.paths import VaultPaths
+
+    if starting_level not in STARTING_LEVELS:
+        raise SidecarError(
+            "invalid_starting_level",
+            f"Unknown starting level '{starting_level}'. Expected one of: {', '.join(STARTING_LEVELS)}.",
+        )
+    paths = VaultPaths(root, load_config(root / "learnloop.toml"))
+    write_learner_profile(paths, starting_level=starting_level, level_note=level_note)
+    repository = Repository(paths.sqlite_path)
+    seed_global_learner_claim(repository, starting_level)
+
+
+class SetLearnerProfileInput(ParamsModel):
+    starting_level: str
+    level_note: str | None = None
+
+
+@method("get_learner_profile", EmptyParams)
+def get_learner_profile(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]:
+    """The vault's declared learner level (profile/learner.yaml), or nulls."""
+
+    from learnloop.services.learner_profile import read_learner_profile
+    from learnloop.vault.paths import VaultPaths
+
+    vault, _repository = ctx.require_vault()
+    profile = read_learner_profile(VaultPaths(vault.root, vault.config)) or {}
+    return versioned(
+        {
+            "starting_level": profile.get("starting_level"),
+            "level_note": profile.get("level_note"),
+            "updated_at": profile.get("updated_at"),
+        }
+    )
+
+
+@method("set_learner_profile", SetLearnerProfileInput)
+def set_learner_profile(ctx: SidecarContext, params: SetLearnerProfileInput) -> dict[str, Any]:
+    """Write profile/learner.yaml and replace the global init-wizard claim.
+
+    Already-materialized mastery states are NOT retro-seeded — the claim only
+    informs states created after this point (state_sync fills missing rows).
+    """
+
+    from learnloop.services.brief import STARTING_LEVELS
+    from learnloop.services.learner_profile import seed_global_learner_claim, write_learner_profile
+    from learnloop.vault.paths import VaultPaths
+
+    vault, repository = ctx.require_vault()
+    if params.starting_level not in STARTING_LEVELS:
+        raise SidecarError(
+            "invalid_starting_level",
+            f"Unknown starting level '{params.starting_level}'. Expected one of: {', '.join(STARTING_LEVELS)}.",
+        )
+    profile = write_learner_profile(
+        VaultPaths(vault.root, vault.config),
+        starting_level=params.starting_level,
+        level_note=params.level_note,
+    )
+    seed_global_learner_claim(repository, params.starting_level)
+    return versioned(
+        {
+            "starting_level": profile["starting_level"],
+            "level_note": profile["level_note"],
+            "updated_at": profile["updated_at"],
+        }
+    )

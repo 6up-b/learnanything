@@ -1,0 +1,67 @@
+schema_version: 1
+id: lo_distinguish_initial_and_contextual_token_vectors
+title: Distinguish Initial and Contextual Token Vectors
+subjects:
+  - llm
+concept: concept_token_embedding
+knowledge_type: schema and discrimination
+status: active
+contradicts:
+summary: Trace an embedding lookup and distinguish its output from a 
+  representation refined by later transformer blocks.
+prerequisites:
+  - concept_tokenization
+confusables:
+  - concept_contextualized_token_representation
+blueprints:
+  - id: bp_01KY1H1X_2
+    weight: 0.15
+    recipes:
+      - id: recipe-embedding-stage-discrimination
+        composition: conjunctive
+        all_of:
+          - facet: facet_an_embedding_matrix_associates_each_vocabulary_t
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_attention_allows_information_encoded_at_one_toke
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_attention_allows_information_encoded_at_one_toke
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s220
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s323
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+created_at: '2026-07-21T05:06:38Z'
+updated_at: '2026-07-21T05:06:56Z'

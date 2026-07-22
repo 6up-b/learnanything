@@ -80,6 +80,14 @@ def build_due_queue(
     # Items reserved for a goal's held-out exam are quarantined from practice so
     # the exam stays an honest, uncontaminated test (fetched once per build).
     reserved_item_ids = reserved_exam_pool_item_ids(repository)
+    rung_variant_hold_ids = repository.rung_variant_pending_source_ids()
+    # P4 §14.2 step 3 (design §A.2 rule 3): during the dual-controller cutover the
+    # staged policy owns P2 golden-path commitments. Their practice items are EXCLUDED
+    # from the legacy queue so no commitment is scheduled by both controllers. Empty
+    # (a no-op, byte-identical legacy queue) when no commitment is staged-owned.
+    from learnloop.services import controller_ownership as _ownership
+
+    staged_owned_item_ids = _ownership.staged_owned_practice_item_ids(vault, repository)
     mastery_states = repository.mastery_states()
     # Probe redesign: open diagnostic episodes replace lo_probe_state (frozen
     # legacy). `pending_items` episodes keep their LO schedulable for ordinary
@@ -106,15 +114,41 @@ def build_due_queue(
         facet_states_by_lo=facet_states_by_lo,
     )
 
+    # P0.4 §3.4: practice progression reads the confirmed terminal-contract HEAD at
+    # each decision and logs the evaluated version in its trace -- it holds NO
+    # cross-decision pin. Resolved once per build; inert (empty) for unconfirmed
+    # goals so legacy scheduling is byte-identical.
+    from learnloop.services.goal_contracts import resolve_head
+
+    evaluated_head_ids: list[str] = []
+    for goal_id in frontier.active_goal_ids:
+        head = resolve_head(repository, goal_id)
+        if head is not None:
+            evaluated_head_ids.append(head.id)
+
     queue: list[ScheduledItem] = []
     probe_item_ids: dict[str, str] = {}
     probe_entropy_before: dict[str, float] = {}
     recent_attempts_by_lo: dict[str, list[dict[str, Any]]] = {}
     for item in vault.practice_items.values():
+        # Learner-retired items are never served, independent of sync ordering.
+        if item.status != "active":
+            continue
         state = item_states.get(item.id)
         if state is not None and not state.active:
             continue
         if item.id in reserved_item_ids:
+            continue
+        # Pending-variant hold: the learner asked for an easier/harder sibling
+        # of this exact card and it is still being authored. The request's
+        # self-report already re-dued the source (FSRS "again" on easier), but
+        # re-serving the very card the learner stepped away from — before its
+        # variant exists — inverts the intended variant-first ordering.
+        if item.id in rung_variant_hold_ids:
+            continue
+        # P4 §14.2 step 3: a staged-owned commitment's items are the staged policy's to
+        # schedule, never the legacy queue's (design §A.2 rule 3 -- the coexistence seam).
+        if item.id in staged_owned_item_ids:
             continue
         # Ephemeral dialogue-turn instances (§8.1) exist only to carry their one
         # committed diagnostic attempt; they are never ordinary practice.
@@ -147,6 +181,10 @@ def build_due_queue(
             "forgetting_risk": _forgetting_risk(state, now, fsrs_weights),
             "recent_error": _recent_error(errors_by_lo.get(learning_object.id, []), now),
             "probe_eig": 0.0,
+            # DISPLAY ONLY (never a priority input — _priority reads exactly its
+            # four weighted keys): how much one ordinary graded attempt is
+            # expected to inform the LO mastery latent.
+            "practice_information": _practice_information(item, learning_object, mastery, config),
         }
         if goal_frontier_component > 0:
             # Exposure discount: evidence from re-serving a just-attempted item
@@ -265,6 +303,12 @@ def build_due_queue(
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
         if priority <= 0:
             continue
+        plain_english = _plain_english(item, components)
+        if evaluated_head_ids and goal_frontier_component > 0:
+            plain_english = plain_english + [
+                f"evaluated terminal-contract head {version_id}"
+                for version_id in evaluated_head_ids
+            ]
         queue.append(
             ScheduledItem(
                 practice_item_id=item.id,
@@ -273,7 +317,7 @@ def build_due_queue(
                 components=components,
                 readiness_factor=readiness_factor,
                 selected_mode=item.practice_mode,
-                plain_english=_plain_english(item, components),
+                plain_english=plain_english,
                 reward_debug=reward.as_debug(),
             )
         )
@@ -640,6 +684,30 @@ def explain_practice_item(vault: LoadedVault, repository: Repository, practice_i
         if item.practice_item_id == practice_item_id:
             return item
     return None
+
+
+def _practice_information(item, learning_object, mastery, config: LearnLoopConfig) -> float:
+    """Display-only measurement value of one ordinary attempt (never selection).
+
+    Fisher information of a Bernoulli observation under the mastery channel's
+    2PL link — ``a²·p·(1−p)`` with ``p = sigmoid(a·(θ − b))`` at the learner's
+    current mastery logit θ (claim-seeded states carry the claim; no state →
+    θ=0) — scaled by the default attempt type's evidence mass so the number
+    reflects what a normal independent attempt actually moves. Peaks when the
+    item sits on the learner's boundary (p≈0.5); near-zero for items far above
+    or below their level. Deliberately NOT a priority term: practice selection
+    optimizes learning (desirable difficulty), probes optimize measurement.
+    """
+
+    from learnloop.attempt_types import DEFAULT_ATTEMPT_TYPE
+    from learnloop.services.evidence import attempt_evidence_mass
+    from learnloop.services.mastery import resolve_item_irt_params
+
+    a, b = resolve_item_irt_params(item, learning_object, config.mastery)
+    theta = mastery.logit_mean if mastery is not None else 0.0
+    p = 1.0 / (1.0 + exp(-a * (theta - b)))
+    mass = attempt_evidence_mass(DEFAULT_ATTEMPT_TYPE, config.evidence)
+    return round(a * a * p * (1.0 - p) * mass, 3)
 
 
 def _priority(components: dict[str, float], config: LearnLoopConfig) -> float:

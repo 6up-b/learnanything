@@ -29,9 +29,10 @@ import type {
 } from "../api/dto";
 import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, HelpTooltip, Meta, modePillColor, Pill, SectionHeader, type PillColor } from "./term";
 import { CapabilityGridView } from "./KnowledgeModel";
+import { RungVariantActions } from "./CardControls";
 import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
-import { CommandOverlayFrame, commandOverlayActionStyle } from "./CommandOverlayFrame";
+import { CommandOverlayFrame, commandOverlayActionStyle, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
 
 // ── kind → header pill ──────────────────────────────────────────────────
 const KIND_PILL: Record<string, { color: PillColor; label: string }> = {
@@ -178,6 +179,7 @@ export function InspectorOverlay({
       )}
       onClose={onClose}
       ariaLabel={`Inspect ${entityId}`}
+      width={learnloopShowOverlayWidth}
     >
         {/* ── search ── */}
         <div style={{ padding: "10px 16px", borderBottom: `1px solid ${COLOR.border}`, flexShrink: 0 }}>
@@ -201,7 +203,15 @@ export function InspectorOverlay({
               <Faint> …</Faint>
             </div>
           ) : (
-            <InspectorEntityView entity={entity} childPracticeItemId={childPracticeItemId} onGo={go} />
+            <InspectorEntityView
+              entity={entity}
+              childPracticeItemId={childPracticeItemId}
+              onGo={go}
+              onError={onError}
+              onRefresh={() => {
+                if (entityId) void fetchEntity(entityId);
+              }}
+            />
           )}
         </div>
 
@@ -213,11 +223,16 @@ export function InspectorOverlay({
 function InspectorEntityView({
   entity,
   childPracticeItemId,
-  onGo
+  onGo,
+  onError,
+  onRefresh
 }: {
   entity: InspectorEntity;
   childPracticeItemId: string | null;
   onGo: (id: string) => void;
+  onError: (message: string) => void;
+  /** Re-fetch the currently shown entity (after a mutation like re-runging). */
+  onRefresh: () => void;
 }) {
   if (entity.kind === "not_found") {
     return <NotFoundBody id={entity.id} suggestions={entity.suggestions} onGo={onGo} />;
@@ -249,7 +264,7 @@ function InspectorEntityView({
       <Divider />
       <div style={{ padding: "12px 22px 24px" }}>
         {entity.kind === "practice_item" ? (
-          <PracticeItemBody detail={entity.detail} onGo={onGo} />
+          <PracticeItemBody detail={entity.detail} onGo={onGo} onError={onError} onRefresh={onRefresh} />
         ) : entity.kind === "learning_object" ? (
           <LearningObjectBody detail={entity.detail} childPracticeItemId={childPracticeItemId} onGo={onGo} />
         ) : entity.kind === "concept" ? (
@@ -296,7 +311,17 @@ function ProbeEpisodeBody({ detail, onGo }: { detail: ProbeEpisodeInspectorDetai
 }
 
 // ── practice_item ──────────────────────────────────────────────────────────
-function PracticeItemBody({ detail, onGo }: { detail: PracticeItemDetail; onGo: (id: string) => void }) {
+function PracticeItemBody({
+  detail,
+  onGo,
+  onError,
+  onRefresh
+}: {
+  detail: PracticeItemDetail;
+  onGo: (id: string) => void;
+  onError: (message: string) => void;
+  onRefresh: () => void;
+}) {
   const state = detail.state;
   const mastery = detail.mastery;
   return (
@@ -308,6 +333,9 @@ function PracticeItemBody({ detail, onGo }: { detail: PracticeItemDetail; onGo: 
       </InspectorRow>
       <InspectorRow label="practice_mode">
         <Pill color={modePillColor(detail.practiceMode)}>{detail.practiceMode}</Pill>
+        <span style={{ display: "inline-flex", gap: 12, marginLeft: 14 }}>
+          <RungVariantActions practiceItemId={detail.id} onError={onError} onApplied={onRefresh} />
+        </span>
       </InspectorRow>
       <InspectorRow label="subjects">{detail.subjects.length ? detail.subjects.join(" · ") : <Faint>none</Faint>}</InspectorRow>
       {detail.difficulty != null ? (
@@ -1092,10 +1120,20 @@ function SchedulerWhy({ scheduler }: { scheduler: SchedulerExplanationDto }) {
         <span>
           <Faint>selected_mode</Faint> <Dim style={{ fontFamily: FONT_MONO }}>{scheduler.selectedMode}</Dim>
         </span>
-        <span>
-          <Faint>expected_information_gain</Faint>{" "}
-          <Dim style={{ fontFamily: FONT_MONO }}>{scheduler.expectedInformationGain.toFixed(3)}</Dim>
+        <span title="diagnostic expected information gain: entropy reduction over a locked hypothesis set — only defined while a diagnostic probe episode is in progress">
+          <Faint>diagnostic_eig</Faint>{" "}
+          {scheduler.expectedInformationGain > 0 ? (
+            <Dim style={{ fontFamily: FONT_MONO }}>{scheduler.expectedInformationGain.toFixed(3)}</Dim>
+          ) : (
+            <Faint style={{ fontFamily: FONT_MONO }}>— (no active diagnostic)</Faint>
+          )}
         </span>
+        {comps.practiceInformation != null ? (
+          <span title="display only, never a selection input: Fisher information of one ordinary attempt about this LO's mastery latent (a²·p·(1−p) × evidence mass). Peaks when the item sits on your boundary; near-zero far above or below your level.">
+            <Faint>practice_information (display only)</Faint>{" "}
+            <Dim style={{ fontFamily: FONT_MONO }}>{comps.practiceInformation.toFixed(3)}</Dim>
+          </span>
+        ) : null}
       </div>
     </div>
   );

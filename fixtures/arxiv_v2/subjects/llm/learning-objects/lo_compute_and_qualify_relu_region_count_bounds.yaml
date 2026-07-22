@@ -1,0 +1,78 @@
+schema_version: 1
+id: lo_compute_and_qualify_relu_region_count_bounds
+title: Compute and qualify ReLU region-count bounds
+subjects:
+  - llm
+concept: concept_relu_linear_region_count_analysis
+knowledge_type: quantitative procedure and interpretation
+status: active
+contradicts:
+summary: Apply the deep and shallow formulas with the correct layer convention 
+  and contrast upper bounds with observed partitions.
+prerequisites:
+  - concept_geometric_expressivity_of_relu_networks
+confusables:
+  - concept_maximum_region_count_predicts_trained_behavior
+blueprints:
+  - id: bp_01KY1H1X_30
+    weight: 1.0
+    recipes:
+      - id: recipe-deep-region-bound
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_the_stated_equal_width_relu_architecture_ide
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_a_maximum_region_formula_describes_possible_arch
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_applying_relu_to_an_already_piecewise_planar_hid
+          capability: coordination
+          modality: hard
+      - id: recipe-shallow-region-bound
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_two_dimensional_relu_network_with_one_hidd
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_a_maximum_region_formula_describes_possible_arch
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s508
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s512
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:52Z'
+updated_at: '2026-07-21T05:07:13Z'

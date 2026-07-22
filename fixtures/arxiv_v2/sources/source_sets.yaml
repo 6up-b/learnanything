@@ -1,0 +1,64 @@
+schema_version: 1
+source_sets:
+  - id: transformers
+    subject_id: llm
+    title: transformers
+    members:
+      - source_id: src_01KY18ZPYETS1BCZ1TVDZY921V
+        revision_id: rev_01KY18ZPZVG2S96ZCTEJHQKH44
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+        revision_id: rev_01KY18ZNFRJKBF3RF1MPD41D6D
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+        revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+        revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+        revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+        default_role: reference
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+        revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+        default_role: reference
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+        revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+        revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+        default_role: reference
+        scope: []
+        priority: 1
+      - source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+        revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+        default_role: paper
+        scope: []
+        priority: 1
+      - source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+        revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+        revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+        default_role: primary_textbook
+        scope: []
+        priority: 1
+    priority: 1
+    created_at: '2026-07-21T02:53:13Z'
+    updated_at: '2026-07-21T03:29:04Z'

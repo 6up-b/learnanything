@@ -1,0 +1,49 @@
+{
+  "latest": {
+    "anchorSampleId": null,
+    "decisive": false,
+    "distribution": {
+      "falseBeliefOrConfusion": 1.0
+    },
+    "eventId": "01KXYJ5SRX3Q71MW7458S6VT34",
+    "goalContractHeadVersionId": "01KXYJ5SHE9MAP6G8CDB4AB6ZZ",
+    "kind": "triaged",
+    "overrideActor": null,
+    "routeId": null,
+    "selectedReason": "false_belief_or_confusion",
+    "seq": 2,
+    "tier": "two"
+  },
+  "runId": "01KXYJ5SHF9TM9D8S0DW9NYQNS",
+  "trace": [
+    {
+      "anchorSampleId": null,
+      "decisive": true,
+      "distribution": null,
+      "eventId": "01KXYJ5SQ715XSHW4X5NF2P61P",
+      "goalContractHeadVersionId": "01KXYJ5SHE9MAP6G8CDB4AB6ZZ",
+      "kind": "triaged",
+      "overrideActor": null,
+      "routeId": "surface_or_grading_fault",
+      "selectedReason": "surface_or_grading_fault",
+      "seq": 1,
+      "tier": "one"
+    },
+    {
+      "anchorSampleId": null,
+      "decisive": false,
+      "distribution": {
+        "falseBeliefOrConfusion": 1.0
+      },
+      "eventId": "01KXYJ5SRX3Q71MW7458S6VT34",
+      "goalContractHeadVersionId": "01KXYJ5SHE9MAP6G8CDB4AB6ZZ",
+      "kind": "triaged",
+      "overrideActor": null,
+      "routeId": null,
+      "selectedReason": "false_belief_or_confusion",
+      "seq": 2,
+      "tier": "two"
+    }
+  ],
+  "version": 1
+}

@@ -1,0 +1,163 @@
+schema_version: 1
+id: pi_a_two_dimensional_relu_n
+learning_object_id: lo_trace_recursive_relu_folding
+subjects:
+practice_mode: geometric explanation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_applying_relu_to_an_already_piecewise_planar_hid
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A two-dimensional ReLU network has two first-layer folds that divide the
+  input plane into four linear regions. Explain how a neuron in the next hidden 
+  layer can introduce more than one new fold and how this can refine the 
+  partition to ten regions. Also explain why the larger region count alone does 
+  not prove that its final decision boundary is better than a shallower model's.
+expected_answer: The next-layer neuron receives a piecewise-planar surface 
+  rather than a single plane. That surface can cross zero in several separate 
+  regions, and ReLU folds it at each relevant zero crossing, with fold angles 
+  inherited from earlier joints. These multiple folds subdivide existing 
+  regions, allowing the illustrated partition to grow from four to ten. Region 
+  count measures available or realized geometric complexity, but boundary 
+  quality depends on how the partition is used relative to the target; a more 
+  complex tiling is not automatically a better classifier.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.45
+scaffold_level: 0.35
+capability: schema_interpretation
+task_features:
+  complexity: 3
+  transfer: near
+  representation:
+    - diagram
+    - verbal
+  response: long_constructed
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: relu-fold-tracing
+evidence_fingerprint:
+  source_family: layerwise ReLU geometry
+  shared_stimulus_id: four-to-ten-region-partition
+  representation: verbalized piecewise-planar network
+  solution_recipe_family: trace zero crossings and partition refinement
+  answer_structure: mechanism, region refinement, and quality caveat
+misconception_consistent_answer:
+repair_targets:
+  - facet_applying_relu_to_an_already_piecewise_planar_hid
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-explain-multiple-folds
+      points: 3.0
+      description: Explains that a piecewise-planar incoming surface can cross 
+        zero in multiple regions, allowing one later neuron to create several 
+        folds.
+      tier: core
+      targets:
+        - facet: facet_applying_relu_to_an_already_piecewise_planar_hid
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: relu-geometry
+      recipe_ids:
+        - recipe-trace-relu-partition
+    - id: criterion-connect-folds-to-refinement
+      points: 2.0
+      description: Connects the multiple folds to layer-by-layer refinement from
+        four to ten regions.
+      tier: core
+      targets:
+        - facet: facet_applying_relu_to_an_already_piecewise_planar_hid
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion-explain-multiple-folds
+      correlation_group: relu-geometry
+      recipe_ids:
+        - recipe-trace-relu-partition
+    - id: criterion-qualify-boundary-quality
+      points: 2.0
+      description: Distinguishes partition complexity from decision-boundary 
+        quality.
+      tier: transfer
+      targets:
+        - facet: facet_applying_relu_to_an_already_piecewise_planar_hid
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - criterion-connect-folds-to-refinement
+      correlation_group: relu-geometry
+      recipe_ids:
+        - recipe-trace-relu-partition
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s488
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s489
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s499
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s500
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:40Z'
+updated_at: '2026-07-21T18:14:49Z'

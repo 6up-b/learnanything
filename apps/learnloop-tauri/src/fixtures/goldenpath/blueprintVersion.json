@@ -1,0 +1,37 @@
+{
+  "blueprintId": "01KXYJ5R3TD9F6E3DQHCWWWHET",
+  "blueprintVersionId": "01KXYJ5R3VFRJM2Q10WMRGW0M0",
+  "contentHash": "003049fbc15223950f1389f591c61944",
+  "exemplars": [
+    {
+      "blueprintVersionId": "01KXYJ5R3VFRJM2Q10WMRGW0M0",
+      "createdAt": "2026-05-19T12:00:00Z",
+      "exemplarRef": "pi_symmetric_exemplar_a",
+      "exposureStatus": "familiar_anchor",
+      "heldOutWeight": 0.0,
+      "id": "01KXYJ5R3VTZ1QY5ECVFEWWYS5",
+      "weight": 1.0
+    },
+    {
+      "blueprintVersionId": "01KXYJ5R3VFRJM2Q10WMRGW0M0",
+      "createdAt": "2026-05-19T12:00:00Z",
+      "exemplarRef": "pi_symmetric_exemplar_b",
+      "exposureStatus": "familiar_anchor",
+      "heldOutWeight": 0.0,
+      "id": "01KXYJ5R3VQM2XGJPBCWKWF48D",
+      "weight": 1.0
+    },
+    {
+      "blueprintVersionId": "01KXYJ5R3VFRJM2Q10WMRGW0M0",
+      "createdAt": "2026-05-19T12:00:00Z",
+      "exemplarRef": "pi_symmetric_heldout_sibling",
+      "exposureStatus": "unseen_sibling",
+      "heldOutWeight": 1.0,
+      "id": "01KXYJ5R3VSZ9BR7EA08Q3GBRX",
+      "weight": 0.0
+    }
+  ],
+  "minted": true,
+  "status": "active",
+  "version": 1
+}

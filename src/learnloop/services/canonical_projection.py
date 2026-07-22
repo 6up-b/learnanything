@@ -23,7 +23,11 @@ from typing import Any, Mapping
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+from learnloop.services.assessment_contracts import (
+    CANONICAL_STATE_VERSIONS,
+    KM_ALGORITHM_VERSION,
+    P0_ALGORITHM_VERSION,
+)
 from learnloop.services.capability_mapping import (
     CriterionOutcome,
     allocate_success_mass,
@@ -202,10 +206,34 @@ def _repeat_discount(vault: LoadedVault) -> float:
 def project_canonical_facet_state(
     vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
 ) -> None:
-    """Recompute and persist the canonical belief cache (mvp-0.7 only)."""
+    """Recompute and persist the canonical belief cache.
 
-    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+    mvp-0.7 (``KM_ALGORITHM_VERSION``) is the byte-identical legacy compatibility
+    projection: raw ``points_awarded/points`` score fractions, attempt-type mass
+    only. mvp-0.8 (``P0_ALGORITHM_VERSION``, P0.3 §4.3) reads the authoritative
+    events ledger and feeds a reliability-discounted EffectiveObservation: the
+    calibrated ``E[true_score_fraction]`` replaces the raw fraction and the
+    certainty LCB multiplies the evidence mass BEFORE the existing caps /
+    localization / assistance discounts bind. Reliability never creates mass."""
+
+    algorithm_version = vault.config.algorithms.algorithm_version
+    if algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
+    use_p0 = algorithm_version == P0_ALGORITHM_VERSION
+    p0_score_fraction: dict[str, float] = {}
+    if use_p0:
+        from learnloop.services.effective_observation import build_effective_observation
+        from learnloop.services.outcome_schemas import (
+            COARSE_RESPONSE_SLUG,
+            ensure_builtin_schemas,
+        )
+
+        ensure_builtin_schemas(repository, clock=clock)
+        schema_row = repository.fetch_outcome_schema_version(slug=COARSE_RESPONSE_SLUG)
+        if schema_row is not None:
+            import json as _json_mod
+
+            p0_score_fraction = _json_mod.loads(schema_row["score_fraction_json"])
 
     merge_map = repository.facet_merge_map()
     repeat_discount = _repeat_discount(vault)
@@ -227,7 +255,12 @@ def project_canonical_facet_state(
             current = merge_map[current]
         return current
 
-    for attempt in repository.canonical_observation_ledger():
+    ledger_rows = (
+        repository.canonical_observation_ledger_v2()
+        if use_p0
+        else repository.canonical_observation_ledger()
+    )
+    for attempt in ledger_rows:
         item = vault.practice_items.get(attempt["practice_item_id"])
         contract = _historical_contract(repository, attempt["evidence"])
         if contract is not None:
@@ -263,6 +296,20 @@ def project_canonical_facet_state(
         }
         rubric_total = rubric_total or 1.0
         emass = attempt_evidence_mass(attempt["attempt_type"], vault.config.evidence)
+        # P0.3 (§4.3): the reliability discount. certainty_LCB multiplies the mass
+        # BEFORE the caps/localization below; a quarantined/uniform/missing
+        # interpretation contributes zero (never silent full credit). The calibrated
+        # E[true_score_fraction] replaces the raw points fraction for every criterion.
+        p0_fraction: float | None = None
+        if use_p0:
+            effective_obs = build_effective_observation(
+                repository,
+                interpretation=attempt.get("active_interpretation"),
+                score_fraction=p0_score_fraction,
+                attempt_type_mass=emass,
+            )
+            emass = effective_obs.effective_mass
+            p0_fraction = effective_obs.expected_true_score_fraction
         assisted = (
             attempt["attempt_type"] in ASSISTED_ATTEMPT_TYPES
             or int(attempt["hints_used"]) > 0
@@ -274,7 +321,9 @@ def project_canonical_facet_state(
         for criterion in criteria:
             row = evidence_by_criterion.get(criterion.id)
             fraction = 0.0
-            if row is not None and criterion.points > 0:
+            if p0_fraction is not None:
+                fraction = p0_fraction
+            elif row is not None and criterion.points > 0:
                 fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
             outcomes.append(
                 CriterionOutcome(
@@ -299,7 +348,9 @@ def project_canonical_facet_state(
             criterion = criteria_by_id[outcome.criterion_id]
             row = evidence_by_criterion.get(criterion.id)
             fraction = 0.0
-            if row is not None and criterion.points > 0:
+            if p0_fraction is not None:
+                fraction = p0_fraction
+            elif row is not None and criterion.points > 0:
                 fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
             targets = list(criterion.targets)
             if not targets:
@@ -449,7 +500,7 @@ def project_canonical_facet_state(
     repository.replace_canonical_facet_state(
         recall_rows=recall_rows,
         capability_rows=capability_rows,
-        algorithm_version=KM_ALGORITHM_VERSION,
+        algorithm_version=algorithm_version,
         clock=clock,
     )
     _sync_unresolved_cause_factors(repository, unresolved, clock=clock)
@@ -489,7 +540,7 @@ def project_capability_residuals(
     never touched, so rebuild determinism is identical with the feature on OR off.
     """
 
-    if vault.config.algorithms.algorithm_version != KM_ALGORITHM_VERSION:
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     cfg = vault.config.capabilities
     if not getattr(cfg, "residual_activation_enabled", False):

@@ -1,0 +1,152 @@
+schema_version: 1
+id: pi_put_these_stages_in_a_va
+learning_object_id: lo_trace_the_transformer_next_token_pipeline
+subjects:
+practice_mode: ordered process trace
+attempt_types_allowed: []
+evidence_facets:
+  - facet_tokenization_divides_input_into_discrete_pieces_
+  - facet_an_embedding_matrix_associates_each_vocabulary_t
+  - facet_attention_allows_information_encoded_at_one_toke
+  - facet_a_high_level_decoder_style_transformer_inference
+  - facet_logits_are_the_raw_unnormalized_vocabulary_score
+  - facet_softmax_converts_a_finite_list_of_logits_into_a_
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Put these stages in a valid high-level next-token inference order and identify
+  the representation produced at each transition: softmax, tokenization, unembedding/output
+  projection, embedding lookup, repeated attention and position-wise feed-forward
+  processing.'
+expected_answer: Tokenization produces token identities; embedding lookup 
+  produces initial token vectors; repeated attention and position-wise 
+  feed-forward processing produces contextualized representations; 
+  unembedding/output projection produces vocabulary logits; softmax produces a 
+  next-token probability distribution.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.5
+transfer_distance: 0.3
+scaffold_level: 0.3
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: pipeline-ordering
+evidence_fingerprint:
+  source_family: lecture-inventory
+  shared_stimulus_id: pipeline-stage-cards
+  representation: unordered operation list
+  solution_recipe_family: pipeline sequencing
+  answer_structure: ordered stages with intermediate representations
+misconception_consistent_answer:
+repair_targets:
+  - facet_tokenization_divides_input_into_discrete_pieces_
+  - facet_an_embedding_matrix_associates_each_vocabulary_t
+  - facet_attention_allows_information_encoded_at_one_toke
+  - facet_a_high_level_decoder_style_transformer_inference
+  - facet_logits_are_the_raw_unnormalized_vocabulary_score
+  - facet_softmax_converts_a_finite_list_of_logits_into_a_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit-pipeline-order
+      points: 3.0
+      description: Places all five stages in a valid order from tokenization 
+        through softmax.
+      tier: core
+      targets:
+        - facet: facet_a_high_level_decoder_style_transformer_inference
+          capability: procedure_execution
+          role: primary
+        - facet: facet_tokenization_divides_input_into_discrete_pieces_
+          capability: retrieval
+          role: supporting
+        - facet: facet_an_embedding_matrix_associates_each_vocabulary_t
+          capability: procedure_execution
+          role: supporting
+      depends_on: []
+      correlation_group: pipeline-trace
+      recipe_ids:
+        - recipe-transformer-pipeline-trace
+    - id: crit-pipeline-representations
+      points: 3.0
+      description: Correctly labels initial vectors, contextualized 
+        representations, logits, and probabilities at their respective stages.
+      tier: transfer
+      targets:
+        - facet: facet_attention_allows_information_encoded_at_one_toke
+          capability: schema_interpretation
+          role: supporting
+        - facet: facet_logits_are_the_raw_unnormalized_vocabulary_score
+          capability: schema_interpretation
+          role: primary
+        - facet: facet_softmax_converts_a_finite_list_of_logits_into_a_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit-pipeline-order
+      correlation_group: pipeline-trace
+      recipe_ids:
+        - recipe-transformer-pipeline-trace
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s50
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s350
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s353
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+created_at: '2026-07-21T05:07:18Z'
+updated_at: '2026-07-21T18:14:57Z'

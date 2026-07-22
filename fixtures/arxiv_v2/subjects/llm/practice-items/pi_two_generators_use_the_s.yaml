@@ -1,0 +1,148 @@
+schema_version: 1
+id: pi_two_generators_use_the_s
+learning_object_id: lo_interpret_sampling_temperature
+subjects:
+practice_mode: scenario comparison
+attempt_types_allowed: []
+evidence_facets:
+  - facet_autoregressive_generation_repeatedly_predicts_a_
+  - facet_increasing_sampling_temperature_makes_lower_valu
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Two generators use the same model and seed. Generator A uses a lower 
+  temperature; Generator B uses a higher temperature. Describe the generation 
+  loop both execute, then compare their likely next-token distributions and 
+  explain why higher temperature is not a guarantee of better text.
+expected_answer: Both repeatedly predict a next-token distribution from the 
+  current sequence, sample a token, append it, and predict again from the 
+  expanded sequence. Lower temperature sharpens the distribution around the 
+  largest logits, while higher temperature gives lower-valued logits relatively 
+  more weight and increases unpredictability. That may increase variety but can 
+  also reduce coherence, so it does not guarantee better text.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.5
+scaffold_level: 0.2
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: far
+  representation:
+    - verbal
+    - symbolic
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: temperature-comparison
+evidence_fingerprint:
+  source_family: lecture-inventory
+  shared_stimulus_id: same-seed-two-temperatures
+  representation: controlled generation scenario
+  solution_recipe_family: loop trace plus parameter comparison
+  answer_structure: shared procedure, distribution contrast, tradeoff
+misconception_consistent_answer:
+repair_targets:
+  - facet_autoregressive_generation_repeatedly_predicts_a_
+  - facet_increasing_sampling_temperature_makes_lower_valu
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit-generation-loop
+      points: 2.0
+      description: Describes the predict, sample, append, and repeat loop using 
+        the expanded sequence.
+      tier: core
+      targets:
+        - facet: facet_autoregressive_generation_repeatedly_predicts_a_
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: generation-temperature
+      recipe_ids:
+        - recipe-autoregressive-loop
+    - id: crit-temperature-comparison
+      points: 2.0
+      description: Correctly contrasts sharper lower-temperature and flatter 
+        higher-temperature distributions.
+      tier: core
+      targets:
+        - facet: facet_increasing_sampling_temperature_makes_lower_valu
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit-generation-loop
+      correlation_group: generation-temperature
+      recipe_ids:
+        - recipe-temperature-interpretation
+    - id: crit-temperature-tradeoff
+      points: 1.0
+      description: Explains that increased diversity or unpredictability can 
+        carry a coherence cost and is not a quality guarantee.
+      tier: transfer
+      targets:
+        - facet: facet_increasing_sampling_temperature_makes_lower_valu
+          capability: method_selection
+          role: primary
+      depends_on:
+        - crit-temperature-comparison
+      correlation_group: generation-temperature
+      recipe_ids:
+        - recipe-temperature-interpretation
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s30
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s408
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s414
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+created_at: '2026-07-21T05:07:16Z'
+updated_at: '2026-07-21T18:14:59Z'

@@ -1,0 +1,142 @@
+schema_version: 1
+id: pi_a_hidden_activation_h_af
+learning_object_id: lo_derive_and_aggregate_backpropagation_gradients
+subjects:
+practice_mode: worked derivation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_backpropagation_computes_the_partial_derivatives
+  - facet_to_differentiate_a_parameter_s_contribution_to_c
+  - facet_when_the_training_cost_is_an_average_of_per_exam
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A hidden activation h affects the cost through two downstream neurons. 
+  For training example i, the two path contributions to ∂C_i/∂h are p_i and q_i.
+  The hidden activation is h=σ(z), with z=wx+b. Derive ∂C_i/∂w in terms of p_i, 
+  q_i, σ'(z), and x. Then state how the exact gradient for a training set of N 
+  examples differs from a gradient computed from a mini-batch B.
+expected_answer: "First add alternative path contributions: ∂C_i/∂h=p_i+q_i. Continue
+  along the upstream dependency path: ∂C_i/∂w=(p_i+q_i)σ'(z)x. The exact full-data
+  gradient is (1/N)Σ_i ∂C_i/∂w over all N examples. A mini-batch gradient averages
+  the same per-example derivatives only over B and is an approximation to the full-data
+  gradient."
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.6
+scaffold_level: 0.25
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: symbolic neural-network derivative
+evidence_fingerprint:
+  source_family: calculus backpropagation derivation
+  shared_stimulus_id: stimulus_backprop_fanout_batch
+  representation: symbolic scalar computation graph
+  solution_recipe_family: multiply within paths, add across paths, average 
+    across examples
+  answer_structure: derivation plus full-batch versus mini-batch distinction
+misconception_consistent_answer:
+repair_targets:
+  - facet_backpropagation_computes_the_partial_derivatives
+  - facet_to_differentiate_a_parameter_s_contribution_to_c
+  - facet_when_the_training_cost_is_an_average_of_per_exam
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_backprop_paths
+      points: 2.0
+      description: Adds the two downstream path contributions before propagating
+        through σ'(z) and x.
+      tier: core
+      targets:
+        - facet: facet_to_differentiate_a_parameter_s_contribution_to_c
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_backprop_chain_rule
+      correlation_group: backprop_derivation
+      recipe_ids:
+        - recipe_backprop_complete
+    - id: criterion_backprop_aggregation
+      points: 1.0
+      description: Distinguishes the all-example average from a mini-batch 
+        approximation.
+      tier: transfer
+      targets:
+        - facet: facet_when_the_training_cost_is_an_average_of_per_exam
+          capability: method_selection
+          role: primary
+        - facet: facet_backpropagation_computes_the_partial_derivatives
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_backprop_example_aggregation
+        - facet_backprop_definition
+      correlation_group: backprop_aggregation
+      recipe_ids:
+        - recipe_backprop_complete
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      path:
+      locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s121
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+      role: reference
+      source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      path:
+      locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s74
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+      role: reference
+      source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+      path:
+      locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s152
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+      role: reference
+      source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+      span_hash:
+created_at: '2026-07-21T05:07:19Z'
+updated_at: '2026-07-21T18:14:45Z'

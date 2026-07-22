@@ -24,6 +24,12 @@ import { TodayScreen } from "../screens/TodayScreen";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
+import { GoldenPathScreen } from "../screens/GoldenPathScreen";
+import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
+import { ReaderScreen } from "../screens/ReaderScreen";
+import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
+import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
+import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
 
 type OpenSourceTarget = {
@@ -44,6 +50,9 @@ export function App() {
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
   const [openSource, setOpenSource] = useState<OpenSourceTarget | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddGuided, setQuickAddGuided] = useState(false);
+  const [quickAddDefaultSubjectId, setQuickAddDefaultSubjectId] = useState<string | null>(null);
+  const [ingestGuideActive, setIngestGuideActive] = useState(false);
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [todayStage, setTodayStage] = useState<TodayStage>("queue");
   const [practiceItemId, setPracticeItemId] = useState<string | null>(null);
@@ -62,6 +71,13 @@ export function App() {
   // The practice-exam overlay: when set, ExamScreen takes over the body (entered
   // only from the goal banner, exited back to the today tab). Not a nav tab.
   const [examGoalId, setExamGoalId] = useState<string | null>(null);
+  // P2 golden path: the active run (body-pre-emption, exam precedent), the atomic
+  // confirmation dialog, and the why-this-diagnosis overlay.
+  const [goldenRunId, setGoldenRunId] = useState<string | null>(null);
+  // Golden tab: false → the real discovery/confirm setup; true → offline fixture demo.
+  const [goldenDemo, setGoldenDemo] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [whyTriage, setWhyTriage] = useState<TriageResultDto | null>(null);
   // The active §5.9 calibration session: when set, CalibrationScreen pre-empts
   // the tab body (like the exam overlay) except while a practice/feedback round
   // for its next target is in flight — coming back from that round remounts the
@@ -409,6 +425,22 @@ export function App() {
     if (examGoalId) {
       return <ExamScreen goalId={examGoalId} onExit={exitExam} onError={onError} />;
     }
+    // The golden-path run pre-empts the body (exam/calibration precedent) while a
+    // run is active. Selecting the Golden Path tab with no active run renders the
+    // offline fixture surface.
+    if (goldenRunId) {
+      return (
+        <GoldenPathScreen
+          runId={goldenRunId}
+          onExit={() => {
+            setGoldenRunId(null);
+            gotoTab("today");
+          }}
+          onWhy={setWhyTriage}
+          onError={onError}
+        />
+      );
+    }
     // The calibration overlay also pre-empts the tab body, but yields to the
     // practice/feedback stages so its "Practice next target" handoff runs the
     // ordinary practice loop — returning to the queue remounts (→ refreshes) it.
@@ -507,6 +539,11 @@ export function App() {
           onTakeExam={openExam}
           noGoalBannerDismissed={todayNoGoalBannerDismissed}
           onDismissNoGoalBanner={() => setTodayNoGoalBannerDismissed(true)}
+          onGotoReader={() => setTab("reader")}
+          readerSeedingActive={
+            (snapshot.vault?.counts.learningObjects ?? 0) > 0 &&
+            (snapshot.vault?.counts.practiceItems ?? 0) === 0
+          }
           onError={onError}
         />
       );
@@ -520,7 +557,13 @@ export function App() {
           jobId={ingestJobId}
           onJobIdChange={setIngestJobId}
           onProceedToPropose={gotoProposalBatch}
-          onCreateStudyMap={() => setQuickAddOpen(true)}
+          onCreateStudyMap={() => {
+            setQuickAddGuided(false);
+            setQuickAddDefaultSubjectId(null);
+            setQuickAddOpen(true);
+          }}
+          guideActive={ingestGuideActive}
+          onDismissGuide={() => setIngestGuideActive(false)}
         />
       );
     }
@@ -565,6 +608,31 @@ export function App() {
           }
         />
       );
+    }
+    if (tab === "golden") {
+      // The real front door: discovery → compose → review → confirm. The
+      // offline fixture demo stays reachable behind an explicit toggle.
+      if (goldenDemo) {
+        return (
+          <GoldenPathScreen
+            runId={null}
+            onExit={() => setGoldenDemo(false)}
+            onWhy={setWhyTriage}
+            onOpenConfirm={() => setConfirmOpen(true)}
+            onError={onError}
+          />
+        );
+      }
+      return (
+        <GoldenPathSetup
+          onRunStarted={(runId) => setGoldenRunId(runId)}
+          onOpenDemo={() => setGoldenDemo(true)}
+          onError={onError}
+        />
+      );
+    }
+    if (tab === "reader") {
+      return <ReaderScreen onError={onError} />;
     }
     if (tab === "maintain") {
       return (
@@ -626,10 +694,18 @@ export function App() {
       {quickAddOpen ? (
         <QuickAddDialog
           subjects={subjectOptions}
-          defaultSubjectId={registrySubjectId ?? subjectOptions[0]?.id ?? null}
-          onClose={() => setQuickAddOpen(false)}
+          defaultSubjectId={quickAddDefaultSubjectId ?? registrySubjectId ?? subjectOptions[0]?.id ?? null}
+          guided={quickAddGuided}
+          onClose={() => {
+            setQuickAddOpen(false);
+            setQuickAddGuided(false);
+            setQuickAddDefaultSubjectId(null);
+          }}
           onEnqueued={() => {
             setQuickAddOpen(false);
+            setQuickAddGuided(false);
+            setQuickAddDefaultSubjectId(null);
+            setIngestGuideActive(true);
             setIngestJobId(null);
             setTab("ingest");
             setToast("Study map building — track it in Ingest");
@@ -640,6 +716,13 @@ export function App() {
         <NewVaultWizard
           onClose={() => setNewVaultOpen(false)}
           onActivateVault={changeVault}
+          onContinueInIngest={(subjectId) => {
+            setQuickAddDefaultSubjectId(subjectId);
+            setQuickAddGuided(true);
+            setIngestGuideActive(true);
+            setTab("ingest");
+            setQuickAddOpen(true);
+          }}
           onGotoTab={gotoTab}
           onToast={setToast}
           onError={onError}
@@ -656,6 +739,18 @@ export function App() {
           onError={onError}
         />
       ) : null}
+      {confirmOpen ? (
+        <ExemplarConfirmDialog
+          onConfirmed={(runId) => {
+            setConfirmOpen(false);
+            setGoldenRunId(runId);
+            setTab("golden");
+          }}
+          onClose={() => setConfirmOpen(false)}
+          onError={onError}
+        />
+      ) : null}
+      {whyTriage ? <WhyDiagnosisOverlay triage={whyTriage} onClose={() => setWhyTriage(null)} /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
         open={paletteOpen}

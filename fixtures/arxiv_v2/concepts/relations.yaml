@@ -1,0 +1,887 @@
+schema_version: 1
+edges:
+  - id: 
+      edge_confusable_with__concept_grouped_query_attention__concept_multi_query_attention
+    relation_type: confusable_with
+    source: concept_grouped_query_attention
+    target: concept_multi_query_attention
+    strength: 1.0
+    rationale: derived from learning object lo_compare_mha_mqa_and_gqa 
+      confusables
+    created_at: '2026-07-21T05:07:41Z'
+    updated_at: '2026-07-21T05:07:41Z'
+  - id: edge_confusable_with__concept_logits__concept_softmax_function
+    relation_type: confusable_with
+    source: concept_logits
+    target: concept_softmax_function
+    strength: 0.95
+    rationale: Raw logits are commonly mistaken for the normalized probabilities
+      produced from them.
+    created_at: '2026-07-21T05:07:42Z'
+    updated_at: '2026-07-21T05:07:42Z'
+  - id: 
+      edge_confusable_with__concept_maximum_region_count_predicts_tr__concept_relu_linear_region_count_analysi
+    relation_type: confusable_with
+    source: concept_maximum_region_count_predicts_trained_behavior
+    target: concept_relu_linear_region_count_analysis
+    strength: 1.0
+    rationale: The misconception substitutes an upper-bound capacity result for 
+      an empirical trained-region count.
+    created_at: '2026-07-21T05:07:43Z'
+    updated_at: '2026-07-21T05:07:43Z'
+  - id: 
+      edge_confusable_with__concept_multi_head_latent_attention__concept_multi_query_attention
+    relation_type: confusable_with
+    source: concept_multi_head_latent_attention
+    target: concept_multi_query_attention
+    strength: 1.0
+    rationale: derived from learning object lo_explain_mla_latent_kv_compression
+      confusables
+    created_at: '2026-07-21T05:07:44Z'
+    updated_at: '2026-07-21T05:07:44Z'
+  - id: 
+      edge_confusable_with__concept_representational_capacity_guaran__concept_neural_network_representation_ve
+    relation_type: confusable_with
+    source: concept_representational_capacity_guarantees_successful_
+    target: concept_neural_network_representation_versus_trainabilit
+    strength: 1.0
+    rationale: The misconception collapses the central distinction between 
+      representational existence and optimization success.
+    created_at: '2026-07-21T05:07:45Z'
+    updated_at: '2026-07-21T05:07:45Z'
+  - id: 
+      edge_confusable_with__concept_token_embedding__concept_contextualized_token_representat
+    relation_type: confusable_with
+    source: concept_token_embedding
+    target: concept_contextualized_token_representation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_distinguish_initial_and_contextual_token_vectors confusables
+    created_at: '2026-07-21T05:07:46Z'
+    updated_at: '2026-07-21T05:07:46Z'
+  - id: 
+      edge_part_of__concept_causal_masking__concept_causal_self_attention_and_kv_cac
+    relation_type: part_of
+    source: concept_causal_masking
+    target: concept_causal_self_attention_and_kv_caching
+    strength: 0.96
+    rationale: Causal masking enforces the no-future-information constraint in 
+      causal attention.
+    created_at: '2026-07-21T05:07:47Z'
+    updated_at: '2026-07-21T05:07:47Z'
+  - id: 
+      edge_part_of__concept_causal_self_attention_and_kv_cac__concept_autoregressive_text_generation
+    relation_type: part_of
+    source: concept_causal_self_attention_and_kv_caching
+    target: concept_autoregressive_text_generation
+    strength: 0.95
+    rationale: Causal attention with cached states is the recurrent attention 
+      procedure used during autoregressive decoding.
+    created_at: '2026-07-21T05:07:48Z'
+    updated_at: '2026-07-21T05:07:48Z'
+  - id: edge_part_of__concept_chain_rule__concept_backpropagation
+    relation_type: part_of
+    source: concept_chain_rule
+    target: concept_backpropagation
+    strength: 0.9
+    rationale: Backpropagation repeatedly composes local sensitivities using the
+      chain rule.
+    created_at: '2026-07-21T05:07:49Z'
+    updated_at: '2026-07-21T05:07:49Z'
+  - id: 
+      edge_part_of__concept_contextualized_token_representat__concept_transformer_inference_pipeline
+    relation_type: part_of
+    source: concept_contextualized_token_representation
+    target: concept_transformer_inference_pipeline
+    strength: 0.9
+    rationale: Contextual representation refinement is a central stage of the 
+      transformer inference pipeline.
+    created_at: '2026-07-21T05:07:50Z'
+    updated_at: '2026-07-21T05:07:50Z'
+  - id: 
+      edge_part_of__concept_decision_region_visualization__concept_stochastic_neural_network_traini
+    relation_type: part_of
+    source: concept_decision_region_visualization
+    target: concept_stochastic_neural_network_training
+    strength: 0.87
+    rationale: Decision-region rendering is the model-evaluation and 
+      visualization stage of the classifier-training workflow.
+    created_at: '2026-07-21T05:07:51Z'
+    updated_at: '2026-07-21T05:07:51Z'
+  - id: 
+      edge_part_of__concept_feedforward_classifier_implement__concept_stochastic_neural_network_traini
+    relation_type: part_of
+    source: concept_feedforward_classifier_implementation
+    target: concept_stochastic_neural_network_training
+    strength: 0.9
+    rationale: The configurable classifier supplies the model trained by the 
+      stochastic workflow.
+    created_at: '2026-07-21T05:07:52Z'
+    updated_at: '2026-07-21T05:07:52Z'
+  - id: edge_part_of__concept_gradient_vector__concept_backpropagation
+    relation_type: part_of
+    source: concept_gradient_vector
+    target: concept_backpropagation
+    strength: 0.86
+    rationale: The full parameter-gradient vector is the principal output 
+      assembled by backpropagation.
+    created_at: '2026-07-21T05:07:53Z'
+    updated_at: '2026-07-21T05:07:53Z'
+  - id: 
+      edge_part_of__concept_grouped_query_attention__concept_multi_head_attention
+    relation_type: part_of
+    source: concept_grouped_query_attention
+    target: concept_multi_head_attention
+    strength: 0.91
+    rationale: Grouped-query attention is a multi-head attention variant that 
+      shares keys and values within head groups.
+    created_at: '2026-07-21T05:07:54Z'
+    updated_at: '2026-07-21T05:07:54Z'
+  - id: 
+      edge_part_of__concept_kv_caching__concept_causal_self_attention_and_kv_cac
+    relation_type: part_of
+    source: concept_kv_caching
+    target: concept_causal_self_attention_and_kv_caching
+    strength: 0.98
+    rationale: KV caching is the reuse mechanism represented by the caching 
+      portion of the combined procedure.
+    created_at: '2026-07-21T05:07:55Z'
+    updated_at: '2026-07-21T05:07:55Z'
+  - id: edge_part_of__concept_logits__concept_transformer_inference_pipeline
+    relation_type: part_of
+    source: concept_logits
+    target: concept_transformer_inference_pipeline
+    strength: 0.95
+    rationale: Vocabulary logits are the raw output scores generated near the 
+      end of transformer inference.
+    created_at: '2026-07-21T05:07:56Z'
+    updated_at: '2026-07-21T05:07:56Z'
+  - id: 
+      edge_part_of__concept_multi_head_attention__concept_scaled_self_attention
+    relation_type: part_of
+    source: concept_multi_head_attention
+    target: concept_scaled_self_attention
+    strength: 0.93
+    rationale: Multi-head attention composes multiple scaled self-attention 
+      heads and combines their outputs.
+    created_at: '2026-07-21T05:07:57Z'
+    updated_at: '2026-07-21T05:07:57Z'
+  - id: 
+      edge_part_of__concept_multi_head_latent_attention__concept_multi_head_attention
+    relation_type: part_of
+    source: concept_multi_head_latent_attention
+    target: concept_multi_head_attention
+    strength: 0.9
+    rationale: Multi-head latent attention is an efficient multi-head attention 
+      architecture based on latent compression and reconstructed head behavior.
+    created_at: '2026-07-21T05:07:58Z'
+    updated_at: '2026-07-21T05:07:58Z'
+  - id: 
+      edge_part_of__concept_multi_query_attention__concept_multi_head_attention
+    relation_type: part_of
+    source: concept_multi_query_attention
+    target: concept_multi_head_attention
+    strength: 0.91
+    rationale: Multi-query attention is a multi-head attention variant with 
+      shared key-value projections.
+    created_at: '2026-07-21T05:07:59Z'
+    updated_at: '2026-07-21T05:07:59Z'
+  - id: 
+      edge_part_of__concept_relu_linear_region_count_analysi__concept_geometric_expressivity_of_relu_n
+    relation_type: part_of
+    source: concept_relu_linear_region_count_analysis
+    target: concept_geometric_expressivity_of_relu_networks
+    strength: 0.95
+    rationale: Linear-region counting is a specific analysis of the 
+      piecewise-linear expressivity of ReLU networks.
+    created_at: '2026-07-21T05:08:00Z'
+    updated_at: '2026-07-21T05:08:00Z'
+  - id: 
+      edge_part_of__concept_sampling_temperature__concept_autoregressive_text_generation
+    relation_type: part_of
+    source: concept_sampling_temperature
+    target: concept_autoregressive_text_generation
+    strength: 0.93
+    rationale: Temperature controls the sampling distribution used at each 
+      autoregressive generation step.
+    created_at: '2026-07-21T05:08:01Z'
+    updated_at: '2026-07-21T05:08:01Z'
+  - id: 
+      edge_part_of__concept_scaled_self_attention__concept_transformer_inference_pipeline
+    relation_type: part_of
+    source: concept_scaled_self_attention
+    target: concept_transformer_inference_pipeline
+    strength: 0.96
+    rationale: Self-attention is a central contextual-processing operation in 
+      the transformer pipeline.
+    created_at: '2026-07-21T05:08:02Z'
+    updated_at: '2026-07-21T05:08:02Z'
+  - id: 
+      edge_part_of__concept_softmax_classification_gradients__concept_affine_multiclass_classifier
+    relation_type: part_of
+    source: concept_softmax_classification_gradients
+    target: concept_affine_multiclass_classifier
+    strength: 0.95
+    rationale: These gradients are the parameter-derivative computation 
+      specialized to an affine-softmax classifier.
+    created_at: '2026-07-21T05:08:03Z'
+    updated_at: '2026-07-21T05:08:03Z'
+  - id: 
+      edge_part_of__concept_supervised_coordinate_data_prepa__concept_stochastic_neural_network_traini
+    relation_type: part_of
+    source: concept_supervised_coordinate_data_preparation
+    target: concept_stochastic_neural_network_training
+    strength: 0.91
+    rationale: Sampling, labeling, shuffling, and tensorizing coordinate 
+      examples form the data-preparation stage of the training workflow.
+    created_at: '2026-07-21T05:08:04Z'
+    updated_at: '2026-07-21T05:08:04Z'
+  - id: 
+      edge_part_of__concept_token_embedding__concept_transformer_inference_pipeline
+    relation_type: part_of
+    source: concept_token_embedding
+    target: concept_transformer_inference_pipeline
+    strength: 0.95
+    rationale: Embedding lookup is the initial vectorization stage of 
+      transformer inference.
+    created_at: '2026-07-21T05:08:05Z'
+    updated_at: '2026-07-21T05:08:05Z'
+  - id: 
+      edge_part_of__concept_tokenization__concept_transformer_inference_pipeline
+    relation_type: part_of
+    source: concept_tokenization
+    target: concept_transformer_inference_pipeline
+    strength: 0.94
+    rationale: Tokenization constructs the discrete input sequence consumed by 
+      transformer inference.
+    created_at: '2026-07-21T05:08:06Z'
+    updated_at: '2026-07-21T05:08:06Z'
+  - id: 
+      edge_part_of__concept_transformer_inference_pipeline__concept_autoregressive_text_generation
+    relation_type: part_of
+    source: concept_transformer_inference_pipeline
+    target: concept_autoregressive_text_generation
+    strength: 0.95
+    rationale: Each autoregressive decoding step invokes the transformer 
+      inference pipeline to obtain the next-token distribution.
+    created_at: '2026-07-21T05:08:07Z'
+    updated_at: '2026-07-21T05:08:07Z'
+  - id: 
+      edge_prerequisite__concept_affine_multiclass_classifier__concept_backpropagation
+    relation_type: prerequisite
+    source: concept_affine_multiclass_classifier
+    target: concept_backpropagation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_derive_affine_softmax_classifier_gradients prerequisites
+    created_at: '2026-07-21T05:08:08Z'
+    updated_at: '2026-07-21T05:08:08Z'
+  - id: 
+      edge_prerequisite__concept_affine_multiclass_classifier__concept_cross_entropy_loss
+    relation_type: prerequisite
+    source: concept_affine_multiclass_classifier
+    target: concept_cross_entropy_loss
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_logits_softmax_probabilities_and_cross_e prerequisites
+    created_at: '2026-07-21T05:08:10Z'
+    updated_at: '2026-07-21T05:08:10Z'
+  - id: 
+      edge_prerequisite__concept_affine_multiclass_classifier__concept_geometric_expressivity_of_relu_n
+    relation_type: prerequisite
+    source: concept_affine_multiclass_classifier
+    target: concept_geometric_expressivity_of_relu_networks
+    strength: 0.8
+    rationale: The nonlinear expressivity comparison builds on the limitations 
+      and geometry of affine class-score models.
+    created_at: '2026-07-21T05:08:11Z'
+    updated_at: '2026-07-21T05:08:11Z'
+  - id: 
+      edge_prerequisite__concept_affine_multiclass_classifier__concept_softmax_classification_gradients
+    relation_type: prerequisite
+    source: concept_affine_multiclass_classifier
+    target: concept_softmax_classification_gradients
+    strength: 0.95
+    rationale: The parameter-gradient procedure presupposes the affine 
+      class-score structure and softmax outputs.
+    created_at: '2026-07-21T05:08:12Z'
+    updated_at: '2026-07-21T05:08:12Z'
+  - id: 
+      edge_prerequisite__concept_affine_multiclass_classifier__concept_softmax_function
+    relation_type: prerequisite
+    source: concept_affine_multiclass_classifier
+    target: concept_softmax_function
+    strength: 0.95
+    rationale: Softmax operates on the vector of affine class logits produced by
+      the classifier.
+    created_at: '2026-07-21T05:08:13Z'
+    updated_at: '2026-07-21T05:08:13Z'
+  - id: edge_prerequisite__concept_backpropagation__concept_gradient_descent
+    relation_type: prerequisite
+    source: concept_backpropagation
+    target: concept_gradient_descent
+    strength: 0.98
+    rationale: Backpropagation supplies the parameter gradients consumed by 
+      gradient-descent updates.
+    created_at: '2026-07-21T05:08:14Z'
+    updated_at: '2026-07-21T05:08:14Z'
+  - id: edge_prerequisite__concept_backpropagation__concept_gradient_vector
+    relation_type: prerequisite
+    source: concept_backpropagation
+    target: concept_gradient_vector
+    strength: 0.95
+    rationale: Backpropagation computes the parameter derivatives assembled into
+      the gradient vector.
+    created_at: '2026-07-21T05:08:15Z'
+    updated_at: '2026-07-21T05:08:15Z'
+  - id: 
+      edge_prerequisite__concept_causal_masking__concept_causal_self_attention_and_kv_cac
+    relation_type: prerequisite
+    source: concept_causal_masking
+    target: concept_causal_self_attention_and_kv_caching
+    strength: 0.96
+    rationale: The combined decoding procedure assumes attention has first been 
+      made causal.
+    created_at: '2026-07-21T05:08:16Z'
+    updated_at: '2026-07-21T05:08:16Z'
+  - id: edge_prerequisite__concept_causal_masking__concept_kv_caching
+    relation_type: prerequisite
+    source: concept_causal_masking
+    target: concept_kv_caching
+    strength: 0.85
+    rationale: The reuse pattern of prior keys and values is explained in the 
+      setting of causal autoregressive decoding.
+    created_at: '2026-07-21T05:08:17Z'
+    updated_at: '2026-07-21T05:08:17Z'
+  - id: 
+      edge_prerequisite__concept_causal_self_attention_and_kv_cac__concept_autoregressive_text_generation
+    relation_type: prerequisite
+    source: concept_causal_self_attention_and_kv_caching
+    target: concept_autoregressive_text_generation
+    strength: 0.9
+    rationale: Efficient autoregressive decoding depends on understanding causal
+      attention and reuse of prior key-value states.
+    created_at: '2026-07-21T05:08:18Z'
+    updated_at: '2026-07-21T05:08:18Z'
+  - id: 
+      edge_prerequisite__concept_causal_self_attention_and_kv_cac__concept_multi_head_latent_attention
+    relation_type: prerequisite
+    source: concept_causal_self_attention_and_kv_caching
+    target: concept_multi_head_latent_attention
+    strength: 0.95
+    rationale: Understanding standard causal attention, QKV roles, and 
+      conventional KV-cache costs is required to explain what MLA compresses and
+      how its inference computation is rearranged.
+    created_at: '2026-07-21T05:08:19Z'
+    updated_at: '2026-07-21T05:08:19Z'
+  - id: edge_prerequisite__concept_chain_rule__concept_backpropagation
+    relation_type: prerequisite
+    source: concept_chain_rule
+    target: concept_backpropagation
+    strength: 0.98
+    rationale: Backpropagation composes local derivatives through the 
+      computation using the chain rule.
+    created_at: '2026-07-21T05:08:20Z'
+    updated_at: '2026-07-21T05:08:20Z'
+  - id: 
+      edge_prerequisite__concept_chain_rule__concept_softmax_classification_gradients
+    relation_type: prerequisite
+    source: concept_chain_rule
+    target: concept_softmax_classification_gradients
+    strength: 0.96
+    rationale: The displayed slope and bias derivatives are obtained by 
+      composing affine, softmax, and loss derivatives.
+    created_at: '2026-07-21T05:08:21Z'
+    updated_at: '2026-07-21T05:08:21Z'
+  - id: 
+      edge_prerequisite__concept_contextualized_token_representat__concept_logits
+    relation_type: prerequisite
+    source: concept_contextualized_token_representation
+    target: concept_logits
+    strength: 0.94
+    rationale: The final contextual state is transformed into vocabulary logits.
+    created_at: '2026-07-21T05:08:22Z'
+    updated_at: '2026-07-21T05:08:22Z'
+  - id: 
+      edge_prerequisite__concept_contextualized_token_representat__concept_transformer_inference_pipeline
+    relation_type: prerequisite
+    source: concept_contextualized_token_representation
+    target: concept_transformer_inference_pipeline
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_trace_the_transformer_next_token_pipeline prerequisites
+    created_at: '2026-07-21T05:08:23Z'
+    updated_at: '2026-07-21T05:08:23Z'
+  - id: edge_prerequisite__concept_cross_entropy_loss__concept_backpropagation
+    relation_type: prerequisite
+    source: concept_cross_entropy_loss
+    target: concept_backpropagation
+    strength: 0.85
+    rationale: The loss supplies the terminal derivative propagated through the 
+      model.
+    created_at: '2026-07-21T05:08:24Z'
+    updated_at: '2026-07-21T05:08:24Z'
+  - id: 
+      edge_prerequisite__concept_cross_entropy_loss__concept_softmax_classification_gradients
+    relation_type: prerequisite
+    source: concept_cross_entropy_loss
+    target: concept_softmax_classification_gradients
+    strength: 0.96
+    rationale: The loss definition determines the error signal differentiated 
+      with respect to classifier parameters.
+    created_at: '2026-07-21T05:08:25Z'
+    updated_at: '2026-07-21T05:08:25Z'
+  - id: 
+      edge_prerequisite__concept_cross_entropy_loss__concept_stochastic_neural_network_traini
+    relation_type: prerequisite
+    source: concept_cross_entropy_loss
+    target: concept_stochastic_neural_network_training
+    strength: 0.91
+    rationale: The training workflow uses cross-entropy as its optimization 
+      objective.
+    created_at: '2026-07-21T05:08:26Z'
+    updated_at: '2026-07-21T05:08:26Z'
+  - id: 
+      edge_prerequisite__concept_feedforward_classifier_implement__concept_decision_region_visualization
+    relation_type: prerequisite
+    source: concept_feedforward_classifier_implementation
+    target: concept_decision_region_visualization
+    strength: 0.95
+    rationale: Decision-region visualization requires a callable two-input, 
+      two-output classifier.
+    created_at: '2026-07-21T05:08:27Z'
+    updated_at: '2026-07-21T05:08:27Z'
+  - id: 
+      edge_prerequisite__concept_feedforward_classifier_implement__concept_stochastic_neural_network_traini
+    relation_type: prerequisite
+    source: concept_feedforward_classifier_implementation
+    target: concept_stochastic_neural_network_training
+    strength: 0.95
+    rationale: The training loop requires an instantiated classifier with 
+      compatible logits.
+    created_at: '2026-07-21T05:08:28Z'
+    updated_at: '2026-07-21T05:08:28Z'
+  - id: 
+      edge_prerequisite__concept_geometric_expressivity_of_relu_n__concept_relu_linear_region_count_analysi
+    relation_type: prerequisite
+    source: concept_geometric_expressivity_of_relu_networks
+    target: concept_relu_linear_region_count_analysis
+    strength: 0.9
+    rationale: Region-count formulas and observed partitions are interpreted 
+      through the linear-region geometry created by ReLU folds.
+    created_at: '2026-07-21T05:08:29Z'
+    updated_at: '2026-07-21T05:08:29Z'
+  - id: 
+      edge_prerequisite__concept_geometric_expressivity_of_relu_n__concept_universal_approximation
+    relation_type: prerequisite
+    source: concept_geometric_expressivity_of_relu_networks
+    target: concept_universal_approximation
+    strength: 0.75
+    rationale: Interpreting universal approximation benefits from understanding 
+      how nonlinear networks acquire representational capacity.
+    created_at: '2026-07-21T05:08:30Z'
+    updated_at: '2026-07-21T05:08:30Z'
+  - id: 
+      edge_prerequisite__concept_gradient_descent__concept_neural_network_representation_ve
+    relation_type: prerequisite
+    source: concept_gradient_descent
+    target: concept_neural_network_representation_versus_trainabilit
+    strength: 0.87
+    rationale: Understanding an actual optimization method is necessary to 
+      contrast representability with successful parameter discovery.
+    created_at: '2026-07-21T05:08:31Z'
+    updated_at: '2026-07-21T05:08:31Z'
+  - id: 
+      edge_prerequisite__concept_gradient_descent__concept_stochastic_neural_network_traini
+    relation_type: prerequisite
+    source: concept_gradient_descent
+    target: concept_stochastic_neural_network_training
+    strength: 0.96
+    rationale: Stochastic classifier training repeatedly applies gradient-based 
+      parameter updates.
+    created_at: '2026-07-21T05:08:33Z'
+    updated_at: '2026-07-21T05:08:33Z'
+  - id: edge_prerequisite__concept_gradient_vector__concept_gradient_descent
+    relation_type: prerequisite
+    source: concept_gradient_vector
+    target: concept_gradient_descent
+    strength: 0.98
+    rationale: Gradient descent requires the gradient vector to determine the 
+      local update direction.
+    created_at: '2026-07-21T05:08:34Z'
+    updated_at: '2026-07-21T05:08:34Z'
+  - id: edge_prerequisite__concept_gradient_vector__concept_loss_landscape
+    relation_type: prerequisite
+    source: concept_gradient_vector
+    target: concept_loss_landscape
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_diagnose_optimization_strategies_in_parameter_sp prerequisites
+    created_at: '2026-07-21T05:08:35Z'
+    updated_at: '2026-07-21T05:08:35Z'
+  - id: 
+      edge_prerequisite__concept_grouped_query_attention__concept_multi_head_latent_attention
+    relation_type: prerequisite
+    source: concept_grouped_query_attention
+    target: concept_multi_head_latent_attention
+    strength: 0.75
+    rationale: The source develops MLA as a further key-value compression design
+      after shared-group attention variants.
+    created_at: '2026-07-21T05:08:36Z'
+    updated_at: '2026-07-21T05:08:36Z'
+  - id: edge_prerequisite__concept_kv_caching__concept_grouped_query_attention
+    relation_type: prerequisite
+    source: concept_kv_caching
+    target: concept_grouped_query_attention
+    strength: 0.85
+    rationale: GQA's grouping tradeoff is evaluated through its effect on 
+      KV-cache storage.
+    created_at: '2026-07-21T05:08:37Z'
+    updated_at: '2026-07-21T05:08:37Z'
+  - id: 
+      edge_prerequisite__concept_kv_caching__concept_multi_head_latent_attention
+    relation_type: prerequisite
+    source: concept_kv_caching
+    target: concept_multi_head_latent_attention
+    strength: 0.95
+    rationale: MLA's latent representation is motivated as a replacement for 
+      full per-head KV-cache entries.
+    created_at: '2026-07-21T05:08:38Z'
+    updated_at: '2026-07-21T05:08:38Z'
+  - id: edge_prerequisite__concept_kv_caching__concept_multi_query_attention
+    relation_type: prerequisite
+    source: concept_kv_caching
+    target: concept_multi_query_attention
+    strength: 0.85
+    rationale: MQA's central inference motivation is reducing the number of 
+      cached key-value representations.
+    created_at: '2026-07-21T05:08:39Z'
+    updated_at: '2026-07-21T05:08:39Z'
+  - id: edge_prerequisite__concept_logits__concept_sampling_temperature
+    relation_type: prerequisite
+    source: concept_logits
+    target: concept_sampling_temperature
+    strength: 1.0
+    rationale: derived from learning object lo_interpret_sampling_temperature 
+      prerequisites
+    created_at: '2026-07-21T05:08:40Z'
+    updated_at: '2026-07-21T05:08:40Z'
+  - id: edge_prerequisite__concept_logits__concept_softmax_function
+    relation_type: prerequisite
+    source: concept_logits
+    target: concept_softmax_function
+    strength: 1.0
+    rationale: Softmax consumes logits to form normalized probabilities.
+    created_at: '2026-07-21T05:08:41Z'
+    updated_at: '2026-07-21T05:08:41Z'
+  - id: edge_prerequisite__concept_loss_landscape__concept_gradient_descent
+    relation_type: prerequisite
+    source: concept_loss_landscape
+    target: concept_gradient_descent
+    strength: 0.88
+    rationale: Viewing loss over parameter space motivates following the 
+      negative gradient toward lower loss.
+    created_at: '2026-07-21T05:08:42Z'
+    updated_at: '2026-07-21T05:08:42Z'
+  - id: 
+      edge_prerequisite__concept_multi_head_attention__concept_grouped_query_attention
+    relation_type: prerequisite
+    source: concept_multi_head_attention
+    target: concept_grouped_query_attention
+    strength: 0.95
+    rationale: GQA is understood by grouping MHA query heads and sharing keys 
+      and values within groups.
+    created_at: '2026-07-21T05:08:43Z'
+    updated_at: '2026-07-21T05:08:43Z'
+  - id: edge_prerequisite__concept_multi_head_attention__concept_kv_caching
+    relation_type: prerequisite
+    source: concept_multi_head_attention
+    target: concept_kv_caching
+    strength: 0.9
+    rationale: KV-cache organization depends on the attention layer's key and 
+      value projections and head structure.
+    created_at: '2026-07-21T05:08:44Z'
+    updated_at: '2026-07-21T05:08:44Z'
+  - id: 
+      edge_prerequisite__concept_multi_head_attention__concept_multi_head_latent_attention
+    relation_type: prerequisite
+    source: concept_multi_head_attention
+    target: concept_multi_head_latent_attention
+    strength: 1.0
+    rationale: derived from learning object lo_explain_mla_latent_kv_compression
+      prerequisites
+    created_at: '2026-07-21T05:08:45Z'
+    updated_at: '2026-07-21T05:08:45Z'
+  - id: 
+      edge_prerequisite__concept_multi_head_attention__concept_multi_query_attention
+    relation_type: prerequisite
+    source: concept_multi_head_attention
+    target: concept_multi_query_attention
+    strength: 0.95
+    rationale: MQA is defined by changing MHA's per-head key-value projections 
+      to one shared set.
+    created_at: '2026-07-21T05:08:46Z'
+    updated_at: '2026-07-21T05:08:46Z'
+  - id: 
+      edge_prerequisite__concept_multi_query_attention__concept_grouped_query_attention
+    relation_type: prerequisite
+    source: concept_multi_query_attention
+    target: concept_grouped_query_attention
+    strength: 0.87
+    rationale: Multi-query attention provides the fully shared endpoint that 
+      grouped-query attention generalizes into several key-value groups.
+    created_at: '2026-07-21T05:08:48Z'
+    updated_at: '2026-07-21T05:08:48Z'
+  - id: 
+      edge_prerequisite__concept_neural_representation_geometry__concept_sparse_autoencoder_interpretabil
+    relation_type: prerequisite
+    source: concept_neural_representation_geometry
+    target: concept_sparse_autoencoder_interpretability
+    strength: 0.91
+    rationale: Sparse-autoencoder features are interpreted as structure 
+      extracted from high-dimensional model representations.
+    created_at: '2026-07-21T05:08:49Z'
+    updated_at: '2026-07-21T05:08:49Z'
+  - id: 
+      edge_prerequisite__concept_sampling_temperature__concept_autoregressive_text_generation
+    relation_type: prerequisite
+    source: concept_sampling_temperature
+    target: concept_autoregressive_text_generation
+    strength: 0.84
+    rationale: Understanding sampling controls supports understanding how each 
+      token is selected in the generation loop.
+    created_at: '2026-07-21T05:08:50Z'
+    updated_at: '2026-07-21T05:08:50Z'
+  - id: edge_prerequisite__concept_scaled_self_attention__concept_causal_masking
+    relation_type: prerequisite
+    source: concept_scaled_self_attention
+    target: concept_causal_masking
+    strength: 0.9
+    rationale: Causal masking modifies the logits of an already-defined 
+      attention computation.
+    created_at: '2026-07-21T05:08:51Z'
+    updated_at: '2026-07-21T05:08:51Z'
+  - id: 
+      edge_prerequisite__concept_scaled_self_attention__concept_contextualized_token_representat
+    relation_type: prerequisite
+    source: concept_scaled_self_attention
+    target: concept_contextualized_token_representation
+    strength: 0.93
+    rationale: Understanding attention explains how token embeddings are refined
+      into contextualized representations.
+    created_at: '2026-07-21T05:08:52Z'
+    updated_at: '2026-07-21T05:08:52Z'
+  - id: 
+      edge_prerequisite__concept_scaled_self_attention__concept_multi_head_attention
+    relation_type: prerequisite
+    source: concept_scaled_self_attention
+    target: concept_multi_head_attention
+    strength: 0.95
+    rationale: Multi-head attention repeats and combines scaled attention 
+      computations across learned projection sets.
+    created_at: '2026-07-21T05:08:53Z'
+    updated_at: '2026-07-21T05:08:53Z'
+  - id: 
+      edge_prerequisite__concept_softmax_classification_gradients__concept_backpropagation
+    relation_type: prerequisite
+    source: concept_softmax_classification_gradients
+    target: concept_backpropagation
+    strength: 0.82
+    rationale: The small affine-softmax derivation provides a concrete 
+      foundation for generalized backward gradient propagation.
+    created_at: '2026-07-21T05:08:54Z'
+    updated_at: '2026-07-21T05:08:54Z'
+  - id: 
+      edge_prerequisite__concept_softmax_function__concept_autoregressive_text_generation
+    relation_type: prerequisite
+    source: concept_softmax_function
+    target: concept_autoregressive_text_generation
+    strength: 0.95
+    rationale: The generation loop samples from a next-token distribution.
+    created_at: '2026-07-21T05:08:55Z'
+    updated_at: '2026-07-21T05:08:55Z'
+  - id: edge_prerequisite__concept_softmax_function__concept_backpropagation
+    relation_type: prerequisite
+    source: concept_softmax_function
+    target: concept_backpropagation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_derive_affine_softmax_classifier_gradients prerequisites
+    created_at: '2026-07-21T05:08:56Z'
+    updated_at: '2026-07-21T05:08:56Z'
+  - id: edge_prerequisite__concept_softmax_function__concept_cross_entropy_loss
+    relation_type: prerequisite
+    source: concept_softmax_function
+    target: concept_cross_entropy_loss
+    strength: 0.9
+    rationale: The presented multiclass cross-entropy consumes the correct-class
+      probability produced by softmax.
+    created_at: '2026-07-21T05:08:57Z'
+    updated_at: '2026-07-21T05:08:57Z'
+  - id: 
+      edge_prerequisite__concept_softmax_function__concept_sampling_temperature
+    relation_type: prerequisite
+    source: concept_softmax_function
+    target: concept_sampling_temperature
+    strength: 0.9
+    rationale: Temperature is interpreted through its effect on the sharpness of
+      the sampling distribution.
+    created_at: '2026-07-21T05:08:58Z'
+    updated_at: '2026-07-21T05:08:58Z'
+  - id: 
+      edge_prerequisite__concept_stochastic_neural_network_traini__concept_decision_region_visualization
+    relation_type: prerequisite
+    source: concept_stochastic_neural_network_training
+    target: concept_decision_region_visualization
+    strength: 0.83
+    rationale: The source uses decision-region plots to inspect the classifier 
+      produced during training.
+    created_at: '2026-07-21T05:09:00Z'
+    updated_at: '2026-07-21T05:09:00Z'
+  - id: 
+      edge_prerequisite__concept_supervised_coordinate_data_prepa__concept_feedforward_classifier_implement
+    relation_type: prerequisite
+    source: concept_supervised_coordinate_data_preparation
+    target: concept_feedforward_classifier_implementation
+    strength: 0.75
+    rationale: The classifier implementation is exercised on prepared 
+      two-feature coordinate tensors.
+    created_at: '2026-07-21T05:09:01Z'
+    updated_at: '2026-07-21T05:09:01Z'
+  - id: 
+      edge_prerequisite__concept_supervised_coordinate_data_prepa__concept_stochastic_neural_network_traini
+    relation_type: prerequisite
+    source: concept_supervised_coordinate_data_preparation
+    target: concept_stochastic_neural_network_training
+    strength: 0.9
+    rationale: Stochastic supervised updates require aligned feature and label 
+      tensors.
+    created_at: '2026-07-21T05:09:02Z'
+    updated_at: '2026-07-21T05:09:02Z'
+  - id: 
+      edge_prerequisite__concept_token_embedding__concept_contextualized_token_representat
+    relation_type: prerequisite
+    source: concept_token_embedding
+    target: concept_contextualized_token_representation
+    strength: 0.95
+    rationale: Contextual refinement operates on initial token-position vectors.
+    created_at: '2026-07-21T05:09:03Z'
+    updated_at: '2026-07-21T05:09:03Z'
+  - id: 
+      edge_prerequisite__concept_token_embedding__concept_neural_representation_geometry
+    relation_type: prerequisite
+    source: concept_token_embedding
+    target: concept_neural_representation_geometry
+    strength: 0.93
+    rationale: Representation geometry begins with interpreting embeddings and 
+      later activations as points and directions in vector space.
+    created_at: '2026-07-21T05:09:04Z'
+    updated_at: '2026-07-21T05:09:04Z'
+  - id: 
+      edge_prerequisite__concept_token_embedding__concept_scaled_self_attention
+    relation_type: prerequisite
+    source: concept_token_embedding
+    target: concept_scaled_self_attention
+    strength: 0.96
+    rationale: Self-attention operates on token-position vectors derived from 
+      embeddings.
+    created_at: '2026-07-21T05:09:05Z'
+    updated_at: '2026-07-21T05:09:05Z'
+  - id: 
+      edge_prerequisite__concept_token_embedding__concept_transformer_inference_pipeline
+    relation_type: prerequisite
+    source: concept_token_embedding
+    target: concept_transformer_inference_pipeline
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_trace_the_transformer_next_token_pipeline prerequisites
+    created_at: '2026-07-21T05:09:06Z'
+    updated_at: '2026-07-21T05:09:06Z'
+  - id: edge_prerequisite__concept_tokenization__concept_token_embedding
+    relation_type: prerequisite
+    source: concept_tokenization
+    target: concept_token_embedding
+    strength: 0.95
+    rationale: Token identities must be established before their embedding 
+      vectors can be looked up.
+    created_at: '2026-07-21T05:09:07Z'
+    updated_at: '2026-07-21T05:09:07Z'
+  - id: 
+      edge_prerequisite__concept_tokenization__concept_transformer_inference_pipeline
+    relation_type: prerequisite
+    source: concept_tokenization
+    target: concept_transformer_inference_pipeline
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_trace_the_transformer_next_token_pipeline prerequisites
+    created_at: '2026-07-21T05:09:08Z'
+    updated_at: '2026-07-21T05:09:08Z'
+  - id: 
+      edge_prerequisite__concept_transformer_inference_pipeline__concept_autoregressive_text_generation
+    relation_type: prerequisite
+    source: concept_transformer_inference_pipeline
+    target: concept_autoregressive_text_generation
+    strength: 0.95
+    rationale: Each autoregressive iteration invokes next-token inference.
+    created_at: '2026-07-21T05:09:09Z'
+    updated_at: '2026-07-21T05:09:09Z'
+  - id: 
+      edge_prerequisite__concept_universal_approximation__concept_neural_network_representation_ve
+    relation_type: prerequisite
+    source: concept_universal_approximation
+    target: concept_neural_network_representation_versus_trainabilit
+    strength: 0.96
+    rationale: The capacity-versus-trainability distinction clarifies what the 
+      universal approximation existence result does not guarantee.
+    created_at: '2026-07-21T05:09:10Z'
+    updated_at: '2026-07-21T05:09:10Z'
+  - id: 
+      edge_related__concept_autoregressive_text_generation__concept_sampling_temperature
+    relation_type: related
+    source: concept_autoregressive_text_generation
+    target: concept_sampling_temperature
+    strength: 0.85
+    rationale: Temperature controls sampling behavior within autoregressive 
+      generation.
+    created_at: '2026-07-21T05:09:12Z'
+    updated_at: '2026-07-21T05:09:12Z'
+  - id: edge_related__concept_loss_landscape__concept_gradient_descent
+    relation_type: related
+    source: concept_loss_landscape
+    target: concept_gradient_descent
+    strength: 0.8
+    rationale: Gradient descent follows local slope information on the loss 
+      landscape, while the landscape frames why parameter interactions matter.
+    created_at: '2026-07-21T05:09:13Z'
+    updated_at: '2026-07-21T05:09:13Z'
+  - id: 
+      edge_related__concept_multi_query_attention__concept_grouped_query_attention
+    relation_type: related
+    source: concept_multi_query_attention
+    target: concept_grouped_query_attention
+    strength: 0.9
+    rationale: Both share key-value representations across query heads but use 
+      different numbers of KV groups.
+    created_at: '2026-07-21T05:09:14Z'
+    updated_at: '2026-07-21T05:09:14Z'
+  - id: 
+      edge_related__concept_neural_representation_geometry__concept_geometric_expressivity_of_relu_n
+    relation_type: related
+    source: concept_neural_representation_geometry
+    target: concept_geometric_expressivity_of_relu_networks
+    strength: 0.45
+    rationale: Both use geometric accounts of how neural networks organize or 
+      transform representations, but neither is a strict prerequisite for the 
+      other.
+    created_at: '2026-07-21T05:09:15Z'
+    updated_at: '2026-07-21T05:09:15Z'
+  - id: 
+      edge_related__concept_sparse_autoencoder_interpretabil__concept_contextualized_token_representat
+    relation_type: related
+    source: concept_sparse_autoencoder_interpretability
+    target: concept_contextualized_token_representation
+    strength: 0.82
+    rationale: Sparse autoencoders are applied to contextual and residual-stream
+      activation vectors to extract interpretable features.
+    created_at: '2026-07-21T05:09:16Z'
+    updated_at: '2026-07-21T05:09:16Z'

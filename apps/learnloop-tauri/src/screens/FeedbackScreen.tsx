@@ -14,6 +14,7 @@ import type {
   ResolvedSourceRefDto,
 } from "../api/dto";
 import { EntityLink, KeyBar, Pill } from "../components/ui";
+import { CardControls } from "../components/CardControls";
 import { modePillColor } from "../components/term";
 import { AttemptTraceView, UnresolvedCauseCard } from "../components/KnowledgeModel";
 import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
@@ -1258,6 +1259,24 @@ export function FeedbackScreen({
             </div>
             {item && <Pill tone={modePillTone(item.practiceMode)}>{item.practiceMode}</Pill>}
           </div>
+
+          {/* learner card controls — the talk-aloud moment ("off-target",
+              "wants to be two questions") happens right here, answer in view */}
+          {item ? (
+            <CardControls
+              key={`${item.id}:${item.prompt}`}
+              practiceItemId={item.id}
+              prompt={item.prompt}
+              expectedAnswer={typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
+              onError={onError}
+              onChanged={() => {
+                api.getPracticeItem(item.id).then(setItem).catch(() => {});
+              }}
+              onRetired={() => {
+                api.getPracticeItem(item.id).then(setItem).catch(() => {});
+              }}
+            />
+          ) : null}
 
           {/* divider */}
           <div style={{

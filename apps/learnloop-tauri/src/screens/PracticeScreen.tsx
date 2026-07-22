@@ -16,6 +16,7 @@ import type {
   TeachBackTurnDto
 } from "../api/dto";
 import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui";
+import { CardControls } from "../components/CardControls";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -515,6 +516,19 @@ export function PracticeScreen({
             </div>
           ) : null}
           <div className="markdown"><MarkdownMath value={item.prompt} /></div>
+          {!probeActive ? (
+            <CardControls
+              key={`${item.id}:${item.prompt}`}
+              practiceItemId={item.id}
+              prompt={item.prompt}
+              expectedAnswer={null}
+              onError={onError}
+              onChanged={() => {
+                api.getPracticeItem(item.id).then(setItem).catch(() => {});
+              }}
+              onRetired={onBack}
+            />
+          ) : null}
           {item.sourceRefs.length > 0 ? (
             <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, lineHeight: 1.6 }}>
               {item.sourceRefs.map((ref, index) => (

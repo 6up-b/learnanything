@@ -239,8 +239,11 @@ export function DialogueProbePanel({
                 <div className="markdown">
                   <MarkdownMath value={entry.promptMd} />
                 </div>
-                <div style={{ fontFamily: FONT_MONO, marginTop: 2, color: COLOR.textDim }}>
-                  ▸ {entry.answerMd}
+                <div style={{ fontFamily: FONT_MONO, marginTop: 2, color: COLOR.textDim, display: "flex", gap: 6 }}>
+                  <span>▸</span>
+                  <div className="markdown" style={{ flex: 1, minWidth: 0 }}>
+                    <MarkdownMath value={entry.answerMd} />
+                  </div>
                 </div>
               </div>
             ))}

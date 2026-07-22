@@ -1,0 +1,147 @@
+{
+  "achievedMilestone": "m_method_selection_boundary",
+  "activeEnvelopeVersionId": "01KXYJ5R4A69921Q39T837KGK5",
+  "boundaryDiff": {
+    "cells": [
+      {
+        "after": "developing",
+        "before": "untested",
+        "calibrationStatus": "heuristic",
+        "capability": "method_selection",
+        "changed": true,
+        "claimLanguage": "provisional",
+        "facet": "decomposition_choice",
+        "interval": {
+          "high": 1.0,
+          "leadingClass": "success",
+          "low": 4.2752161362516814e-05,
+          "point": 0.8,
+          "width": 0.9999572478386375
+        }
+      },
+      {
+        "after": "developing",
+        "before": "untested",
+        "calibrationStatus": "heuristic",
+        "capability": "procedure_execution",
+        "changed": true,
+        "claimLanguage": "provisional",
+        "facet": "spectral_execution",
+        "interval": {
+          "high": 1.0,
+          "leadingClass": "success",
+          "low": 4.2752161362516814e-05,
+          "point": 0.8,
+          "width": 0.9999572478386375
+        }
+      },
+      {
+        "after": "developing",
+        "before": "untested",
+        "calibrationStatus": "heuristic",
+        "capability": "coordination",
+        "changed": true,
+        "claimLanguage": "provisional",
+        "facet": "variance_readout",
+        "interval": {
+          "high": 1.0,
+          "leadingClass": "success",
+          "low": 4.2752161362516814e-05,
+          "point": 0.8,
+          "width": 0.9999572478386375
+        }
+      }
+    ],
+    "passed": true,
+    "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+    "schemaVersion": 1,
+    "targetContractVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ"
+  },
+  "exemplarComparison": [
+    {
+      "exemplarRef": "pi_symmetric_exemplar_a",
+      "heldOut": false,
+      "weight": 1.0
+    },
+    {
+      "exemplarRef": "pi_symmetric_exemplar_b",
+      "heldOut": false,
+      "weight": 1.0
+    },
+    {
+      "exemplarRef": "pi_symmetric_heldout_sibling",
+      "heldOut": true,
+      "weight": 0.0
+    }
+  ],
+  "invitation": {
+    "activated": false,
+    "edge": {
+      "burden": {
+        "minutes": 15
+      },
+      "capabilityDelta": [],
+      "direction": "transfer",
+      "edgeId": "edge_symmetric_transfer_1",
+      "exitEvidence": {
+        "kind": "cold_assessment_success"
+      },
+      "freshProofRule": "distinct_fresh_surface",
+      "milestoneSlug": "m_method_selection_transfer",
+      "reviewed": true,
+      "successorActivityPath": {
+        "pattern": "whole_task_integration"
+      },
+      "supportDelta": {},
+      "taskFeatureDelta": {
+        "span": 1
+      }
+    },
+    "milestoneSlug": "m_method_selection_boundary",
+    "outcome": {
+      "commitmentId": "01KXYJ5R4DCVNXPTS6ZTD59Q3R",
+      "detail": {},
+      "kind": "suggest_next",
+      "outcome": "proposal",
+      "reason": "policy_not_auto_within_envelope:suggest_next",
+      "selectedEdgeId": "edge_symmetric_transfer_1"
+    },
+    "servedAs": "suggest_next"
+  },
+  "milestoneRecorded": true,
+  "nextAction": "confirm_reviewed_edge",
+  "nextReviewedEdge": {
+    "burden": {
+      "minutes": 15
+    },
+    "capabilityDelta": [],
+    "direction": "transfer",
+    "edgeId": "edge_symmetric_transfer_1",
+    "exitEvidence": {
+      "kind": "cold_assessment_success"
+    },
+    "freshProofRule": "distinct_fresh_surface",
+    "milestoneSlug": "m_method_selection_transfer",
+    "reviewed": true,
+    "successorActivityPath": {
+      "pattern": "whole_task_integration"
+    },
+    "supportDelta": {},
+    "taskFeatureDelta": {
+      "span": 1
+    }
+  },
+  "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+  "sourceNeighborhoods": {
+    "all": {
+      "execution": [
+        "span_spectral_worked"
+      ],
+      "method": [
+        "span_symmetric_intro"
+      ]
+    },
+    "emphasis": "strong_criteria"
+  },
+  "version": 1
+}

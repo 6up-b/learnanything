@@ -9,6 +9,8 @@ from learnloop.services.promotions import PromotionError
 from learnloop.services.promotions import (
     promote_tutor_question as promote_tutor_question_service,
 )
+from learnloop.services import question_queue as QQ
+from learnloop.services.question_queue import QuestionQueueError
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
 from learnloop.services.tutor_qa import (
     QuestionLimitReached,
@@ -68,6 +70,53 @@ class PromoteTutorQuestionInput(ParamsModel):
     event_id: str
     intent: str
     subject_id: str | None = None
+
+
+class ListQuestionQueueInput(ParamsModel):
+    # None lists every question regardless of state; default is the open queue.
+    resolution: str | None = "open"
+    limit: int | None = None
+
+
+class ResolveQuestionEventInput(ParamsModel):
+    event_id: str
+    resolution: str
+
+
+@method("list_question_queue", ListQuestionQueueInput)
+def list_question_queue(ctx: SidecarContext, params: ListQuestionQueueInput) -> dict[str, Any]:
+    """The outstanding-question queue (newest first) + the open count."""
+
+    _vault, repository = ctx.require_vault()
+    try:
+        questions = QQ.list_question_queue(
+            repository, resolution=params.resolution, limit=params.limit
+        )
+    except QuestionQueueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned(
+        {"questions": questions, "openCount": QQ.count_open_questions(repository)}
+    )
+
+
+@method("resolve_question_event", ResolveQuestionEventInput)
+def resolve_question_event(ctx: SidecarContext, params: ResolveQuestionEventInput) -> dict[str, Any]:
+    """Flip one question to open/resolved/dismissed (learner-owned queue state)."""
+
+    _vault, repository = ctx.require_vault()
+    try:
+        event = QQ.set_question_resolution(
+            repository, question_event_id=params.event_id, resolution=params.resolution
+        )
+    except QuestionQueueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned(
+        {
+            "eventId": event["id"],
+            "resolution": event["resolution"],
+            "openCount": QQ.count_open_questions(repository),
+        }
+    )
 
 
 @method("ask_tutor_question", AskTutorQuestionInput)

@@ -1,0 +1,69 @@
+schema_version: 1
+id: lo_explain_mla_latent_kv_compression
+title: Explain MLA latent KV compression
+subjects:
+  - llm
+concept: concept_multi_head_latent_attention
+knowledge_type: architecture schema
+status: active
+contradicts:
+summary: Trace the down-projection, cached latent representation, and 
+  head-specific reconstruction that reduce MLA cache memory.
+prerequisites:
+  - concept_multi_head_attention
+  - concept_kv_caching
+  - concept_grouped_query_attention
+confusables:
+  - concept_multi_query_attention
+blueprints:
+  - id: bp_01KY1H1X_16
+    weight: 0.9
+    recipes:
+      - id: recipe_mla_latent_cache
+        composition: conjunctive
+        all_of:
+          - facet: facet_multi_head_latent_attention_compresses_a_token_r
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_kv_cache_storage_scales_with_sequence_length_lay
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_multi_head_latent_attention_compresses_a_token_r
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s301
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s331
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+created_at: '2026-07-21T05:06:43Z'
+updated_at: '2026-07-21T05:07:02Z'

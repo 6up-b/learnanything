@@ -39,6 +39,7 @@ from learnloop.services.role_authority import (
 )
 from learnloop.services.source_unit_inventory import (
     INVENTORY_SCHEMA_VERSION,
+    InventoryValidationError,
     build_inventory_windows,
     profile_satisfies,
     run_unit_inventory,
@@ -225,6 +226,41 @@ def test_role_aware_inventory_profiles(tmp_path):
     exam = run_unit_inventory(repo, "ext1", "u1", role="exam", profile="assessment", client=client, clock=_CLOCK)
     assert exam.inventory.assessment_signals and exam.inventory.assessment_signals[0].held_out
     assert not exam.inventory.claims  # exam text never promoted to a canonical claim (§4.2)
+
+
+def test_inventory_can_disable_the_output_ceiling(tmp_path):
+    repo = _repo(tmp_path)
+    _register_revision(repo)
+    _persist(
+        repo,
+        _ir([("u1", "Unit", [_block("s1", "An eigenvector definition.")], "sha256:u1", 1)]),
+        revision_id="rev1",
+        extraction_id="ext1",
+    )
+    client = FakeInventoryClient()
+
+    with pytest.raises(InventoryValidationError, match="configured token budget"):
+        run_unit_inventory(
+            repo,
+            "ext1",
+            "u1",
+            role="primary_textbook",
+            client=client,
+            output_budget_tokens=1,
+            clock=_CLOCK,
+        )
+
+    result = run_unit_inventory(
+        repo,
+        "ext1",
+        "u1",
+        role="primary_textbook",
+        client=client,
+        output_budget_tokens=None,
+        clock=_CLOCK,
+    )
+    assert result.cache_hit is False
+    assert result.usage["output_tokens_estimate"] > 1
 
 
 def test_deterministic_inventory_ids_stable(tmp_path):

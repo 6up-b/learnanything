@@ -1,0 +1,24 @@
+# Planted-misgrade calibration sweep (spec_p0_measurement_correctness §9.7.1, §4.2).
+#
+# Injects the asymmetric grader-confusion channel `misgraded_partial_overcall`
+# (partial success overcalled as success) and sweeps the robust-composition prior
+# concentration across its plausible range, reporting for each the silent-flip
+# count (on the confusion scenario) and the abstention rate (on the clean
+# scenario). This is the input to the abstention-budget calibration loop
+# (`sim/grader_confusion.py::choose_prior_concentration_for_budget`): choose the
+# lowest concentration whose CLEAN abstention stays <= the budget while the
+# CONFUSION silent_flip_count stays 0; over-budget across the whole grid raises the
+# audit alarm rather than surfacing as ambient UI timidity.
+#
+# Registered decision parameters exercised here:
+#   grader_calibration:PRIOR_CONCENTRATION (currently 2.0)
+#   robust_composition:ABSTENTION_BUDGET_FRACTION (currently 0.15)
+
+confusion_preset: misgraded_partial_overcall
+
+prior_concentration_grid: [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 8.0]
+
+abstention_budget_fraction: 0.15
+
+trials: 300
+seed: 20260718

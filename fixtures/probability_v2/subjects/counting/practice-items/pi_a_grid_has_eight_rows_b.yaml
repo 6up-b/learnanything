@@ -1,0 +1,108 @@
+schema_version: 1
+id: pi_a_grid_has_eight_rows_b
+learning_object_id: lo_count_compound_outcomes_with_the_multiplication_
+subjects:
+practice_mode: error_analysis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_if_a_compound_outcome_is_specified_through_stage
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A grid has eight rows, but different rows contain different numbers of 
+  white cells. A student counts the white cells by taking the number of white 
+  cells in the first row and multiplying by eight. Diagnose the error and state 
+  when a rows-times-cells-per-row product would be valid.
+expected_answer: The student assumed a uniform number of white cells per row 
+  without checking it. Multiplying the number of rows by one common per-row 
+  count is valid only when every counted row contributes that same number of 
+  white cells. With varying row counts, the rows must be handled according to 
+  their actual contributions or another valid decomposition must be used.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.4
+scaffold_level: 0.1
+surface_family: uniform_group_counting
+evidence_fingerprint:
+  source_family: primary_textbook_contrast_example
+  shared_stimulus_id: nonuniform_grid_rows
+  representation: verbal grid description
+  solution_recipe_family: verify uniform branching before multiplication
+  answer_structure: error diagnosis and applicability condition
+misconception_consistent_answer:
+repair_targets:
+  - facet_if_a_compound_outcome_is_specified_through_stage
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_grid_uniformity_error
+      points: 2.0
+      description: Identifies the unsupported assumption that every row has the 
+        same target count.
+      tier: core
+      targets:
+        - facet: facet_if_a_compound_outcome_is_specified_through_stage
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_multiplication_rule_contract
+      correlation_group: uniform_branch_check
+      recipe_ids:
+        - recipe_apply_multiplication_rule
+    - id: criterion_grid_validity_condition
+      points: 2.0
+      description: States that rows-times-per-row is valid when all rows 
+        contribute one common count and rejects the fixed-factor method for 
+        varying rows.
+      tier: transfer
+      targets:
+        - facet: facet_if_a_compound_outcome_is_specified_through_stage
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_multiplication_rule_contract
+        - criterion_grid_uniformity_error
+      correlation_group: uniform_branch_check
+      recipe_ids:
+        - recipe_apply_multiplication_rule
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s127
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s128
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:14Z'
+updated_at: '2026-07-21T00:54:14Z'

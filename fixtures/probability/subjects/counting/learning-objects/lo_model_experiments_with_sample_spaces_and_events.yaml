@@ -1,0 +1,66 @@
+schema_version: 1
+id: lo_model_experiments_with_sample_spaces_and_events
+title: Model Experiments with Sample Spaces and Events
+subjects:
+  - counting
+concept: concept_sample_space
+knowledge_type: schema_and_interpretation
+status: active
+contradicts:
+summary: Specify a sample space, define events as subsets, and check whether 
+  event occurrence follows from membership of the actual outcome.
+prerequisites: []
+confusables:
+  - concept_event
+blueprints:
+  - id: bp_01KXKVFA
+    weight: 0.22
+    recipes:
+      - id: r_model_experiment
+        composition: conjunctive
+        all_of:
+          - facet: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s48
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s82
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:58Z'
+updated_at: '2026-07-15T21:39:04Z'

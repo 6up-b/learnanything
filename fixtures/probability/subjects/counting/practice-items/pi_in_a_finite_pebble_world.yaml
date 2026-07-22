@@ -1,0 +1,119 @@
+schema_version: 1
+id: pi_in_a_finite_pebble_world
+learning_object_id: lo_compute_and_vet_naive_probabilities
+subjects:
+practice_mode: calculation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+  - facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: In a finite Pebble World with 9 equally likely pebbles, event A contains
+  5 pebbles, event B contains 4 pebbles, and A intersection B contains 1 pebble.
+  Compute P_naive(A), P_naive(B), P_naive(A union B), and P_naive(A intersection
+  B).
+expected_answer: P_naive(A)=5/9, P_naive(B)=4/9, P_naive(A intersection B)=1/9, 
+  and P_naive(A union B)=8/9 because the union contains 5+4-1=8 pebbles.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.1
+scaffold_level: 0.25
+surface_family: finite_visual_counting
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: nine_pebble_A_B
+  representation: finite counts and set notation
+  solution_recipe_family: naive_probability_counting
+  answer_structure: four fractions
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+  - facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: cr_counts_total_and_favorable
+      points: 1.0
+      description: Uses 9 as the total and event counts as favorable outcomes.
+      tier: core
+      targets:
+        - facet: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: naive_pebble_counts
+      recipe_ids:
+        - r_compute_naive_probability
+    - id: cr_union_includes_overlap_once
+      points: 1.0
+      description: Computes the union count as 8 by including overlap once, not 
+        excluding it or double-counting it.
+      tier: core
+      targets:
+        - facet: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+          capability: schema_interpretation
+          role: supporting
+        - facet: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - cr_counts_total_and_favorable
+      correlation_group: naive_pebble_counts
+      recipe_ids:
+        - r_compute_naive_probability
+    - id: cr_outputs_four_fractions
+      points: 1.0
+      description: Provides the four requested probabilities as fractions with 
+        denominator 9.
+      tier: core
+      targets:
+        - facet: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - cr_counts_total_and_favorable
+        - cr_union_includes_overlap_once
+      correlation_group: naive_pebble_counts
+      recipe_ids:
+        - r_compute_naive_probability
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s91
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s92
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:11Z'
+updated_at: '2026-07-15T21:39:11Z'

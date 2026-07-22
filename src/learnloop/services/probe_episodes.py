@@ -54,6 +54,8 @@ from learnloop.services.probes import (
     resolve_item_irt,
     score_bucket,
 )
+from learnloop.services.outcome_schemas import COARSE_RESPONSE_SLUG
+from learnloop.services.probe_robust import use_robust_probe
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 FALLBACK_FAMILY_ID = "registry_discrimination_fallback"
@@ -140,6 +142,7 @@ def enter_episode(
     *,
     trigger: str = "initial",
     origin: str | None = None,
+    goal_id: str | None = None,
     clock: Clock | None = None,
     ai_client: object | None = None,
 ) -> ProbeEpisodeRecord:
@@ -193,6 +196,34 @@ def enter_episode(
     now = utc_now_iso(clock)
     from learnloop.services.facet_diagnostics import required_facets
 
+    # Pin the exact confirmed terminal-contract version at episode open (§3.4).
+    # Ungoal-conditioned probes leave the pin NULL (not a terminal claim).
+    target_contract_version_id: str | None = None
+    target_support_hash: str | None = None
+    if goal_id is not None:
+        from learnloop.services.goal_contracts import resolve_head
+
+        head = resolve_head(repository, goal_id)
+        if head is not None:
+            target_contract_version_id = head.id
+            target_support_hash = head.support_hash
+
+    # mvp-0.8 robust cutover (§4.2, invariant 3): resolve + pin the calibration
+    # channel at episode open. Both robust selection and the decision-time
+    # observed_update consume this pinned model hash. Legacy vaults leave it NULL.
+    calibration_model_id: str | None = None
+    calibration_model_hash: str | None = None
+    probe_mapping_version: str | None = None
+    from learnloop.services.probe_robust import resolve_episode_channel, use_robust_probe
+
+    if use_robust_probe(vault):
+        channel = resolve_episode_channel(
+            repository, learning_object_id=learning_object_id, clock=clock
+        )
+        calibration_model_id = channel.model_id or None
+        calibration_model_hash = channel.model_hash
+        probe_mapping_version = channel.mapping_version
+
     repository.insert_probe_episode(
         episode_id=episode_id,
         learning_object_id=learning_object_id,
@@ -207,6 +238,11 @@ def enter_episode(
         minimum_independent_observations=episode_config.minimum_independent_observations,
         maximum_observations=episode_config.maximum_observations,
         entered_at=now,
+        target_contract_version_id=target_contract_version_id,
+        target_support_hash=target_support_hash,
+        calibration_model_id=calibration_model_id,
+        calibration_model_hash=calibration_model_hash,
+        probe_mapping_version=probe_mapping_version,
         clock=clock,
     )
     repository.open_state_segment(
@@ -405,6 +441,17 @@ def eligible_instruments(
     hypothesis_set = hypothesis_set or episode_hypothesis_set(repository, episode)
     if hypothesis_set is None:
         return []
+    # P4 §14.2 step 3 dual-authority (design §A.2 rule 3): the probe path is an
+    # administration surface too. A staged-owned P2 commitment's items are the staged
+    # policy's to administer, never the legacy sidecar probe path. Refuse outright when
+    # the episode's whole learning object is staged-owned; otherwise drop just the owned
+    # items from the eligible slate. Empty exclusion set -> byte-identical legacy behavior
+    # for a vault with no ownership rows.
+    from learnloop.services import controller_ownership as _ownership
+
+    if _ownership.is_learning_object_staged_owned(repository, episode.learning_object_id):
+        raise _ownership.StagedOwnedAdministrationRefused(episode.learning_object_id)
+    staged_owned_item_ids = _ownership.staged_owned_practice_item_ids(vault, repository)
     if posterior is None:
         # Sequential selection conditions on the observed posterior (§8.3), not
         # the locked entry prior — a second observation must not be ranked as
@@ -432,7 +479,11 @@ def eligible_instruments(
 
     resolved: list[tuple[PracticeItem, CompiledInstrument, dict[str, str]]] = []
     for item in vault.practice_items.values():
+        if item.status != "active":
+            continue
         if item.learning_object_id != episode.learning_object_id:
+            continue
+        if item.id in staged_owned_item_ids:
             continue
         if item.id in used_item_ids:
             continue
@@ -773,6 +824,12 @@ def presentation_commit_payload(
         selection_components["shadow_rankings"] = shadow_selection_rankings(
             candidates, top_k=shadow_config.top_k
         )
+    # mvp-0.8 robust cutover (§4.2, §1.5): snapshot the pinned channel + the
+    # decision-time robust EIG-per-second product for the served candidate so the
+    # historical decision is byte-stable without re-running the ensemble on replay.
+    robust_pin = _robust_channel_pin(repository, episode, eligible, belief)
+    if robust_pin is not None:
+        selection_components["channel_pin"] = robust_pin
     return {
         "probe_episode_id": episode.id,
         "practice_item_id": eligible.item.id,
@@ -791,6 +848,41 @@ def presentation_commit_payload(
         "selection_policy_version": SELECTION_POLICY_VERSION,
         "selection_components": selection_components,
         "expires_at": expires_at,
+    }
+
+
+def _robust_channel_pin(
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    eligible: EligibleInstrument,
+    belief: Mapping[str, float],
+) -> dict[str, Any] | None:
+    """The mvp-0.8 decision-time channel pin + robust product for the chosen
+    candidate (§1.5/§2.1). Returns None for legacy episodes (no pinned channel)."""
+
+    if episode.calibration_model_hash is None:
+        return None
+    from learnloop.services.probe_robust import (
+        instrument_ensemble,
+        load_pinned_channel,
+    )
+    from learnloop.services.robust_composition import robust_eig_per_second
+
+    channel = load_pinned_channel(repository, episode.calibration_model_hash)
+    if channel is None:
+        return None
+    ensemble, dch = instrument_ensemble(
+        channel, eligible.instrument, eligible.slot_map, dict(belief), episode_id=episode.id
+    )
+    expected_seconds = max(float(eligible.instrument.expected_seconds), 1e-6)
+    return {
+        "calibration_model_id": channel.model_id,
+        "calibration_model_hash": channel.model_hash,
+        "mapping_version": channel.mapping_version,
+        "decision_context_hash": dch,
+        "ensemble_seed": ensemble.seed,
+        "robust_eig_per_second": robust_eig_per_second(ensemble, dict(belief), expected_seconds),
+        "projection_algorithm_version": episode.algorithm_version,
     }
 
 
@@ -1327,6 +1419,115 @@ def record_episode_evidence(
     return end_diagnostic_block(vault, repository, refreshed, ai_client=ai_client, clock=clock)
 
 
+def _robust_observation_snapshot(
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    instrument: CompiledInstrument,
+    slot_map: Mapping[str, str],
+    posterior_before: Mapping[str, float],
+    *,
+    observed_outcome: str,
+    grader_confidence: float | None,
+) -> dict[str, Any] | None:
+    """The mvp-0.8 decision-time posterior snapshot for one observation (§4.2).
+
+    None for legacy episodes (no pinned channel). Deterministic given the pinned
+    channel hash + observed emission -- replay reads this, never the current head."""
+
+    if episode.calibration_model_hash is None:
+        return None
+    from learnloop.services.probe_robust import load_pinned_channel, pinned_decision_posterior
+
+    channel = load_pinned_channel(repository, episode.calibration_model_hash)
+    if channel is None:
+        return None
+    return pinned_decision_posterior(
+        channel,
+        instrument,
+        dict(slot_map),
+        dict(posterior_before),
+        observed_outcome=observed_outcome,
+        grader_confidence=grader_confidence,
+        episode_id=episode.id,
+    )
+
+
+def _dual_write_probe_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    instrument: CompiledInstrument | None = None,
+    practice_item_id: str,
+    attempt_id: str,
+    grading_source: str,
+    observed_outcome: str,
+    clock: Clock | None = None,
+) -> None:
+    """P0.2 dual-write for probe submissions (§4.1, §7.2). Fail-safe (§7.3): appends
+    a raw grade event + interpretation on a diagnostic administration alongside the
+    unchanged three-key ``grader_channel`` probe observation. The probe posterior
+    update is untouched (still ignores grader_confidence). Never raises.
+
+    Under mvp-0.8 the versioned probe-outcome -> coarse-class mapping (§3.1) is
+    snapshotted into the raw grade event's raw_output and the coarse class is pinned
+    as the interpretation's observed class, so replay reproduces the mapping."""
+
+    try:
+        item = vault.practice_items.get(practice_item_id)
+        if item is None:
+            return
+        persisted = repository.fetch_practice_attempt(attempt_id) or {}
+        rubric = vault.rubric_for_item(item)
+        max_points = rubric.max_points if rubric is not None else 4
+        from learnloop.services.grade_resolution import record_grade_dual_write
+
+        coarse_override: str | None = None
+        mapping_meta: dict[str, Any] = {}
+        outcome_schema_slug = COARSE_RESPONSE_SLUG
+        if instrument is not None and use_robust_probe(vault):
+            from learnloop.services.probe_outcome_mapping import (
+                coarse_class_for_outcome,
+                coarse_schema_slug,
+                mapping_snapshot,
+            )
+
+            outcome_schema_slug = coarse_schema_slug(instrument)
+            from learnloop.services.outcome_schemas import BUILTIN_SCHEMAS
+
+            schema = next(s for s in BUILTIN_SCHEMAS if s.slug == outcome_schema_slug)
+            coarse_override = coarse_class_for_outcome(
+                instrument, observed_outcome, schema_true_classes=set(schema.true_classes)
+            )
+            mapping_meta = mapping_snapshot(instrument)
+
+        record_grade_dual_write(
+            vault,
+            repository,
+            observed_class_override=coarse_override,
+            outcome_schema_slug=outcome_schema_slug,
+            item=item,
+            purpose="diagnostic",
+            grading_source=grading_source,
+            attempt_id=attempt_id,
+            response_text=persisted.get("learner_answer_md"),
+            rubric_score=persisted.get("rubric_score"),
+            max_points=max_points,
+            grader_confidence=persisted.get("grader_confidence"),
+            raw_output={
+                "observed_outcome": observed_outcome,
+                "grading_source": grading_source,
+                "rubric_score": persisted.get("rubric_score"),
+                # Deliverable 1: snapshot the versioned probe->coarse mapping on the
+                # administration's raw grade event so replay reproduces the class.
+                "probe_coarse_mapping": mapping_meta or None,
+            },
+            domain=getattr(item, "learning_object_id", None),
+            clock=clock,
+        )
+    except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
+        pass
+
+
 def _record_presentation_observation(
     vault: LoadedVault,
     repository: Repository,
@@ -1449,6 +1650,24 @@ def _record_presentation_observation(
         and attempt_type == "diagnostic_probe"
         and grading_source in APPROVED_DIAGNOSTIC_GRADING_SOURCES
     )
+    features = _observation_features(
+        repository, presentation, attempt_id=attempt_id, structured_trace=structured_trace
+    )
+    # mvp-0.8 robust cutover (§4.2 product 1): snapshot the immutable decision-time
+    # posterior from observed_update over the episode-pinned channel, so historical
+    # replay is byte-stable and (invariant 3) selection + update share the pin.
+    grader_confidence = persisted_attempt.get("grader_confidence")
+    robust_snapshot = _robust_observation_snapshot(
+        repository,
+        episode,
+        instrument,
+        slot_map,
+        posterior_before,
+        observed_outcome=outcome,
+        grader_confidence=grader_confidence,
+    )
+    if robust_snapshot is not None:
+        features = dict(features or {}, robust=robust_snapshot)
     repository.insert_probe_observation(
         attempt_id=attempt_id,
         posterior_before=posterior_before,
@@ -1467,9 +1686,17 @@ def _record_presentation_observation(
         },
         updates_belief=True,
         eligible_for_completion=eligible,
-        features=_observation_features(
-            repository, presentation, attempt_id=attempt_id, structured_trace=structured_trace
-        ),
+        features=features,
+        clock=clock,
+    )
+    _dual_write_probe_grade(
+        vault,
+        repository,
+        instrument=instrument,
+        practice_item_id=practice_item_id,
+        attempt_id=attempt_id,
+        grading_source=grading_source,
+        observed_outcome=outcome,
         clock=clock,
     )
     if eligible and instrument.family_template_id is not None and instrument.provenance == "instrument_card":
@@ -1632,6 +1859,15 @@ def _evaluate_completion(
         and (top_probability <= 0 or second_probability / top_probability <= episode_config.ambiguity_threshold)
     )
     if not decision_stable:
+        # mvp-0.8 robust cutover (§4.2/§3.2): before parking on an unstable
+        # posterior, ask the robust selector whether the remaining instruments can
+        # reliably distinguish the hypotheses on the episode-pinned channel. When
+        # the winner is fragile (10th-pct advantage <= 0 or the <90% agreement gate
+        # fails) the episode completes with the explicit abstention outcome instead
+        # of grinding through non-discriminating instruments (U-021).
+        abstain_reason = _robust_completion_override(vault, repository, episode, posterior)
+        if abstain_reason is not None:
+            return _complete(repository, episode, abstain_reason, clock=clock)
         # §10: an unstable episode with no unconsumed instrument left (§5.4
         # forbids surface repeats) parks in pending_items with one deduplicated
         # generation need — never blocking ordinary practice on the LO.
@@ -1672,6 +1908,59 @@ def _evaluate_completion(
         and any(len(row.get("target_facets") or []) >= 2 for row in qualifying)
     ):
         return _complete(repository, episode, "fast_path_strong_claim", clock=clock)
+    return None
+
+
+def _robust_completion_override(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    posterior: EpisodePosterior,
+) -> str | None:
+    """The mvp-0.8 robust stop/abstain gate (§4.2). Returns
+    ``'couldnt_reliably_distinguish'`` when, after at least the minimum independent
+    observations, the remaining instruments cannot robustly distinguish the
+    hypotheses on the episode-pinned channel; otherwise None (defer to legacy park).
+
+    Legacy episodes (no pinned channel) always return None -- byte-identical path."""
+
+    if episode.calibration_model_hash is None:
+        return None
+    qualifying = sum(
+        1 for row in repository.probe_observations_for_episode(episode.id)
+        if row["observation"].eligible_for_completion
+    )
+    if qualifying < episode.minimum_independent_observations:
+        return None
+    from learnloop.services.probe_robust import (
+        RobustCandidate,
+        load_pinned_channel,
+        robust_selection,
+    )
+
+    channel = load_pinned_channel(repository, episode.calibration_model_hash)
+    if channel is None:
+        return None
+    candidates = eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
+    if not candidates:
+        # Out of instruments AND undecided is a genuine abstention only when the
+        # legacy park would already fire; keep the legacy park semantics here so
+        # the pending_items/generation-need path is unchanged.
+        return None
+    robust_candidates = [
+        RobustCandidate(
+            identifier=candidate.item.id,
+            instrument=candidate.instrument,
+            slot_map=dict(candidate.slot_map),
+            expected_seconds=float(candidate.instrument.expected_seconds),
+        )
+        for candidate in candidates
+    ]
+    decision = robust_selection(
+        channel, robust_candidates, posterior.posterior, episode_id=episode.id
+    )
+    if decision.abstained:
+        return "couldnt_reliably_distinguish"
     return None
 
 
@@ -1753,6 +2042,44 @@ def stop_diagnosing_and_teach(
         clock=clock,
     )
     return decision
+
+
+def close_diagnostic_segment(
+    repository: Repository,
+    episode_id: str,
+    *,
+    reason: str = "converted_to_tutoring",
+    clock: Clock | None = None,
+) -> ProbeEpisodeRecord | None:
+    """Close a still-open diagnostic episode when instruction/repair begins (P0
+    invariant 7 / §12.2 "starting instruction closes the measurement segment").
+
+    Repository-only (no vault): ends any active presentation, marks the episode
+    ``converted_to_tutoring``, and opens a post-intervention state segment so no later
+    attempt updates the pre-intervention posterior. A subsequent :func:`enter_episode`
+    on the same LO then mints a FRESH episode -- the closed segment never re-opens.
+    Idempotent: an already-terminal episode returns None (nothing to close)."""
+
+    episode = repository.probe_episode(episode_id)
+    if episode is None or episode.status not in ("in_progress", "pending_items"):
+        return None
+    active = repository.active_probe_presentation(episode.id)
+    if active is not None:
+        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
+    repository.update_probe_episode_status(
+        episode.id,
+        status="converted_to_tutoring",
+        completion_reason=reason,
+        completed_at=utc_now_iso(clock),
+        clock=clock,
+    )
+    repository.open_state_segment(
+        learning_object_id=episode.learning_object_id,
+        probe_episode_id=episode.id,
+        reason="tutoring_transition",
+        clock=clock,
+    )
+    return repository.probe_episode(episode.id)
 
 
 def _set_target_decision(

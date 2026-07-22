@@ -1,0 +1,89 @@
+schema_version: 1
+id: pi_a_shop_offers_3_bases_t
+learning_object_id: lo_model_and_verify_product_rule_counts
+subjects:
+practice_mode: worked_application
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_a_finite_multistage_choice_process_identify_
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A shop offers 3 bases. Two bases allow 4 toppings each, but the third 
+  allows only 2. Explain why 3·4 is invalid and compute the total number of 
+  base-topping combinations.
+expected_answer: 'The second-stage count is not constant across all three branches,
+  so 3·4 is invalid. Count branches separately: 4+4+2=10.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.5
+scaffold_level: 0.2
+surface_family: multistage_choices
+evidence_fingerprint:
+  source_family: branch-dependent product-choice scenario
+  shared_stimulus_id: stim_product_branches
+  representation: verbal branch counts
+  solution_recipe_family: verify branches then sum
+  answer_structure: method rejection plus numeric count
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_a_finite_multistage_choice_process_identify_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_product_validity
+      points: 2.0
+      description: Identifies unequal continuation counts as the reason the 
+        single product is invalid.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_multistage_choice_process_identify_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_product_rule_contract
+      correlation_group: product_rule
+      recipe_ids:
+        - recipe_product_rule
+    - id: crit_product_count
+      points: 2.0
+      description: Computes the branch sum 4+4+2=10.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_multistage_choice_process_identify_
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_product_rule_contract
+        - crit_product_validity
+      correlation_group: product_rule
+      recipe_ids:
+        - recipe_product_rule
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s136
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:15Z'
+updated_at: '2026-07-21T00:54:15Z'

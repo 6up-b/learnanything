@@ -1,0 +1,63 @@
+schema_version: 1
+id: lo_compute_birthday_match_probability_by_complement
+title: Compute Birthday Match Probability By Complement
+subjects:
+  - counting
+concept: concept_birthday_match_probability
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Compute the probability of at least one shared birthday by multiplying 
+  distinct-birthday assignments, dividing by 365^k, and subtracting from 1.
+prerequisites: []
+confusables:
+  - concept_unequal_birthday_probabilities
+blueprints:
+  - id: bp_01KXKVFA_15
+    weight: 0.22
+    recipes:
+      - id: recipe_birthday_complement_formula
+        composition: conjunctive
+        all_of:
+          - facet: facet_under_the_equal_365_day_birthday_model_the_proba
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_under_the_equal_365_day_birthday_model_the_proba
+          capability: schema_interpretation
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s342
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s343
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:02Z'
+updated_at: '2026-07-15T21:39:08Z'

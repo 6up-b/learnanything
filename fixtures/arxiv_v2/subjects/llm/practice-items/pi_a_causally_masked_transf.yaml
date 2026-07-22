@@ -1,0 +1,141 @@
+schema_version: 1
+id: pi_a_causally_masked_transf
+learning_object_id: lo_compute_causal_attention_and_update_a_kv_cache
+subjects:
+practice_mode: trace and justify
+attempt_types_allowed: []
+evidence_facets:
+  - facet_a_causal_self_attention_head_projects_token_repr
+  - facet_when_one_token_is_appended_during_causal_decodin
+  - facet_dense_attention_pattern_storage_scales_quadratic
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A causally masked Transformer has cached attention state for n tokens 
+  and appends token n+1. Identify which Q, K, and V rows must be newly computed,
+  which prior rows must be retained, which attention-score row is required for 
+  the new output, and one resource cost that KV caching does not remove.
+expected_answer: Compute only q_(n+1), k_(n+1), and v_(n+1). Retain the prior K 
+  and V rows, append the new K and V rows, and use q_(n+1) against all 
+  cached-and-new keys to form the new bottom causal-attention row. Prior queries
+  need not be cached for this update. KV caching still requires storing and 
+  reading keys and values for prior tokens across heads and layers.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.45
+scaffold_level: 0.2
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: incremental decoding trace
+evidence_fingerprint:
+  source_family: Transformer KV-cache lecture
+  shared_stimulus_id: stimulus_append_one_token
+  representation: incremental QKV matrix rows
+  solution_recipe_family: reuse prior K and V, compute new QKV, form one new 
+    attention row
+  answer_structure: row inventory plus resource-cost explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_a_causal_self_attention_head_projects_token_repr
+  - facet_when_one_token_is_appended_during_causal_decodin
+  - facet_dense_attention_pattern_storage_scales_quadratic
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_kv_rows
+      points: 2.0
+      description: Correctly separates newly computed q, k, and v rows from 
+        reusable cached K and V and unnecessary prior Q rows.
+      tier: core
+      targets:
+        - facet: facet_when_one_token_is_appended_during_causal_decodin
+          capability: procedure_execution
+          role: primary
+        - facet: facet_a_causal_self_attention_head_projects_token_repr
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_kv_cache_incremental_update
+        - facet_causal_attention_procedure
+      correlation_group: kv_incremental_trace
+      recipe_ids:
+        - recipe_attention_cache_complete
+    - id: criterion_kv_cost
+      points: 1.0
+      description: Names cache storage or memory traffic as a remaining resource
+        cost and relates it to prior tokens, heads, or layers.
+      tier: transfer
+      targets:
+        - facet: facet_dense_attention_pattern_storage_scales_quadratic
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_kv_cache_scaling
+      correlation_group: kv_resource_tradeoff
+      recipe_ids:
+        - recipe_attention_cache_complete
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s217
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s237
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s259
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+created_at: '2026-07-21T05:07:20Z'
+updated_at: '2026-07-21T18:14:42Z'

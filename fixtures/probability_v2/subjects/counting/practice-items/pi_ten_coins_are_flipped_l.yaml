@@ -1,0 +1,132 @@
+schema_version: 1
+id: pi_ten_coins_are_flipped_l
+learning_object_id: lo_construct_and_rewrite_compound_events
+subjects:
+practice_mode: constructed_response
+attempt_types_allowed: []
+evidence_facets:
+  - facet_translate_or_or_at_least_one_with_union_and_or_s
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Ten coins are flipped. Let A_j be the event that flip j is Heads. Write 
+  set expressions for (a) at least one Head, (b) all Heads, and (c) at least two
+  consecutive Heads. Briefly explain the role of union and intersection in each 
+  expression.
+expected_answer: (a) ⋃_{j=1}^{10}A_j. (b) ⋂_{j=1}^{10}A_j. (c) 
+  ⋃_{j=1}^{9}(A_j∩A_{j+1}). Union represents at least one qualifying occurrence;
+  intersection represents simultaneous requirements.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.2
+scaffold_level: 0.35
+surface_family: repeated_binary_trials
+evidence_fingerprint:
+  source_family: primary_textbook_worked_example
+  shared_stimulus_id: ten_coin_flips
+  representation: verbal conditions and indexed set notation
+  solution_recipe_family: translate logical connectives into event operations
+  answer_structure: three symbolic expressions with explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_translate_or_or_at_least_one_with_union_and_or_s
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_coin_basic_translation
+      points: 2.0
+      description: Correctly represents at least one Head with an indexed union 
+        and all Heads with an indexed intersection.
+      tier: core
+      targets:
+        - facet: facet_translate_or_or_at_least_one_with_union_and_or_s
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_translate_event_language
+      correlation_group: coin_event_translation
+      recipe_ids:
+        - recipe_translate_compound_event
+    - id: criterion_coin_adjacent_translation
+      points: 2.0
+      description: Correctly represents consecutive Heads as a union of 
+        adjacent-pair intersections and explains why the operations match the 
+        verbal condition.
+      tier: transfer
+      targets:
+        - facet: facet_translate_or_or_at_least_one_with_union_and_or_s
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_translate_event_language
+        - criterion_coin_basic_translation
+      correlation_group: coin_event_translation
+      recipe_ids:
+        - recipe_translate_compound_event
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s62
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s67
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s69
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s73
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:12Z'
+updated_at: '2026-07-21T00:54:12Z'

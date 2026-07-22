@@ -1,0 +1,134 @@
+schema_version: 1
+id: pi_the_same_vocabulary_toke
+learning_object_id: lo_distinguish_initial_and_contextual_token_vectors
+subjects:
+practice_mode: stage diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_an_embedding_matrix_associates_each_vocabulary_t
+  - facet_attention_allows_information_encoded_at_one_toke
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: The same vocabulary token appears in two sentences with different 
+  meanings. Explain which vector is supplied by the embedding lookup and where 
+  the context-dependent difference is introduced. Also state whether the 
+  position-wise MLP exchanges information between the two token positions.
+expected_answer: The embedding lookup supplies the token’s learned initial 
+  vector; later attention and transformer processing introduce context-dependent
+  refinement. The position-wise MLP applies its operation independently at each 
+  position and does not itself exchange information between positions.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.4
+scaffold_level: 0.25
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: representation-stage
+evidence_fingerprint:
+  source_family: lecture-inventory
+  shared_stimulus_id: same-token-different-context
+  representation: architecture scenario
+  solution_recipe_family: stage-and-operation discrimination
+  answer_structure: lookup stage, refinement stage, MLP role
+misconception_consistent_answer:
+repair_targets:
+  - facet_an_embedding_matrix_associates_each_vocabulary_t
+  - facet_attention_allows_information_encoded_at_one_toke
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit-embedding-stage
+      points: 2.0
+      description: Correctly distinguishes the initial embedding lookup from 
+        later contextual refinement.
+      tier: core
+      targets:
+        - facet: facet_an_embedding_matrix_associates_each_vocabulary_t
+          capability: schema_interpretation
+          role: primary
+        - facet: facet_attention_allows_information_encoded_at_one_toke
+          capability: schema_interpretation
+          role: supporting
+      depends_on: []
+      correlation_group: representation-stage
+      recipe_ids:
+        - recipe-embedding-stage-discrimination
+    - id: crit-mlp-role
+      points: 1.0
+      description: States that position-wise MLP processing does not exchange 
+        information across token positions.
+      tier: transfer
+      targets:
+        - facet: facet_attention_allows_information_encoded_at_one_toke
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit-embedding-stage
+      correlation_group: representation-stage
+      recipe_ids:
+        - recipe-attention-mlp-roles
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s323
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+      path:
+      locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s42
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+      role: lecture
+      source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+      path:
+      locator: span:ext_01KY18ZNKKJ4FX1JW191NN77G0/s106
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZNKKJ4FX1JW191NN77G0
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZNFRJKBF3RF1MPD41D6D
+      role: lecture
+      source_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+      span_hash:
+created_at: '2026-07-21T05:07:16Z'
+updated_at: '2026-07-21T18:14:58Z'

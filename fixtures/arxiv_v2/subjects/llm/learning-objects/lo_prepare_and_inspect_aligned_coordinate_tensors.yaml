@@ -1,0 +1,62 @@
+schema_version: 1
+id: lo_prepare_and_inspect_aligned_coordinate_tensors
+title: Prepare and inspect aligned coordinate tensors
+subjects:
+  - llm
+concept: concept_supervised_coordinate_data_preparation
+knowledge_type: implementation procedure
+status: active
+contradicts:
+summary: Create class-aligned sampled tensors with a shared shuffle and inspect 
+  them with a labeled square scatter plot.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_31
+    weight: 0.8
+    recipes:
+      - id: recipe-coordinate-preparation
+        composition: conjunctive
+        all_of:
+          - facet: facet_prepare_a_binary_coordinate_dataset_by_sampling_
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_visualize_labeled_two_dimensional_samples_by_plo
+            capability: procedure_execution
+            modality: facilitating
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s553
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s559
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:51Z'
+updated_at: '2026-07-21T05:07:11Z'

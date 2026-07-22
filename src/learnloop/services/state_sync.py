@@ -55,6 +55,10 @@ def sync_vault_state(
     review_parked = pending_review_instance_ids(repository)
 
     def _activatable(item_id: str, item) -> bool:
+        # A learner-retired item stays in the vault (attempts/evidence intact)
+        # but must never reactivate into any serving path.
+        if getattr(item, "status", "active") != "active":
+            return False
         return item_id not in review_parked and item.practice_mode != "diagnostic_microprobe"
 
     for item_id, item in vault.practice_items.items():
@@ -70,14 +74,15 @@ def sync_vault_state(
             created_items += 1
             continue
 
-        if (not state.active) or state.content_hash != content_hash:
+        activatable = _activatable(item_id, item)
+        if state.active != activatable or state.content_hash != content_hash:
             repository.upsert_practice_item_state(
                 item_id,
                 difficulty=state.difficulty,
                 stability=state.stability,
                 retrievability=state.retrievability,
                 due_at=state.due_at,
-                active=_activatable(item_id, item),
+                active=activatable,
                 content_hash=content_hash,
                 last_attempt_at=state.last_attempt_at,
                 clock=clock,
@@ -116,6 +121,13 @@ def sync_vault_state(
     from learnloop.services.probe_episodes import enter_stale_uncertainty_reprobes
 
     enter_stale_uncertainty_reprobes(vault, repository, clock=clock)
+
+    # P4 §14.2 audit L4/D8: the composed-selector telemetry time-box only fires if
+    # something checks it at runtime. State sync is the per-decision maintenance hook, so
+    # any open horizon past its box is retired here (a no-op when none is open or expired).
+    from learnloop.services.shadow_components import retire_expired_telemetry
+
+    retire_expired_telemetry(repository, clock=clock)
 
     return StateSyncResult(
         practice_item_states_created=created_items,

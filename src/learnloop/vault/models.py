@@ -61,6 +61,11 @@ class Goal(VaultModel):
     facet_scope: GoalFacetScope = Field(default_factory=GoalFacetScope)
     due_at: str | None = None
     exam: GoalExamConfig = Field(default_factory=GoalExamConfig)
+    # Controlled-writer mirror of the confirmed terminal-contract head (P0.4 §3.4).
+    # Written ONLY by goal_contracts.confirm/append_* -- direct YAML draft edits
+    # never touch these. None on unconfirmed goals + all legacy vaults.
+    confirmed_contract_head_id: str | None = None
+    confirmed_contract_hash: str | None = None
     created_at: str
     updated_at: str
 
@@ -360,6 +365,15 @@ class PracticeItem(VaultModel):
     retrieval_demand: float | None = Field(default=None, ge=0.0, le=1.0)
     transfer_distance: float | None = Field(default=None, ge=0.0, le=1.0)
     scaffold_level: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Depth-rung metadata (spec v2 §4 / spec_p1 §3.4): the closed-vocab
+    # capability + the item's point in task-feature space, stamped by the rung-
+    # targeted generation path. Optional so pre-rung vault files load unchanged.
+    capability: Literal[
+        "retrieval", "schema_interpretation", "procedure_execution", "method_selection", "coordination"
+    ] | None = None
+    task_features: dict[str, Any] | None = None
+    # Schema pin for task_features (e.g. "p1_launch@1"); stamped server-side.
+    task_feature_schema: str | None = None
     surface_family: str | None = None
     evidence_fingerprint: EvidenceFingerprint = Field(default_factory=EvidenceFingerprint)
     # spec §5.2.2: for generated diagnostics, the categorically-divergent answer a
@@ -368,6 +382,11 @@ class PracticeItem(VaultModel):
     misconception_consistent_answer: str | None = None
     repair_targets: list[str] = Field(default_factory=list)
     grading_rubric: Rubric | None = None
+    # Learner-owned lifecycle (Andy: readers control the prompts they collect).
+    # `retired` items keep every attempt/evidence row but are never served again;
+    # state_sync deactivates their scheduler state on the next sync.
+    status: Literal["active", "retired"] = "active"
+    status_reason: str | None = None
     provenance: Provenance = Field(default_factory=Provenance)
     created_at: str
     updated_at: str

@@ -1,0 +1,66 @@
+schema_version: 1
+id: lo_compute_scaled_causal_self_attention
+title: Compute scaled causal self-attention
+subjects:
+  - llm
+concept: concept_scaled_self_attention
+knowledge_type: procedure and schema interpretation
+status: active
+contradicts:
+summary: Interpret and execute the query-key-value computation, scaling, 
+  masking, normalization, and weighted aggregation used by an autoregressive 
+  attention layer.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_12
+    weight: 1.0
+    recipes:
+      - id: recipe_scaled_causal_attention
+        composition: conjunctive
+        all_of:
+          - facet: facet_given_token_features_and_learned_projection_matr
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_causal_masking_assigns_disallowed_future_positio
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_given_token_features_and_learned_projection_matr
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      path:
+      locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s128
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+      role: lecture
+      source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      path:
+      locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s339
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+      role: lecture
+      source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      span_hash:
+created_at: '2026-07-21T05:06:44Z'
+updated_at: '2026-07-21T05:07:03Z'

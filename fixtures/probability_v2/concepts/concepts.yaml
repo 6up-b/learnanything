@@ -1,0 +1,190 @@
+schema_version: 1
+concepts:
+  concept_event_operations:
+    title: Event operations
+    type: concept
+    aliases:
+      - set operations on events
+      - compound events
+    description: Union, intersection, complement, and their use in translating 
+      verbal conditions into set notation.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_event_operations
+  concept_multiplication_rule_for_counting:
+    title: Multiplication rule for counting
+    type: procedure
+    aliases:
+      - product rule
+      - fundamental counting principle
+      - Multiplication Rule
+      - basic counting principle
+    description: Counting compound outcomes by multiplying the available choices
+      across stages.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_multiplication_rule_for_counting
+  concept_naive_probability:
+    title: Naive probability
+    type: procedure
+    aliases:
+      - classical probability
+      - favorable outcomes over total outcomes
+    description: Computing probabilities by counting favorable outcomes in a 
+      finite, equally likely sample space.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_naive_probability
+  concept_sample_spaces_and_events:
+    title: Sample spaces and events
+    type: concept
+    aliases:
+      - outcome space
+      - events as subsets
+    description: Set-based representations of experiments, outcomes, and events.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_sample_spaces_and_events
+  concept_unjustified_equiprobability:
+    title: Unjustified equiprobability
+    type: misconception
+    aliases:
+      - everything is fifty-fifty
+      - unsupported equal-likelihood assumption
+    description: Assuming outcomes are equally likely merely because the 
+      possibilities can be described as a short list, especially a binary list.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_unjustified_equiprobability
+  concept_binomial_coefficients:
+    title: Binomial Coefficients
+    type: concept
+    aliases:
+      - n choose k
+      - unordered selection without replacement
+    description: Counts of fixed-size subsets selected without replacement and 
+      without regard to order.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_binomial_coefficients
+  concept_complement_counting:
+    title: Complement Counting
+    type: procedure
+    aliases:
+      - counting the complement
+    description: Count a difficult target by counting its complementary 
+      configuration and subtracting from the total or from probability one.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_complement_counting
+  concept_inclusion_exclusion:
+    title: Inclusion–Exclusion
+    type: procedure
+    aliases:
+      - inclusion-exclusion formula
+    description: Count or assign probability to a union by correcting the 
+      multiplicities created by overlapping component events.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_inclusion_exclusion
+  concept_ordered_sampling:
+    title: Ordered Sampling
+    type: concept
+    aliases:
+      - sampling where order matters
+    description: Counting sequential selections in which positions or selection 
+      order are distinguished, with availability determined by replacement.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_ordered_sampling
+  concept_permutations_and_factorials:
+    title: Permutations and Factorials
+    type: concept
+    aliases:
+      - permutation counting
+    description: Arrangements of distinct objects and the factorial notation 
+      used to count them.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_permutations_and_factorials
+  concept_permutations_with_repeated_objects:
+    title: Permutations with Repeated Objects
+    type: procedure
+    aliases:
+      - multiset permutations
+      - repeated-letter permutations
+    description: Counting arrangements when occurrences of the same type are 
+      indistinguishable.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_permutations_with_repeated_objects
+  concept_uniform_overcounting_correction:
+    title: Uniform Overcounting Correction
+    type: procedure
+    aliases:
+      - adjusting for overcounting
+    description: Correct a construction that represents every target object the 
+      same number of times by dividing by that common multiplicity.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_uniform_overcounting_correction
+  concept_birthday_matching_problem:
+    title: Birthday matching problem
+    type: concept
+    aliases:
+      - birthday problem
+      - birthday collision probability
+    description: Calculating or simulating the probability that birthdays 
+      coincide, including pair and higher-order matches.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_birthday_matching_problem
+  concept_combinatorial_computation_in_r:
+    title: Combinatorial computation in R
+    type: procedure
+    aliases:
+      - factorial and choose functions
+      - log-scale combinatorial computation
+    description: Selecting direct or logarithmic R functions for factorials and 
+      binomial coefficients.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_combinatorial_computation_in_r
+  concept_monte_carlo_probability_estimation:
+    title: Monte Carlo probability estimation
+    type: procedure
+    aliases:
+      - probability simulation
+      - simulation-based probability estimate
+    description: Representing a random experiment in code, repeating it, and 
+      estimating an event probability by relative frequency.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_monte_carlo_probability_estimation
+  concept_random_sampling_in_r:
+    title: Random sampling in R
+    type: procedure
+    aliases:
+      - pseudo-random sampling
+      - sample command
+    description: Generating samples, permutations, and weighted draws with R's 
+      sample function.
+    tags: []
+    created_at: '2026-07-21T00:53:58Z'
+    updated_at: '2026-07-21T00:53:58Z'
+    id: concept_random_sampling_in_r

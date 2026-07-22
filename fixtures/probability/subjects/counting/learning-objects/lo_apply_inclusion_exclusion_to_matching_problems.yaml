@@ -1,0 +1,76 @@
+schema_version: 1
+id: lo_apply_inclusion_exclusion_to_matching_problems
+title: Apply inclusion-exclusion to matching problems
+subjects:
+  - counting
+concept: concept_inclusion_exclusion_for_finite_unions
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Model at-least-one-match events as finite unions, compute 
+  fixed-position intersection probabilities by permutation counts, group 
+  symmetric terms, and interpret the resulting alternating factorial sum.
+prerequisites:
+  - concept_events_and_sample_spaces
+  - concept_naive_probability_by_counting
+  - concept_basic_counting_tools
+confusables:
+  - concept_treating_overlapping_events_as_disjoint
+blueprints:
+  - id: bp_01KXKVFA_10
+    weight: 0.4
+    recipes:
+      - id: recipe_ie_matching_full
+        composition: conjunctive
+        all_of:
+          - facet: facet_in_de_montmort_s_matching_problem_define_a_i_as_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_for_finite_events_a_1_a_n_compute_p_a_1_union_un
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_for_k_specified_matching_positions_in_the_n_card
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_by_inclusion_exclusion_and_symmetry_the_probabil
+            capability: coordination
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_by_inclusion_exclusion_and_symmetry_the_probabil
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s256
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s266
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:01Z'
+updated_at: '2026-07-15T21:39:07Z'

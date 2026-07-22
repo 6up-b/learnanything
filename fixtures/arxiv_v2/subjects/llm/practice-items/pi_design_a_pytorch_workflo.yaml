@@ -1,0 +1,141 @@
+schema_version: 1
+id: pi_design_a_pytorch_workflo
+learning_object_id: lo_render_a_classifier_s_decision_regions
+subjects:
+practice_mode: implementation design
+attempt_types_allowed: []
+evidence_facets:
+  - facet_construct_a_configurable_two_input_relu_classifi
+  - facet_visualize_predicted_decision_regions_by_building
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Design a PyTorch workflow for a classifier with hidden widths [8, 8], 
+  two input coordinates, and two output logits. Describe the exact layer 
+  sequence and forward method, then describe how to produce a 256-by-256 
+  decision-region map over [-1,1] in each coordinate. Include tensor shapes, the
+  class axis used by argmax, and necessary device-to-NumPy handling.
+expected_answer: The network sequence is Linear(2,8), ReLU, Linear(8,8), ReLU, 
+  Linear(8,2), stored in an nn.Sequential; forward returns self.model(x). For 
+  visualization, build a 256×256×2 coordinate grid over [-1,1], reshape it to 
+  65,536×2, convert it to a float tensor on the model's device, and evaluate the
+  model to obtain 65,536×2 logits. Detach the logits, move them to CPU, convert 
+  to NumPy, and reshape to 256×256×2. Take argmax over the last axis to obtain 
+  the class map, then render it with an extent and orientation consistent with 
+  the coordinate grid.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.5
+scaffold_level: 0.25
+capability: coordination
+task_features:
+  complexity: 4
+  transfer: far
+  representation:
+    - code
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: whole_task
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: classifier-and-grid-visualization
+evidence_fingerprint:
+  source_family: PyTorch architecture and grid visualization
+  shared_stimulus_id: two-hidden-layer-grid-map
+  representation: implementation specification with tensor shapes
+  solution_recipe_family: assemble network then batch-probe and reshape
+  answer_structure: layer sequence followed by visualization pipeline
+misconception_consistent_answer:
+repair_targets:
+  - facet_construct_a_configurable_two_input_relu_classifi
+  - facet_visualize_predicted_decision_regions_by_building
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-build-dimensionally-valid-model
+      points: 3.0
+      description: Provides the correct 2→8→8→2 linear dimensions with ReLU 
+        after each hidden linear layer and delegates forward to the sequential 
+        model.
+      tier: core
+      targets:
+        - facet: facet_construct_a_configurable_two_input_relu_classifi
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: classifier-visualization
+      recipe_ids:
+        - recipe-build-classifier
+    - id: criterion-coordinate-probe-grid-inference
+      points: 3.0
+      description: Constructs and flattens a 256-by-256 two-coordinate grid and 
+        obtains one pair of logits per probe point.
+      tier: core
+      targets:
+        - facet: facet_visualize_predicted_decision_regions_by_building
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - criterion-build-dimensionally-valid-model
+      correlation_group: classifier-visualization
+      recipe_ids:
+        - recipe-render-decision-regions
+    - id: criterion-reshape-argmax-render
+      points: 2.0
+      description: Correctly handles device detachment and CPU conversion, 
+        reshapes logits, uses argmax on the class axis, and preserves display 
+        orientation.
+      tier: transfer
+      targets:
+        - facet: facet_visualize_predicted_decision_regions_by_building
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion-coordinate-probe-grid-inference
+      correlation_group: classifier-visualization
+      recipe_ids:
+        - recipe-render-decision-regions
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s568
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s569
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:37Z'
+updated_at: '2026-07-21T18:14:52Z'

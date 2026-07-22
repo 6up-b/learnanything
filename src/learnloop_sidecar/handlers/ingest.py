@@ -19,7 +19,7 @@ from learnloop.services.source_unit_selection import (
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.ingest_jobs import ActiveIngestJobError
+from learnloop_sidecar.ingest_jobs import _APPLYING_JOB_TYPES, ActiveIngestJobError
 from learnloop_sidecar.registry import method
 
 # How many recent ingests the screen shows; the vault keeps everything.
@@ -34,18 +34,43 @@ class StartIngestInput(ParamsModel):
     source: str
     subject_id: str
     mode: Literal["canonical", "exam"] = "canonical"
+    # PDF extraction engine: marker-pdf (structured Markdown, math, OCR) or the
+    # pypdf native-text fallback. "auto" defers to the vault's [ingest.pdf].
+    pdf_engine: Literal["auto", "marker", "pypdf"] = "auto"
 
 
 class IngestJobInput(ParamsModel):
     job_id: str
 
 
+class SourcePageRangeInput(ParamsModel):
+    source: str
+    pages: str | None = None
+    # Backward-compatible contiguous range form.
+    page_start: int | None = None
+    page_end: int | None = None
+
+
 class StartImportBatchInput(ParamsModel):
     sources: list[str]
     subject_id: str | None = None
     inventory: bool = False
+    # Optional, inclusive, user-facing PDF page range. Pages are 1-based at the
+    # RPC boundary and normalized to the IR's 0-based page indices below.
+    page_start: int | None = None
+    page_end: int | None = None
+    pages: str | None = None
+    # Multi-source imports carry ranges per source. The top-level pair remains
+    # the convenient single-source form used by Quick Add.
+    page_ranges: list[SourcePageRangeInput] = []
     # A build-plan estimate snapshot (§8.6.2) when the batch is started from a plan.
     estimate: dict[str, Any] | None = None
+    # Sources the learner opted OUT of the reader loop at ingest setup (e.g.
+    # practice exams). Everything else defaults to reader-enabled.
+    reader_disabled_sources: list[str] = []
+    # PDF extraction engine for this batch: marker-pdf or the pypdf fallback.
+    # "auto" defers to the vault's [ingest.pdf] configuration.
+    pdf_engine: Literal["auto", "marker", "pypdf"] = "auto"
 
 
 class IngestBatchInput(ParamsModel):
@@ -54,6 +79,21 @@ class IngestBatchInput(ParamsModel):
 
 class ListIngestBatchesInput(ParamsModel):
     limit: int = 30
+
+
+class RetrySynthesisInput(ParamsModel):
+    batch_id: str
+    # Required for a model rerun; optional (ignored) when reusing the preserved
+    # candidate, which re-runs gates/persistence with zero model calls.
+    synthesis_total_input_tokens: int | None = None
+    synthesis_shard_output_tokens: int | None = None
+    synthesis_output_tokens: int | None = None
+    reuse_candidate: bool = False
+    # Both require reuse_candidate: auto-derive mechanically-safe repairs over
+    # the preserved candidate / apply explicit user- or agent-authored ops.
+    repair_candidate: bool = False
+    repair_ops: list[dict[str, Any]] | None = None
+    unlimited_token_budget: bool = False
 
 
 @method("classify_ingest_source", ClassifyIngestSourceInput)
@@ -78,7 +118,9 @@ def start_ingest(ctx: SidecarContext, params: StartIngestInput) -> dict[str, Any
     except UnsupportedSourceError as exc:
         raise SidecarError("unsupported_source", str(exc)) from exc
     try:
-        job = ctx.ingest_jobs.start(vault.root, source, params.subject_id, params.mode)
+        job = ctx.ingest_jobs.start(
+            vault.root, source, params.subject_id, params.mode, pdf_engine=params.pdf_engine
+        )
     except ActiveIngestJobError as exc:
         raise SidecarError(
             "ingest_in_progress",
@@ -126,15 +168,89 @@ def start_import_batch(ctx: SidecarContext, params: StartImportBatchInput) -> di
         raise SidecarError("unsupported_source", "At least one source is required.")
     if params.subject_id is not None and params.subject_id not in vault.subjects:
         raise SidecarError("unknown_subject", f"Subject '{params.subject_id}' does not exist.")
+    if params.pages and (params.page_start is not None or params.page_end is not None):
+        raise SidecarError("invalid_page_range", "Use either a page expression or first/last page, not both.")
+    if (params.page_start is None) != (params.page_end is None):
+        raise SidecarError("invalid_page_range", "Enter both the first and last PDF page.")
+    page_selection = _parse_page_selection(params.pages) if params.pages else None
+    if params.page_start is not None and params.page_end is not None:
+        page_selection = _contiguous_page_selection(params.page_start, params.page_end)
+    if page_selection is not None and len(sources) > 1:
+        raise SidecarError(
+            "invalid_page_range",
+            "Multi-source imports require a separate page range for each PDF.",
+        )
+    page_selections: dict[str, list[int]] = {}
+    for item in params.page_ranges:
+        range_source = item.source.strip()
+        if range_source not in sources:
+            raise SidecarError("invalid_page_range", f"Page range source '{range_source}' is not in this import batch.")
+        if range_source in page_selections:
+            raise SidecarError("invalid_page_range", f"Source '{range_source}' has more than one page range.")
+        if item.pages and (item.page_start is not None or item.page_end is not None):
+            raise SidecarError("invalid_page_range", "Use either a page expression or first/last page, not both.")
+        if item.pages:
+            page_selections[range_source] = _parse_page_selection(item.pages)
+        elif item.page_start is not None and item.page_end is not None:
+            page_selections[range_source] = _contiguous_page_selection(item.page_start, item.page_end)
+        else:
+            raise SidecarError("invalid_page_range", f"Source '{range_source}' has an incomplete page selection.")
     for source in sources:
         try:
             resolve_source(source)
         except UnsupportedSourceError as exc:
             raise SidecarError("unsupported_source", str(exc)) from exc
+    reader_disabled = {s.strip() for s in params.reader_disabled_sources if s.strip()}
+    for source in reader_disabled:
+        if source not in sources:
+            raise SidecarError(
+                "unsupported_source", f"Reader opt-out source '{source}' is not in this import batch."
+            )
     batch_id = ctx.ingest_jobs.enqueue_import(
-        sources, subject_id=params.subject_id, inventory=params.inventory, estimate=params.estimate
+        sources,
+        subject_id=params.subject_id,
+        inventory=params.inventory,
+        estimate=params.estimate,
+        page_selection=page_selection,
+        page_selections=page_selections,
+        reader_disabled_sources=reader_disabled,
+        pdf_engine=params.pdf_engine,
     )
     return versioned(ctx.ingest_jobs.get_batch(batch_id))
+
+
+def _contiguous_page_selection(start: int, end: int) -> list[int]:
+    if start < 1 or end < 1:
+        raise SidecarError("invalid_page_range", "PDF pages must be positive numbers.")
+    if start > end:
+        raise SidecarError("invalid_page_range", "The first PDF page must not exceed the last page.")
+    return list(range(start - 1, end))
+
+
+def _parse_page_selection(raw: str) -> list[int]:
+    pages: set[int] = set()
+    text = raw.strip()
+    if not text:
+        raise SidecarError("invalid_page_range", "Enter at least one PDF page or range.")
+    for raw_segment in text.split(","):
+        segment = raw_segment.strip()
+        if not segment:
+            raise SidecarError("invalid_page_range", "Remove the empty page segment.")
+        if "-" in segment:
+            parts = [part.strip() for part in segment.split("-")]
+            if len(parts) != 2 or not all(part.isdigit() for part in parts):
+                raise SidecarError("invalid_page_range", f"'{segment}' must be a page or range such as 36 or 3-27.")
+            start, end = (int(part) for part in parts)
+        elif segment.isdigit():
+            start = end = int(segment)
+        else:
+            raise SidecarError("invalid_page_range", f"'{segment}' must be a page or range such as 36 or 3-27.")
+        if start < 1 or end < 1:
+            raise SidecarError("invalid_page_range", "PDF pages must be positive numbers.")
+        if start > end:
+            raise SidecarError("invalid_page_range", f"Range {start}-{end} runs backwards.")
+        pages.update(range(start - 1, end))
+    return sorted(pages)
 
 
 @method("get_ingest_batch", IngestBatchInput)
@@ -142,12 +258,39 @@ def get_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str,
     batch = ctx.ingest_jobs.get_batch(params.batch_id)
     if batch is None:
         raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
+    _reload_applied_batches(ctx, [batch])
     return versioned(batch)
 
 
 @method("list_ingest_batches", ListIngestBatchesInput)
 def list_ingest_batches(ctx: SidecarContext, params: ListIngestBatchesInput) -> dict[str, Any]:
-    return versioned({"batches": ctx.ingest_jobs.list_batches(limit=params.limit)})
+    batches = ctx.ingest_jobs.list_batches(limit=params.limit)
+    _reload_applied_batches(ctx, batches)
+    return versioned({"batches": batches})
+
+
+def _reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) -> None:
+    """Refresh the in-memory vault once after a content-applying job completes.
+
+    Durable synthesis/ingest batches finish in the background drain thread, so
+    the batch-polling RPCs are the first place the sidecar can observe that new
+    study-map content landed. Without this, screens reading the loaded vault
+    (Today, knowledge map) keep serving the pre-apply snapshot until an app
+    restart even though the proposal shows as accepted."""
+
+    pending = [
+        job["id"]
+        for batch in batches
+        for job in batch.get("jobs") or []
+        if job.get("job_type") in _APPLYING_JOB_TYPES
+        and job.get("status") == "completed"
+        and ctx.ingest_jobs.needs_reload(job["id"])
+    ]
+    if not pending:
+        return
+    ctx.reload(maintenance=False)
+    for job_id in pending:
+        ctx.ingest_jobs.mark_reloaded(job_id)
 
 
 @method("cancel_ingest_batch", IngestBatchInput)
@@ -164,6 +307,105 @@ def resume_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[s
     if batch is None:
         raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
     return versioned(batch)
+
+
+@method("retry_synthesis", RetrySynthesisInput)
+def retry_synthesis(ctx: SidecarContext, params: RetrySynthesisInput) -> dict[str, Any]:
+    """Requeue only a failed synthesis job with revised execution ceilings.
+
+    Completed inventory dependencies remain completed and are reused verbatim.
+    With ``reuse_candidate`` the preserved merged candidate is revalidated and
+    persisted with zero model calls (budgets are not required or applied).
+    """
+
+    budgets: dict[str, int] = {}
+    if not params.reuse_candidate and not params.unlimited_token_budget:
+        if params.synthesis_total_input_tokens is None:
+            raise SidecarError(
+                "invalid_synthesis_budget",
+                "A synthesis total-input ceiling is required for a model rerun.",
+            )
+        if not 10_000 <= params.synthesis_total_input_tokens <= 2_000_000:
+            raise SidecarError(
+                "invalid_synthesis_budget",
+                "Synthesis total-input ceiling must be between 10,000 and 2,000,000 tokens.",
+            )
+        for label, value in (
+            ("Synthesis shard-output ceiling", params.synthesis_shard_output_tokens),
+            ("Synthesis merged-output ceiling", params.synthesis_output_tokens),
+        ):
+            if value is not None and not 1_000 <= value <= 200_000:
+                raise SidecarError(
+                    "invalid_synthesis_budget",
+                    f"{label} must be between 1,000 and 200,000 tokens.",
+                )
+        budgets = {"synthesis_total_input_ceiling": params.synthesis_total_input_tokens}
+        if params.synthesis_shard_output_tokens is not None:
+            budgets["synthesis_shard_output_tokens"] = params.synthesis_shard_output_tokens
+        if params.synthesis_output_tokens is not None:
+            budgets["synthesis_output_tokens"] = params.synthesis_output_tokens
+    try:
+        batch = ctx.ingest_jobs.retry_synthesis(
+            params.batch_id,
+            synthesis_budgets=budgets or None,
+            reuse_candidate=params.reuse_candidate,
+            repair_candidate=params.repair_candidate,
+            repair_ops=params.repair_ops,
+            unlimited_token_budget=params.unlimited_token_budget,
+        )
+    except ValueError as exc:
+        raise SidecarError("synthesis_retry_unavailable", str(exc)) from exc
+    return versioned(batch)
+
+
+@method("get_synthesis_candidate", IngestBatchInput)
+def get_synthesis_candidate(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]:
+    """Summarize the preserved synthesis candidate behind a failed batch (§8).
+
+    Deterministic and read-only: item counts, summary line, and run lineage from
+    ``synthesis_runs.candidate_output_json``, so the learner can decide between
+    revalidating the paid-for candidate and paying for a fresh model run."""
+
+    _vault, repository = ctx.require_vault()
+    batch = ctx.ingest_jobs.get_batch(params.batch_id)
+    if batch is None:
+        raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
+    synthesis_run_id = ""
+    for job in batch.get("jobs") or []:
+        details = ((job.get("error") or {}).get("details")) or {}
+        if details.get("candidate_preserved") and details.get("synthesis_run_id"):
+            synthesis_run_id = str(details["synthesis_run_id"])
+            break
+    if not synthesis_run_id:
+        raise SidecarError(
+            "no_saved_candidate", "This batch has no failed synthesis attempt with a preserved candidate."
+        )
+    run = repository.synthesis_run(synthesis_run_id)
+    candidate = (run or {}).get("candidate_output") or None
+    if run is None or candidate is None:
+        raise SidecarError("no_saved_candidate", "The preserved candidate is no longer available.")
+    counts = {
+        key: len(candidate.get(key) or [])
+        for key in (
+            "concepts",
+            "facets",
+            "learning_objects",
+            "blueprints",
+            "practice_items",
+            "concept_relations",
+        )
+    }
+    return versioned(
+        {
+            "synthesis_run_id": synthesis_run_id,
+            "run_status": run.get("status"),
+            "created_at": run.get("created_at"),
+            "completed_at": run.get("completed_at"),
+            "summary": str(candidate.get("summary") or ""),
+            "item_counts": counts,
+            "notes": list(candidate.get("notes") or []),
+        }
+    )
 
 
 @method("get_source_library")
@@ -205,6 +447,7 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "extraction_status": latest["status"] if latest else None,
                 # Placeholders wired to real signals in later milestones (§5.7).
                 "suggested_role": None,
+                "reader_enabled": bool(artifact.get("reader_enabled", 1)),
                 "update_available": len(revisions) > 1 and current is not None and current["id"] != revisions[-1]["id"],
             }
         )
@@ -448,6 +691,8 @@ class StartInventoryInput(ParamsModel):
     units: list[dict[str, Any]]
     subject_id: str | None = None
     source_set_id: str | None = None
+    inventory_output_tokens: int | None = None
+    unlimited_token_budget: bool = False
 
 
 def _source_set_or_error(vault, set_id: str):
@@ -514,12 +759,24 @@ def get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[
     return versioned({"coverage": coverage})
 
 
+def _validated_brief(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Strict brief validation at the RPC boundary (typed error, camel→snake)."""
+
+    from learnloop.services.brief import BriefValidationError, validate_brief
+
+    try:
+        return validate_brief(raw, strict=True)
+    except BriefValidationError as exc:
+        raise SidecarError("invalid_brief", f"Invalid brief: {exc}") from exc
+
+
 class CreateStudyMapInput(ParamsModel):
     source_set_id: str
     mode: str = "auto"
     brief: dict[str, Any] = {}
     apply: bool = False
     create_goal: bool = False
+    unlimited_token_budget: bool = False
 
 
 @method("create_study_map", CreateStudyMapInput)
@@ -547,11 +804,12 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
             vault.root,
             params.source_set_id,
             client=client,
-            brief=dict(params.brief or {}),
+            brief=_validated_brief(params.brief),
             mode=params.mode,
             apply=params.apply,
             create_goal=params.create_goal,
             repository=repository,
+            unlimited_token_budget=params.unlimited_token_budget,
         )
     except StudyMapError as exc:
         raise SidecarError(exc.code, str(exc), details={"diagnostics": exc.diagnostics, "lockReasons": exc.lock_reasons})
@@ -564,6 +822,8 @@ class BuildStudyMapInput(ParamsModel):
     source_set_id: str
     brief: dict[str, Any] = {}
     mode: str = "auto"
+    inventory_output_tokens: int | None = None
+    unlimited_token_budget: bool = False
 
 
 @method("build_study_map", BuildStudyMapInput)
@@ -584,6 +844,8 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
     from learnloop.services.source_outline import resolve_extraction_id
 
     vault, repository = ctx.require_vault()
+    if not params.unlimited_token_budget:
+        _validate_inventory_output_budget(params.inventory_output_tokens)
     source_set = _source_set_or_error(vault, params.source_set_id)
     if not source_set.members:
         raise SidecarError("empty_source_set", "This collection has no members to synthesize.")
@@ -632,17 +894,21 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
             source_set_id=params.source_set_id,
             new_revision_ids=new_revision_ids or None,
             subject_id=source_set.subject_id,
-            brief=dict(params.brief or {}),
+            brief=_validated_brief(params.brief),
             input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
+            output_budget_tokens=params.inventory_output_tokens,
+            unlimited_token_budget=params.unlimited_token_budget,
         )
     else:
         batch_id = ctx.ingest_jobs.enqueue_source_set_build(
             members=members_payload,
             source_set_id=params.source_set_id,
             subject_id=source_set.subject_id,
-            brief=dict(params.brief or {}),
+            brief=_validated_brief(params.brief),
             mode=params.mode,
             input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
+            output_budget_tokens=params.inventory_output_tokens,
+            unlimited_token_budget=params.unlimited_token_budget,
         )
     batch_view = ctx.ingest_jobs.get_batch(batch_id) or {}
     batch_view["mode"] = resolved_mode
@@ -655,6 +921,7 @@ class AppendSourceInput(ParamsModel):
     change_kind: str = "source_added"
     brief: dict[str, Any] = {}
     auto_apply: bool = True
+    unlimited_token_budget: bool = False
 
 
 @method("append_source", AppendSourceInput)
@@ -663,6 +930,7 @@ def append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[st
 
     from learnloop.services.source_append import append_source as run_append
     from learnloop.services.source_set_synthesis import StudyMapError
+<<<<<<< HEAD
     from learnloop_sidecar.handlers.ai_providers import _ready_routed_provider
 
     vault, repository = ctx.require_vault()
@@ -672,13 +940,25 @@ def append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[st
         raise SidecarError(
             "provider_unavailable",
             runtime.message or "AI provider is unavailable for append.",
+=======
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
+
+    vault, repository = ctx.require_vault()
+    _source_set_or_error(vault, params.source_set_id)
+    _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
+    if client is None:
+        raise SidecarError(
+            "codex_unavailable",
+            runtime.message or "Codex runtime is unavailable for append.",
+>>>>>>> f0052f7260eb63224bd103193929a03fd54660d6
             retryable=True,
         )
     try:
         result = run_append(
-            vault.root, params.source_set_id, client=client, brief=dict(params.brief or {}),
+            vault.root, params.source_set_id, client=client, brief=_validated_brief(params.brief),
             new_revision_ids=params.new_revision_ids, change_kind=params.change_kind,
             auto_apply=params.auto_apply, repository=repository,
+            unlimited_token_budget=params.unlimited_token_budget,
         )
     except StudyMapError as exc:
         raise SidecarError(exc.code, str(exc), details={"diagnostics": exc.diagnostics})
@@ -701,11 +981,27 @@ def refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> d
     """Adopt a new source revision (§10.4). Pinned membership advances only on confirm."""
 
     from learnloop.services.revision_refresh import refresh_revision
+<<<<<<< HEAD
     from learnloop_sidecar.handlers.ai_providers import _ready_routed_provider
 
     vault, repository = ctx.require_vault()
     _source_set_or_error(vault, params.source_set_id)
     client = _ready_routed_provider(vault, "canonical_ingest")[2] if params.confirm else None
+=======
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
+
+    vault, repository = ctx.require_vault()
+    _source_set_or_error(vault, params.source_set_id)
+    client = None
+    if params.confirm:
+        _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
+        if client is None:
+            raise SidecarError(
+                "codex_unavailable",
+                runtime.message or "Codex runtime is unavailable for revision refresh.",
+                retryable=True,
+            )
+>>>>>>> f0052f7260eb63224bd103193929a03fd54660d6
     result = refresh_revision(
         vault.root, params.source_set_id, source_id=params.source_id,
         old_revision_id=params.old_revision_id, new_revision_id=params.new_revision_id,
@@ -851,6 +1147,11 @@ class ConfirmQuickAddInput(ParamsModel):
     subject_id: str
     brief: dict[str, Any] = {}
     role_override: str | None = None
+    inventory_output_tokens: int | None = None
+    unlimited_token_budget: bool = False
+    # Per-source reader participation chosen in the quick-add compose (None =
+    # no opinion; keeps the source's existing/default setting).
+    reader_enabled: bool | None = None
 
 
 @method("plan_quick_add", PlanQuickAddInput)
@@ -873,7 +1174,7 @@ def plan_quick_add_rpc(ctx: SidecarContext, params: PlanQuickAddInput) -> dict[s
             vault,
             params.source.strip(),
             subject_id=params.subject_id,
-            brief_overrides=dict(params.brief or {}),
+            brief_overrides=_validated_brief(params.brief),
         )
     except QuickAddError as exc:
         raise SidecarError(
@@ -894,6 +1195,8 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
     from learnloop.services.quick_add import QuickAddError, enqueue_quick_add, plan_quick_add
 
     vault, repository = ctx.require_vault()
+    if not params.unlimited_token_budget:
+        _validate_inventory_output_budget(params.inventory_output_tokens)
     if params.subject_id not in vault.subjects:
         raise SidecarError("unknown_subject", f"Subject '{params.subject_id}' does not exist.")
     try:
@@ -903,9 +1206,21 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
             vault,
             params.source.strip(),
             subject_id=params.subject_id,
-            brief_overrides=dict(params.brief or {}),
+            brief_overrides=_validated_brief(params.brief),
         )
-        result = enqueue_quick_add(vault, ctx.ingest_jobs, plan, role_override=params.role_override)
+        result = enqueue_quick_add(
+            vault,
+            ctx.ingest_jobs,
+            plan,
+            role_override=params.role_override,
+            output_budget_tokens=params.inventory_output_tokens,
+            unlimited_token_budget=params.unlimited_token_budget,
+        )
+        if params.reader_enabled is not None:
+            resolved = resolve_source(params.source.strip())
+            artifact = repository.source_artifact_by_uri(resolved.category, resolved.source)
+            if artifact is not None:
+                repository.set_source_reader_enabled(artifact["id"], params.reader_enabled)
     except QuickAddError as exc:
         raise SidecarError(
             exc.code,
@@ -928,6 +1243,8 @@ def start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[st
     """Enqueue a role-aware unit-inventory batch (§7). Cache hits cost zero tokens."""
 
     vault, repository = ctx.require_vault()
+    if not params.unlimited_token_budget:
+        _validate_inventory_output_budget(params.inventory_output_tokens)
     extraction_id = resolve_extraction_id(repository, params.extraction_ref)
     if extraction_id is None:
         raise SidecarError("extraction_not_found", f"No extraction resolves for '{params.extraction_ref}'.")
@@ -939,8 +1256,18 @@ def start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[st
         subject_id=params.subject_id,
         source_set_id=params.source_set_id,
         input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
+        output_budget_tokens=params.inventory_output_tokens,
+        unlimited_token_budget=params.unlimited_token_budget,
     )
     return versioned(ctx.ingest_jobs.get_batch(batch_id))
+
+
+def _validate_inventory_output_budget(value: int | None) -> None:
+    if value is not None and not 1_000 <= value <= 100_000:
+        raise SidecarError(
+            "invalid_inventory_budget",
+            "Inventory output budget must be between 1,000 and 100,000 tokens per unit.",
+        )
 
 
 def _artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str:

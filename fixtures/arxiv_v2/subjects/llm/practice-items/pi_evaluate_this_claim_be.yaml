@@ -1,0 +1,147 @@
+schema_version: 1
+id: pi_evaluate_this_claim_be
+learning_object_id: lo_distinguish_universal_approximation_from_trainab
+subjects:
+practice_mode: claim_evaluation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_universal_approximation_is_a_representational_ex
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Evaluate this claim: “Because a sufficiently wide two-layer network can approximate
+  the target, gradient descent will find an accurate solution, and the theorem tells
+  us how wide the network must be.” Identify each unsupported inference and replace
+  the claim with a justified statement.'
+expected_answer: The claim incorrectly turns representational existence into an 
+  optimization guarantee and a problem-specific width prescription. A justified 
+  statement is that, under the theorem's conditions, a sufficiently wide network
+  representation exists to approximate the relevant continuous target 
+  arbitrarily well; the theorem does not guarantee that gradient-based training 
+  finds suitable parameters or specify the required width for this problem.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.4
+scaffold_level: 0.2
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: theorem_claim_audit
+evidence_fingerprint:
+  source_family: primary_textbook_universal_approximation
+  shared_stimulus_id: capacity_optimization_width_claim
+  representation: argument evaluation
+  solution_recipe_family: separate_existence_training_size
+  answer_structure: two-error diagnosis and corrected claim
+misconception_consistent_answer:
+repair_targets:
+  - facet_universal_approximation_is_a_representational_ex
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_uat_existence
+      points: 2.0
+      description: States the theorem as a representational existence claim 
+        under applicable conditions.
+      tier: core
+      targets:
+        - facet: facet_universal_approximation_is_a_representational_ex
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group: uat_audit
+      recipe_ids:
+        - recipe_uat_limits
+    - id: criterion_uat_optimization_limit
+      points: 2.0
+      description: Rejects the inference that gradient-based training is 
+        guaranteed to find suitable parameters.
+      tier: core
+      targets:
+        - facet: facet_universal_approximation_is_a_representational_ex
+          capability: method_selection
+          role: primary
+      depends_on:
+        - criterion_uat_existence
+      correlation_group: uat_audit
+      recipe_ids:
+        - recipe_uat_limits
+    - id: criterion_uat_width_limit
+      points: 2.0
+      description: Rejects the inference that the theorem supplies a 
+        problem-specific neuron count.
+      tier: core
+      targets:
+        - facet: facet_universal_approximation_is_a_representational_ex
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - criterion_uat_existence
+      correlation_group: uat_audit
+      recipe_ids:
+        - recipe_uat_limits
+    - id: criterion_uat_repair
+      points: 2.0
+      description: Produces a corrected statement that keeps capacity, 
+        optimization, and architecture sizing distinct.
+      tier: transfer
+      targets:
+        - facet: facet_universal_approximation_is_a_representational_ex
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion_uat_optimization_limit
+        - criterion_uat_width_limit
+      correlation_group: uat_audit
+      recipe_ids:
+        - recipe_uat_limits
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s463
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s464
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:34Z'
+updated_at: '2026-07-21T18:14:53Z'

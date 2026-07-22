@@ -1,0 +1,41 @@
+{
+  "invitation": {
+    "activated": false,
+    "edge": {
+      "burden": {
+        "minutes": 15
+      },
+      "capabilityDelta": [],
+      "direction": "transfer",
+      "edgeId": "edge_symmetric_transfer_1",
+      "exitEvidence": {
+        "kind": "cold_assessment_success"
+      },
+      "freshProofRule": "distinct_fresh_surface",
+      "milestoneSlug": "m_method_selection_transfer",
+      "reviewed": true,
+      "successorActivityPath": {
+        "pattern": "whole_task_integration"
+      },
+      "supportDelta": {},
+      "taskFeatureDelta": {
+        "span": 1
+      }
+    },
+    "milestoneSlug": "m_method_selection_boundary",
+    "outcome": {
+      "commitmentId": "01KXYJ5R4DCVNXPTS6ZTD59Q3R",
+      "detail": {},
+      "kind": "suggest_next",
+      "outcome": "proposal",
+      "reason": "policy_not_auto_within_envelope:suggest_next",
+      "selectedEdgeId": "edge_symmetric_transfer_1"
+    },
+    "servedAs": "suggest_next"
+  },
+  "milestone": {
+    "eventOnly": true,
+    "milestoneSlug": "m_method_selection_boundary"
+  },
+  "version": 1
+}

@@ -10,6 +10,8 @@ export const navTabs = [
   { id: "proposals", key: "5", label: "Proposals" },
   { id: "registry", key: "6", label: "Registry" },
   { id: "library", key: "7", label: "Library" },
+  { id: "golden", key: "8", label: "Golden Path" },
+  { id: "reader", key: "9", label: "Reader" },
   { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 

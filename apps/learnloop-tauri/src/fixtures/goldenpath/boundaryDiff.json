@@ -1,0 +1,57 @@
+{
+  "cells": [
+    {
+      "after": "developing",
+      "before": "untested",
+      "calibrationStatus": "heuristic",
+      "capability": "method_selection",
+      "changed": true,
+      "claimLanguage": "provisional",
+      "facet": "decomposition_choice",
+      "interval": {
+        "high": 1.0,
+        "leadingClass": "success",
+        "low": 4.2752161362516814e-05,
+        "point": 0.8,
+        "width": 0.9999572478386375
+      }
+    },
+    {
+      "after": "developing",
+      "before": "untested",
+      "calibrationStatus": "heuristic",
+      "capability": "procedure_execution",
+      "changed": true,
+      "claimLanguage": "provisional",
+      "facet": "spectral_execution",
+      "interval": {
+        "high": 1.0,
+        "leadingClass": "success",
+        "low": 4.2752161362516814e-05,
+        "point": 0.8,
+        "width": 0.9999572478386375
+      }
+    },
+    {
+      "after": "developing",
+      "before": "untested",
+      "calibrationStatus": "heuristic",
+      "capability": "coordination",
+      "changed": true,
+      "claimLanguage": "provisional",
+      "facet": "variance_readout",
+      "interval": {
+        "high": 1.0,
+        "leadingClass": "success",
+        "low": 4.2752161362516814e-05,
+        "point": 0.8,
+        "width": 0.9999572478386375
+      }
+    }
+  ],
+  "passed": true,
+  "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+  "schemaVersion": 1,
+  "targetContractVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+  "version": 1
+}

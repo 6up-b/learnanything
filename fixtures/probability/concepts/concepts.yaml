@@ -1,0 +1,479 @@
+schema_version: 1
+concepts:
+  concept_complement_strategy:
+    title: Complement Strategy
+    type: skill
+    aliases:
+      - complement rule
+      - one minus complement
+    description: Choosing to compute an event probability directly or through 
+      its complement when the complement is easier to count or describe.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_complement_strategy
+  concept_equal_likelihood_assumptions:
+    title: Equal Likelihood Assumptions
+    type: concept
+    aliases:
+      - equally likely outcomes
+      - equal mass
+    description: The condition that outcomes have equal mass or are equally 
+      likely, justified by symmetry or design rather than ignorance.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_equal_likelihood_assumptions
+  concept_event:
+    title: Event
+    type: concept
+    aliases:
+      - event occurrence
+      - A subset S
+    description: A subset of the sample space whose occurrence is determined by 
+      whether the actual outcome lies in that subset.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_event
+  concept_event_operations:
+    title: Event Operations
+    type: concept
+    aliases:
+      - union
+      - intersection
+      - complement
+      - De Morgan's laws
+    description: Union, intersection, complement, and related set identities 
+      used to construct and interpret events.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_event_operations
+  concept_naive_probability:
+    title: Naive Probability
+    type: concept
+    aliases:
+      - naive definition of probability
+      - classical probability
+    description: Probability computed as favorable outcomes divided by total 
+      outcomes in a finite equally likely sample space.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_naive_probability
+  concept_pebble_world:
+    title: Pebble World
+    type: concept
+    aliases:
+      - finite sample-space diagram
+    description: A finite-sample-space visualization where outcomes are pebbles 
+      and events are sets of pebbles.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_pebble_world
+  concept_probability_as_a_framework_for_uncertainty:
+    title: Probability as a Framework for Uncertainty
+    type: concept
+    aliases:
+      - probability
+      - logic of uncertainty
+    description: Probability as a logical framework for quantifying uncertainty,
+      randomness, variation, signal/noise, and complex phenomena.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_probability_as_a_framework_for_uncertainty
+  concept_naive_50_50_fallacy:
+    title: Naive 50-50 Fallacy
+    type: misconception
+    aliases:
+      - 50-50 fallacy
+    description: Mistaking binary wording or ignorance about an event for equal 
+      probability of the event and its complement.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_naive_50_50_fallacy
+  concept_sample_space:
+    title: Sample Space
+    type: concept
+    aliases:
+      - S
+      - outcome space
+    description: The set of all possible outcomes of an experiment, denoted S.
+    tags: []
+    created_at: '2026-07-15T21:38:45Z'
+    updated_at: '2026-07-15T21:38:45Z'
+    id: concept_sample_space
+  concept_binomial_coefficient:
+    title: Binomial coefficient
+    type: concept
+    aliases:
+      - n choose k
+      - combination
+    description: The number of unordered k-element subsets of an n-element set, 
+      denoted n choose k.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_binomial_coefficient
+  concept_birthday_problem_complement_counting:
+    title: Birthday-problem complement counting
+    type: procedure
+    aliases:
+      - birthday problem
+      - complement counting
+    description: Computing the probability of at least one birthday match by 
+      counting the complement event of no shared birthdays.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_birthday_problem_complement_counting
+  concept_common_counting_misconceptions:
+    title: Common counting misconceptions
+    type: misconception
+    aliases: []
+    description: Typical errors including adding instead of multiplying, 
+      imposing chronological order, collapsing ordered outcomes, using 
+      replacement counts without replacement, and dividing nonuniform 
+      overcounts.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_common_counting_misconceptions
+  concept_labeling_objects_for_counting:
+    title: Labeling objects for counting
+    type: skill
+    aliases:
+      - distinguishable outcome labeling
+    description: Representing physically similar objects or sub-experiments with
+      labels so distinguishable outcomes are counted correctly.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_labeling_objects_for_counting
+  concept_multiplication_rule:
+    title: Multiplication rule
+    type: procedure
+    aliases:
+      - basic counting principle
+      - product rule
+    description: Counting compound outcomes by multiplying the number of choices
+      at each stage when the relevant branch counts are constant or correctly 
+      updated.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_multiplication_rule
+  concept_ordered_sampling:
+    title: Ordered sampling
+    type: concept
+    aliases:
+      - ordered outcomes
+      - ordered possibilities
+    description: Sampling or selecting outcomes where different orders count as 
+      different outcomes.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_ordered_sampling
+  concept_adjusting_for_overcounting:
+    title: Adjusting for overcounting
+    type: procedure
+    aliases:
+      - uniform overcounting
+    description: Counting by a redundant construction and dividing by a common 
+      multiplicity when every valid possibility is counted exactly the same 
+      number of times.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_adjusting_for_overcounting
+  concept_permutations_and_factorials:
+    title: Permutations and factorials
+    type: concept
+    aliases:
+      - permutation
+      - factorial
+    description: Full ordered arrangements of n distinct objects, counted by n!,
+      with factorial notation defining the product.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_permutations_and_factorials
+  concept_repeated_letter_permutations:
+    title: Repeated-letter permutations
+    type: procedure
+    aliases:
+      - word permutations with repeated letters
+    description: Counting distinct arrangements when repeated copies of the same
+      letter are indistinguishable.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_repeated_letter_permutations
+  concept_sampling_with_replacement:
+    title: Sampling with replacement
+    type: procedure
+    aliases:
+      - replacement sampling
+    description: Repeated ordered choices from n objects where each draw again 
+      has n available choices.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_sampling_with_replacement
+  concept_sampling_without_replacement:
+    title: Sampling without replacement
+    type: procedure
+    aliases:
+      - falling product count
+    description: Ordered choices from n objects where previously chosen objects 
+      are unavailable on later choices.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_sampling_without_replacement
+  concept_subset_counting:
+    title: Subset counting
+    type: procedure
+    aliases:
+      - binary-choice subset count
+    description: Counting all subsets of an n-element set by making an 
+      include-or-exclude choice for each element.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_subset_counting
+  concept_basic_counting_tools:
+    title: Basic counting tools
+    type: skill
+    aliases:
+      - permutations
+      - factorials
+      - subset counts
+      - overcounting correction
+    description: Using factorials, permutations, subsets, and uniform overcount 
+      correction in finite probability calculations.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_basic_counting_tools
+  concept_naive_probability_by_counting:
+    title: Naive probability by counting
+    type: procedure
+    aliases:
+      - probability by counting
+      - equally likely outcomes
+    description: Computing probabilities in finite equally likely sample spaces 
+      by counting favorable and total outcomes.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_naive_probability_by_counting
+  concept_events_and_sample_spaces:
+    title: Events and sample spaces
+    type: concept
+    aliases:
+      - event
+      - sample space
+      - probability function
+    description: An experiment has a sample space of outcomes; events are 
+      subsets, and probabilities are numbers assigned to events.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_events_and_sample_spaces
+  concept_inclusion_exclusion_for_finite_unions:
+    title: Inclusion-exclusion for finite unions
+    type: procedure
+    aliases:
+      - inclusion-exclusion formula
+    description: Computing the probability of a finite union by alternating sums
+      of intersection probabilities.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_inclusion_exclusion_for_finite_unions
+  concept_de_montmort_s_matching_problem:
+    title: de Montmort's matching problem
+    type: skill
+    aliases:
+      - matching problem
+      - Treize
+      - fixed-point matching problem
+    description: Modeling and computing the probability of at least one fixed 
+      point in a random permutation of labeled cards.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_de_montmort_s_matching_problem
+  concept_r_sampling_and_simulation:
+    title: R sampling and simulation
+    type: skill
+    aliases:
+      - sample()
+      - replicate()
+      - Monte Carlo simulation in R
+    description: Using R sampling, repetition, and logical indicators to 
+      simulate probability experiments.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_r_sampling_and_simulation
+  concept_r_vectors_and_indexing:
+    title: R vectors and indexing
+    type: skill
+    aliases:
+      - R vector syntax
+      - vectorized thinking
+    description: Creating, summarizing, transforming, and indexing vectors in R.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_r_vectors_and_indexing
+  concept_treating_overlapping_events_as_disjoint:
+    title: Treating overlapping events as disjoint
+    type: misconception
+    aliases:
+      - ignoring overlap terms
+    description: Adding individual event probabilities for a union without 
+      subtracting overlaps.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_treating_overlapping_events_as_disjoint
+  concept_assuming_equal_likelihood_without_justification:
+    title: Assuming equal likelihood without justification
+    type: misconception
+    aliases:
+      - unsupported naive probability
+    description: Using count ratios before verifying that outcomes are equally 
+      likely.
+    tags: []
+    created_at: '2026-07-15T21:38:46Z'
+    updated_at: '2026-07-15T21:38:46Z'
+    id: concept_assuming_equal_likelihood_without_justification
+  concept_confusing_r_sampling_replacement_defaults:
+    title: Confusing R sampling replacement defaults
+    type: misconception
+    aliases:
+      - sample replacement default error
+    description: Assuming sample(n,k) samples with replacement unless 
+      replace=TRUE is supplied.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_confusing_r_sampling_replacement_defaults
+  concept_birthday_match_probability:
+    title: Birthday Match Probability
+    type: concept
+    aliases:
+      - birthday problem
+      - birthday match problem
+      - probability of at least one birthday match
+    description: The probability that at least two people in a group share a 
+      birthday under a 365-day model.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_birthday_match_probability
+  concept_birthday_monte_carlo_simulation:
+    title: Birthday Monte Carlo Simulation
+    type: procedure
+    aliases:
+      - birthday simulation
+      - simulation of the birthday problem
+    description: Estimating birthday-match probabilities by sampling birthdays 
+      with replacement, tabulating frequencies, and measuring the empirical 
+      event rate.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_birthday_monte_carlo_simulation
+  concept_card_fixed_point_simulation:
+    title: Card Fixed-Point Simulation
+    type: procedure
+    aliases:
+      - card matches in a shuffle
+      - fixed points
+      - matches
+    description: Simulating shuffled cards by random permutation and estimating 
+      the probability that at least one card lands in its original position.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_card_fixed_point_simulation
+  concept_r_birthday_built_in_functions:
+    title: R Birthday Built-In Functions
+    type: procedure
+    aliases:
+      - pbirthday
+      - qbirthday
+      - R birthday probability function
+      - R birthday quantile function
+    description: Using R's pbirthday and qbirthday functions to compute 
+      birthday-match probabilities or required group sizes.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_r_birthday_built_in_functions
+  concept_unequal_birthday_probabilities:
+    title: Unequal Birthday Probabilities
+    type: concept
+    aliases:
+      - non-uniform day probabilities
+      - unequal day probabilities
+    description: A birthday model in which different days can have different 
+      probabilities, making exact calculation harder while remaining 
+      approachable by simulation.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_unequal_birthday_probabilities
+  concept_using_r_1_for_birthday_matches:
+    title: Using r >= 1 For Birthday Matches
+    type: misconception
+    aliases:
+      - wrong max-count threshold
+    description: Mistakenly treating a maximum birthday count of at least 1 as 
+      evidence of a shared birthday, rather than requiring a maximum count of at
+      least 2.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_using_r_1_for_birthday_matches
+  concept_sampling_birthdays_without_replacement:
+    title: Sampling Birthdays Without Replacement
+    type: misconception
+    aliases:
+      - omitting replace=TRUE
+    description: Mistakenly sampling birthdays without replacement, which 
+      prevents the repeated birthdays that the simulation is meant to estimate.
+    tags: []
+    created_at: '2026-07-15T21:38:47Z'
+    updated_at: '2026-07-15T21:38:47Z'
+    id: concept_sampling_birthdays_without_replacement
+  concept_birthday_problem:
+    title: The Birthday Problem
+    type: concept
+    aliases: []
+    description: 'The classic birthday problem: the probability that at least two
+      people in a group share a birthday, together with the exact, complement-counting,
+      simulation, R built-in, and non-uniform-day methods used to analyze it.'
+    tags: []
+    created_at: '2026-07-16T01:04:11Z'
+    updated_at: '2026-07-16T01:04:11Z'
+    id: concept_birthday_problem
+  concept_r_and_simulation:
+    title: R and Simulation
+    type: concept
+    aliases: []
+    description: 'Using the R language to compute and estimate probabilities: vectors
+      and indexing, random sampling, and Monte Carlo repetition.'
+    tags: []
+    created_at: '2026-07-16T01:04:12Z'
+    updated_at: '2026-07-16T01:04:12Z'
+    id: concept_r_and_simulation

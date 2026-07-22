@@ -1,0 +1,93 @@
+schema_version: 1
+id: pi_for_each_request_give_t
+learning_object_id: lo_choose_direct_or_logarithmic_combinatorial_funct
+subjects:
+practice_mode: constructed_response
+attempt_types_allowed: []
+evidence_facets:
+  - facet_use_factorial_n_to_compute_n_and_choose_n_k_to_c
+  - facet_use_lfactorial_n_for_log_n_and_lchoose_n_k_for_t
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'For each request, give the appropriate R function call and state whether
+  its output is direct or logarithmic: (a) n!, when representable; (b) a binomial
+  coefficient, when representable; (c) log(n!) for a value whose factorial overflows;
+  (d) the logarithm of a binomial coefficient.'
+expected_answer: (a) factorial(n), direct; (b) choose(n,k), direct; (c) 
+  lfactorial(n), logarithmic; (d) lchoose(n,k), logarithmic. The l-prefixed 
+  functions must not be interpreted as returning the untransformed quantities.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.25
+scaffold_level: 0.25
+surface_family: function_selection
+evidence_fingerprint:
+  source_family: primary_textbook_r_appendix
+  shared_stimulus_id: combinatorial_function_requests
+  representation: R function calls and output-scale labels
+  solution_recipe_family: select_direct_or_log_combinatorial_function
+  answer_structure: four call-and-interpretation pairs
+misconception_consistent_answer:
+repair_targets:
+  - facet_use_factorial_n_to_compute_n_and_choose_n_k_to_c
+  - facet_use_lfactorial_n_for_log_n_and_lchoose_n_k_for_t
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_direct_functions
+      points: 2.0
+      description: Correctly selects factorial and choose for direct factorial 
+        and binomial-coefficient calculations.
+      tier: core
+      targets:
+        - facet: facet_use_factorial_n_to_compute_n_and_choose_n_k_to_c
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_direct_combinatorial_functions
+      correlation_group: combinatorial_functions
+      recipe_ids:
+        - recipe_combinatorial_function_selection
+    - id: criterion_log_functions
+      points: 2.0
+      description: Correctly selects lfactorial and lchoose and interprets both 
+        outputs as logarithms.
+      tier: core
+      targets:
+        - facet: facet_use_lfactorial_n_for_log_n_and_lchoose_n_k_for_t
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_log_combinatorial_functions
+      correlation_group: combinatorial_functions
+      recipe_ids:
+        - recipe_combinatorial_function_selection
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s316
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:17Z'
+updated_at: '2026-07-21T00:54:17Z'

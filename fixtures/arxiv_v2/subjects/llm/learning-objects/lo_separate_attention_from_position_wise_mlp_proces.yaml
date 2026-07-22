@@ -1,0 +1,60 @@
+schema_version: 1
+id: lo_separate_attention_from_position_wise_mlp_proces
+title: Separate Attention from Position-Wise MLP Processing
+subjects:
+  - llm
+concept: concept_contextualized_token_representation
+knowledge_type: architectural schema
+status: active
+contradicts:
+summary: Identify which transformer operation exchanges information across token
+  positions and which transforms positions independently.
+prerequisites:
+  - concept_token_embedding
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_3
+    weight: 0.15
+    recipes:
+      - id: recipe-attention-mlp-roles
+        composition: conjunctive
+        all_of:
+          - facet: facet_attention_allows_information_encoded_at_one_toke
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+      path:
+      locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s42
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+      role: lecture
+      source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+      path:
+      locator: span:ext_01KY18ZNKKJ4FX1JW191NN77G0/s106
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZNKKJ4FX1JW191NN77G0
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZNFRJKBF3RF1MPD41D6D
+      role: lecture
+      source_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+      span_hash:
+created_at: '2026-07-21T05:06:37Z'
+updated_at: '2026-07-21T05:06:55Z'

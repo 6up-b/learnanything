@@ -29,7 +29,14 @@ export const COLOR = {
   pink: "#dc7fb8",
   yellow: "#dccd5a",
   scrollbar: "#5a4d8a",
-  scrollbarTrack: "#181818"
+  scrollbarTrack: "#181818",
+  // Wash backgrounds — promoted from the raw hex copied across screens (§1.4).
+  washAmber: "#241d12",
+  washCyan: "#10212a",
+  washCyanBanner: "#101d22",
+  washRed: "#241315",
+  washGreen: "#122117",
+  washPurple: "#1a162a"
 } as const;
 
 export const FONT_MONO =
@@ -72,6 +79,65 @@ export function Pill({
     >
       {children}
     </span>
+  );
+}
+
+// Terminal-style checkbox used where a native platform checkbox would break the
+// app's monospace control language. It remains a real keyboard-focusable button
+// and exposes checkbox semantics to assistive technology.
+export function TermCheckbox({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  compact = false,
+  style = {}
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: ReactNode;
+  disabled?: boolean;
+  compact?: boolean;
+  style?: CSSProperties;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange(!checked);
+      }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: compact ? 5 : 7,
+        padding: compact ? "2px 6px" : "4px 8px",
+        border: `1px solid ${focused ? COLOR.borderFocus : checked ? COLOR.amber : COLOR.border}`,
+        borderRadius: 2,
+        background: checked ? COLOR.washAmber : COLOR.bgInput,
+        color: checked ? COLOR.amber : COLOR.textDim,
+        fontFamily: FONT_MONO,
+        fontSize: compact ? 9 : 11,
+        lineHeight: 1.35,
+        letterSpacing: "0.01em",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.45 : 1,
+        outline: "none",
+        boxShadow: focused ? `0 0 0 1px ${COLOR.bg}, 0 0 0 2px ${COLOR.borderFocus}` : "none",
+        ...style
+      }}
+    >
+      <span aria-hidden="true" style={{ color: checked ? COLOR.amber : COLOR.textFaint }}>
+        {checked ? "▣" : "▢"}
+      </span>
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -606,6 +672,54 @@ export function KeyBar({
           <span>{right.label}</span>
         </span>
       )}
+    </div>
+  );
+}
+
+// Promoted Card (§1.4 — ends the triplication across ui.tsx / IngestScreen /
+// IngestActivity). Transparent bg, 1px border, 2px radius; state shows as a 3px
+// left border in the semantic palette (rule 6/8). New screens use this one.
+export type CardStatus = "running" | "done" | "error" | "attention" | "probe" | "neutral";
+
+const CARD_STATUS_COLOR: Record<CardStatus, string | null> = {
+  running: COLOR.cyan,
+  done: COLOR.green,
+  error: COLOR.red,
+  attention: COLOR.amber,
+  probe: COLOR.pink,
+  neutral: null
+};
+
+export function Card({
+  children,
+  status = "neutral",
+  selected = false,
+  onClick,
+  style = {}
+}: {
+  children: ReactNode;
+  status?: CardStatus;
+  selected?: boolean;
+  onClick?: () => void;
+  style?: CSSProperties;
+}) {
+  const statusColor = CARD_STATUS_COLOR[status];
+  const leftColor = selected ? COLOR.amber : statusColor;
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        fontFamily: FONT_MONO,
+        border: `1px solid ${selected ? COLOR.amber : COLOR.border}`,
+        borderLeft: leftColor ? `3px solid ${leftColor}` : `1px solid ${selected ? COLOR.amber : COLOR.border}`,
+        borderRadius: 2,
+        padding: "14px 18px",
+        background: "transparent",
+        cursor: onClick ? "pointer" : "default",
+        ...style
+      }}
+    >
+      {children}
     </div>
   );
 }

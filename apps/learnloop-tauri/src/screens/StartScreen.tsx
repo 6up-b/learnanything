@@ -1533,12 +1533,15 @@ export function StartScreen({
     { label: "follow-ups", count: items.filter((i) => i.isFollowup).length, color: COLOR.green }
   ];
 
+  // Mirror the scheduler's ACTUAL rule (scheduler.py): probe_eig is suppressed
+  // when available_minutes <= scheduler.short_session_minutes (default 20).
+  // Energy feeds the readiness factor, not probe suppression.
   const recommendedBudget =
-    energy < 0.4
-      ? "short_session — probe_eig will be suppressed"
+    minutes <= 20
+      ? "short_session — probe_eig suppressed (≤20 min)"
       : minutes >= 45
       ? "full_loop — probe_eig active"
-      : "standard_loop";
+      : "standard_loop — probe_eig active";
   const now = new Date();
   const dateLine = `${now.toLocaleDateString(undefined, { weekday: "long" })} · ${now.toLocaleTimeString(undefined, {
     hour: "2-digit",

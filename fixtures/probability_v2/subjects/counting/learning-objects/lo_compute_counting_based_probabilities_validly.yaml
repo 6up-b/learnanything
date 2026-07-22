@@ -1,0 +1,71 @@
+schema_version: 1
+id: lo_compute_counting_based_probabilities_validly
+title: Compute counting-based probabilities validly
+subjects:
+  - counting
+concept: concept_naive_probability
+knowledge_type: conditional procedure
+status: active
+contradicts:
+summary: Check finiteness and equal likelihood, count favorable and total 
+  outcomes, and select direct or complement counting.
+prerequisites:
+  - concept_sample_spaces_and_events
+  - concept_event_operations
+confusables:
+  - concept_unjustified_equiprobability
+blueprints:
+  - id: bp_01KY12MA_3
+    weight: 0.25
+    recipes:
+      - id: recipe_counting_probability
+        composition: conjunctive
+        all_of:
+          - facet: facet_to_compute_naive_probability_identify_a_finite_s
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_the_number_of_verbal_possibilities_does_not_dete
+            capability: method_selection
+            modality: hard
+        any_of:
+          - facet: facet_when_the_complement_is_easier_to_characterize_or
+            capability: method_selection
+            modality: path_specific
+        integration:
+          facet: facet_to_compute_naive_probability_identify_a_finite_s
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s89
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s100
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:04Z'
+updated_at: '2026-07-21T00:54:08Z'

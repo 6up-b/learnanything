@@ -1,0 +1,116 @@
+schema_version: 1
+id: pi_ten_runners_finish_a_rac
+learning_object_id: lo_choose_the_right_ordered_sampling_model
+subjects:
+practice_mode: application
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_k_ordered_choices_from_n_objects_without_rep
+  - facet_ordered_outcomes_distinguish_positions_or_time_o
+  - facet_if_an_outcome_is_formed_through_stages_with_a_fi
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Ten runners finish a race with no ties. How many possible ordered 
+  outcomes are there for first, second, and third place? Explain the choice 
+  counts.
+expected_answer: There are 10 choices for first place, then 9 remaining choices 
+  for second, then 8 remaining choices for third, so 10·9·8=720.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.25
+scaffold_level: 0.25
+surface_family: ordered_placements
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: ten_runner_race
+  representation: word problem with ordered placements
+  solution_recipe_family: ordered_without_replacement
+  answer_structure: product with decreasing factors
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_k_ordered_choices_from_n_objects_without_rep
+  - facet_ordered_outcomes_distinguish_positions_or_time_o
+  - facet_if_an_outcome_is_formed_through_stages_with_a_fi
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_race_ordered
+      points: 1.0
+      description: Treats first, second, and third as distinct ordered 
+        positions.
+      tier: core
+      targets:
+        - facet: facet_ordered_outcomes_distinguish_positions_or_time_o
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - f_ordered_vs_unordered
+      correlation_group: race_placements
+      recipe_ids:
+        - r_order_replacement_select
+    - id: crit_race_decrease
+      points: 1.0
+      description: Reduces later choices after each runner is assigned a place.
+      tier: core
+      targets:
+        - facet: facet_for_k_ordered_choices_from_n_objects_without_rep
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - f_sampling_without_replacement
+      correlation_group: race_placements
+      recipe_ids:
+        - r_order_replacement_select
+    - id: crit_race_product
+      points: 1.0
+      description: Multiplies 10, 9, and 8 to obtain 720.
+      tier: core
+      targets:
+        - facet: facet_if_an_outcome_is_formed_through_stages_with_a_fi
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - f_mult_rule_contract
+      correlation_group: race_placements
+      recipe_ids:
+        - r_mult_rule_apply
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s119
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s120
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:15Z'
+updated_at: '2026-07-15T21:39:15Z'

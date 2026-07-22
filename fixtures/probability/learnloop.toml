@@ -1,0 +1,605 @@
+schema_version = 1
+
+[storage]
+sqlite_path = "state.sqlite"
+
+[algorithms]
+# mvp-0.7: canonical shared-facet knowledge model (KM §15). New vaults start
+# here; only pre-existing vaults with legacy mvp-0.6 content need
+# `learnloop upgrade` to activate it. Legacy `probe_<lo_id>` phases recorded
+# under earlier versions replay through the frozen path in services/probes.py
+# forever; new diagnostic episodes replay exclusively through
+# probe_observations.
+algorithm_version = "mvp-0.7"
+
+# Single source of truth for per-attempt-type evidence (Fable's-take item 3).
+# evidence_mass weights ability-belief updates (mastery EKF / reliability);
+# surface_exposure is the fraction of the item's facet surface the attempt
+# certifies as probed (coverage). surface_exposure defaults to evidence_mass;
+# dont_know overrides it because a confident "don't know" fully covers the
+# surface as evidence-of-absence while remaining self-diagnosis, not
+# demonstration.
+[evidence.attempt_types]
+independent_attempt = { evidence_mass = 1.0 }
+open_text = { evidence_mass = 1.0 }
+diagnostic_probe = { evidence_mass = 1.0 }
+hinted_attempt = { evidence_mass = 1.0 }
+reconstruction_after_walkthrough = { evidence_mass = 0.5 }
+dont_know = { evidence_mass = 0.7, surface_exposure = 1.0 }
+self_report = { evidence_mass = 0.3 }
+# Imported past-exam outcome: one exam is one correlated evidence event, so
+# each seeded question carries a fraction of a live independent attempt.
+exam_evidence = { evidence_mass = 0.35 }
+# Held-out practice-exam answer on a fresh, never-practiced item: a proctored
+# fresh-item answer is the highest-quality evidence in the system, so it carries
+# full evidence mass (deliberately unlike the discounted `exam_evidence` import).
+exam_attempt = { evidence_mass = 1.0 }
+# Teach-back conversation graded as one attempt: high-quality generative
+# evidence, but the opening explanation and follow-up answers are one
+# correlated multi-question event, so it carries less than a full independent
+# attempt per facet.
+teach_back = { evidence_mass = 0.8 }
+guided_walkthrough = { evidence_mass = 0.0 }
+skip = { evidence_mass = 0.0 }
+
+# Item-side coverage prior per practice mode: how much of an LO's facet surface
+# an item of this mode can surface when it has no evidence weights or rubric.
+# Not derivable from attempt-type evidence_mass (different question).
+[evidence.item_coverage_by_practice_mode]
+constructed_response = 0.85
+open_text = 0.85
+short_answer = 0.75
+diagnostic_probe = 0.80
+independent_attempt = 0.75
+hinted_attempt = 0.65
+multiple_choice = 0.45
+self_report = 0.25
+
+# Vault-wide evidence correlation lookup (knowledge-model spec §6): discounts
+# for repeated/near-clone/shared-stimulus surfaces once facet state is global.
+# Reserved for KM2; parsed now so vault TOMLs can set values early.
+[evidence.correlation]
+
+# Capability-aware certification budgets (knowledge-model spec §5.4).
+# group_budget defaults to evidence_mass(attempt_type) per correlation group;
+# max_groups_per_attempt caps the attempt-wide certification ceiling.
+[evidence.certification]
+max_groups_per_attempt = 3
+
+# Blueprint recipe likelihood defaults (knowledge-model spec §9.2): noisy-AND
+# core with slip, plus a guess floor by response format.
+[evidence.blueprints]
+slip = 0.05
+
+[evidence.blueprints.guess_by_format]
+multiple_choice = 0.25
+constructed_response = 0.0
+
+[scheduler]
+forgetting_risk_weight = 1.0
+# Goal facet frontier: fraction of an item's evidence facets not yet on track
+# for an active goal (unexamined/known_gap or projected below target_recall
+# at the goal's due date), scaled by goal priority.
+goal_frontier_weight = 0.25
+recent_error_weight = 0.50
+probe_eig_weight = 0.25
+# Goal quota: guaranteed floor share of the queue overlapping the goal
+# frontier; ramps min -> max over the last ramp_days before due_at.
+goal_quota_floor_min = 0.30
+goal_quota_floor_max = 0.70
+goal_quota_ramp_days = 28
+short_session_minutes = 20
+# Seeded exploration over near-tie candidates so logged slates carry non-degenerate
+# selection propensities (off-policy learnability). See architecture_pivot.md Stage 0.
+selection_exploration_rate = 0.1
+selection_exploration_reward_window = 0.15
+
+[scheduler.surprise]
+theta_pos = 1.5
+theta_neg = 1.5
+alpha_interval = 0.3
+f_min = 0.5
+f_max = 1.5
+epsilon_error_surprise = 0.05
+
+[scheduler.followup]
+tau_followup_nats = 0.05
+gamma_min = 0.5
+min_target_facet_overlap = 0.5
+# Gate modernization: thresholds resolve as quantiles of this learner's own
+# signal history; the absolute values above remain the cold-start fallback.
+threshold_mode = "quantile"
+tau_followup_quantile = 0.85
+tau_severe_error_quantile = 0.90
+quantile_min_samples = 30
+quantile_window = 200
+# gate_mode = "score" scores all signals through one logistic (threshold last);
+# "cascade" preserves the legacy hard trigger/suppression chain bit-for-bit.
+gate_mode = "score"
+gate_score_threshold = 0.5
+gate_subscore_steepness = 12.0
+# Predictive facet EIG (logged-but-inert at weight 0.0; see services/predictive_eig.py).
+predictive_eig_weight = 0.0
+predictive_eig_target_cap = 4
+# Misconception discrimination gate (spec_misconception_diagnostics.md §4.1).
+# tau_discrimination_power is the Youden-J lower bound a diagnostic candidate
+# must clear against an active misconception; require_misconception_discrimination
+# routes to no_suitable_item rather than queueing a non-discriminating paraphrase.
+tau_discrimination_power = 0.3
+require_misconception_discrimination = true
+
+# Goal projection: open-ended goals (no due_at) project facet recall at a
+# fixed horizon so the frontier stays defined.
+[goals]
+default_projection_horizon_days = 30
+
+[hypothesis]
+session_card_budget = 2
+claim_cooldown_days = 7
+overconfidence_min_evidence_mass = 1.0
+reentry_gap_days = 7
+decay_pressure_target_recall = 0.8
+decay_pressure_horizon_days = 60
+
+[forecasts]
+default_horizon_days = 14
+
+# Automatic misconception resolution ("close the loop"): an active error event
+# is resolved once the learning object accumulates N clean attempts after the
+# event was created. Clean = correctness >= auto_resolve_min_correctness, no
+# error attribution written, and not a dont_know/skip self-diagnosis.
+[misconceptions]
+auto_resolve_clean_attempts = 3
+auto_resolve_min_correctness = 0.85
+# Registry-based resolution and the sim discrimination gate
+# (spec_misconception_diagnostics.md §6, §7). Parsed now; consumed in later phases.
+tau_misconception_resolved = 0.15
+sim_gate_min_sensitivity_lb = 0.7
+sim_gate_min_specificity_lb = 0.8
+# 8, not 5: a perfect run over N trials has lower bound 0.25^(1/(N+1)) at the
+# 25th percentile — 0.794 at N=5 (below the 0.8 specificity gate), 0.857 at N=8.
+sim_gate_trials = 8
+# Opt-in codex answers-under-belief pass for the gate. 0 = pure deterministic
+# (no provider tokens). When > 0, codex role-plays that many planted + clean
+# students in ONE call per gate run and their fires combine with the
+# deterministic trials. Costs provider tokens per accepted item; the same N>=8
+# caveat applies (0.25^(1/(N+1)) at the 25th percentile) to the COMBINED counts.
+sim_gate_llm_trials = 0
+
+# Offline parameter fitting from the learner's own logs (`learnloop fit`).
+# Fitted sets live in the fitted_parameters table; defaults apply when none is active.
+[fitting.fsrs]
+min_reviews = 50
+min_elapsed_days = 0.5
+l2_lambda = 1.0
+max_iterations = 300
+initial_step = 0.05
+min_relative_improvement = 0.01
+
+[mastery]
+base_observation_variance = 1.0
+sigma2_drift = 0.01
+p_max = 4.0
+# Display banding: > strong renders green, > developing renders amber, else red.
+display_strong_threshold = 0.6
+display_developing_threshold = 0.35
+
+# IRT 2PL difficulty-aware mastery update (spec_irt_difficulty.md §4).
+# enabled = false restores the legacy logit-space Kalman update bit-for-bit.
+[mastery.irt]
+enabled = true
+discrimination_default = 1.0
+difficulty_default = 0.0
+difficulty_from_prior = true
+difficulty_prior_scale = 2.5
+b_abs_max = 4.0
+p_clip = 1e-4
+mu_abs_max = 5.0
+max_logit_step = 4.0
+# Empirical-Bayes per-item difficulty posterior (dark by default; see
+# MasteryIRTConfig for the identifiability rationale).
+eb_difficulty_enabled = false
+b_prior_variance = 0.25
+b_learning_rate_scale = 0.2
+b_max_step = 0.25
+b_var_min = 0.01
+
+[probe]
+# LEGACY (probe redesign Checkpoint 0.4): attempts_target_default,
+# attempts_target_with_strong_claim, claim_skip_threshold, and
+# variance_convergence_threshold configure only the frozen pre-redesign replay
+# path. Their live roles moved to [probe.episode]: the attempt targets map to
+# minimum/maximum_observations, the strong-claim skip maps to the explicit
+# fast-path policy (fast_path_claim_threshold), and variance convergence is
+# superseded by the §11 completion policy (posterior_stop_threshold).
+attempts_target_default = 3
+attempts_target_with_strong_claim = 1
+claim_skip_threshold = 0.75
+variance_convergence_threshold = 0.10
+hypothesis_set_max_size = 5
+
+# Diagnostic episodes (spec_probe_eig_redesign.md §5/§11).
+[probe.episode]
+minimum_independent_observations = 2
+maximum_observations = 4
+posterior_stop_threshold = 0.85
+ambiguity_threshold = 0.30
+open_set_prior = 0.10
+open_set_trigger_threshold = 0.35
+hinted_evidence_weight = 0.5
+contaminated_evidence_weight = 0.3
+self_graded_evidence_weight = 0.3
+session_qualifying_observation_cap = 4
+fast_path_enabled = true
+fast_path_claim_threshold = 0.75
+presentation_ttl_minutes = 240
+# Predictive EIG per expected time is the diagnostic default objective (§7.4/§7.5)
+# whenever at least predictive_target_minimum held-out instruments exist for the
+# episode; hypothesis EIG remains the fallback and audit signal.
+predictive_selection_enabled = true
+predictive_target_minimum = 2
+predictive_target_cap = 6
+selection_overhead_seconds = 10.0
+# §5.9 fresh-vault onboarding: probes deactivate after this many qualifying
+# observations until ordinary practice has started (0 disables).
+onboarding_practice_ceiling_observations = 4
+# §6.5 re-probe triggers: repeated prediction errors and stale uncertainty.
+reprobe_prediction_error_count = 3
+reprobe_prediction_error_window = 10
+reprobe_predictive_surprise_threshold = 1.0
+reprobe_stale_uncertainty_variance = 0.6
+reprobe_stale_uncertainty_days = 30
+
+# Parameterized instance generation from admitted family/card bindings (§10).
+# llm_surfaces: when an AI provider capable of run_probe_instance_surfaces is
+# wired through, instance surfaces come from the LLM (grounded in the LO,
+# validated by the structural instance gate) and fall back to the parametric
+# templates on provider failure or gate rejection.
+[probe.generation]
+instances_per_need = 2
+auto_generate_on_entry = false
+llm_surfaces = true
+
+# Short adaptive dialogue microprobes (§8.1): turns within one block share the
+# family's total task evidence mass (§7.7).
+[probe.dialogue]
+planned_turns = 3
+max_turns = 4
+
+# Learner-initiated calibration sessions (§5.9): batch episode blocks across a
+# goal scope; lift only the per-session qualifying-observation cap within the
+# declared time budget.
+[probe.calibration]
+default_time_budget_minutes = 20
+max_planned_episodes = 8
+disagreement_weight = 0.5
+
+# Hierarchical family -> item shrinkage (§9.7, Checkpoint 4.2): item rows shrink
+# toward the family-version posterior with this much family-equivalent mass.
+[probe.hierarchy]
+item_shrinkage_pseudo_count = 25.0
+
+# Family-version lifecycle gates (§9.7, Checkpoint 4.7). Trust requires
+# real-learner evidence; synthetic gate statistics never qualify a family.
+[probe.lifecycle]
+trust_minimum_real_sample = 20
+trust_minimum_regrade_checks = 5
+trust_minimum_regrade_agreement = 0.80
+trust_maximum_negative_information_rate = 0.20
+retire_minimum_sample = 10
+retire_negative_information_rate = 0.50
+retire_regrade_agreement_floor = 0.50
+
+# Shadow-mode alternative selection policies (§13.3, Checkpoint 5.1): log-only
+# rankings on the committed presentation. Off-policy estimation stays on hold
+# for single-learner vaults.
+[probe.shadow]
+enabled = true
+top_k = 3
+
+# Precommitted diagnostic blocks (Checkpoint 5.2/5.3): redundancy penalty is a
+# separate ranking component (never labeled EIG); joint greedy conditional EIG
+# applies only to blocks committed before answers are observed.
+[probe.block]
+family_redundancy_penalty = 0.6
+max_block_size = 4
+conditional_branch_cap = 3
+# §5.6/§5.7: sequential probes run the block-end hook after this many
+# observations in the current state segment.
+default_block_observations = 2
+
+# IRT difficulty-aware probe conditionals (spec_irt_difficulty.md §5).
+[probe.irt]
+theta_mastered = 2.0
+theta_unfamiliar = -2.0
+cut_mid = -1.0
+cut_high = 1.0
+unfamiliar_error_leak = 0.20
+err_low_frac = 0.80
+err_mid_frac = 0.50
+
+# Learner self-attributed misconception probe coverage (spec_irt_difficulty.md §12).
+[probe.self_tag]
+w_base = 0.5
+w_max = 0.7
+target_degree = 2.0
+promotion_threshold = 3
+
+# Exam seeding (`learnloop ingest-exam` + `learnloop seed-exam-attempts`):
+# imported per-question outcomes become backdated exam_evidence attempts.
+# grader_confidence is the reliability discount persisted on seeded attempts;
+# default_learner_confidence (1-5) is used when an outcome omits confidence.
+[exam_seeding]
+grader_confidence = 0.7
+default_learner_confidence = 3
+
+# Tutor Q&A ("ask"): question limits per context (practice: per item+session,
+# feedback: per attempt, library: per note per day) and the read-side
+# uncertainty bump applied for recent unresolved questions about a facet.
+[tutor_qa]
+max_questions_practice = 3
+max_questions_feedback = 5
+max_questions_library = 8
+apply_uncertainty_effect = true
+uncertainty_evidence_mass = 0.15
+
+# Promoting Socratic tutor questions to practice items / learning objects.
+# Gap route: a "this exposed a gap" promotion writes a low self-report claim
+# (gap_claim_level at gap_claim_pseudo_count pseudo-observations) and counts as
+# an unresolved-question observation with its own likelihood slot fit from the
+# learner's gap-declaration -> failure lift, falling back to
+# gap_declaration_solid_likelihood_ratio below gap_declaration_likelihood_min_samples.
+# The filed need goes stale after gap_need_ttl_days; requested_items_per_session
+# bounds the scheduler floor for promoted-but-unattempted items.
+[tutor_promotion]
+gap_claim_level = 0.25
+gap_claim_pseudo_count = 2.0
+gap_declaration_solid_likelihood_ratio = 0.35
+gap_declaration_likelihood_min_samples = 12
+gap_need_ttl_days = 21
+requested_items_per_session = 1
+
+# Teach-back conversations: the learner explains, an AI naive student asks up
+# to max_followups questions (one per rubric criterion, uncertainty-ranked with
+# transfer escalation), and the transcript is graded as one attempt.
+# transfer_evidence_multiplier symmetrically discounts the evidence mass of
+# transfer-tier criterion evidence; session_cap bounds teach_back items per
+# built queue.
+[teach_back]
+max_followups = 3
+transfer_evidence_multiplier = 0.5
+session_cap = 1
+
+[ingest]
+window_char_cap = 150000
+min_content_chars = 400
+default_goal_priority = 0.5
+allow_auto_captions = false
+
+# PDF extraction for canonical sources (textbook chapters, past exams, any
+# ingested .pdf). engine "auto" uses marker-pdf (structured Markdown with
+# headings, tables, LaTeX math, and OCR for scanned pages) when installed
+# (`pip install learnloop[pdf]`), falling back to plain pypdf text extraction.
+# use_llm adds marker's VLM boost for difficult scans and dense math: hard
+# regions are sent to an OpenAI-compatible endpoint -- e.g. a local vLLM
+# serving deepseek-ai/DeepSeek-OCR (llm_base_url = "http://127.0.0.1:8000/v1",
+# llm_model = "deepseek-ai/DeepSeek-OCR") or any hosted vision model. The API
+# key is read from the env var named by llm_api_key_env. Marker conversions
+# are cached under .learnloop/source-cache/pdf/ keyed by file bytes + config.
+[ingest.pdf]
+engine = "auto"
+# "" = auto-detect (GPU when the installed torch supports it); pin with
+# "cuda", "cuda:1", "cpu", or "mps" to override.
+torch_device = ""
+force_ocr = false
+use_llm = false
+llm_service = "marker.services.openai.OpenAIService"
+llm_base_url = ""
+llm_model = ""
+llm_api_key_env = "LEARNLOOP_PDF_LLM_API_KEY"
+
+# Per-stage token budgets for ingestion v2 (source-ingestion spec §3.1).
+# Preflight/build-plan estimates read these; a stage exceeding its ceiling
+# shards or pauses for narrower scope — it never silently truncates.
+[ingest.budgets]
+inventory_input_tokens = 20000
+inventory_output_tokens = 3000
+synthesis_shard_input_tokens = 40000
+synthesis_shard_output_tokens = 10000
+evidence_span_input_tokens = 12000
+synthesis_total_input_ceiling = 48000
+synthesis_output_tokens = 16000
+append_neighborhood_input_tokens = 24000
+append_output_tokens = 10000
+# Span-request protocol caps (§8.5): one bounded request round only.
+synthesis_span_request_max_count = 12
+synthesis_span_char_cap = 4000
+# Quick add (§1): ToC-guided relevant-scope cap.
+quick_add_scope_input_tokens = 40000
+
+# Per-provider context/output limits consulted by preflight, keyed by the
+# [ai.providers.<name>] entries (source-ingestion spec §3.1), e.g.
+# [ingest.providers.codex] context_tokens / max_output_tokens.
+
+# Durable ingest-queue worker settings (source-ingestion spec §6.2). One worker
+# (sidecar background loop or foreground CLI) drains queued jobs at a time under
+# a single lease; a running lease older than lease_ttl_seconds is recovered to
+# failed(interrupted) on startup and its queued siblings resume.
+[ingest.runner]
+lease_ttl_seconds = 120
+heartbeat_interval_seconds = 15
+poll_interval_seconds = 1.0
+
+[ai]
+active_provider = "codex"
+fallback_provider = ""
+timeout_seconds = 60
+
+[ai.routing]
+grading = "codex_low"
+canonical_ingest = "codex_medium"
+canonical_ingest_retry = "codex_medium"
+authoring = "codex_medium"
+# Empty = follow ai.active_provider; point at any configured provider to route
+# tutor Q&A elsewhere (a vault decision, not forced-cheap).
+tutor_qa = "codex_low"
+# Empty = follow ai.active_provider; teach-back questions + grading routing.
+teach_back = "codex_low"
+
+[ai.providers.codex]
+type = "codex_sdk"
+model = "gpt-5.6-sol"
+# Per-machine; set LEARNLOOP_CODEX_CHECKOUT_PATH in ~/.config/learnloop/settings.env.
+checkout_path = ""
+revision = "<pinned-commit>"
+startup_command = ""
+startup_timeout_seconds = 20
+healthcheck_timeout_seconds = 5
+auth_mode = "chatgpt"
+reasoning_effort = "low"
+reasoning_summary = "none"
+sdk_python_path = "sdk/python/src"
+sdk_codex_bin = ""
+sdk_launch_command = ""
+base_url = "http://127.0.0.1:8765"
+healthcheck_path = "/health"
+authoring_path = "/authoring-proposal"
+canonical_ingest_path = "/canonical-ingest"
+grading_path = "/grading-proposal"
+misconception_match_path = "/misconception-match"
+
+[ai.providers.deepseek_flash]
+type = "openai_chat"
+base_url = "https://api.deepseek.com"
+api_key_env = "DEEPSEEK_API_KEY"
+model = "deepseek-v4-flash"
+response_format = "json_object"
+thinking = "disabled"
+max_tokens = 8192
+timeout_seconds = 90
+
+[ai.providers.deepseek_pro]
+type = "openai_chat"
+base_url = "https://api.deepseek.com"
+api_key_env = "DEEPSEEK_API_KEY"
+model = "deepseek-v4-pro"
+response_format = "json_object"
+thinking = "enabled"
+reasoning_effort = "high"
+max_tokens = 16384
+timeout_seconds = 180
+
+[codex]
+provider = "sdk"
+# Per-machine; set LEARNLOOP_CODEX_CHECKOUT_PATH in ~/.config/learnloop/settings.env.
+checkout_path = ""
+revision = "<pinned-commit>"
+startup_command = ""
+startup_timeout_seconds = 20
+healthcheck_timeout_seconds = 5
+auth_mode = "chatgpt"
+model = "gpt-5.6-sol"
+reasoning_effort = "low"
+reasoning_summary = "none"
+sdk_python_path = "sdk/python/src"
+sdk_codex_bin = ""
+sdk_launch_command = ""
+base_url = "http://127.0.0.1:8765"
+healthcheck_path = "/health"
+authoring_path = "/authoring-proposal"
+canonical_ingest_path = "/canonical-ingest"
+grading_path = "/grading-proposal"
+misconception_match_path = "/misconception-match"
+
+# Family-keyed mastery damage per error type (spec §"Error-aware updates").
+# recall_failure is the deterministic attribution for `dont_know` attempts.
+[error_impacts]
+max_sharpening = 3.0
+
+[error_impacts.recall_failure]
+families = { recall = -0.25 }
+lo_mastery_delta = -0.05
+local_severity_gain = 0.8
+
+[error_impacts.scaffold_failure]
+families = { recall = -0.35 }
+lo_mastery_delta = -0.05
+local_severity_gain = 1.5
+
+[error_impacts.arithmetic_slip]
+families = { numeric = -0.05 }
+lo_mastery_delta = 0.0
+local_severity_gain = 0.35
+
+# Capability damping/shrinkage for shared-parent facet belief (knowledge-model
+# spec §4.2). Reserved for KM2+; residual activation ships default-off.
+[capabilities]
+
+# Identity-lock policy (knowledge-model spec §3.4): a facet's semantic identity
+# locks at direct evidence in >=2 distinct surface/correlation groups, at
+# facet_lock_mass independent evidence mass, or on entering an active goal's
+# certified scope — whichever comes first.
+[locks]
+facet_lock_mass = 2.0
+facet_surface_groups = 2
+
+# NOTE: [cross_lo_propagation] is retired (knowledge-model §8.3/§15). The LO-to-LO
+# graph-propagated prior is prerequisite-only, direction-respecting, and
+# shadow/diagnostic-only; its error_gates were dormant. `learnloop doctor` warns
+# when a vault TOML still declares the block.
+
+[recall_coverage.severity_examples.first_dont_know]
+attempt_type = "dont_know"
+hints_used = 0
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.85
+expected_error_type = "recall_failure"
+expected_severity_band = [0.70, 0.82]
+
+[recall_coverage.severity_examples.second_same_item_dont_know]
+attempt_type = "dont_know"
+hints_used = 0
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.85
+recent_same_item_failures = 1
+expected_error_type = "recall_failure"
+expected_severity_band = [0.95, 1.00]
+
+[recall_coverage.severity_examples.second_same_facet_dont_know]
+attempt_type = "dont_know"
+hints_used = 0
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.85
+recent_same_facet_failures = 1
+expected_error_type = "recall_failure"
+expected_severity_band = [0.80, 1.00]
+
+[recall_coverage.severity_examples.hinted_dont_know]
+attempt_type = "dont_know"
+hints_used = 2
+correctness = 0.0
+expected_correctness = 0.65
+effective_coverage = 0.80
+expected_error_type = "scaffold_failure"
+expected_severity_band = [0.85, 0.95]
+
+[recall_coverage.severity_examples.arithmetic_slip]
+attempt_type = "independent_attempt"
+correctness = 0.75
+expected_correctness = 0.70
+effective_coverage = 0.85
+target_error_type = "arithmetic_slip"
+expected_error_type = "arithmetic_slip"
+expected_severity_band = [0.25, 0.35]
+
+[recall_coverage.severity_examples.ambiguous_item]
+attempt_type = "independent_attempt"
+correctness = 0.0
+expected_correctness = 0.70
+effective_coverage = 0.85
+bad_item_suspicion = 0.70
+expected_error_type = "recall_failure"
+expected_severity_band = [0.45, 0.75]

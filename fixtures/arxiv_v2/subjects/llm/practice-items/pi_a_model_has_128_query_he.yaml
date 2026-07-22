@@ -1,0 +1,154 @@
+schema_version: 1
+id: pi_a_model_has_128_query_he
+learning_object_id: lo_compare_mha_mqa_and_gqa
+subjects:
+practice_mode: comparative calculation and method selection
+attempt_types_allowed: []
+evidence_facets:
+  - facet_multi_query_attention_uses_one_shared_key_and_on
+  - facet_grouped_query_attention_partitions_query_heads_i
+  - facet_select_among_mha_gqa_mqa_and_mla_by_comparing_th
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A model has 128 query heads. Compare the number of distinct cached KV 
+  representations per token and layer for standard MHA, MQA, and GQA with 16 KV 
+  groups. State the cache-reduction factors relative to MHA and recommend a 
+  variant when some head-specific KV capacity must be retained under a reduced 
+  cache budget.
+expected_answer: MHA caches 128 distinct KV representations, MQA caches 1, and 
+  16-group GQA caches 16. Relative to MHA, MQA reduces this component by 128 
+  times and GQA by 8 times. GQA is the appropriate compromise when more than one
+  KV representation is required but full MHA storage is too costly.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.4
+scaffold_level: 0.15
+capability: method_selection
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: kv_variant_numeric_comparison
+evidence_fingerprint:
+  source_family: attention_variant_comparison
+  shared_stimulus_id: 128_heads_16_groups
+  representation: numeric architecture comparison
+  solution_recipe_family: distinct_kv_count_comparison
+  answer_structure: counts, reduction factors, recommendation
+misconception_consistent_answer:
+repair_targets:
+  - facet_multi_query_attention_uses_one_shared_key_and_on
+  - facet_grouped_query_attention_partitions_query_heads_i
+  - facet_select_among_mha_gqa_mqa_and_mla_by_comparing_th
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_variant_counts
+      points: 3.0
+      description: Correctly identifies 128, 1, and 16 distinct KV 
+        representations for MHA, MQA, and GQA.
+      tier: core
+      targets:
+        - facet: facet_multi_query_attention_uses_one_shared_key_and_on
+          capability: schema_interpretation
+          role: primary
+        - facet: facet_grouped_query_attention_partitions_query_heads_i
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_mqa_sharing_tradeoff
+        - facet_gqa_group_sharing
+      correlation_group: shared_kv_comparison
+      recipe_ids:
+        - recipe_shared_kv_comparison
+    - id: criterion_variant_reductions
+      points: 2.0
+      description: Computes the 128-fold MQA and 8-fold GQA reductions in 
+        distinct KV storage relative to MHA.
+      tier: core
+      targets:
+        - facet: facet_grouped_query_attention_partitions_query_heads_i
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_gqa_group_sharing
+      correlation_group: shared_kv_comparison
+      recipe_ids:
+        - recipe_shared_kv_comparison
+    - id: criterion_variant_selection
+      points: 2.0
+      description: Selects GQA and justifies it as an intermediate 
+        memory-capacity design.
+      tier: transfer
+      targets:
+        - facet: facet_select_among_mha_gqa_mqa_and_mla_by_comparing_th
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_attention_variant_selection
+      correlation_group: shared_kv_comparison
+      recipe_ids:
+        - recipe_shared_kv_comparison
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s229
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s247
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s265
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+created_at: '2026-07-21T05:07:23Z'
+updated_at: '2026-07-21T18:14:46Z'

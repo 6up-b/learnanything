@@ -1,0 +1,176 @@
+schema_version: 1
+id: pi_a_sparse_autoencoder_fea
+learning_object_id: lo_evaluate_sparse_autoencoder_features_and_steerin
+subjects:
+practice_mode: evidence evaluation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_sparse_autoencoders_are_motivated_by_polysemanti
+  - facet_a_sparse_autoencoder_encodes_model_activations_i
+  - facet_candidate_sparse_feature_meanings_are_inferred_f
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A sparse-autoencoder feature activates strongly on questioning language.
+  Clamping it moderately increases skeptical questions, while a much larger 
+  clamp causes repetitive variants of the word 'question.' A researcher 
+  concludes that the feature is a complete, uniquely identified representation 
+  of skepticism and that stronger clamps always improve steering. Evaluate the 
+  conclusion and state what additional evidence or caveats are required.
+expected_answer: The activating examples and moderate causal steering support a 
+  candidate questioning or uncertainty interpretation, but they do not establish
+  a unique or exhaustive representation of skepticism. The repetitive output at 
+  high clamp strength directly rejects monotonic coherent steering. The 
+  researcher should inspect diverse maximally activating examples, test 
+  interventions across prompts and strengths, distinguish questioning from 
+  skepticism and correlated features, monitor output quality, and acknowledge 
+  that current SAEs recover only part of the model's represented knowledge.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.65
+scaffold_level: 0.2
+capability: method_selection
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: interpretability evidence audit
+evidence_fingerprint:
+  source_family: sparse-autoencoder interpretability reference
+  shared_stimulus_id: stimulus_sae_clamp_strength
+  representation: activation and intervention observations
+  solution_recipe_family: triangulate correlational and causal evidence, test 
+    strength, state coverage limits
+  answer_structure: claim evaluation plus required evidence and caveats
+misconception_consistent_answer:
+repair_targets:
+  - facet_sparse_autoencoders_are_motivated_by_polysemanti
+  - facet_a_sparse_autoencoder_encodes_model_activations_i
+  - facet_candidate_sparse_feature_meanings_are_inferred_f
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_sae_evidence
+      points: 1.0
+      description: Treats activation examples and moderate intervention as 
+        supporting but non-exhaustive evidence.
+      tier: core
+      targets:
+        - facet: facet_candidate_sparse_feature_meanings_are_inferred_f
+          capability: method_selection
+          role: primary
+        - facet: facet_sparse_autoencoders_are_motivated_by_polysemanti
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_sae_interpretation_and_steering
+        - facet_sae_motivation
+      correlation_group: sae_interpretation
+      recipe_ids:
+        - recipe_sae_complete
+    - id: criterion_sae_strength
+      points: 1.0
+      description: Uses high-clamp repetitive output to reject the claim that 
+        stronger interventions remain coherently monotonic.
+      tier: core
+      targets:
+        - facet: facet_candidate_sparse_feature_meanings_are_inferred_f
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_sae_interpretation_and_steering
+      correlation_group: sae_intervention
+      recipe_ids:
+        - recipe_sae_complete
+    - id: criterion_sae_limits
+      points: 1.0
+      description: Requests diverse activation and intervention tests and 
+        acknowledges incomplete SAE feature coverage.
+      tier: transfer
+      targets:
+        - facet: facet_candidate_sparse_feature_meanings_are_inferred_f
+          capability: coordination
+          role: primary
+        - facet: facet_a_sparse_autoencoder_encodes_model_activations_i
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_sae_interpretation_and_steering
+        - facet_sae_training_contract
+      correlation_group: sae_coverage
+      recipe_ids:
+        - recipe_sae_complete
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s537
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s559
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s572
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s592
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+created_at: '2026-07-21T05:07:21Z'
+updated_at: '2026-07-21T18:14:48Z'

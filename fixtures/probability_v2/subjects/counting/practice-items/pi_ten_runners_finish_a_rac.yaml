@@ -1,0 +1,120 @@
+schema_version: 1
+id: pi_ten_runners_finish_a_rac
+learning_object_id: lo_count_compound_outcomes_with_the_multiplication_
+subjects:
+practice_mode: worked_solution
+attempt_types_allowed: []
+evidence_facets:
+  - facet_if_a_compound_outcome_is_specified_through_stage
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Ten runners finish a race with no ties. How many ordered assignments of 
+  first, second, and third place are possible? Show the available choice count 
+  at each stage, and explain why the stage counts change.
+expected_answer: There are 10 choices for first place, 9 remaining choices for 
+  second, and 8 remaining choices for third. By the multiplication rule, the 
+  total is 10·9·8=720. The counts decrease because one runner cannot occupy more
+  than one finishing place.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.15
+transfer_distance: 0.1
+scaffold_level: 0.2
+surface_family: ordered_selection_without_replacement
+evidence_fingerprint:
+  source_family: primary_textbook_worked_example
+  shared_stimulus_id: ten_runner_podium
+  representation: verbal ordered-selection scenario
+  solution_recipe_family: successive choices without replacement
+  answer_structure: stage counts, product, total, and justification
+misconception_consistent_answer:
+repair_targets:
+  - facet_if_a_compound_outcome_is_specified_through_stage
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_race_stage_counts
+      points: 2.0
+      description: Identifies 10, 9, and 8 choices for the three distinct 
+        finishing positions and explains the reduction without replacement.
+      tier: core
+      targets:
+        - facet: facet_if_a_compound_outcome_is_specified_through_stage
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_multiplication_rule_contract
+      correlation_group: ordered_placement_count
+      recipe_ids:
+        - recipe_apply_multiplication_rule
+    - id: criterion_race_product
+      points: 2.0
+      description: Multiplies the successive counts and obtains 720 ordered 
+        placements.
+      tier: core
+      targets:
+        - facet: facet_if_a_compound_outcome_is_specified_through_stage
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_multiplication_rule_contract
+        - criterion_race_stage_counts
+      correlation_group: ordered_placement_count
+      recipe_ids:
+        - recipe_apply_multiplication_rule
+    - id: criterion_race_method_explanation
+      points: 1.0
+      description: Explains why multiplication, rather than addition, combines 
+        the choices defining each complete ordered result.
+      tier: transfer
+      targets:
+        - facet: facet_if_a_compound_outcome_is_specified_through_stage
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_multiplication_rule_contract
+        - criterion_race_product
+      correlation_group: ordered_placement_count
+      recipe_ids:
+        - recipe_apply_multiplication_rule
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s119
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s120
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:13Z'
+updated_at: '2026-07-21T00:54:13Z'

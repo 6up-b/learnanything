@@ -1,0 +1,68 @@
+schema_version: 1
+id: lo_correct_overlapping_union_counts_with_inclusion_
+title: Correct overlapping union counts with inclusion–exclusion
+subjects:
+  - counting
+concept: concept_inclusion_exclusion
+knowledge_type: method_selection_and_procedure
+status: active
+contradicts:
+summary: Model an at-least-one condition as a union, compute intersections, and 
+  apply alternating overlap corrections, exploiting symmetry when present.
+prerequisites:
+  - concept_uniform_overcounting_correction
+  - concept_binomial_coefficients
+confusables:
+  - concept_complement_counting
+blueprints:
+  - id: bp_01KY12MA_12
+    weight: 1.0
+    recipes:
+      - id: recipe_inclusion_exclusion
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_finite_union_add_single_event_terms_subtra
+            capability: method_selection
+            modality: hard
+          - facet: facet_for_a_finite_union_add_single_event_terms_subtra
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_the_binomial_coefficient_c_n_k_counts_size_k_sub
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s251
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s266
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:05Z'
+updated_at: '2026-07-21T00:54:10Z'

@@ -132,6 +132,7 @@ def append_source(
     auto_apply: bool = True,
     repository: Repository | None = None,
     clock: Clock | None = None,
+    unlimited_token_budget: bool = False,
 ) -> AppendResult:
     """Run bounded append reconciliation and (by policy) auto-apply routine items."""
 
@@ -143,6 +144,7 @@ def append_source(
         vault, repository, root, source_set_id,
         client=client, new_revision_ids=new_revision_ids, change_kind=change_kind,
         revision_diff=revision_diff or {}, brief=brief or {}, auto_apply=auto_apply, clock=clock,
+        unlimited_token_budget=unlimited_token_budget,
     )
 
 
@@ -159,6 +161,7 @@ def _append(
     brief: dict[str, Any],
     auto_apply: bool,
     clock: Clock | None,
+    unlimited_token_budget: bool = False,
 ) -> AppendResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -202,10 +205,18 @@ def _append(
         provider=provider,
         model=model,
         assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
-        token_budget={
-            "append_neighborhood_input_tokens": budgets.append_neighborhood_input_tokens,
-            "append_output_tokens": budgets.append_output_tokens,
-        },
+        token_budget=(
+            {
+                "unlimited": True,
+                # The neighborhood cap remains a scaling/safety invariant.
+                "append_neighborhood_input_tokens": budgets.append_neighborhood_input_tokens,
+            }
+            if unlimited_token_budget
+            else {
+                "append_neighborhood_input_tokens": budgets.append_neighborhood_input_tokens,
+                "append_output_tokens": budgets.append_output_tokens,
+            }
+        ),
         clock=clock,
     )
     manifest_hash = manifest["manifest_hash"]
@@ -246,6 +257,7 @@ def _append(
         reconciliation, span_request_count = _run_reconciliation(
             run_method, repository, inputs, new_inventories, neighborhood, source_set,
             subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
+            unlimited_token_budget=unlimited_token_budget,
         )
         rows, gate_items, conflict_candidates, dispositions, auto_apply_ids = _normalize_append(
             reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
@@ -328,6 +340,7 @@ def _append(
 def _run_reconciliation(
     run_method, repository, inputs, new_inventories, neighborhood, source_set,
     subject_id, change_kind, revision_diff, brief, budgets, *, clock,
+    unlimited_token_budget: bool = False,
 ):
     context = AppendReconciliationContext(
         source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
@@ -335,7 +348,7 @@ def _run_reconciliation(
         exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
     )
     result = run_method(context)
-    if _output_tokens(result) > budgets.append_output_tokens:
+    if not unlimited_token_budget and _output_tokens(result) > budgets.append_output_tokens:
         raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
     span_request_count = 0
     requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
@@ -352,7 +365,7 @@ def _run_reconciliation(
             exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
         )
         result = run_method(context)
-        if _output_tokens(result) > budgets.append_output_tokens:
+        if not unlimited_token_budget and _output_tokens(result) > budgets.append_output_tokens:
             raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
     return result, span_request_count
 

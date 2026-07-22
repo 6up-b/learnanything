@@ -1,0 +1,52 @@
+schema_version: 1
+id: lo_choose_direct_or_logarithmic_combinatorial_funct
+title: Choose direct or logarithmic combinatorial functions
+subjects:
+  - counting
+concept: concept_combinatorial_computation_in_r
+knowledge_type: procedural
+status: active
+contradicts:
+summary: Compute factorials and binomial coefficients in R while distinguishing 
+  direct values from logarithmic outputs and recognizing overflow.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_13
+    weight: 0.15
+    recipes:
+      - id: recipe_combinatorial_function_selection
+        composition: conjunctive
+        all_of:
+          - facet: facet_use_factorial_n_to_compute_n_and_choose_n_k_to_c
+            capability: method_selection
+            modality: hard
+          - facet: facet_use_lfactorial_n_for_log_n_and_lchoose_n_k_for_t
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_use_lfactorial_n_for_log_n_and_lchoose_n_k_for_t
+          capability: method_selection
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s316
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:07Z'
+updated_at: '2026-07-21T00:54:12Z'

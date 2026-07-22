@@ -1,0 +1,120 @@
+schema_version: 1
+id: pi_for_a_three_token_autore
+learning_object_id: lo_compute_scaled_causal_self_attention
+subjects:
+practice_mode: worked symbolic trace
+attempt_types_allowed: []
+evidence_facets:
+  - facet_given_token_features_and_learned_projection_matr
+  - facet_causal_masking_assigns_disallowed_future_positio
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: For a three-token autoregressive prefix, describe the ordered operations
+  that produce the attention output for the second token. Identify which key 
+  positions are allowed, where scaling and masking occur, and how the value 
+  vectors are combined.
+expected_answer: Project features into Q, K, and V; compute the second query's 
+  dot products with keys; divide logits by sqrt(d_k); mask the third position 
+  before softmax; normalize the first two logits; form the weighted sum of the 
+  first two value vectors; and apply any required output projection.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.35
+scaffold_level: 0.35
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: causal_attention_trace
+evidence_fingerprint:
+  source_family: transformer_attention_lecture
+  shared_stimulus_id: three_token_causal_prefix
+  representation: symbolic operation trace
+  solution_recipe_family: scaled_causal_attention
+  answer_structure: ordered steps with allowed positions
+misconception_consistent_answer:
+repair_targets:
+  - facet_given_token_features_and_learned_projection_matr
+  - facet_causal_masking_assigns_disallowed_future_positio
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_attention_order
+      points: 3.0
+      description: Orders projection, dot-product scoring, scaling, pre-softmax 
+        masking, softmax normalization, and value aggregation correctly.
+      tier: core
+      targets:
+        - facet: facet_given_token_features_and_learned_projection_matr
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_attention_computation
+      correlation_group: causal_attention_trace
+      recipe_ids:
+        - recipe_scaled_causal_attention
+    - id: criterion_causal_positions
+      points: 2.0
+      description: Allows positions one and two and excludes the future third 
+        position from the second token's attention.
+      tier: core
+      targets:
+        - facet: facet_causal_masking_assigns_disallowed_future_positio
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_causal_mask_contract
+      correlation_group: causal_attention_trace
+      recipe_ids:
+        - recipe_scaled_causal_attention
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      path:
+      locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s173
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+      role: lecture
+      source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      path:
+      locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s339
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+      role: lecture
+      source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+      span_hash:
+created_at: '2026-07-21T05:07:22Z'
+updated_at: '2026-07-21T18:14:55Z'

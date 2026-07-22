@@ -1,0 +1,148 @@
+schema_version: 1
+id: pi_for_a_three_class_model
+learning_object_id: lo_compute_logits_softmax_probabilities_and_cross_e
+subjects:
+practice_mode: worked-to-independent calculation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_class_i_and_input_features_x_j_an_affine_cla
+  - facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+  - facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'For a three-class model with supplied input, affine weights, biases, and
+  a one-hot correct class: compute all logits, apply softmax across the three logits,
+  identify the predicted class, and calculate the cross-entropy loss. Show the shared
+  softmax denominator and use the correct-class probability for the loss.'
+expected_answer: Three correctly evaluated logits; three positive probabilities 
+  sharing one denominator and summing to one; the class with the largest 
+  probability; and L=-ln(hat_y_correct).
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.3
+scaffold_level: 0.4
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: near
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: worked
+  span: multi_step
+  tools:
+    - closed_book
+    - calculator
+task_feature_schema: p1_launch@1
+surface_family: numeric_multiclass_forward_pass
+evidence_fingerprint:
+  source_family: toy_multiclass_classifier
+  shared_stimulus_id: tinygps_forward_variant
+  representation: numeric affine equations and one-hot label
+  solution_recipe_family: affine_softmax_cross_entropy
+  answer_structure: logits, probability vector, class, scalar loss
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_class_i_and_input_features_x_j_an_affine_cla
+  - facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+  - facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_forward_logits
+      points: 2.0
+      description: Computes one affine logit per class using the supplied 
+        weights and biases.
+      tier: core
+      targets:
+        - facet: facet_for_class_i_and_input_features_x_j_an_affine_cla
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_affine_logits
+      correlation_group: forward_pass
+      recipe_ids:
+        - recipe_forward_loss
+    - id: criterion_forward_softmax
+      points: 3.0
+      description: Uses one shared denominator over all exponentiated logits and
+        obtains a valid probability distribution.
+      tier: core
+      targets:
+        - facet: facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_softmax_contract
+      correlation_group: forward_pass
+      recipe_ids:
+        - recipe_forward_loss
+    - id: criterion_forward_loss
+      points: 2.0
+      description: Selects the correct-class probability and computes its 
+        negative natural logarithm.
+      tier: core
+      targets:
+        - facet: facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_cross_entropy_correct_probability
+      correlation_group: loss
+      recipe_ids:
+        - recipe_forward_loss
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s197
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s199
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s203
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:26Z'
+updated_at: '2026-07-21T18:14:54Z'

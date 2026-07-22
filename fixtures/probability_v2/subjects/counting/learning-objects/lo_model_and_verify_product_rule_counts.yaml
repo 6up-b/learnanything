@@ -1,0 +1,49 @@
+schema_version: 1
+id: lo_model_and_verify_product_rule_counts
+title: Model and verify product-rule counts
+subjects:
+  - counting
+concept: concept_multiplication_rule_for_counting
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Recognize multistage choices, verify branch counts, and apply the 
+  multiplication rule only when its factors are valid.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_6
+    weight: 1.0
+    recipes:
+      - id: recipe_product_rule
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_finite_multistage_choice_process_identify_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_for_a_finite_multistage_choice_process_identify_
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s136
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:05Z'
+updated_at: '2026-07-21T00:54:10Z'

@@ -1,0 +1,156 @@
+schema_version: 1
+id: pi_a_dataset_expands_from_t
+learning_object_id: lo_scale_a_linear_classifier_across_inputs_and_clas
+subjects:
+practice_mode: transfer model specification
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_class_i_and_input_features_x_j_an_affine_cla
+  - facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+  - facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+  - facet_the_gradient_vector_contains_one_partial_derivat
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A dataset expands from three classes and one input feature to five 
+  classes and three input features. Specify the indexed affine-logit equations, 
+  state the softmax normalization, count all trainable affine parameters and 
+  gradient components, give the general weight and bias gradient formulas, and 
+  describe the decision rule.
+expected_answer: Five logits h_i=Σ_{j=1}^3m_{ij}x_j+b_i; softmax normalized over
+  all five logits; 5(3+1)=20 trainable parameters and 20 gradient components; 
+  ∂L/∂m_{ij}=x_j(hat_y_i-y_i), ∂L/∂b_i=hat_y_i-y_i; prediction selects the class
+  with the largest logit or softmax probability.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.75
+scaffold_level: 0.1
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: architecture_scaling
+evidence_fingerprint:
+  source_family: expanded_multiclass_model
+  shared_stimulus_id: five_class_three_feature_transfer
+  representation: verbal architecture change and indexed notation
+  solution_recipe_family: class_feature_scaling
+  answer_structure: equations, normalization, counts, gradients, decision rule
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_class_i_and_input_features_x_j_an_affine_cla
+  - facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+  - facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+  - facet_the_gradient_vector_contains_one_partial_derivat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_scale_architecture
+      points: 3.0
+      description: Generalizes the affine-logit and softmax structure to all 
+        features and classes.
+      tier: transfer
+      targets:
+        - facet: facet_for_class_i_and_input_features_x_j_an_affine_cla
+          capability: schema_interpretation
+          role: primary
+        - facet: facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - facet_affine_logits
+        - facet_softmax_contract
+      correlation_group: scaling
+      recipe_ids:
+        - recipe_scale_classifier
+    - id: criterion_scale_count
+      points: 2.0
+      description: Counts one weight per class-feature pair and one bias per 
+        class, with an equal number of gradient components.
+      tier: transfer
+      targets:
+        - facet: facet_the_gradient_vector_contains_one_partial_derivat
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_gradient_vector_definition
+      correlation_group: scaling
+      recipe_ids:
+        - recipe_scale_classifier
+    - id: criterion_scale_gradients
+      points: 3.0
+      description: Provides correctly indexed weight and bias gradient formulas 
+        for the expanded model.
+      tier: transfer
+      targets:
+        - facet: facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_affine_parameter_gradients
+      correlation_group: gradients
+      recipe_ids:
+        - recipe_scale_classifier
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s297
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s298
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s303
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:29Z'
+updated_at: '2026-07-21T18:14:43Z'

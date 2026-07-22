@@ -81,6 +81,18 @@ impl SidecarManager {
         Ok(json!({"ok": true}))
     }
 
+    /// The vault the sidecar is (or would be) initialized against. Used by the
+    /// llpdf:// protocol to locate the vault's content-addressed originals
+    /// store without a sidecar round-trip.
+    pub fn resolved_vault_path(&self) -> PathBuf {
+        self.state
+            .lock()
+            .ok()
+            .and_then(|state| state.vault_path.clone())
+            .or_else(|| std::env::var("LEARNLOOP_VAULT").ok().map(PathBuf::from))
+            .unwrap_or_else(default_vault_path)
+    }
+
     pub fn select_vault(&self, vault_path: Option<String>) -> Result<Value, CommandError> {
         let initialized = self.initialize(vault_path)?;
         if let Some(vault) = initialized.get("vault") {

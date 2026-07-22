@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 
@@ -61,6 +63,20 @@ def test_new_item_types_persist(tmp_path):
         "notation_mapping",
         "source_conflict",
     }
+
+
+def test_duplicate_client_ids_are_rejected_before_database_writes(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    _seed_agent_run(paths.sqlite_path)
+    repository = Repository(paths.sqlite_path)
+
+    with pytest.raises(ValueError, match="duplicate client_item_id.*same"):
+        repository.persist_proposal_batch(
+            _batch(),
+            [_item("same", "facet"), _item("same", "practice_item")],
+        )
+
+    assert repository.proposal_batch("pp1") is None
 
 
 def test_depends_on_normalized_into_dependency_table(tmp_path):

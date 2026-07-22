@@ -1,0 +1,83 @@
+schema_version: 1
+id: lo_explain_mla_compression_and_inference_time_weigh
+title: Explain MLA compression and inference-time weight absorption
+subjects:
+  - llm
+concept: concept_multi_head_latent_attention
+knowledge_type: architecture and procedure
+status: active
+contradicts:
+summary: Contrast MLA with conventional and grouped-query caches, trace 
+  head-specific behavior from a shared latent representation, and justify 
+  inference-time algebraic reassociation.
+prerequisites:
+  - concept_causal_self_attention_and_kv_caching
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_10
+    weight: 1.0
+    recipes:
+      - id: recipe_mla_complete
+        composition: conjunctive
+        all_of:
+          - facet: facet_multi_head_latent_attention_caches_a_compressed_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_at_inference_fixed_mla_key_up_projection_weights
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_in_the_described_mla_implementation_cache_storag
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_at_inference_fixed_mla_key_up_projection_weights
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s365
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s396
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s420
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+created_at: '2026-07-21T05:06:41Z'
+updated_at: '2026-07-21T05:07:00Z'

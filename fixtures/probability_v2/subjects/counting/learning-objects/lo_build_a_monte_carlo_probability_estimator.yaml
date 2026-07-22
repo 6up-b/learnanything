@@ -1,0 +1,79 @@
+schema_version: 1
+id: lo_build_a_monte_carlo_probability_estimator
+title: Build a Monte Carlo probability estimator
+subjects:
+  - counting
+concept: concept_monte_carlo_probability_estimation
+knowledge_type: procedural
+status: active
+contradicts:
+summary: Encode event indicators, repeat a random experiment, and convert 
+  repeated event counts into a relative-frequency estimate.
+prerequisites:
+  - concept_random_sampling_in_r
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_15
+    weight: 0.3
+    recipes:
+      - id: recipe_monte_carlo_estimator
+        composition: conjunctive
+        all_of:
+          - facet: facet_an_elementwise_logical_comparison_can_encode_eve
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s329
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s334
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s335
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:07Z'
+updated_at: '2026-07-21T00:54:12Z'

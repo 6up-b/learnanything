@@ -1,0 +1,158 @@
+schema_version: 1
+id: pi_write_r_code_to_simulate
+learning_object_id: lo_simulate_matching_probabilities_in_r
+subjects:
+practice_mode: code_construction
+attempt_types_allowed: []
+evidence_facets:
+  - facet_r_s_sample_command_draws_pseudo_random_samples_s
+  - facet_to_simulate_the_matching_problem_in_r_use_sample
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Write R code to simulate 10^4 runs of the n-card matching problem for n 
+  <- 100 and estimate the probability of at least one match. Briefly explain 
+  what sample(n)==(1:n) and sum(r>=1)/10^4 do.
+expected_answer: n <- 100; r <- replicate(10^4, sum(sample(n)==(1:n))); 
+  sum(r>=1)/10^4. The comparison sample(n)==(1:n) produces a logical indicator 
+  for each position showing whether the sampled card matches that position. sum 
+  counts matches in one run, r stores the counts over runs, and sum(r>=1)/10^4 
+  estimates the fraction of runs with at least one match.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.35
+scaffold_level: 0.3
+surface_family: r_matching_monte_carlo
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: r_matching_simulation_code
+  representation: R code with line-by-line interpretation
+  solution_recipe_family: sample_replicate_indicator_proportion
+  answer_structure: code plus explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_r_s_sample_command_draws_pseudo_random_samples_s
+  - facet_to_simulate_the_matching_problem_in_r_use_sample
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_sample_permutation
+      points: 1.0
+      description: Uses sample(n) as the random permutation/card-ordering 
+        mechanism.
+      tier: core
+      targets:
+        - facet: facet_r_s_sample_command_draws_pseudo_random_samples_s
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group: r_matching_sim
+      recipe_ids:
+        - recipe_r_matching_simulation
+    - id: crit_replicate_count
+      points: 2.0
+      description: Uses replicate with sum(sample(n)==(1:n)) to count matches in
+        many runs.
+      tier: core
+      targets:
+        - facet: facet_to_simulate_the_matching_problem_in_r_use_sample
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_sample_permutation
+      correlation_group: r_matching_sim
+      recipe_ids:
+        - recipe_r_matching_simulation
+    - id: crit_event_proportion
+      points: 1.0
+      description: Estimates the probability of at least one match by counting 
+        r>=1 and dividing by the number of simulations.
+      tier: core
+      targets:
+        - facet: facet_to_simulate_the_matching_problem_in_r_use_sample
+          capability: coordination
+          role: primary
+      depends_on:
+        - crit_replicate_count
+      correlation_group: r_matching_sim
+      recipe_ids:
+        - recipe_r_matching_simulation
+    - id: crit_indicator_explanation
+      points: 1.0
+      description: Explains sample(n)==(1:n) as elementwise match indicators, 
+        not one global comparison.
+      tier: transfer
+      targets:
+        - facet: facet_to_simulate_the_matching_problem_in_r_use_sample
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit_replicate_count
+      correlation_group: r_matching_sim
+      recipe_ids:
+        - recipe_r_matching_simulation
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s331
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s332
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s334
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s335
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:17Z'
+updated_at: '2026-07-15T21:39:17Z'

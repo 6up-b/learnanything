@@ -1,0 +1,127 @@
+schema_version: 1
+id: pi_recall_classifier_grid_components
+learning_object_id: lo_render_a_classifier_s_decision_regions
+subjects:
+  - llm
+practice_mode: short recall
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - facet_construct_a_configurable_two_input_relu_classifi
+  - facet_visualize_predicted_decision_regions_by_building
+evidence_weights:
+  facet_construct_a_configurable_two_input_relu_classifi: 0.5
+  facet_visualize_predicted_decision_regions_by_building: 0.5
+criterion_facet_weights: {}
+prompt: In one short response, recall the ordered PyTorch layer sequence for a 
+  two-input classifier with hidden widths [8, 8] and two output logits, then 
+  name the operation and axis used to convert flattened grid logits into class 
+  predictions before reshaping them into a decision-region map.
+expected_answer: Linear(2,8) → ReLU → Linear(8,8) → ReLU → Linear(8,2); take 
+  argmax over the class/logit axis (dimension 1) and reshape the resulting flat 
+  class predictions to the grid's height and width.
+difficulty: 0.27
+difficulty_source: llm_estimate
+tags:
+  - decision-regions
+  - pytorch
+  - recall
+  - relu-classifier
+  - rung_variant
+hints:
+  - Recall that each coordinate pair supplies two input features and the 
+    classifier produces two class logits.
+  - For a flattened batch of grid points, the logits have shape 
+    [number_of_points, number_of_classes].
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.08
+scaffold_level: 0.05
+capability: retrieval
+task_features:
+  complexity: 1
+  response: short_constructed
+  scaffolding: none
+  span: atomic
+  transfer: same_context
+task_feature_schema: p1_launch@1
+surface_family: classifier_component_recall
+evidence_fingerprint:
+  source_family: two-hidden-layer-grid-map
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: Linear(2,8) → ReLU → Linear(8,8) → ReLU → 
+  Linear(8,2); take argmax over dimension 0 and reshape the result to the grid.
+repair_targets:
+  - facet_construct_a_configurable_two_input_relu_classifi
+  - facet_visualize_predicted_decision_regions_by_building
+  - fatal_wrong_input_or_output_width
+  - fatal_wrong_argmax_axis
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_layer_sequence
+      points: 2.0
+      description: States the complete ordered sequence Linear(2,8), ReLU, 
+        Linear(8,8), ReLU, Linear(8,2).
+      tier: core
+      targets:
+        - facet: facet_construct_a_configurable_two_input_relu_classifi
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: criterion_grid_prediction_step
+      points: 2.0
+      description: States that argmax is taken over the class/logit axis 
+        (dimension 1) before flat predictions are reshaped to the grid 
+        dimensions.
+      tier: core
+      targets:
+        - facet: facet_visualize_predicted_decision_regions_by_building
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+  fatal_errors:
+    - id: fatal_wrong_input_or_output_width
+      description: States an input width other than 2 or an output width other 
+        than 2.
+      max_grade: 2
+      misconception_id:
+    - id: fatal_wrong_argmax_axis
+      description: Applies argmax over grid points rather than over the 
+        class/logit axis.
+      max_grade: 2
+      misconception_id:
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: existing_entity
+      ref_id: pi_design_a_pytorch_workflo
+      path:
+      locator: source practice item
+      quote: Design a PyTorch workflow for a classifier with hidden widths [8, 
+        8], two input coordinates, and two output logits.
+      quote_hash:
+    - ref_type: existing_entity
+      ref_id: lo_render_a_classifier_s_decision_regions
+      path:
+      locator: target learning object
+      quote: Render a classifier's decision regions
+      quote_hash:
+created_at: '2026-07-21T18:04:09Z'
+updated_at: '2026-07-21T18:04:09Z'

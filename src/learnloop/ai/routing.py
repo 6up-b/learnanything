@@ -6,7 +6,13 @@ from typing import Literal
 
 from learnloop.config import LearnLoopConfig
 
-AITask = Literal["grading", "canonical_ingest", "canonical_ingest_retry", "authoring", "tutor_qa", "teach_back"]
+AITask = Literal[
+    "grading", "canonical_ingest", "canonical_ingest_retry", "authoring", "tutor_qa", "teach_back",
+    # Learner-requested easier/harder sibling authoring: small, instruction-
+    # constrained, gate-checked — routed to the fast low-effort profile so the
+    # request feels interactive rather than riding the synthesis route.
+    "rung_variant",
+]
 
 
 @dataclass(frozen=True)

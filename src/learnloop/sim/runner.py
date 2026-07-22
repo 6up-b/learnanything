@@ -15,6 +15,7 @@ The vault is loaded once and reused across the whole run; only the clock moves.
 
 from __future__ import annotations
 
+import random
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -266,6 +267,7 @@ def run_simulation(
     start: datetime | None = None,
     primed_retries: bool = False,
     goal_due_day: int | None = None,
+    grader_confusion: "Any | None" = None,
 ) -> SimReport:
     """Run one synthetic student against the vault at ``vault_root``.
 
@@ -287,6 +289,11 @@ def run_simulation(
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     profile = _resolve_auto_misconceptions(vault, profile)
     student = SyntheticStudent(profile, seed)
+    # Deterministic RNG for planted grader-confusion injection (§9.7.1). Seeded so
+    # the corrupted grades replay bit-for-bit; unused (and thus a no-op) when no
+    # confusion is configured -> byte-identical to a clean run.
+    confusion_seed = seed ^ (getattr(grader_confusion, "seed", 0) or 0) ^ 0x6D69_7367
+    confusion_rng = random.Random(confusion_seed)
     start = start or SIM_START
     if goal_due_day is not None:
         # Give every active goal a due date N sim-days in, so the run exercises
@@ -359,6 +366,11 @@ def run_simulation(
                 clock=clock,
                 session_id=session_id,
                 source=source,
+                **(
+                    {"grader_confusion": grader_confusion, "confusion_rng": confusion_rng}
+                    if simulate is _simulate_one_attempt
+                    else {}
+                ),
             )
             attempts.append(record)
             attempted.add(item_id)
@@ -381,6 +393,8 @@ def run_simulation(
                         session_id=session_id,
                         source="primed_retry",
                         primed=True,
+                        grader_confusion=grader_confusion,
+                        confusion_rng=confusion_rng,
                     )
                     attempts.append(record)
                     attempted.add(sibling.id)
@@ -527,6 +541,8 @@ def _simulate_one_attempt(
     session_id: str,
     source: str,
     primed: bool = False,
+    grader_confusion: "Any | None" = None,
+    confusion_rng: "random.Random | None" = None,
 ) -> SimAttemptRecord:
     rubric = resolved_rubric(vault, item)
     criterion_weights = criterion_facet_weights_for_item(item, rubric)
@@ -573,6 +589,24 @@ def _simulate_one_attempt(
         ]
         grader_confidence = 0.9
         answer_md = f"[sim answer p_know={outcome.p_correct_truth:.2f}]"
+
+    # Planted grader-confusion injection (§9.7.1): corrupt the OBSERVED grade before
+    # it becomes a ResolvedGrade, keeping the student's true state for metrics. A
+    # no-op (byte-identical) unless a GraderConfusion is configured and this is a
+    # graded (non-dont_know) attempt.
+    if grader_confusion is not None and not outcome.dont_know:
+        from learnloop.sim.grader_confusion import apply_confusion
+
+        max_points_by_criterion = {c.id: float(c.points) for c in rubric.criteria}
+        confused = apply_confusion(
+            true_criterion_points=criterion_points,
+            max_points_by_criterion=max_points_by_criterion,
+            grader_confidence=grader_confidence,
+            confusion=grader_confusion,
+            rng=confusion_rng or random.Random(0),
+        )
+        criterion_points = {cid: float(confused["criterion_points"].get(cid, criterion_points[cid])) for cid in criterion_points}
+        grader_confidence = float(confused["grader_confidence"])
 
     rubric_score = _rubric_score(rubric, criterion_points, [])
     evidence_rows = [

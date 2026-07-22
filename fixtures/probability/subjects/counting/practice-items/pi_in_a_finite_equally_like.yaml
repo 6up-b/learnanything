@@ -1,0 +1,118 @@
+schema_version: 1
+id: pi_in_a_finite_equally_like
+learning_object_id: lo_use_complements_to_simplify_probability_counts
+subjects:
+practice_mode: calculation_and_method_selection
+attempt_types_allowed: []
+evidence_facets:
+  - facet_under_the_naive_definition_p_naive_a_c_1_p_naive
+  - facet_when_solving_for_an_event_probability_compare_di
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: In a finite equally likely sample space, P_naive(A)=5/9. Compute 
+  P_naive(A^c). Then explain when computing a complement is preferable to direct
+  counting.
+expected_answer: P_naive(A^c)=1−5/9=4/9. Complement counting is preferable when 
+  A^c is easier to describe or count than A, especially when De Morgan's laws 
+  simplify a compound event.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.25
+scaffold_level: 0.3
+surface_family: complement_counting
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: A_probability_five_ninths
+  representation: symbolic probability and explanation
+  solution_recipe_family: complement_probability
+  answer_structure: fraction plus method explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_under_the_naive_definition_p_naive_a_c_1_p_naive
+  - facet_when_solving_for_an_event_probability_compare_di
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: cr_complement_numeric
+      points: 1.0
+      description: Correctly computes P_naive(A^c) as 4/9 from 1−5/9.
+      tier: core
+      targets:
+        - facet: facet_under_the_naive_definition_p_naive_a_c_1_p_naive
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: complement_rule
+      recipe_ids:
+        - r_use_complement
+    - id: cr_complement_method_reason
+      points: 1.0
+      description: Explains that complement counting is useful when the 
+        complement is easier to count or describe.
+      tier: core
+      targets:
+        - facet: facet_when_solving_for_an_event_probability_compare_di
+          capability: method_selection
+          role: primary
+      depends_on:
+        - cr_complement_numeric
+      correlation_group: complement_rule
+      recipe_ids:
+        - r_use_complement
+    - id: cr_mentions_demorgan_when_relevant
+      points: 1.0
+      description: Notes that De Morgan's laws can help simplify complements of 
+        unions or intersections.
+      tier: transfer
+      targets:
+        - facet: facet_for_events_a_and_b_the_complement_of_a_union_is_
+          capability: schema_interpretation
+          role: supporting
+        - facet: facet_when_solving_for_an_event_probability_compare_di
+          capability: coordination
+          role: primary
+      depends_on:
+        - cr_complement_method_reason
+      correlation_group: complement_rule
+      recipe_ids:
+        - r_use_complement
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s98
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s99
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:12Z'
+updated_at: '2026-07-15T21:39:12Z'

@@ -1,0 +1,119 @@
+schema_version: 1
+id: pi_a_problem_states_that_so
+learning_object_id: lo_adapt_birthday_simulation_to_unequal_probabiliti
+subjects:
+practice_mode: adaptation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_when_birthday_probabilities_differ_by_day_the_eq
+  - facet_to_simulate_the_birthday_problem_for_23_people_s
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A problem states that some birthdays are more likely than others. 
+  Explain why the equal-probability formula is not the supported approach here 
+  and how the simulation should be adapted.
+expected_answer: The equal-probability complement formula assumes probability 
+  1/365 for each day, while the source says unequal probabilities make exact 
+  calculation much more difficult. The simulation can be adapted by specifying a
+  probability for each day in sample and then keeping the same sampling, 
+  tabulation, repetition, and max-count event check.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.55
+scaffold_level: 0.2
+surface_family: simulation adaptation
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: unequal_birthday_probabilities_extension
+  representation: conceptual simulation adaptation
+  solution_recipe_family: change sampling distribution while preserving event 
+    detector
+  answer_structure: explanation of assumption plus adapted method
+misconception_consistent_answer:
+repair_targets:
+  - facet_when_birthday_probabilities_differ_by_day_the_eq
+  - facet_to_simulate_the_birthday_problem_for_23_people_s
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_unequal_reject_equal_formula
+      points: 1.0
+      description: Recognizes that the equal-probability birthday formula is not
+        directly supported when day probabilities differ.
+      tier: core
+      targets:
+        - facet: facet_when_birthday_probabilities_differ_by_day_the_eq
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group: unequal_birthday_simulation
+      recipe_ids:
+        - recipe_unequal_birthday_simulation
+    - id: crit_unequal_specify_probabilities
+      points: 1.0
+      description: Explains that sample should be supplied with day-specific 
+        probabilities while retaining the simulation structure.
+      tier: core
+      targets:
+        - facet: facet_when_birthday_probabilities_differ_by_day_the_eq
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_unequal_reject_equal_formula
+      correlation_group: unequal_birthday_simulation
+      recipe_ids:
+        - recipe_unequal_birthday_simulation
+    - id: crit_unequal_keep_match_detector
+      points: 1.0
+      description: Keeps the with-replacement sampling, tabulation, and 
+        maximum-count event detector from the birthday simulation approach.
+      tier: transfer
+      targets:
+        - facet: facet_to_simulate_the_birthday_problem_for_23_people_s
+          capability: coordination
+          role: supporting
+      depends_on:
+        - crit_unequal_specify_probabilities
+      correlation_group: unequal_birthday_simulation
+      recipe_ids:
+        - recipe_birthday_monte_carlo
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s350
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s349
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:20Z'
+updated_at: '2026-07-15T21:39:20Z'

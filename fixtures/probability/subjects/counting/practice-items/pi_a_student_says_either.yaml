@@ -1,0 +1,117 @@
+schema_version: 1
+id: pi_a_student_says_either
+learning_object_id: lo_compute_and_vet_naive_probabilities
+subjects:
+practice_mode: critique
+attempt_types_allowed: []
+evidence_facets:
+  - facet_equal_likelihood_must_be_justified_by_symmetry_o
+  - facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A student says, 'Either it will rain tomorrow or it will not, so the 
+  probability of rain is 1/2.' Critique the reasoning using the conditions for 
+  applying the naive definition.
+expected_answer: The reasoning is invalid. Binary alternatives do not 
+  automatically have equal likelihood. To use the naive definition, the sample 
+  space must be finite and the outcomes must be equally likely, justified by 
+  symmetry or design. Ignorance about which event will occur is not enough.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.45
+scaffold_level: 0.35
+surface_family: assumption_critique
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: binary_event_50_50_claim
+  representation: verbal critique scenario
+  solution_recipe_family: naive_probability_applicability_check
+  answer_structure: short explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_equal_likelihood_must_be_justified_by_symmetry_o
+  - facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: cr_reject_binary_equals_equal_likely
+      points: 1.0
+      description: Rejects the claim that two verbal possibilities automatically
+        imply probability 1/2.
+      tier: core
+      targets:
+        - facet: facet_equal_likelihood_must_be_justified_by_symmetry_o
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group: equal_likelihood_critique
+      recipe_ids:
+        - r_compute_naive_probability
+    - id: cr_names_naive_conditions
+      points: 1.0
+      description: 'States the relevant naive-probability conditions: finite sample
+        space and equally likely outcomes.'
+      tier: core
+      targets:
+        - facet: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group: equal_likelihood_critique
+      recipe_ids:
+        - r_compute_naive_probability
+    - id: cr_distinguishes_ignorance_from_symmetry
+      points: 1.0
+      description: Explains that equal likelihood needs justification such as 
+        symmetry or design, not mere ignorance.
+      tier: transfer
+      targets:
+        - facet: facet_equal_likelihood_must_be_justified_by_symmetry_o
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - cr_reject_binary_equals_equal_likely
+        - cr_names_naive_conditions
+      correlation_group: equal_likelihood_critique
+      recipe_ids:
+        - r_compute_naive_probability
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s100
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s101
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:11Z'
+updated_at: '2026-07-15T21:39:11Z'

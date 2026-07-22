@@ -1,0 +1,80 @@
+schema_version: 1
+id: lo_translate_event_language_and_set_operations
+title: Translate Event Language and Set Operations
+subjects:
+  - counting
+concept: concept_event_operations
+knowledge_type: schema_interpretation_and_procedure
+status: active
+contradicts:
+summary: Use unions, intersections, complements, and De Morgan's laws to express
+  and interpret compound events in English and set notation.
+prerequisites:
+  - concept_sample_space
+  - concept_event
+confusables: []
+blueprints:
+  - id: bp_01KXKVFA_2
+    weight: 0.28
+    recipes:
+      - id: r_translate_events
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_for_events_a_and_b_the_complement_of_a_union_is_
+            capability: procedure_execution
+            modality: path_specific
+        any_of: []
+        integration:
+          facet: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s57
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s58
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s73
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:57Z'
+updated_at: '2026-07-15T21:39:04Z'

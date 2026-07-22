@@ -1,0 +1,79 @@
+schema_version: 1
+id: lo_reconstruct_token_averaged_language_model_loss
+title: Reconstruct token-averaged language-model loss
+subjects:
+  - llm
+concept: concept_cross_entropy_loss
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Transform correct-next-token probabilities into token losses, average 
+  them, and diagnose discrepancies with a framework-reported loss.
+prerequisites:
+  - concept_cross_entropy_loss
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_18
+    weight: 1.0
+    recipes:
+      - id: recipe_token_loss
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_to_reconstruct_an_example_level_language_model_l
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_reconstruct_an_example_level_language_model_l
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s138
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s142
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s149
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: alternate
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:47Z'
+updated_at: '2026-07-21T05:07:07Z'

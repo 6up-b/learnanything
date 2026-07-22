@@ -21,7 +21,13 @@ from learnloop.ai.runtime import check_ai_runtime
 from learnloop.codex.client import make_codex_client
 from learnloop.codex.schemas import AuthoringProposal
 from learnloop.codex.runtime import check_codex_runtime
-from learnloop.config import ConfigLoadError
+from learnloop.config import (
+    CODEX_LOW_PROVIDER,
+    CODEX_MEDIUM_PROVIDER,
+    CODEX_PROVIDER_NAMES,
+    DEFAULT_CODEX_MODEL,
+    ConfigLoadError,
+)
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import (
     AttemptDraft,
@@ -241,6 +247,890 @@ def claims_purge(
 
     purged = purge_claim_events(_repository(_root(vault)))
     typer.echo(f"Purged {purged} claim events.")
+
+
+contracts_app = typer.Typer(
+    no_args_is_help=True,
+    help="Inspect goal terminal-contract versions, pinned consumers, and drift (P0.4 §3.4).",
+)
+app.add_typer(contracts_app, name="contracts")
+
+
+def _contracts_env(vault: Path | None):
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    return loaded, repository
+
+
+@contracts_app.command("show")
+def contracts_show(
+    goal_id: Annotated[str, typer.Argument(help="Goal id.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Show the head version, full version history, drift status, and pinned consumers."""
+
+    from learnloop.services import goal_contracts as gc
+
+    loaded, repository = _contracts_env(vault)
+    head = gc.resolve_head(repository, goal_id)
+    versions = repository.goal_contract_versions_for_goal(goal_id)
+    drift = gc.detect_contract_drift(loaded, repository, goal_id)
+    pins = gc.list_consumer_pins(repository, goal_id)
+    payload = {
+        "version": 1,
+        "goal_id": goal_id,
+        "head": head.as_dict() if head is not None else None,
+        "versions": [
+            {
+                "id": v["id"],
+                "version": v["version"],
+                "change_class": v["change_class"],
+                "content_hash": v["content_hash"],
+                "support_hash": v["support_hash"],
+                "author": v["author"],
+                "reason": v["reason"],
+                "created_at": v["created_at"],
+            }
+            for v in versions
+        ],
+        "drift": drift.as_dict(),
+        "pinned_consumers": [pin.as_dict() for pin in pins],
+    }
+    typer.echo(_dump(payload))
+
+
+@contracts_app.command("compare")
+def contracts_compare(
+    goal_id: Annotated[str, typer.Argument(help="Goal id.")],
+    version_a: Annotated[str, typer.Argument(help="Version id A.")],
+    version_b: Annotated[str, typer.Argument(help="Version id B.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Field-level diff of two versions + whether their support hashes differ."""
+
+    from learnloop.services import goal_contracts as gc
+
+    _, repository = _contracts_env(vault)
+    a = repository.fetch_goal_contract_version(version_a)
+    b = repository.fetch_goal_contract_version(version_b)
+    if a is None or b is None:
+        typer.echo(_dump({"version": 1, "error": "unknown_version"}))
+        raise typer.Exit(code=1)
+    body_a = jsonlib.loads(a["contract_json"])
+    body_b = jsonlib.loads(b["contract_json"])
+    diff = {
+        key: {"a": body_a.get(key), "b": body_b.get(key)}
+        for key in sorted(set(body_a) | set(body_b))
+        if body_a.get(key) != body_b.get(key)
+    }
+    typer.echo(
+        _dump(
+            {
+                "version": 1,
+                "goal_id": goal_id,
+                "change_class": gc.compute_change_class(body_a, body_b),
+                "support_hash_differs": a["support_hash"] != b["support_hash"],
+                "field_diff": diff,
+            }
+        )
+    )
+
+
+@contracts_app.command("amend")
+def contracts_amend(
+    goal_id: Annotated[str, typer.Argument(help="Goal id.")],
+    reason: Annotated[str | None, typer.Option("--reason", help="Amendment reason.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Adopt the current YAML draft edits as an appended successor (the sanctioned
+    drift-adoption path, §3). Requires a confirmed head."""
+
+    from learnloop.services import goal_contracts as gc
+
+    loaded, repository = _contracts_env(vault)
+    head = gc.resolve_head(repository, goal_id)
+    if head is None:
+        typer.echo(_dump({"version": 1, "error": "not_confirmed", "goal_id": goal_id}))
+        raise typer.Exit(code=1)
+    goal = next((g for g in loaded.goals if g.id == goal_id), None)
+    if goal is None:
+        typer.echo(_dump({"version": 1, "error": "goal_missing", "goal_id": goal_id}))
+        raise typer.Exit(code=1)
+    merged = dict(head.contract)
+    merged.update(
+        {
+            "purpose": goal.title,
+            "due_at": goal.due_at,
+            "target_recall": goal.target_recall,
+            "facet_scope": goal.facet_scope.model_dump(),
+            "exam": goal.exam.model_dump(),
+        }
+    )
+    version = gc.append_successor(
+        repository, goal_id=goal_id, proposed_body=merged, reason=reason, vault=loaded
+    )
+    typer.echo(_dump({"version": 1, "amended": version.as_dict()}))
+
+
+goldenpath_app = typer.Typer(
+    no_args_is_help=True, help="P2 golden-path fixture bootstrap (spec_p2 §C)."
+)
+app.add_typer(goldenpath_app, name="goldenpath")
+
+
+@goldenpath_app.command("init-fixture")
+def goldenpath_init_fixture(
+    path: Annotated[Path, typer.Argument(help="Target dir for the fresh mvp-0.8 fixture vault.")],
+) -> None:
+    """Deterministically build the P2 golden-path fixture vault (symmetric-matrices,
+    method-selection family) and confirm the run. Idempotent per §12.8: two builds
+    into empty roots produce identical content hashes."""
+
+    from learnloop.services.golden_path_fixture import build_golden_path_fixture
+
+    if path.exists() and any(path.iterdir()):
+        typer.echo(_dump({"version": 1, "error": "target_not_empty", "path": str(path)}))
+        raise typer.Exit(code=1)
+    fixture = build_golden_path_fixture(path)
+    typer.echo(_dump({"version": 1, "fixture": fixture.as_dict()}))
+
+
+depth_app = typer.Typer(
+    no_args_is_help=True,
+    help="Depth-edge authoring: owner-curated templates, LLM edge instances, deterministic admission, pinning (spec v2 depth).",
+)
+app.add_typer(depth_app, name="depth")
+
+
+@depth_app.command("template-add")
+def depth_template_add(
+    slug: Annotated[str, typer.Argument(help="Stable template slug (snake case).")],
+    body_file: Annotated[Path, typer.Argument(help="JSON template body: step_deltas, exit_gate_kind, fresh_proof_kind, eligible_pattern_slugs, optional capability_transitions.")],
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Create a depth-edge template (version 1, status draft)."""
+
+    from learnloop.services.depth_edge_authoring import DepthEdgeAuthoringError, create_edge_template
+
+    repo = _repository(_root(vault))
+    try:
+        template_id, version_id = create_edge_template(
+            repo, template_slug=slug, body=jsonlib.loads(body_file.read_text(encoding="utf-8"))
+        )
+    except DepthEdgeAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(_dump({"version": 1, "template_id": template_id, "template_version_id": version_id}))
+
+
+@depth_app.command("template-review")
+def depth_template_review(
+    version_id: Annotated[str, typer.Argument(help="Template version id.")],
+    status: Annotated[str, typer.Option("--status", help="reviewed|retired")] = "reviewed",
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Mark a template version reviewed (only reviewed versions parent instances)."""
+
+    from learnloop.services.depth_edge_authoring import DepthEdgeAuthoringError, review_edge_template
+
+    repo = _repository(_root(vault))
+    try:
+        review_edge_template(repo, version_id=version_id, status=status)
+    except DepthEdgeAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(_dump({"version": 1, "template_version_id": version_id, "status": status}))
+
+
+@depth_app.command("templates")
+def depth_templates_list(
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """List depth-edge templates and their versions."""
+
+    repo = _repository(_root(vault))
+    rows = []
+    for template in repo.depth_edge_templates():
+        versions = repo.depth_edge_template_versions_for(template["id"])
+        rows.append({**template, "versions": versions})
+    typer.echo(_dump({"version": 1, "templates": rows}))
+
+
+@depth_app.command("edges-author")
+def depth_edges_author(
+    commitment_id: Annotated[str, typer.Argument(help="Commitment id.")],
+    template_version_ids: Annotated[list[str], typer.Option("--template-version", help="Reviewed template version id (repeatable).")],
+    count: Annotated[int, typer.Option("--count")] = 1,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """LLM-author edge instances from reviewed templates; each is gated and
+    stored admitted/rejected with its admission report. Never activates."""
+
+    from learnloop.services.depth_edge_authoring import DepthEdgeAuthoringError, author_edge_instances
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    runtime = check_codex_runtime(vault_root, loaded.config.codex)
+    client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+    if client is None:
+        typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+        raise typer.Exit(code=1)
+    repo = _repository(vault_root)
+    try:
+        stored = author_edge_instances(
+            repo, client, commitment_id=commitment_id,
+            template_version_ids=list(template_version_ids), count=count,
+        )
+    except DepthEdgeAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(_dump({"version": 1, "instances": stored}))
+
+
+@depth_app.command("edges")
+def depth_edges_list(
+    commitment_id: Annotated[str, typer.Argument(help="Commitment id.")],
+    status: Annotated[str | None, typer.Option("--status", help="proposed|admitted|rejected|confirmed|pinned")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """List edge instances (with admission reports) for one commitment."""
+
+    repo = _repository(_root(vault))
+    typer.echo(_dump({
+        "version": 1,
+        "instances": repo.depth_edge_instances_for(commitment_id, status=status),
+    }))
+
+
+@depth_app.command("backfill-rungs")
+def depth_backfill_rungs(
+    subject: Annotated[str | None, typer.Option("--subject", help="Limit to one subject id.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Report classifications without writing.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """LLM-classify legacy items into capability + task_features (deterministic
+    validators admit each entry) and stamp the vault YAML in place. Annotation
+    only — content, rubrics, evidence, and scheduling state are untouched."""
+
+    from learnloop.services.rung_backfill import RungBackfillError, backfill_item_rungs
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    runtime = check_codex_runtime(vault_root, loaded.config.codex)
+    client = make_codex_client(loaded.config.codex, vault_root) if runtime.ready else None
+    if client is None:
+        typer.echo(runtime.message or "Codex runtime is unavailable.", err=True)
+        raise typer.Exit(code=1)
+    repo = _repository(vault_root)
+    try:
+        report = backfill_item_rungs(vault_root, repo, client, subject=subject, dry_run=dry_run)
+    except RungBackfillError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(_dump({"version": 1, "dry_run": dry_run, **report}))
+
+
+@depth_app.command("edges-confirm")
+def depth_edges_confirm(
+    commitment_id: Annotated[str, typer.Argument(help="Commitment id.")],
+    instance_ids: Annotated[list[str], typer.Option("--instance", help="Admitted instance id (repeatable).")],
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Confirm admitted instances and PIN them into a new immutable envelope
+    version + milestone rows. Auto-activation stays gated (U-018)."""
+
+    from learnloop.services.depth_edge_authoring import DepthEdgeAuthoringError, pin_admitted_edges
+
+    repo = _repository(_root(vault))
+    try:
+        envelope_version_id = pin_admitted_edges(
+            repo, commitment_id=commitment_id, instance_ids=list(instance_ids)
+        )
+    except DepthEdgeAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(_dump({"version": 1, "envelope_version_id": envelope_version_id}))
+
+
+surfaces_app = typer.Typer(
+    no_args_is_help=True, help="Inspect activity-surface exposure and burn history (P0.4 §5)."
+)
+app.add_typer(surfaces_app, name="surfaces")
+
+
+@surfaces_app.command("audit")
+def surfaces_audit(
+    surface_id: Annotated[str, typer.Argument(help="Surface id.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """A surface's full reserve->expose->consume->quarantine->retire timeline plus
+    the current held-out eligibility verdict."""
+
+    from learnloop.services.activities import evaluate_held_out_eligibility
+
+    _, repository = _contracts_env(vault)
+    surface = repository.fetch_surface(surface_id)
+    if surface is None:
+        typer.echo(_dump({"version": 1, "error": "unknown_surface", "surface_id": surface_id}))
+        raise typer.Exit(code=1)
+    exposures = repository.exposures_for_surface(surface_id)
+    lifecycle = repository.surface_lifecycle_history(surface_id)
+    eligibility = evaluate_held_out_eligibility(repository, surface=surface, purpose="assessment")
+    typer.echo(
+        _dump(
+            {
+                "version": 1,
+                "surface_id": surface_id,
+                "surface_hash": surface.get("surface_hash"),
+                "fingerprint": surface.get("fingerprint"),
+                "exposures": [
+                    {"kind": e["kind"], "purpose": e["purpose"],
+                     "consumes_unseen": e["consumes_unseen"], "created_at": e["created_at"]}
+                    for e in exposures
+                ],
+                "lifecycle": [
+                    {"kind": e["kind"], "reason": e.get("reason"), "created_at": e["created_at"]}
+                    for e in lifecycle
+                ],
+                "current_eligibility": eligibility.as_dict(),
+            }
+        )
+    )
+
+
+@surfaces_app.command("retire")
+def surfaces_retire(
+    surface_id: Annotated[str, typer.Argument(help="Surface id to retire.")],
+    reason: Annotated[str, typer.Option("--reason", help="Taxonomy retirement reason (§3.7/§3.8).")],
+    scope: Annotated[str, typer.Option("--scope", help="surface | card | family.")] = "surface",
+    provenance: Annotated[str, typer.Option("--provenance")] = "owner_tooling",
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Retire a bad prompt from the CLI with a taxonomy reason (Journey 12, §5).
+
+    Deletes NOTHING: learner state and facet evidence survive; the reason lands in
+    ``interaction_events`` and a ``retirement_records`` row (§3.7/§3.8). Thin adapter
+    over the P0.1 retire_with_reason service."""
+
+    from learnloop.services.activities import retire_with_reason
+
+    _, repository = _contracts_env(vault)
+    record_id = retire_with_reason(
+        repository, scope=scope, reason=reason, provenance=provenance, surface_id=surface_id,
+    )
+    typer.echo(_dump({"version": 1, "retirement_record_id": record_id, "surface_id": surface_id, "reason": reason}))
+
+
+calibration_app = typer.Typer(
+    no_args_is_help=True, help="Grader-calibration streams and adjudication bootstrap."
+)
+app.add_typer(calibration_app, name="calibration")
+
+
+@calibration_app.command("bootstrap-sample")
+def calibration_bootstrap_sample(
+    frame_id: Annotated[str | None, typer.Option("--frame-id", help="Reuse an existing sampling-frame id.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON frame manifest.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Draw a stratified retrospective calibration sample over attempt history (§4.7).
+
+    Read-only over history, append-only over calibration_stream_samples: writes one
+    stream='calibration' row per selected attempt with a shared sampling frame id and
+    logged inclusion probability, so this bootstrap batch composes with the ongoing
+    stream. The actual owner adjudication session happens later (those become
+    adjudicated-anchor samples and the first denominator-bearing counts)."""
+
+    from learnloop.services.calibration_streams import build_bootstrap_frame
+
+    repository = _repository(_root(vault))
+    frame = build_bootstrap_frame(repository, frame_id=frame_id)
+    payload = frame.as_dict()
+    if json_output:
+        typer.echo(_dump({"version": 1, "frame": payload}))
+        return
+    typer.echo(
+        f"Sampling frame {frame.frame_id}: selected {frame.selected}/{frame.total_attempts} "
+        f"attempts across {len(frame.stratum_counts)} strata."
+    )
+    for sample in frame.samples:
+        typer.echo(
+            f"- {sample['attempt_id']}: p={sample['inclusion_probability']:.3f} "
+            f"stratum={sample['stratum']}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# P0.5 registry sub-app (spec §6, §9.6, §9.7 item 5).
+# ---------------------------------------------------------------------------
+
+registry_app = typer.Typer(
+    no_args_is_help=True, help="Calibration-status parameter registry: audit, list, trace."
+)
+app.add_typer(registry_app, name="registry")
+
+
+@registry_app.command("audit")
+def registry_audit(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON audit report.")] = False,
+) -> None:
+    """Decision-parameter audit (§6/§9.6): every LearnLoopConfig numeric leaf and
+    named module constant must classify decision/structural; every decision entry
+    needs status/provenance. Exit non-zero on any failure (CI-usable)."""
+
+    from learnloop.services import parameter_registry as pr
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    pr.refresh(loaded, repository)
+    report = pr.audit(loaded, repository)
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+    else:
+        typer.echo("Registry audit: " + ("CLEAN" if report.clean else "FAILURES"))
+        for name in report.failures:
+            typer.echo(f"  {name}: {getattr(report, name)}")
+        # active_pending_certificate is enumerated debt, not a failure: report it as a
+        # warning section (the strict `release-check` gate is what blocks on it).
+        pending = report.active_pending_certificate
+        if pending:
+            typer.echo(
+                f"  warning active_pending_certificate ({len(pending)}): "
+                f"{pending} (blocks `registry release-check`)"
+            )
+    if not report.clean:
+        raise typer.Exit(code=1)
+
+
+@registry_app.command("list")
+def registry_list(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    status: Annotated[str | None, typer.Option("--status")] = None,
+    lifecycle: Annotated[str | None, typer.Option("--lifecycle")] = None,
+    kind: Annotated[str | None, typer.Option("--kind")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """List registry entries with optional status/lifecycle/kind filters."""
+
+    from learnloop.services import parameter_registry as pr
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    pr.refresh(loaded, repository)
+    rows = repository.parameter_registry_entries()
+    if status:
+        rows = [r for r in rows if r["status"] == status]
+    if lifecycle:
+        rows = [r for r in rows if r["lifecycle"] == lifecycle]
+    if kind:
+        rows = [r for r in rows if r["kind"] == kind]
+    if json_output:
+        typer.echo(_dump({"version": 1, "entries": rows}))
+        return
+    for r in rows:
+        typer.echo(f"{r['path']}\t{r['kind']}\t{r['status']}\t{r['lifecycle']}\t{r['source']}")
+
+
+@registry_app.command("show")
+def registry_show(
+    path: Annotated[str, typer.Argument(help="Registered parameter path.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Trace one parameter to its registry entry (§9.7 item 5): effective value,
+    source, status, lifecycle, evidence refs, last review."""
+
+    from learnloop.services import parameter_registry as pr
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    pr.refresh(loaded, repository)
+    entry = repository.parameter_registry_entry(path)
+    if entry is None:
+        typer.echo(f"No registry entry for {path!r}.")
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump(entry))
+        return
+    for key in ("path", "kind", "param_class", "effective_value_json", "source",
+                "status", "lifecycle", "rationale", "sensitivity_certificate_id",
+                "last_review_at"):
+        typer.echo(f"{key}: {entry.get(key)}")
+
+
+@registry_app.command("certify")
+def registry_certify(
+    path: Annotated[str, typer.Argument(help="Config parameter path to certify (sweepable).")],
+    low: Annotated[float, typer.Option("--low", help="Low end of the plausible range.")],
+    high: Annotated[float, typer.Option("--high", help="High end of the plausible range.")],
+    steps: Annotated[int, typer.Option("--steps", min=2, help="Grid points across [low, high].")] = 3,
+    profile: Annotated[str, typer.Option("--profile", help="Built-in profile name or YAML path.")] = "intermediate_with_misconception",
+    days: Annotated[int, typer.Option("--days", min=1, help="Sim days per grid point.")] = 8,
+    items_per_day: Annotated[int, typer.Option("--items-per-day", min=1)] = 4,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the real seeded decision-relevance sweep across ``[low, high]`` on the
+    current vault, produce a COVERAGE certificate for the parameter's current
+    effective value, and store + link it (U-022 v2). Coverage is descriptive: it
+    documents where in the range decisions flip and satisfies the audit's coverage
+    obligation for an ``active`` decision parameter -- it never changes status. Use
+    ``registry promote`` to advance status beyond heuristic."""
+
+    import tempfile
+
+    from learnloop.services import parameter_registry as pr
+    from learnloop.services import sensitivity_certificates as sc
+    from learnloop.sim.profiles import ProfileError, load_profile
+
+    if ":" in path:
+        typer.echo("Only config parameters can be certified via the sweep (module constants are code-fixed).")
+        raise typer.Exit(code=1)
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    pr.refresh(loaded, repository)
+    entry = repository.parameter_registry_entry(path)
+    if entry is None:
+        typer.echo(f"No registry entry for {path!r}.")
+        raise typer.Exit(code=1)
+    try:
+        student_profile = load_profile(profile)
+    except ProfileError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+
+    covered_value = pr._resolve_config_value(path, loaded.config)
+    work_dir = Path(tempfile.mkdtemp(prefix="learnloop-certify-"))
+    certificate = sc.certify(
+        path=path,
+        covered_value=covered_value,
+        low=low,
+        high=high,
+        vault_root=root,
+        profile=student_profile,
+        work_dir=work_dir,
+        grid_points=steps,
+        days=days,
+        items_per_day=items_per_day,
+        seed=seed,
+    )
+    sc.store_certificate(repository, certificate)
+    outcome = sc.link_coverage_certificate(repository, certificate)
+    resolved = repository.parameter_registry_entry(path)
+    payload = {
+        "path": path,
+        "certificate_id": certificate.id,
+        "covered_value": covered_value,
+        "plausible_range": certificate.plausible_range,
+        "decision_stable": certificate.decision_stable,
+        "flip_points": certificate.flip_points,
+        "coverage_linked": outcome.linked,
+        "link_reason": outcome.reason,
+        "status": resolved["status"] if resolved else None,
+    }
+    if json_output:
+        typer.echo(_dump(payload))
+        return
+    typer.echo(
+        f"Certified {path}: coverage_linked={outcome.linked} "
+        f"decision_stable={certificate.decision_stable} status={payload['status']}"
+    )
+    if outcome.reason:
+        typer.echo(f"  note: {outcome.reason}")
+
+
+@registry_app.command("promote")
+def registry_promote(
+    path: Annotated[str, typer.Argument(help="Config parameter path to promote (sweepable).")],
+    low: Annotated[float, typer.Option("--low", help="Low end of the plausible range.")],
+    high: Annotated[float, typer.Option("--high", help="High end of the plausible range.")],
+    steps: Annotated[int, typer.Option("--steps", min=2, help="Grid points across [low, high].")] = 3,
+    profile: Annotated[str, typer.Option("--profile", help="Built-in profile name or YAML path.")] = "intermediate_with_misconception",
+    days: Annotated[int, typer.Option("--days", min=1, help="Sim days per grid point.")] = 8,
+    items_per_day: Annotated[int, typer.Option("--items-per-day", min=1)] = 4,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Consume sim PROMOTION EVIDENCE to advance status ``heuristic ->
+    simulation_validated`` (U-022 v2, the normative gate). Runs the real seeded sweep
+    across ``[low, high]``; a decision that stays stable across the range promotes,
+    while a flip inside the range refuses promotion (the covered value is not certified
+    robust). Sim source only for now; ``live_calibrated`` still needs the activated
+    real-outcome evidence manifest (§6)."""
+
+    import tempfile
+
+    from learnloop.services import parameter_registry as pr
+    from learnloop.services import sensitivity_certificates as sc
+    from learnloop.sim.profiles import ProfileError, load_profile
+
+    if ":" in path:
+        typer.echo("Only config parameters can be promoted via the sweep (module constants are code-fixed).")
+        raise typer.Exit(code=1)
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    pr.refresh(loaded, repository)
+    entry = repository.parameter_registry_entry(path)
+    if entry is None:
+        typer.echo(f"No registry entry for {path!r}.")
+        raise typer.Exit(code=1)
+    try:
+        student_profile = load_profile(profile)
+    except ProfileError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+
+    covered_value = pr._resolve_config_value(path, loaded.config)
+    work_dir = Path(tempfile.mkdtemp(prefix="learnloop-promote-"))
+    certificate = sc.certify(
+        path=path,
+        covered_value=covered_value,
+        low=low,
+        high=high,
+        vault_root=root,
+        profile=student_profile,
+        work_dir=work_dir,
+        grid_points=steps,
+        days=days,
+        items_per_day=items_per_day,
+        seed=seed,
+    )
+    evidence = sc.promotion_evidence_from_certificate(certificate)
+    outcome = sc.promote(repository, evidence)
+    resolved = repository.parameter_registry_entry(path)
+    payload = {
+        "path": path,
+        "promotion_evidence_id": evidence.id,
+        "covered_value": covered_value,
+        "plausible_range": evidence.plausible_range,
+        "decision_stable": evidence.decision_stable,
+        "flip_points": evidence.flip_points,
+        "promoted": outcome.promoted,
+        "refusal_reason": outcome.refusal_reason,
+        "status": resolved["status"] if resolved else None,
+    }
+    if json_output:
+        typer.echo(_dump(payload))
+        return
+    typer.echo(f"Promote {path}: promoted={outcome.promoted} status={payload['status']}")
+    if outcome.refusal_reason:
+        typer.echo(f"  refusal: {outcome.refusal_reason}")
+
+
+@registry_app.command("release-check")
+def registry_release_check(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Strict §9.6 release gate: fails on any audit failure AND on any outstanding
+    coverage debt (``active_pending_certificate`` count > 0), with the pending list
+    attached. Stricter than the ordinary ``registry audit``, which reports pending
+    coverage as a non-blocking warning."""
+
+    from learnloop.services import parameter_registry as pr
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    pr.refresh(loaded, repository)
+    report = pr.audit(loaded, repository)
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+    else:
+        typer.echo("Registry release-check: " + ("CLEAN" if report.release_clean else "BLOCKED"))
+        for name in report.failures:
+            typer.echo(f"  failure {name}: {getattr(report, name)}")
+        pending = report.active_pending_certificate
+        if pending:
+            typer.echo(f"  failure active_pending_certificate ({len(pending)}): {pending}")
+    if not report.release_clean:
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# P4 controller sub-app: the open-world dependency gate (spec_p4 §14.1).
+# ---------------------------------------------------------------------------
+
+controller_app = typer.Typer(
+    no_args_is_help=True,
+    help="Staged-controller inspection: the open-world §14.1 dependency gate.",
+)
+app.add_typer(controller_app, name="controller")
+
+
+@controller_app.command("open-world-gate")
+def controller_open_world_gate(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON gate report.")] = False,
+) -> None:
+    """Evaluate the six §14.1 dependency conditions that gate open-world HypothesisCard
+    expansion. Open-world is intentionally LAST and is NOT implemented; this check makes
+    the deferral inspectable. Exit non-zero while the gate is NOT MET (CI-usable): no
+    expansion worker or successor-set UI may be enabled until every condition passes."""
+
+    from learnloop.services import open_world_gate as owg
+
+    root = _root(vault)
+    loaded = _load_vault_or_exit(root, json_output=json_output)
+    repository = _repository(root)
+    report = owg.evaluate_gate(loaded, repository)
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+    else:
+        typer.echo(
+            "Open-world dependency gate (§14.1): "
+            + ("MET" if report.met else "NOT MET")
+        )
+        typer.echo(f"  open_world_schema_present: {report.open_world_schema_present}")
+        for condition in report.conditions:
+            mark = "PASS" if condition.met else "GAP "
+            typer.echo(f"  [{mark}] {condition.spec_ref} {condition.key}: {condition.detail}")
+        typer.echo(f"  -> {report.as_dict()['enablement']}")
+    if not report.met:
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# P0.5 grading adjudication sub-app (spec §5, §9.7 items 2/5).
+# ---------------------------------------------------------------------------
+
+grading_app = typer.Typer(
+    no_args_is_help=True, help="Adjudication queue: pending reviews, adjudicate, measurement receipt."
+)
+app.add_typer(grading_app, name="grading")
+
+
+@grading_app.command("reviews")
+def grading_reviews(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """List pending grade reviews, influence-ordered (§5). Reads P0.2 review flags
+    and quarantine state; quarantined first, then influence-flagged, then oldest."""
+
+    root = _root(vault)
+    repository = _repository(root)
+    rows = repository.pending_grade_reviews()
+    if json_output:
+        typer.echo(_dump({"version": 1, "reviews": rows}))
+        return
+    if not rows:
+        typer.echo("No pending grade reviews.")
+        return
+    for r in rows:
+        typer.echo(
+            f"{r['id']}\tobs={r.get('observation_id')}\tquarantine={r.get('quarantine_state')}"
+            f"\tinfluence={r.get('influence_flag')}\treview={r.get('review_flag')}"
+        )
+
+
+@grading_app.command("adjudicate")
+def grading_adjudicate(
+    interpretation_id: Annotated[str, typer.Argument(help="Grade interpretation id (from `grading reviews`).")],
+    resolved_class: Annotated[str | None, typer.Option("--resolved-class")] = None,
+    source: Annotated[str, typer.Option("--source", help="human_owner|independent_expert|learner_clarification|deterministic_key")] = "human_owner",
+    rationale: Annotated[str | None, typer.Option("--rationale")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Adjudicate one grade append-only (§4.4/§5): appends a new interpretation head,
+    repoints the observation, emits measurement events, and rebuilds projections.
+    Never overwrites raw history. Thin adapter over the P0.2 append_adjudication."""
+
+    from learnloop.services.grade_resolution import append_adjudication
+    from learnloop.services.p0_projection import record_reinterpretation_if_changed
+
+    root = _root(vault)
+    repository = _repository(root)
+    interp = repository.grade_interpretation(interpretation_id)
+    if interp is None:
+        typer.echo(f"No grade interpretation {interpretation_id!r}.")
+        raise typer.Exit(code=1)
+    observation_id = interp["observation_id"]
+    administration_id = interp["administration_id"]
+    raws = repository.raw_grade_events_for_observation(observation_id)
+    adj = append_adjudication(
+        repository,
+        observation_id=observation_id,
+        administration_id=administration_id,
+        reviewed_raw_event_ids=[r["id"] for r in raws],
+        adjudicator_source=source,
+        resolved_class=resolved_class,
+        rationale=rationale,
+    )
+    new_head = repository.grade_interpretation(adj["interpretation_id"])
+    event_id = record_reinterpretation_if_changed(
+        repository,
+        administration_id=administration_id,
+        observation_id=observation_id,
+        from_interpretation=interp,
+        to_interpretation=new_head,
+    )
+    payload = {"adjudication": adj, "reinterpretation_event_id": event_id}
+    if json_output:
+        typer.echo(_dump(payload))
+        return
+    typer.echo(f"Adjudicated {interpretation_id} -> new head {adj['interpretation_id']}")
+    if event_id:
+        typer.echo(f"Reinterpretation event: {event_id} (downstream state rebuilt)")
+
+
+@grading_app.command("receipt")
+def grading_receipt(
+    attempt_id: Annotated[str, typer.Argument(help="Attempt id to trace.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = True,
+) -> None:
+    """The §5 measurement receipt: response -> raw grade -> interpretation ->
+    projection, plus the calibration lineage. Read-only trace."""
+
+    root = _root(vault)
+    repository = _repository(root)
+    observation = repository.observation_by_attempt(attempt_id)
+    if observation is None:
+        typer.echo(f"No observation for attempt {attempt_id!r}.")
+        raise typer.Exit(code=1)
+    observation_id = observation["id"]
+    raws = repository.raw_grade_events_for_observation(observation_id)
+    active = repository.active_interpretation_for_observation(observation_id)
+
+    # §5 decision lineage: the administration's pinned decision_params_hash, the
+    # calibration model id+hash the active interpretation was resolved under, and the
+    # resolved decision-parameter registry rows (when the projection is populated).
+    administration_id = observation.get("administration_id")
+    administration = (
+        repository.fetch_administration(administration_id) if administration_id else None
+    )
+    decision_params_hash = administration.get("decision_params_hash") if administration else None
+    calibration = {
+        "calibration_model_id": active.get("calibration_model_id") if active else None,
+        "calibration_model_hash": active.get("calibration_model_hash") if active else None,
+    }
+    registry_entries = repository.parameter_registry_entries()
+
+    receipt = {
+        "attempt_id": attempt_id,
+        "observation": observation,
+        "administration_id": administration_id,
+        "decision_params_hash": decision_params_hash,
+        "raw_grade_events": raws,
+        "active_interpretation": active,
+        "calibration": calibration,
+        "interpretation_history": repository.grade_interpretations_for_observation(observation_id),
+        "registry_entries": registry_entries,
+    }
+    typer.echo(_dump(receipt))
 
 
 def _split_items(items: str | None) -> list[str] | None:
@@ -466,12 +1356,24 @@ def _fallback_provider_for_task(config, task: str, explicit: str | None = None) 
 def _runtime_for_provider(vault_root: Path, config, provider_name: str):
     if provider_name == "codex":
         return check_codex_runtime(vault_root, config.codex)
+    if provider_name in {CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER}:
+        effort = "low" if provider_name == CODEX_LOW_PROVIDER else "medium"
+        codex_config = config.codex.model_copy(
+            update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": effort}
+        )
+        return check_codex_runtime(vault_root, codex_config)
     return check_ai_runtime(vault_root, config, provider_name=provider_name)
 
 
 def _client_for_provider(vault_root: Path, config, provider_name: str):
     if provider_name == "codex":
         return make_codex_client(config.codex, vault_root)
+    if provider_name in {CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER}:
+        effort = "low" if provider_name == CODEX_LOW_PROVIDER else "medium"
+        codex_config = config.codex.model_copy(
+            update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": effort}
+        )
+        return make_codex_client(codex_config, vault_root)
     return make_ai_provider_client(config, vault_root, provider_name=provider_name)
 
 
@@ -499,12 +1401,23 @@ def init(
 @app.command("upgrade")
 def upgrade(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    to: Annotated[str, typer.Option("--to", help="Target algorithm version (mvp-0.7 or mvp-0.8).")] = "mvp-0.8",
 ) -> None:
-    """Atomically activate the mvp-0.7 knowledge model for this vault (KM §15)."""
+    """Atomically activate a knowledge-model version for this vault.
 
-    from learnloop.services.vault_upgrade import upgrade_to_mvp07
+    ``--to mvp-0.7`` activates the KM2 canonical model over legacy mvp-0.6 content
+    (KM §15); ``--to mvp-0.8`` (default) activates the P0 authority-propagation
+    projection over an mvp-0.7 vault (spec §7.2, P0.5 cutover)."""
 
-    result = upgrade_to_mvp07(_root(vault))
+    from learnloop.services.vault_upgrade import upgrade_to_mvp07, upgrade_to_mvp08
+
+    if to == "mvp-0.7":
+        result = upgrade_to_mvp07(_root(vault))
+    elif to == "mvp-0.8":
+        result = upgrade_to_mvp08(_root(vault))
+    else:
+        typer.echo(f"Unknown target version {to!r}; expected mvp-0.7 or mvp-0.8.")
+        raise typer.Exit(code=2)
     if result.upgraded:
         typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
         return
@@ -989,6 +1902,36 @@ def ingest_batches_resume(
     typer.echo(_dump({"version": 1, "batch": batch}) if json_output else f"Batch {batch_id} [{batch['status']}]")
 
 
+@app.command("backfill-originals")
+def backfill_originals_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Copy revision originals into the managed store (canonical-sources/raw/).
+
+    Pre-store revisions recorded only original_uri; this retains a
+    content-addressed copy for every revision whose local file still exists and
+    still matches its asset_hash, so live-source viewers survive file moves.
+    """
+
+    from learnloop.ingest.originals import backfill_original
+
+    vault_root = _root(vault)
+    repository = _repository(vault_root)
+    counts: dict[str, int] = {}
+    for artifact in repository.all_source_artifacts():
+        for revision in repository.source_revisions_for(artifact["id"]):
+            status, _ = backfill_original(
+                vault_root,
+                digest=revision["asset_hash"],
+                original_uri=revision.get("original_uri"),
+            )
+            counts[status] = counts.get(status, 0) + 1
+            if status in {"missing", "hash_mismatch"}:
+                typer.echo(f"  {revision['id']} ({artifact['id']}): {status} — {revision.get('original_uri')}")
+    summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items())) or "no revisions"
+    typer.echo(f"backfill-originals: {summary}")
+
+
 @app.command("source-outline")
 def source_outline_command(
     ref: Annotated[str, typer.Argument(help="Extraction, revision, or artifact id to outline.")],
@@ -1285,7 +2228,13 @@ def synthesize_command(
         raise typer.Exit(code=1)
     brief: dict = {}
     if brief_file is not None:
-        brief = jsonlib.loads(brief_file.read_text(encoding="utf-8"))
+        from learnloop.services.brief import BriefValidationError, validate_brief
+
+        try:
+            brief = validate_brief(jsonlib.loads(brief_file.read_text(encoding="utf-8")), strict=True)
+        except BriefValidationError as exc:
+            typer.echo(f"invalid_brief: {exc}", err=True)
+            raise typer.Exit(code=1)
 
     _provider, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "canonical_ingest", ai_provider)
     if client is None:
@@ -1338,6 +2287,99 @@ def synthesize_command(
     for diag in result.gate_diagnostics:
         if diag["severity"] != "hard_fail":
             typer.echo(f"  ~ {diag['gate']}: {diag['message']}")
+
+
+@app.command("synthesize-repair")
+def synthesize_repair_command(
+    run_id: Annotated[str, typer.Argument(help="Failed synthesis run id with a preserved candidate.")],
+    ops_file: Annotated[Path | None, typer.Option("--ops-file", help="JSON list of explicit repair ops (drop_dependency / remap_dependency).")] = None,
+    no_auto: Annotated[bool, typer.Option("--no-auto", help="Skip auto-derived repairs; apply only --ops-file.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show stored diagnostics and derived ops without revalidating.")] = False,
+    apply_map: Annotated[bool, typer.Option("--apply", help="Accept the study map on success (requires mvp-0.7).")] = False,
+    create_goal: Annotated[bool, typer.Option("--create-goal", help="Create an exam-prep Goal wired to the minted facets.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+) -> None:
+    """Repair and revalidate a failed synthesis run's preserved candidate — ZERO model calls.
+
+    When synthesis fails hard quality gates the expensive merged candidate stays
+    staged on its run. This derives mechanically-safe repairs (e.g. dropping
+    item-level dependencies on rubric criterion ids), optionally merges explicit
+    ops authored by you or a repair agent, and finishes gates + persistence from
+    that checkpoint instead of rerunning the model."""
+
+    from learnloop.services.source_set_synthesis import (
+        StudyMapError,
+        derive_candidate_repairs,
+        revalidate_synthesis_candidate,
+    )
+
+    vault_root = _root(vault)
+    loaded = load_vault(vault_root)
+    repository = Repository(VaultPaths(vault_root, loaded.config).sqlite_path)
+    explicit_ops: list[dict] = []
+    if ops_file is not None:
+        explicit_ops = jsonlib.loads(ops_file.read_text(encoding="utf-8"))
+        if not isinstance(explicit_ops, list):
+            typer.echo("--ops-file must contain a JSON list of repair ops.", err=True)
+            raise typer.Exit(code=1)
+
+    if dry_run:
+        run = repository.synthesis_run(run_id)
+        if run is None:
+            typer.echo(f"Synthesis run '{run_id}' does not exist.", err=True)
+            raise typer.Exit(code=1)
+        candidate = run.get("candidate_output")
+        if not candidate:
+            typer.echo(f"Synthesis run '{run_id}' preserved no candidate.", err=True)
+            raise typer.Exit(code=1)
+        derived = [] if no_auto else derive_candidate_repairs(candidate)
+        diagnostics = (run.get("coverage_decisions") or {}).get("gate_diagnostics") or []
+        if json_output:
+            typer.echo(_dump({"version": 1, "runStatus": run.get("status"),
+                              "gateDiagnostics": diagnostics,
+                              "derivedOps": derived, "explicitOps": explicit_ops}))
+            return
+        hard = [d for d in diagnostics if d.get("severity") == "hard_fail"]
+        typer.echo(f"Run {run_id} ({run.get('status')}): {len(hard)} hard / {len(diagnostics)} total diagnostics")
+        for diag in hard:
+            typer.echo(f"  ! {diag.get('gate')}: {diag.get('message')}")
+        typer.echo(f"Derived repairs: {len(derived)}  Explicit repairs: {len(explicit_ops)}")
+        for op in derived + explicit_ops:
+            typer.echo(f"  - {op.get('op')} {op.get('item_client_id')} -> {op.get('dep')}"
+                       + (f" => {op['to']}" if op.get("to") else "")
+                       + (f"  ({op['reason']})" if op.get("reason") else ""))
+        unrepaired = len(hard) - len(derived) - len(explicit_ops)
+        if unrepaired > 0:
+            typer.echo(f"  {unrepaired} hard failure(s) have no derived repair; author ops via --ops-file.")
+        return
+
+    try:
+        result = revalidate_synthesis_candidate(
+            vault_root, run_id,
+            apply=apply_map, create_goal=create_goal,
+            repair=not no_auto, repair_ops=explicit_ops,
+            repository=repository,
+        )
+    except StudyMapError as exc:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": exc.code, "message": str(exc),
+                              "diagnostics": exc.diagnostics}))
+        else:
+            typer.echo(f"{exc.code}: {exc}", err=True)
+            for diag in exc.diagnostics:
+                if diag.get("severity") == "hard_fail":
+                    typer.echo(f"  ! {diag.get('gate')}: {diag.get('message')}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(_dump({"version": 1, "studyMap": result.as_dict()}))
+        return
+    applied_ops = [op for op in result.candidate_repairs if op.get("applied")]
+    typer.echo(f"Repaired and revalidated run {run_id} — proposal {result.proposal_id}")
+    typer.echo(f"  repairs applied={len(applied_ops)} applied_map={result.applied} items={result.item_counts}")
+    for op in applied_ops:
+        typer.echo(f"  - {op.get('op')} {op.get('item_client_id')} -> {op.get('dep')}")
 
 
 @app.command("maintenance-feed")
@@ -2198,6 +3240,143 @@ def show(
         _echo_practice_attempt(identifier, payload, repository)
     else:
         typer.echo(_dump(payload if not isinstance(payload, tuple) else {"type": entity_type, "record": payload}))
+
+
+card_app = typer.Typer(
+    no_args_is_help=True,
+    help="Learner-owned card authoring: write, reword, split, retire your practice cards.",
+)
+app.add_typer(card_app, name="card")
+
+
+@card_app.command("write")
+def card_write(
+    learning_object_id: Annotated[str, typer.Argument(help="Learning Object to attach the card to.")],
+    prompt: Annotated[str, typer.Option("--prompt", help="The question.")],
+    answer: Annotated[str, typer.Option("--answer", help="The expected answer.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Author a new card of your own."""
+
+    from learnloop.services.item_authoring import ItemAuthoringError, author_item
+
+    loaded = load_vault(_root(vault))
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    try:
+        row = author_item(
+            loaded.root, repository, learning_object_id=learning_object_id,
+            prompt=prompt, expected_answer=answer,
+        )
+    except ItemAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(row["id"])
+
+
+@card_app.command("reword")
+def card_reword(
+    practice_item_id: Annotated[str, typer.Argument(help="Card id.")],
+    prompt: Annotated[str | None, typer.Option("--prompt", help="New prompt wording.")] = None,
+    answer: Annotated[str | None, typer.Option("--answer", help="New expected answer.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Reword a card in place (prompt and/or expected answer)."""
+
+    from learnloop.services.item_authoring import ItemAuthoringError, edit_item
+
+    loaded = load_vault(_root(vault))
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    try:
+        result = edit_item(
+            loaded.root, repository, practice_item_id=practice_item_id,
+            prompt=prompt, expected_answer=answer,
+        )
+    except ItemAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{practice_item_id} changed: {', '.join(result['changed'])}")
+
+
+@card_app.command("retire")
+def card_retire(
+    practice_item_id: Annotated[str, typer.Argument(help="Card id.")],
+    reason: Annotated[str, typer.Option("--reason", help="Typed reason (see error output for the taxonomy).")],
+    note: Annotated[str | None, typer.Option("--note", help="Optional free-text note.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Retire a card: never served again, all history kept."""
+
+    from learnloop.services.item_authoring import ItemAuthoringError, retire_item
+
+    loaded = load_vault(_root(vault))
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    try:
+        retire_item(
+            loaded.root, repository, practice_item_id=practice_item_id, reason=reason, note=note
+        )
+    except ItemAuthoringError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{practice_item_id} -> retired ({reason})")
+
+
+questions_app = typer.Typer(
+    no_args_is_help=True,
+    help="Outstanding-question queue: questions you raised that are still open.",
+)
+app.add_typer(questions_app, name="questions")
+
+
+@questions_app.command("list")
+def questions_list(
+    all_states: Annotated[bool, typer.Option("--all", help="Include resolved and dismissed questions.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """List the open-question queue (newest first)."""
+
+    from learnloop.services.question_queue import list_question_queue
+
+    loaded = load_vault(_root(vault))
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    rows = list_question_queue(repository, resolution=None if all_states else "open")
+    if json_output:
+        typer.echo(_dump({"version": 1, "questions": rows}))
+        return
+    if not rows:
+        typer.echo("No open questions." if not all_states else "No questions recorded.")
+        return
+    for row in rows:
+        question = " ".join((row["question_md"] or "").split())
+        if len(question) > 100:
+            question = question[:97] + "..."
+        promoted = " promoted" if row["promotion"] else ""
+        typer.echo(
+            f"{row['id']} [{row['resolution']}] ({row['context']}, {row['created_at'][:10]}, "
+            f"tutor {row['answer_status']}{promoted}) {question}"
+        )
+
+
+@questions_app.command("resolve")
+def questions_resolve(
+    question_event_id: Annotated[str, typer.Argument(help="Question event id (see `questions list`).")],
+    as_state: Annotated[str, typer.Option("--as", help="resolved | dismissed | open (reopen).")] = "resolved",
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Mark a question resolved/dismissed, or reopen it."""
+
+    from learnloop.services.question_queue import QuestionQueueError, set_question_resolution
+
+    loaded = load_vault(_root(vault))
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    try:
+        event = set_question_resolution(
+            repository, question_event_id=question_event_id, resolution=as_state
+        )
+    except QuestionQueueError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{event['id']} -> {event['resolution']}")
 
 
 @app.command()
@@ -3121,7 +4300,7 @@ def attempt(
             error_type=error_type,
         )
         provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "grading", ai_provider)
-        if provider_name != "codex":
+        if provider_name not in CODEX_PROVIDER_NAMES:
             result = complete_attempt_with_ai_fallback(
                 loaded,
                 repository,

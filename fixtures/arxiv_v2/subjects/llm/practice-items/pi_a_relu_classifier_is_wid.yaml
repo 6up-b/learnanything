@@ -1,0 +1,155 @@
+schema_version: 1
+id: pi_a_relu_classifier_is_wid
+learning_object_id: lo_separate_representation_from_optimization
+subjects:
+practice_mode: causal diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_under_its_continuity_and_sufficient_width_condit
+  - facet_an_unfavorable_initialization_can_place_relevant
+  - facet_it_is_invalid_to_infer_that_gradient_descent_wil
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A ReLU classifier is wide enough to represent a useful decision 
+  boundary, but after an unfavorable initialization several relevant units 
+  output zero for all training inputs and their gradients remain zero. Explain 
+  why the Universal Approximation Theorem does not guarantee that continued 
+  gradient descent will find the useful boundary. Separate the representation 
+  claim from the optimization diagnosis.
+expected_answer: 'The theorem supplies a conditional existence claim: a sufficiently
+  wide network can represent the relevant continuous functions or surfaces to arbitrary
+  precision. It does not specify a successful initialization, required practical width,
+  or a convergent training path. Here the affected inputs lie in zero-gradient ReLU
+  regions, so backpropagation supplies no update signal through those units. A good
+  parameter setting may therefore exist while remaining unreachable from this initialization
+  by the stated updates.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.6
+scaffold_level: 0.25
+capability: schema_interpretation
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: capacity-versus-trainability
+evidence_fingerprint:
+  source_family: textbook geometric failure example
+  shared_stimulus_id: unfavorable-relu-initialization
+  representation: natural-language causal scenario
+  solution_recipe_family: separate capacity from optimization and trace gradient
+    flow
+  answer_structure: qualified theorem statement plus causal diagnosis
+misconception_consistent_answer:
+repair_targets:
+  - facet_under_its_continuity_and_sufficient_width_condit
+  - facet_an_unfavorable_initialization_can_place_relevant
+  - facet_it_is_invalid_to_infer_that_gradient_descent_wil
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-separate-existence-optimization
+      points: 3.0
+      description: States the theorem as a conditional 
+        representational-existence result and explicitly denies that it 
+        guarantees optimization success.
+      tier: core
+      targets:
+        - facet: facet_under_its_continuity_and_sufficient_width_condit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: representation-optimization
+      recipe_ids:
+        - recipe-representation-diagnosis
+    - id: criterion-diagnose-zero-gradient-path
+      points: 3.0
+      description: Causally connects unfavorable initialization, zero-output 
+        ReLU regions, zero gradients, and inability to recover the useful folds.
+      tier: core
+      targets:
+        - facet: facet_an_unfavorable_initialization_can_place_relevant
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion-separate-existence-optimization
+      correlation_group: representation-optimization
+      recipe_ids:
+        - recipe-representation-diagnosis
+    - id: criterion-reject-capacity-convergence-inference
+      points: 2.0
+      description: Rejects the inference from representability to guaranteed 
+        convergence without overclaiming that all training must fail.
+      tier: transfer
+      targets:
+        - facet: facet_it_is_invalid_to_infer_that_gradient_descent_wil
+          capability: method_selection
+          role: primary
+      depends_on:
+        - criterion-separate-existence-optimization
+      correlation_group: representation-optimization
+      recipe_ids:
+        - recipe-representation-diagnosis
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s462
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s475
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s483
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:36Z'
+updated_at: '2026-07-21T18:14:47Z'

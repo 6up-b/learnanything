@@ -83,6 +83,7 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
             self.kwargs = kwargs
 
     class ReasoningEffort(Enum):
+        low = "low"
         medium = "medium"
 
     class ReasoningSummary:

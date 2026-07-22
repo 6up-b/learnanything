@@ -1,0 +1,130 @@
+schema_version: 1
+id: pi_for_a_three_class_affine
+learning_object_id: lo_compute_all_affine_softmax_loss_parameter_gradie
+subjects:
+practice_mode: symbolic_completion
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_the_displayed_affine_softmax_loss_model_comp
+  - facet_for_class_i_with_two_inputs_the_affine_score_is_
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: For a three-class affine-softmax model with two inputs, give formulas 
+  for ∂L/∂m_12, ∂L/∂m_31, and ∂L/∂b_2. Then state how many slope and bias 
+  derivatives are required in total.
+expected_answer: ∂L/∂m_12=x_2(ŷ_1-y_1), ∂L/∂m_31=x_1(ŷ_3-y_3), and 
+  ∂L/∂b_2=ŷ_2-y_2. The model has six slope derivatives and three bias 
+  derivatives, nine total.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.45
+scaffold_level: 0.2
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+  response: short_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: indexed_gradient_completion
+evidence_fingerprint:
+  source_family: primary_textbook_softmax_gradients
+  shared_stimulus_id: three_class_two_input_transfer
+  representation: symbolic derivatives
+  solution_recipe_family: indexed_gradient_pattern
+  answer_structure: three formulas and derivative count
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_the_displayed_affine_softmax_loss_model_comp
+  - facet_for_class_i_with_two_inputs_the_affine_score_is_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_gradient_indexing
+      points: 3.0
+      description: Matches each slope index j to the corresponding input x_j and
+        class error ŷ_i-y_i.
+      tier: core
+      targets:
+        - facet: facet_for_the_displayed_affine_softmax_loss_model_comp
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: gradient_pattern
+      recipe_ids:
+        - recipe_softmax_gradients
+    - id: criterion_bias_gradient
+      points: 1.0
+      description: Gives the bias derivative without an input multiplier.
+      tier: core
+      targets:
+        - facet: facet_for_the_displayed_affine_softmax_loss_model_comp
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: gradient_pattern
+      recipe_ids:
+        - recipe_softmax_gradients
+    - id: criterion_gradient_count
+      points: 2.0
+      description: Counts six slopes and three biases from the model dimensions.
+      tier: transfer
+      targets:
+        - facet: facet_for_class_i_with_two_inputs_the_affine_score_is_
+          capability: coordination
+          role: supporting
+        - facet: facet_for_the_displayed_affine_softmax_loss_model_comp
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion_gradient_indexing
+      correlation_group: gradient_audit
+      recipe_ids:
+        - recipe_softmax_gradients
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s303
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s344
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:31Z'
+updated_at: '2026-07-21T18:14:54Z'

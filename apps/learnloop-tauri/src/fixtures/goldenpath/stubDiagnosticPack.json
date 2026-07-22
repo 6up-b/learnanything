@@ -1,0 +1,23 @@
+{
+  "cards": [
+    {
+      "cardSlug": "card_target_setup",
+      "coverage": [
+        "method_selection x symmetric"
+      ]
+    },
+    {
+      "cardSlug": "card_method_selection",
+      "coverage": [
+        "method_selection x confusable"
+      ]
+    },
+    {
+      "cardSlug": "card_procedure",
+      "coverage": [
+        "procedure_execution x symmetric"
+      ]
+    }
+  ],
+  "packSlug": "pack_symmetric_method_selection"
+}

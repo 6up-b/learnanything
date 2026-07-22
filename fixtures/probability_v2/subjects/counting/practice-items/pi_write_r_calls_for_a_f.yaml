@@ -1,0 +1,133 @@
+schema_version: 1
+id: pi_write_r_calls_for_a_f
+learning_object_id: lo_configure_random_samples_and_permutations
+subjects:
+practice_mode: constructed_response
+attempt_types_allowed: []
+evidence_facets:
+  - facet_sample_n_k_draws_k_distinct_values_from_1_throug
+  - facet_supply_a_prob_vector_to_sample_to_assign_weights
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Write R calls for: (a) five distinct integers from 1 through 10; (b) five
+  integers from 1 through 10 with repetitions allowed; (c) a random permutation of
+  1 through 10; and (d) three draws with replacement from values 1 through 4 using
+  probabilities 0.1, 0.2, 0.3, and 0.4. Briefly explain the replacement behavior of
+  each call.'
+expected_answer: (a) sample(10,5), without replacement by default; (b) 
+  sample(10,5,replace=TRUE); (c) sample(10) or sample(10,10), a permutation 
+  without replacement; (d) sample(4,3,replace=TRUE,prob=c(0.1,0.2,0.3,0.4)).
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.35
+scaffold_level: 0.2
+surface_family: sampling_code
+evidence_fingerprint:
+  source_family: primary_textbook_r_appendix
+  shared_stimulus_id: four_sampling_requests
+  representation: R code and verbal model interpretation
+  solution_recipe_family: configure_sample_arguments
+  answer_structure: four calls with replacement explanations
+misconception_consistent_answer:
+repair_targets:
+  - facet_sample_n_k_draws_k_distinct_values_from_1_throug
+  - facet_supply_a_prob_vector_to_sample_to_assign_weights
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_uniform_sampling_modes
+      points: 3.0
+      description: Correctly distinguishes default sampling without replacement,
+        sampling with replacement, and permutation generation.
+      tier: core
+      targets:
+        - facet: facet_sample_n_k_draws_k_distinct_values_from_1_throug
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_sampling_modes
+      correlation_group: sampling_configuration
+      recipe_ids:
+        - recipe_sampling_configuration
+    - id: criterion_weighted_sampling_call
+      points: 2.0
+      description: Supplies replace=TRUE and a correctly aligned probability 
+        vector for the weighted draw.
+      tier: transfer
+      targets:
+        - facet: facet_supply_a_prob_vector_to_sample_to_assign_weights
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_weighted_sampling
+      correlation_group: sampling_configuration
+      recipe_ids:
+        - recipe_sampling_configuration
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s319
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s321
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s322
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s327
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:18Z'
+updated_at: '2026-07-21T00:54:18Z'

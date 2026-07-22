@@ -4,17 +4,87 @@ mod sidecar;
 
 use commands::*;
 use sidecar::SidecarManager;
+use std::borrow::Cow;
+use tauri::Manager;
+
+const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM";
+
+// llpdf://localhost/<store-file-name> serves original source bytes from the
+// vault's content-addressed store (canonical-sources/raw/). Streaming through a
+// protocol keeps multi-MB PDFs off the mutex-serialized stdin JSON-RPC channel.
+// Only bare content-addressed names (sha256-<hex>) are served — the store
+// directory is the whole reachable surface, so no path traversal is possible.
+fn llpdf_response(status: u16, body: Vec<u8>) -> tauri::http::Response<Cow<'static, [u8]>> {
+    tauri::http::Response::builder()
+        .status(status)
+        .header("Content-Type", "application/pdf")
+        .header("Access-Control-Allow-Origin", "*")
+        .body(Cow::Owned(body))
+        .expect("static llpdf response")
+}
+
+fn serve_llpdf(
+    manager: &SidecarManager,
+    uri_path: &str,
+) -> tauri::http::Response<Cow<'static, [u8]>> {
+    let name = uri_path.trim_start_matches('/');
+    let content_addressed = name
+        .strip_prefix("sha256-")
+        .is_some_and(|hex| !hex.is_empty() && hex.chars().all(|c| c.is_ascii_hexdigit()));
+    if !content_addressed {
+        return llpdf_response(400, b"invalid store name".to_vec());
+    }
+    let path = manager
+        .resolved_vault_path()
+        .join("canonical-sources")
+        .join("raw")
+        .join(name);
+    match std::fs::read(&path) {
+        Ok(bytes) => llpdf_response(200, bytes),
+        Err(_) => llpdf_response(404, b"not in originals store".to_vec()),
+    }
+}
+
+fn debug_zoom_enabled() -> bool {
+    std::env::var(DEBUG_ZOOM_ENV).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on" | "debug"
+        )
+    })
+}
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(SidecarManager::new())
+        .register_uri_scheme_protocol("llpdf", |ctx, request| {
+            let manager = ctx.app_handle().state::<SidecarManager>();
+            serve_llpdf(&manager, request.uri().path())
+        })
+        .setup(|app| {
+            let main_window = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == "main")
+                .ok_or("missing main window configuration")?;
+
+            tauri::WebviewWindowBuilder::from_config(app.handle(), main_window)?
+                .zoom_hotkeys_enabled(debug_zoom_enabled())
+                .build()?;
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             select_vault,
             load_vault,
             reload_vault,
             create_vault,
+            get_learner_profile,
+            set_learner_profile,
             get_runtime_health,
             get_config,
             start_session,
@@ -54,6 +124,8 @@ fn main() {
             list_ingest_batches,
             cancel_ingest_batch,
             resume_ingest_batch,
+            retry_synthesis,
+            get_synthesis_candidate,
             get_source_library,
             get_source_outline,
             get_selection_preview,
@@ -119,6 +191,14 @@ fn main() {
             save_tutor_answer_note,
             get_tutor_transcript,
             promote_tutor_question,
+            list_question_queue,
+            resolve_question_event,
+            author_practice_item,
+            request_rung_variant,
+            get_rung_variant_status,
+            edit_practice_item,
+            retire_practice_item,
+            split_practice_item,
             start_teach_back,
             submit_teach_back_turn,
             goals_list,
@@ -153,8 +233,129 @@ fn main() {
             start_remediation_treatment,
             get_remediation,
             get_forecast_track_record,
-            get_answer_calibration
+            get_answer_calibration,
+            blueprint_register,
+            blueprint_review,
+            blueprint_get_version,
+            blueprint_discover_candidates,
+            blueprint_compose_draft,
+            golden_path_confirm,
+            golden_path_run_status,
+            golden_path_list_runs,
+            golden_path_advance,
+            golden_path_assess_open,
+            golden_path_assess_submit,
+            golden_path_assess_result,
+            golden_path_restore,
+            golden_path_boundary_diff,
+            golden_path_depth_invitation,
+            golden_path_accept_edge,
+            golden_path_decline_edge,
+            diagnostic_pack_assemble,
+            diagnostic_pack_admit,
+            diagnostic_pack_review,
+            diagnostic_pack_list,
+            diagnostic_baseline_enter,
+            diagnostic_boundary_view,
+            diagnostic_triage,
+            diagnostic_triage_status,
+            diagnostic_triage_decide,
+            diagnostic_triage_override,
+            ladder_policy,
+            ladder_status,
+            ladder_enter,
+            ladder_advance,
+            practice_pool_assemble,
+            practice_pool_admit_surface,
+            practice_pool_review,
+            practice_pool_status,
+            practice_pool_next_surface,
+            practice_pool_for_run,
+            practice_pool_seed_for_run,
+            practice_pool_admit_anchor,
+            reader_ask,
+            reader_set_answer_mode,
+            reader_present_question,
+            reader_submit_question,
+            reader_skip_question,
+            reader_choose_disposition,
+            reader_restore_source,
+            reader_routing_prior,
+            reader_prompt_contract,
+            reader_render_view,
+            reader_guide_plan,
+            reader_pdf_view,
+            reader_watch_plan,
+            reader_author_section_question,
+            reader_get_progress,
+            reader_mark_section_progress,
+            reader_authored_question_action,
+            reader_escalate_authored_question,
+            reader_search_sources,
+            reader_manual_anchor,
+            reader_block_health,
+            reader_block_original_region,
+            reader_translate_selection,
+            reader_capture,
+            reader_create_annotation,
+            reader_edit_annotation,
+            reader_delete_intent_annotation,
+            reader_reanchor,
+            reader_annotation_history,
+            reader_source_annotations,
+            reader_outbox_status,
+            reader_drain_outbox,
+            reader_invoke_preset,
+            reader_set_mode,
+            reader_question_control,
+            reader_enqueue_request,
+            reader_request_status,
+            reader_cancel_request,
+            reader_retry_request,
+            reader_source_requests,
+            reader_drain_requests,
+            reader_source_objects,
+            reader_review_source_object,
+            reader_link_relation,
+            reader_proposal_inbox,
+            reader_accept_proposal,
+            reader_reject_proposal,
+            reader_author_qa,
+            reader_coach_lint,
+            reader_maintain,
+            reader_arc,
+            reader_set_depth_policy,
+            reader_pause_arc,
+            reader_shrink_envelope,
+            reader_prime,
+            reader_restore
         ])
         .run(tauri::generate_context!())
         .expect("error while running LearnLoop");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn llpdf_rejects_non_content_addressed_names() {
+        let manager = SidecarManager::new();
+        for name in [
+            "/../../etc/passwd",
+            "/sha256-XYZ",
+            "/sha256-",
+            "/notahash",
+            "/sha256-abc/../x",
+            "/",
+        ] {
+            assert_eq!(serve_llpdf(&manager, name).status(), 400, "{name}");
+        }
+    }
+
+    #[test]
+    fn llpdf_404s_for_absent_store_file() {
+        let manager = SidecarManager::new();
+        assert_eq!(serve_llpdf(&manager, "/sha256-deadbeef").status(), 404);
+    }
 }

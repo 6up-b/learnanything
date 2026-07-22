@@ -1,0 +1,164 @@
+schema_version: 1
+id: pi_for_the_source_s_equal_w
+learning_object_id: lo_compute_and_qualify_relu_region_count_bounds
+subjects:
+practice_mode: quantitative comparison
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_the_stated_equal_width_relu_architecture_ide
+  - facet_for_a_two_dimensional_relu_network_with_one_hidd
+  - facet_a_maximum_region_formula_describes_possible_arch
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: For the source's equal-width ReLU architecture, compute the theoretical 
+  maximum region count when D=2 neurons per layer, D_i=2 inputs, and K=2 hidden 
+  layers. Then compute the shallow K=1 maximum when D=8 and D_i=2. Show 
+  substitutions, state whether the output layer is included in K, and explain 
+  why neither result predicts the number of regions training will realize.
+expected_answer: "For D=2, D_i=2, K=2: N_r=((2/2)+1)^(2(2-1))((2^2+2+2)/2)=2^2·4=16.
+  K counts hidden layers and excludes the output layer. For the shallow case K=1,
+  the exponential factor cancels and N_r=(8^2+8+2)/2=74/2=37. Both values are theoretical
+  maxima under the formula's assumptions, not expected or guaranteed learned counts;
+  for example, the illustrated D=2, K=2 network learned ten rather than sixteen regions."
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.4
+scaffold_level: 0.3
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: multi_step
+  tools:
+    - closed_book
+    - calculator
+task_feature_schema: p1_launch@1
+surface_family: region-count-calculation
+evidence_fingerprint:
+  source_family: ReLU region-count equation
+  shared_stimulus_id: deep-and-shallow-parameter-substitution
+  representation: algebraic formula and architecture parameters
+  solution_recipe_family: identify parameters, substitute, calculate, qualify
+  answer_structure: two computations plus upper-bound interpretation
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_the_stated_equal_width_relu_architecture_ide
+  - facet_for_a_two_dimensional_relu_network_with_one_hidd
+  - facet_a_maximum_region_formula_describes_possible_arch
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-deep-formula-substitution
+      points: 3.0
+      description: Correctly identifies D, D_i, and K, excludes the output layer
+        from K, and obtains 16.
+      tier: core
+      targets:
+        - facet: facet_for_the_stated_equal_width_relu_architecture_ide
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: region-formulas
+      recipe_ids:
+        - recipe-deep-region-bound
+    - id: criterion-shallow-formula-substitution
+      points: 2.0
+      description: Uses the K=1 shallow special case and obtains 37 for D=8.
+      tier: core
+      targets:
+        - facet: facet_for_a_two_dimensional_relu_network_with_one_hidd
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: region-formulas
+      recipe_ids:
+        - recipe-shallow-region-bound
+    - id: criterion-upper-bound-interpretation
+      points: 3.0
+      description: Explicitly identifies both results as upper bounds and 
+        contrasts the first with the ten-region observed example.
+      tier: transfer
+      targets:
+        - facet: facet_a_maximum_region_formula_describes_possible_arch
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - criterion-deep-formula-substitution
+        - criterion-shallow-formula-substitution
+      correlation_group: region-formulas
+      recipe_ids:
+        - recipe-deep-region-bound
+        - recipe-shallow-region-bound
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s508
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s509
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s510
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s512
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:35Z'
+updated_at: '2026-07-21T18:14:55Z'

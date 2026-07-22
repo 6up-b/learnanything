@@ -87,6 +87,22 @@ class RubricPatchPayload(BaseModel):
     fatal_errors: list[RubricFatalErrorPayload] = Field(default_factory=list)
 
 
+class TaskFeaturesPayload(BaseModel):
+    """Point TaskFeature vector (p1_launch schema, spec_p1 §3.4). Generated items
+    declare where they sit in task-feature space so the deterministic rung gate
+    can check them against the target waypoint."""
+
+    complexity: int | None = Field(default=None, ge=0, le=4)
+    transfer: Literal["same_context", "near", "far", "novel_combination"] | None = None
+    representation: list[Literal["symbolic", "verbal", "diagram", "code", "physical"]] | None = None
+    response: (
+        Literal["recognize", "short_constructed", "long_constructed", "structured_steps", "performance"] | None
+    ) = None
+    scaffolding: Literal["none", "cue", "partial", "worked"] | None = None
+    span: Literal["atomic", "single_step", "multi_step", "whole_task"] | None = None
+    tools: list[Literal["closed_book", "open_book", "calculator", "code", "references", "collaboration"]] | None = None
+
+
 class PracticeItemPatchPayload(BaseModel):
     id: str | None = None
     learning_object_id: str | None = None
@@ -114,6 +130,23 @@ class PracticeItemPatchPayload(BaseModel):
     )
     difficulty: float | None = None
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
+    capability: Literal[
+        "retrieval", "schema_interpretation", "procedure_execution", "method_selection", "coordination"
+    ] | None = Field(
+        default=None,
+        description=(
+            "REQUIRED on generated items: the closed-vocabulary observation mode this "
+            "item exercises. Match the target's waypoint capability exactly."
+        ),
+    )
+    task_features: TaskFeaturesPayload | None = Field(
+        default=None,
+        description=(
+            "REQUIRED on generated items: the item's point in task-feature space. Set "
+            "every dimension the target waypoint declares to the target value; the "
+            "deterministic rung gate rejects items that overshoot the waypoint."
+        ),
+    )
     retrieval_demand: float | None = Field(
         default=None,
         description=(
@@ -304,6 +337,76 @@ class TeachBackQuestion(BaseModel):
     """
 
     question_md: str
+
+
+class ReaderPresetSynthesis(BaseModel):
+    """One demand-paged reader preset result (spec §6, reader producer).
+
+    Candidate-only: the service validates ``span_ids`` against the request
+    window's spans and lands the content as a PROPOSED source object plus a
+    reviewable mapping proposal — never auto-admitted into pools or evidence.
+    """
+
+    content_md: str = ""
+    span_ids: list[str] = Field(default_factory=list)
+
+
+class ReadingQuickCheck(BaseModel):
+    """One AI-authored section-boundary quick check (reader producer slice).
+
+    Candidate-only: the service validates ``span_ids`` against the section's
+    provided spans (never model-invented) and persists the row itself. The
+    question is a formative self-check — it never becomes evidence unless the
+    learner escalates it into a practice item.
+    """
+
+    question_md: str = ""
+    expected_answer_md: str = ""
+    span_ids: list[str] = Field(default_factory=list)
+
+
+class RungBackfillItem(BaseModel):
+    """One legacy item's rung classification (candidate-only; deterministic
+    validators admit or skip each entry)."""
+
+    practice_item_id: str = ""
+    capability: str = ""
+    task_features: TaskFeaturesPayload | None = None
+
+
+class RungBackfillClassification(BaseModel):
+    items: list[RungBackfillItem] = Field(default_factory=list)
+
+
+class DepthEdgeInstancePayload(BaseModel):
+    """One LLM-authored depth-edge instance (candidate-only; spec v2 §depth).
+
+    Instantiates an owner-reviewed edge TEMPLATE for one commitment. Every
+    instance is admitted or rejected by deterministic gates in
+    ``services/depth_edge_authoring`` — model judgment never authorizes an edge.
+    """
+
+    edge_id: str = ""
+    predecessor_milestone: str = ""
+    successor_milestone_slug: str = ""
+    # Successor task contract: capability (closed vocab) + task_features point
+    # vector and/or task_feature_bounds ({dim: {target?, max?}}).
+    successor_task_contract: dict = Field(default_factory=dict)
+    # Observable entry/exit evidence: {"kind": one of n_of_m_success |
+    # fresh_surface_pass | certified_attempt, "threshold": {...}}.
+    entry_evidence: dict | None = None
+    exit_evidence: dict = Field(default_factory=dict)
+    # {"kind": "fresh_surface" | "reserved_family_mint", "family": ...}
+    fresh_proof: dict = Field(default_factory=dict)
+    expected_burden: dict = Field(default_factory=dict)
+    # {"pattern_slug": ..., "purpose": ...} — must resolve to an admitted
+    # activity pattern whose allowed purposes include the edge's purpose.
+    activity_path: dict = Field(default_factory=dict)
+    rationale: str = ""
+
+
+class DepthEdgeInstanceBatch(BaseModel):
+    instances: list[DepthEdgeInstancePayload] = Field(default_factory=list)
 
 
 class TutorCitation(BaseModel):
@@ -636,7 +739,13 @@ class SynthFacet(BaseModel):
 class SynthRecipeComponent(BaseModel):
     facet_client_id: str = ""
     facet: str = ""
-    capability: str = "retrieval"
+    capability: Literal[
+        "retrieval",
+        "schema_interpretation",
+        "procedure_execution",
+        "method_selection",
+        "coordination",
+    ] = "retrieval"
     modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
 
 
@@ -677,7 +786,13 @@ class SynthLearningObject(BaseModel):
 class SynthCriterionTarget(BaseModel):
     facet_client_id: str = ""
     facet: str = ""
-    capability: str = "retrieval"
+    capability: Literal[
+        "retrieval",
+        "schema_interpretation",
+        "procedure_execution",
+        "method_selection",
+        "coordination",
+    ] = "retrieval"
     role: Literal["primary", "supporting"] = "primary"
 
 
@@ -728,6 +843,23 @@ class SynthConflict(BaseModel):
     right: SynthSpanRef = Field(default_factory=SynthSpanRef)
 
 
+class ConceptRelation(BaseModel):
+    """One typed concept-graph edge (knowledge-model concept graph).
+
+    ``source``/``target`` are concept ``client_item_id``s from this candidate OR
+    already-registered concept ids. Direction: source --prerequisite--> target
+    means source is a prerequisite of target; source --part_of--> target means
+    source is a sub-concept of target. The service resolves ids, drops invalid
+    or cycle-forming edges with review diagnostics, and compiles the survivors
+    into ``concept_edge`` proposal items."""
+
+    source: str = ""
+    target: str = ""
+    relation_type: Literal["prerequisite", "part_of", "confusable_with", "related"] = "related"
+    rationale: str = ""
+    strength: float = 1.0
+
+
 class SourceSetSynthesis(BaseModel):
     """The §8.5 bootstrap synthesis contract (candidate-only, span-cited).
 
@@ -746,6 +878,41 @@ class SourceSetSynthesis(BaseModel):
     practice_items: list[SynthPracticeItem] = Field(default_factory=list)
     conflicts: list[SynthConflict] = Field(default_factory=list)
     non_conflict_dispositions: list[str] = Field(default_factory=list)
+    # Within-shard concept relations (optional): the post-merge graph
+    # structuring pass authors the cross-shard / cross-source structure.
+    concept_relations: list[ConceptRelation] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class ConceptMergeGroup(BaseModel):
+    """One set of semantically-duplicate concepts to fold into a canonical one.
+
+    ``canonical_client_id`` is the concept that survives; every concept in
+    ``duplicate_client_ids`` is folded into it (its title and aliases become
+    aliases of the canonical) and all references are rewritten. Ids must be
+    concept ``client_item_id`` values from the provided candidate list."""
+
+    canonical_client_id: str = ""
+    duplicate_client_ids: list[str] = Field(default_factory=list)
+    rationale: str = ""
+
+
+class ConceptGraphStructuring(BaseModel):
+    """The post-merge concept graph-structuring contract (§8.5).
+
+    One bounded pass over the WHOLE merged candidate plus compact source
+    skeletons (outline trees + cached inventory summaries) — the only stage
+    that sees every concept across every shard and source, so it both folds
+    semantic duplicates (``merge_groups``) and authors the big-picture
+    structure (``relations``: part_of hierarchy, prerequisites, confusables).
+
+    Deliberately NOT on the CodexClient Protocol — discovered via getattr like
+    run_source_set_synthesis. The service validates every referenced id,
+    rejects chains/cycles, applies merges deterministically, and treats any
+    invalid group or edge as a droppable no-op, never an error."""
+
+    merge_groups: list[ConceptMergeGroup] = Field(default_factory=list)
+    relations: list[ConceptRelation] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 

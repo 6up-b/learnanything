@@ -88,6 +88,8 @@ PRACTICE_ITEM_ORDER = [
     "hints",
     "hint_policy",
     "grading_rubric",
+    "status",
+    "status_reason",
     "provenance",
     "created_at",
     "updated_at",

@@ -1,0 +1,66 @@
+schema_version: 1
+id: lo_distinguish_universal_approximation_from_trainab
+title: Distinguish universal approximation from trainability
+subjects:
+  - llm
+concept: concept_universal_approximation
+knowledge_type: conceptual
+status: active
+contradicts:
+summary: Evaluate claims about network capacity without turning an existence 
+  theorem into an optimization guarantee or width prescription.
+prerequisites:
+  - concept_geometric_expressivity_of_relu_networks
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_27
+    weight: 0.18
+    recipes:
+      - id: recipe_uat_limits
+        composition: conjunctive
+        all_of:
+          - facet: facet_universal_approximation_is_a_representational_ex
+            capability: method_selection
+            modality: hard
+          - facet: facet_relu_clips_negative_affine_outputs_to_zero_and_p
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_universal_approximation_is_a_representational_ex
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s463
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s464
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:50Z'
+updated_at: '2026-07-21T05:07:10Z'

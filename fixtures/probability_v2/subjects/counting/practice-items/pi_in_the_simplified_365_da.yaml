@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_in_the_simplified_365_da
+learning_object_id: lo_use_complement_counting_for_collision_events
+subjects:
+practice_mode: method_selection
+attempt_types_allowed: []
+evidence_facets:
+  - facet_to_count_an_at_least_one_collision_event_with_ov
+  - facet_making_k_ordered_selections_from_n_objects_witho
+  - facet_making_k_ordered_selections_from_n_objects_with_
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: In the simplified 365-day birthday model, set up the probability that at
+  least two of k people share a birthday for k≤365. Explain why complement 
+  counting is preferable to adding match configurations directly.
+expected_answer: 'Direct match configurations overlap. Count the complement in which
+  all birthdays are distinct: 365·364···(365-k+1) assignments out of 365^k total.
+  Therefore P(at least one match)=1-[365·364···(365-k+1)]/365^k.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.2
+scaffold_level: 0.2
+surface_family: collision_complements
+evidence_fingerprint:
+  source_family: birthday collision model
+  shared_stimulus_id: stim_birthday_complement
+  representation: symbolic probability setup
+  solution_recipe_family: no-collision complement
+  answer_structure: method rationale plus complement formula
+misconception_consistent_answer:
+repair_targets:
+  - facet_to_count_an_at_least_one_collision_event_with_ov
+  - facet_making_k_ordered_selections_from_n_objects_witho
+  - facet_making_k_ordered_selections_from_n_objects_with_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_complement_select
+      points: 2.0
+      description: Selects the no-match complement and explains that direct 
+        match cases overlap.
+      tier: core
+      targets:
+        - facet: facet_to_count_an_at_least_one_collision_event_with_ov
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_complement_counting_contract
+      correlation_group: complement
+      recipe_ids:
+        - recipe_complement
+    - id: crit_complement_count
+      points: 3.0
+      description: Uses the falling product for distinct birthdays, 365^k for 
+        total assignments, and subtracts their ratio from 1.
+      tier: transfer
+      targets:
+        - facet: facet_to_count_an_at_least_one_collision_event_with_ov
+          capability: procedure_execution
+          role: primary
+        - facet: facet_making_k_ordered_selections_from_n_objects_witho
+          capability: coordination
+          role: supporting
+        - facet: facet_making_k_ordered_selections_from_n_objects_with_
+          capability: coordination
+          role: supporting
+      depends_on:
+        - facet_complement_counting_contract
+        - facet_ordered_sampling_no_replacement
+        - facet_ordered_sampling_replacement
+        - crit_complement_select
+      correlation_group: complement
+      recipe_ids:
+        - recipe_complement
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s155
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s156
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s159
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:14Z'
+updated_at: '2026-07-21T00:54:14Z'

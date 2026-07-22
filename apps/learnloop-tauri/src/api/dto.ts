@@ -291,6 +291,10 @@ export interface SchedulerComponents {
   goalFrontier?: number;
   recentError: number;
   probeEig: number;
+  /** Display-only: Fisher information of one ordinary attempt about the LO
+   * mastery latent (a²·p·(1−p) × default evidence mass). Never a priority
+   * input — practice selection optimizes learning, not measurement. */
+  practiceInformation?: number;
   negativeSurpriseFollowup?: number;
   interventionFollowup?: number;
 }
@@ -758,6 +762,60 @@ export interface PromoteTutorQuestionInput {
 export interface PromoteTutorQuestionResult extends QuestionPromotionDto {
   version: number;
 }
+
+// ── Outstanding-question queue (migration 102) ─────────────────────────────
+// answerStatus tracks whether the TUTOR answered; resolution tracks whether the
+// LEARNER is done with the question. They are independent axes.
+
+export type QuestionResolution = "open" | "resolved" | "dismissed";
+
+export interface QuestionQueueRowDto {
+  id: string;
+  context: TutorQuestionContext | "reader";
+  questionMd: string;
+  answerMd: string | null;
+  answerStatus: "pending" | "answered" | "failed";
+  resolution: QuestionResolution;
+  questionType: string | null;
+  practiceItemId: string | null;
+  noteId: string | null;
+  savedNoteId: string | null;
+  createdAt: IsoTimestamp;
+  promotion: QuestionPromotionDto | null;
+}
+
+export interface QuestionQueueSnapshot {
+  version: number;
+  questions: QuestionQueueRowDto[];
+  openCount: number;
+}
+
+export interface ResolveQuestionEventResult {
+  version: number;
+  eventId: string;
+  resolution: QuestionResolution;
+  openCount: number;
+}
+
+// ── Learner item authoring (services.item_authoring) ───────────────────────
+// The §3.7 typed retirement taxonomy — also the learner vocabulary from the
+// Matuschak talk-aloud notes ("too easy", "knew the prompt, not the concept").
+
+export const RETIREMENT_REASONS = [
+  "too_easy",
+  "ambiguous",
+  "missing_context",
+  "duplicate_surface",
+  "wrong_granularity",
+  "no_longer_relevant",
+  "bad_underlying_explanation",
+  "superseded_by_better_activity",
+  "should_be_reference_not_memorized",
+  "dont_care_enough_to_retain",
+  "knew_prompt_not_concept"
+] as const;
+
+export type RetirementReason = (typeof RETIREMENT_REASONS)[number];
 
 export interface TutorTranscriptInput {
   context: TutorQuestionContext;
@@ -1235,10 +1293,14 @@ export interface IngestJobsSnapshot {
   jobs: IngestJobDto[];
 }
 
+export type PdfEngine = "auto" | "marker" | "pypdf";
+
 export interface StartIngestInput {
   source: string;
   subjectId: string;
   mode: IngestMode;
+  /** PDF extraction engine; "auto" defers to the vault's [ingest.pdf] config. */
+  pdfEngine?: PdfEngine;
 }
 
 // ── Durable ingest workflows (source-ingestion v2 §6.2) ──────────────────
@@ -1267,7 +1329,25 @@ export interface IngestJobView {
   estimate: Record<string, number>;
   source: string | null;
   result: Record<string, unknown> | null;
-  error: { code: string; message: string } | null;
+  error: {
+    code: string;
+    message: string;
+    details?: {
+      diagnostics?: Array<{
+        gate?: string;
+        severity?: string;
+        message?: string;
+        entity_refs?: string[];
+        suggested_action?: string;
+      }>;
+      stage?: string;
+      completed_dependencies_preserved?: boolean;
+      candidate_preserved?: boolean;
+      synthesis_run_id?: string | null;
+      [key: string]: unknown;
+    };
+    retryable?: boolean;
+  } | null;
   waitingForInput: Record<string, unknown> | null;
   dependsOn: string[];
 }
@@ -1295,10 +1375,47 @@ export interface IngestBatchesSnapshot {
   batches: IngestBatchDto[];
 }
 
+export interface RetrySynthesisInput {
+  batchId: string;
+  /** Required for a model rerun; ignored when reuseCandidate is set. */
+  synthesisTotalInputTokens?: number;
+  synthesisShardOutputTokens?: number;
+  synthesisOutputTokens?: number;
+  /** Disable LearnLoop's synthesis total/output ceilings (provider limits still apply). */
+  unlimitedTokenBudget?: boolean;
+  /** Revalidate the preserved merged candidate with zero model calls. */
+  reuseCandidate?: boolean;
+  /** With reuseCandidate: auto-apply mechanically-safe repairs (e.g. drop
+   * dangling criterion-id dependencies) before the gates rerun. */
+  repairCandidate?: boolean;
+}
+
+export interface SynthesisCandidateSummary {
+  version?: number;
+  synthesisRunId: string;
+  runStatus: string;
+  createdAt: string | null;
+  completedAt: string | null;
+  summary: string;
+  itemCounts: Record<string, number>;
+  notes: string[];
+}
+
 export interface StartImportBatchInput {
   sources: string[];
   subjectId?: string | null;
   inventory?: boolean;
+  /** Inclusive, 1-based PDF page range. Both values must be supplied together. */
+  pageStart?: number | null;
+  pageEnd?: number | null;
+  /** Inclusive, 1-based page expression, e.g. "3-27, 29-33, 36". */
+  pages?: string | null;
+  /** Per-source page expressions for staged multi-source imports. */
+  pageRanges?: Array<{ source: string; pages: string }>;
+  /** Sources opted OUT of the reader loop at ingest setup (e.g. practice exams). */
+  readerDisabledSources?: string[];
+  /** PDF extraction engine; "auto" defers to the vault's [ingest.pdf] config. */
+  pdfEngine?: PdfEngine;
   estimate?: Record<string, unknown> | null;
 }
 
@@ -1317,6 +1434,8 @@ export interface SourceLibraryCard {
   blockCount: number;
   extractionStatus: string | null;
   suggestedRole: string | null;
+  /** Per-source ingest-time choice: false = opted out of the reader loop. */
+  readerEnabled: boolean;
   updateAvailable: boolean;
 }
 
@@ -1476,6 +1595,8 @@ export interface StartInventoryInput {
   units: { unitId: string; role: string; profile?: string }[];
   subjectId?: string | null;
   sourceSetId?: string | null;
+  inventoryOutputTokens?: number;
+  unlimitedTokenBudget?: boolean;
 }
 
 export interface CreateStudyMapInput {
@@ -1484,12 +1605,15 @@ export interface CreateStudyMapInput {
   brief?: Record<string, unknown>;
   apply?: boolean;
   createGoal?: boolean;
+  unlimitedTokenBudget?: boolean;
 }
 
 export interface BuildStudyMapInput {
   sourceSetId: string;
   brief?: Record<string, unknown>;
   mode?: "auto" | "bootstrap";
+  inventoryOutputTokens?: number;
+  unlimitedTokenBudget?: boolean;
 }
 
 export interface StudyMapDto {
@@ -1511,21 +1635,61 @@ export interface StudyMapDto {
 
 // --- Quick add (§1) ---------------------------------------------------------
 
+export type StartingLevel = "new_to_this" | "some_exposure" | "comfortable" | "strong_background";
+
 export interface StudyMapBriefDto {
   outcome?: "general_learning" | "reference_mastery" | "exam_prep" | string;
   level?: string;
+  // Machine-readable learner level: seeds the global learner claim / initial
+  // mastery. Defaults from the vault's profile/learner.yaml when unset.
+  startingLevel?: StartingLevel;
   depth?: string;
   scope?: string;
   subject?: string;
   includeTopics?: string[];
   excludeTopics?: string[];
   notation?: string;
+  // Bootstrap item authoring: "as_you_read" authors NO practice items at
+  // synthesis; items accrue progressively from reading. Backend default: upfront.
+  practiceItems?: "upfront" | "as_you_read";
   // exam-prep goal fields (createGoal path)
   goalTitle?: string;
   targetRecall?: number;
   dueAt?: string;
   examItemCount?: number;
   [key: string]: unknown;
+}
+
+// Learner-initiated re-runging (easier/harder sibling variants).
+export interface RungVariantRequestDto {
+  requestId: string;
+  sourcePracticeItemId: string;
+  learningObjectId: string;
+  direction: "easier" | "harder";
+  sourceWaypoint: string;
+  targetWaypoint: string;
+  status: "pending" | "generating" | "applied" | "review_required" | "failed";
+  createdPracticeItemId: string | null;
+  failureReason: string | null;
+  batchId: string | null;
+}
+
+export interface RungVariantRequestResultDto {
+  version?: number;
+  requestId: string;
+  direction: "easier" | "harder";
+  sourceWaypoint: string;
+  targetWaypoint: string;
+  attemptId: string;
+  learningObjectId: string;
+  batchId: string;
+}
+
+export interface LearnerProfileDto {
+  version: number;
+  startingLevel: StartingLevel | null;
+  levelNote: string | null;
+  updatedAt: string | null;
 }
 
 export interface PlanQuickAddInput {
@@ -1535,10 +1699,13 @@ export interface PlanQuickAddInput {
 }
 
 export interface ConfirmQuickAddInput {
+  readerEnabled?: boolean | null;
   source: string;
   subjectId: string;
   brief?: StudyMapBriefDto;
   roleOverride?: string | null;
+  inventoryOutputTokens?: number;
+  unlimitedTokenBudget?: boolean;
 }
 
 export interface ProposeFacetMergeInput {
@@ -2532,6 +2699,7 @@ export interface AppendSourceInput {
   changeKind?: string;
   brief?: Record<string, unknown>;
   autoApply?: boolean;
+  unlimitedTokenBudget?: boolean;
 }
 
 export interface RefreshResultDto {
@@ -3213,10 +3381,960 @@ export interface LoBlueprintDto {
 export interface CreateVaultInput {
   path: string;
   subject?: string | null;
+  // Declared learner level: persists profile/learner.yaml and seeds the global
+  // init-wizard learner claim at creation time.
+  startingLevel?: StartingLevel | null;
+  levelNote?: string | null;
 }
 
 export interface CreateVaultResult {
   version: number;
   vaultRoot: string;
   subjectId: string | null;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// P2 — narrow golden path (spec_p2_narrow_golden_path §9; spec_tauri_ui §3 rows)
+//
+// camelCase mirrors of the landed sidecar handler payloads (golden_path.* /
+// blueprint.* / diagnostic.* / ladder.* / practice_pool.* / reader.*). Shapes
+// captured verbatim from the real sidecar into src/fixtures/goldenpath/*.json.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Reliability-aware interval attached to every model-derived claim (§8.2). */
+export interface GpInterval {
+  point: number;
+  low: number;
+  high: number;
+  width: number;
+  leadingClass: string;
+}
+
+export type GpCalibrationStatus = "heuristic" | "simulation_validated" | "live_calibrated";
+export type GpClaimLanguage = "provisional" | "calibrated" | "insufficient";
+
+/** blueprint.get_version / register / review. */
+export interface BlueprintExemplarDto {
+  id: string;
+  blueprintVersionId: string;
+  exemplarRef: string;
+  weight: number;
+  heldOutWeight: number;
+  exposureStatus: string;
+  createdAt: string;
+}
+export interface BlueprintVersionDto {
+  version: number;
+  blueprintId: string;
+  blueprintVersionId: string;
+  status: string;
+  contentHash: string;
+  minted: boolean;
+  exemplars: BlueprintExemplarDto[];
+}
+
+// ── Exemplar picker (blueprint.discover_candidates / compose_draft) ────────
+
+export interface ExemplarPoolItemDto {
+  practiceItemId: string;
+  prompt: string;
+  practiceMode: string;
+  evidenceFacets: string[];
+  attempted: boolean;
+}
+
+export interface ExemplarPoolEntryDto {
+  learningObjectId: string;
+  title: string;
+  items: ExemplarPoolItemDto[];
+}
+
+export interface ExemplarPoolSnapshot {
+  version: number;
+  pool: ExemplarPoolEntryDto[];
+}
+
+export interface ComposeDraftResult {
+  version: number;
+  blueprint: BlueprintVersionDto;
+  /** JSON string — parse and pass verbatim as goldenPathConfirm's contractBody. */
+  contractBodyJson: string;
+  sourceRev: string;
+  unitId: string;
+  heldOutItemId: string;
+  warnings: string[];
+}
+
+/** golden_path.confirm receipt (atomic confirmation). */
+export interface ConfirmReceiptDto {
+  version: number;
+  runId: string;
+  goalId: string;
+  mode: "certifying" | "practice_only";
+  currentState: string;
+  minted: boolean;
+  blueprintVersionId: string;
+  commitmentId: string;
+  commitmentVersionId: string;
+  goalContractVersionId: string;
+  reservationId: string | null;
+  reservedSurfaceId: string | null;
+}
+
+/** golden_path.run_status projection. */
+export interface RunNextActionDto {
+  toState: string | null;
+  reason: string;
+  terminal: boolean;
+}
+export interface RunHistoryEntryDto {
+  seq: number;
+  fromState: string;
+  toState: string;
+  reason: string;
+  goalContractHeadVersionId: string | null;
+}
+export interface RunStateDto {
+  version: number;
+  runId: string;
+  currentState: string;
+  headEventId: string | null;
+  headSeq: number;
+  mode: string;
+  milestone: string | null;
+  goalContractHeadVersionId: string | null;
+  eventCount: number;
+  nextAction: RunNextActionDto;
+  history: RunHistoryEntryDto[];
+}
+export interface RunAdvanceResultDto {
+  version: number;
+  result: { toState: string; [k: string]: unknown };
+  state: RunStateDto;
+}
+
+/** capability × facet boundary cell (§5.3) — never blends two axes (§1). */
+export type BoundaryCellState = "demonstrated" | "developing" | "untested" | "weak" | "contested";
+export interface BoundaryCellDto {
+  facet: string;
+  capability: string;
+  before: BoundaryCellState;
+  after: BoundaryCellState;
+  changed: boolean;
+  calibrationStatus: GpCalibrationStatus;
+  claimLanguage: GpClaimLanguage;
+  interval: GpInterval;
+}
+export interface BoundaryDiffDto {
+  version?: number;
+  runId: string;
+  passed: boolean;
+  targetContractVersionId: string;
+  schemaVersion: number;
+  cells: BoundaryCellDto[];
+}
+
+/** golden_path.assess_open (cold assessment render / burn boundary). */
+export interface AssessOpenDto {
+  version: number;
+  administrationId: string;
+  surfaceId: string;
+  cardVersionId: string;
+  snapshotHash: string;
+  purpose: string;
+  consumesUnseen: boolean;
+  alreadyOpen: boolean;
+  /** The cold question to render (never the expected answer — that stays
+   *  hidden until after submission). Absent when the surface has no legacy item. */
+  practiceItemId?: string;
+  prompt?: string;
+  maxPoints?: number;
+}
+
+/** golden_path.assess_submit / assess_result (reliability-aware certification). */
+export interface AssessReviewStateDto {
+  quarantined: boolean;
+  reviewFlag: boolean;
+  influenceFlag: boolean;
+  fallbackReason: string | null;
+}
+export interface AssessResultDto {
+  version?: number;
+  runId: string;
+  administrationId: string;
+  passed: boolean;
+  observedClass: string;
+  point: number;
+  interval: GpInterval;
+  coverage: Array<{ facet: string; capability: string }>;
+  claimLanguage: GpClaimLanguage;
+  calibrationStatus: GpCalibrationStatus;
+  calibrationModelVersionId: string | null;
+  citedVersion: number;
+  targetContractVersionId: string;
+  surfaceEligibility: string;
+  eligibilityReason: string | null;
+  burnReason: string;
+  representative: boolean;
+  terminal: boolean;
+  reviewState: AssessReviewStateDto;
+  practiceSuccessorEventId: string | null;
+  projectionAlgorithmVersion: string;
+  schemaVersion?: number;
+}
+
+/** A reviewed depth edge (§7.5) inside the envelope. */
+export interface DepthEdgeDto {
+  edgeId: string;
+  reviewed: boolean;
+  direction: string;
+  milestoneSlug: string;
+  taskFeatureDelta: Record<string, unknown>;
+  capabilityDelta: unknown[];
+  supportDelta: Record<string, unknown>;
+  exitEvidence: Record<string, unknown>;
+  successorActivityPath: Record<string, unknown>;
+  freshProofRule: string;
+  burden: { minutes?: number; [k: string]: unknown };
+}
+export interface DepthInvitationDto {
+  activated: boolean;
+  servedAs: string;
+  milestoneSlug: string;
+  edge: DepthEdgeDto;
+  outcome: {
+    kind: string;
+    outcome: string;
+    reason: string;
+    selectedEdgeId: string | null;
+    commitmentId: string;
+    detail: Record<string, unknown>;
+  };
+}
+export interface DepthInvitationResultDto {
+  version?: number;
+  invitation: DepthInvitationDto | null;
+  milestone: { milestoneSlug: string; eventOnly: boolean } | null;
+}
+export interface AcceptEdgeResultDto {
+  version?: number;
+  activated: boolean;
+  intentRecorded: boolean;
+  [k: string]: unknown;
+}
+
+/** golden_path.restore (restoration + boundary diff + milestone + next edge). */
+export interface RestoreDto {
+  version?: number;
+  runId: string;
+  milestoneRecorded: boolean;
+  achievedMilestone: string;
+  activeEnvelopeVersionId: string;
+  nextAction: string;
+  nextReviewedEdge: DepthEdgeDto | null;
+  boundaryDiff: BoundaryDiffDto;
+  invitation: DepthInvitationDto | null;
+  exemplarComparison: Array<{ exemplarRef: string; heldOut: boolean; weight: number }>;
+  sourceNeighborhoods: Record<string, unknown>;
+}
+
+/** ladder.policy — the nine-stage pattern ladder (§7.1). */
+export interface LadderStageDto {
+  id: string;
+  policyId: string;
+  stageKey: string;
+  ordinal: number;
+  patternFamily: string;
+  purpose: string;
+  runState: string;
+  entryCriteria: string;
+  exitCriteria: string;
+  mintsCertification: number;
+  recordsScaffold: number;
+  requiresCold: number;
+  createdAt: string;
+}
+export interface LadderPolicyDto {
+  version?: number;
+  policy: {
+    id: string;
+    policySlug: string;
+    policyVersion: number;
+    schemaVersion: number;
+    status: string;
+    contentHash: string;
+    createdAt: string;
+  };
+  stages: LadderStageDto[];
+}
+export interface LadderStatusDto {
+  version?: number;
+  runId: string;
+  currentStage: string | null;
+  [k: string]: unknown;
+}
+export interface LadderAdvanceResultDto {
+  version?: number;
+  toStage: string;
+  [k: string]: unknown;
+}
+
+/** practice_pool.* — rotating practice surfaces (§7.3, U-028). */
+export interface PoolSurfaceDto {
+  surfaceSlug: string;
+  surfaceId: string | null;
+  angle: string;
+  provenance: string;
+  admissionStatus: "candidate" | "admitted" | "rejected";
+}
+export interface PoolDto {
+  version?: number;
+  poolId: string;
+  poolSlug: string;
+  blueprintVersionId: string;
+  status: string;
+  contentHash: string;
+  minted: boolean;
+  surfaces: PoolSurfaceDto[];
+}
+/** practice_pool.status — pool record + its admission/rotation ledger. */
+export interface PoolStatusDto {
+  version?: number;
+  pool: PoolDto;
+  events: Array<Record<string, unknown>>;
+}
+/** practice_pool.for_run / seed_for_run / admit_anchor — run-scoped pool view. */
+export interface PoolAnchorCandidateDto {
+  ref: string;
+  inVault: boolean;
+  angle: string;
+}
+export interface PoolForRunDto {
+  version?: number;
+  runId: string;
+  blueprintVersionId: string;
+  reservedSurfaceId: string | null;
+  poolId: string | null;
+  pool: PoolStatusDto | null;
+  anchors: PoolAnchorCandidateDto[];
+  heldOutRef: string | null;
+}
+/**
+ * practice_pool.next_surface — one SERVED practice surface (§7.3). Distinct from
+ * PoolSurfaceDto (a pool-admission row): this is the rotation-time projection
+ * matching ServedSurface.as_dict(), carrying the P1 freshness/warmth flags the
+ * practice view renders (fresh / reducedEvidence / exposureStatus / needsRotation).
+ */
+export interface ServedSurfaceDto {
+  surfaceId: string;
+  surfaceSlug: string;
+  angle: string;
+  fresh: boolean;
+  reducedEvidence: boolean;
+  warmth: number;
+  exposureStatus: string;
+  needsRotation: boolean;
+}
+
+export interface PoolNextSurfaceDto {
+  version?: number;
+  poolId: string;
+  current: ServedSurfaceDto | null;
+  spare: ServedSurfaceDto | null;
+  fallback: boolean;
+  rotated: boolean;
+  reason: string;
+}
+
+/** diagnostic.triage — two-tier failure-reason triage decision aid (U-027). */
+export interface TriageRouteDto {
+  routeId: string;
+  reason: string;
+  ladderEntryStage: string;
+  firstIntervention: string;
+  coldFollowUp: string;
+  reopensDiagnostic: boolean;
+}
+export interface TriageAlternativeDto {
+  reason: string;
+  weight: number;
+  route: TriageRouteDto;
+}
+export interface TriageResultDto {
+  version?: number;
+  runId: string;
+  eventId: string;
+  kind: string;
+  tier: "one" | "two";
+  decisive: boolean;
+  reason: string | null;
+  route: TriageRouteDto | null;
+  distribution: Record<string, number> | null;
+  alternatives: TriageAlternativeDto[];
+  routed: boolean;
+  routedTo: string | null;
+  autoCommitted: boolean;
+  anchorSampleId: string | null;
+}
+
+/** golden_path.list_runs — every confirmed run, for re-entry after restart. */
+export interface RunListEntryDto {
+  runId: string;
+  goalId: string;
+  currentState: string;
+  mode: string;
+  milestone: string | null;
+  blueprintVersionId: string;
+  createdAt: string;
+}
+export interface RunListDto {
+  version?: number;
+  runs: RunListEntryDto[];
+}
+
+/** diagnostic.triage_status — the committed triage trace for a run. */
+export interface TriageTraceEntryDto {
+  eventId: string;
+  seq: number;
+  kind: string;
+  tier: "one" | "two";
+  decisive: boolean;
+  routeId: string | null;
+  selectedReason: string | null;
+  distribution: Record<string, number> | null;
+  overrideActor?: string | null;
+  anchorSampleId?: string | null;
+  goalContractHeadVersionId?: string | null;
+}
+export interface TriageStatusDto {
+  version?: number;
+  runId: string;
+  latest: TriageTraceEntryDto | null;
+  trace: TriageTraceEntryDto[];
+}
+
+/** reader.prompt_contract — the reviewed reader profile + gating flag (A.2). */
+export interface ReaderPromptContractDto {
+  version: string;
+  context: string;
+  readerEnabled: boolean;
+  notSocraticByDefault: boolean;
+  defaultAnswerMode: ReaderAnswerMode;
+  answerModes: ReaderAnswerMode[];
+  mayReveal: string[];
+  manifestIncludes: string[];
+  manifestNeverIncludes: string[];
+  citations: string;
+  exposureOnCommit: string;
+}
+export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
+
+/** reader.ask — a span-grounded exchange in the reader tutor context. */
+export interface ReaderAskInput {
+  extractionId: string;
+  spanId: string;
+  question: string;
+  answerMode?: ReaderAnswerMode;
+  targetKey?: string | null;
+  revealedSurfaceIds?: string[];
+  coldActive?: boolean;
+}
+export interface ReaderAnswerDto {
+  eventId: string;
+  readerAnswerEventId: string;
+  answerMd: string;
+  answerMode: ReaderAnswerMode;
+  citations: unknown[];
+  manifest: Record<string, unknown>;
+  warmedSurfaceIds: string[];
+  burnedSurfaceIds: string[];
+  hintEquivalent: boolean;
+  remaining: number | null;
+}
+
+/** reader.choose_disposition — the four reading-question dispositions (U-033). */
+export type ReaderDisposition =
+  | "comprehension_only"
+  | "check_once_later"
+  | "keep_developing"
+  | "reference_only";
+export interface ReaderDispositionResultDto {
+  version?: number;
+  disposition: ReaderDisposition;
+  [k: string]: unknown;
+}
+
+// --- P3 slice 1: render views, block health, annotations, capture/outbox ---
+
+export type ReaderAnchorStatus =
+  | "exact"
+  | "reanchored"
+  | "needs_reanchor"
+  | "orphaned"
+  | "manually_anchored";
+
+export type ReaderBlockHealthStatus = "ok" | "suspect" | "failed" | "unknown";
+export type ReaderRecommendedView = "derived" | "crop_adjacent" | "crop_default" | "warn_link";
+
+/** One display node of a render view (spec §3.2). */
+
+/** reader.watch_plan — YouTube watch mode: embed id + tutor pause points. */
+export interface ReaderWatchPausePointDto {
+  timeSeconds: number;
+  segmentStartSeconds: number;
+  practiceItemId: string;
+  learningObjectId: string;
+  promptPreview: string;
+  goalId?: string | null;
+  goalTitle?: string | null;
+  goldenPathRunId?: string | null;
+  targetContractVersionId?: string | null;
+}
+export interface ReaderWatchPlanDto {
+  version?: number;
+  sourceId: string;
+  videoId: string;
+  embedUrl: string;
+  pausePoints: ReaderWatchPausePointDto[];
+}
+
+export interface ReaderRenderBlockDto {
+  displayNodeId: string;
+  spanId: string | null;
+  blockType: string | null;
+  /** Caption blocks carry their cue's "t=<start>-<end>" locator here (watch mode). */
+  extractorBlockId?: string | null;
+  markdown: string;
+  sanitized: boolean;
+  katexNodes: string[];
+  assets: string[];
+  health: {
+    status: ReaderBlockHealthStatus;
+    recommendedView: ReaderRecommendedView;
+    reasonFlags: string[];
+  };
+}
+
+/** reader.render_view — replaceable marker-markdown view over the extraction IR. */
+export interface ReaderRenderViewDto {
+  version?: number;
+  renderViewId: string;
+  extractionId: string;
+  revisionId: string;
+  sourceId: string;
+  renderer: string;
+  rendererVersion: string;
+  contentHash: string;
+  status: string;
+  blocks: ReaderRenderBlockDto[];
+  layers: Record<string, string>;
+}
+
+/** Local, source-grounded guidance for one reading section.  Learner-state
+ * numbers stay server-side; the UI receives only a plain-language reason. */
+export interface ReaderSuggestedPassageDto {
+  spanId: string;
+  quote: string;
+  reason: string;
+  learningObjectId: string;
+  learningObjectTitle: string;
+  learnerSignal: "recent_misunderstanding" | "uncertain" | "goal_frontier" | "new_material" | "source_relevance";
+}
+
+export interface ReaderSectionQuestionDto {
+  practiceItemId: string | null;
+  learningObjectId: string | null;
+  learningObjectTitle: string | null;
+  prompt: string;
+  reason: string;
+  learnerSignal: ReaderSuggestedPassageDto["learnerSignal"] | "auto_authored";
+  goalId: string | null;
+  goalTitle: string | null;
+  goldenPathRunId: string | null;
+  targetContractVersionId: string | null;
+  readingPhase: "before_section" | "during_section" | "after_section";
+  pattern: string | null;
+  placementEventId: string | null;
+  blueprintVersionId: string | null;
+  placement: "owner_reviewed" | "auto_authored";
+  /** auto_authored only: the reader_authored_questions row id. */
+  authoredQuestionId?: string;
+  /** auto_authored only: the self-check anchor revealed after answering. */
+  expectedAnswer?: string;
+  /** auto_authored only: the section spans the question is grounded in. */
+  spanIds?: string[];
+  /** auto_authored only: default Learning Object for "add to practice". */
+  escalationLearningObjectId?: string | null;
+}
+
+/** One AI-authored quick check row (reader quick-check producer). */
+export interface ReaderAuthoredQuestionDto {
+  id: string;
+  extractionId: string;
+  sectionId: string;
+  status: "proposed" | "answered" | "dismissed" | "escalated";
+  questionMd: string;
+  expectedAnswerMd: string;
+  spanIds: string[];
+  practiceItemId: string | null;
+  answeredAt: string | null;
+}
+
+export interface ReaderAuthorSectionQuestionDto {
+  version?: number;
+  status: "queued" | "exists";
+  batchId?: string;
+  question: ReaderAuthoredQuestionDto | null;
+}
+
+/** One across-source search hit ("where did I read that?"). */
+export interface ReaderSourceSearchHitDto {
+  sourceId: string;
+  sourceTitle: string;
+  extractionId: string;
+  spanId: string;
+  section: string | null;
+  page: number | null;
+  snippet: string;
+}
+
+export interface ReaderSourceSearchDto {
+  version?: number;
+  query: string;
+  hits: ReaderSourceSearchHitDto[];
+  searchedSources: number;
+}
+
+// Durable per-section reading progress (reader-first seeding).
+export interface ReaderSectionProgressDto {
+  extractionId: string;
+  sectionId: string;
+  spansSeen: number;
+  spanCount: number;
+  revealedAt: string | null;
+  completedAt: string | null;
+  generationBatchId: string | null;
+}
+
+export interface ReaderProgressListDto {
+  version?: number;
+  extractionId: string;
+  sections: ReaderSectionProgressDto[];
+}
+
+export interface ReaderMarkProgressResultDto {
+  version?: number;
+  progress: ReaderSectionProgressDto;
+  enqueuedGeneration: boolean;
+  batchId: string | null;
+}
+
+export interface ReaderGuideSectionDto {
+  id: string;
+  label: string;
+  startSpanId: string;
+  endSpanId: string;
+  spanIds: string[];
+  question: ReaderSectionQuestionDto | null;
+  suggestedPassages: ReaderSuggestedPassageDto[];
+}
+
+export interface ReaderGuidePlanDto {
+  version?: number;
+  sourceId: string;
+  extractionId: string;
+  personalized: boolean;
+  selectionBasis: string;
+  goalContext: {
+    goalId: string;
+    title: string;
+    goldenPathRunId: string | null;
+    targetContractVersionId: string | null;
+  } | null;
+  sections: ReaderGuideSectionDto[];
+}
+
+/** One block's geometry in the original PDF (points, origin top-left). */
+export interface ReaderPdfBlockDto {
+  spanId: string;
+  page: number;
+  bbox: number[];
+  blockType: string | null;
+}
+
+/** reader.pdf_view — Tier-2 embedded PDF manifest: originals-store file served
+ *  by the llpdf:// protocol + per-block geometry for overlay/selection. */
+export interface ReaderPdfViewDto {
+  version?: number;
+  available: boolean;
+  fileName: string | null;
+  extractionId: string;
+  sourceId: string | null;
+  revisionId: string | null;
+  blocks: ReaderPdfBlockDto[];
+}
+
+/** A raw display-coordinate selection captured by TS (design §A.2). */
+export interface ReaderRawSelectionNode {
+  spanId?: string;
+  displayNodeId?: string;
+  start?: number;
+  end?: number;
+  quote?: string;
+}
+export interface ReaderRawSelection {
+  nodes: ReaderRawSelectionNode[];
+}
+
+export interface ReaderTranslateSelectionInput {
+  extractionId: string;
+  rawSelection: ReaderRawSelection;
+  renderViewId?: string | null;
+}
+export interface ReaderAnchorSegmentDto {
+  spanId: string;
+  blockContentHash: string;
+  codepointStart: number;
+  codepointEnd: number;
+  exactQuote: string;
+  prefix: string;
+  suffix: string;
+  selectionTextHash: string;
+}
+export interface ReaderTranslationDto {
+  version?: number;
+  status: ReaderAnchorStatus;
+  segments: ReaderAnchorSegmentDto[];
+  confidence: number;
+}
+
+/** reader.capture — the local-first capture receipt (spec §5.3). */
+export interface ReaderCaptureInput {
+  sourceId: string;
+  revisionId: string;
+  extractionId: string;
+  action: string;
+  clientIdempotencyKey: string;
+  rawSelection?: ReaderRawSelection | null;
+  renderViewId?: string | null;
+  learnerText?: string;
+  whatIThinkIsGoingOn?: string | null;
+  sessionId?: string | null;
+}
+export interface ReaderCaptureReceiptDto {
+  version?: number;
+  annotationId: string | null;
+  outboxId: string;
+  interactionEventId: string;
+  anchorStatus: ReaderAnchorStatus | null;
+  captureKind: string;
+  deduplicated: boolean;
+  receipt: string;
+  provisionalArc?: { stage: string; policy: string };
+}
+
+export interface ReaderCreateAnnotationInput {
+  sourceId: string;
+  revisionId: string;
+  extractionId: string;
+  annotationType: string;
+  rawSelection: ReaderRawSelection;
+  learnerText?: string;
+  whatIThinkIsGoingOn?: string | null;
+  renderViewId?: string | null;
+  clientIdempotencyKey?: string | null;
+}
+export interface ReaderAnnotationResultDto {
+  version?: number;
+  annotationId: string;
+  status: ReaderAnchorStatus;
+  [k: string]: unknown;
+}
+
+export interface ReaderBlockRegionDto {
+  version?: number;
+  extractionId: string;
+  spanId: string;
+  page?: number | null;
+  bbox?: number[] | null;
+  regionRender: string | null;
+  pageRenderSize?: number[] | null;
+  reason: string;
+}
+
+/** P3 slice 2: nine-preset palette, demand-paged synthesis, source objects (§5-§7). */
+export interface ReaderInvokePresetInput {
+  preset: string;
+  sourceId: string;
+  revisionId: string;
+  extractionId: string;
+  clientIdempotencyKey: string;
+  rawSelection?: ReaderRawSelection | null;
+  renderViewId?: string | null;
+  learnerText?: string;
+  whatIThinkIsGoingOn?: string | null;
+  subjectId?: string | null;
+  sessionId?: string | null;
+}
+export interface ReaderPresetReceiptDto extends ReaderCaptureReceiptDto {
+  preset?: string;
+  commitmentId?: string | null;
+  suppressesProposals?: boolean;
+  arcId?: string | null;
+  arc?: ReaderArcDto | null;
+}
+
+// P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration.
+export interface ReaderAuthorQAInput {
+  question: string;
+  answer: string;
+  sourceId?: string | null;
+  revisionId?: string | null;
+  annotationId?: string | null;
+  subjectId?: string | null;
+  depthPreset?: string;
+  clientIdempotencyKey?: string | null;
+}
+export interface ReaderAuthoredCardDto {
+  version?: number;
+  commitmentId: string;
+  familyId: string;
+  cardId: string;
+  cardVersionId: string;
+  lineageId: string;
+  authorship: string;
+  pinned: boolean;
+  authoredBeforeAi: boolean;
+  contract: Record<string, unknown>;
+}
+export interface ReaderCoachSuggestion {
+  kind: string;
+  prompt: string;
+}
+export interface ReaderCoachLintDto {
+  version?: number;
+  level: string;
+  suggestions: ReaderCoachSuggestion[];
+  blocking: boolean;
+}
+export interface ReaderMaintainInput {
+  action: string;
+  lineageId?: string | null;
+  fromCardVersionId?: string | null;
+  toCardVersionId?: string | null;
+  prevContract?: Record<string, unknown> | null;
+  newContract?: Record<string, unknown> | null;
+  intoLineageId?: string | null;
+  mergedCardVersionId?: string | null;
+  splitCardVersionId?: string | null;
+  forkedCardVersionId?: string | null;
+  commitmentId?: string | null;
+  policy?: string | null;
+  bounds?: Record<string, unknown> | null;
+}
+export interface ReaderArcDto {
+  version?: number;
+  arcId: string;
+  commitmentId: string;
+  sourceId?: string | null;
+  stages: string[];
+  reachedStages?: string[];
+  currentStage: string | null;
+  policy: string | null;
+  disposition?: string;
+  paused?: boolean;
+  nextReviewedEdge?: Record<string, unknown> | null;
+  [k: string]: unknown;
+}
+export interface ReaderRestorationAnnotationDto {
+  annotationId: string;
+  anchorStatus: string | null;
+  provenance: string;
+  learnerText?: string | null;
+  whatIThinkIsGoingOn?: string | null;
+  quote?: string | null;
+  spanId?: string | null;
+  sourceText?: string | null;
+  reason?: string;
+}
+export interface ReaderRestorationDto {
+  version?: number;
+  sourceId: string;
+  runId?: string | null;
+  achievedMilestone?: string | null;
+  boundaryDiff?: Record<string, unknown> | null;
+  sourceNeighborhoods?: Record<string, unknown> | null;
+  annotations: ReaderRestorationAnnotationDto[];
+  anchorNeedsReview: ReaderRestorationAnnotationDto[];
+  observationMutated: boolean;
+  allows: string[];
+  eventId: string;
+}
+export interface ReaderSetModeResultDto {
+  version?: number;
+  eventId: string;
+  mode: string;
+  presentsOwnerQuestions: string;
+}
+export interface ReaderQuestionControlResultDto {
+  version?: number;
+  eventId: string;
+  control: string;
+  routesTo: string | null;
+  signal: string;
+}
+export interface ReaderEnqueueRequestInput {
+  sourceId: string;
+  revisionId: string;
+  extractionId: string;
+  spanId: string;
+  preset: string;
+  provider?: string;
+  model?: string;
+  annotationId?: string | null;
+  commitmentId?: string | null;
+  clientIdempotencyKey?: string | null;
+}
+export interface ReaderRequestScopeDto {
+  spanIds: string[];
+  sectionPath: string[];
+  assets: string[];
+  adjacentBlocks: number;
+}
+export interface ReaderEnqueueRequestDto {
+  version?: number;
+  requestId: string;
+  requestKey: string;
+  deduplicated: boolean;
+  cacheHit: boolean;
+  status: string;
+  scope: ReaderRequestScopeDto;
+  estInputTokens: number;
+  estOutputTokens: number;
+  tokenCap: number;
+  capRemaining: number;
+  capped: boolean;
+  provider: string;
+  model: string;
+}
+export interface ReaderRequestRow {
+  id: string;
+  status: string;
+  preset: string;
+  cacheHit?: number;
+  estInputTokens?: number;
+  estOutputTokens?: number;
+  tokenCap?: number;
+  reason?: string | null;
+  [k: string]: unknown;
+}
+
+/** Deterministic owner-review authoring stubs (§C). */
+export interface StubDiagnosticPackDto {
+  packSlug: string;
+  cards: Array<{ cardSlug: string; coverage: string[] }>;
+}
+export interface StubPoolSurfacesDto {
+  poolSlug: string;
+  surfaces: Array<{ surfaceSlug: string; angle: string }>;
 }

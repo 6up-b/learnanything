@@ -1,0 +1,48 @@
+{
+  "administrationId": "01KXYJ5S12PT8E09HPG9MQQZX8",
+  "burnReason": "assessment_rendered_and_graded",
+  "calibrationModelVersionId": "01KXYJ5R7D7S9B03GK1ND8E4XX",
+  "calibrationStatus": "heuristic",
+  "citedVersion": 1,
+  "claimLanguage": "provisional",
+  "coverage": [
+    {
+      "capability": "method_selection",
+      "facet": "decomposition_choice"
+    },
+    {
+      "capability": "procedure_execution",
+      "facet": "spectral_execution"
+    },
+    {
+      "capability": "coordination",
+      "facet": "variance_readout"
+    }
+  ],
+  "eligibilityReason": null,
+  "interval": {
+    "high": 1.0,
+    "leadingClass": "success",
+    "low": 4.2752161362516814e-05,
+    "point": 0.8,
+    "width": 0.9999572478386375
+  },
+  "observedClass": "success",
+  "passed": true,
+  "point": 0.41832813428211346,
+  "practiceSuccessorEventId": null,
+  "projectionAlgorithmVersion": "grade_interpretation_v1",
+  "representative": true,
+  "reviewState": {
+    "fallbackReason": null,
+    "influenceFlag": true,
+    "quarantined": false,
+    "reviewFlag": false
+  },
+  "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+  "schemaVersion": 1,
+  "surfaceEligibility": "consumed",
+  "targetContractVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+  "terminal": true,
+  "version": 1
+}

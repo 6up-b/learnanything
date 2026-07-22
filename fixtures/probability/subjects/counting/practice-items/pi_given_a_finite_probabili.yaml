@@ -1,0 +1,120 @@
+schema_version: 1
+id: pi_given_a_finite_probabili
+learning_object_id: lo_model_finite_probability_problems_by_events_and_
+subjects:
+practice_mode: short_explanation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_events_are_sets_of_outcomes_while_probabilities_
+  - facet_in_a_finite_sample_space_with_equally_likely_out
+  - facet_basic_finite_counting_tools_include_n_permutatio
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Given a finite probability problem, explain what must be identified 
+  before using favorable outcomes divided by total outcomes, and name one 
+  counting tool that might be used after the model is justified.
+expected_answer: Identify the experiment, sample space, and event as a subset of
+  outcomes; then verify all outcomes are equally likely before using a count 
+  ratio. After that, use tools such as n! for permutations, 2^n for subsets, or 
+  divide by a uniform overcount factor.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.4
+scaffold_level: 0.45
+surface_family: finite_probability_modeling
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: finite_sample_space_model
+  representation: natural language probability model
+  solution_recipe_family: model_then_count
+  answer_structure: conditions plus counting method
+misconception_consistent_answer:
+repair_targets:
+  - facet_events_are_sets_of_outcomes_while_probabilities_
+  - facet_in_a_finite_sample_space_with_equally_likely_out
+  - facet_basic_finite_counting_tools_include_n_permutatio
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_event_model
+      points: 1.0
+      description: Distinguishes sample-space outcomes, events as subsets, and 
+        probability values.
+      tier: core
+      targets:
+        - facet: facet_events_are_sets_of_outcomes_while_probabilities_
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: finite_model
+      recipe_ids:
+        - recipe_counting_model
+    - id: crit_equal_likelihood
+      points: 1.0
+      description: States that equal likelihood must be verified before applying
+        the naive count ratio.
+      tier: core
+      targets:
+        - facet: facet_in_a_finite_sample_space_with_equally_likely_out
+          capability: method_selection
+          role: primary
+      depends_on:
+        - crit_event_model
+      correlation_group: finite_model
+      recipe_ids:
+        - recipe_counting_model
+    - id: crit_counting_tool
+      points: 1.0
+      description: Correctly names and applies an appropriate basic counting 
+        tool such as permutations, subset counts, or uniform overcount 
+        correction.
+      tier: transfer
+      targets:
+        - facet: facet_basic_finite_counting_tools_include_n_permutatio
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_equal_likelihood
+      correlation_group: finite_model
+      recipe_ids:
+        - recipe_counting_model
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s273
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s278
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:16Z'
+updated_at: '2026-07-15T21:39:16Z'

@@ -1,0 +1,47 @@
+schema_version: 1
+id: lo_render_a_classifier_s_decision_regions
+title: Render a classifier's decision regions
+subjects:
+  - llm
+concept: concept_decision_region_visualization
+knowledge_type: implementation and schema interpretation
+status: active
+contradicts:
+summary: Coordinate probe-grid construction, batched inference, reshaping, 
+  argmax, and plot orientation.
+prerequisites:
+  - concept_feedforward_classifier_implementation
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_33
+    weight: 0.7
+    recipes:
+      - id: recipe-render-decision-regions
+        composition: conjunctive
+        all_of:
+          - facet: facet_visualize_predicted_decision_regions_by_building
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s569
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:51Z'
+updated_at: '2026-07-21T05:07:12Z'

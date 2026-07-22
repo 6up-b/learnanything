@@ -1,0 +1,95 @@
+schema_version: 1
+id: lo_evaluate_sparse_autoencoder_features_and_steerin
+title: Evaluate sparse-autoencoder features and steering evidence
+subjects:
+  - llm
+concept: concept_sparse_autoencoder_interpretability
+knowledge_type: procedure and evidence evaluation
+status: active
+contradicts:
+summary: Explain why polysemanticity motivates sparse feature extraction, trace 
+  SAE encoding and reconstruction, and evaluate feature interpretations using 
+  activation examples, interventions, and coverage limits.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_11
+    weight: 1.0
+    recipes:
+      - id: recipe_sae_complete
+        composition: conjunctive
+        all_of:
+          - facet: facet_sparse_autoencoders_are_motivated_by_polysemanti
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_a_sparse_autoencoder_encodes_model_activations_i
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_candidate_sparse_feature_meanings_are_inferred_f
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_candidate_sparse_feature_meanings_are_inferred_f
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s376
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s439
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s537
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      path:
+      locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s592
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+      role: reference
+      source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+      span_hash:
+created_at: '2026-07-21T05:06:42Z'
+updated_at: '2026-07-21T05:07:01Z'

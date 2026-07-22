@@ -1,0 +1,99 @@
+schema_version: 1
+id: pi_choose_the_appropriate_r
+learning_object_id: lo_use_r_birthday_built_ins
+subjects:
+practice_mode: method_selection
+attempt_types_allowed: []
+evidence_facets:
+  - facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Choose the appropriate R built-in call for each request: probability of at
+  least one match among 23 people; number of people needed for a 0.5 chance of a match;
+  probability of a triple birthday match among 23 people.'
+expected_answer: Use pbirthday(23) for the probability among 23 people, 
+  qbirthday(0.5) for the required number of people for probability 0.5, and 
+  pbirthday(23,coincident=3) for the triple-match probability among 23 people.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.25
+scaffold_level: 0.4
+surface_family: function selection
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: r_birthday_builtin_selection
+  representation: R function calls
+  solution_recipe_family: select function by input-output role and event type
+  answer_structure: matched list of calls
+misconception_consistent_answer:
+repair_targets:
+  - facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_builtin_pbirthday_vs_qbirthday
+      points: 1.0
+      description: Distinguishes pbirthday as probability from group size and 
+        qbirthday as group size from probability threshold.
+      tier: core
+      targets:
+        - facet: facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group: r_birthday_builtins
+      recipe_ids:
+        - recipe_r_birthday_builtins
+    - id: crit_builtin_triple_argument
+      points: 1.0
+      description: Uses coincident=3 when the event is a triple birthday match.
+      tier: core
+      targets:
+        - facet: facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit_builtin_pbirthday_vs_qbirthday
+      correlation_group: r_birthday_builtins
+      recipe_ids:
+        - recipe_r_birthday_builtins
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s344
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s345
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:20Z'
+updated_at: '2026-07-15T21:39:20Z'

@@ -7,6 +7,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+import pytest
+
 from learnloop.db.repositories import Repository
 from learnloop.services.patches import apply_accepted_items
 from learnloop.vault.loader import add_note, load_vault
@@ -1718,7 +1720,7 @@ def _configure_ai_fallback_to_codex(vault_root, checkout, base_url: str) -> None
     text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
     text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
     text = text.replace('fallback_provider = ""', 'fallback_provider = "codex"')
-    text = text.replace('grading = "codex"', 'grading = "deepseek_flash"')
+    text = text.replace('grading = "codex_low"', 'grading = "deepseek_flash"')
     config_path.write_text(text, encoding="utf-8")
 
 
@@ -2240,6 +2242,92 @@ def test_sidecar_get_ingest_batch_not_found(tmp_path):
         ]
     )
     assert responses[1]["error"]["data"]["code"] == "ingest_batch_not_found"
+
+
+def test_sidecar_import_rejects_incomplete_or_reversed_page_ranges(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    source = vault_root / "textbook.pdf"
+    source.write_bytes(b"%PDF-placeholder")
+    responses = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "start_import_batch",
+                "params": {"sources": [str(source)], "pageStart": 4},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "start_import_batch",
+                "params": {"sources": [str(source)], "pageStart": 8, "pageEnd": 3},
+            },
+        ]
+    )
+    assert responses[1]["error"]["data"]["code"] == "invalid_page_range"
+    assert responses[2]["error"]["data"]["code"] == "invalid_page_range"
+
+
+def test_sidecar_import_rejects_page_range_for_source_outside_batch(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    source = vault_root / "textbook.pdf"
+    source.write_bytes(b"%PDF-placeholder")
+    response = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "start_import_batch",
+                "params": {
+                    "sources": [str(source)],
+                    "pageRanges": [{"source": str(vault_root / "other.pdf"), "pageStart": 1, "pageEnd": 3}],
+                },
+            },
+        ]
+    )[1]
+    assert response["error"]["data"]["code"] == "invalid_page_range"
+
+
+def test_sidecar_multi_source_import_rejects_shared_top_level_range(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    sources = [vault_root / "one.pdf", vault_root / "two.pdf"]
+    for source in sources:
+        source.write_bytes(b"%PDF-placeholder")
+    response = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "start_import_batch",
+                "params": {"sources": [str(source) for source in sources], "pageStart": 1, "pageEnd": 3},
+            },
+        ]
+    )[1]
+    assert response["error"]["data"]["code"] == "invalid_page_range"
+    assert "separate page range" in response["error"]["message"]
+
+
+def test_disjoint_pdf_page_expression_normalizes_to_exact_zero_based_pages():
+    from learnloop_sidecar.handlers.ingest import _parse_page_selection
+
+    pages = _parse_page_selection("3-27, 29-33, 36, 5-7")
+    assert pages == [*range(2, 27), *range(28, 33), 35]
+
+
+@pytest.mark.parametrize("expression", ["3-", "9-4", "3,,5", "0", "chapter 3"])
+def test_invalid_pdf_page_expressions_are_rejected(expression):
+    from learnloop_sidecar.errors import SidecarError
+    from learnloop_sidecar.handlers.ingest import _parse_page_selection
+
+    with pytest.raises(SidecarError) as exc_info:
+        _parse_page_selection(expression)
+    assert exc_info.value.code == "invalid_page_range"
 
 
 def _rpc(messages: list[dict]) -> list[dict]:

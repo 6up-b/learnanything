@@ -1,0 +1,67 @@
+schema_version: 1
+id: lo_use_r_birthday_built_ins
+title: Use R Birthday Built-Ins
+subjects:
+  - counting
+concept: concept_r_birthday_built_in_functions
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Select pbirthday, qbirthday, and the coincident argument according to 
+  whether the task asks for a probability, a required group size, or a 
+  triple-match event.
+prerequisites:
+  - concept_birthday_match_probability
+confusables: []
+blueprints:
+  - id: bp_01KXKVFA_16
+    weight: 0.18
+    recipes:
+      - id: recipe_r_birthday_builtins
+        composition: conjunctive
+        all_of:
+          - facet: facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+            capability: method_selection
+            modality: hard
+          - facet: facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s344
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s345
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:03Z'
+updated_at: '2026-07-15T21:39:10Z'

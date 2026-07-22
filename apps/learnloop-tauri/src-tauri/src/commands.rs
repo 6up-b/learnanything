@@ -51,6 +51,19 @@ pub async fn create_vault(
 }
 
 #[tauri::command]
+pub async fn get_learner_profile(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_learner_profile", json!({})).await
+}
+
+#[tauri::command]
+pub async fn set_learner_profile(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "set_learner_profile", input).await
+}
+
+#[tauri::command]
 pub async fn get_runtime_health(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_runtime_health", json!({})).await
 }
@@ -338,6 +351,22 @@ pub async fn resume_ingest_batch(
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "resume_ingest_batch", json!({"batchId": batch_id})).await
+}
+
+#[tauri::command]
+pub async fn retry_synthesis(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "retry_synthesis", input).await
+}
+
+#[tauri::command]
+pub async fn get_synthesis_candidate(
+    batch_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_synthesis_candidate", json!({"batchId": batch_id})).await
 }
 
 #[tauri::command]
@@ -848,6 +877,70 @@ pub async fn promote_tutor_question(
 }
 
 #[tauri::command]
+pub async fn author_practice_item(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "author_practice_item", input).await
+}
+
+#[tauri::command]
+pub async fn request_rung_variant(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "request_rung_variant", input).await
+}
+
+#[tauri::command]
+pub async fn get_rung_variant_status(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_rung_variant_status", input).await
+}
+
+#[tauri::command]
+pub async fn edit_practice_item(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "edit_practice_item", input).await
+}
+
+#[tauri::command]
+pub async fn retire_practice_item(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "retire_practice_item", input).await
+}
+
+#[tauri::command]
+pub async fn split_practice_item(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "split_practice_item", input).await
+}
+
+#[tauri::command]
+pub async fn list_question_queue(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "list_question_queue", input).await
+}
+
+#[tauri::command]
+pub async fn resolve_question_event(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "resolve_question_event", input).await
+}
+
+#[tauri::command]
 pub async fn start_teach_back(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -1171,3 +1264,130 @@ pub async fn preview_blueprint_readiness(
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "preview_blueprint_readiness", input).await
 }
+
+// ── P2 narrow golden path (spec_p2 §9; spec_tauri_ui §3 P2 rows) ──────────────
+// The dotted sidecar method names (golden_path.* / blueprint.* / diagnostic.* /
+// ladder.* / practice_pool.* / reader.*) cannot be Tauri command identifiers, so
+// each command forwards its `input` Value straight through to the dotted method.
+
+macro_rules! p2_passthrough {
+    ($fn_name:ident, $method:literal) => {
+        #[tauri::command]
+        pub async fn $fn_name(
+            input: Value,
+            sidecar: State<'_, SidecarManager>,
+        ) -> Result<Value, CommandError> {
+            blocking_sidecar_call(sidecar, $method, input).await
+        }
+    };
+}
+
+// blueprint.* (exemplar selection + blueprint review)
+p2_passthrough!(blueprint_register, "blueprint.register");
+p2_passthrough!(blueprint_review, "blueprint.review");
+p2_passthrough!(blueprint_get_version, "blueprint.get_version");
+p2_passthrough!(blueprint_discover_candidates, "blueprint.discover_candidates");
+p2_passthrough!(blueprint_compose_draft, "blueprint.compose_draft");
+
+// golden_path.* spine (atomic confirmation + run state machine)
+p2_passthrough!(golden_path_confirm, "golden_path.confirm");
+p2_passthrough!(golden_path_run_status, "golden_path.run_status");
+p2_passthrough!(golden_path_list_runs, "golden_path.list_runs");
+p2_passthrough!(golden_path_advance, "golden_path.advance");
+
+// golden_path.* assessment + restoration + milestone / depth invitation
+p2_passthrough!(golden_path_assess_open, "golden_path.assess_open");
+p2_passthrough!(golden_path_assess_submit, "golden_path.assess_submit");
+p2_passthrough!(golden_path_assess_result, "golden_path.assess_result");
+p2_passthrough!(golden_path_restore, "golden_path.restore");
+p2_passthrough!(golden_path_boundary_diff, "golden_path.boundary_diff");
+p2_passthrough!(golden_path_depth_invitation, "golden_path.depth_invitation");
+p2_passthrough!(golden_path_accept_edge, "golden_path.accept_edge");
+p2_passthrough!(golden_path_decline_edge, "golden_path.decline_edge");
+
+// diagnostic.* (pre-authored pack + bounded baseline + two-tier triage)
+p2_passthrough!(diagnostic_pack_assemble, "diagnostic.pack_assemble");
+p2_passthrough!(diagnostic_pack_admit, "diagnostic.pack_admit");
+p2_passthrough!(diagnostic_pack_review, "diagnostic.pack_review");
+p2_passthrough!(diagnostic_pack_list, "diagnostic.pack_list");
+p2_passthrough!(diagnostic_baseline_enter, "diagnostic.baseline_enter");
+p2_passthrough!(diagnostic_boundary_view, "diagnostic.boundary_view");
+p2_passthrough!(diagnostic_triage, "diagnostic.triage");
+p2_passthrough!(diagnostic_triage_status, "diagnostic.triage_status");
+p2_passthrough!(diagnostic_triage_decide, "diagnostic.triage_decide");
+p2_passthrough!(diagnostic_triage_override, "diagnostic.triage_override");
+
+// ladder.* (pattern ladder) + practice_pool.* (rotating practice)
+p2_passthrough!(ladder_policy, "ladder.policy");
+p2_passthrough!(ladder_status, "ladder.status");
+p2_passthrough!(ladder_enter, "ladder.enter");
+p2_passthrough!(ladder_advance, "ladder.advance");
+p2_passthrough!(practice_pool_assemble, "practice_pool.assemble");
+p2_passthrough!(practice_pool_admit_surface, "practice_pool.admit_surface");
+p2_passthrough!(practice_pool_review, "practice_pool.review");
+p2_passthrough!(practice_pool_status, "practice_pool.status");
+p2_passthrough!(practice_pool_next_surface, "practice_pool.next_surface");
+p2_passthrough!(practice_pool_for_run, "practice_pool.for_run");
+p2_passthrough!(practice_pool_seed_for_run, "practice_pool.seed_for_run");
+p2_passthrough!(practice_pool_admit_anchor, "practice_pool.admit_anchor");
+
+// reader.* (minimal bidirectional reader dialogue, U-033)
+p2_passthrough!(reader_ask, "reader.ask");
+p2_passthrough!(reader_set_answer_mode, "reader.set_answer_mode");
+p2_passthrough!(reader_present_question, "reader.present_question");
+p2_passthrough!(reader_submit_question, "reader.submit_question");
+p2_passthrough!(reader_skip_question, "reader.skip_question");
+p2_passthrough!(reader_choose_disposition, "reader.choose_disposition");
+p2_passthrough!(reader_restore_source, "reader.restore_source");
+p2_passthrough!(reader_routing_prior, "reader.routing_prior");
+p2_passthrough!(reader_prompt_contract, "reader.prompt_contract");
+// reader.* (P3 slice 1: render views, block health, annotations, capture/outbox)
+p2_passthrough!(reader_render_view, "reader.render_view");
+p2_passthrough!(reader_guide_plan, "reader.guide_plan");
+p2_passthrough!(reader_pdf_view, "reader.pdf_view");
+p2_passthrough!(reader_watch_plan, "reader.watch_plan");
+p2_passthrough!(reader_author_section_question, "reader.author_section_question");
+p2_passthrough!(reader_authored_question_action, "reader.authored_question_action");
+p2_passthrough!(reader_get_progress, "reader.get_progress");
+p2_passthrough!(reader_mark_section_progress, "reader.mark_section_progress");
+p2_passthrough!(reader_escalate_authored_question, "reader.escalate_authored_question");
+p2_passthrough!(reader_search_sources, "reader.search_sources");
+p2_passthrough!(reader_manual_anchor, "reader.manual_anchor");
+p2_passthrough!(reader_block_health, "reader.block_health");
+p2_passthrough!(reader_block_original_region, "reader.block_original_region");
+p2_passthrough!(reader_translate_selection, "reader.translate_selection");
+p2_passthrough!(reader_capture, "reader.capture");
+p2_passthrough!(reader_create_annotation, "reader.create_annotation");
+p2_passthrough!(reader_edit_annotation, "reader.edit_annotation");
+p2_passthrough!(reader_delete_intent_annotation, "reader.delete_intent_annotation");
+p2_passthrough!(reader_reanchor, "reader.reanchor");
+p2_passthrough!(reader_annotation_history, "reader.annotation_history");
+p2_passthrough!(reader_source_annotations, "reader.source_annotations");
+p2_passthrough!(reader_outbox_status, "reader.outbox_status");
+p2_passthrough!(reader_drain_outbox, "reader.drain_outbox");
+// P3 slice 2: palette + demand-paged synthesis + source objects.
+p2_passthrough!(reader_invoke_preset, "reader.invoke_preset");
+p2_passthrough!(reader_set_mode, "reader.set_mode");
+p2_passthrough!(reader_question_control, "reader.question_control");
+p2_passthrough!(reader_enqueue_request, "reader.enqueue_request");
+p2_passthrough!(reader_request_status, "reader.request_status");
+p2_passthrough!(reader_cancel_request, "reader.cancel_request");
+p2_passthrough!(reader_retry_request, "reader.retry_request");
+p2_passthrough!(reader_source_requests, "reader.source_requests");
+p2_passthrough!(reader_drain_requests, "reader.drain_requests");
+p2_passthrough!(reader_source_objects, "reader.source_objects");
+p2_passthrough!(reader_review_source_object, "reader.review_source_object");
+p2_passthrough!(reader_link_relation, "reader.link_relation");
+p2_passthrough!(reader_proposal_inbox, "reader.proposal_inbox");
+p2_passthrough!(reader_accept_proposal, "reader.accept_proposal");
+p2_passthrough!(reader_reject_proposal, "reader.reject_proposal");
+// P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration.
+p2_passthrough!(reader_author_qa, "reader.author_qa");
+p2_passthrough!(reader_coach_lint, "reader.coach_lint");
+p2_passthrough!(reader_maintain, "reader.maintain");
+p2_passthrough!(reader_arc, "reader.arc");
+p2_passthrough!(reader_set_depth_policy, "reader.set_depth_policy");
+p2_passthrough!(reader_pause_arc, "reader.pause_arc");
+p2_passthrough!(reader_shrink_envelope, "reader.shrink_envelope");
+p2_passthrough!(reader_prime, "reader.prime");
+p2_passthrough!(reader_restore, "reader.restore");

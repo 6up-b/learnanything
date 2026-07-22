@@ -353,7 +353,7 @@ def run_unit_inventory(
     provider: str | None = None,
     model: str | None = None,
     input_budget_tokens: int = 20000,
-    output_budget_tokens: int = 3000,
+    output_budget_tokens: int | None = 3000,
     clock: Clock | None = None,
     prompt_version: str = SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     schema_version: int = INVENTORY_SCHEMA_VERSION,
@@ -438,7 +438,10 @@ def run_unit_inventory(
     usage["output_tokens_estimate"] = max(
         1, len(merged.model_dump_json()) // _CHARS_PER_TOKEN
     )
-    if usage["output_tokens_estimate"] > output_budget_tokens:
+    if (
+        output_budget_tokens is not None
+        and usage["output_tokens_estimate"] > output_budget_tokens
+    ):
         raise InventoryValidationError(
             "inventory output exceeded its configured token budget"
         )

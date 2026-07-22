@@ -1,2 +1,16 @@
 schema_version: 2
-goals: []
+goals:
+  - id: goal_symmetric_matrices_and_variance
+    title: Symmetric matrices and variance
+    status: expired
+    priority: 0.5
+    due_at:
+    created_at: '2026-05-25T23:52:04Z'
+    updated_at: '2026-07-08T03:57:03Z'
+    facet_scope:
+      concepts:
+        - concept_covariance_matrix
+        - concept_orthogonal_diagonalization
+        - concept_spectral_theorem_real_symmetric
+        - concept_variance_additivity
+    target_recall: 0.8

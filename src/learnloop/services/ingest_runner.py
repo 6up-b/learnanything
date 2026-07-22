@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
@@ -75,7 +76,20 @@ KNOWN_JOB_TYPES = frozenset(
 
 
 class IngestRunnerError(ValueError):
-    """A job payload/type is invalid before any work starts."""
+    """A typed, user-actionable job failure persisted for the Activity UI."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "invalid_job",
+        details: Mapping[str, Any] | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.details = dict(details or {})
+        self.retryable = retryable
 
 
 class JobCancelled(Exception):
@@ -119,6 +133,8 @@ class RunnerServices:
     run_legacy_ingest: Callable[..., Any] | None = None
     inventory_client_factory: Callable[["JobContext"], Any] | None = None
     synthesis_client_factory: Callable[["JobContext"], Any] | None = None
+    quick_check_client_factory: Callable[["JobContext"], Any] | None = None
+    rung_variant_client_factory: Callable[["JobContext"], Any] | None = None
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
         return (self.fetch or default_fetch)(source, category, ctx)
@@ -138,7 +154,15 @@ class RunnerServices:
         return (self.inventory_client_factory or default_inventory_client)(ctx)
 
     def synthesis_client(self, ctx: "JobContext") -> Any:
-        return (self.synthesis_client_factory or default_inventory_client)(ctx)
+        return (self.synthesis_client_factory or default_synthesis_client)(ctx)
+
+    def quick_check_client(self, ctx: "JobContext") -> Any:
+        # Reader quick checks ride the codex-only resolver: the task method is
+        # getattr-discovered on the SDK client, exactly like unit inventory.
+        return (self.quick_check_client_factory or default_inventory_client)(ctx)
+
+    def rung_variant_client(self, ctx: "JobContext") -> Any:
+        return (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
 
 
 @dataclass
@@ -280,13 +304,37 @@ def _fetch_metadata(source: str, category: str) -> tuple[str | None, tuple[str, 
     return video_title, (author,) if author else ()
 
 
+def _pdf_payload_config(ctx: JobContext) -> dict[str, Any]:
+    """The effective PDF extraction config for one import job.
+
+    The job payload's ``pdf_config`` wins key-by-key (a per-ingest engine choice
+    or a repair's page/OCR options); the vault's ``[ingest.pdf]`` engine fills in
+    when the payload doesn't pin one, so a configured ``engine = "pypdf"`` (or
+    "marker") finally governs the durable import path too."""
+
+    config = dict(ctx.payload.get("pdf_config") or {})
+    if not config.get("engine"):
+        from learnloop.vault.loader import load_vault
+
+        try:
+            engine = load_vault(ctx.vault_root).config.ingest.pdf.engine
+        except FileNotFoundError:
+            engine = "auto"
+        # "auto" stays implicit: writing it into the config would change every
+        # extraction request hash and needlessly re-extract unchanged sources.
+        if engine != "auto":
+            config["engine"] = engine
+    return config
+
+
 def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> Any:
     """Produce Document IR from fetched bytes using the M1 extractor providers.
 
-    PDFs go through the least-expensive available PDF extractor; everything else
-    gets honest trivial IR from its decoded text (§2.3)."""
+    PDFs go through the engine the payload/vault config selects (marker, the
+    pypdf fallback, or auto); everything else gets honest trivial IR from its
+    decoded text (§2.3)."""
 
-    from learnloop.ingest.extractors import markdown_to_ir, pdf_extractor_for
+    from learnloop.ingest.extractors import MarkerUnavailableError, markdown_to_ir, pdf_extractor_for
     from learnloop.ingest.extractors.base import ExtractionContext
 
     is_pdf = (
@@ -295,9 +343,41 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
         or fetched.raw_bytes[:5] == b"%PDF-"
     )
     if is_pdf:
-        extractor = pdf_extractor_for(dict(ctx.payload.get("pdf_config") or {}))
-        context = ExtractionContext(revision_id=str(ctx.job.get("_revision_id") or "rev"))
-        return extractor.extract(fetched.raw_bytes, context)
+        pdf_config = _pdf_payload_config(ctx)
+        try:
+            extractor = pdf_extractor_for(pdf_config)
+        except MarkerUnavailableError as exc:
+            raise IngestRunnerError(
+                str(exc), code="pdf_extractor_unavailable", retryable=True
+            ) from exc
+        pages = _normalize_pages(ctx.payload.get("page_selection") or pdf_config.get("page_range")) or None
+        context = ExtractionContext(
+            revision_id=str(ctx.job.get("_revision_id") or "rev"),
+            page_selection=tuple(pages) if pages is not None else None,
+        )
+        try:
+            return extractor.extract(fetched.raw_bytes, context)
+        except Exception as marker_exc:  # noqa: BLE001 — degrade explicitly (§2.9)
+            # Marker can fail at runtime (model load, GPU state, malformed PDF
+            # object streams) long after the availability check passed. Unless
+            # marker was explicitly forced, degrade to native-text extraction
+            # with a health flag instead of failing the whole import.
+            if extractor.name != "marker" or pdf_config.get("engine") == "marker":
+                raise
+            from learnloop.ingest.extractors import PyPdfDocumentExtractor
+
+            try:
+                ir = PyPdfDocumentExtractor().extract(fetched.raw_bytes, context)
+            except Exception as pypdf_exc:
+                raise IngestRunnerError(
+                    "PDF extraction failed: marker: "
+                    f"{marker_exc}; pypdf fallback: {pypdf_exc}",
+                    code="pdf_extraction_failed",
+                    retryable=True,
+                ) from pypdf_exc
+            if "marker_failed_pypdf_fallback" not in ir.health.flags:
+                ir.health.flags.append("marker_failed_pypdf_fallback")
+            return ir
 
     text = fetched.raw_bytes.decode("utf-8", errors="replace")
 
@@ -316,6 +396,18 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
         if markdown:
             return markdown_to_ir(markdown, title=ctx.payload.get("title"), extractor_name="html")
 
+    # Transcript-aware path: a standalone caption file (WebVTT/SRT) keeps its
+    # cue timing + speaker turns instead of flattening to prose paragraphs.
+    from learnloop.ingest.transcripts import detect_transcript_format, parse_transcript
+
+    fmt = detect_transcript_format(text[:4096])
+    if fmt is not None:
+        from learnloop.ingest.extractors import transcript_to_ir
+
+        parsed = parse_transcript(text, fmt=fmt)
+        if parsed:
+            return transcript_to_ir(parsed, title=ctx.payload.get("title"))
+
     return markdown_to_ir(text, title=ctx.payload.get("title"), extractor_name="text")
 
 
@@ -324,16 +416,21 @@ def default_extraction_identity(
 ) -> Mapping[str, Any]:
     """Describe the chosen extractor before running it, making cache hits cheap."""
 
-    from learnloop.ingest.extractors import pdf_extractor_for
+    from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
 
     is_pdf = (
         category == "pdf"
         or (fetched.content_type or "").lower().startswith("application/pdf")
         or fetched.raw_bytes[:5] == b"%PDF-"
     )
-    config = dict(ctx.payload.get("pdf_config") or {})
+    config = _pdf_payload_config(ctx)
     if is_pdf:
-        extractor = pdf_extractor_for(config)
+        try:
+            extractor = pdf_extractor_for(config)
+        except MarkerUnavailableError as exc:
+            raise IngestRunnerError(
+                str(exc), code="pdf_extractor_unavailable", retryable=True
+            ) from exc
         return {
             "extractor": extractor.name,
             "extractor_version": extractor.version(),
@@ -341,16 +438,24 @@ def default_extraction_identity(
             "config": config,
         }
     if category == "youtube":
-        # Captions normalizer (captions_to_ir) is unchanged → still version "1".
-        return {"extractor": "youtube", "extractor_version": "1", "model_versions": {}, "config": {}}
-    text = fetched.raw_bytes[:512].decode("utf-8", errors="replace")
+        # Captions normalizer (captions_to_ir) v2 stamps per-cue t= timing onto
+        # extractor_block_id; must match captions_to_ir's default.
+        return {"extractor": "youtube", "extractor_version": "2", "model_versions": {}, "config": {}}
+    text = fetched.raw_bytes[:4096].decode("utf-8", errors="replace")
     looks_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
-    name = "html" if category in ("web", "arxiv") or looks_html else "text"
+    if category in ("web", "arxiv") or looks_html:
+        return {"extractor": "html", "extractor_version": "2", "model_versions": {}, "config": {}}
+    # Head-based transcript sniff — same 4 KB window default_extract uses, so the
+    # identity and the actual extraction always agree.
+    from learnloop.ingest.transcripts import detect_transcript_format
+
+    if detect_transcript_format(text) is not None:
+        return {"extractor": "transcript", "extractor_version": "1", "model_versions": {}, "config": {}}
     # Markdown normalizer (markdown_to_ir) is at version "2" (level-2 unit fallback);
     # must match markdown_to_ir's default so preflight cache keys line up.
-    return {"extractor": name, "extractor_version": "2", "model_versions": {}, "config": {}}
+    return {"extractor": "text", "extractor_version": "2", "model_versions": {}, "config": {}}
 
 
 def _caption_cues(text: str) -> list[dict[str, Any]] | None:
@@ -499,6 +604,68 @@ def default_inventory_client(ctx: JobContext) -> Any:
     )
 
 
+def default_synthesis_client(ctx: JobContext) -> Any:
+    """Resolve the canonical-ingest route for judgment-heavy synthesis.
+
+    Unit inventories deliberately keep the low-effort legacy Codex client;
+    synthesis follows the routed medium-effort profile and its fallback.
+    """
+
+    return _routed_task_client(ctx, "canonical_ingest")
+
+
+def default_rung_variant_client(ctx: JobContext) -> Any:
+    """Resolve the rung_variant route (default: the fast low-effort profile).
+
+    A learner-requested variant is a small, instruction-constrained authoring
+    task whose output the deterministic rung gate checks — it does not need the
+    judgment-heavy synthesis profile, and the learner is actively waiting."""
+
+    return _routed_task_client(ctx, "rung_variant")
+
+
+def _routed_task_client(ctx: JobContext, task: str) -> Any:
+    from learnloop.ai.client import make_ai_provider_client
+    from learnloop.ai.routing import fallback_provider_for, provider_for_task
+    from learnloop.ai.runtime import check_ai_runtime
+    from learnloop.codex.client import make_codex_client
+    from learnloop.codex.runtime import check_codex_runtime
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(ctx.vault_root)
+    selection = provider_for_task(vault.config, task)
+
+    def ready_client(provider_name: str):
+        if provider_name == "codex":
+            runtime = check_codex_runtime(ctx.vault_root, vault.config.codex)
+            client = (
+                make_codex_client(vault.config.codex, ctx.vault_root)
+                if runtime.ready
+                else None
+            )
+        else:
+            runtime = check_ai_runtime(ctx.vault_root, vault.config, provider_name=provider_name)
+            client = (
+                make_ai_provider_client(
+                    vault.config,
+                    ctx.vault_root,
+                    provider_name=provider_name,
+                )
+                if runtime.ready
+                else None
+            )
+        return runtime, client
+
+    runtime, client = ready_client(selection.provider_name)
+    if client is None:
+        fallback = fallback_provider_for(vault.config, selection)
+        if fallback:
+            runtime, client = ready_client(fallback)
+    if client is None:
+        raise IngestRunnerError(runtime.message or f"Synthesis provider is {runtime.status}.")
+    return client
+
+
 # ---------------------------------------------------------------------------
 # Handlers
 # ---------------------------------------------------------------------------
@@ -523,7 +690,12 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("inventory job requires at least one unit.")
     budgets = _ingest_budgets(ctx)
     budget = _optional_int(payload.get("input_budget_tokens")) or budgets.inventory_input_tokens
-    output_budget = _optional_int(payload.get("output_budget_tokens")) or budgets.inventory_output_tokens
+    unlimited_token_budget = bool(payload.get("unlimited_token_budget", False))
+    output_budget = (
+        None
+        if unlimited_token_budget
+        else _optional_int(payload.get("output_budget_tokens")) or budgets.inventory_output_tokens
+    )
 
     ctx.report("extracted", message="Preparing unit inventories")
     client = ctx.services.inventory_client(ctx)
@@ -614,7 +786,11 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     through the existing pipeline; the manifest hash is the agent-run cache seam
     so an identical manifest re-drains at zero tokens."""
 
-    from learnloop.services.source_set_synthesis import StudyMapError, create_study_map
+    from learnloop.services.source_set_synthesis import (
+        StudyMapError,
+        create_study_map,
+        revalidate_synthesis_candidate,
+    )
 
     payload = ctx.payload
     source_set_id = str(payload.get("source_set_id") or "").strip()
@@ -624,7 +800,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     # `auto` is a product journey, not an alias for bootstrap: once this subject
     # has a live map, new sources reconcile into it through the bounded append
     # vocabulary instead of tripping the identity-lock refusal.
-    if str(payload.get("mode") or "auto") == "auto":
+    if str(payload.get("mode") or "auto") == "auto" and not payload.get("reuse_candidate"):
         from learnloop.services.source_append import subject_has_applied_study_map
         from learnloop.vault.loader import load_vault
 
@@ -634,21 +810,52 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
             return handle_append_synthesis(ctx)
 
     ctx.report("inventoried", message="Preparing study-map synthesis")
-    client = ctx.services.synthesis_client(ctx)
     try:
-        result = create_study_map(
-            ctx.vault_root,
-            source_set_id,
-            client=client,
-            brief=payload.get("brief") or {},
-            mode=str(payload.get("mode") or "auto"),
-            apply=bool(payload.get("apply", False)),
-            create_goal=bool(payload.get("create_goal", False)),
-            repository=ctx.repo,
-            clock=ctx.clock,
-        )
+        if payload.get("reuse_candidate") and payload.get("synthesis_run_id"):
+            # Recovery path: finish the pipeline from the preserved candidate —
+            # no provider client and ZERO model calls.
+            ctx.report("synthesized", message="Revalidating the preserved synthesis candidate")
+            result = revalidate_synthesis_candidate(
+                ctx.vault_root,
+                str(payload["synthesis_run_id"]),
+                apply=bool(payload.get("apply", False)),
+                create_goal=bool(payload.get("create_goal", False)),
+                repair=bool(payload.get("repair_candidate", False)),
+                repair_ops=[dict(op) for op in payload.get("repair_ops") or []],
+                repository=ctx.repo,
+                clock=ctx.clock,
+                progress=_synthesis_progress(ctx),
+            )
+        else:
+            client = ctx.services.synthesis_client(ctx)
+            result = create_study_map(
+                ctx.vault_root,
+                source_set_id,
+                client=client,
+                brief=payload.get("brief") or {},
+                mode=str(payload.get("mode") or "auto"),
+                apply=bool(payload.get("apply", False)),
+                create_goal=bool(payload.get("create_goal", False)),
+                repository=ctx.repo,
+                clock=ctx.clock,
+                budget_overrides=dict(payload.get("synthesis_budgets") or {}),
+                unlimited_token_budget=bool(payload.get("unlimited_token_budget", False)),
+                progress=_synthesis_progress(ctx),
+            )
     except StudyMapError as exc:
-        raise IngestRunnerError(f"{exc.code}: {exc}")
+        raise IngestRunnerError(
+            str(exc),
+            code=exc.code,
+            details={
+                "diagnostics": exc.diagnostics,
+                "lock_reasons": exc.lock_reasons,
+                "stage": "synthesis",
+                "completed_dependencies_preserved": True,
+                "candidate_preserved": exc.candidate_preserved,
+                "synthesis_run_id": exc.synthesis_run_id,
+            },
+            retryable=exc.code not in {"subject_identity_locked"},
+        ) from exc
 
     run = ctx.repo.synthesis_run(result.synthesis_run_id) if result.synthesis_run_id else None
     ctx.record_usage(
@@ -661,6 +868,35 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     else:
         ctx.report("proposed", message="Study-map proposal ready for review")
     return result.as_dict()
+
+
+# Synthesis-service progress stages -> checkpoint-ladder phases. Shard work
+# happens between "inventoried" and "synthesized"; gates run after the model
+# output exists; persistence/apply match their ladder rungs.
+_SYNTH_STAGE_PHASE = {
+    "synthesis": "inventoried",
+    "validation": "synthesized",
+    "persistence": "proposed",
+    "apply": "applied",
+}
+
+
+def _synthesis_progress(ctx: JobContext):
+    """A ProgressFn bridging create_study_map to the durable job heartbeat.
+
+    Every callback refreshes the lease and re-checks cancellation, so a long
+    multi-shard synthesis can be cancelled at the next shard boundary instead
+    of only before/after the whole model stage."""
+
+    def progress(stage: str, message: str, current: int | None = None, total: int | None = None) -> None:
+        ctx.report(
+            _SYNTH_STAGE_PHASE.get(stage, "inventoried"),
+            message=message,
+            current_window=current,
+            total_windows=total,
+        )
+
+    return progress
 
 
 def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
@@ -687,6 +923,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             auto_apply=bool(payload.get("apply", payload.get("auto_apply", True))),
             repository=ctx.repo,
             clock=ctx.clock,
+            unlimited_token_budget=bool(payload.get("unlimited_token_budget", False)),
         )
     except StudyMapError as exc:
         raise IngestRunnerError(f"{exc.code}: {exc}") from exc
@@ -717,11 +954,21 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("import job requires a 'source'.")
     resolved = resolve_source(source)
     category = resolved.category
+    requested_pages = _normalize_pages(payload.get("page_selection")) or None
 
     ctx.report("acquired", message="Fetching source material")
     fetched = ctx.services.fetch_bytes(resolved.source, category, ctx)
+    is_pdf = (
+        category == "pdf"
+        or (fetched.content_type or "").lower().startswith("application/pdf")
+        or fetched.raw_bytes[:5] == b"%PDF-"
+    )
+    page_selection = requested_pages if is_pdf else None
+    if page_selection:
+        _validate_page_selection(fetched.raw_bytes, page_selection)
 
     display_title = _compose_display_title(fetched.title, fetched.authors)
+    reader_enabled = payload.get("reader_enabled")
     registered = register_source_revision(
         ctx.repo,
         acquisition_kind=category,
@@ -730,6 +977,8 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         original_uri=fetched.original_uri,
         retrieved_at=fetched.retrieved_at,
         display_title=display_title,
+        reader_enabled=None if reader_enabled is None else bool(reader_enabled),
+        vault_root=ctx.vault_root,
         clock=ctx.clock,
     )
     ctx.job["_revision_id"] = registered.revision_id
@@ -746,6 +995,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         extractor_version=str(identity.get("extractor_version") or "unknown"),
         model_versions=identity.get("model_versions") or {},
         config=identity.get("config") or {},
+        page_selection=page_selection,
         ir_schema_version=IR_SCHEMA_VERSION,
     )
     existing = ctx.repo.extraction_run_by_request_hash(registered.revision_id, request_hash)
@@ -765,6 +1015,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
             extractor_version=ir.extractor_version,
             model_versions=identity.get("model_versions") or {},
             config=identity.get("config") or {},
+            page_selection=page_selection,
             ir_schema_version=IR_SCHEMA_VERSION,
         )
         if actual_hash != request_hash:
@@ -793,6 +1044,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 ir_schema_version=IR_SCHEMA_VERSION,
                 model_versions=identity.get("model_versions") or {},
                 config=identity.get("config") or {},
+                page_selection=page_selection,
                 status="running",
                 clock=ctx.clock,
             )
@@ -816,6 +1068,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         "reused_extraction": reused_extraction,
         "unit_count": len(ir.units),
         "block_count": len(ir.blocks),
+        "page_selection": page_selection,
         "health": {
             "flags": list(ir.health.flags),
             "flagged_pages": ir.health.flagged_pages(),
@@ -1038,6 +1291,46 @@ def _repair_pdf_config(options: Mapping[str, Any], pages: list[int]) -> dict[str
     return config
 
 
+def _validate_page_selection(raw_bytes: bytes, pages: list[int]) -> None:
+    """Refuse out-of-range page selections BEFORE any expensive extraction.
+
+    Marker/pypdf failures on a bad range surface as deep, engine-specific
+    exceptions (or worse, silently empty extractions); a typed refusal with the
+    document's real page count is actionable in the UI. Best-effort: when the
+    page count cannot be read (odd/encrypted PDF), extraction proceeds and any
+    real problem surfaces through the normal extraction error path."""
+
+    page_count = _pdf_page_count(raw_bytes)
+    if page_count is None or not pages:
+        return
+    beyond = [page for page in pages if page >= page_count]
+    if beyond:
+        raise IngestRunnerError(
+            f"Requested PDF pages up to {max(beyond) + 1}, but the document has "
+            f"only {page_count} page(s).",
+            code="invalid_page_range",
+            details={"page_count": page_count, "requested_max": max(beyond) + 1},
+            retryable=False,
+        )
+
+
+def _pdf_page_count(raw_bytes: bytes) -> int | None:
+    try:
+        import io
+
+        import pypdf
+
+        reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
+        if reader.is_encrypted:
+            try:
+                reader.decrypt("")
+            except Exception:
+                return None
+        return len(reader.pages)
+    except Exception:  # noqa: BLE001 — validation is strictly best-effort
+        return None
+
+
 def _normalize_pages(raw: Any) -> list[int]:
     pages: set[int] = set()
     if raw is None:
@@ -1088,6 +1381,97 @@ def _not_implemented_handler(job_type: str) -> Handler:
     return handler
 
 
+def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
+    """Author one section-boundary quick check (reader producer slice).
+
+    Interactive-priority, one section per job. Idempotent through the service:
+    an existing row for the section (any status) is reused without a model
+    call, so a duplicate enqueue or a retry never double-authors."""
+
+    from learnloop.services import reader_quick_check as RQC
+
+    payload = ctx.payload
+    extraction_id = str(payload.get("extraction_id") or "")
+    section_id = str(payload.get("section_id") or "")
+    if not extraction_id or not section_id:
+        raise IngestRunnerError("reader_quick_check needs extraction_id and section_id.")
+    existing = ctx.repo.latest_reader_authored_question(
+        extraction_id=extraction_id, section_id=section_id
+    )
+    if existing is not None:
+        return {"question_id": existing["id"], "deduplicated": True}
+    ctx.report("authoring", message="Authoring a quick check for this section")
+    client = ctx.services.quick_check_client(ctx)
+    row = RQC.author_quick_check(
+        ctx.repo, client, extraction_id=extraction_id, section_id=section_id, clock=ctx.clock
+    )
+    return {"question_id": row["id"], "deduplicated": False}
+
+
+def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
+    """practice_expansion: per-LO item generation (reader-first seeding).
+
+    Payload: ``learning_object_ids`` (explicit, from the section→LO provenance
+    mapping) + ``reason``. The completed-probe gate is waived — the trigger is
+    the learner having READ the material; rung selection and difficulty
+    calibration come from the learner claim / mastery through the standard
+    generation path. "Nothing needed" is success, not an error."""
+
+    from learnloop.services.practice_generation import (
+        PracticeExpansionError,
+        generate_post_probe_practice_proposal,
+    )
+
+    payload = ctx.payload
+    lo_ids = [str(lo) for lo in (payload.get("learning_object_ids") or []) if str(lo).strip()]
+    if not lo_ids:
+        raise IngestRunnerError("practice_expansion job requires 'learning_object_ids'.")
+    ctx.report("generation", message=f"Generating practice for {len(lo_ids)} learning object(s)")
+    client = ctx.services.synthesis_client(ctx)
+    try:
+        result = generate_post_probe_practice_proposal(
+            ctx.vault_root,
+            client,
+            learning_object_ids=lo_ids,
+            require_completed_probe=False,
+            target_items_per_lo=3,
+            max_new_per_lo=3,
+            extra_instructions=(
+                "These items seed practice for material the learner just finished reading "
+                f"({payload.get('reason') or 'reader_section_completed'}). Ground every item in the "
+                "cited source spans."
+            ),
+        )
+    except PracticeExpansionError as exc:
+        # All targeted LOs already supplied — a legitimate no-op for a trigger.
+        return {"generated": 0, "skipped_reason": str(exc)}
+    return {
+        "patch_id": result.patch_id,
+        "generated": result.plan.requested_new_items,
+        "rung_violations": result.rung_violations,
+    }
+
+
+def handle_rung_variant(ctx: JobContext) -> dict[str, Any]:
+    """rung_variant: author one learner-requested easier/harder sibling item.
+
+    The evidence package was written synchronously at request time; this job is
+    only the generation half. Payload: ``request_id``. The service owns the
+    request-row status transitions (applied / review_required / failed)."""
+
+    from learnloop.services.rung_variants import RungVariantError, generate_rung_variant
+
+    request_id = str(ctx.payload.get("request_id") or "")
+    if not request_id:
+        raise IngestRunnerError("rung_variant job requires a 'request_id'.")
+    ctx.report("generation", message="Authoring the requested variant")
+    client = ctx.services.rung_variant_client(ctx)
+    try:
+        return generate_rung_variant(ctx.vault_root, client, request_id=request_id, clock=ctx.clock)
+    except RungVariantError as exc:
+        raise IngestRunnerError(str(exc)) from exc
+
+
 DEFAULT_HANDLERS: dict[str, Handler] = {
     "import": handle_import,
     "legacy_ingest": handle_legacy_ingest,
@@ -1096,6 +1480,9 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "bootstrap_synthesis": handle_bootstrap_synthesis,
     "append_synthesis": handle_append_synthesis,
     "extraction_repair": handle_extraction_repair,
+    "reader_quick_check": handle_reader_quick_check,
+    "practice_expansion": handle_practice_expansion,
+    "rung_variant": handle_rung_variant,
 }
 
 
@@ -1115,6 +1502,7 @@ class IngestRunner:
         handlers: Mapping[str, Handler] | None = None,
         services: RunnerServices | None = None,
         lease_ttl_seconds: int = 120,
+        heartbeat_interval_seconds: float = 15,
     ) -> None:
         self.repo = repo
         self.vault_root = Path(vault_root)
@@ -1123,6 +1511,7 @@ class IngestRunner:
         self.handlers: dict[str, Handler] = {**DEFAULT_HANDLERS, **dict(handlers or {})}
         self.services = services or RunnerServices()
         self.lease_ttl_seconds = lease_ttl_seconds
+        self.heartbeat_interval_seconds = heartbeat_interval_seconds
 
     # -- enqueue -----------------------------------------------------------
 
@@ -1189,6 +1578,18 @@ class IngestRunner:
             recovered.append(job["id"])
             self._propagate_blocks(job["batch_id"])
             self._refresh_batch(job["batch_id"])
+        # Startup hygiene: historical error paths left synthesis_runs rows in
+        # 'created'/'running' forever. Finalize abandoned rows — but never while
+        # any synthesis job still holds a live lease (its run row is legitimately
+        # non-terminal mid-flight).
+        live_synthesis = any(
+            job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
+            and job["status"] == "running"
+            and (job.get("heartbeat_at") or "") >= cutoff
+            for job in self.repo.ingest_jobs_by_types(("bootstrap_synthesis", "append_synthesis"))
+        )
+        if not live_synthesis:
+            self.repo.finalize_stale_synthesis_runs(before_iso=cutoff, clock=self.clock)
         return recovered
 
     def run_next(self) -> bool:
@@ -1283,7 +1684,19 @@ class IngestRunner:
         try:
             if handler is None:
                 raise IngestRunnerError(f"unknown job_type '{job['job_type']}'.")
-            result = handler(ctx)
+            heartbeat_stop = threading.Event()
+            heartbeat_thread = threading.Thread(
+                target=self._heartbeat_while_running,
+                args=(job["id"], heartbeat_stop),
+                name=f"ingest-heartbeat-{job['id']}",
+                daemon=True,
+            )
+            heartbeat_thread.start()
+            try:
+                result = handler(ctx)
+            finally:
+                heartbeat_stop.set()
+                heartbeat_thread.join(timeout=1)
         except JobCancelled:
             self.repo.finish_ingest_job(
                 job["id"],
@@ -1318,12 +1731,16 @@ class IngestRunner:
             )
             self._propagate_blocks(batch_id)
         except Exception as exc:  # noqa: BLE001 — a failed job must never crash the drain
+            error = {"code": _error_code(exc), "message": str(exc) or exc.__class__.__name__}
+            if isinstance(exc, IngestRunnerError):
+                error["details"] = exc.details
+                error["retryable"] = exc.retryable
             self.repo.finish_ingest_job(
                 job["id"],
                 status="failed",
                 phase="failed",
                 message=str(exc) or exc.__class__.__name__,
-                error={"code": _error_code(exc), "message": str(exc) or exc.__class__.__name__},
+                error=error,
                 usage=ctx._usage or None,
                 clock=self.clock,
             )
@@ -1339,6 +1756,17 @@ class IngestRunner:
                 clock=self.clock,
             )
         self._refresh_batch(batch_id)
+
+    def _heartbeat_while_running(self, job_id: str, stop: threading.Event) -> None:
+        """Keep a blocking extractor/LLM stage's lease alive until it returns."""
+
+        interval = max(0.01, self.heartbeat_interval_seconds)
+        while not stop.wait(interval):
+            self.repo.heartbeat_ingest_job(
+                job_id,
+                worker_id=self.worker_id,
+                clock=self.clock,
+            )
 
     def _propagate_blocks(self, batch_id: str) -> None:
         """Mark every downstream queued job blocked when a dependency failed,
@@ -1372,7 +1800,11 @@ class IngestRunner:
         jobs = self.repo.ingest_jobs_for_batch(batch_id)
         status = derive_batch_status(jobs, self.repo.get_ingest_batch(batch_id))
         terminal = status in {"completed", "failed", "cancelled"}
-        self.repo.update_ingest_batch_status(batch_id, status, mark_finished=terminal, clock=self.clock)
+        # A resumed/retried batch must not keep reporting the prior failure's
+        # finished_at while it is running again.
+        self.repo.update_ingest_batch_status(
+            batch_id, status, mark_finished=terminal, clear_finished=not terminal, clock=self.clock
+        )
 
     def _lease_cutoff_iso(self) -> str:
         cutoff = self.clock.now() - timedelta(seconds=self.lease_ttl_seconds)
@@ -1455,5 +1887,5 @@ def _as_number(value: Any) -> float | int:
 
 def _error_code(exc: Exception) -> str:
     if isinstance(exc, IngestRunnerError):
-        return "invalid_job"
+        return exc.code
     return exc.__class__.__name__

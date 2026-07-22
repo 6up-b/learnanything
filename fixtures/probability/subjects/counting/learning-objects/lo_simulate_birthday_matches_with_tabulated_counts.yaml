@@ -1,0 +1,81 @@
+schema_version: 1
+id: lo_simulate_birthday_matches_with_tabulated_counts
+title: Simulate Birthday Matches With Tabulated Counts
+subjects:
+  - counting
+concept: concept_birthday_monte_carlo_simulation
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Generate birthdays with replacement, count frequencies, repeat many 
+  trials, and use maximum counts of at least 2 to estimate at least one match.
+prerequisites:
+  - concept_birthday_match_probability
+confusables:
+  - concept_sampling_birthdays_without_replacement
+  - concept_using_r_1_for_birthday_matches
+blueprints:
+  - id: bp_01KXKVFA_17
+    weight: 0.3
+    recipes:
+      - id: recipe_birthday_monte_carlo
+        composition: conjunctive
+        all_of:
+          - facet: facet_to_simulate_the_birthday_problem_for_23_people_s
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_to_simulate_the_birthday_problem_for_23_people_s
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_simulate_the_birthday_problem_for_23_people_s
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s346
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s347
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s349
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:02Z'
+updated_at: '2026-07-15T21:39:09Z'

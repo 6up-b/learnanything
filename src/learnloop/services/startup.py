@@ -8,6 +8,7 @@ from learnloop.ai.runtime import AIRuntimeReport, check_ai_runtime
 from learnloop.clock import Clock
 from learnloop.codex.client import make_codex_client
 from learnloop.codex.runtime import CodexRuntimeReport, check_codex_runtime
+from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop.db.repositories import Repository
 from learnloop.services.regrade import DeferredRegradeResult, run_deferred_ai_regrades, run_deferred_regrades
 from learnloop.vault.models import LoadedVault
@@ -37,7 +38,7 @@ def run_startup_maintenance(
     selection = provider_for_task(vault.config, "grading")
     provider_name = selection.provider_name
     ai_runtime: AIRuntimeReport | None = None
-    if provider_name == "codex":
+    if provider_name in CODEX_PROVIDER_NAMES:
         client = make_codex_client(vault.config.codex, vault.root) if codex_runtime.ready else None
         regrades = run_deferred_regrades(
             vault,
@@ -51,7 +52,7 @@ def run_startup_maintenance(
     ai_runtime = check_ai_runtime(vault.root, vault.config, provider_name=provider_name)
     if not ai_runtime.ready:
         fallback = fallback_provider_for(vault.config, selection)
-        if fallback == "codex" and codex_runtime.ready:
+        if fallback in CODEX_PROVIDER_NAMES and codex_runtime.ready:
             client = make_codex_client(vault.config.codex, vault.root)
             regrades = run_deferred_regrades(
                 vault,

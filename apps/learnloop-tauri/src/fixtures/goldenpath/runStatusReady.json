@@ -1,0 +1,25 @@
+{
+  "currentState": "ready",
+  "eventCount": 1,
+  "goalContractHeadVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+  "headEventId": "01KXYJ5R4DW4BGYY6P0WWSVR2T",
+  "headSeq": 1,
+  "history": [
+    {
+      "fromState": "draft",
+      "goalContractHeadVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+      "reason": "run_started",
+      "seq": 1,
+      "toState": "ready"
+    }
+  ],
+  "milestone": "m_method_selection_boundary",
+  "mode": "certifying",
+  "nextAction": {
+    "reason": "run a bounded baseline to localize the boundary",
+    "terminal": false,
+    "toState": "measuring"
+  },
+  "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+  "version": 1
+}

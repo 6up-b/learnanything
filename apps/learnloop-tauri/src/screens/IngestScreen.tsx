@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
-import type { AcquisitionPreviewItem, CommandError, IngestJobDto, IngestJobPhase, IngestMode, SourceLibraryCard } from "../api/dto";
-import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, type PillColor } from "../components/term";
+import type { AcquisitionPreviewItem, CommandError, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceLibraryCard, StartingLevel } from "../api/dto";
+import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
+import { STARTING_LEVELS } from "../components/StudyMapBriefWizard";
 import { IngestActivityStack } from "../components/IngestActivity";
 import { SourceLibrarySidebar } from "../components/SourceLibrarySidebar";
 import { OutlinePlanFlow } from "../components/OutlineAndPlan";
+import { PageRangeSelector, pageSelectionError } from "../components/PageRangeSelector";
+import { useSourceFileDrop } from "../components/useSourceFileDrop";
+import { AsciiLoadingBar } from "../components/AsciiLoadingBar";
 
 // Ingest screen — single merged surface over durable ingest v2 (§5.7/§6).
 // One entry point: paste a source, canonical imports go through the durable
@@ -27,7 +31,7 @@ function detectKind(source: string): Kind | null {
   if (/^https?:\/\/([\w-]+\.)?(youtube\.com|youtu\.be)\//i.test(s)) return "youtube";
   if (/\.pdf(\?|$)/i.test(s)) return "pdf";
   if (/^https?:\/\//i.test(s)) return "web";
-  if (/\.(md|markdown|txt)$/i.test(s)) return "local";
+  if (/\.(md|markdown|txt|vtt|srt)$/i.test(s)) return "local";
   return null;
 }
 
@@ -98,6 +102,96 @@ function KindChips({ active }: { active: Kind | null }) {
 }
 
 // ── Subject picker with inline "+ new subject" creation ─────────────────
+// Persisted vault learner level (profile/learner.yaml). All synthesis inherits
+// it as the brief's startingLevel; editing here replaces the global learner
+// claim (existing mastery states are not retro-seeded).
+function LearnerLevelChip() {
+  const [level, setLevel] = useState<StartingLevel | null>(null);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .getLearnerProfile()
+      .then((profile) => {
+        if (alive) setLevel(profile.startingLevel);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const pick = async (next: StartingLevel) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const profile = await api.setLearnerProfile({ startingLevel: next });
+      setLevel(profile.startingLevel);
+      setOpen(false);
+    } catch {
+      // non-fatal; chip keeps its previous value
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const label = STARTING_LEVELS.find((s) => s.id === level)?.label;
+  return (
+    <span style={{ position: "relative", display: "inline-flex" }}>
+      <span
+        onClick={() => setOpen((v) => !v)}
+        title="your declared starting level for this vault — new study maps and generated questions calibrate to it"
+        style={{
+          padding: "4px 12px",
+          fontSize: 12,
+          fontFamily: FONT_MONO,
+          border: `1px solid ${level ? COLOR.border : COLOR.borderStrong}`,
+          color: level ? COLOR.textDim : COLOR.textFaint,
+          cursor: "pointer",
+          whiteSpace: "nowrap"
+        }}
+      >
+        {label ? `level: ${label}` : "set your level"}
+      </span>
+      {open ? (
+        <span
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 40,
+            display: "flex",
+            flexDirection: "column",
+            background: COLOR.bg,
+            border: `1px solid ${COLOR.borderStrong}`,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.5)"
+          }}
+        >
+          {STARTING_LEVELS.map((s) => (
+            <span
+              key={s.id}
+              onClick={() => void pick(s.id)}
+              style={{
+                padding: "6px 14px",
+                fontSize: 12,
+                fontFamily: FONT_MONO,
+                whiteSpace: "nowrap",
+                color: s.id === level ? COLOR.amber : COLOR.textDim,
+                background: s.id === level ? "#241d12" : "transparent",
+                cursor: "pointer"
+              }}
+            >
+              {s.label}
+            </span>
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function SubjectPicker({
   subjects,
   value,
@@ -254,7 +348,7 @@ function RunningCard({ job, elapsed, onCancel }: { job: IngestJobDto; elapsed: n
           </span>
         </span>
       </div>
-      <div className="ll-ingest-bar" />
+      <AsciiLoadingBar />
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, fontFamily: FONT_MONO, fontSize: 10 }}>
         {INGEST_PHASES.map((item, index) => {
           const complete = activeIndex > index;
@@ -308,12 +402,16 @@ export function IngestScreen({
   jobId,
   onJobIdChange,
   onProceedToPropose,
-  onCreateStudyMap
+  onCreateStudyMap,
+  guideActive = false,
+  onDismissGuide
 }: {
   jobId: string | null;
   onJobIdChange: (jobId: string | null) => void;
   onProceedToPropose: (patchId: string) => void;
   onCreateStudyMap?: () => void;
+  guideActive?: boolean;
+  onDismissGuide?: () => void;
 }) {
   // The outline → build-plan → start-batch flow opens as a large modal OVER the
   // ingest screen, which stays mounted underneath (§5.7).
@@ -333,6 +431,8 @@ export function IngestScreen({
         onJobIdChange={onJobIdChange}
         onProceedToPropose={onProceedToPropose}
         onCreateStudyMap={onCreateStudyMap}
+        guideActive={guideActive}
+        onDismissGuide={onDismissGuide}
         focusBatchId={focusBatchId}
         onFocusBatch={setFocusBatchId}
         libraryRefresh={libraryRefresh}
@@ -417,6 +517,8 @@ function IngestHome({
   onJobIdChange,
   onProceedToPropose,
   onCreateStudyMap,
+  guideActive,
+  onDismissGuide,
   focusBatchId,
   onFocusBatch,
   libraryRefresh,
@@ -428,6 +530,8 @@ function IngestHome({
   onJobIdChange: (jobId: string | null) => void;
   onProceedToPropose: (patchId: string) => void;
   onCreateStudyMap?: () => void;
+  guideActive: boolean;
+  onDismissGuide?: () => void;
   focusBatchId: string | null;
   onFocusBatch: (batchId: string | null) => void;
   libraryRefresh: number;
@@ -447,7 +551,12 @@ function IngestHome({
   const [authoritativeKind, setAuthoritativeKind] = useState<Kind | null>(null);
   const [classifying, setClassifying] = useState(false);
   const [staged, setStaged] = useState<string[]>([]);
+  const [stagedPageRanges, setStagedPageRanges] = useState<Record<string, string>>({});
+  // Per-source reader opt-out chosen at ingest setup (practice exams etc.).
+  const [stagedReaderOff, setStagedReaderOff] = useState<Record<string, boolean>>({});
   const [previews, setPreviews] = useState<Record<string, AcquisitionPreviewItem>>({});
+  const [pageSelection, setPageSelection] = useState("");
+  const [pdfEngine, setPdfEngine] = useState<PdfEngine>("auto");
   const inputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef<HTMLDivElement>(null);
   const runningRef = useRef(false);
@@ -465,7 +574,9 @@ function IngestHome({
     (source.trim().length > 0 || (stagingVisible && hasStaged)) &&
     !running &&
     !importing &&
-    (mode === "canonical" || subject !== null);
+    (mode === "canonical" || subject !== null) &&
+    (mode !== "canonical" || pageSelectionError(pageSelection) === null) &&
+    Object.values(stagedPageRanges).every((selection) => pageSelectionError(selection) === null);
   const importCount = staged.length + (source.trim() ? 1 : 0);
   const subjectTooltip =
     mode === "canonical"
@@ -645,23 +756,72 @@ function IngestHome({
 
   function stageCurrent() {
     const src = source.trim();
-    if (!src) return;
+    if (!src || pageSelectionError(pageSelection) !== null) return;
     setStaged((prev) => (prev.includes(src) ? prev : [...prev, src]));
+    setStagedPageRanges((prev) => {
+      const next = { ...prev };
+      next[src] = pageSelection;
+      return next;
+    });
     setSource("");
+    setPageSelection("");
     setLocalError(null);
     window.requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  function removeStaged(src: string) {
-    setStaged((prev) => prev.filter((s) => s !== src));
+  function stageDropped(paths: string[]) {
+    clearFinishedJob();
+    setLocalError(null);
+    const unique = paths.filter((path, index) => paths.indexOf(path) === index);
+    if (unique.length === 1 && staged.length === 0 && !source.trim()) {
+      setSource(unique[0]);
+      return;
+    }
+    setStaged((prev) => [...prev, ...unique.filter((path) => !prev.includes(path))]);
+    setStagedPageRanges((prev) => {
+      const next = { ...prev };
+      for (const path of unique) next[path] ??= "";
+      return next;
+    });
   }
 
-  async function startCanonicalImport(sources: string[]) {
+  const fileDragging = useSourceFileDrop({
+    enabled: mode === "canonical" && !running && !importing && !overlayActive,
+    priority: 10,
+    onDrop: stageDropped
+  });
+
+  function removeStaged(src: string) {
+    setStaged((prev) => prev.filter((s) => s !== src));
+    setStagedPageRanges((prev) => {
+      const next = { ...prev };
+      delete next[src];
+      return next;
+    });
+    setStagedReaderOff((prev) => {
+      const next = { ...prev };
+      delete next[src];
+      return next;
+    });
+  }
+
+  async function startCanonicalImport(entries: Array<{ source: string; pages?: string }>) {
     setImporting(true);
     try {
-      const batch = await api.startImportBatch({ sources, subjectId: subject });
+      const batch = await api.startImportBatch({
+        sources: entries.map((entry) => entry.source),
+        subjectId: subject,
+        pageRanges: entries
+          .filter((entry): entry is { source: string; pages: string } => Boolean(entry.pages?.trim()))
+          .map((entry) => ({ source: entry.source, pages: entry.pages })),
+        readerDisabledSources: entries.map((entry) => entry.source).filter((src) => stagedReaderOff[src]),
+        pdfEngine
+      });
       setSource("");
       setStaged([]);
+      setStagedPageRanges({});
+      setStagedReaderOff({});
+      setPageSelection("");
       setLocalError(null);
       onFocusBatch(batch.id);
       onLibraryRefresh();
@@ -678,7 +838,7 @@ function IngestHome({
     setJob(null);
     onJobIdChange(null);
     try {
-      const started = await api.startIngest({ source: src, subjectId: subject, mode: "exam" });
+      const started = await api.startIngest({ source: src, subjectId: subject, mode: "exam", pdfEngine });
       setJob(started);
       onJobIdChange(started.id);
     } catch (e) {
@@ -699,11 +859,17 @@ function IngestHome({
     const trimmed = source.trim();
     // Canonical multi-source: submit staged (+ current input, if any) as ONE batch.
     if (mode === "canonical" && staged.length > 0) {
-      const sources = [...staged, ...(trimmed ? [trimmed] : [])];
-      if (sources.length === 0) return;
+      const entries = [
+        ...staged.map((stagedSource) => ({
+          source: stagedSource,
+          pages: stagedPageRanges[stagedSource] || undefined
+        })),
+        ...(trimmed ? [{ source: trimmed, pages: pageSelection.trim() || undefined }] : [])
+      ];
+      if (entries.length === 0) return;
       setLocalError(null);
       runningRef.current = true;
-      await startCanonicalImport(sources);
+      await startCanonicalImport(entries);
       runningRef.current = false;
       return;
     }
@@ -711,7 +877,7 @@ function IngestHome({
     setLocalError(null);
     runningRef.current = true;
     if (mode === "canonical") {
-      await startCanonicalImport([trimmed]);
+      await startCanonicalImport([{ source: trimmed, pages: pageSelection.trim() || undefined }]);
       runningRef.current = false;
     } else {
       await startExamSeeding(trimmed);
@@ -732,7 +898,7 @@ function IngestHome({
       const selected = await openDialog({
         multiple: false,
         directory: false,
-        filters: [{ name: "Ingest sources", extensions: ["pdf", "md", "markdown", "txt", "html", "htm"] }]
+        filters: [{ name: "Ingest sources", extensions: ["pdf", "md", "markdown", "txt", "html", "htm", "vtt", "srt"] }]
       });
       if (typeof selected !== "string") return;
       clearFinishedJob();
@@ -763,8 +929,10 @@ function IngestHome({
         // Stepped reset: input → staged list → job.
         if (source) {
           setSource("");
+          setPageSelection("");
         } else if (staged.length > 0) {
           setStaged([]);
+          setStagedPageRanges({});
         } else {
           clearFinishedJob();
         }
@@ -827,6 +995,17 @@ function IngestHome({
             </>
           )}
         </div>
+        {guideActive ? (
+          <div style={{ marginTop: 14, border: `1px solid ${COLOR.cyan}`, background: "#101d22", padding: "10px 13px", display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <span style={{ color: COLOR.cyan, fontFamily: FONT_MONO, whiteSpace: "nowrap" }}>SETUP 03/03</span>
+            <div style={{ flex: 1, color: COLOR.textDim, fontSize: 11, lineHeight: 1.6 }}>
+              Your build appears in <span style={{ color: COLOR.amber }}>Activity</span>. Inventory runs once per selected unit, then study-map synthesis starts. If a job fails, expand it here for the exact stage and retry path; completed proposals move to <span style={{ color: COLOR.amber }}>Proposals</span> for review.
+            </div>
+            <button type="button" onClick={onDismissGuide} style={{ border: "none", background: "transparent", color: COLOR.textFaint, cursor: "pointer", fontFamily: FONT_MONO }}>
+              got it ×
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "300px 1fr", minHeight: 0 }}>
@@ -885,7 +1064,7 @@ function IngestHome({
               placeholder={
                 mode === "exam"
                   ? "paste a past exam: URL, PDF path, or local .md / .txt path"
-                  : "paste a URL, arXiv id, PDF path, YouTube link, or local .md / .txt path"
+                  : "paste a URL, arXiv id, PDF path, YouTube link, or local .md / .txt / .vtt / .srt path"
               }
               style={{
                 flex: 1,
@@ -925,6 +1104,58 @@ function IngestHome({
             {!source.trim() && <Faint>paste a source above</Faint>}
           </div>
 
+          <div
+            style={{
+              border: `1px dashed ${fileDragging ? COLOR.amber : COLOR.border}`,
+              background: fileDragging ? "#241d12" : "transparent",
+              color: fileDragging ? COLOR.amber : COLOR.textFaint,
+              padding: "7px 10px",
+              fontSize: 11,
+              fontFamily: FONT_MONO,
+              marginTop: 6
+            }}
+          >
+            {fileDragging ? "drop to add source files" : "drop PDF, Markdown, text, or HTML files anywhere on this screen"}
+          </div>
+
+          {/* optional PDF extraction scope */}
+          {mode === "canonical" ? (
+            <div style={{ marginTop: 6 }}>
+              <PageRangeSelector
+                value={pageSelection}
+                onChange={setPageSelection}
+                disabled={running || importing}
+                compact
+              />
+              {hasStaged ? (
+                <Faint style={{ display: "block", fontSize: 11, marginTop: 3 }}>
+                  This range belongs to the current source. Staging captures it independently for that PDF.
+                </Faint>
+              ) : null}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                <Faint style={{ fontSize: 11 }}>pdf engine</Faint>
+                <TermSelect
+                  value={pdfEngine}
+                  options={[
+                    { value: "auto", label: "auto (vault default)" },
+                    { value: "marker", label: "marker — structured, math, OCR" },
+                    { value: "pypdf", label: "pypdf — fast native text" }
+                  ]}
+                  onChange={(value) => setPdfEngine(value as PdfEngine)}
+                  disabled={running || importing}
+                  width={250}
+                />
+                {pdfEngine !== "auto" && (
+                  <Faint style={{ fontSize: 10 }}>
+                    {pdfEngine === "marker"
+                      ? "slow (model inference); fails if marker-pdf is not installed"
+                      : "no OCR, tables, or math — scanned PDFs will fail"}
+                  </Faint>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {/* subject + run button */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 4, flexWrap: "wrap" }}>
             <span
@@ -948,6 +1179,7 @@ function IngestHome({
               onCreate={createSubject}
               creating={creatingSubject}
             />
+            <LearnerLevelChip />
             <span style={{ flex: 1 }} />
             {stagingVisible && (
               <span
@@ -1013,6 +1245,7 @@ function IngestHome({
                   const rowKind = detectKind(src);
                   const meta = rowKind ? KIND_META[rowKind] : null;
                   const preview = previews[src];
+                  const stagedRange = stagedPageRanges[src] ?? "";
                   return (
                     <div key={src} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, width: 150 }}>
@@ -1049,6 +1282,34 @@ function IngestHome({
                       {preview && preview.recognized === false && (
                         <Pill color="red" style={{ flexShrink: 0 }}>unrecognized</Pill>
                       )}
+                      {rowKind === "pdf" ? (
+                        <div style={{ flexShrink: 0 }}>
+                          <PageRangeSelector
+                            value={stagedRange}
+                            onChange={(value) => setStagedPageRanges((prev) => ({
+                              ...prev,
+                              [src]: value
+                            }))}
+                            disabled={running || importing}
+                            compact
+                          />
+                        </div>
+                      ) : null}
+                      <span
+                        onClick={() => setStagedReaderOff((prev) => ({ ...prev, [src]: !prev[src] }))}
+                        title="whether this source joins the reader loop (reading, highlights, span-grounded Ask). Turn off for assessment material like practice exams."
+                        style={{
+                          flexShrink: 0,
+                          cursor: "pointer",
+                          fontFamily: FONT_MONO,
+                          fontSize: 10,
+                          padding: "2px 8px",
+                          border: `1px solid ${stagedReaderOff[src] ? COLOR.border : COLOR.green}`,
+                          color: stagedReaderOff[src] ? COLOR.textFaint : COLOR.green
+                        }}
+                      >
+                        {stagedReaderOff[src] ? "reader off" : "reader on"}
+                      </span>
                       <span
                         onClick={() => removeStaged(src)}
                         title="remove"

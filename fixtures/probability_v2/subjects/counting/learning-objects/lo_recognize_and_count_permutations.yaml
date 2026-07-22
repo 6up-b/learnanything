@@ -1,0 +1,50 @@
+schema_version: 1
+id: lo_recognize_and_count_permutations
+title: Recognize and count permutations
+subjects:
+  - counting
+concept: concept_permutations_and_factorials
+knowledge_type: concept_and_procedure
+status: active
+contradicts:
+summary: Interpret a full ordered sample without replacement as a permutation 
+  and express its count using factorial notation.
+prerequisites:
+  - concept_ordered_sampling
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_8
+    weight: 0.8
+    recipes:
+      - id: recipe_permutation
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_permutation_is_an_arrangement_of_n_distinct_ob
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_a_permutation_is_an_arrangement_of_n_distinct_ob
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s147
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:06Z'
+updated_at: '2026-07-21T00:54:10Z'

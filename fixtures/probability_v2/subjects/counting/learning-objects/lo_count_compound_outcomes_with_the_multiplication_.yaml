@@ -1,0 +1,64 @@
+schema_version: 1
+id: lo_count_compound_outcomes_with_the_multiplication_
+title: Count compound outcomes with the multiplication rule
+subjects:
+  - counting
+concept: concept_multiplication_rule_for_counting
+knowledge_type: counting procedure and method selection
+status: active
+contradicts:
+summary: Decompose complete outcomes into choices, verify the branch structure, 
+  and multiply the appropriate stage counts, including decreasing counts without
+  replacement.
+prerequisites:
+  - concept_sample_spaces_and_events
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_4
+    weight: 0.3
+    recipes:
+      - id: recipe_apply_multiplication_rule
+        composition: conjunctive
+        all_of:
+          - facet: facet_if_a_compound_outcome_is_specified_through_stage
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_if_a_compound_outcome_is_specified_through_stage
+          capability: method_selection
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s109
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s119
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:04Z'
+updated_at: '2026-07-21T00:54:08Z'

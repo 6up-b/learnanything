@@ -1,0 +1,167 @@
+schema_version: 1
+id: pi_an_engineer_says_mla_i
+learning_object_id: lo_explain_mla_compression_and_inference_time_weigh
+subjects:
+practice_mode: architecture comparison
+attempt_types_allowed: []
+evidence_facets:
+  - facet_multi_head_latent_attention_caches_a_compressed_
+  - facet_at_inference_fixed_mla_key_up_projection_weights
+  - facet_in_the_described_mla_implementation_cache_storag
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: An engineer says, 'MLA is just multi-query attention with an extra 
+  reconstruction matrix, so all heads use the same keys and values and inference
+  must perform extra reconstruction for every token.' Diagnose both errors and 
+  explain why MLA cache storage is not multiplied directly by the number of 
+  heads in the described implementation.
+expected_answer: MLA shares a compressed latent representation, but learned 
+  head-specific up-projections allow heads to realize distinct key and value 
+  behavior, unlike the single shared K and V of multi-query attention. At 
+  inference, fixed key up-projection weights can be absorbed into query-side 
+  computation and fixed value up-projection weights into output-side 
+  computation, so explicit per-token reconstruction is not mandatory. The cache 
+  stores the shared latent representation, making its size depend on 
+  latent-cache dimensions rather than a separate cached K and V for every head.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.4
+transfer_distance: 0.55
+scaffold_level: 0.15
+capability: schema_interpretation
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: architecture misconception diagnosis
+evidence_fingerprint:
+  source_family: MLA architecture lecture
+  shared_stimulus_id: stimulus_mla_false_equivalence
+  representation: verbal architecture claim
+  solution_recipe_family: contrast sharing mechanism, reassociate fixed 
+    projections, count cached representations
+  answer_structure: two-error diagnosis plus cache-scaling explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_multi_head_latent_attention_caches_a_compressed_
+  - facet_at_inference_fixed_mla_key_up_projection_weights
+  - facet_in_the_described_mla_implementation_cache_storag
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_mla_distinction
+      points: 1.0
+      description: Uses head-specific learned up-projections to distinguish MLA 
+        from multi-query attention.
+      tier: core
+      targets:
+        - facet: facet_multi_head_latent_attention_caches_a_compressed_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_mla_compressed_cache
+      correlation_group: mla_architecture
+      recipe_ids:
+        - recipe_mla_complete
+    - id: criterion_mla_absorption
+      points: 1.0
+      description: Explains the query-side and output-side absorption of fixed 
+        up-projection weights.
+      tier: core
+      targets:
+        - facet: facet_at_inference_fixed_mla_key_up_projection_weights
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_mla_weight_absorption
+      correlation_group: mla_inference
+      recipe_ids:
+        - recipe_mla_complete
+    - id: criterion_mla_cache
+      points: 1.0
+      description: Relates cache storage to shared latent dimensions and avoids 
+        universalizing architecture-specific reduction figures.
+      tier: transfer
+      targets:
+        - facet: facet_in_the_described_mla_implementation_cache_storag
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_mla_cache_tradeoff
+      correlation_group: mla_scaling
+      recipe_ids:
+        - recipe_mla_complete
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s374
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s381
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s396
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      path:
+      locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s412
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+      role: lecture
+      source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+      span_hash:
+created_at: '2026-07-21T05:07:20Z'
+updated_at: '2026-07-21T18:14:49Z'

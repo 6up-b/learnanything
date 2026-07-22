@@ -142,8 +142,13 @@ def test_quick_add_one_url_one_confirmation_to_study_map(tmp_path):
     assert load_vault(root).source_sets == []
 
     # Step 2 (post-confirmation): the ONE confirmation gate is crossed here.
-    result = enqueue_quick_add(load_vault(root), jobs, plan)  # background=False drains inline
+    result = enqueue_quick_add(
+        load_vault(root), jobs, plan, output_budget_tokens=12_000
+    )  # background=False drains inline
     batch = jobs.get_batch(result["batch_id"])
+    queued_jobs = jobs._require_runner().repo.ingest_jobs_for_batch(result["batch_id"])
+    inventory_job = next(job for job in queued_jobs if job["job_type"] == "inventory")
+    assert inventory_job["payload"]["output_budget_tokens"] == 12_000
 
     # v2 machinery is exercised: extraction run, inventories, synthesis, gates.
     assert batch["status"] == "completed"

@@ -31,8 +31,18 @@ from learnloop.codex.prompts import (
     PROBE_INSTANCE_PROMPT_VERSION,
     PROMOTION_ANALYSIS_PROMPT,
     PROMOTION_ANALYSIS_PROMPT_VERSION,
+    DEPTH_EDGE_INSTANCE_PROMPT,
+    DEPTH_EDGE_INSTANCE_PROMPT_VERSION,
+    RUNG_BACKFILL_PROMPT,
+    RUNG_BACKFILL_PROMPT_VERSION,
+    READER_PRESET_SYNTHESIS_PROMPT,
+    READER_PRESET_SYNTHESIS_PROMPT_VERSION,
+    READING_QUICK_CHECK_PROMPT,
+    READING_QUICK_CHECK_PROMPT_VERSION,
     APPEND_RECONCILIATION_PROMPT,
     APPEND_RECONCILIATION_PROMPT_VERSION,
+    CONCEPT_GRAPH_STRUCTURING_PROMPT,
+    CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     SOURCE_UNIT_INVENTORY_PROMPT,
@@ -49,7 +59,12 @@ from learnloop.codex.schemas import (
     ProbeFamilyTrials,
     ProbeInstanceSurfaces,
     PromotionAnalysis,
+    DepthEdgeInstanceBatch,
+    RungBackfillClassification,
+    ReaderPresetSynthesis,
+    ReadingQuickCheck,
     AppendReconciliation,
+    ConceptGraphStructuring,
     SourceSetSynthesis,
     SourceUnitInventory,
     TeachBackQuestion,
@@ -165,7 +180,7 @@ class TutorQAContext:
     oldest first, as {question_md, answer_md, question_type} dicts.
     """
 
-    context: str  # "library" | "practice" | "feedback"
+    context: str  # "library" | "practice" | "feedback" | "reader"
     question_md: str
     candidate_facets: list[str] = field(default_factory=list)
     thread: list[dict] = field(default_factory=list)
@@ -186,6 +201,11 @@ class TutorQAContext:
     # context ({extraction_id, span_id, label, relation, semantic_authority, text}).
     # The tutor may cite ONLY these; held-out exam spans are excluded upstream.
     source_spans: list[dict] = field(default_factory=list)
+    # U-033 (§7.6): per-ask reader answer mode -- answer_directly / help_me_reason
+    # / ask_me_first. Selects how the `reader` profile answers; None for the
+    # library/practice/feedback profiles. NEVER carries the learner ability
+    # estimate or any assessment-reserved statement/rubric (manifest invariant).
+    answer_mode: str | None = None
 
 
 @dataclass(frozen=True)
@@ -315,6 +335,69 @@ class ProbeFamilyTrialsContext:
 
 
 @dataclass(frozen=True)
+class ReaderPresetSynthesisContext:
+    """Bounded input for one demand-paged reader preset request (spec §6.3).
+
+    ``blocks`` is the smallest-sufficient window as [{span_id, text}];
+    ``learner_text`` is the learner's optional note/question. Both are
+    untrusted — the prompt delimits them and instructs the model to ignore
+    embedded instructions.
+    """
+
+    preset: str
+    learner_text: str = ""
+    section_path: list = field(default_factory=list)
+    blocks: list = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ReadingQuickCheckContext:
+    """Bounded input for one section-boundary quick check (reader producer).
+
+    ``section`` is {section_id, label, blocks:[{span_id, kind, text}]} — the
+    readable blocks of ONE guide section. The source text is untrusted — the
+    prompt delimits it and instructs the model to ignore embedded instructions.
+    """
+
+    extraction_id: str
+    section: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RungBackfillContext:
+    """Bounded input for legacy-item rung classification (depth backfill).
+
+    ``items`` are {practice_item_id, practice_mode, prompt_excerpt,
+    expected_answer_excerpt, retrieval_demand, transfer_distance,
+    scaffold_level}. Item text is untrusted source-derived material — the
+    prompt instructs the model to treat embedded directives as inert.
+    """
+
+    items: list[dict] = field(default_factory=list)
+    task_feature_schema: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DepthEdgeInstanceContext:
+    """Bounded input for LLM depth-edge-instance authoring (spec v2 depth).
+
+    ``templates`` are reviewed edge-template bodies; ``envelope_bounds`` /
+    ``current_milestones`` describe the commitment's authorized region and DAG;
+    ``pattern_slugs`` lists admitted activity patterns; ``task_feature_schema``
+    is the p1_launch dimension table. Instances are candidates only —
+    deterministic gates admit them.
+    """
+
+    commitment_id: str
+    templates: list[dict] = field(default_factory=list)
+    envelope_bounds: dict = field(default_factory=dict)
+    current_milestones: list[dict] = field(default_factory=list)
+    pattern_slugs: list[str] = field(default_factory=list)
+    task_feature_schema: dict = field(default_factory=dict)
+    count: int = 1
+
+
+@dataclass(frozen=True)
 class SourceUnitInventoryContext:
     """Bounded input for one role-aware unit inventory (source-ingestion §7).
 
@@ -355,6 +438,26 @@ class SourceSetSynthesisContext:
     resolved_spans: list = field(default_factory=list)
     shard_ordinal: int = 0
     shard_count: int = 1
+
+
+@dataclass(frozen=True)
+class ConceptGraphContext:
+    """Bounded input for the post-merge concept graph-structuring pass (§8.5).
+
+    Carries the merged candidate's compact concept list, per-source outline
+    skeletons built from already-paid-for artifacts (the deterministic unit
+    tree + cached unit-inventory summaries and prerequisite hints), and the
+    existing registry (concepts + edges) so new structure attaches into the
+    current graph — never raw source text. The service validates the returned
+    merge groups and relations and applies them deterministically; an invalid
+    group or edge is a no-op, never an error."""
+
+    source_set_id: str
+    subject_id: str
+    concepts: list = field(default_factory=list)
+    source_skeletons: list = field(default_factory=list)
+    registry_concepts: list = field(default_factory=list)
+    registry_edges: list = field(default_factory=list)
 
 
 @dataclass
@@ -701,6 +804,72 @@ class SdkCodexClient:
         )
         return ProbeFamilyTrials.model_validate_json(text)
 
+    def run_reader_preset_synthesis(self, context: ReaderPresetSynthesisContext) -> ReaderPresetSynthesis:
+        """Fulfil one demand-paged reader preset request (spec §6).
+
+        Deliberately NOT on the ``CodexClient`` Protocol / ``HttpCodexClient`` —
+        the reader-request drain discovers it via ``getattr(client,
+        "run_reader_preset_synthesis", None)`` and leaves requests queued when
+        the provider lacks it. Output is candidate-only; the drain validates
+        span citations and lands it as a PROPOSED source object for review.
+        """
+
+        text = self._run_structured(
+            _reader_preset_synthesis_prompt(context),
+            _codex_output_schema(ReaderPresetSynthesis),
+            purpose="reader_preset_synthesis",
+        )
+        return ReaderPresetSynthesis.model_validate_json(text)
+
+    def run_reading_quick_check(self, context: ReadingQuickCheckContext) -> ReadingQuickCheck:
+        """Author one section-boundary quick check (reader producer slice).
+
+        Deliberately NOT on the ``CodexClient`` Protocol / ``HttpCodexClient`` —
+        the reader quick-check service discovers it via ``getattr(client,
+        "run_reading_quick_check", None)`` and degrades (no question authored)
+        when the provider lacks it. Output is candidate-only; the service
+        validates span citations against the section's spans before persisting.
+        """
+
+        text = self._run_structured(
+            _reading_quick_check_prompt(context),
+            _codex_output_schema(ReadingQuickCheck),
+            purpose="reading_quick_check",
+        )
+        return ReadingQuickCheck.model_validate_json(text)
+
+    def run_rung_backfill(self, context: RungBackfillContext) -> RungBackfillClassification:
+        """Classify legacy items into rung metadata (depth backfill).
+
+        Deliberately NOT on the ``CodexClient`` Protocol — the backfill service
+        discovers it via ``getattr(client, "run_rung_backfill", None)``. Output
+        is candidate-only; deterministic validators admit or skip each entry.
+        """
+
+        text = self._run_structured(
+            _rung_backfill_prompt(context),
+            _codex_output_schema(RungBackfillClassification),
+            purpose="rung_backfill",
+        )
+        return RungBackfillClassification.model_validate_json(text)
+
+    def run_depth_edge_instances(self, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch:
+        """Author depth-edge instances from reviewed templates (spec v2 depth).
+
+        Deliberately NOT on the ``CodexClient`` Protocol / ``HttpCodexClient`` —
+        ``services/depth_edge_authoring`` discovers it via ``getattr(client,
+        "run_depth_edge_instances", None)`` and refuses (typed error) when the
+        provider lacks it. Output is candidate-only; every instance runs the
+        deterministic admission gates before persisting as admitted/rejected.
+        """
+
+        text = self._run_structured(
+            _depth_edge_instance_prompt(context),
+            _codex_output_schema(DepthEdgeInstanceBatch),
+            purpose="depth_edge_instances",
+        )
+        return DepthEdgeInstanceBatch.model_validate_json(text)
+
     def run_source_unit_inventory(self, context: SourceUnitInventoryContext) -> SourceUnitInventory:
         """Role-aware unit inventory over one unit view (source-ingestion §7).
 
@@ -736,6 +905,22 @@ class SdkCodexClient:
             purpose="source_set_synthesis",
         )
         return SourceSetSynthesis.model_validate_json(text)
+
+    def run_concept_graph_structuring(self, context: ConceptGraphContext) -> ConceptGraphStructuring:
+        """Duplicate-concept merges + big-picture concept relations (§8.5).
+
+        Deliberately NOT on the ``CodexClient`` Protocol — the synthesis service
+        discovers it via ``getattr(client, "run_concept_graph_structuring",
+        None)`` and degrades to deterministic same-title merging (no authored
+        relations) when the provider lacks it. Output is candidate-only: the
+        service validates every id/edge and applies merges itself."""
+
+        text = self._run_structured(
+            _concept_graph_structuring_prompt(context),
+            _codex_output_schema(ConceptGraphStructuring),
+            purpose="concept_graph_structuring",
+        )
+        return ConceptGraphStructuring.model_validate_json(text)
 
     def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
         """Reconcile new/changed material into an existing map (§10.1/§10.2).
@@ -1016,6 +1201,32 @@ _TUTOR_QA_CONTEXT_TASKS = {
         "grounded in the note body and the related learning objects; connect "
         "the answer back to the note's content."
     ),
+    "reader": (
+        "Context: the learner is reading a source span in the reader (U-033). "
+        "There is NO attempt to protect here, so you are NOT Socratic-by-default: "
+        "you MAY state facts, complete a derivation, give a worked example, and "
+        "confirm or deny an interpretation. Ground every claim in the provided "
+        "source spans and cite them. Support comprehension, inquiry, "
+        "self-explanation, and goal connection. You are NOT given the learner's "
+        "ability estimate and MUST NOT tune the answer to a supposed deficit."
+    ),
+}
+
+# U-033 (§7.6): per-ask answer-mode overlays for the `reader` profile. Appended to
+# the reader task so the learner's chosen mode shapes the answer's shape.
+_TUTOR_QA_READER_MODE_TASKS = {
+    "answer_directly": (
+        " Answer mode: ANSWER DIRECTLY -- give the complete answer up front, "
+        "then a brief why."
+    ),
+    "help_me_reason": (
+        " Answer mode: HELP ME REASON -- do not hand over the final answer first; "
+        "walk the learner through the reasoning steps so they reach it."
+    ),
+    "ask_me_first": (
+        " Answer mode: ASK ME FIRST -- open with one focused question that checks "
+        "the learner's current understanding before you explain."
+    ),
 }
 
 
@@ -1094,6 +1305,8 @@ _TUTOR_QA_OPENING_SHARED = (
 def _tutor_qa_prompt(context: TutorQAContext) -> str:
     opening = not context.question_md.strip() and context.diagnostic_decision is not None
     task = _TUTOR_QA_CONTEXT_TASKS.get(context.context, _TUTOR_QA_CONTEXT_TASKS["library"])
+    if context.context == "reader" and context.answer_mode:
+        task = task + _TUTOR_QA_READER_MODE_TASKS.get(context.answer_mode, "")
     if context.diagnostic_decision is not None:
         task = task + " " + _TUTOR_QA_DIAGNOSTIC_DECISION_TASK
     shared = _TUTOR_QA_OPENING_SHARED if opening else _TUTOR_QA_SHARED
@@ -1229,6 +1442,58 @@ def _probe_family_trials_prompt(context: ProbeFamilyTrialsContext) -> str:
     )
 
 
+def _reader_preset_synthesis_prompt(context: ReaderPresetSynthesisContext) -> str:
+    """Demand-paged reader preset synthesis prompt (spec §6)."""
+
+    return _json_prompt(
+        "learnloop reader preset synthesis",
+        READER_PRESET_SYNTHESIS_PROMPT_VERSION,
+        {
+            "task": READER_PRESET_SYNTHESIS_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _reading_quick_check_prompt(context: ReadingQuickCheckContext) -> str:
+    """Section-boundary quick-check authoring prompt (reader producer)."""
+
+    return _json_prompt(
+        "learnloop reading quick check",
+        READING_QUICK_CHECK_PROMPT_VERSION,
+        {
+            "task": READING_QUICK_CHECK_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _rung_backfill_prompt(context: RungBackfillContext) -> str:
+    """Legacy-item rung classification prompt (depth backfill)."""
+
+    return _json_prompt(
+        "learnloop rung backfill",
+        RUNG_BACKFILL_PROMPT_VERSION,
+        {
+            "task": RUNG_BACKFILL_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _depth_edge_instance_prompt(context: DepthEdgeInstanceContext) -> str:
+    """Depth-edge-instance authoring prompt (spec v2 depth-milestone graph)."""
+
+    return _json_prompt(
+        "learnloop depth edge instances",
+        DEPTH_EDGE_INSTANCE_PROMPT_VERSION,
+        {
+            "task": DEPTH_EDGE_INSTANCE_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
 def _source_unit_inventory_prompt(context: SourceUnitInventoryContext) -> str:
     """Role-aware unit inventory prompt (source-ingestion §7)."""
 
@@ -1250,6 +1515,19 @@ def _source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str:
         SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
         {
             "task": SOURCE_SET_SYNTHESIS_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _concept_graph_structuring_prompt(context: ConceptGraphContext) -> str:
+    """Post-merge concept graph-structuring prompt (source-ingestion §8.5)."""
+
+    return _json_prompt(
+        "learnloop concept graph structuring",
+        CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION,
+        {
+            "task": CONCEPT_GRAPH_STRUCTURING_PROMPT,
             "context": asdict(context),
         },
     )

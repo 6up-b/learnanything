@@ -43,6 +43,7 @@ class SidecarContext:
             self.repository,
             self.vault_root,
             lease_ttl_seconds=runner_config.lease_ttl_seconds,
+            heartbeat_interval_seconds=runner_config.heartbeat_interval_seconds,
             poll_interval_seconds=runner_config.poll_interval_seconds,
         )
         sync_vault_state(self.vault, self.repository)

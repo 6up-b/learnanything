@@ -4,6 +4,10 @@ import type {
   AnswerCalibrationReportDto,
   CreateVaultInput,
   CreateVaultResult,
+  LearnerProfileDto,
+  RungVariantRequestDto,
+  RungVariantRequestResultDto,
+  StartingLevel,
   AttemptResultDto,
   CliCommandResult,
   CommandError,
@@ -43,6 +47,8 @@ import type {
   StartIngestInput,
   IngestBatchDto,
   IngestBatchesSnapshot,
+  RetrySynthesisInput,
+  SynthesisCandidateSummary,
   StartImportBatchInput,
   SourceLibrarySnapshot,
   SourceOutline,
@@ -74,6 +80,10 @@ import type {
   TutorSaveNoteResult,
   PromotionIntent,
   PromoteTutorQuestionResult,
+  QuestionQueueSnapshot,
+  QuestionResolution,
+  ResolveQuestionEventResult,
+  RetirementReason,
   StartTeachBackInput,
   StartTeachBackResult,
   SubmitTeachBackTurnInput,
@@ -134,6 +144,63 @@ import type {
   KnowledgeMapPreviewDto,
   PreviewBlueprintReadinessInput,
   BlueprintReadinessPreviewDto,
+  BlueprintVersionDto,
+  ComposeDraftResult,
+  ExemplarPoolSnapshot,
+  ConfirmReceiptDto,
+  RunStateDto,
+  RunListDto,
+  RunAdvanceResultDto,
+  AssessOpenDto,
+  AssessResultDto,
+  BoundaryDiffDto,
+  RestoreDto,
+  DepthInvitationResultDto,
+  AcceptEdgeResultDto,
+  TriageResultDto,
+  TriageStatusDto,
+  LadderPolicyDto,
+  LadderStatusDto,
+  LadderAdvanceResultDto,
+  PoolDto,
+  PoolStatusDto,
+  PoolForRunDto,
+  PoolNextSurfaceDto,
+  ReaderPromptContractDto,
+  ReaderAskInput,
+  ReaderAnswerDto,
+  ReaderGuidePlanDto,
+  ReaderMarkProgressResultDto,
+  ReaderProgressListDto,
+  ReaderAuthorSectionQuestionDto,
+  ReaderAuthoredQuestionDto,
+  ReaderSourceSearchDto,
+  ReaderAnswerMode,
+  ReaderDisposition,
+  ReaderDispositionResultDto,
+  ReaderRenderViewDto,
+  ReaderPdfViewDto,
+  ReaderWatchPlanDto,
+  ReaderTranslateSelectionInput,
+  ReaderTranslationDto,
+  ReaderCaptureInput,
+  ReaderCaptureReceiptDto,
+  ReaderCreateAnnotationInput,
+  ReaderAnnotationResultDto,
+  ReaderBlockRegionDto,
+  ReaderInvokePresetInput,
+  ReaderPresetReceiptDto,
+  ReaderSetModeResultDto,
+  ReaderQuestionControlResultDto,
+  ReaderEnqueueRequestInput,
+  ReaderEnqueueRequestDto,
+  ReaderRequestRow,
+  ReaderAuthorQAInput,
+  ReaderAuthoredCardDto,
+  ReaderCoachLintDto,
+  ReaderMaintainInput,
+  ReaderArcDto,
+  ReaderRestorationDto,
 } from "./dto";
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -146,7 +213,17 @@ async function call<T>(command: string, args: Record<string, unknown> = {}): Pro
 
 function normalizeError(error: unknown): CommandError {
   if (error && typeof error === "object" && "code" in error && "message" in error) {
-    return error as CommandError;
+    const commandError = error as CommandError;
+    const validationErrors = (commandError.details as { errors?: Array<{ type?: string }> } | undefined)?.errors;
+    if (commandError.code === "validation_error" && validationErrors?.some((entry) => entry.type === "extra_forbidden")) {
+      return {
+        ...commandError,
+        code: "stale_sidecar_schema",
+        message: "The frontend is newer than the running LearnLoop sidecar. Restart the Tauri app to load the updated request schema.",
+        retryable: false
+      };
+    }
+    return commandError;
   }
   // Tauri rejects with "Command <name> not found" when the running Rust binary
   // predates a newly added #[tauri::command] (e.g. dev app not restarted after
@@ -169,6 +246,9 @@ export const api = {
   selectVault: (path?: string | null) => call<VaultSummary | null>("select_vault", { path }),
   loadVault: () => call<AppSnapshot>("load_vault"),
   createVault: (input: CreateVaultInput) => call<CreateVaultResult>("create_vault", { input }),
+  getLearnerProfile: () => call<LearnerProfileDto>("get_learner_profile"),
+  setLearnerProfile: (input: { startingLevel: StartingLevel; levelNote?: string | null }) =>
+    call<LearnerProfileDto>("set_learner_profile", { input }),
   reloadVault: () => call<AppSnapshot>("reload_vault"),
   getRuntimeHealth: () => call<RuntimeHealth>("get_runtime_health"),
   startSession: (input: SessionStartInput) => call<SessionSnapshot>("start_session", { input }),
@@ -231,6 +311,10 @@ export const api = {
   listIngestBatches: (limit = 30) => call<IngestBatchesSnapshot>("list_ingest_batches", { input: { limit } }),
   cancelIngestBatch: (batchId: string) => call<IngestBatchDto>("cancel_ingest_batch", { batchId }),
   resumeIngestBatch: (batchId: string) => call<IngestBatchDto>("resume_ingest_batch", { batchId }),
+  retrySynthesis: (input: RetrySynthesisInput) =>
+    call<IngestBatchDto>("retry_synthesis", { input }),
+  getSynthesisCandidate: (batchId: string) =>
+    call<SynthesisCandidateSummary>("get_synthesis_candidate", { batchId }),
   getSourceLibrary: () => call<SourceLibrarySnapshot>("get_source_library"),
   getSourceOutline: (extractionRef: string) =>
     call<SourceOutline>("get_source_outline", { extractionRef }),
@@ -388,6 +472,24 @@ export const api = {
     call<TutorTranscriptSnapshot>("get_tutor_transcript", { input }),
   promoteTutorQuestion: (eventId: string, intent: PromotionIntent) =>
     call<PromoteTutorQuestionResult>("promote_tutor_question", { input: { eventId, intent } }),
+  listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
+    call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
+  authorPracticeItem: (input: { learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>
+    call<{ practiceItemId: string }>("author_practice_item", { input }),
+  // Learner-initiated re-runging: request an easier/harder sibling variant of
+  // an item. Records the evidence package synchronously, authors async.
+  requestRungVariant: (input: { practiceItemId: string; direction: "easier" | "harder"; sessionId?: string | null }) =>
+    call<RungVariantRequestResultDto>("request_rung_variant", { input }),
+  getRungVariantStatus: (input: { requestId: string }) =>
+    call<{ request: RungVariantRequestDto }>("get_rung_variant_status", { input }),
+  editPracticeItem: (input: { practiceItemId: string; prompt?: string; expectedAnswer?: string; hints?: string[]; reason?: string }) =>
+    call<{ practiceItemId: string; changed: string[] }>("edit_practice_item", { input }),
+  retirePracticeItem: (input: { practiceItemId: string; reason: RetirementReason; note?: string }) =>
+    call<{ practiceItemId: string; status: string }>("retire_practice_item", { input }),
+  splitPracticeItem: (input: { practiceItemId: string; parts: Array<{ prompt: string; expectedAnswer: string }>; reason?: string }) =>
+    call<{ practiceItemId: string; created: string[] }>("split_practice_item", { input }),
+  resolveQuestionEvent: (eventId: string, resolution: QuestionResolution) =>
+    call<ResolveQuestionEventResult>("resolve_question_event", { input: { eventId, resolution } }),
   startTeachBack: (input: StartTeachBackInput) =>
     call<StartTeachBackResult>("start_teach_back", { input }),
   submitTeachBackTurn: (input: SubmitTeachBackTurnInput) =>
@@ -453,5 +555,242 @@ export const api = {
   getForecastTrackRecord: (goalId?: string | null) =>
     call<ForecastTrackRecordDto>("get_forecast_track_record", { input: { goalId: goalId ?? null } }),
   getAnswerCalibration: () =>
-    call<AnswerCalibrationReportDto>("get_answer_calibration")
+    call<AnswerCalibrationReportDto>("get_answer_calibration"),
+
+  // ── P2 narrow golden path (spec_p2 §9; spec_tauri_ui §3) ───────────────────
+  // Each command forwards `input` to a dotted sidecar method (see commands.rs).
+  // blueprint.*
+  blueprintRegister: (input: { blueprintSlug: string; spec: Record<string, unknown>; authoringVersion?: string }) =>
+    call<BlueprintVersionDto>("blueprint_register", { input }),
+  blueprintReview: (blueprintVersionId: string, checks?: Record<string, unknown> | null) =>
+    call<BlueprintVersionDto>("blueprint_review", { input: { blueprintVersionId, checks: checks ?? null } }),
+  blueprintGetVersion: (blueprintVersionId: string) =>
+    call<BlueprintVersionDto>("blueprint_get_version", { input: { blueprintVersionId } }),
+  blueprintDiscoverCandidates: (learningObjectId?: string | null) =>
+    call<ExemplarPoolSnapshot>("blueprint_discover_candidates", { input: { learningObjectId: learningObjectId ?? null } }),
+  blueprintComposeDraft: (input: { learningObjectId: string; anchorItemIds: string[]; heldOutItemId: string; title?: string }) =>
+    call<ComposeDraftResult>("blueprint_compose_draft", { input }),
+  // golden_path.* spine
+  goldenPathConfirm: (input: {
+    goalId: string;
+    blueprintVersionId: string;
+    contractBody: Record<string, unknown>;
+    depthPreset: string;
+    sourceRev: string;
+    unitId: string;
+    action?: string;
+    assessmentSurfaceId?: string | null;
+    assessmentPracticeItemId?: string | null;
+  }) => call<ConfirmReceiptDto>("golden_path_confirm", { input }),
+  goldenPathRunStatus: (runId: string) =>
+    call<RunStateDto>("golden_path_run_status", { input: { runId } }),
+  goldenPathListRuns: () => call<RunListDto>("golden_path_list_runs", { input: {} }),
+  goldenPathAdvance: (input: {
+    runId: string;
+    toState: string;
+    reason: string;
+    idempotencyKey: string;
+    expectedHeadEventId?: string | null;
+    successorMilestone?: string | null;
+  }) => call<RunAdvanceResultDto>("golden_path_advance", { input }),
+  // golden_path.* assessment + restoration + milestone
+  goldenPathAssessOpen: (runId: string) =>
+    call<AssessOpenDto>("golden_path_assess_open", { input: { runId } }),
+  goldenPathAssessSubmit: (input: {
+    runId: string;
+    administrationId: string;
+    surfaceId: string;
+    rubricScore: number;
+    maxPoints: number;
+    attemptId: string;
+    responseText?: string | null;
+    graderConfidence?: number | null;
+    hasFatal?: boolean;
+    revealFeedback?: boolean;
+  }) => call<AssessResultDto>("golden_path_assess_submit", { input }),
+  goldenPathAssessResult: (runId: string) =>
+    call<AssessResultDto>("golden_path_assess_result", { input: { runId } }),
+  goldenPathRestore: (runId: string) =>
+    call<RestoreDto>("golden_path_restore", { input: { runId } }),
+  goldenPathBoundaryDiff: (runId: string) =>
+    call<BoundaryDiffDto>("golden_path_boundary_diff", { input: { runId } }),
+  goldenPathDepthInvitation: (runId: string) =>
+    call<DepthInvitationResultDto>("golden_path_depth_invitation", { input: { runId } }),
+  goldenPathAcceptEdge: (runId: string) =>
+    call<AcceptEdgeResultDto>("golden_path_accept_edge", { input: { runId } }),
+  goldenPathDeclineEdge: (runId: string, reason?: string | null) =>
+    call<AcceptEdgeResultDto>("golden_path_decline_edge", { input: { runId, reason: reason ?? null } }),
+  // diagnostic.* (baseline + triage)
+  diagnosticBaselineEnter: (input: { runId: string; learningObjectId: string; packId: string; visibleCap?: number | null }) =>
+    call<Record<string, unknown>>("diagnostic_baseline_enter", { input }),
+  diagnosticBoundaryView: (runId: string) =>
+    call<BoundaryDiffDto>("diagnostic_boundary_view", { input: { runId } }),
+  diagnosticTriage: (input: { runId: string; attempt: Record<string, unknown>; routingPrior?: Record<string, unknown> | null }) =>
+    call<TriageResultDto>("diagnostic_triage", { input }),
+  diagnosticTriageStatus: (runId: string) =>
+    call<TriageStatusDto>("diagnostic_triage_status", { input: { runId } }),
+  diagnosticTriageDecide: (input: { runId: string; triageEventId: string; chosenReason: string; actor?: string }) =>
+    call<TriageResultDto>("diagnostic_triage_decide", { input }),
+  diagnosticTriageOverride: (input: { runId: string; triageEventId: string; chosenReason: string; actor?: string }) =>
+    call<TriageResultDto>("diagnostic_triage_override", { input }),
+  diagnosticPackList: (blueprintVersionId: string) =>
+    call<{ version: number; packs: unknown[] }>("diagnostic_pack_list", { input: { blueprintVersionId } }),
+  // ladder.* + practice_pool.*
+  ladderPolicy: (policySlug = "ladder_v1") =>
+    call<LadderPolicyDto>("ladder_policy", { input: { policySlug } }),
+  ladderStatus: (runId: string) => call<LadderStatusDto>("ladder_status", { input: { runId } }),
+  ladderEnter: (input: { runId: string; reason?: string | null; triage?: Record<string, unknown> | null; demonstratedCapability?: boolean }) =>
+    call<Record<string, unknown>>("ladder_enter", { input }),
+  ladderAdvance: (input: {
+    runId: string;
+    fromStage: string;
+    outcome: string;
+    surfaceId?: string | null;
+    scaffoldUse?: number | null;
+    eligible?: boolean;
+    idempotencyKey?: string | null;
+  }) => call<LadderAdvanceResultDto>("ladder_advance", { input }),
+  practicePoolStatus: (poolId: string) => call<PoolStatusDto>("practice_pool_status", { input: { poolId } }),
+  practicePoolNextSurface: (poolId: string, opts?: { warmthThreshold?: number; cadence?: number }) =>
+    call<PoolNextSurfaceDto>("practice_pool_next_surface", { input: { poolId, ...(opts ?? {}) } }),
+  practicePoolAdmitSurface: (input: { poolId: string; surfaceSlug: string; surfaceId?: string | null; checks?: Record<string, unknown> | null }) =>
+    call<PoolDto>("practice_pool_admit_surface", { input }),
+  practicePoolReview: (poolId: string, checks?: Record<string, unknown> | null) =>
+    call<PoolDto>("practice_pool_review", { input: { poolId, checks: checks ?? null } }),
+  // practice_pool.* run composition — discovery + seeding for the run workspace
+  practicePoolForRun: (runId: string) =>
+    call<PoolForRunDto>("practice_pool_for_run", { input: { runId } }),
+  practicePoolSeedForRun: (runId: string) =>
+    call<PoolForRunDto>("practice_pool_seed_for_run", { input: { runId } }),
+  practicePoolAdmitAnchor: (input: { runId: string; poolId: string; surfaceSlug: string }) =>
+    call<PoolForRunDto>("practice_pool_admit_anchor", { input }),
+  // reader.* (U-033)
+  readerPromptContract: () => call<ReaderPromptContractDto>("reader_prompt_contract", { input: {} }),
+  readerAsk: (input: ReaderAskInput) => call<ReaderAnswerDto>("reader_ask", { input }),
+  readerSetAnswerMode: (input: { extractionId: string; spanId: string; answerMode: ReaderAnswerMode }) =>
+    call<{ eventId: string; answerMode: ReaderAnswerMode }>("reader_set_answer_mode", { input }),
+  readerPresentQuestion: (input: { practiceItemId: string; readingPhase: string; goalId?: string | null; targetContractVersionId?: string | null }) =>
+    call<Record<string, unknown>>("reader_present_question", { input }),
+  readerSubmitQuestion: (input: { administrationId: string; response?: string | null; targetKey?: string | null; outcomeClass?: string }) =>
+    call<{ eventId: string }>("reader_submit_question", { input }),
+  readerWatchPlan: (sourceId: string) =>
+    call<ReaderWatchPlanDto>("reader_watch_plan", { input: { sourceId } }),
+  readerSkipQuestion: (administrationId: string) =>
+    call<{ eventId: string; signal: string }>("reader_skip_question", { input: { administrationId } }),
+  readerChooseDisposition: (input: {
+    disposition: ReaderDisposition;
+    subjectId: string;
+    subjectType?: string;
+    commitmentTarget?: Record<string, unknown> | null;
+    goalId?: string | null;
+    clientIdempotencyKey?: string | null;
+  }) => call<ReaderDispositionResultDto>("reader_choose_disposition", { input }),
+  readerRestoreSource: (input: { extractionId: string; spanId: string; coldSurfaceId?: string | null; coldAdministrationId?: string | null }) =>
+    call<Record<string, unknown>>("reader_restore_source", { input }),
+  readerRoutingPrior: (targetKey: string, coldObservationAt?: string | null) =>
+    call<Record<string, unknown>>("reader_routing_prior", { input: { targetKey, coldObservationAt: coldObservationAt ?? null } }),
+  // reader.* (P3 slice 1: render views, block health, annotations, capture/outbox)
+  readerRenderView: (input: { extractionId: string; revisionId?: string | null }) =>
+    call<ReaderRenderViewDto>("reader_render_view", { input }),
+  readerGuidePlan: (input: { extractionId: string }) =>
+    call<ReaderGuidePlanDto>("reader_guide_plan", { input }),
+  readerPdfView: (input: { extractionId: string }) =>
+    call<ReaderPdfViewDto>("reader_pdf_view", { input }),
+  // reader quick-check producer: enqueue authoring for a section; act on the result.
+  readerAuthorSectionQuestion: (input: { extractionId: string; sectionId: string }) =>
+    call<ReaderAuthorSectionQuestionDto>("reader_author_section_question", { input }),
+  readerAuthoredQuestionAction: (input: { questionId: string; action: "answered" | "dismissed"; response?: string | null }) =>
+    call<{ question: ReaderAuthoredQuestionDto }>("reader_authored_question_action", { input }),
+  readerEscalateAuthoredQuestion: (input: { questionId: string; learningObjectId: string }) =>
+    call<{ practiceItemId: string; question: ReaderAuthoredQuestionDto }>("reader_escalate_authored_question", { input }),
+  // durable reading progress (reader-first seeding): hydrate on load, write on
+  // reveal/complete; completion triggers progressive practice generation.
+  readerGetProgress: (input: { extractionId: string }) =>
+    call<ReaderProgressListDto>("reader_get_progress", { input }),
+  readerMarkSectionProgress: (input: {
+    extractionId: string;
+    sectionId: string;
+    spansSeen?: number;
+    spanCount?: number;
+    revealed?: boolean;
+    completed?: boolean;
+  }) => call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input }),
+  readerBlockHealth: (input: { extractionId: string; spanId: string }) =>
+    call<Record<string, unknown>>("reader_block_health", { input }),
+  readerBlockOriginalRegion: (input: { extractionId: string; spanId: string }) =>
+    call<ReaderBlockRegionDto>("reader_block_original_region", { input }),
+  readerTranslateSelection: (input: ReaderTranslateSelectionInput) =>
+    call<ReaderTranslationDto>("reader_translate_selection", { input }),
+  readerCapture: (input: ReaderCaptureInput) =>
+    call<ReaderCaptureReceiptDto>("reader_capture", { input }),
+  readerCreateAnnotation: (input: ReaderCreateAnnotationInput) =>
+    call<ReaderAnnotationResultDto>("reader_create_annotation", { input }),
+  readerEditAnnotation: (input: { annotationId: string; learnerText?: string | null; whatIThinkIsGoingOn?: string | null; annotationType?: string | null }) =>
+    call<ReaderAnnotationResultDto>("reader_edit_annotation", { input }),
+  readerDeleteIntentAnnotation: (input: { annotationId: string; reason?: string | null }) =>
+    call<{ eventId: string }>("reader_delete_intent_annotation", { input }),
+  readerReanchor: (input: { annotationId: string; newExtractionId: string }) =>
+    call<ReaderAnnotationResultDto>("reader_reanchor", { input }),
+  readerAnnotationHistory: (input: { annotationId: string }) =>
+    call<Record<string, unknown>>("reader_annotation_history", { input }),
+  readerSourceAnnotations: (input: { sourceId: string }) =>
+    call<{ annotations: unknown[] }>("reader_source_annotations", { input }),
+  readerOutboxStatus: (input: { clientIdempotencyKey: string }) =>
+    call<{ outbox: Record<string, unknown> | null }>("reader_outbox_status", { input }),
+  readerDrainOutbox: () =>
+    call<{ drained: string[]; failed: string[] }>("reader_drain_outbox", { input: {} }),
+  // reader.* (P3 slice 2: palette, demand-paged synthesis, source objects)
+  readerInvokePreset: (input: ReaderInvokePresetInput) =>
+    call<ReaderPresetReceiptDto>("reader_invoke_preset", { input }),
+  readerSetMode: (input: { mode: string; extractionId?: string | null; sessionId?: string | null }) =>
+    call<ReaderSetModeResultDto>("reader_set_mode", { input }),
+  readerQuestionControl: (input: { control: string; administrationId?: string | null; subjectId?: string | null; subjectType?: string }) =>
+    call<ReaderQuestionControlResultDto>("reader_question_control", { input }),
+  readerEnqueueRequest: (input: ReaderEnqueueRequestInput) =>
+    call<ReaderEnqueueRequestDto>("reader_enqueue_request", { input }),
+  readerRequestStatus: (requestId: string) =>
+    call<{ request: ReaderRequestRow | null }>("reader_request_status", { input: { requestId } }),
+  readerCancelRequest: (requestId: string) =>
+    call<{ request: ReaderRequestRow | null }>("reader_cancel_request", { input: { requestId } }),
+  readerRetryRequest: (requestId: string) =>
+    call<{ request: ReaderRequestRow | null }>("reader_retry_request", { input: { requestId } }),
+  readerSourceRequests: (sourceId: string) =>
+    call<{ requests: ReaderRequestRow[] }>("reader_source_requests", { input: { sourceId } }),
+  readerDrainRequests: () =>
+    call<{ completed: string[]; failed: string[]; partial: string[] }>("reader_drain_requests", { input: {} }),
+  readerSourceObjects: (sourceId: string) =>
+    call<{ sourceObjects: unknown[] }>("reader_source_objects", { input: { sourceId } }),
+  readerReviewSourceObject: (input: { sourceObjectId: string; status: string }) =>
+    call<Record<string, unknown>>("reader_review_source_object", { input }),
+  readerLinkRelation: (input: { sourceObjectId: string; relatedObjectId?: string | null; relationType?: string; learnerText?: string | null }) =>
+    call<Record<string, unknown>>("reader_link_relation", { input }),
+  readerProposalInbox: (input?: { status?: string; sourceObjectId?: string | null }) =>
+    call<{ proposals: unknown[] }>("reader_proposal_inbox", { input: input ?? {} }),
+  readerSearchSources: (input: { query: string; limit?: number }) =>
+    call<ReaderSourceSearchDto>("reader_search_sources", { input }),
+  readerManualAnchor: (input: { annotationId: string; extractionId: string; rawSelection: Record<string, unknown>; renderViewId?: string | null }) =>
+    call<{ annotationId: string; status: string }>("reader_manual_anchor", { input }),
+  readerAcceptProposal: (proposalId: string) =>
+    call<{ proposal: Record<string, unknown> }>("reader_accept_proposal", { input: { proposalId } }),
+  readerRejectProposal: (proposalId: string) =>
+    call<{ proposal: Record<string, unknown> }>("reader_reject_proposal", { input: { proposalId } }),
+  // reader.* (P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration)
+  readerAuthorQA: (input: ReaderAuthorQAInput) =>
+    call<ReaderAuthoredCardDto>("reader_author_qa", { input }),
+  readerCoachLint: (input: { question: string; answer: string; level?: string }) =>
+    call<ReaderCoachLintDto>("reader_coach_lint", { input }),
+  readerMaintain: (input: ReaderMaintainInput) =>
+    call<Record<string, unknown>>("reader_maintain", { input }),
+  readerArc: (input: { arcId?: string | null; commitmentId?: string | null; sourceId?: string | null }) =>
+    call<ReaderArcDto>("reader_arc", { input }),
+  readerSetDepthPolicy: (input: { arcId: string; policy: string }) =>
+    call<{ arcId: string; policy: string }>("reader_set_depth_policy", { input }),
+  readerPauseArc: (input: { arcId: string; reason?: string | null }) =>
+    call<{ arcId: string; paused: boolean }>("reader_pause_arc", { input }),
+  readerShrinkEnvelope: (input: { arcId: string; bounds: Record<string, unknown>; reviewedEdges?: unknown[] }) =>
+    call<{ arcId: string; shrunk: boolean }>("reader_shrink_envelope", { input }),
+  readerPrime: (input: { arcId: string; questionRef: string; section?: string | null; answer?: boolean; gaveUp?: boolean }) =>
+    call<Record<string, unknown>>("reader_prime", { input }),
+  readerRestore: (input: { sourceId: string; extractionId?: string | null; runId?: string | null; idempotencyKey?: string | null }) =>
+    call<ReaderRestorationDto>("reader_restore", { input })
 };

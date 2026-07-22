@@ -12,12 +12,18 @@ from learnloop.codex.prompts import PRACTICE_GENERATION_PROMPT_VERSION
 from learnloop.ai.client import AIProviderClient
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.services.depth_rungs import (
+    TASK_FEATURE_SCHEMA_SLUG,
+    RungTarget,
+    select_rung,
+    validate_item_against_rung,
+)
 from learnloop.services.followups import (
     current_same_facet_failure_streak,
     current_same_item_failure_streak,
 )
 from learnloop.services.facet_state_reader import facet_recall_states_for_lo
-from learnloop.services.mastery import display_mastery
+from learnloop.services.mastery import covering_learner_claim, display_mastery
 from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
 from learnloop.services.state_sync import sync_vault_state
@@ -39,9 +45,13 @@ class PracticeExpansionTarget:
     mastery_mean: float | None
     recommended_difficulty_band: tuple[float, float]
     existing_evidence_facets: list[str] = field(default_factory=list)
+    # Depth-rung target (services/depth_rungs): the waypoint in capability ×
+    # task-feature space new items must be authored AT. Difficulty (above) is
+    # calibrated WITHIN this rung, never by changing the rung.
+    rung: RungTarget | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "learning_object_id": self.learning_object_id,
             "title": self.title,
             "subjects": self.subjects,
@@ -54,6 +64,17 @@ class PracticeExpansionTarget:
             "recommended_difficulty_band": list(self.recommended_difficulty_band),
             "existing_evidence_facets": self.existing_evidence_facets,
         }
+        if self.rung is not None:
+            from learnloop.services.depth_rungs import rung_float_proxies
+
+            payload["waypoint_slug"] = self.rung.waypoint_slug
+            payload["capability"] = self.rung.capability
+            payload["target_task_features"] = dict(self.rung.task_features)
+            payload["rung_source"] = self.rung.source
+            payload["float_proxy_bands"] = {
+                proxy: list(band) for proxy, band in rung_float_proxies(self.rung).items()
+            }
+        return payload
 
 
 @dataclass(frozen=True)
@@ -80,6 +101,10 @@ class PracticeExpansionResult:
     # soft mismatches on other practice modes.
     mode_mix_violations: list[str] = field(default_factory=list)
     mode_mix_warnings: list[str] = field(default_factory=list)
+    # Rung-gate outcomes: hard_fail diagnostics per generated item (those rows
+    # were forced to review, never auto-applied); warnings are review-severity.
+    rung_violations: list[str] = field(default_factory=list)
+    rung_warnings: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +112,8 @@ class PracticeExpansionResult:
             "plan": self.plan.as_dict(),
             "mode_mix_violations": list(self.mode_mix_violations),
             "mode_mix_warnings": list(self.mode_mix_warnings),
+            "rung_violations": list(self.rung_violations),
+            "rung_warnings": list(self.rung_warnings),
         }
 
 
@@ -224,6 +251,22 @@ def build_practice_expansion_plan(
             requested = 1
         mastery = repository.mastery_state(learning_object.id)
         mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
+        # With no mastery state at all, the learner claim (if any) sets both the
+        # rung entry point and the ability the difficulty band inverts around. A
+        # claim-seeded mastery state already carries the claim in mastery_mean.
+        claimed_level: float | None = None
+        if mastery is None:
+            claim = covering_learner_claim(vault, repository, learning_object.id)
+            claimed_level = float(claim["claimed_level"]) if claim is not None else None
+        rung = select_rung(
+            vault,
+            repository,
+            learning_object_id=learning_object.id,
+            mastery_mean=mastery_mean,
+            evidence_count=(mastery.evidence_count if mastery is not None else 0),
+            claimed_level=claimed_level,
+        )
+        ability = mastery_mean if mastery_mean is not None else claimed_level
         targets.append(
             PracticeExpansionTarget(
                 learning_object_id=learning_object.id,
@@ -236,12 +279,13 @@ def build_practice_expansion_plan(
                 probe_attempts_target=(probe_state.probe_attempts_target if probe_state else 0),
                 mastery_mean=mastery_mean,
                 recommended_difficulty_band=_success_band_difficulty(
-                    _ability_logit(mastery_mean),
+                    _ability_logit(ability),
                     vault.config.practice_generation.practice_success_band,
                     discrimination=irt.discrimination_default,
                     difficulty_scale=irt.difficulty_prior_scale,
                 ),
                 existing_evidence_facets=facet_unions.get(learning_object.id, []),
+                rung=rung,
             )
         )
     if max_los is not None:
@@ -503,6 +547,7 @@ def generate_post_probe_practice_proposal(
     codex_revision: str | None = None,
     learning_object_ids: list[str] | None = None,
     mode_mix: dict[str, int] | None = None,
+    require_completed_probe: bool = True,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -517,9 +562,11 @@ def generate_post_probe_practice_proposal(
         focus_concepts=focus_concepts,
         learning_object_ids=learning_object_ids,
         mode_mix=mode_mix,
+        require_completed_probe=require_completed_probe,
     )
     if not plan.targets:
         raise PracticeExpansionError("No completed probe Learning Objects need more Practice Items.")
+    rung_gate = _RungGate(repository, plan)
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -533,6 +580,7 @@ def generate_post_probe_practice_proposal(
         focus_concepts=focus_concepts,
         focus_facets=focus_facets,
         codex_revision=codex_revision,
+        row_transform=rung_gate,
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -543,6 +591,8 @@ def generate_post_probe_practice_proposal(
         plan=plan,
         mode_mix_violations=violations,
         mode_mix_warnings=warnings,
+        rung_violations=rung_gate.violations,
+        rung_warnings=rung_gate.warnings,
     )
 
 
@@ -629,6 +679,7 @@ def generate_goal_practice_proposal(
     merged_instructions = (
         f"{goal_preamble} {extra_instructions}" if extra_instructions else goal_preamble
     )
+    rung_gate = _RungGate(repository, plan)
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -641,8 +692,14 @@ def generate_goal_practice_proposal(
         focus_concepts=list(goal.facet_scope.concepts) or None,
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
+        row_transform=rung_gate,
     )
-    return PracticeExpansionResult(patch_id=patch_id, plan=plan)
+    return PracticeExpansionResult(
+        patch_id=patch_id,
+        plan=plan,
+        rung_violations=rung_gate.violations,
+        rung_warnings=rung_gate.warnings,
+    )
 
 
 @dataclass(frozen=True)
@@ -731,6 +788,11 @@ def _cross_source_instructions(
         "when no existing facet covers the item.",
         "Calibrate difficulty to each target's recommended_difficulty_band (~70-85% expected success). "
         "For each target, create exactly requested_new_items Practice Items.",
+        "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
+        "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
+        "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
+        "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. Difficulty varies WITHIN "
+        "the waypoint - never change the waypoint to change difficulty.",
         f"Targets: {[target.as_dict() for target in plan.targets]}",
         f"CROSS_SOURCE_CONTEXT: {json.dumps(context_by_lo, sort_keys=True, separators=(",", ":"))}",
         f"BLUEPRINT_SHAPING: {json.dumps(shaping_by_lo, sort_keys=True, separators=(",", ":"))}",
@@ -834,6 +896,12 @@ def generate_cross_source_practice_proposal(
                 )
             )
 
+    rung_gate = _RungGate(repository, plan)
+
+    def _combined_gate(rows: list[dict[str, Any]]) -> None:
+        _leakage_gate(rows)
+        rung_gate(rows)
+
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -849,7 +917,7 @@ def generate_cross_source_practice_proposal(
         focus_facets=focus_facets,
         codex_revision=codex_revision,
         prompt_version=PRACTICE_GENERATION_PROMPT_VERSION,
-        row_transform=_leakage_gate,
+        row_transform=_combined_gate,
     )
     return CrossSourcePracticeResult(
         patch_id=patch_id,
@@ -897,6 +965,51 @@ def _validate_named_learning_objects(
             raise PracticeExpansionError(
                 f"Learning object {lo_id} has no completed probe phase; finish its probes before generating practice."
             )
+
+
+class _RungGate:
+    """Deterministic rung admission over persisted proposal rows (row_transform
+    seam): a generated item that overshoots or contradicts its target waypoint is
+    forced off the auto-apply route; the diagnostics surface on the result.
+    Fail-closed: an exception here aborts persistence, never silently admits."""
+
+    def __init__(self, repository: Repository, plan: PracticeExpansionPlan):
+        from learnloop.services.activity_patterns import ensure_capability_alias_registry
+
+        ensure_capability_alias_registry(repository)
+        self._repository = repository
+        self._rung_by_lo: dict[str, RungTarget] = {
+            target.learning_object_id: target.rung
+            for target in plan.targets
+            if target.rung is not None
+        }
+        self.violations: list[str] = []
+        self.warnings: list[str] = []
+
+    def __call__(self, rows: list[dict[str, Any]]) -> None:
+        for row in rows:
+            if row.get("item_type") != "practice_item" or row.get("operation") != "create":
+                continue
+            payload = row.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            rung = self._rung_by_lo.get(str(payload.get("learning_object_id") or ""))
+            if rung is None:
+                continue
+            diagnostics = validate_item_against_rung(self._repository, payload=payload, rung=rung)
+            hard = [d for d in diagnostics if d.severity == "hard_fail"]
+            soft = [d for d in diagnostics if d.severity != "hard_fail"]
+            ref = str(row.get("client_item_id") or payload.get("id") or "item")
+            self.violations.extend(f"{ref}: {d.message}" for d in hard)
+            self.warnings.extend(f"{ref}: {d.message}" for d in soft)
+            if hard:
+                row["_auto_apply"] = False
+                row["validation_status"] = "warning" if row.get("validation_status") == "valid" else row.get("validation_status")
+                errors = list(row.get("validation_errors") or [])
+                errors.extend(f"rung_target: {d.message}" for d in hard)
+                row["validation_errors"] = errors
+            if isinstance(payload.get("task_features"), dict):
+                payload["task_feature_schema"] = TASK_FEATURE_SCHEMA_SLUG
 
 
 def _mode_mix_compliance(
@@ -1010,6 +1123,8 @@ def _practice_expansion_instructions(
         "Avoid duplicating existing prompts in context; vary prompt surface and expected answer shape.",
         "Facet vocabulary: each target lists existing_evidence_facets, the facet ids already established for that Learning Object. When an item probes knowledge one of those facets names, reuse that exact facet id in evidence_facets/evidence_weights/criterion_facet_weights. Mint a new facet id only when the item probes knowledge no existing facet covers; never restate an existing facet under a new name.",
         "Calibrate each item's difficulty to its target's recommended_difficulty_band (~70-85% expected success - effortful but usually successful, the desirable-difficulty band), and set difficulty and difficulty_source='llm_estimate' accordingly. At most one item per target may be a harder transfer item above the band, and only when corrective feedback makes the challenge productive.",
+        "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). Author every item AT that waypoint: set the item's `capability` to the target capability exactly, and set every dimension in `task_features` to the target's value (a deterministic gate rejects items that overshoot the waypoint). Keep retrieval_demand/transfer_distance/scaffold_level inside the target's float_proxy_bands.",
+        "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty.",
         "For each target, create exactly requested_new_items Practice Items.",
         f"Targets: {[target.as_dict() for target in plan.targets]}",
     ]

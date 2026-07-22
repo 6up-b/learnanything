@@ -1,0 +1,101 @@
+schema_version: 1
+id: pi_an_experiment_is_drawing
+learning_object_id: lo_model_experiments_with_sample_spaces_and_events
+subjects:
+practice_mode: short_answer
+attempt_types_allowed: []
+evidence_facets:
+  - facet_the_sample_space_s_of_an_experiment_is_the_set_o
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: An experiment is drawing one card from a deck that may include jokers, 
+  but a proposed sample space S contains only the 52 standard cards. Explain 
+  what is wrong with S and how the issue relates to the definition of sample 
+  space.
+expected_answer: S is wrong because it omits an outcome that can actually occur.
+  A sample space must be the set of all possible outcomes, so the model must 
+  include jokers or redefine the experiment so jokers cannot be drawn.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.25
+scaffold_level: 0.45
+surface_family: sample_space_validity
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: card_deck_with_joker
+  representation: verbal scenario
+  solution_recipe_family: sample_space_validation
+  answer_structure: short explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_the_sample_space_s_of_an_experiment_is_the_set_o
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: cr_sample_space_all_outcomes
+      points: 1.0
+      description: States that a sample space must include all possible outcomes
+        of the experiment.
+      tier: core
+      targets:
+        - facet: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group: sample_space_modeling
+      recipe_ids:
+        - r_model_experiment
+    - id: cr_detect_omitted_outcome
+      points: 1.0
+      description: Identifies the joker as an actual possible outcome outside 
+        the proposed S and concludes the model is invalid.
+      tier: core
+      targets:
+        - facet: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - cr_sample_space_all_outcomes
+      correlation_group: sample_space_modeling
+      recipe_ids:
+        - r_model_experiment
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s82
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s48
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:10Z'
+updated_at: '2026-07-15T21:39:10Z'

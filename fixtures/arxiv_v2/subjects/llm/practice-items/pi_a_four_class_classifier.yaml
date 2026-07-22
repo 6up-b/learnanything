@@ -1,0 +1,133 @@
+schema_version: 1
+id: pi_a_four_class_classifier
+learning_object_id: lo_specify_and_interpret_a_multiclass_affine_softma
+subjects:
+practice_mode: constructed_response
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_class_i_with_two_inputs_the_affine_score_is_
+  - facet_softmax_normalizes_class_scores_into_probabiliti
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A four-class classifier receives two features x_1 and x_2. Write the 
+  indexed affine score for class i, determine the total number of slopes and 
+  biases, and explain whether applying softmax moves an argmax decision 
+  boundary.
+expected_answer: h_i=m_{i1}x_1+m_{i2}x_2+b_i. Four classes require eight slopes 
+  and four biases, for twelve parameters. Softmax changes scores to normalized 
+  probabilities but preserves score ordering and equality, so the argmax class 
+  and equal-score decision boundaries do not move.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.35
+scaffold_level: 0.25
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: abstract_multiclass_model
+evidence_fingerprint:
+  source_family: primary_textbook_city_classifier
+  shared_stimulus_id: four_class_two_feature_model
+  representation: indexed equations and prose
+  solution_recipe_family: specify_count_interpret
+  answer_structure: equation parameter count explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_class_i_with_two_inputs_the_affine_score_is_
+  - facet_softmax_normalizes_class_scores_into_probabiliti
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_multiclass_equation
+      points: 2.0
+      description: Writes an affine score containing both indexed slopes and one
+        bias.
+      tier: core
+      targets:
+        - facet: facet_for_class_i_with_two_inputs_the_affine_score_is_
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: multiclass_structure
+      recipe_ids:
+        - recipe_multiclass_model
+    - id: criterion_multiclass_count
+      points: 2.0
+      description: Correctly counts eight slopes, four biases, and twelve 
+        parameters total.
+      tier: core
+      targets:
+        - facet: facet_for_class_i_with_two_inputs_the_affine_score_is_
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - criterion_multiclass_equation
+      correlation_group: multiclass_structure
+      recipe_ids:
+        - recipe_multiclass_model
+    - id: criterion_softmax_boundary
+      points: 2.0
+      description: Explains boundary preservation using ordering or equality of 
+        class scores.
+      tier: transfer
+      targets:
+        - facet: facet_softmax_normalizes_class_scores_into_probabiliti
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion_multiclass_equation
+      correlation_group: softmax_interpretation
+      recipe_ids:
+        - recipe_multiclass_model
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s301
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s427
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:31Z'
+updated_at: '2026-07-21T18:14:44Z'

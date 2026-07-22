@@ -4,6 +4,11 @@ HTML/text files and YouTube captions get honest, geometry-free ExtractionRuns:
 HTML/textfile units come from headings, YouTube units from time ranges. This is
 additive — the existing markdown outputs keep working; the IR path is a parallel,
 non-destructive rendering of the same normalized content.
+
+``transcript_to_ir`` is the transcript-aware path for standalone caption files
+(WebVTT/SRT): per-turn blocks that keep speaker labels, and time-segmented units
+carrying ``time_range`` locators — the same legacy locator scheme the YouTube
+path uses, so span citation/resolution needs nothing new.
 """
 
 from __future__ import annotations
@@ -207,10 +212,14 @@ def captions_to_ir(
     *,
     title: str | None,
     extractor_name: str = "youtube",
-    extractor_version: str = "1",
+    extractor_version: str = "2",
 ) -> DocumentIR:
     """Build trivial IR from caption cues: one caption block per cue, one unit
-    covering the transcript's time range (no geometry)."""
+    covering the transcript's time range (no geometry).
+
+    Version history: "1" carried no per-cue timing; "2" stamps each block's
+    ``extractor_block_id`` with its cue's ``t=<start>-<end>`` locator so the
+    reader's watch mode can map playback time to caption spans."""
 
     blocks: list[DocumentBlock] = []
     for index, raw in enumerate(cues, start=1):
@@ -226,7 +235,7 @@ def captions_to_ir(
         blocks.append(
             DocumentBlock(
                 span_id=f"s{ordinal}",
-                extractor_block_id=None,
+                extractor_block_id=f"t={float(cue.get('start') or 0.0):.1f}-{float(cue.get('end') or 0.0):.1f}",
                 block_type="Caption",
                 role_hint="ordinary_prose",
                 page=None,
@@ -268,4 +277,136 @@ def captions_to_ir(
         extractor_version=extractor_version,
         blocks=blocks,
         units=[unit],
+    )
+
+
+# Transcript segmentation decision parameters: a new unit starts on a silence
+# gap or a speaker change, but only once the current segment carries enough
+# material to be a meaningful selection/inventory target on its own.
+_TRANSCRIPT_GAP_SECONDS = 8.0
+_TRANSCRIPT_MIN_SEGMENT_SECONDS = 120.0
+_TRANSCRIPT_MAX_SEGMENT_SECONDS = 480.0
+# Merge consecutive same-speaker cues into one block up to this many characters
+# so blocks read as turns/paragraphs, not caption fragments.
+_TRANSCRIPT_BLOCK_CHAR_CAP = 600
+
+
+def _format_clock(seconds: float) -> str:
+    total = int(round(seconds))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def transcript_to_ir(
+    cues: list[Any],
+    *,
+    title: str | None,
+    extractor_name: str = "transcript",
+    extractor_version: str = "1",
+) -> DocumentIR:
+    """Build IR from parsed transcript cues (``learnloop.ingest.transcripts``).
+
+    Blocks: consecutive cues from the same speaker merge into turn-sized Caption
+    blocks (speaker label kept as a ``Name: `` prefix). Units: time segments cut
+    on silence gaps / speaker changes, each with a ``time_range`` locator, so a
+    long recording yields selectable units rather than one opaque blob.
+    """
+
+    # ── merge cues into turn blocks ──
+    merged: list[dict[str, Any]] = []  # {start, end, speaker, text}
+    for raw in cues:
+        cue = raw if isinstance(raw, dict) else {
+            "start": getattr(raw, "start", 0.0),
+            "end": getattr(raw, "end", 0.0),
+            "text": getattr(raw, "text", ""),
+            "speaker": getattr(raw, "speaker", None),
+        }
+        text = str(cue.get("text") or "").strip()
+        if not text:
+            continue
+        start = float(cue.get("start") or 0.0)
+        end = float(cue.get("end") or 0.0)
+        speaker = cue.get("speaker") or None
+        last = merged[-1] if merged else None
+        if (
+            last is not None
+            and last["speaker"] == speaker
+            and start - last["end"] < _TRANSCRIPT_GAP_SECONDS
+            and len(last["text"]) + len(text) + 1 <= _TRANSCRIPT_BLOCK_CHAR_CAP
+        ):
+            last["text"] = f"{last['text']} {text}"
+            last["end"] = max(last["end"], end)
+        else:
+            merged.append({"start": start, "end": end, "speaker": speaker, "text": text})
+
+    # ── cut segments (units) on gap / speaker change, bounded by duration ──
+    segments: list[list[dict[str, Any]]] = []
+    for turn in merged:
+        current = segments[-1] if segments else None
+        if current is None:
+            segments.append([turn])
+            continue
+        seg_start = current[0]["start"]
+        seg_duration = turn["end"] - seg_start
+        gap = turn["start"] - current[-1]["end"]
+        speaker_changed = turn["speaker"] != current[-1]["speaker"]
+        long_enough = current[-1]["end"] - seg_start >= _TRANSCRIPT_MIN_SEGMENT_SECONDS
+        if (long_enough and (gap >= _TRANSCRIPT_GAP_SECONDS or speaker_changed)) or (
+            seg_duration >= _TRANSCRIPT_MAX_SEGMENT_SECONDS
+        ):
+            segments.append([turn])
+        else:
+            current.append(turn)
+
+    blocks: list[DocumentBlock] = []
+    units: list[DocumentUnit] = []
+    for seg_ordinal, segment in enumerate(segments, start=1):
+        seg_start = segment[0]["start"]
+        seg_end = max(turn["end"] for turn in segment)
+        seg_label = f"{_format_clock(seg_start)}–{_format_clock(seg_end)}"
+        speakers = {turn["speaker"] for turn in segment if turn["speaker"]}
+        if len(speakers) == 1:
+            seg_label = f"{seg_label} · {next(iter(speakers))}"
+        section_path = ["transcript", _slug(seg_label)]
+        seg_blocks: list[DocumentBlock] = []
+        for turn in segment:
+            text = f"{turn['speaker']}: {turn['text']}" if turn["speaker"] else turn["text"]
+            ordinal = len(blocks) + 1
+            block = DocumentBlock(
+                span_id=f"s{ordinal}",
+                extractor_block_id=f"t={turn['start']:.1f}-{turn['end']:.1f}",
+                block_type="Caption",
+                role_hint="ordinary_prose",
+                page=None,
+                bbox=None,
+                polygon=None,
+                section_path=list(section_path),
+                text=text,
+                content_hash=block_content_hash(text),
+                asset_ids=[],
+                ordinal=ordinal,
+            )
+            blocks.append(block)
+            seg_blocks.append(block)
+        units.append(
+            DocumentUnit(
+                unit_id=f"u{seg_ordinal}",
+                parent_unit_id=None,
+                label=seg_label,
+                ordinal=seg_ordinal,
+                locator={"scheme": "time_range", "start": seg_start, "end": seg_end},
+                semantic_hash=semantic_hash(seg_blocks),
+                span_ids=[block.span_id for block in seg_blocks],
+            )
+        )
+
+    return DocumentIR(
+        ir_schema_version=IR_SCHEMA_VERSION,
+        extractor=extractor_name,
+        extractor_version=extractor_version,
+        blocks=blocks,
+        units=units,
     )

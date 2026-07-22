@@ -1,0 +1,116 @@
+schema_version: 1
+id: pi_two_fair_dice_are_rolled
+learning_object_id: lo_build_counting_models_for_probability
+subjects:
+practice_mode: misconception_diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_when_the_intended_sample_space_model_distinguish
+  - facet_ordered_outcomes_distinguish_positions_or_time_o
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Two fair dice are rolled. Explain why a sum of 11 is more likely than a 
+  sum of 12, even though each seems to have one unordered way.
+expected_answer: Label the dice, for example A and B. Then there are 36 equally 
+  likely ordered pairs. Sum 11 has favorable outcomes (5,6) and (6,5), while sum
+  12 has only (6,6), so the probabilities are 2/36=1/18 and 1/36.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.35
+scaffold_level: 0.25
+surface_family: dice_probability_counting
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: leibniz_dice_sums
+  representation: ordered dice pairs
+  solution_recipe_family: label_distinguishable_objects
+  answer_structure: misconception correction with favorable counts
+misconception_consistent_answer:
+repair_targets:
+  - facet_when_the_intended_sample_space_model_distinguish
+  - facet_ordered_outcomes_distinguish_positions_or_time_o
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_dice_label
+      points: 1.0
+      description: Labels or otherwise distinguishes the two dice before 
+        counting.
+      tier: core
+      targets:
+        - facet: facet_when_the_intended_sample_space_model_distinguish
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - f_label_objects
+      correlation_group: dice_sums
+      recipe_ids:
+        - r_probability_counting_model
+    - id: crit_dice_ordered_pairs
+      points: 1.0
+      description: Counts ordered pairs and identifies 36 equally likely 
+        outcomes.
+      tier: core
+      targets:
+        - facet: facet_ordered_outcomes_distinguish_positions_or_time_o
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - f_ordered_vs_unordered
+      correlation_group: dice_sums
+      recipe_ids:
+        - r_probability_counting_model
+    - id: crit_dice_compare
+      points: 1.0
+      description: Identifies two favorable outcomes for sum 11 and one for sum 
+        12, then compares probabilities correctly.
+      tier: core
+      targets:
+        - facet: facet_when_the_intended_sample_space_model_distinguish
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - f_label_objects
+      correlation_group: dice_sums
+      recipe_ids:
+        - r_probability_counting_model
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s171
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s172
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:14Z'
+updated_at: '2026-07-15T21:39:14Z'

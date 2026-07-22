@@ -210,12 +210,66 @@ def record_exam_answer(
         },
         clock=clock,
     )
+    _dual_write_exam_grade(
+        vault,
+        repository,
+        item=item,
+        rubric=rubric,
+        max_points=max_points,
+        answer_md=answer_md,
+        resolved_grade=resolved_grade,
+        session_id=session_id,
+        clock=clock,
+    )
     return {
         "session_id": session_id,
         "practice_item_id": practice_item_id,
         "rubric_score": resolved_grade.rubric_score,
         "correctness": correctness,
     }
+
+
+def _dual_write_exam_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    item: Any,
+    rubric: Any,
+    max_points: int,
+    answer_md: str,
+    resolved_grade: ResolvedGrade,
+    session_id: str,
+    clock: Clock | None = None,
+) -> None:
+    """P0.2 dual-write for exam answers (§4.1, §7.2). Fail-safe (§7.3): appends a
+    raw grade event + interpretation on an assessment-purpose administration
+    alongside the legacy exam_answer summary; never raises into the legacy path."""
+
+    try:
+        from learnloop.services.grade_resolution import record_grade_dual_write
+
+        criterion_max = (
+            {c.id: c.points for c in rubric.criteria} if rubric is not None else None
+        )
+        record_grade_dual_write(
+            vault,
+            repository,
+            item=item,
+            purpose="assessment",
+            grading_source="codex",
+            attempt_id=f"exam::{session_id}::{item.id}",
+            response_text=answer_md,
+            rubric_score=resolved_grade.rubric_score,
+            max_points=max_points,
+            grader_confidence=resolved_grade.grader_confidence,
+            has_fatal=bool(resolved_grade.fatal_errors),
+            criterion_points=resolved_grade.criterion_points,
+            criterion_max=criterion_max,
+            domain=getattr(item, "learning_object_id", None),
+            clock=clock,
+        )
+    except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
+        pass
 
 
 # ----------------------------------------------------------------------

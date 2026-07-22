@@ -1,0 +1,147 @@
+schema_version: 1
+id: pi_compare_three_proposed_t
+learning_object_id: lo_diagnose_optimization_strategies_in_parameter_sp
+subjects:
+practice_mode: conceptual diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_because_model_parameters_interact_through_a_join
+  - facet_to_reduce_loss_by_gradient_descent_update_each_p
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Compare three proposed training strategies for a large neural model: optimizing
+  one parameter at a time to completion, enumerating all parameter combinations, and
+  repeatedly updating all parameters using a backpropagated gradient. Diagnose the
+  first two strategies and explain what information makes the third more suitable.'
+expected_answer: Independent optimization ignores parameter interactions in the 
+  joint loss; exhaustive enumeration is infeasible in a continuous 
+  high-dimensional space; a full gradient provides coordinated local loss-change
+  information for all parameters and supports scaled updates opposite the 
+  gradient.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.55
+scaffold_level: 0.15
+capability: method_selection
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: optimization_diagnosis
+evidence_fingerprint:
+  source_family: optimization_strategy_comparison
+  shared_stimulus_id: three_training_proposals
+  representation: natural-language proposals
+  solution_recipe_family: joint_loss_and_gradient_diagnosis
+  answer_structure: two failure diagnoses and one justified method selection
+misconception_consistent_answer:
+repair_targets:
+  - facet_because_model_parameters_interact_through_a_join
+  - facet_to_reduce_loss_by_gradient_descent_update_each_p
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_diagnose_independent
+      points: 2.0
+      description: Explains that parameter interactions invalidate independent 
+        one-at-a-time optimization as a general training strategy.
+      tier: core
+      targets:
+        - facet: facet_because_model_parameters_interact_through_a_join
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_loss_landscape_coordination
+      correlation_group: strategy
+      recipe_ids:
+        - recipe_loss_landscape
+    - id: criterion_diagnose_exhaustive
+      points: 2.0
+      description: Explains the combinatorial or continuous high-dimensional 
+        infeasibility of exhaustive parameter search.
+      tier: core
+      targets:
+        - facet: facet_because_model_parameters_interact_through_a_join
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_loss_landscape_coordination
+      correlation_group: strategy
+      recipe_ids:
+        - recipe_loss_landscape
+    - id: criterion_diagnose_gradient
+      points: 2.0
+      description: Connects the full gradient to coordinated, local, 
+        loss-reducing parameter updates without claiming a global guarantee.
+      tier: transfer
+      targets:
+        - facet: facet_to_reduce_loss_by_gradient_descent_update_each_p
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_gradient_descent_update
+      correlation_group: strategy
+      recipe_ids:
+        - recipe_loss_landscape
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s134
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s249
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s255
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:28Z'
+updated_at: '2026-07-21T18:14:50Z'

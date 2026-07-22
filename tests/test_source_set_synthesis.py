@@ -31,7 +31,11 @@ from learnloop.codex.schemas import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.services.patches import PatchApplicationError, apply_accepted_items
-from learnloop.services.source_set_synthesis import StudyMapError, create_study_map
+from learnloop.services.source_set_synthesis import (
+    StudyMapError,
+    _namespace_synthesis_shard,
+    create_study_map,
+)
 from learnloop.services.source_unit_inventory import run_unit_inventory
 from learnloop.services.source_unit_selection import save_unit_selection
 from learnloop.vault.loader import add_subject, init_vault, load_vault
@@ -43,6 +47,54 @@ from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persi
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
 
 _EXAM_QUESTION_WORDING = "Prove that every symmetric matrix is orthogonally diagonalizable."
+
+
+def test_synthesis_capabilities_use_closed_vocabulary():
+    with pytest.raises(ValueError):
+        SynthCriterionTarget(capability="apply complement rule")
+    with pytest.raises(ValueError):
+        SynthRecipeComponent(capability="identify sample space")
+
+
+def test_synthesis_shards_namespace_declarations_and_references():
+    result = SourceSetSynthesis(
+        concepts=[SynthConcept(client_item_id="concept_shared")],
+        facets=[
+            SynthFacet(
+                client_item_id="facet_shared",
+                concept_client_id="concept_shared",
+            )
+        ],
+        learning_objects=[
+            SynthLearningObject(
+                client_item_id="lo_shared",
+                concept_client_id="concept_shared",
+                prerequisite_concept_client_ids=["concept_shared"],
+            )
+        ],
+        practice_items=[
+            SynthPracticeItem(
+                client_item_id="pi_shared",
+                learning_object_client_id="lo_shared",
+                evidence_facet_client_ids=["facet_shared"],
+                depends_on_client_item_ids=["facet_shared"],
+            )
+        ],
+    )
+
+    namespaced = _namespace_synthesis_shard(result, 1)
+
+    assert namespaced.concepts[0].client_item_id == "shard_2__concept_shared"
+    assert namespaced.facets[0].concept_client_id == "shard_2__concept_shared"
+    assert namespaced.learning_objects[0].prerequisite_concept_client_ids == [
+        "shard_2__concept_shared"
+    ]
+    assert namespaced.practice_items[0].evidence_facet_client_ids == [
+        "shard_2__facet_shared"
+    ]
+    assert namespaced.practice_items[0].depends_on_client_item_ids == [
+        "shard_2__facet_shared"
+    ]
 
 
 def _first_semantic_span(context) -> tuple[str, str, str]:
@@ -436,3 +488,436 @@ def test_resolve_subject_id_prefers_source_set_over_vault(tmp_path):
         pass
     else:
         raise AssertionError("expected StudyMapError on subjectless vault without set subject")
+
+
+# --- robustness: shard checkpoints, consolidation, revalidation --------------
+
+
+def _setup_two_chapters(tmp_path: Path):
+    """A textbook with TWO inventoried chapters so tiny shard budgets split the
+    synthesis into two independent shards."""
+
+    root = tmp_path / "vault"
+    init_vault(root, clock=_CLOCK)
+    add_subject(root, "linear-algebra", "Linear Algebra", clock=_CLOCK)
+    from learnloop.vault.paths import VaultPaths
+
+    set_algorithm_version(VaultPaths(root, load_vault(root).config), "mvp-0.7")
+    repo = Repository(root / "state.sqlite")
+
+    inv_client = FakeInventoryClient()
+    _register_revision(repo, source_id="src_text", revision_id="rev_text")
+    text_ir = _ir([
+        ("chapter_symmetry", "Symmetric matrices",
+         [_block("s1", "A real square matrix is symmetric when A^T = A."),
+          _block("s2", "The spectral theorem applies to real symmetric matrices.")],
+         "sha256:sym", 5),
+        ("chapter_spectral", "Spectral theorem",
+         [_block("s3", "Orthogonal diagonalization follows from the spectral theorem."),
+          _block("s4", "Symmetric matrices have real eigenvalues.")],
+         "sha256:spec", 6),
+    ])
+    _persist(repo, text_ir, revision_id="rev_text", extraction_id="ext_text")
+    for unit_id in ("chapter_symmetry", "chapter_spectral"):
+        run_unit_inventory(repo, "ext_text", unit_id, role="primary_textbook",
+                           profile="combined", client=inv_client, input_budget_tokens=20000, clock=_CLOCK)
+    upsert_source_set(root, {
+        "id": "set_la", "subject_id": "linear-algebra", "title": "Linear Algebra",
+        "members": [{
+            "source_id": "src_text", "revision_id": "rev_text", "default_role": "primary_textbook",
+            "scope": [{"unit_id": "chapter_symmetry"}, {"unit_id": "chapter_spectral"}], "priority": 1,
+        }],
+    }, clock=_CLOCK)
+    return root, repo
+
+
+def test_shard_checkpoints_survive_post_generation_failure(tmp_path):
+    """A failure AFTER the shards ran must not re-pay their model calls: the
+    retry reuses every checkpointed shard at zero calls."""
+
+    root, repo = _setup_two_chapters(tmp_path)
+    client = FakeSynthesisClient()
+
+    with pytest.raises(StudyMapError) as excinfo:
+        create_study_map(
+            root, "set_la", client=client, brief={"depth": "intro"},
+            repository=repo, clock=_CLOCK,
+            budget_overrides={"synthesis_shard_input_tokens": 1, "synthesis_output_tokens": 1},
+        )
+    assert excinfo.value.code == "budget_exceeded"
+    paid_calls = len(client.calls)
+    assert paid_calls == 2  # one per shard
+
+    result = create_study_map(
+        root, "set_la", client=client, brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK,
+        budget_overrides={"synthesis_shard_input_tokens": 1},
+    )
+    assert len(client.calls) == paid_calls  # zero new model calls
+    run = repo.synthesis_run(result.synthesis_run_id)
+    assert run["actual_usage"]["reused_shards"] == 2
+    assert run["actual_usage"]["shard_count"] == 2
+    assert run["actual_usage"]["calls"] == 0
+
+
+def test_synthesis_can_disable_local_token_ceilings(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+
+    result = create_study_map(
+        root,
+        "set_la",
+        client=FakeSynthesisClient(),
+        brief={"depth": "unlimited-budget"},
+        repository=repo,
+        clock=_CLOCK,
+        budget_overrides={
+            "synthesis_shard_input_tokens": 1,
+            "synthesis_shard_output_tokens": 1,
+            "synthesis_total_input_ceiling": 1,
+            "synthesis_output_tokens": 1,
+        },
+        unlimited_token_budget=True,
+    )
+
+    assert result.proposal_id is not None
+    run = repo.synthesis_run(result.synthesis_run_id)
+    manifest = repo.synthesis_manifest(run["manifest_id"])
+    assert manifest["token_budget"]["unlimited"] is True
+
+
+def test_cross_shard_same_title_concepts_consolidate_deterministically(tmp_path):
+    """Two shards re-declaring the identically-titled concept collapse into one
+    proposal row, with every shard-2 reference rewritten to the survivor."""
+
+    root, repo = _setup_two_chapters(tmp_path)
+    client = FakeSynthesisClient()
+    result = create_study_map(
+        root, "set_la", client=client, brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK,
+        budget_overrides={"synthesis_shard_input_tokens": 1},
+    )
+    # Both shards emitted "Symmetric matrix"; only one concept survives while
+    # both shards' facets/LOs/practice items are kept and still resolve.
+    assert result.item_counts["concept"] == 1
+    assert result.item_counts["facet"] == 4
+    assert result.item_counts["learning_object"] == 2
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+
+
+def _distinct_title_builder(context, _n):
+    payload = _default_payload(context)
+    payload.concepts[0].title = f"Symmetric matrix (chapter {context.shard_ordinal + 1})"
+    return payload
+
+
+def test_graph_structuring_merges_near_duplicates_and_authors_relations(tmp_path):
+    """The structuring pass sees the whole span (concept list + source
+    skeletons) and both folds differently-titled duplicates and authors
+    part_of/prerequisite relations over the post-merge survivors."""
+
+    class StructuringClient(FakeSynthesisClient):
+        def __init__(self):
+            super().__init__(builder=_distinct_title_builder)
+            self.structuring_contexts = []
+
+        def run_concept_graph_structuring(self, context):
+            self.structuring_contexts.append(context)
+            from learnloop.codex.schemas import (
+                ConceptGraphStructuring,
+                ConceptMergeGroup,
+                ConceptRelation,
+            )
+
+            ids = [c["client_item_id"] for c in context.concepts]
+            return ConceptGraphStructuring(
+                merge_groups=[ConceptMergeGroup(canonical_client_id=ids[0], duplicate_client_ids=ids[1:])],
+                relations=[
+                    # References the merged-away duplicate: must be rewritten to
+                    # the canonical survivor and then dropped as a self-edge.
+                    ConceptRelation(source=ids[1], target=ids[0], relation_type="related"),
+                ],
+            )
+
+    root, repo = _setup_two_chapters(tmp_path)
+    client = StructuringClient()
+    result = create_study_map(
+        root, "set_la", client=client, brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK,
+        budget_overrides={"synthesis_shard_input_tokens": 1},
+    )
+    assert len(client.structuring_contexts) == 1
+    context = client.structuring_contexts[0]
+    # Whole-span context: outline skeletons from cached artifacts, per source.
+    assert context.source_skeletons
+    unit_labels = {unit["label"] for unit in context.source_skeletons[0]["units"]}
+    assert {"Symmetric matrices", "Spectral theorem"} <= unit_labels
+    assert result.item_counts["concept"] == 1
+    run = repo.synthesis_run(result.synthesis_run_id)
+    assert run["actual_usage"]["consolidated_concepts"] == 1
+    candidate = run["candidate_output"]
+    surviving = candidate["concepts"]
+    assert len(surviving) == 1
+    assert "Symmetric matrix (chapter 2)" in surviving[0]["aliases"]
+    # The related self-edge (after merge rewrite) was dropped, not persisted.
+    assert "concept_edge" not in result.item_counts
+
+
+def test_graph_structuring_relations_become_concept_edges(tmp_path):
+    """Authored relations compile into concept_edge proposal items and apply
+    into the vault's relations graph."""
+
+    class RelatingClient(FakeSynthesisClient):
+        def __init__(self):
+            super().__init__(builder=_distinct_title_builder)
+
+        def run_concept_graph_structuring(self, context):
+            from learnloop.codex.schemas import ConceptGraphStructuring, ConceptRelation
+
+            ids = [c["client_item_id"] for c in context.concepts]
+            return ConceptGraphStructuring(
+                relations=[
+                    ConceptRelation(source=ids[0], target=ids[1], relation_type="part_of",
+                                    rationale="chapter concept sits under the umbrella topic"),
+                    ConceptRelation(source=ids[0], target=ids[1], relation_type="prerequisite"),
+                    # Cycle attempt: must be dropped with a review diagnostic.
+                    ConceptRelation(source=ids[1], target=ids[0], relation_type="prerequisite"),
+                    # Unknown endpoint: dropped before normalization.
+                    ConceptRelation(source="ghost", target=ids[0], relation_type="related"),
+                ],
+            )
+
+    root, repo = _setup_two_chapters(tmp_path)
+    result = create_study_map(
+        root, "set_la", client=RelatingClient(), brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK, apply=True,
+        budget_overrides={"synthesis_shard_input_tokens": 1},
+    )
+    assert result.item_counts["concept"] == 2
+    assert result.item_counts["concept_edge"] == 2  # part_of + one prerequisite
+    assert any(
+        d.get("gate") == "concept_graph" and "cycle" in d.get("message", "")
+        for d in result.gate_diagnostics
+    )
+    vault = load_vault(root)
+    edge_types = sorted(edge.relation_type for edge in vault.edges)
+    assert edge_types == ["part_of", "prerequisite"]
+    assert all(edge.source != edge.target for edge in vault.edges)
+
+
+def test_invalid_structuring_nomination_is_a_noop(tmp_path):
+    """Unknown ids from the structuring pass never merge or error."""
+
+    class BogusClient(FakeSynthesisClient):
+        def __init__(self):
+            super().__init__(builder=_distinct_title_builder)
+
+        def run_concept_graph_structuring(self, context):
+            from learnloop.codex.schemas import ConceptGraphStructuring, ConceptMergeGroup
+
+            return ConceptGraphStructuring(merge_groups=[
+                ConceptMergeGroup(canonical_client_id="nope", duplicate_client_ids=["also_nope"]),
+            ])
+
+    root, repo = _setup_two_chapters(tmp_path)
+    result = create_study_map(
+        root, "set_la", client=BogusClient(), brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK,
+        budget_overrides={"synthesis_shard_input_tokens": 1},
+    )
+    assert result.item_counts["concept"] == 2
+
+
+def test_lo_prerequisites_derive_concept_edges_without_model_relations(tmp_path):
+    """Layer-1 floor: even with no authored relations, LO prerequisites and
+    confusables derive prerequisite/confusable_with concept edges."""
+
+    def builder(context, _n):
+        payload = _default_payload(context)
+        payload.concepts.append(
+            SynthConcept(client_item_id="c_ortho", id="concept_orthogonality", title="Orthogonality")
+        )
+        payload.learning_objects[0].prerequisite_concept_client_ids = ["c_ortho"]
+        payload.learning_objects[0].confusable_concept_client_ids = ["c_ortho"]
+        return payload
+
+    root, repo = _setup(tmp_path)
+    result = create_study_map(
+        root, "set_la", client=FakeSynthesisClient(builder=builder), brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK, apply=True,
+    )
+    assert result.item_counts["concept_edge"] == 2
+    vault = load_vault(root)
+    prereq = next(edge for edge in vault.edges if edge.relation_type == "prerequisite")
+    assert prereq.source == "concept_orthogonality"
+    assert prereq.target == "concept_symmetric_matrix"
+    confusable = next(edge for edge in vault.edges if edge.relation_type == "confusable_with")
+    assert {confusable.source, confusable.target} == {"concept_orthogonality", "concept_symmetric_matrix"}
+
+
+def test_revalidate_saved_candidate_completes_without_model(tmp_path, monkeypatch):
+    """A post-generation persistence failure preserves the candidate; a later
+    revalidation finishes gates + persistence + apply with zero model calls."""
+
+    from learnloop.services.source_set_synthesis import revalidate_synthesis_candidate
+
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient()
+
+    def explode(self, batch, rows):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(Repository, "persist_proposal_batch", explode)
+    with pytest.raises(RuntimeError, match="disk full"):
+        create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                         repository=repo, clock=_CLOCK)
+    monkeypatch.undo()
+    paid_calls = len(client.calls)
+
+    with repo.connection() as connection:
+        run_id = connection.execute(
+            "SELECT id FROM synthesis_runs ORDER BY created_at DESC, id DESC LIMIT 1"
+        ).fetchone()["id"]
+    assert repo.synthesis_run(run_id)["status"] == "failed"
+    assert repo.synthesis_run(run_id)["candidate_output"]
+
+    result = revalidate_synthesis_candidate(root, run_id, apply=True, repository=repo, clock=_CLOCK)
+
+    assert len(client.calls) == paid_calls  # zero model calls
+    assert result.applied is True
+    assert result.item_counts["facet"] == 2
+    run = repo.synthesis_run(run_id)
+    assert run["status"] == "completed"
+    assert run["proposal_id"] == result.proposal_id
+    assert run["actual_usage"]["revalidations"] == 1
+    applied = load_vault(root)
+    assert "facet_symmetry_definition" in applied.evidence_facets
+
+
+def test_revalidate_requires_a_preserved_candidate(tmp_path):
+    from learnloop.services.source_set_synthesis import revalidate_synthesis_candidate
+
+    root, repo = _setup(tmp_path)
+    with pytest.raises(StudyMapError) as excinfo:
+        revalidate_synthesis_candidate(root, "missing_run", repository=repo, clock=_CLOCK)
+    assert excinfo.value.code == "synthesis_run_not_found"
+
+
+def test_auto_repair_drops_criterion_id_dependencies(tmp_path):
+    """The arxiv_v2 failure class: a shard lists rubric criterion ids in item-level
+    depends_on_client_item_ids. The namespacer prefixes them (criterion ids stay
+    bare), the closure gate hard-fails on the dangling refs, and a repairing
+    revalidation finishes the run with zero model calls."""
+
+    from learnloop.services.source_set_synthesis import revalidate_synthesis_candidate
+
+    def builder(context, _n):
+        payload = _default_payload(context)
+        payload.practice_items[1].depends_on_client_item_ids = ["identifies_symmetry"]
+        return payload
+
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient(builder=builder)
+    with pytest.raises(StudyMapError) as excinfo:
+        create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                         repository=repo, clock=_CLOCK)
+    exc = excinfo.value
+    assert exc.code == "synthesis_gate_failed"
+    assert exc.candidate_preserved
+    assert any("dangling requirement" in d["message"] for d in exc.diagnostics)
+    run_id = exc.synthesis_run_id
+    paid_calls = len(client.calls)
+
+    # A plain revalidation re-runs the same gates over the same candidate: fails.
+    with pytest.raises(StudyMapError) as again:
+        revalidate_synthesis_candidate(root, run_id, repository=repo, clock=_CLOCK)
+    assert again.value.code == "synthesis_gate_failed"
+
+    result = revalidate_synthesis_candidate(
+        root, run_id, repair=True, apply=True, repository=repo, clock=_CLOCK
+    )
+    assert len(client.calls) == paid_calls  # zero model calls
+    assert result.applied is True
+    assert [op["op"] for op in result.candidate_repairs] == ["drop_dependency"]
+    assert result.candidate_repairs[0]["applied"] is True
+    assert result.candidate_repairs[0]["dep"].endswith("identifies_symmetry")
+    run = repo.synthesis_run(run_id)
+    assert run["status"] == "completed"
+    assert run["actual_usage"]["candidate_repairs"][0]["applied"] is True
+    # The stored candidate is untouched: the repair log is the audit trail.
+    assert run["candidate_output"]["practice_items"][1]["depends_on_client_item_ids"]
+
+
+def test_derive_candidate_repairs_only_targets_criterion_refs():
+    """Dangling deps that don't match an embedded criterion id are left for a
+    human or agent: no judgment calls are derived mechanically."""
+
+    from learnloop.services.source_set_synthesis import derive_candidate_repairs
+
+    candidate = {
+        "concepts": [{"client_item_id": "shard_1__c"}],
+        "practice_items": [
+            {
+                "client_item_id": "shard_1__p1",
+                "depends_on_client_item_ids": [
+                    "shard_1__crit_a", "shard_1__truly_missing", "shard_1__c",
+                ],
+                "criteria": [{"id": "crit_a"}],
+            }
+        ],
+    }
+    ops = derive_candidate_repairs(candidate)
+    assert [(op["op"], op["dep"]) for op in ops] == [("drop_dependency", "shard_1__crit_a")]
+
+
+def test_apply_candidate_repairs_vocabulary():
+    from learnloop.services.source_set_synthesis import apply_candidate_repairs
+
+    candidate = {
+        "concepts": [{"client_item_id": "c1"}],
+        "practice_items": [
+            {"client_item_id": "p1", "depends_on_client_item_ids": ["ghost", "c_old"], "criteria": []}
+        ],
+    }
+    repaired, log = apply_candidate_repairs(candidate, [
+        {"op": "drop_dependency", "item_client_id": "p1", "dep": "ghost"},
+        {"op": "remap_dependency", "item_client_id": "p1", "dep": "c_old", "to": "c1"},
+        {"op": "drop_dependency", "item_client_id": "p1", "dep": "not_there"},
+    ])
+    assert repaired["practice_items"][0]["depends_on_client_item_ids"] == ["c1"]
+    assert [entry["applied"] for entry in log] == [True, True, False]
+    # the input candidate is never mutated
+    assert candidate["practice_items"][0]["depends_on_client_item_ids"] == ["ghost", "c_old"]
+
+    with pytest.raises(StudyMapError) as excinfo:
+        apply_candidate_repairs(candidate, [{"op": "explode"}])
+    assert excinfo.value.code == "unknown_repair_op"
+    with pytest.raises(StudyMapError) as excinfo:
+        apply_candidate_repairs(
+            candidate,
+            [{"op": "remap_dependency", "item_client_id": "p1", "dep": "ghost", "to": "nope"}],
+        )
+    assert excinfo.value.code == "invalid_repair_target"
+
+
+def test_synthesis_progress_reports_shard_and_stage_messages(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+    events: list[tuple[str, str, int | None, int | None]] = []
+
+    def progress(stage, message, current, total):
+        events.append((stage, message, current, total))
+
+    create_study_map(
+        root, "set_la", client=FakeSynthesisClient(), brief={"depth": "intro"},
+        repository=repo, clock=_CLOCK, apply=True, progress=progress,
+        budget_overrides={"synthesis_shard_input_tokens": 1},
+    )
+    stages = [event[0] for event in events]
+    messages = [event[1] for event in events]
+    assert "Synthesizing shard 1 of 2" in messages
+    assert "Synthesizing shard 2 of 2" in messages
+    assert ("synthesis", "Synthesizing shard 2 of 2", 2, 2) in events
+    assert "Running quality gates" in messages
+    assert "Persisting the study-map proposal" in messages
+    assert "Applying the study map" in messages
+    assert stages.index("validation") > stages.index("synthesis")
+    assert stages.index("apply") > stages.index("persistence")

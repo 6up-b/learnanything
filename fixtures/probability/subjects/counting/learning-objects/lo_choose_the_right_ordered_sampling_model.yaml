@@ -1,0 +1,72 @@
+schema_version: 1
+id: lo_choose_the_right_ordered_sampling_model
+title: Choose the right ordered sampling model
+subjects:
+  - counting
+concept: concept_ordered_sampling
+knowledge_type: method_selection
+status: active
+contradicts:
+summary: Distinguish ordered from unordered outcomes and with-replacement from 
+  without-replacement sampling before selecting n^k, a falling product, or an 
+  adjusted count.
+prerequisites:
+  - concept_multiplication_rule
+confusables:
+  - concept_sampling_with_replacement
+  - concept_sampling_without_replacement
+blueprints:
+  - id: bp_01KXKVFA_6
+    weight: 0.2
+    recipes:
+      - id: r_order_replacement_select
+        composition: conjunctive
+        all_of:
+          - facet: facet_ordered_outcomes_distinguish_positions_or_time_o
+            capability: method_selection
+            modality: hard
+          - facet: facet_for_k_ordered_draws_from_n_objects_with_replacem
+            capability: method_selection
+            modality: path_specific
+          - facet: facet_for_k_ordered_choices_from_n_objects_without_rep
+            capability: method_selection
+            modality: path_specific
+        any_of: []
+        integration:
+          facet: facet_ordered_outcomes_distinguish_positions_or_time_o
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s144
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s145
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:59Z'
+updated_at: '2026-07-15T21:39:05Z'

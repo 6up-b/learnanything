@@ -1,0 +1,124 @@
+schema_version: 1
+id: pi_explain_how_the_followin
+learning_object_id: lo_build_a_monte_carlo_probability_estimator
+subjects:
+practice_mode: code_explanation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_sample_n_k_draws_k_distinct_values_from_1_throug
+  - facet_an_elementwise_logical_comparison_can_encode_eve
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Explain how the following structure estimates the probability of at least
+  one fixed-position match in a shuffled deck: r <- replicate(10^4, sum(sample(n)==(1:n)));
+  sum(r>=1)/10^4. Identify the random experiment, the position indicators, the per-run
+  count, the event test, and the final normalization.'
+expected_answer: sample(n) creates one random permutation. Comparing it 
+  elementwise with 1:n produces TRUE/FALSE indicators for fixed-position 
+  matches. sum counts matches in one run. replicate repeats the run 10,000 times
+  and stores the counts. r>=1 identifies runs with at least one match, and 
+  dividing their count by 10,000 gives the simulated relative frequency.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.3
+scaffold_level: 0.35
+surface_family: simulation_explanation
+evidence_fingerprint:
+  source_family: primary_textbook_matching_simulation
+  shared_stimulus_id: matching_replicate_expression
+  representation: nested R code, logical indicators, counts, and proportion
+  solution_recipe_family: decode_monte_carlo_estimator_inside_out
+  answer_structure: five-part code explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_sample_n_k_draws_k_distinct_values_from_1_throug
+  - facet_an_elementwise_logical_comparison_can_encode_eve
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_match_indicators
+      points: 2.0
+      description: Correctly interprets the elementwise comparison and logical 
+        sum as position indicators and a per-run match count.
+      tier: core
+      targets:
+        - facet: facet_an_elementwise_logical_comparison_can_encode_eve
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_sampling_modes
+        - facet_vectorized_event_indicators
+      correlation_group: matching_simulation
+      recipe_ids:
+        - recipe_monte_carlo_estimator
+    - id: criterion_repeated_relative_frequency
+      points: 3.0
+      description: Correctly explains repetition, the at-least-one event test, 
+        and division by the number of runs.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_monte_carlo_relative_frequency
+      correlation_group: matching_simulation
+      recipe_ids:
+        - recipe_monte_carlo_estimator
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s332
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s334
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s335
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:18Z'
+updated_at: '2026-07-21T00:54:18Z'

@@ -7,6 +7,7 @@ from learnloop.ai.routing import fallback_provider_for, provider_for_task
 from learnloop.ai.runtime import AIRuntimeReport, check_ai_runtime
 from learnloop.codex.client import CodexUnavailable, make_codex_client
 from learnloop.codex.runtime import check_codex_runtime
+from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop_sidecar.context import SidecarContext, available_grading_providers
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -64,6 +65,12 @@ def ready_teach_back_provider(vault) -> tuple[str, Any, Any | None]:
     return _ready_routed_provider(vault, "teach_back")
 
 
+def ready_canonical_ingest_provider(vault) -> tuple[str, Any, Any | None]:
+    """Resolve the medium-effort canonical-ingest/synthesis route."""
+
+    return _ready_routed_provider(vault, "canonical_ingest")
+
+
 def _ready_routed_provider(vault, task: str) -> tuple[str, Any, Any | None]:
     selection = provider_for_task(vault.config, task)
     provider_name = selection.provider_name
@@ -95,11 +102,19 @@ def client_for_provider(vault, provider_name: str):
 
 
 def grading_source_for_provider(provider_name: str) -> str:
-    return "codex" if provider_name == "codex" else "ai"
+    return (
+        "codex"
+        if provider_name in CODEX_PROVIDER_NAMES
+        else "ai"
+    )
 
 
 def provider_label(provider_name: str) -> str:
-    return "Codex" if provider_name == "codex" else f"AI provider {provider_name}"
+    return (
+        "Codex"
+        if provider_name in CODEX_PROVIDER_NAMES
+        else f"AI provider {provider_name}"
+    )
 
 
 def _codex_client(vault):

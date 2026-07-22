@@ -206,15 +206,19 @@ def _fresh_calibration_vault(root: Path):
     clock = FrozenClock(CALIBRATION_NOW)
     init_vault(root, clock=clock)
     # The severity examples this harness asserts against use the legacy
-    # (mvp-0.6) error vocabulary and bands; `learnloop init` now writes
-    # mvp-0.7, so pin the scaffold vault to the model being calibrated.
+    # (mvp-0.6) error vocabulary and bands; `learnloop init` now writes the P0.5
+    # default (mvp-0.8), so pin the scaffold vault to the model being calibrated
+    # regardless of whatever version the default template currently carries.
+    import re
+
     config_path = root / "learnloop.toml"
     config_text = config_path.read_text(encoding="utf-8")
     config_path.write_text(
-        config_text.replace(
-            f'algorithm_version = "{KM_ALGORITHM_VERSION}"',
+        re.sub(
+            r'algorithm_version = "[^"]+"',
             f'algorithm_version = "{LEGACY_ALGORITHM_VERSION}"',
-            1,
+            config_text,
+            count=1,
         ),
         encoding="utf-8",
     )

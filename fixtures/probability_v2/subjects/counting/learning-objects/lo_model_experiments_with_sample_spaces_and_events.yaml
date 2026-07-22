@@ -1,0 +1,46 @@
+schema_version: 1
+id: lo_model_experiments_with_sample_spaces_and_events
+title: Model experiments with sample spaces and events
+subjects:
+  - counting
+concept: concept_sample_spaces_and_events
+knowledge_type: conceptual and representational
+status: active
+contradicts:
+summary: Define a complete sample space, represent outcomes as elements, and 
+  represent event conditions as subsets.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY12MA
+    weight: 0.15
+    recipes:
+      - id: recipe_model_experiment
+        composition: conjunctive
+        all_of:
+          - facet: facet_the_sample_space_s_is_the_set_of_all_possible_ou
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s48
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:04Z'
+updated_at: '2026-07-21T00:54:08Z'

@@ -1,0 +1,53 @@
+schema_version: 1
+id: lo_compute_all_affine_softmax_loss_parameter_gradie
+title: Compute all affine softmax-loss parameter gradients
+subjects:
+  - llm
+concept: concept_softmax_classification_gradients
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Use the indexed gradient pattern to compute and audit one derivative 
+  per slope and bias.
+prerequisites:
+  - concept_affine_multiclass_classifier
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_24
+    weight: 0.22
+    recipes:
+      - id: recipe_softmax_gradients
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_the_displayed_affine_softmax_loss_model_comp
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_for_class_i_with_two_inputs_the_affine_score_is_
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_for_the_displayed_affine_softmax_loss_model_comp
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s303
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:50Z'
+updated_at: '2026-07-21T05:07:10Z'

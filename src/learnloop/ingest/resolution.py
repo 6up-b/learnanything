@@ -13,7 +13,7 @@ SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile"]
 _ARXIV_NEW = re.compile(r"^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$", re.IGNORECASE)
 _ARXIV_OLD = re.compile(r"^(arxiv:)?[a-z\-]+(\.[a-z]{2})?/\d{7}(v\d+)?$", re.IGNORECASE)
 _YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"}
-_TEXT_SUFFIXES = {".md", ".markdown", ".mdown", ".txt", ".text", ".rst"}
+_TEXT_SUFFIXES = {".md", ".markdown", ".mdown", ".txt", ".text", ".rst", ".vtt", ".srt"}
 
 
 @dataclass(frozen=True)
@@ -64,7 +64,7 @@ def resolve_source(source: str) -> ResolvedSource:
 
     raise UnsupportedSourceError(
         f"Could not classify source {source!r}. Pass a URL (web/arXiv/YouTube), "
-        "an arXiv id, or a local .pdf/.md/.txt file path."
+        "an arXiv id, or a local .pdf/.md/.txt/.vtt/.srt file path."
     )
 
 

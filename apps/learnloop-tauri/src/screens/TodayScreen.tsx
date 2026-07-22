@@ -21,6 +21,8 @@ import { GoalBanner } from "../components/GoalBanner";
 import { GoalWizard } from "../components/GoalWizard";
 import { GoalReviewCard, type ReviewReason } from "../components/GoalReviewCard";
 import { FacetEvidenceDrawer } from "../components/KnowledgeModel";
+import { QuestionQueuePanel } from "../components/QuestionQueue";
+import { WriteCardDialog } from "../components/WriteCardDialog";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
 
@@ -42,6 +44,8 @@ export function TodayScreen({
   onTakeExam,
   noGoalBannerDismissed = false,
   onDismissNoGoalBanner,
+  onGotoReader,
+  readerSeedingActive = false,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -56,6 +60,11 @@ export function TodayScreen({
   onTakeExam?: (goalId: string) => void;
   noGoalBannerDismissed?: boolean;
   onDismissNoGoalBanner?: () => void;
+  /** Jump to the Reader tab (items-off empty state: practice builds from reading). */
+  onGotoReader?: () => void;
+  /** True when the vault has a study map but zero practice items — the items-off
+   * bootstrap state where practice accrues from reading. */
+  readerSeedingActive?: boolean;
   onError: (message: string) => void;
 }) {
   const [queue, setQueue] = useState<QueueSnapshot | null>(null);
@@ -66,6 +75,7 @@ export function TodayScreen({
   const [ending, setEnding] = useState(false);
   const [goals, setGoals] = useState<GoalDto[] | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [writeCardOpen, setWriteCardOpen] = useState(false);
   const [evidenceFacetId, setEvidenceFacetId] = useState<string | null>(null);
   const [dismissedReview, setDismissedReview] = useState<Set<string>>(() => new Set());
   const queueRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot>; id: number } | null>(null);
@@ -218,6 +228,40 @@ export function TodayScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.sessionId]);
 
+  // Background-applied content (rung variants, reader-driven practice
+  // expansion, synthesis) lands via durable batches, not user actions on this
+  // screen. Poll the batch list — the RPC itself also triggers the sidecar's
+  // vault reload — and refetch the queue when a batch newly completes, so a
+  // freshly minted item pops into the queue without re-opening the screen.
+  const seenBatchStatusRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const { batches } = await api.listIngestBatches(8);
+        if (cancelled) return;
+        const previous = seenBatchStatusRef.current;
+        const next = new Map(batches.map((batch) => [batch.id, batch.status] as const));
+        if (previous !== null) {
+          const newlyCompleted = batches.some(
+            (batch) => batch.status === "completed" && previous.get(batch.id) !== "completed"
+          );
+          if (newlyCompleted) void refreshQueue({ force: true });
+        }
+        seenBatchStatusRef.current = next;
+      } catch {
+        /* transient poll failure — try again next tick */
+      }
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 7000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     onPaletteEntities?.({
       inspectIds: unique(items.flatMap((item) => [item.practiceItemId, item.learningObjectId])),
@@ -285,6 +329,9 @@ export function TodayScreen({
         event.preventDefault();
       } else if (event.key.toLowerCase() === "r") {
         void refreshQueue({ force: true });
+        event.preventDefault();
+      } else if (event.key.toLowerCase() === "w") {
+        setWriteCardOpen(true);
         event.preventDefault();
       }
     };
@@ -447,8 +494,37 @@ export function TodayScreen({
           ))}
 
           {queue && queue.totalItems === 0 ? (
-            <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>No scheduled items.</div>
+            readerSeedingActive ? (
+              <div style={{ padding: 30, fontSize: 13, lineHeight: 1.7 }}>
+                <div style={{ color: COLOR.text }}>Your study map is ready.</div>
+                <div style={{ color: COLOR.textDim, marginTop: 6 }}>
+                  Start reading — practice builds itself as you complete sections.
+                </div>
+                {onGotoReader ? (
+                  <button
+                    type="button"
+                    onClick={onGotoReader}
+                    style={{
+                      marginTop: 14,
+                      padding: "8px 16px",
+                      border: `1px solid ${COLOR.amber}`,
+                      background: "#241d12",
+                      color: COLOR.amber,
+                      fontFamily: FONT_MONO,
+                      fontSize: 12,
+                      cursor: "pointer"
+                    }}
+                  >
+                    open the reader →
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>No scheduled items.</div>
+            )
           ) : null}
+
+          <QuestionQueuePanel onError={onError} />
 
           <QueueRankingStrip algorithmVersion={algorithmVersion} />
         </div>
@@ -471,6 +547,7 @@ export function TodayScreen({
             visitId={visitIdRef.current}
             producerVersion={algorithmVersion}
             onPractice={() => focusedItem && onOpenPractice(focusedItem.practiceItemId)}
+            onWriteCard={() => setWriteCardOpen(true)}
             onInspect={onInspect}
             onOpenFacet={setEvidenceFacetId}
             onError={onError}
@@ -483,6 +560,7 @@ export function TodayScreen({
           { key: "j/k", label: "Move" },
           { key: "enter", label: "Practice" },
           { key: "1-9", label: "Quick open" },
+          { key: "w", label: "Write a card" },
           { key: "e", label: "End session" },
           { key: "r", label: "Refresh" }
         ]}
@@ -491,6 +569,15 @@ export function TodayScreen({
 
       {wizardOpen ? (
         <GoalWizard onClose={() => setWizardOpen(false)} onCreated={refreshAfterGoalChange} onError={onError} />
+      ) : null}
+
+      {writeCardOpen ? (
+        <WriteCardDialog
+          defaultLearningObjectId={focusedItem?.learningObjectId ?? null}
+          defaultLearningObjectTitle={focusedItem?.learningObjectTitle ?? null}
+          onClose={() => setWriteCardOpen(false)}
+          onCreated={() => void refreshQueue({ force: true })}
+        />
       ) : null}
 
       {evidenceFacetId ? (
@@ -901,6 +988,7 @@ function QueueDetail({
   visitId,
   producerVersion,
   onPractice,
+  onWriteCard,
   onInspect,
   onOpenFacet,
   onError
@@ -911,12 +999,30 @@ function QueueDetail({
   visitId: string | null;
   producerVersion: string;
   onPractice: () => void;
+  onWriteCard: () => void;
   onInspect: (id: string) => void;
   onOpenFacet: (facetId: string) => void;
   onError: (message: string) => void;
 }) {
   if (!item) {
-    return <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>no item selected</div>;
+    return (
+      <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13, display: "flex", flexDirection: "column", gap: 14 }}>
+        <span>no item selected</span>
+        <span
+          onClick={onWriteCard}
+          style={{
+            alignSelf: "flex-start",
+            padding: "6px 14px",
+            border: `1px solid ${COLOR.borderStrong}`,
+            color: COLOR.textDim,
+            fontSize: 12,
+            cursor: "pointer"
+          }}
+        >
+          write a card <Faint>w</Faint>
+        </span>
+      </div>
+    );
   }
   const components = detail?.scheduler?.components ?? item.components;
   const variance = detail?.mastery?.variance ?? item.masteryVariance ?? 0.1;
@@ -941,7 +1047,7 @@ function QueueDetail({
         {detail ? <MarkdownMath value={detail.prompt} /> : <Faint>loading…</Faint>}
       </div>
 
-      <div style={{ marginTop: 22 }}>
+      <div style={{ marginTop: 22, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <span
           onClick={onPractice}
           style={{
@@ -959,6 +1065,24 @@ function QueueDetail({
         >
           start practice
           <Faint style={{ color: COLOR.amber }}>↵</Faint>
+        </span>
+        <span
+          onClick={onWriteCard}
+          title="write your own card for this learning object — saved to your vault, no review step"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            border: `1px solid ${COLOR.borderStrong}`,
+            background: "transparent",
+            color: COLOR.textDim,
+            fontSize: 13,
+            cursor: "pointer"
+          }}
+        >
+          write a card
+          <Faint>w</Faint>
         </span>
       </div>
 

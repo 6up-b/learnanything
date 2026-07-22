@@ -32,6 +32,10 @@ class VaultPaths:
         return self.root / "profile" / "goals.yaml"
 
     @property
+    def learner_path(self) -> Path:
+        return self.root / "profile" / "learner.yaml"
+
+    @property
     def error_types_path(self) -> Path:
         return self.root / "errors" / "error_types.yaml"
 
@@ -84,11 +88,18 @@ class VaultPaths:
 
     def canonical_source_raw_path(self, asset_hash: str) -> Path:
         # content-addressed fetched bytes (shareable by mirrors)
-        return self.root / "canonical-sources" / "raw" / _sanitize_hash(asset_hash)
+        return canonical_source_raw_path(self.root, asset_hash)
 
     def source_extraction_cache_dir(self, extraction_id: str) -> Path:
         # derived IR/assets/cache data
         return self.root / ".learnloop" / "source-cache" / "extractions" / extraction_id
+
+
+def canonical_source_raw_path(root: Path, asset_hash: str) -> Path:
+    """Content-addressed originals store path; config-free so byte-store code
+    (which only ever needs the vault root) avoids loading LearnLoopConfig."""
+
+    return root / "canonical-sources" / "raw" / _sanitize_hash(asset_hash)
 
 
 def _sanitize_hash(asset_hash: str) -> str:

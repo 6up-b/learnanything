@@ -1,0 +1,32 @@
+{
+  "answerModes": [
+    "answer_directly",
+    "help_me_reason",
+    "ask_me_first"
+  ],
+  "citations": "reuse tutor_qa validated citations; uncited claims are stripped",
+  "context": "reader",
+  "defaultAnswerMode": "answer_directly",
+  "exposureOnCommit": "familiarity.propagate_tutor_exposure (warms revealed cues)",
+  "manifestIncludes": [
+    "the exact source span(s) in view (block-level span_view text + citation ids)",
+    "the learner question text",
+    "the goal-contract task invariants + required capabilities (read-only head)",
+    "prior reader exchanges on the same span only",
+    "the chosen answer mode for this ask"
+  ],
+  "manifestNeverIncludes": [
+    "the learner ability / posterior estimate",
+    "any assessment-reserved surface statement or rubric",
+    "any cold administration's in-flight response"
+  ],
+  "mayReveal": [
+    "state facts",
+    "complete a derivation",
+    "give a worked example",
+    "confirm or deny an interpretation"
+  ],
+  "notSocraticByDefault": true,
+  "readerEnabled": false,
+  "version": "p2-reader-v1"
+}

@@ -1,0 +1,167 @@
+schema_version: 1
+id: pi_for_a_k_class_affine_sof
+learning_object_id: lo_derive_affine_softmax_classifier_gradients
+subjects:
+practice_mode: symbolic derivation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_differentiable_stages_composed_in_sequence_m
+  - facet_for_softmax_probabilities_hat_y_followed_by_one_
+  - facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+  - facet_the_gradient_vector_contains_one_partial_derivat
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: For a K-class affine softmax classifier h_i=Σ_j m_{ij}x_j+b_i with a 
+  one-hot target, derive the gradients of cross-entropy with respect to every 
+  m_{ij} and b_i. Explicitly show the logit derivative and the affine local 
+  derivatives before assembling the gradient vector.
+expected_answer: The derivation states ∂L/∂h_i=hat_y_i-y_i, ∂h_i/∂m_{ij}=x_j, 
+  and ∂h_i/∂b_i=1, then applies the chain rule to obtain 
+  ∂L/∂m_{ij}=x_j(hat_y_i-y_i) and ∂L/∂b_i=hat_y_i-y_i for all parameters.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.6
+scaffold_level: 0.15
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: symbolic_gradient_derivation
+evidence_fingerprint:
+  source_family: symbolic_affine_classifier
+  shared_stimulus_id: general_k_class_model
+  representation: indexed symbolic equations
+  solution_recipe_family: chain_rule_softmax_cross_entropy
+  answer_structure: local derivatives, composed formulas, complete gradient
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_differentiable_stages_composed_in_sequence_m
+  - facet_for_softmax_probabilities_hat_y_followed_by_one_
+  - facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+  - facet_the_gradient_vector_contains_one_partial_derivat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_backprop_output
+      points: 3.0
+      description: States and correctly interprets the componentwise logit 
+        derivative hat_y-y, including the negative correct-class component when 
+        confidence is below one.
+      tier: core
+      targets:
+        - facet: facet_for_softmax_probabilities_hat_y_followed_by_one_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_softmax_cross_entropy_derivative
+      correlation_group: backprop
+      recipe_ids:
+        - recipe_backprop
+    - id: criterion_backprop_chain
+      points: 3.0
+      description: Uses the chain rule with the correct local affine 
+        derivatives.
+      tier: core
+      targets:
+        - facet: facet_for_differentiable_stages_composed_in_sequence_m
+          capability: procedure_execution
+          role: supporting
+        - facet: facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_chain_rule_composition
+        - facet_affine_parameter_gradients
+      correlation_group: backprop
+      recipe_ids:
+        - recipe_backprop
+    - id: criterion_backprop_complete
+      points: 2.0
+      description: Produces exactly one correctly indexed derivative for every 
+        trainable weight and bias.
+      tier: transfer
+      targets:
+        - facet: facet_the_gradient_vector_contains_one_partial_derivat
+          capability: coordination
+          role: primary
+      depends_on:
+        - facet_gradient_vector_definition
+      correlation_group: gradient_assembly
+      recipe_ids:
+        - recipe_backprop
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s213
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s237
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s243
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s245
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:26Z'
+updated_at: '2026-07-21T18:14:53Z'

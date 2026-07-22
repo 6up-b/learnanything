@@ -1,0 +1,82 @@
+schema_version: 1
+id: lo_derive_and_aggregate_backpropagation_gradients
+title: Derive and aggregate backpropagation gradients
+subjects:
+  - llm
+concept: concept_backpropagation
+knowledge_type: procedure and interpretation
+status: active
+contradicts:
+summary: Use local derivatives to compute parameter sensitivities, sum fan-out 
+  contributions, recurse through earlier layers, and distinguish per-example, 
+  full-batch, and mini-batch gradients.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_8
+    weight: 1.0
+    recipes:
+      - id: recipe_backprop_complete
+        composition: conjunctive
+        all_of:
+          - facet: facet_backpropagation_computes_the_partial_derivatives
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_to_differentiate_a_parameter_s_contribution_to_c
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_when_the_training_cost_is_an_average_of_per_exam
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_differentiate_a_parameter_s_contribution_to_c
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      path:
+      locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s50
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+      role: reference
+      source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+      path:
+      locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s125
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+      locator_scheme: block_span_v1
+      relation: alternate
+      revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+      role: reference
+      source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      path:
+      locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s121
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+      role: reference
+      source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+      span_hash:
+created_at: '2026-07-21T05:06:40Z'
+updated_at: '2026-07-21T05:06:59Z'

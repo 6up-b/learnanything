@@ -409,9 +409,11 @@ export function AskOverlay({
           {thread.map((entry, index) => (
             <div key={entry.eventId ?? `pending-${index}`} style={{ marginBottom: 16 }}>
               {!entry.opening ? (
-                <div style={{ color: COLOR.text, fontSize: 13 }}>
-                  <span style={{ color: COLOR.amber, fontWeight: 700 }}>❯ </span>
-                  {entry.questionMd}
+                <div style={{ color: COLOR.text, fontSize: 13, display: "flex", gap: 6 }}>
+                  <span style={{ color: COLOR.amber, fontWeight: 700 }}>❯</span>
+                  <div className="markdown" style={{ flex: 1, minWidth: 0 }}>
+                    <MarkdownMath value={entry.questionMd} />
+                  </div>
                 </div>
               ) : null}
               {entry.answerMd === null ? (

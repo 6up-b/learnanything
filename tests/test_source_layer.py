@@ -3,6 +3,7 @@ backfill (spec_source_ingestion_v2 §2, §13, §14 rows 1-5 + hash split + backf
 
 from __future__ import annotations
 
+import io
 from datetime import UTC, datetime
 
 import pytest
@@ -252,6 +253,16 @@ def test_missing_marker_degrades_explicitly(monkeypatch, tmp_path):
         extractor.extract(b"%PDF-1.4", ExtractionContext(revision_id="rev_1"))
 
 
+def test_marker_adapter_defaults_pdftext_to_one_worker():
+    options = marker_mod._marker_runtime_options({})
+    assert options["pdftext_workers"] == 1
+
+
+def test_marker_adapter_preserves_explicit_pdftext_worker_override():
+    options = marker_mod._marker_runtime_options({"pdftext_workers": 2})
+    assert options["pdftext_workers"] == 2
+
+
 def test_pypdf_fallback_produces_same_ir_contract():
     extractor = PyPdfDocumentExtractor()
     ir = extractor.extract(
@@ -264,6 +275,34 @@ def test_pypdf_fallback_produces_same_ir_contract():
     assert "Eigenvalues are scalars." in " ".join(b.text for b in ir.blocks)
     assert ir.units and ir.units[0].semantic_hash
     assert all(b.content_hash.startswith("sha256:") for b in ir.blocks)
+
+
+def test_pypdf_fallback_extracts_only_selected_original_pages():
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter()
+    for text in ("First page text.", "Only this page.", "Last page text."):
+        writer.add_page(PdfReader(io.BytesIO(_make_pdf_bytes([text]))).pages[0])
+    stream = io.BytesIO()
+    writer.write(stream)
+    extractor = PyPdfDocumentExtractor()
+    ir = extractor.extract(
+        stream.getvalue(),
+        ExtractionContext(revision_id="rev_1", page_selection=(1,)),
+    )
+    assert [block.page for block in ir.blocks] == [1]
+    assert "Only this page." in ir.blocks[0].text
+    assert ir.units[0].page_start == 1
+    assert ir.units[0].page_end == 1
+
+
+def test_pypdf_fallback_rejects_page_range_past_document_end():
+    extractor = PyPdfDocumentExtractor()
+    with pytest.raises(ValueError, match="exceeds the document's 1 pages"):
+        extractor.extract(
+            _make_pdf_bytes(["First page text."]),
+            ExtractionContext(revision_id="rev_1", page_selection=(1,)),
+        )
 
 
 def test_non_pdf_normalizers_emit_trivial_ir():

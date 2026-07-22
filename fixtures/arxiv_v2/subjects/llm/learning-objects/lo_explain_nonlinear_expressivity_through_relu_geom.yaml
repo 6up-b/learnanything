@@ -1,0 +1,66 @@
+schema_version: 1
+id: lo_explain_nonlinear_expressivity_through_relu_geom
+title: Explain nonlinear expressivity through ReLU geometry
+subjects:
+  - llm
+concept: concept_geometric_expressivity_of_relu_networks
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Contrast affine-layer collapse with the piecewise-linear surfaces 
+  formed when ReLU is inserted between layers.
+prerequisites:
+  - concept_affine_multiclass_classifier
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_26
+    weight: 0.22
+    recipes:
+      - id: recipe_relu_expressivity
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_composition_of_affine_layers_with_no_interveni
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_relu_clips_negative_affine_outputs_to_zero_and_p
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_relu_clips_negative_affine_outputs_to_zero_and_p
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s440
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s448
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:48Z'
+updated_at: '2026-07-21T05:07:09Z'

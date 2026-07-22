@@ -1,0 +1,80 @@
+schema_version: 1
+id: lo_diagnose_optimization_strategies_in_parameter_sp
+title: Diagnose optimization strategies in parameter space
+subjects:
+  - llm
+concept: concept_loss_landscape
+knowledge_type: conceptual diagnosis
+status: active
+contradicts:
+summary: Explain why interacting parameters and a high-dimensional search space 
+  rule out independent-coordinate and exhaustive-search training strategies.
+prerequisites:
+  - concept_gradient_vector
+  - concept_gradient_descent
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_22
+    weight: 0.75
+    recipes:
+      - id: recipe_loss_landscape
+        composition: conjunctive
+        all_of:
+          - facet: facet_because_model_parameters_interact_through_a_join
+            capability: method_selection
+            modality: hard
+          - facet: facet_to_reduce_loss_by_gradient_descent_update_each_p
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_because_model_parameters_interact_through_a_join
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s134
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s249
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s255
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:46Z'
+updated_at: '2026-07-21T05:07:06Z'

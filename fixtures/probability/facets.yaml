@@ -1,0 +1,2836 @@
+schema_version: 2
+facets:
+  - id: facet_when_solving_for_an_event_probability_compare_di
+    title:
+    aliases:
+      - solve by complement
+    description:
+    tags: []
+    concept_id: concept_complement_strategy
+    kind: procedure_contract
+    claim: When solving for an event probability, compare direct counting with 
+      counting the complement; use the complement when it is easier, applying De
+      Morgan's laws when they simplify unions or intersections.
+    preconditions:
+      - Complement probabilities are valid in the probability framework being 
+        used.
+      - The target event or its complement can be described or counted.
+    postconditions:
+      - The target probability is obtained either directly or by subtracting the
+        complement probability from 1.
+    applicability:
+      - Events whose complements have simpler descriptions or counts.
+      - Compound events involving unions or intersections.
+    positive_examples:
+      - Counting no occurrence rather than at least one occurrence when the 
+        complement is simpler.
+    negative_examples:
+      - Computing both event and complement unnecessarily when one count 
+        suffices.
+    non_goals:
+      - Does not replace the need to verify the assumptions of the probability 
+        model.
+    error_signatures:
+      - Ignoring an easier complement.
+      - Failing to use De Morgan's laws when complementing compound events.
+    instructional_repairs:
+      - Compare event and complement complexity before counting.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_67c801811976b254
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s99
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_under_the_naive_definition_p_naive_a_c_1_p_naive
+    title:
+    aliases:
+      - complement rule
+    description:
+    tags: []
+    concept_id: concept_complement_strategy
+    kind: proposition
+    claim: Under the naive definition, P_naive(A^c)=1−P_naive(A).
+    preconditions:
+      - A is an event in finite sample space S.
+      - Naive probability applies.
+    postconditions:
+      - The probability of a complement can be computed by subtracting the event
+        probability from 1.
+    applicability:
+      - Computing complements of events in finite equally likely models.
+    positive_examples:
+      - Using |A^c|=|S|-|A| to derive the complement probability.
+    negative_examples:
+      - Forgetting that the complement is relative to S.
+    non_goals:
+      - The cited derivation is under the naive definition, though the text 
+        notes the result later holds more generally.
+    error_signatures:
+      - Counting A and A^c as overlapping.
+      - Computing a complement relative to the wrong sample space.
+    instructional_repairs:
+      - Identify S, A, and A^c, then use |A^c|=|S|-|A| or 1−P_naive(A).
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_50973a2753b76f2c
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s97
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s98
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_events_a_and_b_the_complement_of_a_union_is_
+    title:
+    aliases:
+      - De Morgan identities
+    description:
+    tags: []
+    concept_id: concept_event_operations
+    kind: proposition
+    claim: For events A and B, the complement of a union is the intersection of 
+      complements, and the complement of an intersection is the union of 
+      complements.
+    preconditions:
+      - A and B are events in a common sample space S.
+    postconditions:
+      - Complements of compound events can be rewritten by complementing each 
+        component and switching union with intersection.
+    applicability:
+      - Simplifying event descriptions.
+      - Using complements to compute probabilities.
+    positive_examples:
+      - Rewriting (A union B)^c as A^c intersection B^c in card-event contexts.
+    negative_examples:
+      - Writing the complement of a union as the union of complements.
+    non_goals:
+      - Does not by itself compute probabilities.
+    error_signatures:
+      - Keeping the same operation when moving the complement inside.
+    instructional_repairs:
+      - Complement each component event and switch union to intersection or 
+        intersection to union.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_941fd4fd2675292a
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s58
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s79
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_equal_likelihood_must_be_justified_by_symmetry_o
+    title:
+    aliases:
+      - symmetry justification
+      - design-based equal likelihood
+    description:
+    tags: []
+    concept_id: concept_equal_likelihood_assumptions
+    kind: applicability_condition
+    claim: Equal likelihood must be justified by symmetry or by a randomizing 
+      design; ignorance or binary wording alone does not justify assigning 
+      probability 1/2.
+    preconditions:
+      - A probability problem has been modeled with outcomes and events.
+    postconditions:
+      - The naive definition is accepted or rejected based on whether equal 
+        likelihood is warranted.
+    applicability:
+      - Deciding whether naive probability can be used.
+      - Evaluating 50-50 claims.
+    positive_examples:
+      - A physically symmetric coin is commonly modeled as approximately equally
+        likely Heads or Tails.
+      - A simple random sample is designed so all size-n subsets are equally 
+        likely.
+    negative_examples:
+      - Saying an event has probability 1/2 merely because it either happens or 
+        does not happen.
+    non_goals:
+      - Does not claim real-world designs always succeed in producing equal 
+        likelihood.
+    error_signatures:
+      - Ignorance mistaken for equal likelihood.
+      - Treating any binary event as 50-50.
+    instructional_repairs:
+      - 'Ask what mechanism makes the outcomes equally likely: symmetry, randomization
+        design, or neither.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_42b7401d8c14e364
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s100
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s101
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s102
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+    title:
+    aliases:
+      - A subset of S
+    description:
+    tags: []
+    concept_id: concept_event
+    kind: definition
+    claim: An event A is a subset of the sample space S, and A occurs if the 
+      actual outcome is in A.
+    preconditions:
+      - A sample space S has been specified.
+      - The experiment has an actual outcome.
+    postconditions:
+      - Occurrence of A can be checked by membership of the actual outcome in A.
+    applicability:
+      - Translating probability statements into set language.
+    positive_examples:
+      - The event that the first coin flip is Heads is a subset of the coin-flip
+        sample space.
+      - The event H in a card draw consists of the hearts.
+    negative_examples:
+      - Treating an event as a single outcome when it may contain many outcomes.
+    non_goals:
+      - Does not require every event to be written only in symbolic set 
+        notation.
+    error_signatures:
+      - Identifying A with the actual outcome rather than with a subset of S.
+    instructional_repairs:
+      - Name S, identify A as a subset, then test whether the actual outcome is 
+        an element of A.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_b16da9a3e8e0710b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s48
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s63
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s83
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+    title:
+    aliases:
+      - or
+      - and
+      - not
+    description:
+    tags: []
+    concept_id: concept_event_operations
+    kind: interpretation
+    claim: For events A and B, A union B occurs iff at least one of A or B 
+      occurs, A intersection B occurs iff both occur, and A complement occurs 
+      iff A does not occur.
+    preconditions:
+      - A and B are events in a common sample space S.
+    postconditions:
+      - Set notation can be translated into English occurrence statements.
+    applicability:
+      - Interpreting compound event expressions.
+      - Building events from simpler events.
+    positive_examples:
+      - At least one Heads is represented by a union of per-flip events.
+      - All Heads is represented by an intersection of per-flip events.
+    negative_examples:
+      - Interpreting union as exclusive-or and excluding overlap.
+    non_goals:
+      - Does not assign numerical probabilities without an additional 
+        probability model.
+    error_signatures:
+      - Using intersection for 'at least one'.
+      - Dropping outcomes that lie in both events from a union.
+    instructional_repairs:
+      - Map 'or' and 'at least one' to union, 'and' and 'both' to intersection, 
+        and 'not' to complement.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_a1d95e17a86b1645
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s57
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s67
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s69
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_an_event_a_in_a_finite_sample_space_s_with_e
+    title:
+    aliases:
+      - P_naive(A)
+      - '|A|/|S|'
+    description:
+    tags: []
+    concept_id: concept_naive_probability
+    kind: definition
+    claim: For an event A in a finite sample space S with equally likely 
+      outcomes, the naive probability of A is |A| divided by |S|, the number of 
+      favorable outcomes divided by the total number of outcomes.
+    preconditions:
+      - A is an event in sample space S.
+      - S is finite.
+      - Outcomes in S are equally likely.
+    postconditions:
+      - P_naive(A) is computed as a ratio of cardinalities.
+    applicability:
+      - Finite equally likely sample spaces.
+      - Counting favorable outcomes.
+    positive_examples:
+      - Counting pebbles in a finite equal-mass Pebble World.
+      - Computing probabilities in symmetric coin or well-shuffled deck models 
+        when equal likelihood is justified.
+    negative_examples:
+      - Applying |A|/|S| in infinite sample spaces.
+      - Applying |A|/|S| when outcomes are not equally likely.
+    non_goals:
+      - Does not justify equal likelihood by itself.
+      - Does not cover the later general definition of probability.
+    error_signatures:
+      - Using the ratio after merely listing outcomes but without 
+        equal-likelihood justification.
+    instructional_repairs:
+      - Verify finiteness and equal likelihood, then count favorable and total 
+        outcomes.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_edb4f98698d7a4ff
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s87
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s89
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s100
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_represent_a_finite_sample_space_in_pebble_world_
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_pebble_world
+    kind: procedure_contract
+    claim: Represent a finite sample space in Pebble World by drawing each 
+      outcome as a pebble and each event as a set of pebbles; performing the 
+      experiment corresponds to selecting one pebble.
+    preconditions:
+      - The sample space is finite.
+    postconditions:
+      - Outcomes and events can be read visually as pebbles and regions or 
+        collections of pebbles.
+    applicability:
+      - Introductory finite sample-space reasoning.
+      - Visual interpretation of events, unions, intersections, and complements.
+    positive_examples:
+      - Figure-style models where A and B are spotlighted sets of pebbles.
+    negative_examples:
+      - Using Pebble World as a literal representation of infinite sample 
+        spaces.
+    non_goals:
+      - Does not imply all outcomes are equally likely unless equal mass is also
+        assumed.
+    error_signatures:
+      - Representing an event as one pebble rather than a set of pebbles.
+      - Using the visualization without checking the finite-sample-space 
+        condition.
+    instructional_repairs:
+      - State that S is finite, then map each outcome to one pebble and each 
+        event to a set of pebbles.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_9cfd0900712c9efc
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s51
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s52
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s53
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_probability_provides_a_principled_logical_framew
+    title:
+    aliases:
+      - logic of uncertainty
+    description:
+    tags: []
+    concept_id: concept_probability_as_a_framework_for_uncertainty
+    kind: definition
+    claim: Probability provides a principled logical framework for quantifying 
+      uncertainty and randomness, and for reasoning about variation, signal 
+      versus noise, and complex phenomena.
+    preconditions: []
+    postconditions:
+      - Uncertain or random phenomena can be modeled and reasoned about more 
+        systematically than by casual intuition alone.
+    applicability:
+      - Introductory motivation for probability and counting.
+      - Explaining why probability is useful across scientific, technical, 
+        medical, financial, and everyday domains.
+    positive_examples:
+      - Using probability as the foundation and language for statistics.
+      - Using probability in randomized algorithms, genetics, weather forecasts,
+        finance, and medical trials.
+    negative_examples:
+      - Treating vague everyday words such as luck or chance as sufficient 
+        mathematical reasoning.
+    non_goals:
+      - Does not supply a specific numerical probability rule by itself.
+    error_signatures:
+      - Using unvalidated intuition as decisive under uncertainty.
+    instructional_repairs:
+      - Frame the situation as a probabilistic model with explicit outcomes, 
+        events, and assumptions.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_7e1018a2555bbfb7
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s34
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s36
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s37
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_a_sample_space_can_be_finite_countably_infinite_
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_sample_space
+    kind: proposition
+    claim: A sample space can be finite, countably infinite, or uncountably 
+      infinite.
+    preconditions:
+      - Possible outcomes of an experiment are represented as a set.
+    postconditions:
+      - The modeling context is not restricted to finite sets, even though some 
+        visualizations and the naive definition are finite-only.
+    applicability:
+      - Classifying probability models by sample-space size.
+    positive_examples:
+      - A 52-card deck is finite.
+      - Ten coin flips form a finite sample space.
+    negative_examples:
+      - Assuming Pebble World implies every sample space is finite.
+    non_goals:
+      - Does not explain countable and uncountable sets in detail.
+    error_signatures:
+      - Applying finite-sample-space tools without checking finiteness.
+    instructional_repairs:
+      - First classify S as finite, countably infinite, or uncountably infinite 
+        before selecting a probability method.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_fe57f2b3835b5428
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s52
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+    title:
+    aliases:
+      - S
+    description:
+    tags: []
+    concept_id: concept_sample_space
+    kind: definition
+    claim: The sample space S of an experiment is the set of all possible 
+      outcomes of the experiment.
+    preconditions:
+      - An experiment has possible outcomes.
+    postconditions:
+      - Events can be defined as subsets of S.
+      - Any actual outcome of the modeled experiment should be an element of S.
+    applicability:
+      - Modeling probability experiments before assigning probabilities.
+    positive_examples:
+      - For ten coin flips, S can be all length-10 H/T strings.
+      - For drawing one standard card, S can be the 52 cards.
+    negative_examples:
+      - Using the 52-card sample space when a joker can actually be drawn.
+    non_goals:
+      - Does not by itself assign probabilities to outcomes.
+    error_signatures:
+      - An actual outcome falls outside S.
+      - The sample space omits plausible outcomes.
+    instructional_repairs:
+      - Revise S so that it includes all possible outcomes of the experiment.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_c17176898adb7b3f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s48
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s62
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s82
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_the_binomial_coefficient_binom_n_k_is_the_number
+    title:
+    aliases:
+      - n choose k
+    description:
+    tags: []
+    concept_id: concept_binomial_coefficient
+    kind: definition
+    claim: The binomial coefficient binom(n,k) is the number of k-element 
+      subsets of an n-element set; for k <= n it equals n(n-1)...(n-k+1)/k! = 
+      n!/((n-k)!k!), and for k > n it is 0.
+    preconditions:
+      - n and k are nonnegative integers.
+      - For the product and factorial formulas, k <= n.
+    postconditions:
+      - The unordered subset count is computed by the binomial coefficient.
+    applicability:
+      - Counting committees.
+      - Counting untitled officer selections.
+      - Counting pairs of people.
+    positive_examples:
+      - binom(4,2)=6.
+      - binom(100,2)=100·99/2=4950.
+      - Untitled three-officer selections are binom(n,3).
+    negative_examples:
+      - The factorial expression is not used with k>n because negative 
+        factorials are undefined.
+    non_goals:
+      - Does not count ordered role assignments unless adjusted from an ordered 
+        count.
+    error_signatures:
+      - Using the factorial formula when k>n.
+      - Computing large factorials mechanically instead of using cancellation or
+        the product expression.
+    instructional_repairs:
+      - Derive the numerator as ordered choices without replacement, then divide
+        by k! orderings per subset.
+      - Use the product expression for small k.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_d892f7b6a2abcf42
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s183
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s190
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s191
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_under_the_365_day_equally_likely_independent_bir
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_birthday_problem_complement_counting
+    kind: procedure_contract
+    claim: Under the 365-day equally likely independent birthday model, compute 
+      the probability of at least one shared birthday by counting no-match 
+      assignments with a falling product, dividing by 365^k, and subtracting 
+      from 1.
+    preconditions:
+      - There are k people.
+      - February 29 is excluded.
+      - Each person's birthday is equally likely among 365 days.
+      - Birthdays are independent under the model.
+      - For the falling-product no-match count as stated, k <= 365.
+    postconditions:
+      - P(at least one birthday match)=1-(365·364·...·(365-k+1))/365^k.
+    applicability:
+      - Birthday-problem probability calculations.
+      - Cases where direct counting of overlapping match configurations is 
+        difficult.
+    positive_examples:
+      - The first k for which the match probability exceeds 0.5 is 23.
+      - At k=57, the match probability exceeds 0.99.
+    negative_examples:
+      - The product ratio alone is P(no birthday match), not P(at least one 
+        birthday match).
+      - Directly listing match cases risks overlaps among pairs and groups.
+    non_goals:
+      - Does not model leap years or nonuniform birthday probabilities.
+      - Does not derive the non-equal birthday case.
+    error_signatures:
+      - Reporting the no-match ratio as the match probability.
+      - Trying to enumerate all possible matching configurations directly.
+      - Using 365^k as the favorable no-match count.
+    instructional_repairs:
+      - Name the complement event before counting.
+      - Count distinct birthdays as sampling without replacement.
+      - Subtract the no-match probability from 1 at the end.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_cbcd6f3bfb606bfa
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s155
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s156
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s159
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_when_the_intended_sample_space_model_distinguish
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_labeling_objects_for_counting
+    kind: procedure_contract
+    claim: When the intended sample-space model distinguishes individual objects
+      or sub-experiments, assign labels or identities before counting so 
+      physically similar objects are not mistakenly collapsed.
+    preconditions:
+      - Objects, people, dice, or sub-experiments may otherwise be treated as 
+        indistinguishable.
+      - The probability or counting model treats them as distinguishable.
+    postconditions:
+      - Outcomes are represented in a labeled space suitable for counting.
+    applicability:
+      - Dice sum probabilities with two fair dice.
+      - Sampling from a population of people or balls.
+      - Birthday-problem reasoning where people are assigned IDs.
+    positive_examples:
+      - Labeling two dice A and B gives 36 equally likely ordered pairs.
+      - For sum 11, (5,6) and (6,5) are distinct labeled-dice outcomes.
+    negative_examples:
+      - Treating two fair dice as indistinguishable leads to the false claim 
+        that sums 11 and 12 are equally likely.
+    non_goals:
+      - Does not claim labels physically change the objects.
+      - Does not justify naive probability unless equally likely outcomes are 
+        also checked.
+    error_signatures:
+      - Collapsing (5,6) and (6,5) in a labeled-dice model.
+      - Treating people or balls as an undifferentiated mass when individual 
+        identities matter.
+    instructional_repairs:
+      - Introduce labels such as die A and die B or person ID numbers.
+      - Represent each outcome with the labels before counting favorable cases.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_040b834de72625e2
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s167
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s171
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s172
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_if_an_outcome_is_formed_through_stages_with_a_fi
+    title:
+    aliases:
+      - basic counting principle
+    description:
+    tags: []
+    concept_id: concept_multiplication_rule
+    kind: procedure_contract
+    claim: If an outcome is formed through stages with a fixed number of 
+      available choices at each stage after prior choices are fixed, the total 
+      count is the product of the stage counts.
+    preconditions:
+      - The outcome can be specified through staged or component choices.
+      - Each relevant branch count is known and constant for the stage, or is 
+        correctly updated after earlier choices.
+    postconditions:
+      - The total number of outcomes is obtained by multiplying the stage 
+        counts.
+    applicability:
+      - Two-stage experiments such as cone type and flavor.
+      - Grid cell counts such as choosing row and column.
+      - Ordered race placements where later choices decrease after earlier 
+        placements are fixed.
+    positive_examples:
+      - An 8 by 8 chessboard has 8·8=64 squares.
+      - Choosing 2 cone types and 3 flavors gives 2·3=6 possibilities.
+      - First, second, and third race placements among 10 runners give 
+        10·9·8=720.
+    negative_examples:
+      - A crossword grid with unequal row counts does not admit direct 
+        multiplication by a single row count.
+      - A missing branch such as a forbidden cone-flavor combination requires 
+        casework rather than the original product.
+    non_goals:
+      - Does not require the chosen analysis order to match chronological order.
+      - Does not apply directly when branch counts vary without casework.
+    error_signatures:
+      - Adding stage counts instead of multiplying them.
+      - Applying a single row or branch count when rows or branches differ.
+      - Rejecting a valid counting order because it is not chronological.
+    instructional_repairs:
+      - Represent the outcome as a tuple of component choices.
+      - Check that each first-stage option has the same number of second-stage 
+        options, or update later counts after earlier fixed choices.
+      - Use a tree diagram to see equal branching.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_023667360bf2ac6a
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s109
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s128
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s136
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_ordered_outcomes_distinguish_positions_or_time_o
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_ordered_sampling
+    kind: interpretation
+    claim: Ordered outcomes distinguish positions or time order, while unordered
+      outcomes identify arrangements that differ only by ordering; the counting 
+      method must match the outcome representation.
+    preconditions:
+      - The problem specifies whether positions, roles, times, or labels make 
+        order meaningful.
+    postconditions:
+      - The selected counting method preserves or removes order consistently.
+    applicability:
+      - Race placements and titled officers are ordered.
+      - Committees, untitled officer sets, and unordered pairs are not ordered.
+      - Two dice can be modeled by ordered pairs when the dice are labeled.
+    positive_examples:
+      - Afternoon then evening cone choices are ordered pairs counted by 6^2.
+      - President, vice president, and treasurer selections are counted as 
+        n(n-1)(n-2).
+      - A two-person committee from four people has 6 unordered possibilities.
+    negative_examples:
+      - Treating (5,6) and (6,5) as the same outcome for two labeled fair dice 
+        undercounts sum 11.
+      - Counting untitled officers as titled role assignments overcounts by 3!.
+    non_goals:
+      - Does not assert that all physical orderings are equally likely without a
+        probability model.
+    error_signatures:
+      - Collapsing ordered outcomes when labels or roles distinguish them.
+      - Counting unordered selections with an ordered formula and forgetting to 
+        divide by the number of orderings.
+    instructional_repairs:
+      - Identify whether role labels, time labels, or object labels are part of 
+        the outcome.
+      - Represent ordered outcomes as tuples and unordered outcomes as sets or 
+        equivalence classes.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_a34b585ba8b51d60
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s137
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s196
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s172
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_a_permutation_is_an_ordered_arrangement_of_all_n
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_permutations_and_factorials
+    kind: definition
+    claim: A permutation is an ordered arrangement of all n distinct objects, 
+      counted by n!, where n! = n(n-1)...1 and 0! = 1.
+    preconditions:
+      - There are n distinct objects.
+      - All objects are arranged in order.
+    postconditions:
+      - The number of full arrangements is n!.
+    applicability:
+      - Counting ways n people can line up.
+      - Viewing a full arrangement as sampling without replacement with k=n.
+    positive_examples:
+      - There are n! ways for n people to line up.
+    negative_examples:
+      - Repeated indistinguishable letters require overcounting adjustment 
+        rather than n! alone.
+    non_goals:
+      - Does not count partial arrangements where k<n.
+      - Does not count unordered groups.
+    error_signatures:
+      - Using n^n for a permutation of distinct objects without replacement.
+      - Ignoring indistinguishable repeats in word permutations.
+    instructional_repairs:
+      - Model the arrangement as filling ordered positions from a shrinking 
+        pool.
+      - Use factorial notation after deriving the falling product.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_298db6fbd59e9b66
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s147
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_distinct_permutations_of_a_word_with_repeated_id
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_repeated_letter_permutations
+    kind: procedure_contract
+    claim: Distinct permutations of a word with repeated identical letters can 
+      be counted by choosing positions for each repeated letter type or by 
+      dividing the total labeled-letter factorial by the factorials of 
+      repeated-letter multiplicities.
+    preconditions:
+      - Repeated copies of the same letter are indistinguishable.
+      - The total number of letters and each repeated-letter multiplicity are 
+        known.
+    postconditions:
+      - The count of distinct word arrangements is computed without 
+        distinguishing identical copies.
+    applicability:
+      - Words with two repeated letter types.
+      - Words with several repeated letter types.
+    positive_examples:
+      - LALALAAA has binom(8,5)=binom(8,3)=56 distinct permutations.
+      - STATISTICS has 10!/(3!3!2!)=50400 distinct permutations.
+    negative_examples:
+      - Using 10! for STATISTICS treats identical S's, T's, and I's as distinct.
+    non_goals:
+      - Does not count arrangements of physically labeled letter tiles unless 
+        labels matter.
+    error_signatures:
+      - Failing to divide by all repeated-letter factorials.
+      - Counting repeated copies as distinct objects.
+    instructional_repairs:
+      - List the multiplicities of each repeated letter before writing a 
+        formula.
+      - Choose positions for one repeated type at a time as a check on the 
+        factorial-division method.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_be2d58d6db1dfb8c
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s198
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s200
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_k_ordered_draws_from_n_objects_with_replacem
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_sampling_with_replacement
+    kind: procedure_contract
+    claim: For k ordered draws from n objects with replacement, each draw has n 
+      choices, so the number of ordered samples is n^k.
+    preconditions:
+      - There are n objects or possible outcomes.
+      - There are k sequential choices.
+      - Replacement is used, so prior choices do not remove options.
+      - Order matters.
+    postconditions:
+      - The ordered sample count is n^k.
+    applicability:
+      - Sampling balls one at a time with replacement.
+      - Birthday assignments for k people under the 365-day independent equally 
+        likely model.
+      - Repeated cone choices when each position has the same six possibilities.
+    positive_examples:
+      - Total birthday assignments for k people are 365^k.
+      - Two ordered cone choices from six single-cone outcomes give 6^2=36.
+    negative_examples:
+      - Sampling without replacement uses decreasing choices, not n^k.
+    non_goals:
+      - Does not count unordered samples.
+      - Does not require k <= n.
+    error_signatures:
+      - Imposing k <= n even though replacement is allowed.
+      - Using a falling product when objects are returned after each draw.
+    instructional_repairs:
+      - Check whether a chosen object becomes available again before the next 
+        draw.
+      - Write n choices above each of the k ordered positions.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_bac22df8fd0c0989
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s144
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s151
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_k_ordered_choices_from_n_objects_without_rep
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_sampling_without_replacement
+    kind: procedure_contract
+    claim: For k ordered choices from n objects without replacement, the choices
+      decrease as n, n-1, ..., n-k+1 when k <= n, and no such sample exists when
+      k > n.
+    preconditions:
+      - There are n objects.
+      - Sampling is without replacement.
+      - Order matters.
+      - For the falling product formula, 1 <= k <= n.
+    postconditions:
+      - The ordered count is n(n-1)...(n-k+1), or 0 for k > n.
+    applicability:
+      - Race placements with no repeated winner.
+      - Assigning distinct birthdays to k people for the no-match event.
+      - Full permutations when k=n.
+    positive_examples:
+      - First, second, and third places among 10 runners give 10·9·8.
+      - No-match birthday assignments for k people use 365·364·...·(365-k+1).
+    negative_examples:
+      - Sampling with replacement does not decrease the choice count after each 
+        draw.
+    non_goals:
+      - Does not count unordered selections without an overcounting adjustment.
+    error_signatures:
+      - Using n^k when chosen objects cannot be reused.
+      - Allowing k > n in a without-replacement sample.
+    instructional_repairs:
+      - After each fixed choice, reduce the available pool by one.
+      - Check feasibility before writing the product.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ece1b17618647d32
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s145
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s156
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_an_n_element_set_has_2_n_subsets_because_each_el
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_subset_counting
+    kind: procedure_contract
+    claim: 'An n-element set has 2^n subsets because each element independently has
+      two choices: include it or exclude it.'
+    preconditions:
+      - The set has n elements.
+      - All subsets, including the empty set and the whole set, are being 
+        counted.
+    postconditions:
+      - The total subset count is 2^n.
+    applicability:
+      - Counting all subsets of a finite set.
+      - Counting events in a finite sample space when events are subsets.
+    positive_examples:
+      - The set {1,2,3} has 8 subsets.
+    negative_examples:
+      - Counting only nonempty subsets or only proper subsets changes the count.
+    non_goals:
+      - Does not count fixed-size subsets; those use binomial coefficients.
+    error_signatures:
+      - Omitting the empty set or the original set.
+      - Using binom(n,k) when all subset sizes are allowed.
+    instructional_repairs:
+      - For each element, write the binary include/exclude choice.
+      - Explicitly check whether empty and full subsets are included.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_c01d5fc46b224963
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s139
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_a_tree_diagram_represents_multiplication_rule_co
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_multiplication_rule
+    kind: interpretation
+    claim: A tree diagram represents multiplication-rule counting by showing 
+      each first-stage branch splitting into the same number of second-stage 
+      branches, so terminal branches encode the total possibilities.
+    preconditions:
+      - The staged choice process can be displayed as branches.
+      - Each first-stage branch has the specified number of continuation 
+        branches.
+    postconditions:
+      - The total count is interpreted as the number of terminal branches.
+    applicability:
+      - Explaining why a two-stage count is a product.
+      - Visualizing simple finite decision processes.
+    positive_examples:
+      - A tree with a branches followed by b branches from each first branch has
+        ab terminal outcomes.
+      - A cone-type and flavor choice can be shown as a tree diagram.
+    negative_examples: []
+    non_goals:
+      - Does not replace checking whether branch counts are uniform or correctly
+        separated into cases.
+    error_signatures:
+      - Treating stage choices as alternatives rather than combined components.
+      - Counting only one level of the tree.
+    instructional_repairs:
+      - Trace one terminal branch as a complete outcome.
+      - Count how many second-level branches occur for every first-level branch.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_4bf95cb1cb771980
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s110
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s132
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_if_an_easier_counting_method_counts_every_valid_
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_adjusting_for_overcounting
+    kind: procedure_contract
+    claim: If an easier counting method counts every valid possibility exactly c
+      times, divide the redundant count by c to obtain the correct count.
+    preconditions:
+      - Each valid possibility is counted exactly the same number c of times.
+      - The redundant count is known.
+    postconditions:
+      - The adjusted count counts each valid possibility once.
+    applicability:
+      - Counting committees by ordered selection and dividing by orderings.
+      - Splitting four people into two unlabeled teams after choosing one team.
+      - Counting repeated-letter permutations by dividing by repeated-letter 
+        factorials.
+    positive_examples:
+      - A two-person committee from four people can be counted as 4·3/2=6.
+      - If each team split is represented by choosing either team first, divide 
+        by 2.
+    negative_examples:
+      - Do not divide by a single c when different possibilities have different 
+        class sizes, such as unordered pairs with repetition before separating 
+        repeated pairs.
+    non_goals:
+      - Does not identify c automatically; the overcounting factor must be 
+        justified.
+    error_signatures:
+      - Dividing by 2 when some equivalence classes have size 1 and others have 
+        size 2.
+      - Forgetting to divide by k! when ordered selections represent unordered 
+        k-subsets.
+    instructional_repairs:
+      - Trace how many redundant representations one fixed valid possibility 
+        has.
+      - Verify that the same count holds for every possibility before dividing.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_0f567243ad5e3a8f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s178
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s182
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_basic_finite_counting_tools_include_n_permutatio
+    title:
+    aliases:
+      - factorial and overcount correction
+    description:
+    tags: []
+    concept_id: concept_basic_counting_tools
+    kind: procedure_contract
+    claim: Basic finite counting tools include n! permutations, 2^n subsets, and
+      division by a uniform overcount factor c when each target possibility has 
+      been counted exactly c times.
+    preconditions:
+      - A finite set of n elements or a uniformly overcounted collection is 
+        being counted.
+    postconditions:
+      - Permutation, subset, or corrected counts are available for probability 
+        calculations.
+    applicability:
+      - Finite sample-space counting.
+    positive_examples:
+      - Use n! for orderings of n distinct labels.
+      - Divide by c when every possibility was counted exactly c times.
+    negative_examples:
+      - Dividing by c when the overcount varies across possibilities.
+    non_goals:
+      - Does not cover non-uniform overcounting corrections.
+    error_signatures:
+      - Forgetting to check that the overcount is uniform.
+    instructional_repairs:
+      - State what object is counted and verify every target object is counted 
+        the same number of times before dividing.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ba5fa30421ce70a0
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s277
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_events_are_sets_of_outcomes_while_probabilities_
+    title:
+    aliases:
+      - events versus probabilities
+    description:
+    tags: []
+    concept_id: concept_events_and_sample_spaces
+    kind: definition
+    claim: Events are sets of outcomes, while probabilities are numbers assigned
+      to events by a probability function.
+    preconditions:
+      - A probability experiment and sample space are under discussion.
+    postconditions:
+      - The learner can distinguish event objects from numerical probability 
+        values.
+    applicability:
+      - Modeling compound events and interpreting probability notation.
+    positive_examples:
+      - Use set operations to build a new event, then apply probability rules to
+        its probability.
+    negative_examples:
+      - Treating A and P(A) as the same kind of object.
+    non_goals:
+      - Does not construct a particular probability function.
+    error_signatures:
+      - Applying set operations directly as arithmetic operations on 
+        probabilities.
+    instructional_repairs:
+      - Form the event first; then compute or relate its probability.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_98169d8a989c4cf3
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s273
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s292
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_finite_events_a_1_a_n_compute_p_a_1_union_un
+    title:
+    aliases:
+      - finite inclusion-exclusion
+    description:
+    tags: []
+    concept_id: concept_inclusion_exclusion_for_finite_unions
+    kind: procedure_contract
+    claim: For finite events A_1, ..., A_n, compute P(A_1 union ... union A_n) 
+      by summing one-event probabilities, subtracting all pairwise 
+      intersections, adding all triple intersections, and continuing with 
+      alternating signs through the n-way intersection.
+    preconditions:
+      - A finite collection of events is specified.
+      - The needed intersection probabilities are known or computable.
+    postconditions:
+      - The probability of the finite union is expressed in terms of 
+        intersection probabilities.
+    applicability:
+      - Finite union probabilities, especially when overlaps matter.
+    positive_examples:
+      - P(A_1 union A_2)=P(A_1)+P(A_2)-P(A_1 cap A_2).
+    negative_examples:
+      - Adding P(A_i) alone when events can occur together.
+    non_goals:
+      - Does not provide the deferred proof of the general theorem.
+    error_signatures:
+      - Treating A_i as disjoint without evidence.
+      - Omitting higher-order intersection terms.
+      - Using the wrong alternating sign pattern.
+    instructional_repairs:
+      - Identify the target event as a union first, then list intersection terms
+        by size and alternate signs.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_53414c2cc91a5f14
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s250
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s251
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s284
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_for_k_specified_matching_positions_in_the_n_card
+    title:
+    aliases:
+      - fixed-position intersection counting
+    description:
+    tags: []
+    concept_id: concept_de_montmort_s_matching_problem
+    kind: procedure_contract
+    claim: For k specified matching positions in the n-card matching problem, 
+      fixing those positions leaves (n-k)! favorable orderings out of n!, so 
+      same-size intersection probabilities are reciprocal falling-factorial 
+      terms that can be grouped by symmetry.
+    preconditions:
+      - All n! deck orderings are equally likely.
+      - The specified matching positions are distinct.
+    postconditions:
+      - Intersection probabilities needed for inclusion-exclusion are computable
+        by fixed-position permutation counts.
+    applicability:
+      - Symmetric matching events in random permutations.
+    positive_examples:
+      - P(A_i cap A_j)=1/[n(n-1)].
+      - P(A_i cap A_j cap A_k)=1/[n(n-1)(n-2)].
+    negative_examples:
+      - Using 1/n for a two-position intersection.
+    non_goals:
+      - Does not apply to non-uniform card orderings.
+    error_signatures:
+      - Fixing only one card when two or more positions are required.
+      - Failing to group equal intersection terms by symmetry.
+    instructional_repairs:
+      - Count fixed positions first, then count the remaining free cards by 
+        factorials.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_771d75afd679a3d9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s260
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s263
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s264
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_by_inclusion_exclusion_and_symmetry_the_probabil
+    title:
+    aliases:
+      - matching probability limit
+    description:
+    tags: []
+    concept_id: concept_de_montmort_s_matching_problem
+    kind: proposition
+    claim: By inclusion-exclusion and symmetry, the probability of at least one 
+      match in the n-card matching problem is 1 - 1/2! + 1/3! - ... + 
+      (-1)^{n+1}/n!, which approaches 1 - 1/e for large n.
+    preconditions:
+      - The matching problem has been modeled as a union of symmetric events.
+      - The finite inclusion-exclusion expression has been derived.
+    postconditions:
+      - The finite and large-n winning probabilities are identified.
+    applicability:
+      - Large-n interpretation of the matching problem.
+    positive_examples:
+      - For large n, the winning probability is approximately 0.63.
+    negative_examples:
+      - Concluding the limiting probability is 0 or 1 from only one competing 
+        effect.
+    non_goals:
+      - Does not claim arbitrary increasing sample spaces have nonzero nonone 
+        limits.
+    error_signatures:
+      - Reasoning only from individual match probabilities decreasing.
+      - Reasoning only from the number of possible matches increasing.
+    instructional_repairs:
+      - Compare the alternating factorial sum to the Taylor series for e^{-1}.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_23610a9004a9cd86
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s266
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s267
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s270
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_in_de_montmort_s_matching_problem_define_a_i_as_
+    title:
+    aliases:
+      - matching event setup
+    description:
+    tags: []
+    concept_id: concept_de_montmort_s_matching_problem
+    kind: procedure_contract
+    claim: In de Montmort's matching problem, define A_i as the event that card 
+      i appears in position i; winning means at least one A_i occurs, so the 
+      target probability is P(A_1 union ... union A_n).
+    preconditions:
+      - A deck of n labeled cards is randomly ordered.
+      - A win occurs when at least one card label matches its position.
+    postconditions:
+      - The verbal win condition is represented as a union of matching-position 
+        events.
+    applicability:
+      - Permutation matching and fixed-point problems.
+    positive_examples:
+      - A match in position 7 is event A_7.
+    negative_examples:
+      - Using P(A_i) for one fixed i as the whole win probability.
+    non_goals:
+      - Does not by itself compute the final numerical win probability.
+    error_signatures:
+      - Confusing a single matching-position probability with the 
+        at-least-one-match probability.
+    instructional_repairs:
+      - Translate 'at least one' into a union over all positions before 
+        computing.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_bd633057f047e1c7
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s254
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s256
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_in_a_finite_sample_space_with_equally_likely_out
+    title:
+    aliases:
+      - naive definition of probability
+    description:
+    tags: []
+    concept_id: concept_naive_probability_by_counting
+    kind: procedure_contract
+    claim: In a finite sample space with equally likely outcomes, probability 
+      can be computed as the number of favorable outcomes divided by the number 
+      of total outcomes; equal likelihood must be justified before using this 
+      count ratio.
+    preconditions:
+      - The sample space is finite.
+      - All outcomes are equally likely.
+    postconditions:
+      - A probability is computed by a count ratio.
+    applicability:
+      - Finite probability calculations by counting.
+    positive_examples:
+      - Pebble World with equal-mass pebbles.
+    negative_examples:
+      - Counting outcomes as equally likely when distinguishability or 
+        probability weights differ.
+    non_goals:
+      - Does not apply when equal likelihood is unjustified.
+    error_signatures:
+      - Implicitly assuming equal likelihood.
+      - Treating distinguishable objects as indistinguishable.
+    instructional_repairs:
+      - Label objects when needed and explicitly verify the uniform sample-space
+        model.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_e3d1bd1a2e85d5bd
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s276
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s278
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_to_simulate_the_matching_problem_in_r_use_sample
+    title:
+    aliases:
+      - R Monte Carlo matching simulation
+    description:
+    tags: []
+    concept_id: concept_r_sampling_and_simulation
+    kind: procedure_contract
+    claim: To simulate the matching problem in R, use sample(n) for a random 
+      card order, compare it elementwise to 1:n, sum TRUE/FALSE match indicators
+      to count matches in one run, use replicate for many runs, and estimate the
+      at-least-one-match probability with the proportion of runs where r >= 1.
+    preconditions:
+      - A deck size n and number of simulation runs are chosen.
+      - R commands sample, sum, and replicate are available.
+    postconditions:
+      - An empirical estimate of the probability of at least one match is 
+        computed.
+    applicability:
+      - Monte Carlo simulation of permutation fixed-point problems.
+    positive_examples:
+      - r <- replicate(10^4,sum(sample(n)==(1:n))).
+      - sum(r>=1)/10^4 estimates the probability of at least one match.
+    negative_examples:
+      - Using sum(r) as the numerator for the probability of at least one match.
+    non_goals:
+      - Does not prove the exact inclusion-exclusion result or provide 
+        confidence intervals.
+    error_signatures:
+      - Reading sample(n)==(1:n) as a single global comparison.
+      - Counting total matches across runs instead of runs with at least one 
+        match.
+    instructional_repairs:
+      - Interpret logical comparisons as indicator vectors; convert per-run 
+        counts to an event indicator with r>=1 before averaging.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_457424ce4d30993b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s331
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s332
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s334
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s335
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_r_s_sample_command_draws_pseudo_random_samples_s
+    title:
+    aliases:
+      - R sample syntax
+    description:
+    tags: []
+    concept_id: concept_r_sampling_and_simulation
+    kind: procedure_contract
+    claim: "R's sample command draws pseudo-random samples: sample(n,k) samples k
+      values from 1 to n without replacement by default, replace=TRUE allows repeated
+      values, prob=... supplies sampling weights, and sample(n) can generate a random
+      permutation."
+    preconditions:
+      - A population and sample size or permutation goal are specified.
+    postconditions:
+      - A sample or permutation is generated according to the requested 
+        replacement and weighting settings.
+    applicability:
+      - Simulation and random sampling workflows in R.
+    positive_examples:
+      - sample(n,k) for without replacement.
+      - sample(n,k,replace=TRUE) for with replacement.
+      - sample(4,3,replace=TRUE,prob=c(0.1,0.2,0.3,0.4)) for weighted sampling.
+    negative_examples:
+      - Omitting replace=TRUE when repeated values should be possible.
+    non_goals:
+      - Does not describe the pseudo-random generator implementation.
+    error_signatures:
+      - Assuming sample(n,k) samples with replacement by default.
+      - Assuming sample only works with numeric vectors.
+    instructional_repairs:
+      - State the population, sample size, replacement rule, and weights before 
+        writing the sample call.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_5aaf6d08735c5958
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s319
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s320
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s322
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s326
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_in_r_vectors_can_be_created_with_c_assigned_with
+    title:
+    aliases:
+      - R vector indexing basics
+    description:
+    tags: []
+    concept_id: concept_r_vectors_and_indexing
+    kind: procedure_contract
+    claim: In R, vectors can be created with c(...), assigned with <- or =, 
+      summarized with sum/max/min/length, generated as integer sequences with 
+      m:n, and indexed with v[i], included-index vectors, or negative indices 
+      for exclusion.
+    preconditions:
+      - The desired vector entries or indices are known.
+    postconditions:
+      - A vector is created, summarized, sequenced, or subsetted.
+    applicability:
+      - Introductory R vector manipulation for probability computation.
+    positive_examples:
+      - v <- c(3,1,4,1,5,9).
+      - v[c(1,3,5)] selects listed entries.
+      - v[-(2:4)] excludes entries 2 through 4.
+    negative_examples:
+      - Reading v[-(2:4)] as selecting entries 2 through 4.
+    non_goals:
+      - Does not provide a complete R tutorial.
+    error_signatures:
+      - Assuming m:n is always increasing.
+      - Omitting parentheses in negative sequence exclusion when needed.
+    instructional_repairs:
+      - Read bracket contents as positions to include unless a minus sign marks 
+        positions to exclude; evaluate colon sequences with endpoint order.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_09356810169955c4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s299
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s304
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s305
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s310
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_r_applies_many_vector_operations_componentwise_a
+    title:
+    aliases:
+      - R componentwise operations and combinatorial functions
+    description:
+    tags: []
+    concept_id: concept_r_vectors_and_indexing
+    kind: procedure_contract
+    claim: R applies many vector operations componentwise and recycles shorter 
+      vectors in arithmetic; it computes factorials and binomial coefficients 
+      with factorial(n) and choose(n,k), with lfactorial(n) and lchoose(n,k) 
+      available for log-scale large values.
+    preconditions:
+      - R vector arithmetic or combinatorial function calls are being used.
+    postconditions:
+      - Vectorized expressions or combinatorial quantities are computed, with 
+        log-scale alternatives for large values.
+    applicability:
+      - Numerical counting and probability computation in R.
+    positive_examples:
+      - 1/(1:100)^2 creates reciprocal squares componentwise.
+      - factorial(n) computes n! when representable.
+      - choose(n,k) computes a binomial coefficient.
+    negative_examples:
+      - Expecting factorial(n) to remain finite for arbitrarily large n.
+    non_goals:
+      - Does not define abstract mathematical vector powers.
+    error_signatures:
+      - Transferring R componentwise syntax to standard vector algebra.
+      - Ignoring overflow to Inf for large factorials.
+    instructional_repairs:
+      - Distinguish R's componentwise computation rules from mathematical vector
+        notation; use log-scale functions when raw values overflow.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ab1eeb0b31ada27c
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s311
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s314
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s315
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s316
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_under_the_equal_365_day_birthday_model_the_proba
+    title:
+    aliases:
+      - birthday complement product
+      - no-match complement
+    description:
+    tags: []
+    concept_id: concept_birthday_match_probability
+    kind: procedure_contract
+    claim: Under the equal 365-day birthday model, the probability of at least 
+      one shared birthday among k people is computed by subtracting the no-match
+      probability prod((365-k+1):365)/365^k from 1.
+    preconditions:
+      - There are 365 possible birthdays.
+      - Each birthday is equally likely.
+      - The group size is k.
+    postconditions:
+      - The result is the probability that at least two people share a birthday.
+    applicability:
+      - Exact birthday-match calculations under the equal-probability 365-day 
+        model.
+    positive_examples:
+      - For k <- 23, 1-prod((365-k+1):365)/365^k computes the probability of at 
+        least one birthday match.
+    negative_examples:
+      - Applying the same expression unchanged when day probabilities are 
+        unequal is unsupported by this source.
+    non_goals:
+      - Does not cover unequal day probabilities.
+    error_signatures:
+      - Student forgets the complement step.
+      - Student uses an incorrect product range for distinct birthdays.
+    instructional_repairs:
+      - First compute the probability that all birthdays are distinct, then 
+        subtract from 1.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_6aef951ce2a1d185
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s342
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s343
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_to_simulate_the_birthday_problem_for_23_people_s
+    title:
+    aliases:
+      - birthday simulation with tabulate
+      - Monte Carlo birthday problem
+    description:
+    tags: []
+    concept_id: concept_birthday_monte_carlo_simulation
+    kind: procedure_contract
+    claim: To simulate the birthday problem for 23 people, sample birthdays from
+      1:365 with replacement, tabulate counts, repeat the experiment, and 
+      estimate the probability of at least one shared birthday by the proportion
+      of runs whose maximum count is at least 2.
+    preconditions:
+      - Birthdays are represented by integers 1 through 365.
+      - Sampling uses replace=TRUE so multiple people can share a birthday.
+      - At least one shared birthday corresponds to some tabulated count being 
+        at least 2.
+    postconditions:
+      - The empirical proportion estimates the probability of at least one 
+        birthday match.
+    applicability:
+      - Monte Carlo simulation of birthday-match probabilities.
+    positive_examples:
+      - b <- sample(1:365,23,replace=TRUE); tabulate(b); r <- replicate(10^4, 
+        max(tabulate(sample(1:365,23,replace=TRUE)))); sum(r>=2)/10^4.
+    negative_examples:
+      - sample(1:365,23) without replacement prevents any birthday match in the 
+        generated group.
+      - Using r>=1 with maximum tabulated counts is always true when birthdays 
+        are sampled.
+    non_goals:
+      - Does not provide a closed-form exact calculation.
+    error_signatures:
+      - Student omits replace=TRUE.
+      - Student estimates sum(r>=1)/10^4 from maximum tabulated counts.
+    instructional_repairs:
+      - Use replace=TRUE and threshold max counts at 2 or higher for a pair 
+        match.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_4d64f7d6af78b60a
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s346
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s347
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s348
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s349
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_to_simulate_fixed_position_matches_in_a_shuffled
+    title:
+    aliases:
+      - fixed point simulation
+      - card matching simulation
+    description:
+    tags: []
+    concept_id: concept_card_fixed_point_simulation
+    kind: procedure_contract
+    claim: To simulate fixed-position matches in a shuffled deck of n indexed 
+      cards, generate random permutations with sample(n), count matches with 
+      sum(sample(n)==(1:n)), repeat many times, and estimate the probability of 
+      at least one match using the proportion with count at least 1.
+    preconditions:
+      - n is defined as the number of indexed objects.
+      - The simulation environment supports R functions sample, replicate, sum, 
+        and vector comparison.
+    postconditions:
+      - The empirical proportion estimates the probability of at least one 
+        fixed-position match.
+    applicability:
+      - Monte Carlo approximation of card matching or fixed-point probabilities 
+        for shuffled indexed objects.
+    positive_examples:
+      - For n <- 100, r <- replicate(10^4,sum(sample(n)==(1:n))); sum(r>=1)/10^4
+        estimates the probability of at least one match.
+    negative_examples:
+      - Using sum(r)/10^4 estimates the mean number of matches, not the 
+        probability of at least one match.
+    non_goals:
+      - Does not derive the exact symbolic derangement probability.
+    error_signatures:
+      - Student averages match counts rather than thresholding at at least one 
+        match.
+      - Student compares the permutation to an incorrectly indexed vector.
+    instructional_repairs:
+      - Use r>=1 to turn match counts into an event indicator for at least one 
+        match.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_245c2f2a8ab40f47
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s339
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s340
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_in_r_pbirthday_k_returns_the_probability_of_at_l
+    title:
+    aliases:
+      - pbirthday and qbirthday
+      - R birthday functions
+    description:
+    tags: []
+    concept_id: concept_r_birthday_built_in_functions
+    kind: procedure_contract
+    claim: In R, pbirthday(k) returns the probability of at least one birthday 
+      match for k people, qbirthday(p) returns the number of people needed to 
+      reach probability p, and adding coincident=3 changes the event to an 
+      at-least-one triple birthday match.
+    preconditions:
+      - R's pbirthday and qbirthday functions are available.
+      - The desired event is either a pair birthday match by default or a triple
+        birthday match when coincident=3 is supplied.
+    postconditions:
+      - The function call returns either a probability from a group size or a 
+        required group size from a target probability.
+    applicability:
+      - Using R built-ins for standard birthday problem probability, threshold, 
+        and triple-match questions.
+    positive_examples:
+      - pbirthday(23) is reported as 0.507; qbirthday(0.5) is reported as 23; 
+        pbirthday(23,coincident=3) is reported as 0.014; 
+        qbirthday(0.5,coincident=3) is reported as 88.
+    negative_examples:
+      - Interpreting qbirthday(0.5) as a probability is invalid because 
+        qbirthday returns a number of people.
+    non_goals:
+      - Does not describe the internal implementation of pbirthday or qbirthday.
+    error_signatures:
+      - Student uses qbirthday when a probability is requested.
+      - Student omits coincident=3 for a triple-match question.
+    instructional_repairs:
+      - Choose pbirthday for probability from group size and qbirthday for group
+        size from target probability; add coincident=3 for triples.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_805f8193e40b8874
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s344
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s345
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:
+  - id: facet_when_birthday_probabilities_differ_by_day_the_eq
+    title:
+    aliases:
+      - non-uniform birthday simulation
+      - sample probabilities
+    description:
+    tags: []
+    concept_id: concept_unequal_birthday_probabilities
+    kind: applicability_condition
+    claim: When birthday probabilities differ by day, the equal-probability 
+      exact calculation becomes much more difficult, but the simulation approach
+      can be extended by supplying day-specific probabilities to R's sample 
+      function; without such probabilities, sample uses equal probabilities by 
+      default.
+    preconditions:
+      - A probability value is available for each day when modeling unequal 
+        probabilities.
+      - The simulation is implemented using R's sample function.
+    postconditions:
+      - The simulation reflects the specified non-uniform birthday distribution.
+    applicability:
+      - Birthday simulations with non-uniform day probabilities.
+    positive_examples:
+      - Keep the sampling-and-tabulation simulation structure, but specify 
+        probabilities in sample when days are not equally likely.
+    negative_examples:
+      - Using the equal-probability formula unchanged for a non-uniform 
+        distribution is unsupported by the source.
+    non_goals:
+      - Does not give the explicit R syntax for the probability vector argument.
+    error_signatures:
+      - Student assumes the 1/365 model after the problem states unequal day 
+        probabilities.
+      - Student forgets that sample defaults to equal probabilities.
+    instructional_repairs:
+      - Supply a probability for each day in the sampling step when modeling 
+        unequal birthday probabilities.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_37c5b369b7e26385
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          path:
+          locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s350
+          quote:
+          quote_hash:
+          extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+          role: primary_textbook
+          source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+          span_hash:

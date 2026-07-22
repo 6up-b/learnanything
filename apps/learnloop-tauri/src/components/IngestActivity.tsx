@@ -4,9 +4,10 @@ import type {
   CommandError,
   DurableIngestStatus,
   IngestBatchDto,
-  IngestJobView
+  IngestJobView,
+  SynthesisCandidateSummary
 } from "../api/dto";
-import { COLOR, Faint, FONT_MONO, Pill, type PillColor } from "./term";
+import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox, type PillColor } from "./term";
 import { readableSourceTail } from "./sourceTail";
 
 // Ingest activity stack — durable batches rendered inline on the merged Ingest
@@ -276,13 +277,60 @@ function BatchCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const active = isActive(batch.status);
-  const resumable = batch.status === "failed" || batch.status === "cancelled";
+  const failedSynthesis = batch.jobs.find(
+    (job) =>
+      (job.jobType === "bootstrap_synthesis" || job.jobType === "append_synthesis") &&
+      job.status === "failed"
+  );
+  const inventoryOutputEstimate = batch.jobs
+    .filter((job) => job.jobType === "inventory" && job.status === "completed")
+    .reduce((total, job) => total + Number(job.usage?.output_tokens_estimate ?? 0), 0);
+  const suggestedSynthesisCeiling = Math.max(
+    100_000,
+    Math.ceil((inventoryOutputEstimate * 2) / 10_000) * 10_000
+  );
+  const [synthesisCeiling, setSynthesisCeiling] = useState(suggestedSynthesisCeiling);
+  const [synthesisShardOutput, setSynthesisShardOutput] = useState(32_000);
+  const [synthesisOutput, setSynthesisOutput] = useState(96_000);
+  const [unlimitedTokenBudget, setUnlimitedTokenBudget] = useState(false);
+  const [retryingSynthesis, setRetryingSynthesis] = useState(false);
+  const [candidate, setCandidate] = useState<SynthesisCandidateSummary | null>(null);
+  const candidatePreserved = Boolean(failedSynthesis?.error?.details?.candidate_preserved);
+  const synthesisCeilingValid = unlimitedTokenBudget || (synthesisCeiling >= 10_000 && synthesisCeiling <= 2_000_000);
+  const synthesisOutputValid = unlimitedTokenBudget || (synthesisShardOutput >= 1_000 && synthesisShardOutput <= 200_000
+    && synthesisOutput >= 1_000 && synthesisOutput <= 200_000);
+  const resumable = (batch.status === "failed" || batch.status === "cancelled") && !failedSynthesis;
   const sourceId = importedSourceId(batch);
 
   // Force-scroll the focused batch into view whenever the focus target changes.
   useEffect(() => {
     if (focused) ref.current?.scrollIntoView({ block: "nearest" });
   }, [focused]);
+
+  useEffect(() => {
+    setSynthesisCeiling(suggestedSynthesisCeiling);
+  }, [batch.id, suggestedSynthesisCeiling]);
+
+  // Preserved-candidate summary: fetched once per failed batch so the learner
+  // can weigh "revalidate the paid-for candidate" against a fresh model rerun.
+  useEffect(() => {
+    if (!candidatePreserved) {
+      setCandidate(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getSynthesisCandidate(batch.id)
+      .then((summary) => {
+        if (!cancelled) setCandidate(summary);
+      })
+      .catch(() => {
+        if (!cancelled) setCandidate(null); // candidate gone → only rerun remains
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [batch.id, candidatePreserved]);
 
   async function cancel() {
     try {
@@ -297,6 +345,36 @@ function BatchCard({
       onPatch(await api.resumeIngestBatch(batch.id));
     } catch (e) {
       onError((e as CommandError).message);
+    }
+  }
+
+  async function retrySynthesis() {
+    if (!synthesisCeilingValid || !synthesisOutputValid || retryingSynthesis) return;
+    setRetryingSynthesis(true);
+    try {
+      onPatch(await api.retrySynthesis({
+        batchId: batch.id,
+        synthesisTotalInputTokens: synthesisCeiling,
+        synthesisShardOutputTokens: synthesisShardOutput,
+        synthesisOutputTokens: synthesisOutput,
+        unlimitedTokenBudget
+      }));
+    } catch (e) {
+      onError((e as CommandError).message);
+    } finally {
+      setRetryingSynthesis(false);
+    }
+  }
+
+  async function revalidateCandidate(repairCandidate = false) {
+    if (retryingSynthesis) return;
+    setRetryingSynthesis(true);
+    try {
+      onPatch(await api.retrySynthesis({ batchId: batch.id, reuseCandidate: true, repairCandidate }));
+    } catch (e) {
+      onError((e as CommandError).message);
+    } finally {
+      setRetryingSynthesis(false);
     }
   }
 
@@ -342,6 +420,102 @@ function BatchCard({
         ))}
       </div>
 
+      {failedSynthesis ? (
+        <div style={{ marginTop: 12, border: `1px solid ${COLOR.amber}`, background: "#241d12", padding: "10px 12px" }}>
+          <div style={{ color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 11 }}>retry synthesis only</div>
+          <div style={{ marginTop: 4, color: COLOR.textDim, fontSize: 11, lineHeight: 1.55 }}>
+            {synthesisRecoveryMessage(failedSynthesis.error?.code)}
+            {inventoryOutputEstimate > 0 ? ` Inventories currently occupy about ${inventoryOutputEstimate.toLocaleString()} tokens.` : ""}
+          </div>
+          {candidate && (
+            <div style={{ marginTop: 9, border: `1px solid ${COLOR.cyan}`, padding: "8px 10px" }}>
+              <div style={{ color: COLOR.cyan, fontFamily: FONT_MONO, fontSize: 10 }}>
+                preserved candidate · run {candidate.synthesisRunId}
+              </div>
+              <div style={{ marginTop: 4, color: COLOR.textDim, fontSize: 11 }}>
+                {Object.entries(candidate.itemCounts)
+                  .filter(([, count]) => count > 0)
+                  .map(([kind, count]) => `${count} ${kind.replace(/_/g, " ")}`)
+                  .join(" · ") || "empty candidate"}
+              </div>
+              {candidate.summary && (
+                <Faint style={{ display: "block", marginTop: 3, fontSize: 10 }}>{candidate.summary}</Faint>
+              )}
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {failedSynthesis.error?.code === "synthesis_gate_failed" && (
+                  <button
+                    type="button"
+                    disabled={retryingSynthesis}
+                    onClick={() => void revalidateCandidate(true)}
+                    style={{ marginTop: 7, border: `1px solid ${COLOR.green}`, background: "transparent", color: COLOR.green, padding: "5px 9px", fontFamily: FONT_MONO, fontSize: 10, cursor: retryingSynthesis ? "default" : "pointer", opacity: retryingSynthesis ? 0.5 : 1 }}
+                  >
+                    {retryingSynthesis ? "requeuing…" : "⚒ auto-repair & revalidate (no new model run)"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={retryingSynthesis}
+                  onClick={() => void revalidateCandidate()}
+                  style={{ marginTop: 7, border: `1px solid ${COLOR.cyan}`, background: "transparent", color: COLOR.cyan, padding: "5px 9px", fontFamily: FONT_MONO, fontSize: 10, cursor: retryingSynthesis ? "default" : "pointer", opacity: retryingSynthesis ? 0.5 : 1 }}
+                >
+                  {retryingSynthesis ? "requeuing…" : "↻ revalidate candidate (no new model run)"}
+                </button>
+              </div>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "center", gap: "7px 8px", marginTop: 9 }}>
+            <input
+              type="number"
+              min={10000}
+              max={2000000}
+              step={10000}
+              value={synthesisCeiling}
+              onChange={(event) => setSynthesisCeiling(Number(event.target.value))}
+              disabled={unlimitedTokenBudget}
+              style={{ width: 120, padding: "5px 7px", border: `1px solid ${synthesisCeilingValid ? COLOR.border : COLOR.red}`, background: COLOR.bgInput, color: unlimitedTokenBudget ? COLOR.textFaint : synthesisCeilingValid ? COLOR.text : COLOR.red, fontFamily: FONT_MONO, fontSize: 11, opacity: unlimitedTokenBudget ? 0.55 : 1 }}
+            />
+            <Faint style={{ fontSize: 10 }}>total input tokens across synthesis calls</Faint>
+            <input
+              type="number"
+              min={1000}
+              max={200000}
+              step={1000}
+              value={synthesisShardOutput}
+              onChange={(event) => setSynthesisShardOutput(Number(event.target.value))}
+              disabled={unlimitedTokenBudget}
+              style={{ width: 120, padding: "5px 7px", border: `1px solid ${synthesisOutputValid ? COLOR.border : COLOR.red}`, background: COLOR.bgInput, color: unlimitedTokenBudget ? COLOR.textFaint : synthesisOutputValid ? COLOR.text : COLOR.red, fontFamily: FONT_MONO, fontSize: 11, opacity: unlimitedTokenBudget ? 0.55 : 1 }}
+            />
+            <Faint style={{ fontSize: 10 }}>maximum output tokens per synthesis shard</Faint>
+            <input
+              type="number"
+              min={1000}
+              max={200000}
+              step={1000}
+              value={synthesisOutput}
+              onChange={(event) => setSynthesisOutput(Number(event.target.value))}
+              disabled={unlimitedTokenBudget}
+              style={{ width: 120, padding: "5px 7px", border: `1px solid ${synthesisOutputValid ? COLOR.border : COLOR.red}`, background: COLOR.bgInput, color: unlimitedTokenBudget ? COLOR.textFaint : synthesisOutputValid ? COLOR.text : COLOR.red, fontFamily: FONT_MONO, fontSize: 11, opacity: unlimitedTokenBudget ? 0.55 : 1 }}
+            />
+            <Faint style={{ fontSize: 10 }}>maximum merged synthesis output tokens</Faint>
+            <TermCheckbox
+              checked={unlimitedTokenBudget}
+              onChange={setUnlimitedTokenBudget}
+              label="no LearnLoop synthesis ceiling · provider limits still apply"
+              compact
+              style={{ gridColumn: "1 / -1", justifySelf: "start" }}
+            />
+            <button
+              type="button"
+              disabled={!synthesisCeilingValid || !synthesisOutputValid || retryingSynthesis}
+              onClick={() => void retrySynthesis()}
+              style={{ gridColumn: "1 / -1", justifySelf: "end", border: `1px solid ${COLOR.green}`, background: "transparent", color: COLOR.green, padding: "5px 9px", fontFamily: FONT_MONO, fontSize: 10, cursor: synthesisCeilingValid && synthesisOutputValid && !retryingSynthesis ? "pointer" : "default", opacity: synthesisCeilingValid && synthesisOutputValid && !retryingSynthesis ? 1 : 0.5 }}
+            >
+              {retryingSynthesis ? "requeuing…" : "↻ retry synthesis"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {sourceId && (
         <div style={{ marginTop: 12, fontSize: 12 }}>
           <span style={{ color: COLOR.green }}>source ready</span>{" "}
@@ -385,11 +559,63 @@ function JobRow({ job }: { job: IngestJobView }) {
       {job.waitingForInput && <WaitingCard payload={job.waitingForInput} />}
 
       {job.error && (
-        <div style={{ marginTop: 8, fontSize: 11, color: COLOR.red, fontFamily: FONT_MONO }}>
-          {job.error.code}: {job.error.message}
-        </div>
+        <IngestErrorPanel error={job.error} />
       )}
     </Card>
+  );
+}
+
+function synthesisRecoveryMessage(code?: string): string {
+  if (code === "synthesis_gate_failed") {
+    return "The generated candidate was rejected before any vault changes. Mechanically-safe defects (like dangling criterion-id dependencies) can be auto-repaired and revalidated with zero model calls; otherwise review the diagnostics and rerun only synthesis — completed inventories are preserved.";
+  }
+  if (code === "duplicate_client_item_ids" || code === "IntegrityError") {
+    return "Synthesis completed but its merged identifiers collided. No vault content was applied; completed inventories are preserved for a synthesis-only retry.";
+  }
+  if (code === "budget_exceeded") {
+    return "A synthesis execution ceiling was exceeded. Adjust the relevant limits and rerun only synthesis; completed inventories are preserved.";
+  }
+  return "The synthesis stage can be retried without repeating extraction or inventory generation.";
+}
+
+function IngestErrorPanel({ error }: { error: NonNullable<IngestJobView["error"]> }) {
+  const diagnostics = error.details?.diagnostics ?? [];
+  const hardFailures = diagnostics.filter((item) => item.severity === "hard_fail").length;
+  return (
+    <div style={{ marginTop: 10, border: `1px solid ${COLOR.red}`, background: "#241315", padding: "9px 10px" }}>
+      <div style={{ color: COLOR.red, fontSize: 11, fontFamily: FONT_MONO }}>
+        {error.code}: {error.message}
+      </div>
+      {error.details?.completed_dependencies_preserved && (
+        <div style={{ marginTop: 5, color: COLOR.green, fontSize: 11 }}>
+          completed extraction and inventory work is preserved
+        </div>
+      )}
+      {error.details?.candidate_preserved && (
+        <div style={{ marginTop: 5, color: COLOR.cyan, fontSize: 11 }}>
+          generated candidate preserved with synthesis run {error.details.synthesis_run_id ?? "record"}
+        </div>
+      )}
+      {diagnostics.length > 0 && (
+        <details style={{ marginTop: 7 }}>
+          <summary style={{ color: COLOR.amber, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 10 }}>
+            inspect diagnostics ({hardFailures} hard / {diagnostics.length} total)
+          </summary>
+          <div style={{ marginTop: 7, maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {diagnostics.map((diagnostic, index) => (
+              <div key={`${diagnostic.gate ?? "diagnostic"}-${index}`} style={{ borderLeft: `2px solid ${diagnostic.severity === "hard_fail" ? COLOR.red : COLOR.amber}`, paddingLeft: 7 }}>
+                <div style={{ color: COLOR.text, fontFamily: FONT_MONO, fontSize: 10 }}>
+                  [{diagnostic.severity ?? "info"}] {diagnostic.gate ?? "validation"}
+                </div>
+                <div style={{ color: COLOR.textDim, fontSize: 11 }}>{diagnostic.message}</div>
+                {diagnostic.suggested_action && <Faint style={{ fontSize: 10 }}>next: {diagnostic.suggested_action}</Faint>}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+      {error.retryable === false && <Faint style={{ display: "block", marginTop: 6, fontSize: 10 }}>This failure requires configuration or scope changes before retrying.</Faint>}
+    </div>
   );
 }
 

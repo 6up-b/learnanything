@@ -761,6 +761,18 @@ does not silently flip a diagnosis.
     *are* a structure-mapping exercise.
   - **`example_completion`** — complete the missing step of a worked example
     (§8b.1).
+- **`learning_process` metadata on patterns** *(U-035)*: each ActivityPattern
+  version declares which process it is served to induce *now* —
+  `prior_knowledge_activation · comprehension_monitoring · self_explanation ·
+  schema_induction · procedure_compilation · memory_fluency ·
+  method_selection · coordination · transfer · reflection`. Capabilities say
+  what the learner must ultimately do; `learning_process` says why this
+  experience is being chosen at this moment (Yeo & Fazio 2019: retrieval and
+  worked examples strengthen different processes; neither is universally
+  best). The same visible form — "solve this problem" — serves different
+  processes at different arc positions. **Guardrail: controller-side routing
+  metadata only — it never appears in evidence claims or projections**;
+  otherwise it becomes a second, uncalibrated capability vocabulary.
 - **Span as a family-generator parameter** (chunk-growth ladder, orthogonal
   to the depth ladder): same capability, growing coordinated span — proof
   step → lemma → whole argument; line → function → algorithm; couplet →
@@ -1026,6 +1038,94 @@ requirements:
 can flow through quick_add to ordinary PIs now, upgrading to family-pinned
 instances when L1 lands. Can proceed **in parallel with L1**.
 
+### 6.9 Bidirectional reader dialogue *(minimal slice promoted to P2 — U-033)*
+
+The reader is where LearnLoop talks *with* the learner, in both directions —
+and the two directions are semantically distinct:
+
+- **Learner → AI:** a question signals salience, curiosity, confusion, a
+  notation gap, or a project blocker — it is **never direct evidence of
+  inability** (existing invariant; questions during practice attempts stay
+  hint-equivalent). Exchanges persist as inquiry, not chat exhaust.
+- **AI → learner:** a question is an *intervention with a declared purpose*
+  (activate prior knowledge, comprehension check, self-explanation,
+  comparison, prediction, goal bridge); its evidentiary meaning depends
+  entirely on the administration context recorded with it (source visibility,
+  recency, priming, hints).
+
+Contract:
+
+- **A fourth tutor context: `reader`.** The existing
+  library/practice/feedback profiles don't fit reading — practice is
+  deliberately Socratic and non-answer-revealing to protect attempt
+  integrity, and there is no attempt to protect while reading. `reader`
+  supports comprehension, inquiry, self-explanation, and goal connection,
+  with the answer mode **learner-controlled per ask**: answer directly /
+  help me reason / ask me first. A universally Socratic tutor is hostile
+  when the learner needs a fact; a universally direct one removes productive
+  generation when they want to think.
+- **Every AI reading question ends in an explicit disposition**, and the four
+  dispositions map onto existing machinery with no new semantics:
+  `comprehension_only` (annotation only, never resurfaces),
+  `check_once_later` (one single-use diagnostic-purpose cold check, then
+  retire unless it reveals a problem), `keep_developing` (commit-class
+  action → commitment + arc), `reference_only` (source + inquiry preserved,
+  no practice). AI questions never silently create commitments (existing
+  invariant); the picker makes Matuschak's comprehension-vs-obligation
+  distinction explicit at the moment it is cheapest to decide.
+- **Formative reading answers mint a routing prior, nothing else.** A weak,
+  high-variance, replay-derived signal (proposal ordering, scaffold
+  selection, candidate hypothesis seeds) that the **first cold observation
+  on the same target supersedes**; never posterior or certification input.
+  AI answers and explanations append **exposure** — the claims, proof ideas,
+  representations, and examples shown warm related surfaces in the global
+  familiarity ledger, so a near-term question reusing those cues cannot
+  masquerade as a cold check.
+- **Owner-placed reading questions ride the existing substrate:** they are
+  instructional-purpose cards administered `source_visible=true` with a
+  `reading_phase` (before/during/after section) on the administration
+  snapshot — no new evidence machinery. P2 ships this owner-authored form
+  with a small launch pattern set (pretest prime, self-explanation,
+  example_comparison, setup_only). The LLM `ask_now` intervention planner,
+  reading-mode gating, and per-question interaction controls (skip / too
+  intrusive / don't bring this back — policy signals, never ability
+  evidence) are P3; learned timing/pattern choice is P4 shadow work whose
+  horizon is the **next spaced cold outcome, never immediate answer
+  success**. Planner-driven automatic question density (U-017@v3) stays
+  deferred.
+- **Renderer classes beyond text are deferred (U-036, §10):** interactive
+  diagrams, notebook/code handoff, artifact annotation, voice. Media
+  variation must be representational, not decorative — and each of those is
+  its own project.
+
+### 6.10 Authoring is a pipeline of reviewable artifacts, not one call
+
+Decomposes "generate questions from this passage" — the transition every PDF
+tutor gets wrong — into five stages:
+
+1. **Candidate target extraction** — the source-object inventory (exists);
+2. **Reinforcement-target selection** — the previously missing stage: which
+   targets deserve this learner's recurring or formative attention, judged
+   against the goal contract, learner signals (annotations, questions, failed
+   attempts), existing angle coverage, expected future use, and recurring
+   burden — with a legitimate `select_none` outcome;
+3. **Pattern selection** from the admitted ActivityPattern registry (the
+   model never invents a protocol);
+4. **Bounded surface rendering** with target and pattern *fixed* — the
+   renderer may not swap to a nearby easier fact because it questions better;
+5. **Functional lint** — target fidelity, source fidelity, cue leakage,
+   false-positive/false-negative risk, spoilage by recent exposure, burden,
+   medium fit; reject rather than repair when the *target* is low-value.
+
+The decomposition is about **artifacts, not API calls** — stages may share
+model calls, but the target-selection artifact and lint verdicts are logged
+and independently reviewable, and rejected candidates with reasons feed the
+corpus (§8). Shape: batch-and-rank (≈6–10 targets → 2–3 kept → ~3 surface
+candidates → deterministic gates + critic → serve 1, cache 1). Rationale
+(Matuschak's generation experiments): one-shot generation produces
+grammatical questions about unimportant details; *selection* is the hard
+problem, and it is the stage where goal and learner context bind. (U-034)
+
 **Acceptance:** Journey 2 (quick insight capture: highlight → interpretation →
 1–2 accepted activities → **visible unfolding arc** → cold retrieval →
 source+annotation restore, under a minute of admin); Journey 1 (first useful
@@ -1212,11 +1312,15 @@ and selection.
   channel), rotating practice surfaces with named pool provenance (U-028: LLM
   drafts within admitted cards, owner review), one fresh held-out assessment,
   and `suggest_next` depth invitations only — automatic activation defers to
-  the auto-depth package (D8/U-018). **Spec of record:
-  `spec_p2_narrow_golden_path.md`.**
+  the auto-depth package (D8/U-018); plus the **minimal bidirectional reader
+  dialogue** (U-033: `reader` tutor context with learner-controlled answer
+  modes, owner-placed source-visible reading questions, four-disposition
+  picker, exposure logging — no `ask_now` planner, no automatic density).
+  **Spec of record: `spec_p2_narrow_golden_path.md`.**
 - **P3 — reader integration:** annotations, source assertions, demand-paged
   synthesis, visible depth authorization/arcs, restoration, fluid in-review
-  editing. **Spec of record:
+  editing; reading-mode presentation and per-question interaction controls
+  over the P2 dialogue slice. **Spec of record:
   `spec_p3_reader_integration.md`.**
 - **P4 — controller and scale:** staged-policy controller under the
   constrained decision-cost hierarchy (U-023); predictive-component promotion
@@ -1233,12 +1337,13 @@ blueprint generation + review; goal-conditioned probes; instructional →
 completion → practice stages; durable card-level scheduling with rotating
 surfaces; cold reassessment + restoration; boundary view; activity and
 commitment retirement; evidence-gated automatic depth progression inside a
-learner-confirmed envelope.
+learner-confirmed envelope; minimal bidirectional reader dialogue (U-033).
 
 **Slice scope (out):** syntopic UI; MCTS; learned live controller;
 mid-episode hypothesis generation; population-level promotion; unbounded,
 cross-family, or outside-envelope automatic escalation; whole-library eager
-synthesis.
+synthesis; dynamic-media renderers and authentic artifact/notebook work
+(U-036).
 
 **Migration:** backfill each existing PracticeItem as a fixed surface under a
 one-card family; copy `practice_item_state` into card-level state; keep
@@ -1365,6 +1470,14 @@ defensible core).
 - Browser extension / OS share sheet capture (fast-follow).
 - Timed language production (voice + latency infra) and VOD journeys
   (self-report-only vision; probes not administrable/gradable by the system).
+- Renderer classes beyond text (U-036): interactive diagrams, notebook/code
+  handoff, artifact annotation/grading, project-grounded dynamic media
+  (HMWL). Each is its own project; medium choice must be representational,
+  not decorative, when these do land.
+- Planner-driven automatic reading-question density (U-017@v3): the LLM
+  `ask_now` intervention planner's *unprompted* insertion policy — the
+  owner-placed P2 dialogue slice (U-033) and P3's mode/controls are live;
+  learned timing is P4 shadow.
 - Learned taste models / targeting policies (corpus first).
 - MCTS planner; five-level card scopes; six-state card lifecycle.
 - Cross-learner card promotion machinery (single-learner reality).
@@ -1394,6 +1507,24 @@ open).
 
 ## 12. Change log
 
+- **2026-07-18 (q)** — Bidirectional-reader review folded in (accepted ~85%;
+  owner decision: dialogue early, media later). Reader dialogue promoted to
+  P2 in owner-authored minimal form (U-033: `reader` tutor context with
+  learner-controlled answer modes, owner-placed source-visible reading
+  questions with `reading_phase`, four-disposition rule mapped onto existing
+  purposes, routing-prior-only evidence semantics with cold-observation
+  supersession, AI-answer exposure warming). Authoring re-architected as a
+  pipeline of reviewable artifacts (U-034: reinforcement-target selection
+  with `select_none` + functional lint; artifacts, not API calls;
+  batch-and-rank; rejections logged to corpus). `learning_process` pattern
+  metadata with controller-side-only guardrail (U-035). U-017 narrowed @v3
+  to planner-driven automatic density (still deferred; P3 keeps mode gating
+  + per-question controls; P4 shadow learns timing against next-cold-outcome
+  horizons). Dynamic media, notebook/artifact handoff, and authentic project
+  work explicitly deferred as U-036 — too large for this cut. The review's
+  P0 asks landed as one invariant restatement, not new scope; several of its
+  proposed invariants were confirmed as already held (purpose-typed evidence
+  semantics, commit-class-only commitments, global familiarity namespace).
 - **2026-07-17 (p)** — Orphan/n=1 consensus folded in. Governance: ownership
   ledger regime (version-aware `U-NNN@vK` IDs, per-phase pin lint +
   head-delta report, semantic/editorial revision classes —

@@ -1,0 +1,14 @@
+{
+  "blueprintVersionId": "01KXYJ5R3VFRJM2Q10WMRGW0M0",
+  "commitmentId": "01KXYJ5R4DCVNXPTS6ZTD59Q3R",
+  "commitmentVersionId": "01KXYJ5R4DH6H5Y9NDJNKF4EAG",
+  "currentState": "ready",
+  "goalContractVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+  "goalId": "goal_symmetric_method_selection",
+  "minted": true,
+  "mode": "certifying",
+  "reservationId": "01KXYJ5R4DT2V32W0R72403BTB",
+  "reservedSurfaceId": "01KXYJ5R47QDJ2AXMA0QVKJYEK",
+  "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+  "version": 1
+}

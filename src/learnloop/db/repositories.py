@@ -24,6 +24,47 @@ from learnloop.numeric import beta_mean, beta_quantile
 _UNSET: Any = object()  # sentinel: "argument not supplied" vs an explicit None
 
 
+class StaleContractHead(Exception):
+    """The predecessor a successor was built against is no longer the head (L3,
+    §3.4). A concurrent writer advanced the goal-contract head between the caller's
+    read and its append; the caller must re-read the head and rebuild."""
+
+    def __init__(self, goal_id: str, *, expected: str | None, actual: str | None):
+        self.goal_id = goal_id
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"stale goal-contract head for {goal_id}: predecessor {expected!r} "
+            f"is not the current head {actual!r}"
+        )
+
+
+class BlueprintNotReviewed(Exception):
+    """A golden-path confirmation named a blueprint version that is not
+    reviewed/active (spec_p2 §3.1 step 1). Nothing is activated."""
+
+    def __init__(self, blueprint_version_id: str, *, status: str | None):
+        self.blueprint_version_id = blueprint_version_id
+        self.status = status
+        super().__init__(
+            f"blueprint version {blueprint_version_id} is {status!r}, not reviewed/active"
+        )
+
+
+class GoalAlreadyConfirmed(Exception):
+    """The goal already has a confirmed contract head whose content differs from the
+    v1 this confirmation would mint (spec_p2 §1.2 invariant 2). A fresh golden-path
+    run must use a fresh goal id; an edit mints an append-only successor instead."""
+
+    def __init__(self, goal_id: str, *, head_version_id: str | None):
+        self.goal_id = goal_id
+        self.head_version_id = head_version_id
+        super().__init__(
+            f"goal {goal_id} is already confirmed (head {head_version_id!r}); "
+            "confirmation cannot re-mint v1"
+        )
+
+
 def _json(data: Any) -> str:
     return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
@@ -32,6 +73,43 @@ def _loads(value: str | None, default: Any) -> Any:
     if value is None:
         return default
     return json.loads(value)
+
+
+# measurement_events.kind is validated here rather than by a SQL CHECK, so later
+# P0 packages (P0.2 grader channel, P0.3+) extend the vocabulary by appending to
+# this set without a table rebuild (spec_p0_measurement_correctness §3.3, §4.1).
+_MEASUREMENT_EVENT_KINDS: set[str] = {
+    "administration_opened",
+    "response_appended",
+    "exposure_recorded",
+    "raw_grade_appended",
+    "grade_classified",
+    "grade_interpreted",
+    "projection_rebuilt",
+    "correction_appended",
+    # P0.2 grader-channel lifecycle kinds (spec §3.3, §4.4). Model/interpretation
+    # heads are projections over these append-only transitions; rows never mutate.
+    "model_activated",
+    "model_retired",
+    "grade_quarantined",
+    "grade_adjudicated",
+    "interpretation_activated",
+    "measurement_reinterpretation",
+}
+
+
+def _decode_exposure_event(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["detail"] = _loads(payload.get("detail_json"), None)
+    payload["consumes_unseen"] = bool(payload.get("consumes_unseen"))
+    return payload
+
+
+def _decode_surface(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["surface"] = _loads(payload.get("surface_json"), {})
+    payload["legacy_surface_unverifiable"] = bool(payload.get("legacy_surface_unverifiable"))
+    return payload
 
 
 def _insert_probe_presentation_row(
@@ -268,6 +346,11 @@ class ProbeEpisodeRecord:
     algorithm_version: str
     created_at: str
     updated_at: str
+    # mvp-0.8 robust cutover (migration 071): the calibration channel + coarse
+    # mapping pinned at episode open. NULL for legacy mvp-0.6/0.7 episodes.
+    calibration_model_id: str | None = None
+    calibration_model_hash: str | None = None
+    probe_mapping_version: str | None = None
 
 
 @dataclass(frozen=True)
@@ -511,6 +594,11 @@ class PracticeItemQualityState:
     last_flagged_at: str | None
     algorithm_version: str
     updated_at: str
+
+
+class _InjectedLineageFault(RuntimeError):
+    """Fault injected inside :meth:`Repository.write_administration_lineage_atomic` to
+    prove the raw-event transaction rolls back as one unit (§7.4 fault injection)."""
 
 
 class Repository:
@@ -1428,7 +1516,7 @@ class Repository:
             rows = connection.execute(
                 """
                 SELECT * FROM misconception_transition_events
-                WHERE misconception_id = ? ORDER BY at, id
+                WHERE misconception_id = ? ORDER BY at, rowid
                 """,
                 (misconception_id,),
             ).fetchall()
@@ -2325,6 +2413,7 @@ class Repository:
         session_id: str | None = None,
         since: str | None = None,
         answer_status: str | None = None,
+        resolution: str | None = None,
     ) -> list[dict[str, Any]]:
         query = "SELECT * FROM question_events"
         clauses: list[str] = []
@@ -2336,6 +2425,7 @@ class Repository:
             ("attempt_id", attempt_id),
             ("session_id", session_id),
             ("answer_status", answer_status),
+            ("resolution", resolution),
         ):
             if value is not None:
                 clauses.append(f"{column} = ?")
@@ -2360,6 +2450,7 @@ class Repository:
         session_id: str | None = None,
         since: str | None = None,
         answer_status: str | None = None,
+        resolution: str | None = None,
     ) -> int:
         return len(
             self.question_events(
@@ -2370,6 +2461,7 @@ class Repository:
                 session_id=session_id,
                 since=since,
                 answer_status=answer_status,
+                resolution=resolution,
             )
         )
 
@@ -2385,6 +2477,17 @@ class Repository:
             cursor = connection.execute(
                 "UPDATE question_events SET rating = ? WHERE id = ?",
                 (1 if useful else 0, event_id),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def set_question_event_resolution(self, event_id: str, *, resolution: str) -> bool:
+        """Learner-facing queue state (migration 102): open | resolved | dismissed."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE question_events SET resolution = ? WHERE id = ?",
+                (resolution, event_id),
             )
             connection.commit()
             return cursor.rowcount > 0
@@ -2630,12 +2733,138 @@ class Repository:
                   WHERE created_practice_item_id IS NOT NULL
                      OR existing_practice_item_id IS NOT NULL
                   GROUP BY item_id
+                  UNION
+                  -- Learner-requested rung variants (migration 108): an applied
+                  -- easier/harder variant the learner explicitly asked for is a
+                  -- requested item until first attempted.
+                  SELECT created_practice_item_id AS item_id, MIN(created_at) AS first_requested_at
+                  FROM rung_variant_requests
+                  WHERE status = 'applied' AND created_practice_item_id IS NOT NULL
+                  GROUP BY item_id
                 )
                 WHERE item_id NOT IN (SELECT DISTINCT practice_item_id FROM practice_attempts)
-                ORDER BY first_requested_at, item_id
+                GROUP BY item_id
+                ORDER BY MIN(first_requested_at), item_id
                 """
             ).fetchall()
         return [row["item_id"] for row in rows]
+
+    # --- rung variant requests (migration 108) --------------------------------
+
+    def insert_rung_variant_request(self, request: Mapping[str, Any], *, clock: Clock | None = None) -> str:
+        request_id = str(request.get("id") or new_ulid())
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO rung_variant_requests(
+                  id, source_practice_item_id, learning_object_id, direction,
+                  source_waypoint_slug, target_waypoint_slug, target_rung_json,
+                  status, attempt_id, learner_claim_id, batch_id, patch_id,
+                  created_practice_item_id, failure_reason, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    request_id,
+                    request["source_practice_item_id"],
+                    request["learning_object_id"],
+                    request["direction"],
+                    request["source_waypoint_slug"],
+                    request["target_waypoint_slug"],
+                    request["target_rung_json"],
+                    request.get("status") or "pending",
+                    request.get("attempt_id"),
+                    request.get("learner_claim_id"),
+                    request.get("batch_id"),
+                    request.get("patch_id"),
+                    request.get("created_practice_item_id"),
+                    request.get("failure_reason"),
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        return request_id
+
+    def rung_variant_request(self, request_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM rung_variant_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def update_rung_variant_request(
+        self, request_id: str, *, clock: Clock | None = None, **fields: Any
+    ) -> bool:
+        allowed = {
+            "status", "attempt_id", "learner_claim_id", "batch_id", "patch_id",
+            "created_practice_item_id", "failure_reason",
+        }
+        updates = {key: value for key, value in fields.items() if key in allowed}
+        if not updates:
+            return False
+        assignments = ", ".join(f"{key} = ?" for key in updates)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"UPDATE rung_variant_requests SET {assignments}, updated_at = ? WHERE id = ?",
+                (*updates.values(), utc_now_iso(clock), request_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def pending_rung_variant_requests(self, source_practice_item_id: str) -> list[dict[str, Any]]:
+        """Non-terminal requests for one item — the per-item request lock."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM rung_variant_requests
+                WHERE source_practice_item_id = ? AND status IN ('pending', 'generating')
+                ORDER BY created_at, id
+                """,
+                (source_practice_item_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def rung_variant_batch_dead(self, batch_id: str | None) -> bool:
+        """True when a request's generation batch can no longer complete it:
+        the batch id is unset/unknown or every rung_variant job in it is
+        terminal without the service having updated the request row (job
+        crashed, was cancelled, or predates a restart)."""
+
+        if not batch_id:
+            return True
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT status FROM ingest_jobs WHERE batch_id = ? AND job_type = 'rung_variant'",
+                (batch_id,),
+            ).fetchall()
+        if not rows:
+            return True
+        return all(row["status"] in ("failed", "cancelled", "completed") for row in rows)
+
+    def rung_variant_pending_source_ids(self) -> set[str]:
+        """Source items with a LIVE non-terminal variant request — the
+        scheduler's pending-variant hold: never re-serve the exact card the
+        learner just asked to step away from while its variant is still being
+        authored. Requests whose generation batch is dead (job failed/cancelled
+        without the service updating the row) do NOT hold — a crashed job must
+        never hide a card indefinitely."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT DISTINCT r.source_practice_item_id
+                FROM rung_variant_requests r
+                WHERE r.status IN ('pending', 'generating')
+                  AND EXISTS (
+                    SELECT 1 FROM ingest_jobs j
+                    WHERE j.batch_id = r.batch_id AND j.job_type = 'rung_variant'
+                      AND j.status NOT IN ('failed', 'cancelled', 'completed')
+                  )
+                """
+            ).fetchall()
+        return {row["source_practice_item_id"] for row in rows}
 
     def pending_gap_need_for_facets(self, facet_ids: Iterable[str]) -> dict[str, Any] | None:
         """A pending tutor-gap need already targeting any of ``facet_ids``.
@@ -2809,6 +3038,27 @@ class Repository:
                 """
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def delete_learner_claims(
+        self, *, source: str, scope_type: str, scope_id: str | None = None
+    ) -> int:
+        """Delete claims by (source, scope_type[, scope_id]) — the replace seam
+        for init-wizard (global) and rung-variant (per-LO) re-claims.
+
+        ``covering_learner_claim`` breaks specificity ties by highest
+        claimed_level, so re-seeding a LOWER level must remove the old row
+        rather than append beside it.
+        """
+
+        query = "DELETE FROM learner_claims WHERE source = ? AND scope_type = ?"
+        params: list[Any] = [source, scope_type]
+        if scope_id is not None:
+            query += " AND scope_id = ?"
+            params.append(scope_id)
+        with self.connection() as connection:
+            cursor = connection.execute(query, params)
+            connection.commit()
+        return cursor.rowcount
 
     def record_attempt_outcome(
         self,
@@ -3198,6 +3448,80 @@ class Repository:
                             for row in evidence
                         ],
                     }
+                )
+        return ledger
+
+    def canonical_observation_ledger_v2(self) -> list[dict[str, Any]]:
+        """P0.3 (§4.3) authoritative-events ledger. Extends the mvp-0.7 row with the
+        administration, the ACTIVE calibrated grade interpretation/adjudication, the
+        grader/calibration lineage, the target-contract pin, and quarantine state.
+
+        The mvp-0.8 projection reads only these authoritative events; the legacy
+        summary columns are never replay inputs. The base attempt/evidence shape is
+        the byte-identical v1 shape so the projection loop stays shared; the P0.3
+        lineage fields are ADDED (never removed) -- projector tests fail if a variant
+        omits them (§9.2 bullet 3)."""
+
+        ledger = self.canonical_observation_ledger()
+        with self.connection() as connection:
+            for attempt in ledger:
+                observation = connection.execute(
+                    "SELECT * FROM activity_observations WHERE attempt_id = ? LIMIT 1",
+                    (attempt["attempt_id"],),
+                ).fetchone()
+                interpretation = None
+                adjudication = None
+                administration = None
+                if observation is not None:
+                    observation = dict(observation)
+                    if observation.get("active_interpretation_id"):
+                        interp_row = connection.execute(
+                            "SELECT * FROM grade_interpretations WHERE id = ?",
+                            (observation["active_interpretation_id"],),
+                        ).fetchone()
+                        interpretation = dict(interp_row) if interp_row is not None else None
+                    adj_row = connection.execute(
+                        """
+                        SELECT * FROM grade_adjudications
+                         WHERE observation_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
+                        """,
+                        (observation["id"],),
+                    ).fetchone()
+                    adjudication = dict(adj_row) if adj_row is not None else None
+                    admin_row = connection.execute(
+                        "SELECT * FROM activity_administrations WHERE id = ?",
+                        (observation["administration_id"],),
+                    ).fetchone()
+                    administration = dict(admin_row) if admin_row is not None else None
+
+                lineage: list[str] = []
+                if interpretation is not None and interpretation.get("reference_prior_ids_json"):
+                    lineage = _loads(interpretation["reference_prior_ids_json"], [])
+                attempt["administration_id"] = (
+                    observation["administration_id"] if observation is not None else None
+                )
+                attempt["target_contract_version_id"] = (
+                    administration.get("target_contract_version_id")
+                    if administration is not None else None
+                )
+                attempt["active_interpretation"] = interpretation
+                attempt["active_adjudication"] = adjudication
+                attempt["adjudication_trust_weight"] = (
+                    adjudication.get("bounded_trust_weight") if adjudication is not None else None
+                )
+                attempt["calibration_lineage"] = lineage
+                attempt["calibration_model_id"] = (
+                    interpretation.get("calibration_model_id") if interpretation is not None else None
+                )
+                attempt["calibration_model_hash"] = (
+                    interpretation.get("calibration_model_hash") if interpretation is not None else None
+                )
+                attempt["quarantine_state"] = (
+                    interpretation.get("quarantine_state") if interpretation is not None else None
+                )
+                attempt["projection_algorithm_version"] = (
+                    interpretation.get("projection_algorithm_version")
+                    if interpretation is not None else None
                 )
         return ledger
 
@@ -3633,6 +3957,179 @@ class Repository:
             )
             connection.commit()
         return rebuild_id
+
+    # ------------------------------------------------------------------
+    # P0.5 parameter registry (migration 069). SQL-only; the definition and
+    # projection logic live in services/parameter_registry.py.
+    # ------------------------------------------------------------------
+
+    def upsert_parameter_registry_entry(self, *, entry: dict[str, Any], clock: Clock | None = None) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO parameter_registry(
+                  path, kind, param_class, effective_value_json, effective_value_hash,
+                  source, status, lifecycle, rationale, scope, owner,
+                  sensitivity_certificate_id, evidence_manifest_id, redundancy_proof_id,
+                  promotion_evidence_id, last_review_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
+                  kind = excluded.kind,
+                  param_class = excluded.param_class,
+                  effective_value_json = excluded.effective_value_json,
+                  effective_value_hash = excluded.effective_value_hash,
+                  source = excluded.source,
+                  status = excluded.status,
+                  lifecycle = excluded.lifecycle,
+                  rationale = excluded.rationale,
+                  scope = excluded.scope,
+                  owner = excluded.owner,
+                  sensitivity_certificate_id = excluded.sensitivity_certificate_id,
+                  evidence_manifest_id = excluded.evidence_manifest_id,
+                  redundancy_proof_id = excluded.redundancy_proof_id,
+                  promotion_evidence_id = excluded.promotion_evidence_id,
+                  last_review_at = excluded.last_review_at,
+                  updated_at = excluded.updated_at
+                """,
+                (
+                    entry["path"],
+                    entry["kind"],
+                    entry["param_class"],
+                    _json(entry["effective_value"]),
+                    entry["effective_value_hash"],
+                    entry["source"],
+                    entry["status"],
+                    entry["lifecycle"],
+                    entry["rationale"],
+                    entry["scope"],
+                    entry["owner"],
+                    entry.get("sensitivity_certificate_id"),
+                    entry.get("evidence_manifest_id"),
+                    entry.get("redundancy_proof_id"),
+                    entry.get("promotion_evidence_id"),
+                    entry.get("last_review_at"),
+                    now,
+                ),
+            )
+            connection.commit()
+
+    def parameter_registry_entry(self, path: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM parameter_registry WHERE path = ?", (path,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def parameter_registry_entries(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM parameter_registry ORDER BY path"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def insert_parameter_registry_manifest(
+        self,
+        *,
+        algorithm_version: str,
+        manifest_hash: str,
+        entries: dict[str, Any],
+        clock: Clock | None = None,
+    ) -> str | None:
+        """Freeze one immutable manifest per algorithm version. Idempotent: a
+        second freeze of the same version is a no-op (returns None)."""
+
+        manifest_id = new_ulid()
+        frozen_at = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM parameter_registry_manifests WHERE algorithm_version = ?",
+                (algorithm_version,),
+            ).fetchone()
+            if existing is not None:
+                return None
+            connection.execute(
+                """
+                INSERT INTO parameter_registry_manifests(
+                  id, algorithm_version, manifest_hash, entries_json, frozen_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (manifest_id, algorithm_version, manifest_hash, _json(entries), frozen_at),
+            )
+            connection.commit()
+        return manifest_id
+
+    def parameter_registry_manifest(self, algorithm_version: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM parameter_registry_manifests WHERE algorithm_version = ?",
+                (algorithm_version,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def insert_sensitivity_certificate(self, *, certificate: dict[str, Any], clock: Clock | None = None) -> str:
+        cert_id = certificate.get("id") or new_ulid()
+        produced_at = certificate.get("produced_at") or utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO parameter_sensitivity_certificates(
+                  id, path, covered_value_hash, plausible_range_json, flip_points_json,
+                  decision_stable, scenario_json, sim_report_hash, produced_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    cert_id,
+                    certificate["path"],
+                    certificate["covered_value_hash"],
+                    _json(certificate["plausible_range"]),
+                    _json(certificate["flip_points"]),
+                    1 if certificate["decision_stable"] else 0,
+                    _json(certificate["scenario"]),
+                    certificate["sim_report_hash"],
+                    produced_at,
+                ),
+            )
+            connection.commit()
+        return cert_id
+
+    def sensitivity_certificates_for_path(self, path: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM parameter_sensitivity_certificates WHERE path = ? ORDER BY produced_at DESC",
+                (path,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def record_parameter_bind_event(
+        self,
+        *,
+        path: str,
+        bound_context: dict[str, Any],
+        observation_ref: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        event_id = new_ulid()
+        created_at = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO parameter_bind_events(
+                  id, path, bound_context_json, observation_ref, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (event_id, path, _json(bound_context), observation_ref, created_at),
+            )
+            connection.commit()
+        return event_id
+
+    def parameter_bind_events_for_path(self, path: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM parameter_bind_events WHERE path = ? ORDER BY created_at",
+                (path,),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def recent_surprise_signals(
         self, *, limit: int = 200, exclude_attempt_id: str | None = None
@@ -4214,6 +4711,11 @@ class Repository:
         maximum_observations: int = 4,
         entered_at: str | None = None,
         episode_id: str | None = None,
+        target_contract_version_id: str | None = None,
+        target_support_hash: str | None = None,
+        calibration_model_id: str | None = None,
+        calibration_model_hash: str | None = None,
+        probe_mapping_version: str | None = None,
         clock: Clock | None = None,
     ) -> str:
         episode_id = episode_id or new_ulid()
@@ -4226,9 +4728,11 @@ class Repository:
                   active_state_segment_id, target_decision_json, origin, required_facets_json,
                   minimum_independent_observations, maximum_observations,
                   entered_at, completed_at, completion_reason, algorithm_version,
+                  target_contract_version_id, target_support_hash,
+                  calibration_model_id, calibration_model_hash, probe_mapping_version,
                   created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     episode_id,
@@ -4244,6 +4748,11 @@ class Repository:
                     maximum_observations,
                     entered_at or now,
                     algorithm_version,
+                    target_contract_version_id,
+                    target_support_hash,
+                    calibration_model_id,
+                    calibration_model_hash,
+                    probe_mapping_version,
                     now,
                     now,
                 ),
@@ -6775,6 +7284,21 @@ class Repository:
         items: Iterable[Mapping[str, Any]],
     ) -> str:
         batch_id = str(batch.get("id") or new_ulid())
+        item_rows = list(items)
+        client_ids = [str(item.get("client_item_id") or "") for item in item_rows]
+        client_id_counts: dict[str, int] = {}
+        for client_id in client_ids:
+            client_id_counts[client_id] = client_id_counts.get(client_id, 0) + 1
+        duplicate_client_ids = sorted(
+            client_id
+            for client_id, count in client_id_counts.items()
+            if client_id and count > 1
+        )
+        if duplicate_client_ids:
+            raise ValueError(
+                "proposal contains duplicate client_item_id values: "
+                + ", ".join(duplicate_client_ids)
+            )
         with self.connection() as connection:
             connection.execute(
                 """
@@ -6799,7 +7323,7 @@ class Repository:
             # normalize into the dependency table (source-ingestion §10.2).
             client_to_db_id: dict[str, str] = {}
             dependency_edges: list[tuple[str, list[str]]] = []
-            for item in items:
+            for item in item_rows:
                 item_db_id = item.get("id") or new_ulid()
                 client_to_db_id[str(item["client_item_id"])] = item_db_id
                 depends_on = list(item.get("depends_on_client_item_ids") or [])
@@ -6981,6 +7505,3388 @@ class Repository:
             payload["contract"] = _loads(payload["contract_json"], {})
             contracts[str(payload["id"])] = payload
         return contracts
+
+    # ------------------------------------------------------------------
+    # Activity lineage substrate (P0.1; migration 065;
+    # spec_p0_measurement_correctness §3.5-§3.8). SQL only; business logic
+    # lives in services/activities.py and services/activity_backfill.py.
+    # ------------------------------------------------------------------
+
+    def ensure_activity_family(
+        self,
+        *,
+        purpose: str,
+        legacy_kind: str | None,
+        title: str | None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Content-addressed activity family, idempotent on ``(purpose, legacy_kind, title)``.
+
+        Purpose is immutable for the life of a family (§3.5), so a re-run with the
+        same authoring key reuses the existing family rather than transitioning it.
+        """
+
+        select_sql = """
+            SELECT id FROM activity_families
+             WHERE purpose = ?
+               AND IFNULL(legacy_kind, '') = IFNULL(?, '')
+               AND IFNULL(title, '') = IFNULL(?, '')
+        """
+        key = (purpose, legacy_kind, title)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(select_sql, key).fetchone()
+            if existing is not None:
+                connection.execute("ROLLBACK")
+                return existing["id"]
+            family_id = new_ulid()
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO activity_families(id, purpose, legacy_kind, title, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (family_id, purpose, legacy_kind, title, utc_now_iso(clock)),
+                )
+                connection.execute("COMMIT")
+                return family_id
+            except sqlite3.IntegrityError:
+                # A racing writer won the UNIQUE(authoring key) backstop (migration
+                # 070); adopt its row rather than duplicating (M1).
+                connection.execute("ROLLBACK")
+                row = connection.execute(select_sql, key).fetchone()
+                if row is None:
+                    raise
+                return row["id"]
+        finally:
+            connection.close()
+
+    def ensure_activity_family_version(
+        self,
+        *,
+        family_id: str,
+        version: int,
+        family_spec_json: str,
+        clock: Clock | None = None,
+    ) -> str:
+        """Immutable family-spec snapshot, idempotent on ``(family_id, version)``."""
+
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM activity_family_versions WHERE family_id = ? AND version = ?",
+                (family_id, version),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO activity_family_versions(
+                  id, family_id, version, family_spec_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (version_id, family_id, version, family_spec_json, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return version_id
+
+    def ensure_activity_card(self, *, family_id: str, clock: Clock | None = None) -> str:
+        """The family's canonical card (one card per family in the P0.1 legacy world).
+
+        Idempotent: returns the family's existing card, creating one if absent.
+        """
+
+        select_sql = (
+            "SELECT id FROM activity_cards WHERE family_id = ? ORDER BY created_at, id LIMIT 1"
+        )
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(select_sql, (family_id,)).fetchone()
+            if existing is not None:
+                connection.execute("ROLLBACK")
+                return existing["id"]
+            card_id = new_ulid()
+            try:
+                connection.execute(
+                    "INSERT INTO activity_cards(id, family_id, created_at) VALUES (?, ?, ?)",
+                    (card_id, family_id, utc_now_iso(clock)),
+                )
+                connection.execute("COMMIT")
+                return card_id
+            except sqlite3.IntegrityError:
+                # A racing writer won the UNIQUE(family_id) backstop (migration 070).
+                connection.execute("ROLLBACK")
+                row = connection.execute(select_sql, (family_id,)).fetchone()
+                if row is None:
+                    raise
+                return row["id"]
+        finally:
+            connection.close()
+
+    def ensure_activity_card_version(
+        self,
+        *,
+        card_id: str,
+        version: int,
+        card_contract_hash: str,
+        contract_json: str,
+        schema_version: int,
+        predecessor_card_version_id: str | None = None,
+        lineage_kind: str | None = None,
+        legacy_contract_version_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Content-addressed card version, idempotent on ``(card_id, card_contract_hash)``.
+
+        Two presentations that make the same semantic claim reuse one card version
+        (§3.5); the exact wording lives on the surface, not here.
+        """
+
+        with self.connection() as connection:
+            existing = connection.execute(
+                """
+                SELECT id FROM activity_card_versions
+                 WHERE card_id = ? AND card_contract_hash = ?
+                """,
+                (card_id, card_contract_hash),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO activity_card_versions(
+                  id, card_id, version, card_contract_hash, contract_json,
+                  schema_version, predecessor_card_version_id, lineage_kind,
+                  legacy_contract_version_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id,
+                    card_id,
+                    version,
+                    card_contract_hash,
+                    contract_json,
+                    schema_version,
+                    predecessor_card_version_id,
+                    lineage_kind,
+                    legacy_contract_version_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return version_id
+
+    def ensure_activity_surface(
+        self,
+        *,
+        card_version_id: str,
+        surface_hash: str,
+        fingerprint: str | None,
+        surface_json: str,
+        legacy_practice_item_id: str | None = None,
+        legacy_surface_unverifiable: bool = False,
+        clock: Clock | None = None,
+    ) -> str:
+        """Content-addressed surface, idempotent on ``(card_version_id, surface_hash)``.
+
+        surface_hash is the exact-presentation identity (§3.6 rule 1); fingerprint
+        is the shared-stimulus near-clone key (§3.6 rule 2).
+        """
+
+        with self.connection() as connection:
+            existing = connection.execute(
+                """
+                SELECT id FROM activity_surfaces
+                 WHERE card_version_id = ? AND surface_hash = ?
+                """,
+                (card_version_id, surface_hash),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            surface_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO activity_surfaces(
+                  id, card_version_id, surface_hash, fingerprint, surface_json,
+                  legacy_practice_item_id, legacy_surface_unverifiable, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    surface_id,
+                    card_version_id,
+                    surface_hash,
+                    fingerprint,
+                    surface_json,
+                    legacy_practice_item_id,
+                    1 if legacy_surface_unverifiable else 0,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return surface_id
+
+    def insert_surface_reservation(
+        self,
+        *,
+        surface_id: str,
+        goal_id: str | None,
+        target_contract_version_id: str | None,
+        target_support_hash: str | None,
+        purpose: str,
+        eligibility_json: str,
+        clock: Clock | None = None,
+    ) -> str:
+        """Reserve a surface (§4.5). Raises ``sqlite3.IntegrityError`` when a live
+        reservation already exists (partial unique index enforces at most one)."""
+
+        reservation_id = new_ulid()
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                INSERT INTO activity_surface_reservations(
+                  id, surface_id, goal_id, target_contract_version_id,
+                  target_support_hash, purpose, status, eligibility_json,
+                  administration_id, reserved_at, closed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'reserved', ?, NULL, ?, NULL)
+                """,
+                (
+                    reservation_id,
+                    surface_id,
+                    goal_id,
+                    target_contract_version_id,
+                    target_support_hash,
+                    purpose,
+                    eligibility_json,
+                    now,
+                ),
+            )
+            connection.execute("COMMIT")
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+        return reservation_id
+
+    def close_surface_reservation(
+        self,
+        *,
+        reservation_id: str,
+        status: str,
+        administration_id: str | None = None,
+        expected_status: str | None = None,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Transition a reservation to a terminal status (the one permitted
+        mutation on this append-mostly substrate).
+
+        When ``expected_status`` is given the transition is a compare-and-set:
+        it only fires ``WHERE status = expected_status`` (L8), so a caller that
+        lost a race to a concurrent render/cancel gets ``False`` instead of
+        clobbering the winner's terminal status. Returns whether a row transitioned.
+        """
+
+        clauses = "WHERE id = ?"
+        params: list[Any] = [status, administration_id, utc_now_iso(clock), reservation_id]
+        if expected_status is not None:
+            clauses += " AND status = ?"
+            params.append(expected_status)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE activity_surface_reservations
+                   SET status = ?, administration_id = COALESCE(?, administration_id),
+                       closed_at = ?
+                 {clauses}
+                """,
+                params,
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def open_administration_atomic(
+        self,
+        *,
+        reservation_id: str | None,
+        surface_id: str,
+        card_version_id: str,
+        family_id: str,
+        purpose: str,
+        surface_hash: str,
+        fingerprint: str | None,
+        snapshot_hash: str,
+        snapshot_json: str,
+        consumes_unseen: bool,
+        pins: Mapping[str, Any] | None = None,
+        algorithm_version: str,
+        enforce_eligibility: bool = False,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """The render burn boundary (§4.5). Atomically: recheck no prior render,
+        (when ``enforce_eligibility``) re-run the §3.6 collision checks INSIDE the
+        lock and refuse on collision, insert the administration, insert the
+        once-only ``rendered`` exposure, append ``expose`` (+ ``consume`` when
+        consuming), and flip the reservation.
+
+        Returns ``{"administration": <row dict>, "already_open": bool}``. Under a
+        concurrent second render the loser observes the winner's rendered exposure
+        and returns that same administration (expose-at-most-once, §9.5). When
+        ``enforce_eligibility`` and a global exposure/fingerprint/quarantine
+        collision is present, ROLLBACKs and returns
+        ``{"administration": None, "refused": True, "refusal_reason": <reason>}``
+        (§4.5, §7.3 row "exposure collision at render").
+        """
+
+        pins = dict(pins or {})
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing_render = connection.execute(
+                """
+                SELECT administration_id FROM activity_exposure_events
+                 WHERE surface_id = ? AND kind = 'rendered'
+                 LIMIT 1
+                """,
+                (surface_id,),
+            ).fetchone()
+            if existing_render is not None:
+                admin_id = existing_render["administration_id"]
+                admin = connection.execute(
+                    "SELECT * FROM activity_administrations WHERE id = ?",
+                    (admin_id,),
+                ).fetchone()
+                connection.execute("ROLLBACK")
+                return {"administration": dict(admin) if admin else None, "already_open": True}
+
+            if enforce_eligibility:
+                # The §3.6 rules re-evaluated inside the burn lock (§4.5). A prior
+                # render OF THIS surface was already handled above (concurrent
+                # render -> winner). Any remaining exact-hash exposure is a
+                # different surface; a fingerprint hit is a near-clone; a
+                # quarantine disqualifies. Refuse rather than burn.
+                refusal_reason: str | None = None
+                exact = connection.execute(
+                    "SELECT id FROM activity_exposure_events WHERE surface_hash = ? LIMIT 1",
+                    (surface_hash,),
+                ).fetchone()
+                if exact is not None:
+                    refusal_reason = "exact_surface_collision"
+                elif fingerprint is not None:
+                    near = connection.execute(
+                        "SELECT id FROM activity_exposure_events WHERE fingerprint = ? LIMIT 1",
+                        (fingerprint,),
+                    ).fetchone()
+                    if near is not None:
+                        refusal_reason = "near_clone_collision"
+                if refusal_reason is None:
+                    quarantined = connection.execute(
+                        """
+                        SELECT id FROM activity_surface_lifecycle_events
+                         WHERE surface_id = ? AND kind = 'quarantine' LIMIT 1
+                        """,
+                        (surface_id,),
+                    ).fetchone()
+                    if quarantined is not None:
+                        refusal_reason = "assessment_disqualified"
+                if refusal_reason is not None:
+                    connection.execute("ROLLBACK")
+                    return {
+                        "administration": None,
+                        "already_open": False,
+                        "refused": True,
+                        "refusal_reason": refusal_reason,
+                    }
+
+            administration_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO activity_administrations(
+                  id, surface_id, card_version_id, family_id, purpose,
+                  administration_snapshot_hash, snapshot_json,
+                  target_contract_version_id, target_support_hash,
+                  grader_model_version_id, selection_policy_version_id,
+                  decision_params_hash, assistance_json, feedback_condition,
+                  eligibility_json, reservation_id, legacy_backfilled, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                """,
+                (
+                    administration_id,
+                    surface_id,
+                    card_version_id,
+                    family_id,
+                    purpose,
+                    snapshot_hash,
+                    snapshot_json,
+                    pins.get("target_contract_version_id"),
+                    pins.get("target_support_hash"),
+                    pins.get("grader_model_version_id"),
+                    pins.get("selection_policy_version_id"),
+                    pins.get("decision_params_hash"),
+                    pins.get("assistance_json"),
+                    pins.get("feedback_condition"),
+                    pins.get("eligibility_json"),
+                    reservation_id,
+                    now,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO activity_exposure_events(
+                  id, surface_id, administration_id, surface_hash, fingerprint,
+                  kind, purpose, consumes_unseen, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, 'rendered', ?, ?, NULL, ?)
+                """,
+                (
+                    new_ulid(),
+                    surface_id,
+                    administration_id,
+                    surface_hash,
+                    fingerprint,
+                    purpose,
+                    1 if consumes_unseen else 0,
+                    now,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO activity_surface_lifecycle_events(
+                  id, surface_id, reservation_id, administration_id, kind,
+                  reason, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, 'expose', NULL, NULL, ?)
+                """,
+                (new_ulid(), surface_id, reservation_id, administration_id, now),
+            )
+            if consumes_unseen:
+                connection.execute(
+                    """
+                    INSERT INTO activity_surface_lifecycle_events(
+                      id, surface_id, reservation_id, administration_id, kind,
+                      reason, detail_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, 'consume', NULL, NULL, ?)
+                    """,
+                    (new_ulid(), surface_id, reservation_id, administration_id, now),
+                )
+            connection.execute(
+                """
+                INSERT INTO measurement_events(
+                  id, administration_id, observation_id, kind, algorithm_version,
+                  payload_json, created_at
+                )
+                VALUES (?, ?, NULL, 'administration_opened', ?, NULL, ?)
+                """,
+                (new_ulid(), administration_id, algorithm_version, now),
+            )
+            if reservation_id is not None:
+                connection.execute(
+                    """
+                    UPDATE activity_surface_reservations
+                       SET status = 'rendered', administration_id = ?, closed_at = ?
+                     WHERE id = ? AND status = 'reserved'
+                    """,
+                    (administration_id, now, reservation_id),
+                )
+            admin = connection.execute(
+                "SELECT * FROM activity_administrations WHERE id = ?",
+                (administration_id,),
+            ).fetchone()
+            connection.execute("COMMIT")
+            return {"administration": dict(admin), "already_open": False}
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+
+    def write_administration_lineage_atomic(
+        self,
+        *,
+        surface_id: str,
+        card_version_id: str,
+        family_id: str,
+        purpose: str,
+        surface_hash: str,
+        fingerprint: str | None,
+        snapshot_hash: str,
+        snapshot_json: str,
+        consumes_unseen: bool,
+        algorithm_version: str,
+        evidence_eligibility: str | None,
+        eligibility_reason: str | None,
+        reading_phase: str | None = None,
+        admin_context: Mapping[str, Any] | None = None,
+        attempt_id: str | None = None,
+        response_ref: str | None = None,
+        response_ledger_json: str | None = None,
+        fault_after: "frozenset[str]" = frozenset(),
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Write the full RAW-EVENT lineage for one administration as ONE transaction
+        (§7.4/§7.5): administration (+ its context, folded in so no NULL-context window
+        exists) + rendered & submitted exposures + expose/consume lifecycle +
+        observation + measurement events (administration_opened, response_appended).
+
+        A fault anywhere in this unit rolls the WHOLE thing back -- a partial raw-event
+        set is impossible; the only write allowed to defer is the downstream projection
+        (card_state), handled by the caller. Idempotent: a prior render of the surface
+        reuses that administration and its submitted exposure / observation.
+
+        ``fault_after`` injects a fault INSIDE the transaction after the named boundary
+        (``administration`` / ``exposure``) to prove rollback leaves nothing.
+        """
+
+        now = utc_now_iso(clock)
+        admin_context_json = (
+            None if admin_context is None else json.dumps(dict(admin_context), sort_keys=True)
+        )
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing_render = connection.execute(
+                """
+                SELECT administration_id FROM activity_exposure_events
+                 WHERE surface_id = ? AND kind = 'rendered' LIMIT 1
+                """,
+                (surface_id,),
+            ).fetchone()
+            already_open = existing_render is not None
+            if already_open:
+                administration_id = existing_render["administration_id"]
+            else:
+                administration_id = new_ulid()
+                connection.execute(
+                    """
+                    INSERT INTO activity_administrations(
+                      id, surface_id, card_version_id, family_id, purpose,
+                      administration_snapshot_hash, snapshot_json, reading_phase,
+                      admin_context_json, legacy_backfilled, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                    """,
+                    (
+                        administration_id, surface_id, card_version_id, family_id, purpose,
+                        snapshot_hash, snapshot_json, reading_phase, admin_context_json, now,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO activity_exposure_events(
+                      id, surface_id, administration_id, surface_hash, fingerprint,
+                      kind, purpose, consumes_unseen, detail_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, 'rendered', ?, ?, NULL, ?)
+                    """,
+                    (new_ulid(), surface_id, administration_id, surface_hash, fingerprint,
+                     purpose, 1 if consumes_unseen else 0, now),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO activity_surface_lifecycle_events(
+                      id, surface_id, reservation_id, administration_id, kind,
+                      reason, detail_json, created_at
+                    )
+                    VALUES (?, ?, NULL, ?, 'expose', NULL, NULL, ?)
+                    """,
+                    (new_ulid(), surface_id, administration_id, now),
+                )
+                if consumes_unseen:
+                    connection.execute(
+                        """
+                        INSERT INTO activity_surface_lifecycle_events(
+                          id, surface_id, reservation_id, administration_id, kind,
+                          reason, detail_json, created_at
+                        )
+                        VALUES (?, ?, NULL, ?, 'consume', NULL, NULL, ?)
+                        """,
+                        (new_ulid(), surface_id, administration_id, now),
+                    )
+                connection.execute(
+                    """
+                    INSERT INTO measurement_events(
+                      id, administration_id, observation_id, kind, algorithm_version,
+                      payload_json, created_at
+                    )
+                    VALUES (?, ?, NULL, 'administration_opened', ?, NULL, ?)
+                    """,
+                    (new_ulid(), administration_id, algorithm_version, now),
+                )
+            if "administration" in fault_after:
+                raise _InjectedLineageFault("administration")
+
+            # Submitted exposure (idempotent reuse on retry).
+            submitted = connection.execute(
+                """
+                SELECT id FROM activity_exposure_events
+                 WHERE administration_id = ? AND kind = 'submitted' LIMIT 1
+                """,
+                (administration_id,),
+            ).fetchone()
+            if submitted is not None:
+                submitted_exposure_id = submitted["id"]
+            else:
+                submitted_exposure_id = new_ulid()
+                connection.execute(
+                    """
+                    INSERT INTO activity_exposure_events(
+                      id, surface_id, administration_id, surface_hash, fingerprint,
+                      kind, purpose, consumes_unseen, detail_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, 'submitted', ?, 0, NULL, ?)
+                    """,
+                    (submitted_exposure_id, surface_id, administration_id, surface_hash,
+                     fingerprint, purpose, now),
+                )
+            if "exposure" in fault_after:
+                raise _InjectedLineageFault("exposure")
+
+            # Observation (idempotent reuse on retry) + response_appended measurement.
+            existing_obs = connection.execute(
+                "SELECT id FROM activity_observations WHERE administration_id = ? LIMIT 1",
+                (administration_id,),
+            ).fetchone()
+            if existing_obs is not None:
+                observation_id = existing_obs["id"]
+            else:
+                observation_id = new_ulid()
+                connection.execute(
+                    """
+                    INSERT INTO activity_observations(
+                      id, administration_id, surface_id, attempt_id, response_ref,
+                      active_interpretation_id, evidence_eligibility, eligibility_reason,
+                      created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
+                    """,
+                    (observation_id, administration_id, surface_id, attempt_id, response_ref,
+                     evidence_eligibility, eligibility_reason, now),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO measurement_events(
+                      id, administration_id, observation_id, kind, algorithm_version,
+                      payload_json, created_at
+                    )
+                    VALUES (?, ?, ?, 'response_appended', ?, ?, ?)
+                    """,
+                    (new_ulid(), administration_id, observation_id, algorithm_version,
+                     response_ledger_json, now),
+                )
+            connection.execute("COMMIT")
+            return {
+                "administration_id": administration_id,
+                "submitted_exposure_id": submitted_exposure_id,
+                "observation_id": observation_id,
+                "already_open": already_open,
+            }
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+
+    def append_exposure_event(
+        self,
+        *,
+        surface_id: str,
+        administration_id: str | None,
+        surface_hash: str,
+        fingerprint: str | None,
+        kind: str,
+        purpose: str,
+        consumes_unseen: bool = False,
+        detail_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_exposure_events(
+                  id, surface_id, administration_id, surface_hash, fingerprint,
+                  kind, purpose, consumes_unseen, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    surface_id,
+                    administration_id,
+                    surface_hash,
+                    fingerprint,
+                    kind,
+                    purpose,
+                    1 if consumes_unseen else 0,
+                    detail_json,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def append_surface_lifecycle_event(
+        self,
+        *,
+        surface_id: str,
+        kind: str,
+        reservation_id: str | None = None,
+        administration_id: str | None = None,
+        reason: str | None = None,
+        detail_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_surface_lifecycle_events(
+                  id, surface_id, reservation_id, administration_id, kind,
+                  reason, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    surface_id,
+                    reservation_id,
+                    administration_id,
+                    kind,
+                    reason,
+                    detail_json,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def insert_activity_observation(
+        self,
+        *,
+        administration_id: str,
+        surface_id: str,
+        attempt_id: str | None = None,
+        response_ref: str | None = None,
+        evidence_eligibility: str | None = None,
+        eligibility_reason: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        observation_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_observations(
+                  id, administration_id, surface_id, attempt_id, response_ref,
+                  active_interpretation_id, evidence_eligibility, eligibility_reason,
+                  created_at
+                )
+                VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
+                """,
+                (
+                    observation_id,
+                    administration_id,
+                    surface_id,
+                    attempt_id,
+                    response_ref,
+                    evidence_eligibility,
+                    eligibility_reason,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return observation_id
+
+    # ------------------------------------------------------------------
+    # Goal terminal contracts (§3.4, migration 068). Confirmed versions are
+    # IMMUTABLE (never UPDATEd); the head is a rewritten projection; drafts are
+    # non-pinnable. append_goal_contract_version does the version-row insert +
+    # head-projection rewrite atomically so the head cannot skip a version.
+    # ------------------------------------------------------------------
+
+    def append_goal_contract_version(
+        self,
+        *,
+        goal_id: str,
+        version: int,
+        predecessor_version_id: str | None,
+        contract_json: str,
+        content_hash: str,
+        support_hash: str,
+        contract_schema_version: int,
+        change_class: str,
+        envelope_version: str | None = None,
+        predecessor_milestone: str | None = None,
+        activated_edge_id: str | None = None,
+        evidence_receipt_json: str | None = None,
+        burden_delta_json: str | None = None,
+        author: str,
+        reason: str | None = None,
+        head_envelope_version: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append an immutable version row and rewrite the head projection in one
+        transaction. On a byte-identical re-confirm (UNIQUE(goal_id, content_hash))
+        returns the existing row with ``already_exists=True`` and leaves the head
+        untouched."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT * FROM goal_contract_versions WHERE goal_id = ? AND content_hash = ?",
+                (goal_id, content_hash),
+            ).fetchone()
+            if existing is not None:
+                connection.execute("ROLLBACK")
+                return {"version": dict(existing), "already_exists": True}
+            # L3 (§3.4): verify the predecessor is still the head INSIDE the
+            # transaction. A concurrent successor that advanced the head between the
+            # caller's read and this append must fail as StaleContractHead, never
+            # silently fork or clobber the head projection.
+            head_row = connection.execute(
+                "SELECT head_version_id FROM goal_contract_heads WHERE goal_id = ?",
+                (goal_id,),
+            ).fetchone()
+            current_head_id = head_row["head_version_id"] if head_row else None
+            if predecessor_version_id != current_head_id:
+                connection.execute("ROLLBACK")
+                raise StaleContractHead(
+                    goal_id, expected=predecessor_version_id, actual=current_head_id
+                )
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO goal_contract_versions(
+                  id, goal_id, version, predecessor_version_id, contract_json,
+                  content_hash, support_hash, contract_schema_version, change_class,
+                  envelope_version, predecessor_milestone, activated_edge_id,
+                  evidence_receipt_json, burden_delta_json, author, reason, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id, goal_id, version, predecessor_version_id, contract_json,
+                    content_hash, support_hash, contract_schema_version, change_class,
+                    envelope_version, predecessor_milestone, activated_edge_id,
+                    evidence_receipt_json, burden_delta_json, author, reason, now,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO goal_contract_heads(
+                  goal_id, head_version_id, head_version, head_content_hash,
+                  head_support_hash, head_envelope_version, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(goal_id) DO UPDATE SET
+                  head_version_id = excluded.head_version_id,
+                  head_version = excluded.head_version,
+                  head_content_hash = excluded.head_content_hash,
+                  head_support_hash = excluded.head_support_hash,
+                  head_envelope_version = excluded.head_envelope_version,
+                  updated_at = excluded.updated_at
+                """,
+                (
+                    goal_id, version_id, version, content_hash,
+                    support_hash, head_envelope_version, now,
+                ),
+            )
+            row = connection.execute(
+                "SELECT * FROM goal_contract_versions WHERE id = ?", (version_id,)
+            ).fetchone()
+            connection.execute("COMMIT")
+            return {"version": dict(row), "already_exists": False}
+        except StaleContractHead:
+            raise
+        except sqlite3.IntegrityError:
+            # L3: a racing successor slipped in between the head check and COMMIT
+            # (UNIQUE(goal_id, version)). Re-read the head and surface it as a
+            # StaleContractHead where the predecessor no longer matches.
+            connection.execute("ROLLBACK")
+            head_row = connection.execute(
+                "SELECT head_version_id FROM goal_contract_heads WHERE goal_id = ?",
+                (goal_id,),
+            ).fetchone()
+            actual = head_row["head_version_id"] if head_row else None
+            if actual != predecessor_version_id:
+                raise StaleContractHead(
+                    goal_id, expected=predecessor_version_id, actual=actual
+                )
+            raise
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+
+    def fetch_goal_contract_head(self, goal_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM goal_contract_heads WHERE goal_id = ?", (goal_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def fetch_goal_contract_version(self, version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM goal_contract_versions WHERE id = ?", (version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def goal_contract_versions_for_goal(self, goal_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM goal_contract_versions WHERE goal_id = ? ORDER BY version",
+                (goal_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_goal_contract_draft(
+        self,
+        *,
+        goal_id: str,
+        predecessor_version_id: str | None,
+        proposed_contract_json: str,
+        proposed_change_class: str | None,
+        rejection_reason: str,
+        requires: str,
+        author: str,
+        evidence_receipt_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        draft_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO goal_contract_drafts(
+                  id, goal_id, predecessor_version_id, proposed_contract_json,
+                  proposed_change_class, rejection_reason, evidence_receipt_json,
+                  requires, author, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    draft_id, goal_id, predecessor_version_id, proposed_contract_json,
+                    proposed_change_class, rejection_reason, evidence_receipt_json,
+                    requires, author, utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return draft_id
+
+    def goal_contract_drafts_for_goal(self, goal_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM goal_contract_drafts WHERE goal_id = ? ORDER BY created_at, id",
+                (goal_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def consumer_pins_for_versions(
+        self, version_ids: Sequence[str]
+    ) -> list[dict[str, Any]]:
+        """UNION projection (§1.5) of every consumer pin whose
+        ``target_contract_version_id`` is in ``version_ids``: probe episodes,
+        assessment reservations, and administrations. Read-only."""
+
+        if not version_ids:
+            return []
+        placeholders = ",".join("?" for _ in version_ids)
+        pins: list[dict[str, Any]] = []
+        with self.connection() as connection:
+            for kind, table, id_col in (
+                ("probe_episode", "probe_episodes", "id"),
+                ("assessment_reserve", "activity_surface_reservations", "id"),
+                ("administration", "activity_administrations", "id"),
+            ):
+                rows = connection.execute(
+                    f"""
+                    SELECT {id_col} AS consumer_id, target_contract_version_id,
+                           target_support_hash
+                      FROM {table}
+                     WHERE target_contract_version_id IN ({placeholders})
+                    """,
+                    tuple(version_ids),
+                ).fetchall()
+                for row in rows:
+                    pins.append(
+                        {
+                            "consumer_kind": kind,
+                            "consumer_id": row["consumer_id"],
+                            "target_contract_version_id": row["target_contract_version_id"],
+                            "target_support_hash": row["target_support_hash"],
+                        }
+                    )
+        return pins
+
+    def insert_retirement_record(
+        self,
+        *,
+        scope: str,
+        family_id: str | None,
+        card_version_id: str | None,
+        surface_id: str | None,
+        reason: str,
+        provenance: str,
+        replacement_proposal_json: str | None = None,
+        lifecycle_event_id: str | None = None,
+        interaction_event_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        record_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO retirement_records(
+                  id, scope, family_id, card_version_id, surface_id, reason,
+                  provenance, replacement_proposal_json, lifecycle_event_id,
+                  interaction_event_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record_id,
+                    scope,
+                    family_id,
+                    card_version_id,
+                    surface_id,
+                    reason,
+                    provenance,
+                    replacement_proposal_json,
+                    lifecycle_event_id,
+                    interaction_event_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return record_id
+
+    def append_interaction_event(
+        self,
+        *,
+        kind: str,
+        origin: str,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        administration_id: str | None = None,
+        surface_id: str | None = None,
+        attempt_id: str | None = None,
+        affect_tap_kind: str | None = None,
+        attempt_duration_ms: int | None = None,
+        payload_json: str | None = None,
+        occurred_at: str | None = None,
+        received_at: str | None = None,
+        actor: str | None = None,
+        client_id: str | None = None,
+        session_id: str | None = None,
+        visit_id: str | None = None,
+        payload_schema_version: str | None = None,
+        source_id: str | None = None,
+        revision_id: str | None = None,
+        render_view_id: str | None = None,
+        locator_json: str | None = None,
+        annotation_id: str | None = None,
+        commitment_id: str | None = None,
+        activity_id: str | None = None,
+        payload_hash: str | None = None,
+        client_idempotency_key: str | None = None,
+        privacy_locality: str | None = None,
+        consent_context: str | None = None,
+        producer_version: str | None = None,
+        app_version: str | None = None,
+        policy_version: str | None = None,
+        supersedes_event_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        # §8.1 reader-envelope columns are all nullable so P0/P1/P2 callers are
+        # untouched. A UNIQUE index on client_idempotency_key dedupes retries.
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO interaction_events(
+                  id, kind, subject_type, subject_id, administration_id, surface_id,
+                  attempt_id, affect_tap_kind, attempt_duration_ms, payload_json,
+                  origin, created_at,
+                  occurred_at, received_at, actor, client_id, session_id, visit_id,
+                  payload_schema_version, source_id, revision_id, render_view_id,
+                  locator_json, annotation_id, commitment_id, activity_id,
+                  payload_hash, client_idempotency_key, privacy_locality,
+                  consent_context, producer_version, app_version, policy_version,
+                  supersedes_event_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    kind,
+                    subject_type,
+                    subject_id,
+                    administration_id,
+                    surface_id,
+                    attempt_id,
+                    affect_tap_kind,
+                    attempt_duration_ms,
+                    payload_json,
+                    origin,
+                    utc_now_iso(clock),
+                    occurred_at,
+                    received_at,
+                    actor,
+                    client_id,
+                    session_id,
+                    visit_id,
+                    payload_schema_version,
+                    source_id,
+                    revision_id,
+                    render_view_id,
+                    locator_json,
+                    annotation_id,
+                    commitment_id,
+                    activity_id,
+                    payload_hash,
+                    client_idempotency_key,
+                    privacy_locality,
+                    consent_context,
+                    producer_version,
+                    app_version,
+                    policy_version,
+                    supersedes_event_id,
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    # ------------------------------------------------------------------
+    # P3 reader integration (spec_p3_reader_integration slice 1)
+    # ------------------------------------------------------------------
+
+    # -- render views + crosswalk (§3.2) --
+
+    def insert_render_view(self, view: Mapping[str, Any], *, clock: Clock | None = None) -> str:
+        view_id = view.get("id") or new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_render_views(
+                  id, source_id, revision_id, extraction_id, renderer, renderer_version,
+                  model_version, config_version, schema_version, content_hash,
+                  asset_manifest_hash, status, health_summary_json, predecessor_view_id,
+                  predecessor_reason, output_ref, request_hash, result_hash,
+                  created_at, completed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    view_id,
+                    view["source_id"],
+                    view["revision_id"],
+                    view["extraction_id"],
+                    view.get("renderer", "marker_markdown"),
+                    view["renderer_version"],
+                    view.get("model_version"),
+                    view.get("config_version"),
+                    view["schema_version"],
+                    view["content_hash"],
+                    view.get("asset_manifest_hash"),
+                    view.get("status", "ready"),
+                    _json(view.get("health_summary", {})),
+                    view.get("predecessor_view_id"),
+                    view.get("predecessor_reason"),
+                    view.get("output_ref"),
+                    view["request_hash"],
+                    view.get("result_hash"),
+                    now,
+                    view.get("completed_at", now),
+                ),
+            )
+            connection.commit()
+        return view_id
+
+    def get_render_view(self, render_view_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_render_views WHERE id = ?", (render_view_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def render_view_by_request_hash(self, request_hash: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_render_views WHERE request_hash = ?", (request_hash,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def latest_render_view_for_extraction(self, extraction_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_render_views WHERE extraction_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (extraction_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def insert_render_crosswalk_nodes(
+        self, render_view_id: str, nodes: Sequence[Mapping[str, Any]], *, clock: Clock | None = None
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            for ordinal, node in enumerate(nodes):
+                connection.execute(
+                    """
+                    INSERT INTO source_render_block_crosswalk(
+                      id, render_view_id, display_node_id, display_ordinal, extraction_id,
+                      span_id, block_content_hash, block_ordinal, display_start, display_end,
+                      katex_node_ids_json, asset_ids_json, status, reason, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        node.get("id") or new_ulid(),
+                        render_view_id,
+                        node["display_node_id"],
+                        node.get("display_ordinal", ordinal),
+                        node["extraction_id"],
+                        node.get("span_id"),
+                        node.get("block_content_hash"),
+                        node.get("block_ordinal"),
+                        node.get("display_start"),
+                        node.get("display_end"),
+                        _json(node.get("katex_node_ids", [])),
+                        _json(node.get("asset_ids", [])),
+                        node.get("status", "mapped"),
+                        node.get("reason"),
+                        now,
+                    ),
+                )
+            connection.commit()
+
+    def render_crosswalk(self, render_view_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_render_block_crosswalk WHERE render_view_id = ? "
+                "ORDER BY display_ordinal, id",
+                (render_view_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # -- block health (§3.4) --
+
+    def upsert_block_health(self, health: Mapping[str, Any], *, clock: Clock | None = None) -> str:
+        health_id = health.get("id") or new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_block_health(
+                  id, extraction_id, span_id, analyzer_version, status, reason_flags_json,
+                  signal_provenance_json, confidence, page_health_flags_json,
+                  recommended_view, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(extraction_id, span_id, analyzer_version) DO UPDATE SET
+                  status = excluded.status,
+                  reason_flags_json = excluded.reason_flags_json,
+                  signal_provenance_json = excluded.signal_provenance_json,
+                  confidence = excluded.confidence,
+                  page_health_flags_json = excluded.page_health_flags_json,
+                  recommended_view = excluded.recommended_view
+                """,
+                (
+                    health_id,
+                    health["extraction_id"],
+                    health["span_id"],
+                    health["analyzer_version"],
+                    health.get("status", "unknown"),
+                    _json(health.get("reason_flags", [])),
+                    _json(health.get("signal_provenance", {})),
+                    health.get("confidence"),
+                    _json(health.get("page_health_flags", [])),
+                    health.get("recommended_view", "derived"),
+                    now,
+                ),
+            )
+            connection.commit()
+        return health_id
+
+    def block_health(self, extraction_id: str, span_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_block_health WHERE extraction_id = ? AND span_id = ? "
+                "ORDER BY analyzer_version DESC, created_at DESC LIMIT 1",
+                (extraction_id, span_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def block_health_for_extraction(self, extraction_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_block_health WHERE extraction_id = ? ORDER BY span_id",
+                (extraction_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # -- annotations (§4) --
+
+    def create_annotation(self, *, source_id: str, clock: Clock | None = None) -> str:
+        annotation_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO source_annotations(id, source_id, created_at) VALUES (?, ?, ?)",
+                (annotation_id, source_id, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return annotation_id
+
+    def next_annotation_version_ordinal(self, annotation_id: str) -> int:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT COALESCE(MAX(version_ordinal), 0) AS m FROM source_annotation_versions "
+                "WHERE annotation_id = ?",
+                (annotation_id,),
+            ).fetchone()
+        return int(row["m"]) + 1
+
+    def annotation_head(self, annotation_id: str) -> dict[str, Any] | None:
+        """Rebuildable annotation-head projection: the latest version + anchor + segments."""
+
+        with self.connection() as connection:
+            ann = connection.execute(
+                "SELECT * FROM source_annotations WHERE id = ?", (annotation_id,)
+            ).fetchone()
+            if ann is None:
+                return None
+            version = connection.execute(
+                "SELECT * FROM source_annotation_versions WHERE annotation_id = ? "
+                "ORDER BY version_ordinal DESC LIMIT 1",
+                (annotation_id,),
+            ).fetchone()
+            anchor = connection.execute(
+                "SELECT * FROM source_annotation_anchor_versions WHERE annotation_id = ? "
+                "ORDER BY version_ordinal DESC LIMIT 1",
+                (annotation_id,),
+            ).fetchone()
+            segments: list[dict[str, Any]] = []
+            if anchor is not None:
+                seg_rows = connection.execute(
+                    "SELECT * FROM source_annotation_anchor_segments WHERE anchor_version_id = ? "
+                    "ORDER BY segment_ordinal",
+                    (anchor["id"],),
+                ).fetchall()
+                segments = [dict(row) for row in seg_rows]
+        return {
+            "annotation": dict(ann),
+            "version": dict(version) if version is not None else None,
+            "anchor": dict(anchor) if anchor is not None else None,
+            "segments": segments,
+        }
+
+    def annotations_for_source(self, source_id: str) -> list[dict[str, Any]]:
+        """Annotation heads for a source, omitting delete-intended annotations.
+
+        Deletion is a tombstone disposition event (§4.1) — history keeps every
+        version and event, but the reading-surface listing honors the learner's
+        delete intent."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT id FROM source_annotations WHERE source_id = ? "
+                "AND id NOT IN ("
+                "  SELECT annotation_id FROM source_annotation_events"
+                "  WHERE event_type = 'delete_intent'"
+                ") ORDER BY created_at, id",
+                (source_id,),
+            ).fetchall()
+        return [self.annotation_head(row["id"]) for row in rows]
+
+    def search_source_blocks(
+        self, *, query: str, extraction_ids: Sequence[str], limit: int = 80
+    ) -> list[dict[str, Any]]:
+        """Case-insensitive substring search over document blocks of the given
+        extractions (no FTS index exists; ``instr`` over ``text`` is adequate at
+        local-vault scale). Ordered by extraction then document order."""
+
+        needle = (query or "").strip().lower()
+        ids = tuple(dict.fromkeys(extraction_id for extraction_id in extraction_ids if extraction_id))
+        if not needle or not ids:
+            return []
+        marks = ", ".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT extraction_id, span_id, text, section_path_json, ordinal, page "
+                f"FROM source_document_blocks WHERE extraction_id IN ({marks}) "
+                "AND block_type NOT IN ('PageHeader', 'PageFooter', 'TableOfContents') "
+                "AND instr(lower(text), ?) > 0 "
+                "ORDER BY extraction_id, ordinal LIMIT ?",
+                (*ids, needle, int(limit)),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def annotation_history(self, annotation_id: str) -> dict[str, Any]:
+        with self.connection() as connection:
+            versions = [
+                dict(r)
+                for r in connection.execute(
+                    "SELECT * FROM source_annotation_versions WHERE annotation_id = ? "
+                    "ORDER BY version_ordinal",
+                    (annotation_id,),
+                ).fetchall()
+            ]
+            anchors = [
+                dict(r)
+                for r in connection.execute(
+                    "SELECT * FROM source_annotation_anchor_versions WHERE annotation_id = ? "
+                    "ORDER BY version_ordinal",
+                    (annotation_id,),
+                ).fetchall()
+            ]
+            events = [
+                dict(r)
+                for r in connection.execute(
+                    "SELECT * FROM source_annotation_events WHERE annotation_id = ? "
+                    "ORDER BY created_at, id",
+                    (annotation_id,),
+                ).fetchall()
+            ]
+        return {"versions": versions, "anchors": anchors, "events": events}
+
+    def append_annotation_event(
+        self, *, annotation_id: str, event_type: str, payload: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO source_annotation_events(id, annotation_id, event_type, payload_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (event_id, annotation_id, event_type, _json(dict(payload or {})), utc_now_iso(clock)),
+            )
+            connection.commit()
+        return event_id
+
+    def _write_annotation_version(
+        self, connection: sqlite3.Connection, *, annotation_id: str, version_ordinal: int,
+        version: Mapping[str, Any], now: str,
+    ) -> str:
+        version_id = new_ulid()
+        connection.execute(
+            """
+            INSERT INTO source_annotation_versions(
+              id, annotation_id, version_ordinal, annotation_type, learner_text,
+              what_i_think_is_going_on, privacy_locality, authorship,
+              client_idempotency_key, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                version_id,
+                annotation_id,
+                version_ordinal,
+                version["annotation_type"],
+                version.get("learner_text", ""),
+                version.get("what_i_think_is_going_on"),
+                version.get("privacy_locality", "local_private"),
+                version.get("authorship", "learner"),
+                version.get("client_idempotency_key"),
+                now,
+            ),
+        )
+        return version_id
+
+    def _write_anchor_version(
+        self, connection: sqlite3.Connection, *, annotation_id: str, version_ordinal: int,
+        anchor: Mapping[str, Any], now: str,
+    ) -> str:
+        anchor_id = new_ulid()
+        connection.execute(
+            """
+            INSERT INTO source_annotation_anchor_versions(
+              id, annotation_id, version_ordinal, source_id, revision_id, extraction_id,
+              render_view_id, status, algo_version, confidence, raw_selection_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                anchor_id,
+                annotation_id,
+                version_ordinal,
+                anchor["source_id"],
+                anchor["revision_id"],
+                anchor["extraction_id"],
+                anchor.get("render_view_id"),
+                anchor["status"],
+                anchor.get("algo_version", "anchor-v1"),
+                anchor.get("confidence"),
+                _json(anchor["raw_selection"]) if anchor.get("raw_selection") is not None else None,
+                now,
+            ),
+        )
+        for seg_ordinal, seg in enumerate(anchor.get("segments", [])):
+            connection.execute(
+                """
+                INSERT INTO source_annotation_anchor_segments(
+                  id, anchor_version_id, segment_ordinal, span_id, block_content_hash,
+                  codepoint_start, codepoint_end, exact_quote, prefix, suffix,
+                  geometry_json, section_path_json, neighbor_hashes_json,
+                  selection_text_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_ulid(),
+                    anchor_id,
+                    seg_ordinal,
+                    seg["span_id"],
+                    seg["block_content_hash"],
+                    seg["codepoint_start"],
+                    seg["codepoint_end"],
+                    seg["exact_quote"],
+                    seg.get("prefix", ""),
+                    seg.get("suffix", ""),
+                    _json(seg["geometry"]) if seg.get("geometry") is not None else None,
+                    _json(seg.get("section_path", [])),
+                    _json(seg.get("neighbor_hashes", [])),
+                    seg["selection_text_hash"],
+                    now,
+                ),
+            )
+        return anchor_id
+
+    def append_annotation_version(
+        self, *, annotation_id: str, version: Mapping[str, Any], anchor: Mapping[str, Any],
+        event_type: str = "edit", event_payload: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, str]:
+        now = utc_now_iso(clock)
+        ordinal = self.next_annotation_version_ordinal(annotation_id)
+        with self.connection() as connection:
+            version_id = self._write_annotation_version(
+                connection, annotation_id=annotation_id, version_ordinal=ordinal, version=version, now=now
+            )
+            anchor_id = self._write_anchor_version(
+                connection, annotation_id=annotation_id, version_ordinal=ordinal, anchor=anchor, now=now
+            )
+            event_id = new_ulid()
+            connection.execute(
+                "INSERT INTO source_annotation_events(id, annotation_id, event_type, payload_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (event_id, annotation_id, event_type, _json(dict(event_payload or {})), now),
+            )
+            connection.commit()
+        return {"version_id": version_id, "anchor_id": anchor_id, "event_id": event_id, "version_ordinal": str(ordinal)}
+
+    # -- capture outbox (§5.3) --
+
+    def capture_by_client_key(self, client_idempotency_key: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_capture_outbox WHERE client_idempotency_key = ?",
+                (client_idempotency_key,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def capture_local_transaction(
+        self,
+        *,
+        source_id: str,
+        client_idempotency_key: str,
+        annotation: Mapping[str, Any] | None,
+        anchor: Mapping[str, Any] | None,
+        interaction_event: Mapping[str, Any],
+        outbox: Mapping[str, Any],
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """The one local-first capture transaction (§5.3): create annotation +
+        version + anchor + segments, append the typed interaction event, and write
+        ONE durable outbox row -- all in a SINGLE SQLite transaction. On any error
+        the whole thing rolls back (no acknowledgement, no orphan). Idempotent on
+        client_idempotency_key: a retry returns the existing receipt untouched."""
+
+        existing = self.capture_by_client_key(client_idempotency_key)
+        if existing is not None:
+            return {
+                "annotation_id": existing["annotation_id"],
+                "outbox_id": existing["id"],
+                "interaction_event_id": existing["interaction_event_id"],
+                "deduplicated": True,
+            }
+
+        now = utc_now_iso(clock)
+        annotation_id: str | None = None
+        event_id = new_ulid()
+        outbox_id = new_ulid()
+        connection = self.connection()
+        try:
+            connection.execute("BEGIN")
+            if annotation is not None and anchor is not None:
+                annotation_id = new_ulid()
+                connection.execute(
+                    "INSERT INTO source_annotations(id, source_id, created_at) VALUES (?, ?, ?)",
+                    (annotation_id, source_id, now),
+                )
+                self._write_annotation_version(
+                    connection, annotation_id=annotation_id, version_ordinal=1,
+                    version=annotation, now=now,
+                )
+                self._write_anchor_version(
+                    connection, annotation_id=annotation_id, version_ordinal=1, anchor=anchor, now=now
+                )
+                connection.execute(
+                    "INSERT INTO source_annotation_events(id, annotation_id, event_type, payload_json, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (new_ulid(), annotation_id, "create", _json({"capture": True}), now),
+                )
+            ev = dict(interaction_event)
+            connection.execute(
+                """
+                INSERT INTO interaction_events(
+                  id, kind, subject_type, subject_id, administration_id, surface_id,
+                  attempt_id, affect_tap_kind, attempt_duration_ms, payload_json,
+                  origin, created_at, occurred_at, received_at, actor, client_id,
+                  session_id, visit_id, payload_schema_version, source_id, revision_id,
+                  render_view_id, locator_json, annotation_id, commitment_id, activity_id,
+                  payload_hash, client_idempotency_key, privacy_locality, consent_context,
+                  producer_version, app_version, policy_version, supersedes_event_id
+                ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, NULL,
+                          NULL, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, NULL,
+                          NULL, NULL, NULL, NULL)
+                """,
+                (
+                    event_id,
+                    ev["kind"],
+                    ev.get("subject_type"),
+                    ev.get("subject_id"),
+                    _json(ev.get("payload", {})),
+                    ev.get("origin", "learner"),
+                    now,
+                    now,
+                    now,
+                    ev.get("session_id"),
+                    ev.get("payload_schema_version", "reader-capture-v1"),
+                    source_id,
+                    ev.get("revision_id"),
+                    ev.get("render_view_id"),
+                    _json(ev["locator"]) if ev.get("locator") is not None else None,
+                    annotation_id,
+                    ev.get("payload_hash"),
+                    client_idempotency_key,
+                    ev.get("privacy_locality", "local_private"),
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO reader_capture_outbox(
+                  id, client_idempotency_key, capture_kind, state, payload_json,
+                  annotation_id, commitment_id, source_id, revision_id, render_view_id,
+                  interaction_event_id, target_ref, attempts, last_error,
+                  created_at, updated_at, drained_at
+                ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, NULL, 0, NULL, ?, ?, NULL)
+                """,
+                (
+                    outbox_id,
+                    client_idempotency_key,
+                    outbox["capture_kind"],
+                    _json(outbox.get("payload", {})),
+                    annotation_id,
+                    outbox.get("commitment_id"),
+                    source_id,
+                    outbox.get("revision_id"),
+                    outbox.get("render_view_id"),
+                    event_id,
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {
+            "annotation_id": annotation_id,
+            "outbox_id": outbox_id,
+            "interaction_event_id": event_id,
+            "deduplicated": False,
+        }
+
+    def pending_capture_outbox(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_capture_outbox WHERE state = 'pending' "
+                "ORDER BY created_at, id LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def recoverable_capture_outbox(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Rows a drain may claim: `pending` plus stale `draining` rows left behind
+        by a crash mid-drain. Reclaiming a `draining` row is safe because conversion
+        is idempotent (§15.2)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_capture_outbox WHERE state IN ('pending', 'draining') "
+                "ORDER BY created_at, id LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_capture_outbox(self, outbox_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_capture_outbox WHERE id = ?", (outbox_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def mark_capture_outbox(
+        self, outbox_id: str, *, state: str, target_ref: str | None = None,
+        last_error: str | None = None, bump_attempts: bool = False, clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        drained = now if state == "done" else None
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE reader_capture_outbox
+                SET state = ?, target_ref = COALESCE(?, target_ref), last_error = ?,
+                    attempts = attempts + ?, updated_at = ?,
+                    drained_at = COALESCE(?, drained_at)
+                WHERE id = ?
+                """,
+                (state, target_ref, last_error, 1 if bump_attempts else 0, now, drained, outbox_id),
+            )
+            connection.commit()
+
+    # ------------------------------------------------------------------
+    # P3 slice 2: reader_background_requests (demand-paged synthesis, §6).
+    # Fenced-lease durable queue -- mirrors the migration-080 surface-mint
+    # precedent (lease_epoch bumped on claim; guarded writes fenced on it).
+    # ------------------------------------------------------------------
+
+    _READER_REQUEST_TERMINAL = ("complete", "failed", "cancelled", "obsolete")
+
+    def enqueue_reader_request(
+        self, *, request_key: str, fields: Mapping[str, Any], clock: Clock | None = None
+    ) -> dict[str, Any]:
+        """Idempotent enqueue keyed on ``request_key`` (§6.2): the same contract reuses
+        the standing row; a material version change has a different key -> a new row."""
+
+        existing = self.reader_request_by_key(request_key)
+        if existing is not None:
+            return {"id": existing["id"], "deduplicated": True, "status": existing["status"]}
+        now = utc_now_iso(clock)
+        request_id = new_ulid()
+        cols = {
+            "id": request_id,
+            "request_key": request_key,
+            "source_id": fields["source_id"],
+            "revision_id": fields["revision_id"],
+            "extraction_id": fields["extraction_id"],
+            "span_id": fields.get("span_id", ""),
+            "window_json": _json(fields.get("window", {})),
+            "preset": fields.get("preset", ""),
+            "action": fields.get("action", ""),
+            "inventory_profile": fields.get("inventory_profile", "semantic"),
+            "inventory_schema_version": fields.get("inventory_schema_version", ""),
+            "synthesis_schema_version": fields.get("synthesis_schema_version", ""),
+            "prompt_version": fields.get("prompt_version", ""),
+            "provider": fields.get("provider", ""),
+            "model": fields.get("model", ""),
+            "config_hash": fields.get("config_hash", ""),
+            "priority_band": int(fields.get("priority_band", 0)),
+            "est_input_tokens": int(fields.get("est_input_tokens", 0)),
+            "est_output_tokens": int(fields.get("est_output_tokens", 0)),
+            "token_cap": int(fields.get("token_cap", 0)),
+            "cache_hit": 1 if fields.get("cache_hit") else 0,
+            "reason": fields.get("reason"),
+            "annotation_id": fields.get("annotation_id"),
+            "commitment_id": fields.get("commitment_id"),
+            "client_idempotency_key": fields.get("client_idempotency_key"),
+            "created_at": now,
+            "updated_at": now,
+        }
+        placeholders = ", ".join("?" for _ in cols)
+        try:
+            with self.connection() as connection:
+                connection.execute(
+                    f"INSERT INTO reader_background_requests({', '.join(cols)}) VALUES ({placeholders})",
+                    tuple(cols.values()),
+                )
+                connection.commit()
+        except sqlite3.IntegrityError:
+            existing = self.reader_request_by_key(request_key)
+            if existing is not None:
+                return {"id": existing["id"], "deduplicated": True, "status": existing["status"]}
+            raise
+        return {"id": request_id, "deduplicated": False, "status": "queued"}
+
+    def has_queued_reader_requests(self) -> bool:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM reader_background_requests WHERE status = 'queued' LIMIT 1"
+            ).fetchone()
+        return row is not None
+
+    def reader_request_by_key(self, request_key: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_background_requests WHERE request_key = ?", (request_key,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def get_reader_request(self, request_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_background_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def reader_requests_for_source(self, source_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_background_requests WHERE source_id = ? "
+                "ORDER BY created_at, id",
+                (source_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def claim_next_reader_request(
+        self, *, worker_id: str, now_iso: str, lease_expires_at: str, lease_cutoff_iso: str
+    ) -> dict[str, Any] | None:
+        """Claim the highest-priority runnable request under a fenced lease. Bumps
+        ``lease_epoch`` so a stale worker's later write is rejected. Only one live
+        lease at a time (BEGIN IMMEDIATE + live-lease guard)."""
+
+        connection = self.connection()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            live = connection.execute(
+                "SELECT 1 FROM reader_background_requests "
+                "WHERE status = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at >= ? LIMIT 1",
+                (lease_cutoff_iso,),
+            ).fetchone()
+            if live is not None:
+                connection.rollback()
+                return None
+            row = connection.execute(
+                "SELECT * FROM reader_background_requests "
+                "WHERE cancel_requested = 0 AND (status = 'queued' OR "
+                "      (status = 'running' AND (lease_expires_at IS NULL OR lease_expires_at < ?))) "
+                "ORDER BY priority_band DESC, created_at, id LIMIT 1",
+                (lease_cutoff_iso,),
+            ).fetchone()
+            if row is None:
+                connection.rollback()
+                return None
+            connection.execute(
+                "UPDATE reader_background_requests "
+                "SET status = 'running', lease_owner = ?, lease_expires_at = ?, "
+                "    lease_epoch = lease_epoch + 1, attempt_count = attempt_count + 1, updated_at = ? "
+                "WHERE id = ?",
+                (worker_id, lease_expires_at, now_iso, row["id"]),
+            )
+            claimed = connection.execute(
+                "SELECT * FROM reader_background_requests WHERE id = ?", (row["id"],)
+            ).fetchone()
+            connection.commit()
+            return dict(claimed)
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def resolve_reader_request(
+        self, *, request_id: str, status: str, result: Mapping[str, Any] | None = None,
+        error: Mapping[str, Any] | None = None, actual_input_tokens: int = 0,
+        actual_output_tokens: int = 0, cache_hit: bool = False,
+        expected_lease_epoch: int | None = None, clock: Clock | None = None,
+    ) -> bool:
+        """Terminal/complete transition; releases the lease. A stale-epoch write (the
+        job was re-claimed by another worker) matches zero rows and returns False."""
+
+        now = utc_now_iso(clock)
+        completed = now if status in self._READER_REQUEST_TERMINAL else None
+        clauses = ["id = ?", "status = 'running'"]
+        params: list[Any] = [
+            status, _json(result or {}), _json(error) if error is not None else None,
+            int(actual_input_tokens), int(actual_output_tokens), 1 if cache_hit else 0, now, completed,
+            request_id,
+        ]
+        if expected_lease_epoch is not None:
+            clauses.append("lease_epoch = ?")
+            params.append(expected_lease_epoch)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE reader_background_requests "
+                "SET status = ?, result_json = ?, error_json = ?, "
+                "    actual_input_tokens = ?, actual_output_tokens = ?, cache_hit = ?, "
+                "    lease_owner = NULL, lease_expires_at = NULL, updated_at = ?, completed_at = ? "
+                f"WHERE {' AND '.join(clauses)}",
+                tuple(params),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def cancel_reader_request(self, request_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
+        """Request cancellation. Never touches the local capture (§6.2). A non-terminal
+        request flips to ``cancelled``; a running one is flagged so the worker stops."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE reader_background_requests "
+                "SET cancel_requested = 1, "
+                "    status = CASE WHEN status IN ('queued') THEN 'cancelled' ELSE status END, "
+                "    updated_at = ? WHERE id = ? AND status NOT IN ('complete','failed','cancelled','obsolete')",
+                (now, request_id),
+            )
+            connection.commit()
+        return self.get_reader_request(request_id)
+
+    def retry_reader_request(self, request_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
+        """Reset a failed request to ``queued`` for another drain."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE reader_background_requests "
+                "SET status = 'queued', cancel_requested = 0, lease_owner = NULL, "
+                "    lease_expires_at = NULL, error_json = NULL, updated_at = ? "
+                "WHERE id = ? AND status = 'failed'",
+                (now, request_id),
+            )
+            connection.commit()
+        return self.get_reader_request(request_id)
+
+    # ------------------------------------------------------------------
+    # Reader quick-check producer: AI-authored section-boundary questions
+    # (migration 105). The row is the record — statuses live here, never on
+    # new interaction-event kinds; answering never touches attempts/mastery.
+    # ------------------------------------------------------------------
+
+    def insert_reader_authored_question(
+        self, *, fields: Mapping[str, Any], clock: Clock | None = None
+    ) -> str:
+        now = utc_now_iso(clock)
+        question_id = f"raq_{new_ulid()}"
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO reader_authored_questions("
+                "  id, extraction_id, section_id, source_id, question_md,"
+                "  expected_answer_md, span_ids_json, prompt_version, provider,"
+                "  model, status, created_at, updated_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)",
+                (
+                    question_id,
+                    fields["extraction_id"],
+                    fields["section_id"],
+                    fields.get("source_id"),
+                    fields["question_md"],
+                    fields["expected_answer_md"],
+                    _json(list(fields.get("span_ids") or [])),
+                    fields.get("prompt_version", ""),
+                    fields.get("provider"),
+                    fields.get("model"),
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        return question_id
+
+    def get_reader_authored_question(self, question_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_authored_questions WHERE id = ?", (question_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # --- reader section progress (migration 106; reader-first seeding) --------
+
+    def upsert_reader_section_progress(
+        self,
+        *,
+        extraction_id: str,
+        section_id: str,
+        spans_seen: int | None = None,
+        span_count: int | None = None,
+        revealed: bool = False,
+        completed: bool = False,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Monotone upsert: spans_seen/span_count only grow; revealed_at /
+        completed_at stamp once and never clear; generation_batch_id untouched."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO reader_section_progress(
+                  extraction_id, section_id, spans_seen, span_count,
+                  revealed_at, completed_at, generation_batch_id, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+                ON CONFLICT(extraction_id, section_id) DO UPDATE SET
+                  spans_seen = MAX(reader_section_progress.spans_seen, excluded.spans_seen),
+                  span_count = MAX(reader_section_progress.span_count, excluded.span_count),
+                  revealed_at = COALESCE(reader_section_progress.revealed_at, excluded.revealed_at),
+                  completed_at = COALESCE(reader_section_progress.completed_at, excluded.completed_at),
+                  updated_at = excluded.updated_at
+                """,
+                (
+                    extraction_id,
+                    section_id,
+                    int(spans_seen or 0),
+                    int(span_count or 0),
+                    now if revealed else None,
+                    now if completed else None,
+                    now,
+                ),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM reader_section_progress WHERE extraction_id = ? AND section_id = ?",
+                (extraction_id, section_id),
+            ).fetchone()
+        return dict(row)
+
+    def reader_section_progress_for(self, extraction_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_section_progress WHERE extraction_id = ? ORDER BY section_id",
+                (extraction_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_section_generation(
+        self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None = None
+    ) -> bool:
+        """Stamp the generation batch id exactly once. Returns False when a
+        stamp already exists (the trigger's idempotence check)."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE reader_section_progress
+                SET generation_batch_id = ?, updated_at = ?
+                WHERE extraction_id = ? AND section_id = ? AND generation_batch_id IS NULL
+                """,
+                (batch_id, utc_now_iso(clock), extraction_id, section_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def set_section_generation_batch(
+        self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None = None
+    ) -> None:
+        """Unconditional stamp update (replaces the 'enqueuing' placeholder with
+        the real batch id after a successful enqueue)."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE reader_section_progress
+                SET generation_batch_id = ?, updated_at = ?
+                WHERE extraction_id = ? AND section_id = ?
+                """,
+                (batch_id, utc_now_iso(clock), extraction_id, section_id),
+            )
+            connection.commit()
+
+    def reader_authored_questions_for_extraction(
+        self, extraction_id: str
+    ) -> list[dict[str, Any]]:
+        """All authored questions for an extraction, newest first per section."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_authored_questions WHERE extraction_id = ? "
+                "ORDER BY section_id, created_at DESC, id DESC",
+                (extraction_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def latest_reader_authored_question(
+        self, *, extraction_id: str, section_id: str
+    ) -> dict[str, Any] | None:
+        """The newest authored question for one section, any status — the
+        idempotency anchor: a dismissed row suppresses re-authoring."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_authored_questions "
+                "WHERE extraction_id = ? AND section_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (extraction_id, section_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def transition_reader_authored_question(
+        self,
+        *,
+        question_id: str,
+        status: str,
+        response_md: str | None = None,
+        practice_item_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Row-status transition (proposed -> answered | dismissed | escalated).
+        ``answered`` stamps the response; ``escalated`` pins the minted item."""
+
+        now = utc_now_iso(clock)
+        sets = ["status = ?", "updated_at = ?"]
+        params: list[Any] = [status, now]
+        if response_md is not None:
+            sets.append("response_md = ?")
+            params.append(response_md)
+        if status == "answered":
+            sets.append("answered_at = ?")
+            params.append(now)
+        if practice_item_id is not None:
+            sets.append("practice_item_id = ?")
+            params.append(practice_item_id)
+        params.append(question_id)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"UPDATE reader_authored_questions SET {', '.join(sets)} WHERE id = ?",
+                tuple(params),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # P3 slice 2: source objects, relations, canonical mapping proposals (§7).
+    # ------------------------------------------------------------------
+
+    def create_source_object(self, *, source_id: str, clock: Clock | None = None) -> str:
+        object_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO source_objects(id, source_id, created_at) VALUES (?, ?, ?)",
+                (object_id, source_id, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return object_id
+
+    def append_source_object_version(
+        self, *, source_object_id: str, version: Mapping[str, Any],
+        citations: list[Mapping[str, Any]] | None = None, clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now_iso(clock)
+        version_id = new_ulid()
+        connection = self.connection()
+        try:
+            connection.execute("BEGIN")
+            ordinal_row = connection.execute(
+                "SELECT COALESCE(MAX(version_ordinal), 0) AS m FROM source_object_versions "
+                "WHERE source_object_id = ?",
+                (source_object_id,),
+            ).fetchone()
+            version_ordinal = int(ordinal_row["m"]) + 1
+            connection.execute(
+                """
+                INSERT INTO source_object_versions(
+                  id, source_object_id, version_ordinal, revision_id, object_type,
+                  authorial_role, salience_proposal, exact_text, content_json,
+                  authorship, model_provenance_json, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id, source_object_id, version_ordinal, version["revision_id"],
+                    version["object_type"], version.get("authorial_role"),
+                    version.get("salience_proposal"), version.get("exact_text", ""),
+                    _json(version.get("content", {})), version.get("authorship", "ai"),
+                    _json(version["model_provenance"]) if version.get("model_provenance") is not None else None,
+                    version.get("status", "proposed"), now,
+                ),
+            )
+            for i, cite in enumerate(citations or [], start=1):
+                connection.execute(
+                    "INSERT INTO source_object_citations("
+                    "id, source_object_version_id, citation_ordinal, revision_id, span_id, "
+                    "block_content_hash, exact_quote, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        new_ulid(), version_id, i, cite.get("revision_id", version["revision_id"]),
+                        cite["span_id"], cite.get("block_content_hash"), cite.get("exact_quote"), now,
+                    ),
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {"version_id": version_id, "version_ordinal": version_ordinal}
+
+    def source_object_head(self, source_object_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            obj = connection.execute(
+                "SELECT * FROM source_objects WHERE id = ?", (source_object_id,)
+            ).fetchone()
+            if obj is None:
+                return None
+            version = connection.execute(
+                "SELECT * FROM source_object_versions WHERE source_object_id = ? "
+                "ORDER BY version_ordinal DESC LIMIT 1",
+                (source_object_id,),
+            ).fetchone()
+            citations: list[dict[str, Any]] = []
+            if version is not None:
+                citations = [
+                    dict(r)
+                    for r in connection.execute(
+                        "SELECT * FROM source_object_citations WHERE source_object_version_id = ? "
+                        "ORDER BY citation_ordinal",
+                        (version["id"],),
+                    ).fetchall()
+                ]
+        return {
+            "object": dict(obj),
+            "version": dict(version) if version is not None else None,
+            "citations": citations,
+        }
+
+    def source_objects_for_source(self, source_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT id FROM source_objects WHERE source_id = ? ORDER BY created_at, id",
+                (source_id,),
+            ).fetchall()
+        return [self.source_object_head(r["id"]) for r in rows]
+
+    def create_source_object_relation(
+        self, *, source_object_id: str, related_object_id: str | None, relation_type: str,
+        learner_text: str | None = None, authorship: str = "learner",
+        review_status: str = "proposed", clock: Clock | None = None,
+    ) -> str:
+        relation_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO source_object_relations("
+                "id, source_object_id, related_object_id, version_ordinal, relation_type, "
+                "learner_text, authorship, review_status, created_at) "
+                "VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)",
+                (
+                    relation_id, source_object_id, related_object_id, relation_type,
+                    learner_text, authorship, review_status, utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return relation_id
+
+    def relations_for_object(self, source_object_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_object_relations WHERE source_object_id = ? "
+                "ORDER BY created_at, id",
+                (source_object_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def create_mapping_proposal(
+        self, *, source_object_id: str | None = None, annotation_id: str | None = None,
+        target_kind: str, target_ref: str | None = None, confidence: float | None = None,
+        rationale: str | None = None, provenance: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        proposal_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO canonical_mapping_proposals("
+                "id, source_object_id, annotation_id, target_kind, target_ref, confidence, "
+                "status, rationale, provenance_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'proposed', ?, ?, ?)",
+                (
+                    proposal_id, source_object_id, annotation_id, target_kind, target_ref,
+                    confidence, rationale, _json(provenance or {}), utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return proposal_id
+
+    def mapping_proposals(
+        self, *, status: str | None = None, source_object_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+        if source_object_id is not None:
+            clauses.append("source_object_id = ?")
+            params.append(source_object_id)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM canonical_mapping_proposals{where} ORDER BY created_at, id",
+                tuple(params),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def decide_mapping_proposal(
+        self, *, proposal_id: str, status: str, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE canonical_mapping_proposals SET status = ?, decided_at = ? "
+                "WHERE id = ? AND status = 'proposed'",
+                (status, now, proposal_id),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM canonical_mapping_proposals WHERE id = ?", (proposal_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def set_source_object_status(
+        self, *, source_object_id: str, status: str, clock: Clock | None = None
+    ) -> dict[str, Any]:
+        """Append a status-only successor version carrying the head content forward."""
+
+        head = self.source_object_head(source_object_id)
+        if head is None or head["version"] is None:
+            raise ValueError(f"unknown source object: {source_object_id!r}")
+        prev = head["version"]
+        result = self.append_source_object_version(
+            source_object_id=source_object_id,
+            version={
+                "revision_id": prev["revision_id"],
+                "object_type": prev["object_type"],
+                "authorial_role": prev.get("authorial_role"),
+                "salience_proposal": prev.get("salience_proposal"),
+                "exact_text": prev.get("exact_text", ""),
+                "content": json.loads(prev.get("content_json") or "{}"),
+                "authorship": prev.get("authorship", "ai"),
+                "status": status,
+            },
+            citations=[
+                {"revision_id": c["revision_id"], "span_id": c["span_id"],
+                 "block_content_hash": c.get("block_content_hash"), "exact_quote": c.get("exact_quote")}
+                for c in head["citations"]
+            ],
+            clock=clock,
+        )
+        return {"source_object_id": source_object_id, "status": status, **result}
+
+    # ------------------------------------------------------------------
+    # P3 slice 3 -- commitment arcs (migration 095, spec §10.1)
+    # ------------------------------------------------------------------
+
+    def create_commitment_arc(
+        self, *, commitment_id: str, source_id: str | None = None, clock: Clock | None = None
+    ) -> str:
+        arc_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO commitment_arcs(id, commitment_id, source_id, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (arc_id, commitment_id, source_id, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return arc_id
+
+    def append_commitment_arc_version(
+        self, *, arc_id: str, version: Mapping[str, Any], clock: Clock | None = None
+    ) -> dict[str, Any]:
+        now = utc_now_iso(clock)
+        version_id = new_ulid()
+        connection = self.connection()
+        try:
+            connection.execute("BEGIN")
+            row = connection.execute(
+                "SELECT id, version_ordinal FROM commitment_arc_versions "
+                "WHERE arc_id = ? ORDER BY version_ordinal DESC LIMIT 1",
+                (arc_id,),
+            ).fetchone()
+            ordinal = (int(row["version_ordinal"]) + 1) if row is not None else 1
+            predecessor = row["id"] if row is not None else None
+            connection.execute(
+                """
+                INSERT INTO commitment_arc_versions(
+                  id, arc_id, version_ordinal, predecessor_version_id, pattern_refs_json,
+                  stages_json, depth_policy_version_id, depth_envelope_version_id,
+                  stage_milestone_map_json, content_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id, arc_id, ordinal, predecessor,
+                    _json(version.get("pattern_refs", [])),
+                    _json(version.get("stages", [])),
+                    version.get("depth_policy_version_id"),
+                    version.get("depth_envelope_version_id"),
+                    _json(version.get("stage_milestone_map", {})),
+                    version["content_hash"], now,
+                ),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {"version_id": version_id, "version_ordinal": ordinal}
+
+    def append_commitment_arc_event(
+        self, *, arc_id: str, kind: str, detail: Mapping[str, Any] | None = None,
+        receipt_key: str | None = None, clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append an arc event. Idempotent on (arc_id, receipt_key): a replayed
+        decision receipt returns the existing event without appending (§10.2)."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        try:
+            connection.execute("BEGIN")
+            if receipt_key is not None:
+                existing = connection.execute(
+                    "SELECT id, event_ordinal FROM commitment_arc_events "
+                    "WHERE arc_id = ? AND receipt_key = ?",
+                    (arc_id, receipt_key),
+                ).fetchone()
+                if existing is not None:
+                    connection.commit()
+                    return {"event_id": existing["id"], "event_ordinal": existing["event_ordinal"],
+                            "already": True}
+            row = connection.execute(
+                "SELECT COALESCE(MAX(event_ordinal), 0) AS m FROM commitment_arc_events WHERE arc_id = ?",
+                (arc_id,),
+            ).fetchone()
+            ordinal = int(row["m"]) + 1
+            event_id = new_ulid()
+            connection.execute(
+                "INSERT INTO commitment_arc_events("
+                "id, arc_id, event_ordinal, kind, detail_json, receipt_key, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (event_id, arc_id, ordinal, kind,
+                 _json(dict(detail)) if detail is not None else None, receipt_key, now),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {"event_id": event_id, "event_ordinal": ordinal, "already": False}
+
+    def commitment_arc_head_version(self, arc_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM commitment_arc_versions WHERE arc_id = ? "
+                "ORDER BY version_ordinal DESC LIMIT 1",
+                (arc_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def commitment_arc(self, arc_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM commitment_arcs WHERE id = ?", (arc_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def commitment_arc_events(self, arc_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM commitment_arc_events WHERE arc_id = ? ORDER BY event_ordinal",
+                (arc_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def arcs_for_commitment(self, commitment_id: str) -> list[str]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT id FROM commitment_arcs WHERE commitment_id = ? ORDER BY created_at, id",
+                (commitment_id,),
+            ).fetchall()
+        return [r["id"] for r in rows]
+
+    def arcs_for_source(self, source_id: str) -> list[str]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT id FROM commitment_arcs WHERE source_id = ? ORDER BY created_at, id",
+                (source_id,),
+            ).fetchall()
+        return [r["id"] for r in rows]
+
+    def append_measurement_event(
+        self,
+        *,
+        administration_id: str,
+        kind: str,
+        algorithm_version: str,
+        observation_id: str | None = None,
+        payload_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        if kind not in _MEASUREMENT_EVENT_KINDS:
+            raise ValueError(f"unknown measurement_event kind: {kind!r}")
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO measurement_events(
+                  id, administration_id, observation_id, kind, algorithm_version,
+                  payload_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    administration_id,
+                    observation_id,
+                    kind,
+                    algorithm_version,
+                    payload_json,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def measurement_events_for_administration(
+        self, administration_id: str
+    ) -> list[dict[str, Any]]:
+        """The administration's measurement events in append order (ledger read)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM measurement_events
+                 WHERE administration_id = ?
+                 ORDER BY created_at, id
+                """,
+                (administration_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
+    # P0.2 grader channel (spec_p0_measurement_correctness §3.1-§3.3, §4.7).
+    # All INSERT-only; model/schema/event rows never receive an UPDATE. The two
+    # exceptions are pure projection-head pointers on activity_observations
+    # (active_interpretation_id) which are not append-only event tables.
+    # ------------------------------------------------------------------
+
+    def ensure_outcome_schema(
+        self, *, slug: str, kind: str, clock: Clock | None = None
+    ) -> str:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT id FROM outcome_schemas WHERE slug = ?", (slug,)
+            ).fetchone()
+            if row is not None:
+                return row["id"]
+            schema_id = new_ulid()
+            connection.execute(
+                "INSERT INTO outcome_schemas(id, slug, kind, created_at) VALUES (?, ?, ?, ?)",
+                (schema_id, slug, kind, utc_now_iso(clock)),
+            )
+            connection.commit()
+            return schema_id
+
+    def ensure_outcome_schema_version(
+        self,
+        *,
+        schema_id: str,
+        version: int,
+        observed_classes_json: str,
+        true_classes_json: str,
+        has_signature_error: bool,
+        has_unanswered: bool,
+        score_fraction_json: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT id FROM outcome_schema_versions WHERE schema_id = ? AND content_hash = ?",
+                (schema_id, content_hash),
+            ).fetchone()
+            if row is not None:
+                return row["id"]
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO outcome_schema_versions(
+                  id, schema_id, version, observed_classes_json, true_classes_json,
+                  has_signature_error, has_unanswered, score_fraction_json,
+                  content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id,
+                    schema_id,
+                    version,
+                    observed_classes_json,
+                    true_classes_json,
+                    1 if has_signature_error else 0,
+                    1 if has_unanswered else 0,
+                    score_fraction_json,
+                    content_hash,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+            return version_id
+
+    def fetch_outcome_schema_version(
+        self, *, slug: str, version: int | None = None
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            if version is None:
+                row = connection.execute(
+                    """
+                    SELECT v.* FROM outcome_schema_versions v
+                      JOIN outcome_schemas s ON s.id = v.schema_id
+                     WHERE s.slug = ?
+                     ORDER BY v.version DESC LIMIT 1
+                    """,
+                    (slug,),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    SELECT v.* FROM outcome_schema_versions v
+                      JOIN outcome_schemas s ON s.id = v.schema_id
+                     WHERE s.slug = ? AND v.version = ?
+                    """,
+                    (slug, version),
+                ).fetchone()
+        return dict(row) if row is not None else None
+
+    def fetch_outcome_schema_version_by_id(self, schema_id: str, version: int) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM outcome_schema_versions WHERE schema_id = ? AND version = ?",
+                (schema_id, version),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def find_calibration_model_by_hash(self, content_hash: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM grader_calibration_models WHERE content_hash = ? LIMIT 1",
+                (content_hash,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def insert_calibration_model(
+        self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]],
+        clock: Clock | None = None,
+    ) -> str:
+        """Insert one immutable model version + its per-Z Dirichlet alpha rows.
+
+        Content-addressed: short-circuits on an existing ``content_hash`` (M1) so a
+        check-then-act race can never mint a duplicate immutable model. The
+        UNIQUE(content_hash) backstop (migration 070) is the hard guarantee."""
+
+        existing = self.find_calibration_model_by_hash(model["content_hash"])
+        if existing is not None:
+            return existing["id"]
+
+        model_id = new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO grader_calibration_models(
+                  id, grader_provider, grader_model_revision, grading_prompt_version,
+                  grader_output_schema_version, grader_identity_hash, semver,
+                  parent_model_id, content_hash, scope_level, outcome_schema_id,
+                  outcome_schema_version, domain, length_bucket, backoff_chain_json,
+                  status, count_heuristic_prior, count_planted_sim, count_exploratory_em,
+                  count_adjudicated_anchor, count_held_out_evaluation,
+                  prequential_log_loss, multiclass_brier, reliability_bins_json,
+                  sample_count, eval_time_range_json, prior_concentration,
+                  provenance_json, evidence_manifest_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_id,
+                    model.get("grader_provider"),
+                    model.get("grader_model_revision"),
+                    model.get("grading_prompt_version"),
+                    model.get("grader_output_schema_version"),
+                    model.get("grader_identity_hash"),
+                    model["semver"],
+                    model.get("parent_model_id"),
+                    model["content_hash"],
+                    model["scope_level"],
+                    model.get("outcome_schema_id"),
+                    model.get("outcome_schema_version"),
+                    model.get("domain"),
+                    model.get("length_bucket"),
+                    model["backoff_chain_json"],
+                    model["status"],
+                    int(model.get("count_heuristic_prior", 0)),
+                    int(model.get("count_planted_sim", 0)),
+                    int(model.get("count_exploratory_em", 0)),
+                    int(model.get("count_adjudicated_anchor", 0)),
+                    int(model.get("count_held_out_evaluation", 0)),
+                    model.get("prequential_log_loss"),
+                    model.get("multiclass_brier"),
+                    model.get("reliability_bins_json"),
+                    model.get("sample_count"),
+                    model.get("eval_time_range_json"),
+                    model.get("prior_concentration"),
+                    model.get("provenance_json"),
+                    model.get("evidence_manifest_json"),
+                    now,
+                ),
+            )
+            for true_class, alpha in alphas.items():
+                connection.execute(
+                    """
+                    INSERT INTO grader_calibration_alphas(
+                      id, model_id, true_class, alpha_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (new_ulid(), model_id, true_class, _json(dict(alpha)), now),
+                )
+            connection.commit()
+        return model_id
+
+    def fetch_calibration_model(self, model_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM grader_calibration_models WHERE id = ?", (model_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def fetch_calibration_alphas(self, model_id: str) -> dict[str, dict[str, float]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT true_class, alpha_json FROM grader_calibration_alphas WHERE model_id = ?",
+                (model_id,),
+            ).fetchall()
+        return {row["true_class"]: _loads(row["alpha_json"], {}) for row in rows}
+
+    def find_calibration_models(
+        self,
+        *,
+        scope_level: str | None = None,
+        grader_identity_hash: Any = _UNSET,
+        outcome_schema_id: Any = _UNSET,
+        outcome_schema_version: Any = _UNSET,
+        domain: Any = _UNSET,
+        length_bucket: Any = _UNSET,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if scope_level is not None:
+            clauses.append("scope_level = ?")
+            params.append(scope_level)
+        if grader_identity_hash is not _UNSET:
+            clauses.append("grader_identity_hash IS ?" if grader_identity_hash is None else "grader_identity_hash = ?")
+            params.append(grader_identity_hash)
+        if outcome_schema_id is not _UNSET:
+            clauses.append("outcome_schema_id IS ?" if outcome_schema_id is None else "outcome_schema_id = ?")
+            params.append(outcome_schema_id)
+        if outcome_schema_version is not _UNSET:
+            clauses.append("outcome_schema_version IS ?" if outcome_schema_version is None else "outcome_schema_version = ?")
+            params.append(outcome_schema_version)
+        if domain is not _UNSET:
+            clauses.append("domain IS ?" if domain is None else "domain = ?")
+            params.append(domain)
+        if length_bucket is not _UNSET:
+            clauses.append("length_bucket IS ?" if length_bucket is None else "length_bucket = ?")
+            params.append(length_bucket)
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM grader_calibration_models{where} ORDER BY created_at, id",
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_raw_grade_event(self, *, values: Mapping[str, Any], clock: Clock | None = None) -> str:
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO raw_grade_events(
+                  id, administration_id, observation_id, attempt_id, response_ref,
+                  role, grader_provider, grader_model_revision, grading_prompt_version,
+                  grader_output_schema_version, grader_identity_hash, agent_run_id,
+                  raw_output_json, criterion_evidence_json, observed_class,
+                  model_confidence, confidence_bucket, criterion_observed_classes_json,
+                  response_classifier_version, criterion_classifier_version,
+                  context_features_json, exact_word_count, declared_length_bucket,
+                  predecessor_event_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    values["administration_id"],
+                    values.get("observation_id"),
+                    values.get("attempt_id"),
+                    values.get("response_ref"),
+                    values["role"],
+                    values.get("grader_provider"),
+                    values.get("grader_model_revision"),
+                    values.get("grading_prompt_version"),
+                    values.get("grader_output_schema_version"),
+                    values.get("grader_identity_hash"),
+                    values.get("agent_run_id"),
+                    values["raw_output_json"],
+                    values.get("criterion_evidence_json"),
+                    values["observed_class"],
+                    values.get("model_confidence"),
+                    values["confidence_bucket"],
+                    values.get("criterion_observed_classes_json"),
+                    values["response_classifier_version"],
+                    values.get("criterion_classifier_version"),
+                    values["context_features_json"],
+                    int(values["exact_word_count"]),
+                    values["declared_length_bucket"],
+                    values.get("predecessor_event_id"),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def raw_grade_events_for_observation(self, observation_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM raw_grade_events WHERE observation_id = ? ORDER BY created_at, id",
+                (observation_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def raw_grade_event(self, event_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM raw_grade_events WHERE id = ?", (event_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def insert_grade_interpretation(self, *, values: Mapping[str, Any], clock: Clock | None = None) -> str:
+        interpretation_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO grade_interpretations(
+                  id, raw_grade_event_id, observation_id, administration_id,
+                  calibration_model_id, calibration_model_hash,
+                  projection_algorithm_version, channel_posterior_snapshot_id,
+                  response_posterior_json, criterion_posteriors_json,
+                  reference_prior_ids_json, certainty_discount, shared_certainty_lcb,
+                  credible_interval_json,
+                  review_flag, influence_flag, quarantine_state, fallback_reason,
+                  created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    interpretation_id,
+                    values["raw_grade_event_id"],
+                    values.get("observation_id"),
+                    values["administration_id"],
+                    values["calibration_model_id"],
+                    values["calibration_model_hash"],
+                    values["projection_algorithm_version"],
+                    values.get("channel_posterior_snapshot_id"),
+                    values["response_posterior_json"],
+                    values.get("criterion_posteriors_json"),
+                    values.get("reference_prior_ids_json"),
+                    float(values["certainty_discount"]),
+                    (
+                        float(values["shared_certainty_lcb"])
+                        if values.get("shared_certainty_lcb") is not None
+                        else None
+                    ),
+                    values.get("credible_interval_json"),
+                    1 if values.get("review_flag") else 0,
+                    1 if values.get("influence_flag") else 0,
+                    values.get("quarantine_state", "active"),
+                    values.get("fallback_reason"),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return interpretation_id
+
+    def grade_interpretation(self, interpretation_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM grade_interpretations WHERE id = ?", (interpretation_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def grade_interpretations_for_observation(self, observation_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM grade_interpretations WHERE observation_id = ? ORDER BY created_at, id",
+                (observation_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def set_active_interpretation(self, *, observation_id: str, interpretation_id: str) -> None:
+        """Point the observation's projection head at an interpretation. This is a
+        head pointer on activity_observations, NOT a mutation of an append-only
+        event row (the interpretation itself is never updated)."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE activity_observations SET active_interpretation_id = ? WHERE id = ?",
+                (interpretation_id, observation_id),
+            )
+            connection.commit()
+
+    def active_interpretation_for_observation(self, observation_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT gi.* FROM grade_interpretations gi
+                  JOIN activity_observations o ON o.active_interpretation_id = gi.id
+                 WHERE o.id = ?
+                """,
+                (observation_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def pending_grade_reviews(self) -> list[dict[str, Any]]:
+        """Active-head grade interpretations flagged for review or quarantined
+        (§4.4, §5). Joined to the observation + administration so the CLI can order
+        by influence. Quarantined first, then influence-flagged, then oldest."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT gi.*, o.id AS observation_id_join,
+                       o.attempt_id AS attempt_id,
+                       o.surface_id AS surface_id,
+                       o.evidence_eligibility AS evidence_eligibility
+                  FROM grade_interpretations gi
+                  JOIN activity_observations o ON o.active_interpretation_id = gi.id
+                 WHERE gi.review_flag = 1 OR gi.quarantine_state = 'quarantined'
+                 ORDER BY
+                   CASE WHEN gi.quarantine_state = 'quarantined' THEN 0 ELSE 1 END,
+                   CASE WHEN gi.influence_flag = 1 THEN 0 ELSE 1 END,
+                   CASE WHEN o.evidence_eligibility = 'terminal' THEN 0
+                        WHEN o.evidence_eligibility = 'diagnostic' THEN 1 ELSE 2 END,
+                   gi.created_at ASC
+                """
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def insert_grade_adjudication(self, *, values: Mapping[str, Any], clock: Clock | None = None) -> str:
+        adjudication_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO grade_adjudications(
+                  id, observation_id, administration_id, reviewed_raw_event_ids_json,
+                  adjudicator_source, resolved_class, resolved_distribution_json,
+                  rationale, provenance_json, bounded_trust_weight,
+                  resulting_interpretation_id, superseded_adjudication_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    adjudication_id,
+                    values.get("observation_id"),
+                    values["administration_id"],
+                    values["reviewed_raw_event_ids_json"],
+                    values["adjudicator_source"],
+                    values.get("resolved_class"),
+                    values.get("resolved_distribution_json"),
+                    values.get("rationale"),
+                    values.get("provenance_json"),
+                    values.get("bounded_trust_weight"),
+                    values.get("resulting_interpretation_id"),
+                    values.get("superseded_adjudication_id"),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return adjudication_id
+
+    def insert_calibration_stream_sample(self, *, values: Mapping[str, Any], clock: Clock | None = None) -> str:
+        sample_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO calibration_stream_samples(
+                  id, observation_id, administration_id, raw_grade_event_id,
+                  attempt_id, stream, stratum_json, inclusion_probability,
+                  sampling_frame_id, selected, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sample_id,
+                    values.get("observation_id"),
+                    values.get("administration_id"),
+                    values.get("raw_grade_event_id"),
+                    values.get("attempt_id"),
+                    values["stream"],
+                    values["stratum_json"],
+                    float(values["inclusion_probability"]),
+                    values.get("sampling_frame_id"),
+                    1 if values.get("selected", True) else 0,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return sample_id
+
+    def calibration_stream_samples(
+        self, *, stream: str | None = None, sampling_frame_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if stream is not None:
+            clauses.append("stream = ?")
+            params.append(stream)
+        if sampling_frame_id is not None:
+            clauses.append("sampling_frame_id = ?")
+            params.append(sampling_frame_id)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM calibration_stream_samples{where} ORDER BY created_at, id",
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_all_probe_presentations(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM probe_presentations ORDER BY created_at, id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def administration_by_legacy_presentation(self, presentation_id: str) -> dict[str, Any] | None:
+        """Idempotency lookup for the §7.1 step-3 presentation backfill: the
+        synthetic administration stores the presentation id in its snapshot."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM activity_administrations
+                 WHERE json_extract(snapshot_json, '$.legacy_presentation_id') = ?
+                 LIMIT 1
+                """,
+                (presentation_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def exposures_for_surface(self, surface_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM activity_exposure_events
+                 WHERE surface_id = ? ORDER BY created_at, id
+                """,
+                (surface_id,),
+            ).fetchall()
+        return [_decode_exposure_event(row) for row in rows]
+
+    def exposures_by_surface_hash(self, surface_hash: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM activity_exposure_events
+                 WHERE surface_hash = ? ORDER BY created_at, id
+                """,
+                (surface_hash,),
+            ).fetchall()
+        return [_decode_exposure_event(row) for row in rows]
+
+    def exposures_by_fingerprint(self, fingerprint: str) -> list[dict[str, Any]]:
+        if not fingerprint:
+            return []
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM activity_exposure_events
+                 WHERE fingerprint = ? ORDER BY created_at, id
+                """,
+                (fingerprint,),
+            ).fetchall()
+        return [_decode_exposure_event(row) for row in rows]
+
+    def fetch_surface(self, surface_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_surfaces WHERE id = ?", (surface_id,)
+            ).fetchone()
+        return _decode_surface(row) if row is not None else None
+
+    def reserved_assessment_surfaces(self) -> list[dict[str, Any]]:
+        """Surfaces holding a LIVE assessment reservation (§8.1). Used by reader
+        server-side reveal detection (L3) to know which surfaces a reader answer must
+        never leak; each row carries the decoded surface plus its hash/fingerprint."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT s.* FROM activity_surface_reservations r
+                JOIN activity_surfaces s ON s.id = r.surface_id
+                WHERE r.status = 'reserved' AND r.purpose = 'assessment'
+                """,
+            ).fetchall()
+        return [_decode_surface(row) for row in rows]
+
+    def fetch_surface_by_hash(
+        self, card_version_id: str, surface_hash: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM activity_surfaces
+                 WHERE card_version_id = ? AND surface_hash = ?
+                """,
+                (card_version_id, surface_hash),
+            ).fetchone()
+        return _decode_surface(row) if row is not None else None
+
+    def fetch_administration(self, administration_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_administrations WHERE id = ?",
+                (administration_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["snapshot"] = _loads(payload.get("snapshot_json"), {})
+        return payload
+
+    def observations_for_administration(self, administration_id: str) -> list[dict[str, Any]]:
+        """All observation rows recorded under an administration, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM activity_observations WHERE administration_id = ? "
+                "ORDER BY created_at, id",
+                (administration_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def fetch_reservation(self, reservation_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_surface_reservations WHERE id = ?",
+                (reservation_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def surface_lifecycle_history(self, surface_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM activity_surface_lifecycle_events
+                 WHERE surface_id = ? ORDER BY created_at, id
+                """,
+                (surface_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def retirement_records_for_surface(self, surface_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM retirement_records WHERE surface_id = ? ORDER BY created_at, id",
+                (surface_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def retirement_records_for_card_version(
+        self, card_version_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM retirement_records WHERE card_version_id = ?
+                 ORDER BY created_at, id
+                """,
+                (card_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def surfaces_for_card_version(self, card_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM activity_surfaces WHERE card_version_id = ? ORDER BY created_at, id",
+                (card_version_id,),
+            ).fetchall()
+        return [_decode_surface(row) for row in rows]
+
+    def surfaces_for_family(self, family_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT s.* FROM activity_surfaces s
+                  JOIN activity_card_versions cv ON cv.id = s.card_version_id
+                  JOIN activity_cards c ON c.id = cv.card_id
+                 WHERE c.family_id = ?
+                 ORDER BY s.created_at, s.id
+                """,
+                (family_id,),
+            ).fetchall()
+        return [_decode_surface(row) for row in rows]
+
+    def observation_by_attempt(self, attempt_id: str) -> dict[str, Any] | None:
+        """Idempotency key for backfill step 4: an attempt is replayed at most once."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_observations WHERE attempt_id = ? LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def mark_surface_unverifiable(self, surface_id: str) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE activity_surfaces SET legacy_surface_unverifiable = 1 WHERE id = ?",
+                (surface_id,),
+            )
+            connection.commit()
+
+    def insert_legacy_administration(
+        self,
+        *,
+        surface_id: str,
+        card_version_id: str,
+        family_id: str,
+        purpose: str,
+        snapshot_hash: str,
+        snapshot_json: str,
+        target_contract_version_id: str | None = None,
+        target_support_hash: str | None = None,
+        eligibility_json: str | None = None,
+        created_at: str,
+    ) -> str:
+        """Direct (non-atomic) administration insert for §7.1 backfill, timestamped
+        at the recorded historical time (never now()) so re-runs stay byte-stable."""
+
+        administration_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_administrations(
+                  id, surface_id, card_version_id, family_id, purpose,
+                  administration_snapshot_hash, snapshot_json,
+                  target_contract_version_id, target_support_hash,
+                  grader_model_version_id, selection_policy_version_id,
+                  decision_params_hash, assistance_json, feedback_condition,
+                  eligibility_json, reservation_id, legacy_backfilled, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, NULL, 1, ?)
+                """,
+                (
+                    administration_id,
+                    surface_id,
+                    card_version_id,
+                    family_id,
+                    purpose,
+                    snapshot_hash,
+                    snapshot_json,
+                    target_contract_version_id,
+                    target_support_hash,
+                    eligibility_json,
+                    created_at,
+                ),
+            )
+            connection.commit()
+        return administration_id
+
+    def append_exposure_event_at(
+        self,
+        *,
+        surface_id: str,
+        administration_id: str | None,
+        surface_hash: str,
+        fingerprint: str | None,
+        kind: str,
+        purpose: str,
+        consumes_unseen: bool,
+        created_at: str,
+        detail_json: str | None = None,
+    ) -> str:
+        """Exposure insert timestamped at a recorded historical time (backfill)."""
+
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_exposure_events(
+                  id, surface_id, administration_id, surface_hash, fingerprint,
+                  kind, purpose, consumes_unseen, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    surface_id,
+                    administration_id,
+                    surface_hash,
+                    fingerprint,
+                    kind,
+                    purpose,
+                    1 if consumes_unseen else 0,
+                    detail_json,
+                    created_at,
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def list_all_assessment_contract_versions(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM assessment_contract_versions ORDER BY created_at, id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_all_probe_instrument_cards(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM probe_instrument_cards ORDER BY created_at, id, version"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def interaction_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM interaction_events WHERE attempt_id = ? ORDER BY created_at, id",
+                (attempt_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def insert_unresolved_cause_factor(
         self,
@@ -8466,26 +12372,44 @@ class Repository:
         work_id: str | None = None,
         current_revision_id: str | None = None,
         display_title: str | None = None,
+        reader_enabled: bool | None = None,
         clock: Clock | None = None,
     ) -> None:
+        # ``reader_enabled=None`` means "no opinion": new rows default ON, and a
+        # re-import that omits the flag never clobbers an explicit earlier choice.
+        reader_flag = None if reader_enabled is None else int(reader_enabled)
         now = utc_now_iso(clock)
         with self.connection() as connection:
             connection.execute(
                 """
                 INSERT INTO source_artifacts(
                   id, acquisition_kind, canonical_uri, work_id,
-                  current_revision_id, display_title, created_at, updated_at
+                  current_revision_id, display_title, reader_enabled, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 1), ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                   acquisition_kind = excluded.acquisition_kind,
                   canonical_uri = excluded.canonical_uri,
                   work_id = excluded.work_id,
                   current_revision_id = COALESCE(excluded.current_revision_id, source_artifacts.current_revision_id),
                   display_title = COALESCE(excluded.display_title, source_artifacts.display_title),
+                  reader_enabled = COALESCE(?, source_artifacts.reader_enabled),
                   updated_at = excluded.updated_at
                 """,
-                (id, acquisition_kind, canonical_uri, work_id, current_revision_id, display_title, now, now),
+                (
+                    id, acquisition_kind, canonical_uri, work_id, current_revision_id,
+                    display_title, reader_flag, now, now, reader_flag,
+                ),
+            )
+            connection.commit()
+
+    def set_source_reader_enabled(
+        self, source_id: str, enabled: bool, *, clock: Clock | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE source_artifacts SET reader_enabled = ?, updated_at = ? WHERE id = ?",
+                (int(enabled), utc_now_iso(clock), source_id),
             )
             connection.commit()
 
@@ -9196,8 +13120,13 @@ class Repository:
         *,
         mark_started: bool = False,
         mark_finished: bool = False,
+        clear_finished: bool = False,
         clock: Clock | None = None,
     ) -> None:
+        """``clear_finished`` nulls a stale terminal timestamp when a batch
+        returns to a non-terminal status (resume/retry) — a running batch must
+        not keep reporting the prior failure's finished_at."""
+
         now = utc_now_iso(clock)
         with self.connection() as connection:
             connection.execute(
@@ -9205,10 +13134,18 @@ class Repository:
                 UPDATE ingest_batches
                    SET status = ?,
                        started_at = CASE WHEN ? AND started_at IS NULL THEN ? ELSE started_at END,
-                       finished_at = CASE WHEN ? THEN ? ELSE finished_at END
+                       finished_at = CASE WHEN ? THEN ? WHEN ? THEN NULL ELSE finished_at END
                  WHERE id = ?
                 """,
-                (status, 1 if mark_started else 0, now, 1 if mark_finished else 0, now, batch_id),
+                (
+                    status,
+                    1 if mark_started else 0,
+                    now,
+                    1 if mark_finished else 0,
+                    now,
+                    1 if clear_finished else 0,
+                    batch_id,
+                ),
             )
             connection.commit()
 
@@ -9393,8 +13330,8 @@ class Repository:
                    SET heartbeat_at = ?,
                        phase = COALESCE(?, phase),
                        message = COALESCE(?, message),
-                       current_window = ?,
-                       total_windows = ?
+                       current_window = COALESCE(?, current_window),
+                       total_windows = COALESCE(?, total_windows)
                  WHERE id = ? AND worker_id = ?
                 """,
                 (now, phase, message, current_window, total_windows, job_id, worker_id),
@@ -9474,6 +13411,60 @@ class Repository:
                  WHERE id = ?
                 """,
                 (message, job_id),
+            )
+            connection.commit()
+
+    def delete_finished_ingest_batches(self, batch_ids: Sequence[str]) -> dict[str, int]:
+        """Delete finished queue history without touching source-layer artifacts.
+
+        Active batches are rejected. Job dependency edges must be removed before
+        jobs because the queue schema intentionally uses restrictive foreign keys.
+        """
+
+        ids = list(dict.fromkeys(str(batch_id) for batch_id in batch_ids if batch_id))
+        if not ids:
+            return {"batches": 0, "jobs": 0, "dependencies": 0}
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            active = connection.execute(
+                f"SELECT id FROM ingest_batches WHERE id IN ({placeholders}) AND status IN ('queued','running','waiting_for_input')",
+                ids,
+            ).fetchall()
+            if active:
+                raise ValueError("active ingest batches cannot be deleted")
+            job_rows = connection.execute(
+                f"SELECT id FROM ingest_jobs WHERE batch_id IN ({placeholders})", ids
+            ).fetchall()
+            job_ids = [row["id"] for row in job_rows]
+            dependencies = 0
+            if job_ids:
+                job_placeholders = ",".join("?" for _ in job_ids)
+                cursor = connection.execute(
+                    f"DELETE FROM ingest_job_dependencies WHERE job_id IN ({job_placeholders}) OR depends_on_job_id IN ({job_placeholders})",
+                    [*job_ids, *job_ids],
+                )
+                dependencies = cursor.rowcount
+                connection.execute(
+                    f"DELETE FROM ingest_jobs WHERE id IN ({job_placeholders})", job_ids
+                )
+            cursor = connection.execute(
+                f"DELETE FROM ingest_batches WHERE id IN ({placeholders})", ids
+            )
+            batches = cursor.rowcount
+            connection.commit()
+        return {"batches": batches, "jobs": len(job_ids), "dependencies": dependencies}
+
+    def update_ingest_job_payload(self, job_id: str, payload: Mapping[str, Any]) -> None:
+        """Replace a durable job payload before an explicit retry.
+
+        Completed dependency jobs are never touched; this is used to adjust a
+        failed stage's execution ceilings without replaying earlier work.
+        """
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE ingest_jobs SET payload_json = ? WHERE id = ?",
+                (_json(dict(payload)), job_id),
             )
             connection.commit()
 
@@ -10130,6 +14121,97 @@ class Repository:
             ).fetchone()
         return _decode_synthesis_run(row) if row is not None else None
 
+    def save_synthesis_candidate(self, run_id: str, candidate: Mapping[str, Any]) -> None:
+        """Stage model output before gates and proposal persistence."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE synthesis_runs SET candidate_output_json = ? WHERE id = ?",
+                (_json(dict(candidate)), run_id),
+            )
+            connection.commit()
+
+    def save_synthesis_shard_result(
+        self,
+        *,
+        shard_key: str,
+        shard_ordinal: int,
+        shard_count: int,
+        result: Mapping[str, Any],
+        manifest_hash: str | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        """Persist one completed synthesis shard's model output (durable checkpoint).
+
+        Keyed by the shard's full input identity so a retried synthesis reuses
+        finished shards at zero model cost, including retries whose revised token
+        ceilings mint a different manifest."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO synthesis_shard_results(
+                  shard_key, manifest_hash, shard_ordinal, shard_count, output_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(shard_key) DO UPDATE SET
+                  manifest_hash = excluded.manifest_hash,
+                  shard_ordinal = excluded.shard_ordinal,
+                  shard_count = excluded.shard_count,
+                  output_json = excluded.output_json
+                """,
+                (
+                    shard_key,
+                    manifest_hash,
+                    shard_ordinal,
+                    shard_count,
+                    _json(dict(result)),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def synthesis_shard_result(self, shard_key: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,)
+            ).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        data["output"] = _loads(data.pop("output_json", None), None)
+        return data
+
+    def finalize_stale_synthesis_runs(
+        self, *, before_iso: str, clock: Clock | None = None
+    ) -> list[str]:
+        """Mark abandoned non-terminal synthesis runs failed (startup hygiene).
+
+        Historical error paths did not always finalize the run row, leaving
+        'created'/'running' rows behind forever. Only rows created before
+        ``before_iso`` are touched, so a currently-executing synthesis (whose
+        worker holds a live job lease) is never finalized under it. Preserved
+        candidates stay in place — only the status/completed_at are stamped."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id FROM synthesis_runs
+                 WHERE status IN ('created', 'running') AND created_at < ?
+                 ORDER BY created_at, id
+                """,
+                (before_iso,),
+            ).fetchall()
+            run_ids = [row["id"] for row in rows]
+            if run_ids:
+                now = utc_now_iso(clock)
+                connection.executemany(
+                    "UPDATE synthesis_runs SET status = 'failed', completed_at = ? WHERE id = ?",
+                    [(now, run_id) for run_id in run_ids],
+                )
+            connection.commit()
+        return run_ids
+
     def synthesis_run_introducing_entity(
         self, entity_type: str, entity_id: str
     ) -> dict[str, Any] | None:
@@ -10357,6 +14439,3429 @@ class Repository:
             previous_version = version
         return changes
 
+    # ------------------------------------------------------------------
+    # P1 step 1 -- commitments + depth objects (migration 072)
+    # ------------------------------------------------------------------
+
+    def ensure_depth_policy_version(
+        self, *, policy: str, body_json: str, content_hash: str, clock: Clock | None = None
+    ) -> str:
+        """Immutable, content-addressed depth policy version (idempotent on hash)."""
+
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM depth_policy_versions WHERE content_hash = ?", (content_hash,)
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO depth_policy_versions(id, policy, body_json, content_hash, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (version_id, policy, body_json, content_hash, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return version_id
+
+    def ensure_depth_envelope_version(
+        self,
+        *,
+        envelope_version: str,
+        bounds_json: str,
+        reviewed_edges_json: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM depth_envelope_versions WHERE content_hash = ?", (content_hash,)
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO depth_envelope_versions(
+                  id, envelope_version, bounds_json, reviewed_edges_json, content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id, envelope_version, bounds_json, reviewed_edges_json,
+                    content_hash, utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return version_id
+
+    def depth_policy_version(self, policy_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM depth_policy_versions WHERE id = ?", (policy_version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def depth_envelope_version(self, envelope_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM depth_envelope_versions WHERE id = ?", (envelope_version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # --- depth-edge authoring (migration 107) --------------------------------
+
+    def insert_depth_edge_template(
+        self, *, template_slug: str, domain_scope: Mapping[str, Any] | None = None, clock: Clock | None = None
+    ) -> str:
+        template_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO depth_edge_templates(id, template_slug, domain_scope_json, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (template_id, template_slug, json.dumps(domain_scope) if domain_scope else None, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return template_id
+
+    def depth_edge_template_by_slug(self, template_slug: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM depth_edge_templates WHERE template_slug = ?", (template_slug,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def depth_edge_templates(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM depth_edge_templates ORDER BY template_slug"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def insert_depth_edge_template_version(
+        self,
+        *,
+        template_id: str,
+        version: int,
+        body_json: str,
+        content_hash: str,
+        status: str = "draft",
+        clock: Clock | None = None,
+    ) -> str:
+        version_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO depth_edge_template_versions(
+                  id, template_id, version, body_json, content_hash, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (version_id, template_id, version, body_json, content_hash, status, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return version_id
+
+    def depth_edge_template_version(self, version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM depth_edge_template_versions WHERE id = ?", (version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def depth_edge_template_versions_for(self, template_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM depth_edge_template_versions WHERE template_id = ? ORDER BY version",
+                (template_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def review_depth_edge_template_version(
+        self, version_id: str, *, status: str, reviewed_by: str, clock: Clock | None = None
+    ) -> bool:
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE depth_edge_template_versions SET status = ?, reviewed_by = ?, reviewed_at = ? "
+                "WHERE id = ?",
+                (status, reviewed_by, utc_now_iso(clock), version_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def insert_depth_edge_instance(self, instance: Mapping[str, Any], *, clock: Clock | None = None) -> str:
+        instance_id = str(instance.get("id") or new_ulid())
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO depth_edge_instances(
+                  id, template_version_id, commitment_id, edge_id, predecessor_milestone,
+                  successor_milestone_slug, successor_task_contract_json, entry_evidence_json,
+                  exit_evidence_json, fresh_proof_json, expected_burden_json, activity_path_json,
+                  status, admission_report_json, pinned_envelope_version_id, receipt_key,
+                  author, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    instance_id,
+                    instance["template_version_id"],
+                    instance["commitment_id"],
+                    instance["edge_id"],
+                    instance["predecessor_milestone"],
+                    instance["successor_milestone_slug"],
+                    instance["successor_task_contract_json"],
+                    instance.get("entry_evidence_json"),
+                    instance.get("exit_evidence_json"),
+                    instance.get("fresh_proof_json"),
+                    instance.get("expected_burden_json"),
+                    instance.get("activity_path_json"),
+                    instance.get("status") or "proposed",
+                    instance.get("admission_report_json"),
+                    instance.get("pinned_envelope_version_id"),
+                    instance.get("receipt_key"),
+                    instance.get("author"),
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        return instance_id
+
+    def depth_edge_instance(self, instance_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM depth_edge_instances WHERE id = ?", (instance_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def depth_edge_instances_for(
+        self, commitment_id: str, *, status: str | None = None
+    ) -> list[dict[str, Any]]:
+        query = "SELECT * FROM depth_edge_instances WHERE commitment_id = ?"
+        params: list[Any] = [commitment_id]
+        if status is not None:
+            query += " AND status = ?"
+            params.append(status)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+    def update_depth_edge_instance_status(
+        self,
+        instance_id: str,
+        *,
+        status: str,
+        admission_report_json: str | None = None,
+        pinned_envelope_version_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> bool:
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE depth_edge_instances
+                SET status = ?,
+                    admission_report_json = COALESCE(?, admission_report_json),
+                    pinned_envelope_version_id = COALESCE(?, pinned_envelope_version_id),
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (status, admission_report_json, pinned_envelope_version_id, utc_now_iso(clock), instance_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def depth_milestone_version_for(
+        self, envelope_version_id: str, milestone_slug: str
+    ) -> dict[str, Any] | None:
+        """Latest milestone version for (envelope version, slug) — the rung
+        projection seam (services/depth_rungs)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM depth_milestone_versions
+                WHERE envelope_version_id = ? AND milestone_slug = ?
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                (envelope_version_id, milestone_slug),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def insert_depth_milestone_version(
+        self,
+        *,
+        envelope_version_id: str,
+        milestone_slug: str,
+        task_contract_json: str,
+        entry_evidence_json: str | None = None,
+        exit_evidence_json: str | None = None,
+        fresh_proof_json: str | None = None,
+        expected_burden_json: str | None = None,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO depth_milestone_versions(
+                  id, envelope_version_id, milestone_slug, task_contract_json,
+                  entry_evidence_json, exit_evidence_json, fresh_proof_json,
+                  expected_burden_json, content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version_id, envelope_version_id, milestone_slug, task_contract_json,
+                    entry_evidence_json, exit_evidence_json, fresh_proof_json,
+                    expected_burden_json, content_hash, utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return version_id
+
+    def _insert_commitment_version_rows(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        commitment_id: str,
+        predecessor_version_id: str | None,
+        version: int,
+        version_fields: Mapping[str, Any],
+        targets: Sequence[Mapping[str, Any]],
+        author: str,
+        change_reason: str | None,
+        events: Sequence[Mapping[str, Any]],
+        now: str,
+    ) -> str:
+        version_id = new_ulid()
+        connection.execute(
+            """
+            INSERT INTO commitment_versions(
+              id, commitment_id, version, predecessor_version_id, intent_text,
+              interpretation_text, goal_id, depth_preset, depth_policy_version_id,
+              depth_envelope_version_id, attention_bounds_json, due_hint, hiatus_hint,
+              reason, provenance_json, target_set_hash, version_hash, change_reason,
+              author, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                version_id, commitment_id, version, predecessor_version_id,
+                version_fields["intent_text"], version_fields["interpretation_text"],
+                version_fields["goal_id"], version_fields["depth_preset"],
+                version_fields["depth_policy_version_id"],
+                version_fields["depth_envelope_version_id"],
+                version_fields["attention_bounds_json"], version_fields["due_hint"],
+                version_fields["hiatus_hint"], version_fields["reason"],
+                version_fields["provenance_json"], version_fields["target_set_hash"],
+                version_fields["version_hash"], change_reason, author, now,
+            ),
+        )
+        for target in targets:
+            connection.execute(
+                """
+                INSERT INTO commitment_target_versions(
+                  id, commitment_version_id, target_kind, target_ref, salience, role,
+                  provenance_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_ulid(), version_id, target["target_kind"], target["target_ref"],
+                    target.get("salience"), target["role"], target.get("provenance_json"), now,
+                ),
+            )
+        for event in events:
+            detail = event.get("detail")
+            connection.execute(
+                """
+                INSERT INTO commitment_events(
+                  id, commitment_id, commitment_version_id, kind, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_ulid(), commitment_id, version_id, event["kind"],
+                    _json(detail) if detail is not None else event.get("detail_json"), now,
+                ),
+            )
+        return version_id
+
+    def create_commitment(
+        self,
+        *,
+        learner_id: str,
+        created_action: str,
+        idempotency_key: str | None,
+        version_fields: Mapping[str, Any],
+        targets: Sequence[Mapping[str, Any]],
+        author: str,
+        change_reason: str | None,
+        clock: Clock | None = None,
+    ) -> tuple[str, bool]:
+        """Atomically insert the stable commitment, its v1 version, target rows, and
+        the ``created`` event in one transaction. Returns ``(commitment_id, created)``.
+
+        B6: when a client idempotency key collides with a concurrent create (the
+        migration-080 partial UNIQUE index fires ``IntegrityError``), the transaction
+        rolls back and the existing WINNER id is returned with ``created=False`` --
+        one (learner, action, idempotency_key) yields exactly one commitment even
+        under a race the service-level SELECT could miss."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            commitment_id = new_ulid()
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO commitments(
+                      id, learner_id, created_action, idempotency_key, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (commitment_id, learner_id, created_action, idempotency_key, now),
+                )
+            except sqlite3.IntegrityError:
+                connection.execute("ROLLBACK")
+                if idempotency_key is None:
+                    raise
+                winner = connection.execute(
+                    """
+                    SELECT id FROM commitments
+                     WHERE learner_id = ? AND created_action = ? AND idempotency_key = ?
+                     ORDER BY created_at, id LIMIT 1
+                    """,
+                    (learner_id, created_action, idempotency_key),
+                ).fetchone()
+                if winner is None:
+                    raise
+                return winner["id"], False
+            self._insert_commitment_version_rows(
+                connection,
+                commitment_id=commitment_id,
+                predecessor_version_id=None,
+                version=1,
+                version_fields=version_fields,
+                targets=targets,
+                author=author,
+                change_reason=change_reason,
+                events=[{"kind": "created", "detail": {"action": created_action}}],
+                now=now,
+            )
+            connection.execute("COMMIT")
+            return commitment_id, True
+        except Exception:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise
+        finally:
+            connection.close()
+
+    def append_commitment_version(
+        self,
+        *,
+        commitment_id: str,
+        predecessor_version_id: str | None,
+        version: int,
+        version_fields: Mapping[str, Any],
+        targets: Sequence[Mapping[str, Any]],
+        author: str,
+        change_reason: str | None,
+        events: Sequence[Mapping[str, Any]],
+        clock: Clock | None = None,
+    ) -> str:
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            version_id = self._insert_commitment_version_rows(
+                connection,
+                commitment_id=commitment_id,
+                predecessor_version_id=predecessor_version_id,
+                version=version,
+                version_fields=version_fields,
+                targets=targets,
+                author=author,
+                change_reason=change_reason,
+                events=events,
+                now=now,
+            )
+            connection.execute("COMMIT")
+            return version_id
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+
+    def append_commitment_event(
+        self,
+        *,
+        commitment_id: str,
+        commitment_version_id: str | None,
+        kind: str,
+        detail_json: str | None,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            event_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO commitment_events(
+                  id, commitment_id, commitment_version_id, kind, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, commitment_id, commitment_version_id, kind, detail_json, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return event_id
+
+    def record_depth_transition_atomic(
+        self,
+        *,
+        commitment_id: str,
+        milestone_slug: str,
+        milestone_detail_json: str | None,
+        transition_detail_json: str | None,
+        receipt_key: str,
+        fork_spec: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """B4: append the step-7 ``depth_milestone_reached`` + ``depth_transition_committed``
+        events AND (when supplied) the step-6 fork lineage/edge/state in ONE transaction.
+
+        Idempotent on ``receipt_key`` (the decision/evidence receipt id): a retry that
+        replays the same decision finds the prior ``depth_transition_committed`` event
+        and returns it WITHOUT appending a second milestone/transition or a second fork
+        (no double-commit). Returns a dict with the event ids, any forked lineage/state
+        ids, and ``already`` (True on the idempotent short-circuit)."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            prior = connection.execute(
+                """
+                SELECT id, detail_json FROM commitment_events
+                 WHERE commitment_id = ? AND kind = 'depth_transition_committed'
+                   AND json_extract(detail_json, '$.receipt_key') = ?
+                 ORDER BY created_at, id LIMIT 1
+                """,
+                (commitment_id, receipt_key),
+            ).fetchone()
+            if prior is not None:
+                connection.execute("ROLLBACK")
+                detail = json.loads(prior["detail_json"] or "{}")
+                return {
+                    "already": True,
+                    "transition_event_id": prior["id"],
+                    "forked_lineage_id": detail.get("forked_lineage_id"),
+                    "forked_state_id": detail.get("forked_state_id"),
+                }
+
+            forked_lineage_id: str | None = None
+            forked_state_id: str | None = None
+            if fork_spec is not None:
+                forked_lineage_id = fork_spec.get("lineage_id") or new_ulid()
+                connection.execute(
+                    "INSERT INTO card_lineages(id, family_id, card_id, created_at) VALUES (?, ?, ?, ?)",
+                    (forked_lineage_id, fork_spec.get("family_id"), fork_spec.get("card_id"), now),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO card_lineage_edges(
+                      id, lineage_id, from_card_version_id, to_card_version_id,
+                      edge_kind, classifier_version, rationale_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, 'semantic_fork', ?, ?, ?)
+                    """,
+                    (
+                        new_ulid(), forked_lineage_id,
+                        fork_spec.get("predecessor_card_version_id"),
+                        fork_spec["forked_card_version_id"],
+                        fork_spec["classifier_version"],
+                        json.dumps(dict(fork_spec.get("rationale") or {"reason": "semantic_fork"}),
+                                   sort_keys=True),
+                        now,
+                    ),
+                )
+                forked_state_id = fork_spec.get("state_id") or new_ulid()
+                projection_head = {
+                    "reviews": [],
+                    "forked_from_version": fork_spec.get("predecessor_card_version_id"),
+                }
+                connection.execute(
+                    """
+                    INSERT INTO activity_card_state(
+                      id, learner_id, card_lineage_id, scheduler_algorithm_version,
+                      model_label, difficulty, stability, retrievability, due_at,
+                      last_eligible_review_at, lapse_episode_id, active,
+                      projection_head_json, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, 1, ?, ?)
+                    """,
+                    (
+                        forked_state_id, fork_spec.get("learner_id", "local"),
+                        forked_lineage_id, fork_spec["scheduler_algorithm_version"],
+                        fork_spec.get("model_label", "fsrs"),
+                        fork_spec.get("informed_difficulty_prior"),
+                        json.dumps(projection_head, sort_keys=True), now,
+                    ),
+                )
+
+            milestone_event_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO commitment_events(
+                  id, commitment_id, commitment_version_id, kind, detail_json, created_at
+                )
+                VALUES (?, ?, NULL, 'depth_milestone_reached', ?, ?)
+                """,
+                (milestone_event_id, commitment_id, milestone_detail_json, now),
+            )
+            transition_event_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO commitment_events(
+                  id, commitment_id, commitment_version_id, kind, detail_json, created_at
+                )
+                VALUES (?, ?, NULL, 'depth_transition_committed', ?, ?)
+                """,
+                (transition_event_id, commitment_id, transition_detail_json, now),
+            )
+            connection.execute("COMMIT")
+            return {
+                "already": False,
+                "milestone_event_id": milestone_event_id,
+                "transition_event_id": transition_event_id,
+                "forked_lineage_id": forked_lineage_id,
+                "forked_state_id": forked_state_id,
+            }
+        except Exception:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise
+        finally:
+            connection.close()
+
+    def commitment(self, commitment_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM commitments WHERE id = ?", (commitment_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def commitment_head(self, commitment_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM commitment_versions
+                 WHERE commitment_id = ?
+                 ORDER BY version DESC LIMIT 1
+                """,
+                (commitment_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def commitment_versions_for(self, commitment_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM commitment_versions WHERE commitment_id = ? ORDER BY version",
+                (commitment_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def commitment_targets_for_version(self, commitment_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM commitment_target_versions
+                 WHERE commitment_version_id = ? ORDER BY created_at, id
+                """,
+                (commitment_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def commitment_events_for(self, commitment_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM commitment_events
+                 WHERE commitment_id = ? ORDER BY created_at, id
+                """,
+                (commitment_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def commitments_targeting(self, target_ref: str) -> list[str]:
+        """Commitment ids whose HEAD version carries a target with this ref
+        (any target kind). Used by rung_variants to authorize harder-than-
+        default-trajectory work through a commitment's depth envelope."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT DISTINCT c.id FROM commitments c
+                  JOIN commitment_versions v ON v.commitment_id = c.id
+                  JOIN commitment_target_versions t ON t.commitment_version_id = v.id
+                 WHERE t.target_ref = ?
+                   AND v.version = (
+                     SELECT MAX(version) FROM commitment_versions WHERE commitment_id = c.id
+                   )
+                 ORDER BY c.created_at, c.id
+                """,
+                (target_ref,),
+            ).fetchall()
+        return [row["id"] for row in rows]
+
+    def find_commitment_by_idempotency(
+        self, *, learner_id: str, created_action: str, target_set_hash: str, idempotency_key: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT c.* FROM commitments c
+                  JOIN commitment_versions v
+                    ON v.commitment_id = c.id AND v.version = 1
+                 WHERE c.learner_id = ? AND c.created_action = ?
+                   AND c.idempotency_key = ? AND v.target_set_hash = ?
+                 ORDER BY c.created_at, c.id LIMIT 1
+                """,
+                (learner_id, created_action, idempotency_key, target_set_hash),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def find_commitment_candidate(
+        self, *, learner_id: str, created_action: str, target_set_hash: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT c.* FROM commitments c
+                  JOIN commitment_versions v
+                    ON v.commitment_id = c.id AND v.version = 1
+                 WHERE c.learner_id = ? AND c.created_action = ?
+                   AND v.target_set_hash = ?
+                 ORDER BY c.created_at, c.id LIMIT 1
+                """,
+                (learner_id, created_action, target_set_hash),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # ------------------------------------------------------------------
+    # P1 step 2 -- capability aliases, task features, activity patterns (migration 073)
+    # ------------------------------------------------------------------
+
+    def upsert_capability_alias(
+        self,
+        *,
+        registry_version: int,
+        legacy_value: str,
+        canonical: str | None,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM capability_aliases WHERE registry_version = ? AND legacy_value = ?",
+                (registry_version, legacy_value),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            alias_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO capability_aliases(
+                  id, registry_version, legacy_value, canonical, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (alias_id, registry_version, legacy_value, canonical, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return alias_id
+
+    def capability_alias(self, *, registry_version: int, legacy_value: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM capability_aliases WHERE registry_version = ? AND legacy_value = ?",
+                (registry_version, legacy_value),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def ensure_task_feature_schema_version(
+        self,
+        *,
+        schema_slug: str,
+        version: int,
+        dimensions_json: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM task_feature_schema_versions WHERE schema_slug = ? AND version = ?",
+                (schema_slug, version),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            schema_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO task_feature_schema_versions(
+                  id, schema_slug, version, dimensions_json, content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (schema_id, schema_slug, version, dimensions_json, content_hash, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return schema_id
+
+    def task_feature_schema_version(self, schema_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM task_feature_schema_versions WHERE id = ?", (schema_version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def ensure_activity_pattern(self, *, pattern_slug: str, clock: Clock | None = None) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM activity_patterns WHERE pattern_slug = ?", (pattern_slug,)
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            pattern_id = new_ulid()
+            connection.execute(
+                "INSERT INTO activity_patterns(id, pattern_slug, created_at) VALUES (?, ?, ?)",
+                (pattern_id, pattern_slug, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return pattern_id
+
+    def ensure_activity_pattern_version(
+        self,
+        *,
+        pattern_id: str,
+        version: int,
+        content_hash: str,
+        fields: Mapping[str, Any],
+        status: str,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Content-addressed pattern version, idempotent on ``(pattern_id, content_hash)``.
+
+        B8: the SELECT + INSERT race under ``BEGIN IMMEDIATE``; a lost race (two workers
+        registering the same content) raises ``IntegrityError`` on the
+        ``UNIQUE(pattern_id, content_hash)`` backstop and re-SELECTs the winner rather
+        than surfacing an error or minting a duplicate."""
+
+        def _existing(connection: sqlite3.Connection) -> dict[str, Any] | None:
+            row = connection.execute(
+                "SELECT * FROM activity_pattern_versions WHERE pattern_id = ? AND content_hash = ?",
+                (pattern_id, content_hash),
+            ).fetchone()
+            return dict(row) if row is not None else None
+
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing = _existing(connection)
+            if existing is not None:
+                connection.execute("ROLLBACK")
+                return {"row": existing, "already_exists": True}
+            version_id = new_ulid()
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO activity_pattern_versions(
+                      id, pattern_id, version, allowed_purposes_json, operation, learning_process,
+                      allowed_target_kinds_json, allowed_capabilities_json, completion_semantics_json,
+                      response_contract_json, progression_role, prerequisite_evidence_json,
+                      feedback_strategy_json, assistance_strategy_json, evidence_semantics_by_context_json,
+                      task_feature_bounds_json, variation_axes_json, rubric_shape_json, mint_gates_json,
+                      burden_model_json, calibration_status, generator_version, content_hash, status,
+                      created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        version_id, pattern_id, version, fields["allowed_purposes_json"],
+                        fields["operation"], fields["learning_process"],
+                        fields["allowed_target_kinds_json"], fields["allowed_capabilities_json"],
+                        fields["completion_semantics_json"], fields["response_contract_json"],
+                        fields.get("progression_role"), fields.get("prerequisite_evidence_json"),
+                        fields.get("feedback_strategy_json"), fields.get("assistance_strategy_json"),
+                        fields["evidence_semantics_by_context_json"], fields["task_feature_bounds_json"],
+                        fields["variation_axes_json"], fields["rubric_shape_json"],
+                        fields["mint_gates_json"], fields.get("burden_model_json"),
+                        fields["calibration_status"], fields.get("generator_version"),
+                        content_hash, status, utc_now_iso(clock),
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                connection.execute("ROLLBACK")
+                winner = _existing(connection)
+                if winner is None:
+                    raise
+                return {"row": winner, "already_exists": True}
+            row = connection.execute(
+                "SELECT * FROM activity_pattern_versions WHERE id = ?", (version_id,)
+            ).fetchone()
+            connection.execute("COMMIT")
+            return {"row": dict(row), "already_exists": False}
+        finally:
+            connection.close()
+
+    def set_activity_pattern_version_status(
+        self, *, pattern_version_id: str, status: str
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE activity_pattern_versions SET status = ? WHERE id = ?",
+                (status, pattern_version_id),
+            )
+            connection.commit()
+
+    def activity_pattern_version(self, pattern_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_pattern_versions WHERE id = ?", (pattern_version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def activity_pattern_versions(self, *, status: str | None = None) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if status is None:
+                rows = connection.execute(
+                    "SELECT * FROM activity_pattern_versions ORDER BY created_at, id"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM activity_pattern_versions WHERE status = ? ORDER BY created_at, id",
+                    (status,),
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def activity_pattern_version_by_slug(
+        self, *, pattern_slug: str, status: str | None = None
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            if status is None:
+                row = connection.execute(
+                    """
+                    SELECT v.* FROM activity_pattern_versions v
+                      JOIN activity_patterns p ON p.id = v.pattern_id
+                     WHERE p.pattern_slug = ? ORDER BY v.version DESC LIMIT 1
+                    """,
+                    (pattern_slug,),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    SELECT v.* FROM activity_pattern_versions v
+                      JOIN activity_patterns p ON p.id = v.pattern_id
+                     WHERE p.pattern_slug = ? AND v.status = ? ORDER BY v.version DESC LIMIT 1
+                    """,
+                    (pattern_slug, status),
+                ).fetchone()
+        return dict(row) if row is not None else None
+
+    # ------------------------------------------------------------------
+    # P1 step 3 -- family/card authoring side tables + progression policy (migration 074)
+    # ------------------------------------------------------------------
+
+    def ensure_progression_policy_version(
+        self,
+        *,
+        policy_slug: str,
+        version: int,
+        body_json: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM progression_policy_versions WHERE content_hash = ?", (content_hash,)
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            policy_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO progression_policy_versions(
+                  id, policy_slug, version, body_json, content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (policy_id, policy_slug, version, body_json, content_hash, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return policy_id
+
+    def progression_policy_version(self, policy_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM progression_policy_versions WHERE id = ?", (policy_version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def upsert_activity_family_authoring(
+        self, *, family_version_id: str, fields: Mapping[str, Any], clock: Clock | None = None
+    ) -> None:
+        """Insert/replace the authoring side row keyed by the immutable P0 family
+        version id. The 065 ``activity_family_versions`` row is never touched."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_family_authoring(
+                  family_version_id, commitment_id, commitment_target_version_id,
+                  authoring_purpose, pattern_version_id, progression_policy_version_id,
+                  goal_contract_version_id, depth_policy_version_id, depth_envelope_version_id,
+                  served_milestone_edges_json, cross_purpose_links_json, angle_inventory_json,
+                  coverage_targets_json, evidence_cap_policy_id, mint_policy_json,
+                  retirement_policy_json, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(family_version_id) DO UPDATE SET
+                  commitment_id = excluded.commitment_id,
+                  commitment_target_version_id = excluded.commitment_target_version_id,
+                  authoring_purpose = excluded.authoring_purpose,
+                  pattern_version_id = excluded.pattern_version_id,
+                  progression_policy_version_id = excluded.progression_policy_version_id,
+                  goal_contract_version_id = excluded.goal_contract_version_id,
+                  depth_policy_version_id = excluded.depth_policy_version_id,
+                  depth_envelope_version_id = excluded.depth_envelope_version_id,
+                  served_milestone_edges_json = excluded.served_milestone_edges_json,
+                  cross_purpose_links_json = excluded.cross_purpose_links_json,
+                  angle_inventory_json = excluded.angle_inventory_json,
+                  coverage_targets_json = excluded.coverage_targets_json,
+                  evidence_cap_policy_id = excluded.evidence_cap_policy_id,
+                  mint_policy_json = excluded.mint_policy_json,
+                  retirement_policy_json = excluded.retirement_policy_json,
+                  status = excluded.status
+                """,
+                (
+                    family_version_id, fields.get("commitment_id"),
+                    fields.get("commitment_target_version_id"), fields["authoring_purpose"],
+                    fields.get("pattern_version_id"), fields.get("progression_policy_version_id"),
+                    fields.get("goal_contract_version_id"), fields.get("depth_policy_version_id"),
+                    fields.get("depth_envelope_version_id"), fields.get("served_milestone_edges_json"),
+                    fields.get("cross_purpose_links_json"), fields.get("angle_inventory_json"),
+                    fields.get("coverage_targets_json"), fields.get("evidence_cap_policy_id"),
+                    fields.get("mint_policy_json"), fields.get("retirement_policy_json"),
+                    fields.get("status", "draft"), utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def set_activity_family_authoring_status(
+        self, *, family_version_id: str, status: str
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE activity_family_authoring SET status = ? WHERE family_version_id = ?",
+                (status, family_version_id),
+            )
+            connection.commit()
+
+    def activity_family_authoring(self, family_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_family_authoring WHERE family_version_id = ?",
+                (family_version_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def upsert_activity_card_authoring(
+        self, *, card_version_id: str, fields: Mapping[str, Any], clock: Clock | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_card_authoring(
+                  card_version_id, family_version_id, pattern_version_id,
+                  task_feature_schema_version_id, task_features_json, capability,
+                  outcome_schema_id, outcome_schema_version, surface_policy,
+                  surface_variation_bounds_json, angle_identity_json, generator_version,
+                  gate_policy_version, expected_burden_json, calibration_metadata_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(card_version_id) DO UPDATE SET
+                  family_version_id = excluded.family_version_id,
+                  pattern_version_id = excluded.pattern_version_id,
+                  task_feature_schema_version_id = excluded.task_feature_schema_version_id,
+                  task_features_json = excluded.task_features_json,
+                  capability = excluded.capability,
+                  outcome_schema_id = excluded.outcome_schema_id,
+                  outcome_schema_version = excluded.outcome_schema_version,
+                  surface_policy = excluded.surface_policy,
+                  surface_variation_bounds_json = excluded.surface_variation_bounds_json,
+                  angle_identity_json = excluded.angle_identity_json,
+                  generator_version = excluded.generator_version,
+                  gate_policy_version = excluded.gate_policy_version,
+                  expected_burden_json = excluded.expected_burden_json,
+                  calibration_metadata_json = excluded.calibration_metadata_json
+                """,
+                (
+                    card_version_id, fields.get("family_version_id"),
+                    fields.get("pattern_version_id"), fields.get("task_feature_schema_version_id"),
+                    fields.get("task_features_json"), fields.get("capability"),
+                    fields.get("outcome_schema_id"), fields.get("outcome_schema_version"),
+                    fields.get("surface_policy"), fields.get("surface_variation_bounds_json"),
+                    fields.get("angle_identity_json"), fields.get("generator_version"),
+                    fields.get("gate_policy_version"), fields.get("expected_burden_json"),
+                    fields.get("calibration_metadata_json"), utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def activity_card_authoring(self, card_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_card_authoring WHERE card_version_id = ?",
+                (card_version_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def activity_card_authoring_for_family(self, family_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM activity_card_authoring WHERE family_version_id = ? ORDER BY created_at, card_version_id",
+                (family_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def activity_family_authoring_purposes(self, family_id: str) -> dict[str, str]:
+        """Authoring purposes across every version of one stable family (§1.1
+        invariant 2 / §9.1 purpose-immutability check), keyed by family_version_id."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT a.family_version_id AS fvid, a.authoring_purpose AS purpose
+                  FROM activity_family_authoring a
+                  JOIN activity_family_versions v ON v.id = a.family_version_id
+                 WHERE v.family_id = ?
+                """,
+                (family_id,),
+            ).fetchall()
+        return {row["fvid"]: row["purpose"] for row in rows}
+
+    def activity_family_version_family_id(self, family_version_id: str) -> str | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT family_id FROM activity_family_versions WHERE id = ?", (family_version_id,)
+            ).fetchone()
+        return row["family_id"] if row is not None else None
+
+    # ------------------------------------------------------------------
+    # P1 step 4: card lineages, richer lineage edges, card-level state
+    # (migration 075). Append-only edges; state keyed by learner x lineage x
+    # scheduler algorithm version (§3.7, §3.8).
+    # ------------------------------------------------------------------
+    def create_card_lineage(
+        self,
+        *,
+        card_id: str | None = None,
+        family_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        lineage_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                "INSERT INTO card_lineages(id, family_id, card_id, created_at) VALUES (?, ?, ?, ?)",
+                (lineage_id, family_id, card_id, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return lineage_id
+
+    def card_lineage(self, lineage_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM card_lineages WHERE id = ?", (lineage_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def append_card_lineage_edge(
+        self,
+        *,
+        lineage_id: str,
+        to_card_version_id: str,
+        edge_kind: str,
+        classifier_version: str,
+        from_card_version_id: str | None = None,
+        rationale: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        edge_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO card_lineage_edges(
+                  id, lineage_id, from_card_version_id, to_card_version_id,
+                  edge_kind, classifier_version, rationale_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    edge_id,
+                    lineage_id,
+                    from_card_version_id,
+                    to_card_version_id,
+                    edge_kind,
+                    classifier_version,
+                    None if rationale is None else json.dumps(rationale, sort_keys=True),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return edge_id
+
+    def card_lineage_edges(self, lineage_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM card_lineage_edges WHERE lineage_id = ? ORDER BY created_at, id",
+                (lineage_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def lineage_for_card_version(self, card_version_id: str) -> str | None:
+        """Resolve the lineage a card version belongs to via its lineage edges."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT lineage_id FROM card_lineage_edges
+                 WHERE to_card_version_id = ? OR from_card_version_id = ?
+                 ORDER BY created_at, id LIMIT 1
+                """,
+                (card_version_id, card_version_id),
+            ).fetchone()
+        return row["lineage_id"] if row is not None else None
+
+    def upsert_activity_card_state(
+        self,
+        *,
+        card_lineage_id: str,
+        scheduler_algorithm_version: str,
+        model_label: str,
+        learner_id: str = "local",
+        difficulty: float | None = None,
+        stability: float | None = None,
+        retrievability: float | None = None,
+        due_at: str | None = None,
+        last_eligible_review_at: str | None = None,
+        lapse_episode_id: str | None = None,
+        active: bool = True,
+        projection_head: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                """
+                SELECT id FROM activity_card_state
+                 WHERE learner_id = ? AND card_lineage_id = ? AND scheduler_algorithm_version = ?
+                """,
+                (learner_id, card_lineage_id, scheduler_algorithm_version),
+            ).fetchone()
+            state_id = existing["id"] if existing is not None else new_ulid()
+            connection.execute(
+                """
+                INSERT INTO activity_card_state(
+                  id, learner_id, card_lineage_id, scheduler_algorithm_version,
+                  model_label, difficulty, stability, retrievability, due_at,
+                  last_eligible_review_at, lapse_episode_id, active,
+                  projection_head_json, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(learner_id, card_lineage_id, scheduler_algorithm_version)
+                DO UPDATE SET
+                  model_label = excluded.model_label,
+                  difficulty = excluded.difficulty,
+                  stability = excluded.stability,
+                  retrievability = excluded.retrievability,
+                  due_at = excluded.due_at,
+                  last_eligible_review_at = excluded.last_eligible_review_at,
+                  lapse_episode_id = excluded.lapse_episode_id,
+                  active = excluded.active,
+                  projection_head_json = excluded.projection_head_json,
+                  updated_at = excluded.updated_at
+                """,
+                (
+                    state_id,
+                    learner_id,
+                    card_lineage_id,
+                    scheduler_algorithm_version,
+                    model_label,
+                    difficulty,
+                    stability,
+                    retrievability,
+                    due_at,
+                    last_eligible_review_at,
+                    lapse_episode_id,
+                    1 if active else 0,
+                    None if projection_head is None else json.dumps(projection_head, sort_keys=True),
+                    now,
+                ),
+            )
+            connection.commit()
+        return state_id
+
+    def activity_card_state(
+        self,
+        *,
+        card_lineage_id: str,
+        scheduler_algorithm_version: str,
+        learner_id: str = "local",
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM activity_card_state
+                 WHERE learner_id = ? AND card_lineage_id = ? AND scheduler_algorithm_version = ?
+                """,
+                (learner_id, card_lineage_id, scheduler_algorithm_version),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # ------------------------------------------------------------------
+    # P1 step 5: administration purpose + context (migration 076 ALTER).
+    # ------------------------------------------------------------------
+    def activity_administration(self, administration_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_administrations WHERE id = ?", (administration_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def all_activity_administrations(self) -> list[dict[str, Any]]:
+        """Every administration row, oldest first. A pure-ledger read for the P1
+        event-sufficiency replay (§9.8): the deferred psychometrics projection is
+        buildable from ledger events ALONE, with zero live-table reads."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM activity_administrations ORDER BY created_at, id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def set_administration_context(
+        self,
+        *,
+        administration_id: str,
+        reading_phase: str | None = None,
+        admin_context: Mapping[str, Any] | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE activity_administrations
+                   SET reading_phase = ?, admin_context_json = ?
+                 WHERE id = ?
+                """,
+                (
+                    reading_phase,
+                    None if admin_context is None else json.dumps(admin_context, sort_keys=True),
+                    administration_id,
+                ),
+            )
+            connection.commit()
+
+    # ------------------------------------------------------------------
+    # P1 step 6: namespaced fingerprint memberships, soft-kinship features,
+    # surface authoring (migration 077). One familiarity namespace (§4.1/§4.2).
+    # ------------------------------------------------------------------
+    def record_fingerprint_membership(
+        self,
+        *,
+        surface_id: str,
+        namespace: str,
+        value_hash: str,
+        provenance: str | None = None,
+        status: str | None = None,
+        confidence: float | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                """
+                SELECT id FROM surface_fingerprint_memberships
+                 WHERE surface_id = ? AND namespace = ? AND value_hash = ?
+                """,
+                (surface_id, namespace, value_hash),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            membership_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO surface_fingerprint_memberships(
+                  id, surface_id, namespace, value_hash, provenance, status, confidence, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    membership_id,
+                    surface_id,
+                    namespace,
+                    value_hash,
+                    provenance,
+                    status,
+                    confidence,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return membership_id
+
+    def fingerprint_memberships_for_surface(self, surface_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM surface_fingerprint_memberships WHERE surface_id = ? ORDER BY namespace, value_hash",
+                (surface_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def surfaces_sharing_membership(
+        self, *, namespace: str, value_hash: str, exclude_surface_id: str | None = None
+    ) -> list[str]:
+        """All surfaces in a given (namespace, value_hash) hard group. Every membership
+        is considered -- never first-field-wins (§4.1, fixing the legacy L58 bug)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT DISTINCT surface_id FROM surface_fingerprint_memberships
+                 WHERE namespace = ? AND value_hash = ?
+                 ORDER BY surface_id
+                """,
+                (namespace, value_hash),
+            ).fetchall()
+        out = [row["surface_id"] for row in rows]
+        if exclude_surface_id is not None:
+            out = [s for s in out if s != exclude_surface_id]
+        return out
+
+    def upsert_soft_kinship_features(
+        self,
+        *,
+        surface_id: str,
+        feature_schema_version: str,
+        features: Mapping[str, Any],
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                """
+                SELECT id FROM soft_kinship_features
+                 WHERE surface_id = ? AND feature_schema_version = ?
+                """,
+                (surface_id, feature_schema_version),
+            ).fetchone()
+            feature_id = existing["id"] if existing is not None else new_ulid()
+            connection.execute(
+                """
+                INSERT INTO soft_kinship_features(
+                  id, surface_id, feature_schema_version, features_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(surface_id, feature_schema_version) DO UPDATE SET
+                  features_json = excluded.features_json
+                """,
+                (
+                    feature_id,
+                    surface_id,
+                    feature_schema_version,
+                    json.dumps(features, sort_keys=True),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return feature_id
+
+    def soft_kinship_features_for_surface(
+        self, *, surface_id: str, feature_schema_version: str | None = None
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            if feature_schema_version is not None:
+                row = connection.execute(
+                    """
+                    SELECT * FROM soft_kinship_features
+                     WHERE surface_id = ? AND feature_schema_version = ?
+                    """,
+                    (surface_id, feature_schema_version),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    SELECT * FROM soft_kinship_features WHERE surface_id = ?
+                     ORDER BY created_at DESC, id DESC LIMIT 1
+                    """,
+                    (surface_id,),
+                ).fetchone()
+        return dict(row) if row is not None else None
+
+    def upsert_activity_surface_authoring(
+        self, *, surface_id: str, fields: Mapping[str, Any], clock: Clock | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO activity_surface_authoring(
+                  surface_id, surface_policy, generator_provenance_json, anchor_surface_id,
+                  candidate_batch_id, seed, angle_coords_json, task_features_json,
+                  gate_decision_json, reviewer, status, pinned_by_learner,
+                  authorship_provenance_json, rotation_eligible, cache_state, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(surface_id) DO UPDATE SET
+                  surface_policy = excluded.surface_policy,
+                  generator_provenance_json = excluded.generator_provenance_json,
+                  anchor_surface_id = excluded.anchor_surface_id,
+                  candidate_batch_id = excluded.candidate_batch_id,
+                  seed = excluded.seed,
+                  angle_coords_json = excluded.angle_coords_json,
+                  task_features_json = excluded.task_features_json,
+                  gate_decision_json = excluded.gate_decision_json,
+                  reviewer = excluded.reviewer,
+                  status = excluded.status,
+                  pinned_by_learner = excluded.pinned_by_learner,
+                  authorship_provenance_json = excluded.authorship_provenance_json,
+                  rotation_eligible = excluded.rotation_eligible,
+                  cache_state = excluded.cache_state
+                """,
+                (
+                    surface_id,
+                    fields.get("surface_policy"),
+                    fields.get("generator_provenance_json"),
+                    fields.get("anchor_surface_id"),
+                    fields.get("candidate_batch_id"),
+                    fields.get("seed"),
+                    fields.get("angle_coords_json"),
+                    fields.get("task_features_json"),
+                    fields.get("gate_decision_json"),
+                    fields.get("reviewer"),
+                    fields.get("status"),
+                    1 if fields.get("pinned_by_learner") else 0,
+                    fields.get("authorship_provenance_json"),
+                    1 if fields.get("rotation_eligible") else 0,
+                    fields.get("cache_state"),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+
+    def activity_surface_authoring(self, surface_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM activity_surface_authoring WHERE surface_id = ?", (surface_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def activity_exposure_events_for_surface(self, surface_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM activity_exposure_events WHERE surface_id = ? ORDER BY created_at, id",
+                (surface_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
+    # P1 step 7: durable surface-mint requests (migration 078). Modeled on the
+    # 033 ingest-job lease: exactly one worker drains at a time; an expired lease
+    # is recovered. Enqueue is idempotent on the §5.6 key. Never blocks attempts.
+    # ------------------------------------------------------------------
+    def enqueue_surface_mint_request(
+        self,
+        *,
+        card_version_id: str,
+        generator_version: str,
+        gate_policy_version: str,
+        anchor_surface_id: str | None = None,
+        requested_angle_json: str = "",
+        token_cost_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Idempotent on ``(card_version, anchor, requested_angle, generator,
+        gate_policy)`` (§5.6). Returns the existing request id when one already
+        exists (any status), else inserts a fresh ``pending`` request.
+
+        B2: ``anchor_surface_id`` is the ``''`` sentinel when absent (mirroring
+        ``requested_angle_json``) so the UNIQUE idempotency index treats "no anchor"
+        as one value. The insert races under ``BEGIN IMMEDIATE``; a lost race raises
+        ``IntegrityError`` on the UNIQUE constraint and re-SELECTs the winner rather
+        than enqueuing a duplicate."""
+
+        angle = requested_angle_json or ""
+        anchor = anchor_surface_id if anchor_surface_id is not None else ""
+
+        def _existing(connection: sqlite3.Connection) -> dict[str, Any] | None:
+            return connection.execute(
+                """
+                SELECT id FROM surface_mint_requests
+                 WHERE card_version_id = ? AND anchor_surface_id = ?
+                   AND requested_angle_json = ? AND generator_version = ?
+                   AND gate_policy_version = ?
+                """,
+                (card_version_id, anchor, angle, generator_version, gate_policy_version),
+            ).fetchone()
+
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing = _existing(connection)
+            if existing is not None:
+                connection.execute("ROLLBACK")
+                return existing["id"]
+            request_id = new_ulid()
+            now = utc_now_iso(clock)
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO surface_mint_requests(
+                      id, card_version_id, anchor_surface_id, requested_angle_json,
+                      generator_version, gate_policy_version, status, token_cost_json,
+                      created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                    """,
+                    (request_id, card_version_id, anchor, angle,
+                     generator_version, gate_policy_version, token_cost_json, now, now),
+                )
+            except sqlite3.IntegrityError:
+                connection.execute("ROLLBACK")
+                winner = _existing(connection)
+                if winner is None:
+                    raise
+                return winner["id"]
+            connection.execute("COMMIT")
+            return request_id
+        finally:
+            connection.close()
+
+    def surface_mint_request(self, request_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM surface_mint_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def surface_mint_requests_for_card_version(
+        self, card_version_id: str, *, statuses: Sequence[str] | None = None
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if statuses:
+                placeholders = ",".join("?" for _ in statuses)
+                rows = connection.execute(
+                    f"""
+                    SELECT * FROM surface_mint_requests
+                     WHERE card_version_id = ? AND status IN ({placeholders})
+                     ORDER BY created_at, id
+                    """,
+                    (card_version_id, *statuses),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM surface_mint_requests WHERE card_version_id = ? ORDER BY created_at, id",
+                    (card_version_id,),
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def claim_next_surface_mint_request(
+        self, *, worker_id: str, now_iso: str, lease_expires_at: str, lease_cutoff_iso: str
+    ) -> dict[str, Any] | None:
+        """Atomically claim the next ``pending`` mint request for ``worker_id``.
+
+        Returns None when another worker holds a live running lease (exactly one
+        worker drains at a time) or when no pending request exists. A ``running``
+        request whose lease predates ``lease_cutoff_iso`` is treated as dead and
+        does not block the claim.
+        """
+
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            live = connection.execute(
+                """
+                SELECT 1 FROM surface_mint_requests
+                 WHERE status = 'running'
+                   AND lease_expires_at IS NOT NULL
+                   AND lease_expires_at >= ?
+                 LIMIT 1
+                """,
+                (lease_cutoff_iso,),
+            ).fetchone()
+            if live is not None:
+                connection.execute("ROLLBACK")
+                return None
+            candidate = connection.execute(
+                """
+                SELECT * FROM surface_mint_requests
+                 WHERE status = 'pending'
+                    OR (status = 'running' AND (lease_expires_at IS NULL
+                                                OR lease_expires_at < ?))
+                 ORDER BY created_at, id
+                 LIMIT 1
+                """,
+                (lease_cutoff_iso,),
+            ).fetchone()
+            if candidate is None:
+                connection.execute("ROLLBACK")
+                return None
+            # B1 fencing token: every (re)claim bumps lease_epoch so a late write from
+            # the prior lease holder carries a stale epoch and is rejected.
+            connection.execute(
+                """
+                UPDATE surface_mint_requests
+                   SET status = 'running', lease_owner = ?, lease_expires_at = ?,
+                       lease_epoch = lease_epoch + 1, updated_at = ?
+                 WHERE id = ? AND status IN ('pending', 'running')
+                """,
+                (worker_id, lease_expires_at, now_iso, candidate["id"]),
+            )
+            claimed = connection.execute(
+                "SELECT * FROM surface_mint_requests WHERE id = ?", (candidate["id"],)
+            ).fetchone()
+            connection.execute("COMMIT")
+            return dict(claimed) if claimed is not None else None
+        finally:
+            connection.close()
+
+    def set_surface_mint_candidate(
+        self,
+        *,
+        request_id: str,
+        candidate_surface_id: str,
+        gate_results_json: str | None = None,
+        token_cost_json: str | None = None,
+        expected_lease_epoch: int | None = None,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Record the gated candidate and move the request to ``candidate_ready``.
+
+        B1: guarded by ``status = 'running'`` and (when supplied) the fencing
+        ``lease_epoch``. Returns True iff the write applied; a stale-lease worker's
+        write is rejected (rowcount 0) so it can never advance a re-claimed job. The
+        lease is deliberately RETAINED here (the same worker admits/rejects next);
+        only the terminal transition releases it."""
+
+        epoch_clause = "" if expected_lease_epoch is None else " AND lease_epoch = ?"
+        params: list[Any] = [candidate_surface_id, gate_results_json, token_cost_json,
+                             utc_now_iso(clock), request_id]
+        if expected_lease_epoch is not None:
+            params.append(expected_lease_epoch)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE surface_mint_requests
+                   SET status = 'candidate_ready', candidate_surface_id = ?,
+                       gate_results_json = COALESCE(?, gate_results_json),
+                       token_cost_json = COALESCE(?, token_cost_json),
+                       updated_at = ?
+                 WHERE id = ? AND status = 'running'{epoch_clause}
+                """,
+                params,
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def resolve_surface_mint_request(
+        self,
+        *,
+        request_id: str,
+        status: str,
+        gate_results_json: str | None = None,
+        failure_reason: str | None = None,
+        candidate_surface_id: str | None = None,
+        expected_lease_epoch: int | None = None,
+        require_active: bool = False,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Terminal transition to ``admitted`` / ``rejected`` / ``failed``. Releases
+        any lease. A failed/rejected candidate row is retained for audit.
+
+        B1: when ``expected_lease_epoch`` is supplied the write is guarded by the
+        fencing token, and when ``require_active`` is set only a ``running`` /
+        ``candidate_ready`` request may transition (so an already-terminal request is
+        never re-resolved by a re-run or a stale worker). Returns True iff applied."""
+
+        clauses = ["id = ?"]
+        params: list[Any] = [status, gate_results_json, failure_reason,
+                             candidate_surface_id, utc_now_iso(clock), request_id]
+        if require_active:
+            clauses.append("status IN ('running', 'candidate_ready')")
+        if expected_lease_epoch is not None:
+            clauses.append("lease_epoch = ?")
+            params.append(expected_lease_epoch)
+        where = " AND ".join(clauses)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE surface_mint_requests
+                   SET status = ?,
+                       gate_results_json = COALESCE(?, gate_results_json),
+                       failure_reason = COALESCE(?, failure_reason),
+                       candidate_surface_id = COALESCE(?, candidate_surface_id),
+                       lease_owner = NULL, lease_expires_at = NULL, updated_at = ?
+                 WHERE {where}
+                """,
+                params,
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def obsolete_surface_mint_requests_for_card_versions(
+        self, card_version_ids: Sequence[str], *, clock: Clock | None = None
+    ) -> int:
+        """Mark all not-yet-terminal mint work for the given card versions ``obsolete``
+        (§5.6: card/family retirement makes pending work obsolete). Returns the count."""
+
+        if not card_version_ids:
+            return 0
+        placeholders = ",".join("?" for _ in card_version_ids)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE surface_mint_requests
+                   SET status = 'obsolete', lease_owner = NULL, lease_expires_at = NULL,
+                       updated_at = ?
+                 WHERE card_version_id IN ({placeholders})
+                   AND status IN ('pending', 'running', 'candidate_ready')
+                """,
+                (utc_now_iso(clock), *card_version_ids),
+            )
+            connection.commit()
+            return cursor.rowcount
+
+    # ------------------------------------------------------------------
+    # P1 step 8: angle inventories, family evidence-cap policies, lapse episodes
+    # (migration 079). Within-family angle progression + the family evidence cap +
+    # post-lapse linked retries (§4.3, §5.4, §5.5).
+    # ------------------------------------------------------------------
+    def insert_angle_inventory(
+        self,
+        *,
+        family_version_id: str | None,
+        coordinates_json: str,
+        coverage_targets_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        inventory_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO angle_inventories(
+                  id, family_version_id, coordinates_json, coverage_targets_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (inventory_id, family_version_id, coordinates_json, coverage_targets_json,
+                 utc_now_iso(clock)),
+            )
+            connection.commit()
+        return inventory_id
+
+    def angle_inventories_for_family(self, family_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM angle_inventories WHERE family_version_id = ? ORDER BY created_at, id",
+                (family_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def ensure_family_evidence_cap_policy(
+        self,
+        *,
+        policy_slug: str,
+        version: int,
+        caps_json: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM family_evidence_cap_policies WHERE policy_slug = ? AND version = ?",
+                (policy_slug, version),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            policy_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO family_evidence_cap_policies(
+                  id, policy_slug, version, caps_json, content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (policy_id, policy_slug, version, caps_json, content_hash, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return policy_id
+
+    def family_evidence_cap_policy(self, policy_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM family_evidence_cap_policies WHERE id = ?", (policy_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def open_lapse_episode(
+        self,
+        *,
+        card_lineage_id: str,
+        opened_administration_id: str | None = None,
+        learner_id: str = "local",
+        followup_due_at: str | None = None,
+        derived_retrievability: float | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        episode_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO lapse_episodes(
+                  id, card_lineage_id, learner_id, opened_administration_id, status,
+                  retry_observations_json, derived_retrievability, followup_due_at,
+                  opened_at, closed_at
+                )
+                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, NULL)
+                """,
+                (episode_id, card_lineage_id, learner_id, opened_administration_id,
+                 json.dumps([]), derived_retrievability, followup_due_at, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return episode_id
+
+    def lapse_episode(self, episode_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM lapse_episodes WHERE id = ?", (episode_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def update_lapse_episode(
+        self,
+        *,
+        episode_id: str,
+        retry_observations_json: str | None = None,
+        derived_retrievability: float | None = None,
+        status: str | None = None,
+        followup_due_at: str | None = None,
+        closed_at: str | None = None,
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE lapse_episodes
+                   SET retry_observations_json = COALESCE(?, retry_observations_json),
+                       derived_retrievability = COALESCE(?, derived_retrievability),
+                       status = COALESCE(?, status),
+                       followup_due_at = COALESCE(?, followup_due_at),
+                       closed_at = COALESCE(?, closed_at)
+                 WHERE id = ?
+                """,
+                (retry_observations_json, derived_retrievability, status, followup_due_at,
+                 closed_at, episode_id),
+            )
+            connection.commit()
+
+    def lapse_episodes_for_lineage(
+        self, card_lineage_id: str, *, status: str | None = None
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if status is not None:
+                rows = connection.execute(
+                    "SELECT * FROM lapse_episodes WHERE card_lineage_id = ? AND status = ? ORDER BY opened_at, id",
+                    (card_lineage_id, status),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM lapse_episodes WHERE card_lineage_id = ? ORDER BY opened_at, id",
+                    (card_lineage_id,),
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
+    # P2 golden path -- task blueprints (spec_p2 §3.2, migration 081)
+    # ------------------------------------------------------------------
+
+    def ensure_task_blueprint(
+        self,
+        *,
+        blueprint_slug: str,
+        source_rev: str,
+        unit_id: str,
+        family_key: str,
+        clock: Clock | None = None,
+    ) -> str:
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM task_blueprints WHERE blueprint_slug = ?",
+                (blueprint_slug,),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            blueprint_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO task_blueprints(
+                  id, blueprint_slug, source_rev, unit_id, family_key, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (blueprint_id, blueprint_slug, source_rev, unit_id, family_key, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return blueprint_id
+
+    def register_task_blueprint_version(
+        self,
+        *,
+        blueprint_id: str,
+        spec_json: str,
+        content_hash: str,
+        canonical_hash: str,
+        authoring_version: str,
+        model_version: str | None,
+        provenance_version: str,
+        exemplars: Sequence[Mapping[str, Any]],
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Register an immutable, content-addressed draft blueprint version + its
+        exemplar link rows + a ``registered`` review event, all in one transaction.
+        Idempotent on ``UNIQUE(blueprint_id, content_hash)``."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT * FROM task_blueprint_versions WHERE blueprint_id = ? AND content_hash = ?",
+                (blueprint_id, content_hash),
+            ).fetchone()
+            if existing is not None:
+                connection.execute("ROLLBACK")
+                return {"version": dict(existing), "already_exists": True}
+            versions = connection.execute(
+                "SELECT version FROM task_blueprint_versions WHERE blueprint_id = ?",
+                (blueprint_id,),
+            ).fetchall()
+            next_version = max((row["version"] for row in versions), default=0) + 1
+            version_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO task_blueprint_versions(
+                  id, blueprint_id, version, status, spec_json, content_hash,
+                  canonical_hash, authoring_version, model_version, provenance_version,
+                  reviewed_at, activated_at, created_at
+                )
+                VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+                """,
+                (
+                    version_id, blueprint_id, next_version, spec_json, content_hash,
+                    canonical_hash, authoring_version, model_version, provenance_version, now,
+                ),
+            )
+            for exemplar in exemplars:
+                connection.execute(
+                    """
+                    INSERT INTO target_exemplars(
+                      id, blueprint_version_id, exemplar_ref, weight, exposure_status,
+                      held_out_weight, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_ulid(), version_id, exemplar["exemplar_ref"],
+                        float(exemplar.get("weight", 1.0)),
+                        exemplar.get("exposure_status", "familiar_anchor"),
+                        float(exemplar.get("held_out_weight", 0.0)), now,
+                    ),
+                )
+            connection.execute(
+                """
+                INSERT INTO task_blueprint_review_events(
+                  id, blueprint_version_id, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, 'registered', ?, ?, ?)
+                """,
+                (new_ulid(), version_id, detail_json, author, now),
+            )
+            row = connection.execute(
+                "SELECT * FROM task_blueprint_versions WHERE id = ?", (version_id,)
+            ).fetchone()
+            connection.execute("COMMIT")
+            return {"version": dict(row), "already_exists": False}
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+
+    def transition_task_blueprint_version(
+        self,
+        *,
+        blueprint_version_id: str,
+        status: str,
+        event_kind: str,
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Advance a blueprint version's status (reviewed/active/retired) and append
+        the matching review event atomically. Returns the updated version row."""
+
+        now = utc_now_iso(clock)
+        stamp_column = {
+            "reviewed": "reviewed_at",
+            "active": "activated_at",
+        }.get(status)
+        with self.connection() as connection:
+            if stamp_column is not None:
+                connection.execute(
+                    f"UPDATE task_blueprint_versions SET status = ?, {stamp_column} = ? WHERE id = ?",
+                    (status, now, blueprint_version_id),
+                )
+            else:
+                connection.execute(
+                    "UPDATE task_blueprint_versions SET status = ? WHERE id = ?",
+                    (status, blueprint_version_id),
+                )
+            connection.execute(
+                """
+                INSERT INTO task_blueprint_review_events(
+                  id, blueprint_version_id, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (new_ulid(), blueprint_version_id, event_kind, detail_json, author, now),
+            )
+            row = connection.execute(
+                "SELECT * FROM task_blueprint_versions WHERE id = ?", (blueprint_version_id,)
+            ).fetchone()
+            connection.commit()
+        return dict(row) if row is not None else {}
+
+    def append_task_blueprint_review_event(
+        self,
+        *,
+        blueprint_version_id: str,
+        kind: str,
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> str:
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO task_blueprint_review_events(
+                  id, blueprint_version_id, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, blueprint_version_id, kind, detail_json, author, utc_now_iso(clock)),
+            )
+            connection.commit()
+        return event_id
+
+    def task_blueprint_version(self, blueprint_version_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM task_blueprint_versions WHERE id = ?", (blueprint_version_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def task_blueprint_versions_for(self, blueprint_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM task_blueprint_versions WHERE blueprint_id = ? ORDER BY version",
+                (blueprint_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def target_exemplars_for(self, blueprint_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM target_exemplars WHERE blueprint_version_id = ? ORDER BY exemplar_ref",
+                (blueprint_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def task_blueprint_review_events_for(self, blueprint_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM task_blueprint_review_events WHERE blueprint_version_id = ? ORDER BY created_at, id",
+                (blueprint_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def reviewed_reading_question_placements(
+        self,
+        *,
+        source_revs: Sequence[str],
+        unit_ids: Sequence[str],
+        blueprint_version_ids: Sequence[str] = (),
+    ) -> list[dict[str, Any]]:
+        """Return the reviewed blueprint artifacts that can appear in a Reader.
+
+        P3 deliberately has no hot-path question planner: a question is eligible
+        only when an owner placed it on a reviewed/active TaskBlueprint version.
+        The optional version ids let an active golden-path contract resolve its
+        pinned blueprint even when an older source used a semantic revision slug
+        rather than the source-layer revision id.
+        """
+
+        source_values = tuple(dict.fromkeys(value for value in source_revs if value))
+        unit_values = tuple(dict.fromkeys(value for value in unit_ids if value))
+        version_values = tuple(dict.fromkeys(value for value in blueprint_version_ids if value))
+        clauses: list[str] = []
+        params: list[Any] = []
+        if source_values and unit_values:
+            source_marks = ", ".join("?" for _ in source_values)
+            unit_marks = ", ".join("?" for _ in unit_values)
+            clauses.append(f"(tb.source_rev IN ({source_marks}) AND tb.unit_id IN ({unit_marks}))")
+            params.extend(source_values)
+            params.extend(unit_values)
+        if version_values:
+            version_marks = ", ".join("?" for _ in version_values)
+            clauses.append(f"tbv.id IN ({version_marks})")
+            params.extend(version_values)
+        if not clauses:
+            return []
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                  e.id AS placement_event_id,
+                  e.detail_json AS placement_json,
+                  e.created_at AS placement_created_at,
+                  tbv.id AS blueprint_version_id,
+                  tbv.version AS blueprint_version,
+                  tbv.status AS blueprint_status,
+                  tbv.spec_json AS blueprint_spec_json,
+                  tb.id AS blueprint_id,
+                  tb.source_rev,
+                  tb.unit_id,
+                  tb.family_key
+                FROM task_blueprint_review_events e
+                JOIN task_blueprint_versions tbv ON tbv.id = e.blueprint_version_id
+                JOIN task_blueprints tb ON tb.id = tbv.blueprint_id
+                WHERE e.kind = 'reading_question_placed'
+                  AND tbv.status IN ('reviewed', 'active')
+                  AND ({' OR '.join(clauses)})
+                ORDER BY
+                  CASE tbv.status WHEN 'active' THEN 0 ELSE 1 END,
+                  tbv.version DESC,
+                  e.created_at,
+                  e.id
+                """,
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
+    # P2 golden path -- atomic confirmation + run events (spec_p2 §3.1, §4, 082)
+    # ------------------------------------------------------------------
+
+    def confirm_golden_path_atomic(
+        self,
+        *,
+        receipt_key: str,
+        blueprint_version_id: str,
+        goal_id: str,
+        goal_contract: Mapping[str, Any],
+        commitment: Mapping[str, Any],
+        run: Mapping[str, Any],
+        reservation: Mapping[str, Any] | None = None,
+        fault_hook: Any = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """The ONE atomic confirmation (spec_p2 §3.1). In a single transaction:
+        activate the reviewed blueprint, append goal-contract v1 + head, insert the
+        commitment (+v1 version/targets/created event), reserve the fresh assessment
+        surface, and mint the run + ``run_started`` event. If ANY part fails the whole
+        transaction rolls back and nothing becomes active.
+
+        Idempotent on ``golden_path_runs.receipt_key`` -- a byte-identical re-confirm
+        returns the existing run with ``already_exists=True``.
+
+        ``fault_hook`` is a test-only seam: a callable invoked with a stage label
+        after each internal write. Raising inside it proves the whole boundary rolls
+        back (the §12.6 fault-injection acceptance) -- no partial confirmation.
+        """
+
+        def _fault(label: str) -> None:
+            if fault_hook is not None:
+                fault_hook(label)
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+
+            existing_run = connection.execute(
+                "SELECT * FROM golden_path_runs WHERE receipt_key = ?", (receipt_key,)
+            ).fetchone()
+            if existing_run is not None:
+                connection.execute("ROLLBACK")
+                return {"run": dict(existing_run), "already_exists": True}
+
+            # Step 1: activate the reviewed blueprint (assert reviewed/active).
+            bp = connection.execute(
+                "SELECT status FROM task_blueprint_versions WHERE id = ?",
+                (blueprint_version_id,),
+            ).fetchone()
+            if bp is None or bp["status"] not in ("reviewed", "active"):
+                connection.execute("ROLLBACK")
+                raise BlueprintNotReviewed(
+                    blueprint_version_id, status=bp["status"] if bp else None
+                )
+            if bp["status"] == "reviewed":
+                connection.execute(
+                    "UPDATE task_blueprint_versions SET status = 'active', activated_at = ? WHERE id = ?",
+                    (now, blueprint_version_id),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO task_blueprint_review_events(
+                      id, blueprint_version_id, kind, detail_json, author, created_at
+                    )
+                    VALUES (?, ?, 'activated', ?, 'owner', ?)
+                    """,
+                    (new_ulid(), blueprint_version_id, _json({"receipt_key": receipt_key}), now),
+                )
+            _fault("blueprint_activated")
+
+            # Step 2: goal-contract v1 (idempotent on content_hash; fresh head only).
+            head_row = connection.execute(
+                "SELECT head_version_id FROM goal_contract_heads WHERE goal_id = ?",
+                (goal_id,),
+            ).fetchone()
+            existing_gcv = connection.execute(
+                "SELECT id FROM goal_contract_versions WHERE goal_id = ? AND content_hash = ?",
+                (goal_id, goal_contract["content_hash"]),
+            ).fetchone()
+            if existing_gcv is not None:
+                goal_contract_version_id = existing_gcv["id"]
+            else:
+                if head_row is not None:
+                    connection.execute("ROLLBACK")
+                    raise GoalAlreadyConfirmed(
+                        goal_id, head_version_id=head_row["head_version_id"]
+                    )
+                goal_contract_version_id = new_ulid()
+                connection.execute(
+                    """
+                    INSERT INTO goal_contract_versions(
+                      id, goal_id, version, predecessor_version_id, contract_json,
+                      content_hash, support_hash, contract_schema_version, change_class,
+                      envelope_version, predecessor_milestone, activated_edge_id,
+                      evidence_receipt_json, burden_delta_json, author, reason, created_at
+                    )
+                    VALUES (?, ?, 1, NULL, ?, ?, ?, ?, 'confirm', ?, NULL, NULL, NULL, NULL, ?, NULL, ?)
+                    """,
+                    (
+                        goal_contract_version_id, goal_id, goal_contract["contract_json"],
+                        goal_contract["content_hash"], goal_contract["support_hash"],
+                        int(goal_contract["contract_schema_version"]),
+                        goal_contract.get("head_envelope_version"),
+                        goal_contract.get("author", "learner"), now,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO goal_contract_heads(
+                      goal_id, head_version_id, head_version, head_content_hash,
+                      head_support_hash, head_envelope_version, updated_at
+                    )
+                    VALUES (?, ?, 1, ?, ?, ?, ?)
+                    """,
+                    (
+                        goal_id, goal_contract_version_id, goal_contract["content_hash"],
+                        goal_contract["support_hash"], goal_contract.get("head_envelope_version"), now,
+                    ),
+                )
+            _fault("goal_contract_appended")
+
+            # Step 3: commitment + v1 version/targets/created event (reuses the shared
+            # row-builder so the commitment shape stays identical to create_commitment).
+            commitment_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO commitments(
+                  id, learner_id, created_action, idempotency_key, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    commitment_id, commitment.get("learner_id", "local"),
+                    commitment["created_action"], commitment.get("idempotency_key"), now,
+                ),
+            )
+            commitment_version_id = self._insert_commitment_version_rows(
+                connection,
+                commitment_id=commitment_id,
+                predecessor_version_id=None,
+                version=1,
+                version_fields=commitment["version_fields"],
+                targets=commitment["targets"],
+                author=commitment.get("author", "learner"),
+                change_reason=None,
+                events=[{"kind": "created", "detail": {"action": commitment["created_action"]}}],
+                now=now,
+            )
+            _fault("commitment_created")
+
+            # Step 4: reserve the fresh held-out assessment surface (§8.1).
+            reservation_id: str | None = None
+            if reservation is not None:
+                reservation_id = new_ulid()
+                connection.execute(
+                    """
+                    INSERT INTO activity_surface_reservations(
+                      id, surface_id, goal_id, target_contract_version_id,
+                      target_support_hash, purpose, status, eligibility_json,
+                      administration_id, reserved_at, closed_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, 'reserved', ?, NULL, ?, NULL)
+                    """,
+                    (
+                        reservation_id, reservation["surface_id"], goal_id,
+                        goal_contract_version_id, reservation.get("target_support_hash"),
+                        reservation.get("purpose", "assessment"),
+                        reservation.get("eligibility_json", "{}"), now,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO activity_surface_lifecycle_events(
+                      id, surface_id, reservation_id, administration_id, kind,
+                      reason, detail_json, created_at
+                    )
+                    VALUES (?, ?, ?, NULL, 'reserve', ?, NULL, ?)
+                    """,
+                    (
+                        new_ulid(), reservation["surface_id"], reservation_id,
+                        "golden_path_confirm", now,
+                    ),
+                )
+            _fault("reserve_created")
+
+            # Step 5: mint the run + run_started event (written LAST -- the run row is
+            # what makes the confirmation "active"; a partial failure never reaches it).
+            run_id = new_ulid()
+            mode = run.get("mode", "certifying")
+            connection.execute(
+                """
+                INSERT INTO golden_path_runs(
+                  id, receipt_key, learner_id, goal_id, commitment_id,
+                  commitment_version_id, source_rev, unit_id, blueprint_version_id,
+                  goal_contract_version_id, depth_policy_version_id,
+                  depth_envelope_version_id, initial_milestone, reserved_reservation_id,
+                  reserved_surface_id, reserved_support_hash, mode,
+                  orchestration_policy_json, decision_param_manifest_json,
+                  visible_caps_json, current_state, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready', ?, ?)
+                """,
+                (
+                    run_id, receipt_key, run.get("learner_id", "local"), goal_id,
+                    commitment_id, commitment_version_id, run["source_rev"], run["unit_id"],
+                    blueprint_version_id, goal_contract_version_id,
+                    commitment["version_fields"].get("depth_policy_version_id"),
+                    commitment["version_fields"].get("depth_envelope_version_id"),
+                    run["initial_milestone"], reservation_id,
+                    reservation["surface_id"] if reservation is not None else None,
+                    reservation.get("target_support_hash") if reservation is not None else None,
+                    mode, run.get("orchestration_policy_json"),
+                    run.get("decision_param_manifest_json"), run.get("visible_caps_json"),
+                    now, now,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO golden_path_run_events(
+                  id, run_id, seq, from_state, to_state, reason,
+                  feasible_alternatives_json, evidence_ids_json,
+                  goal_contract_head_version_id, depth_policy_version_id,
+                  depth_envelope_version_id, predecessor_milestone, successor_milestone,
+                  selected_activity_json, policy_calibration_json, burden_json,
+                  expected_head_event_id, idempotency_key, created_at
+                )
+                VALUES (?, ?, 1, 'draft', 'ready', 'run_started', NULL, NULL, ?, ?, ?, NULL, ?, NULL, NULL, NULL, NULL, ?, ?)
+                """,
+                (
+                    new_ulid(), run_id, goal_contract_version_id,
+                    commitment["version_fields"].get("depth_policy_version_id"),
+                    commitment["version_fields"].get("depth_envelope_version_id"),
+                    run["initial_milestone"], receipt_key + ":start", now,
+                ),
+            )
+            _fault("run_started")
+
+            connection.execute("COMMIT")
+            run_row = self.golden_path_run(run_id)
+            return {
+                "run": run_row,
+                "already_exists": False,
+                "goal_contract_version_id": goal_contract_version_id,
+                "commitment_id": commitment_id,
+                "commitment_version_id": commitment_version_id,
+                "reservation_id": reservation_id,
+            }
+        except Exception:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise
+        finally:
+            connection.close()
+
+    def golden_path_run(self, run_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM golden_path_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def golden_path_run_by_receipt(self, receipt_key: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM golden_path_runs WHERE receipt_key = ?", (receipt_key,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def golden_path_runs_all(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM golden_path_runs ORDER BY created_at DESC, id DESC"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def golden_path_run_for_goal(self, goal_id: str) -> dict[str, Any] | None:
+        """The earliest golden-path run for a goal (the golden path is one run per
+        goal). Used by confirmation to detect a re-confirm that differs only in a
+        run-shaping param (C4)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM golden_path_runs WHERE goal_id = ? ORDER BY created_at, id LIMIT 1",
+                (goal_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def golden_path_run_events_for(self, run_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM golden_path_run_events WHERE run_id = ? ORDER BY seq",
+                (run_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def append_golden_path_run_event(
+        self,
+        *,
+        run_id: str,
+        to_state: str,
+        reason: str,
+        expected_head_event_id: str | None = None,
+        idempotency_key: str | None = None,
+        feasible_alternatives_json: str | None = None,
+        evidence_ids_json: str | None = None,
+        goal_contract_head_version_id: str | None = None,
+        depth_policy_version_id: str | None = None,
+        depth_envelope_version_id: str | None = None,
+        predecessor_milestone: str | None = None,
+        successor_milestone: str | None = None,
+        selected_activity_json: str | None = None,
+        policy_calibration_json: str | None = None,
+        burden_json: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one transition event and update the run's cached head state, in one
+        transaction. Fenced on ``expected_head_event_id`` (§4.3 optimistic head) and
+        idempotent on ``UNIQUE(run_id, idempotency_key)`` (§12.6 exactly-once). On an
+        idempotency-key replay returns the existing event with ``already_exists=True``;
+        on a fence mismatch returns ``{"stale": True, ...}`` and writes nothing."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            if idempotency_key is not None:
+                prior = connection.execute(
+                    "SELECT * FROM golden_path_run_events WHERE run_id = ? AND idempotency_key = ?",
+                    (run_id, idempotency_key),
+                ).fetchone()
+                if prior is not None:
+                    connection.execute("ROLLBACK")
+                    return {"event": dict(prior), "already_exists": True}
+            head = connection.execute(
+                "SELECT * FROM golden_path_run_events WHERE run_id = ? ORDER BY seq DESC LIMIT 1",
+                (run_id,),
+            ).fetchone()
+            head_id = head["id"] if head is not None else None
+            head_seq = head["seq"] if head is not None else 0
+            from_state = head["to_state"] if head is not None else None
+            if expected_head_event_id is not None and expected_head_event_id != head_id:
+                connection.execute("ROLLBACK")
+                return {"stale": True, "expected": expected_head_event_id, "actual": head_id}
+            event_id = new_ulid()
+            next_seq = head_seq + 1
+            connection.execute(
+                """
+                INSERT INTO golden_path_run_events(
+                  id, run_id, seq, from_state, to_state, reason,
+                  feasible_alternatives_json, evidence_ids_json,
+                  goal_contract_head_version_id, depth_policy_version_id,
+                  depth_envelope_version_id, predecessor_milestone, successor_milestone,
+                  selected_activity_json, policy_calibration_json, burden_json,
+                  expected_head_event_id, idempotency_key, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id, run_id, next_seq, from_state, to_state, reason,
+                    feasible_alternatives_json, evidence_ids_json,
+                    goal_contract_head_version_id, depth_policy_version_id,
+                    depth_envelope_version_id, predecessor_milestone, successor_milestone,
+                    selected_activity_json, policy_calibration_json, burden_json,
+                    expected_head_event_id, idempotency_key, now,
+                ),
+            )
+            connection.execute(
+                "UPDATE golden_path_runs SET current_state = ?, updated_at = ? WHERE id = ?",
+                (to_state, now, run_id),
+            )
+            connection.execute("COMMIT")
+            row = connection.execute(
+                "SELECT * FROM golden_path_run_events WHERE id = ?", (event_id,)
+            ).fetchone()
+            return {"event": dict(row), "already_exists": False}
+        except Exception:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise
+        finally:
+            connection.close()
+
+    # ------------------------------------------------------------------
+    # P2 DIAGNOSTIC track -- diagnostic pack + two-tier triage
+    # (spec_p2 §5, §6, U-027, U-028; migration 083)
+    # ------------------------------------------------------------------
+
+    def ensure_diagnostic_pack(
+        self,
+        *,
+        pack_slug: str,
+        blueprint_version_id: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Register/return the stable diagnostic pack row. Idempotent on ``pack_slug``
+        AND content_hash: a re-register of the byte-identical pack returns the existing
+        row (``already_exists=True``) so pack assembly is deterministic (§5.1)."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT * FROM diagnostic_packs WHERE pack_slug = ?", (pack_slug,)
+            ).fetchone()
+            if existing is not None:
+                return {"pack": dict(existing), "already_exists": True}
+            pack_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO diagnostic_packs(
+                  id, pack_slug, blueprint_version_id, status, content_hash, created_at
+                )
+                VALUES (?, ?, ?, 'draft', ?, ?)
+                """,
+                (pack_id, pack_slug, blueprint_version_id, content_hash, now),
+            )
+            connection.execute(
+                """
+                INSERT INTO diagnostic_pack_events(
+                  id, pack_id, card_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, NULL, 'registered', ?, 'owner', ?)
+                """,
+                (new_ulid(), pack_id, _json({"content_hash": content_hash}), now),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM diagnostic_packs WHERE id = ?", (pack_id,)
+            ).fetchone()
+            return {"pack": dict(row), "already_exists": False}
+
+    def register_diagnostic_pack_card(
+        self,
+        *,
+        pack_id: str,
+        card_slug: str,
+        coverage_json: str,
+        content_hash: str,
+        instrument_ref: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Register a candidate diagnostic-purpose card. Idempotent on
+        ``UNIQUE(pack_id, card_slug)``."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM diagnostic_pack_cards WHERE pack_id = ? AND card_slug = ?",
+                (pack_id, card_slug),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            card_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO diagnostic_pack_cards(
+                  id, pack_id, card_slug, purpose, coverage_json, instrument_ref,
+                  admission_status, content_hash, created_at
+                )
+                VALUES (?, ?, ?, 'diagnostic', ?, ?, 'candidate', ?, ?)
+                """,
+                (card_id, pack_id, card_slug, coverage_json, instrument_ref, content_hash, now),
+            )
+            connection.commit()
+            return card_id
+
+    def set_diagnostic_pack_card_admission(
+        self,
+        *,
+        pack_id: str,
+        card_slug: str,
+        admission_status: str,
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        kind = "admitted" if admission_status == "admitted" else "rejected"
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE diagnostic_pack_cards SET admission_status = ? WHERE pack_id = ? AND card_slug = ?",
+                (admission_status, pack_id, card_slug),
+            )
+            connection.execute(
+                """
+                INSERT INTO diagnostic_pack_events(
+                  id, pack_id, card_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (new_ulid(), pack_id, card_slug, kind, detail_json, author, now),
+            )
+            connection.commit()
+
+    def transition_diagnostic_pack(
+        self,
+        *,
+        pack_id: str,
+        status: str,
+        kind: str,
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE diagnostic_packs SET status = ? WHERE id = ?", (status, pack_id)
+            )
+            connection.execute(
+                """
+                INSERT INTO diagnostic_pack_events(
+                  id, pack_id, card_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, NULL, ?, ?, ?, ?)
+                """,
+                (new_ulid(), pack_id, kind, detail_json, author, now),
+            )
+            connection.commit()
+
+    def diagnostic_pack(self, pack_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM diagnostic_packs WHERE id = ?", (pack_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def diagnostic_pack_by_slug(self, pack_slug: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM diagnostic_packs WHERE pack_slug = ?", (pack_slug,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def diagnostic_packs_for_blueprint(self, blueprint_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM diagnostic_packs WHERE blueprint_version_id = ? ORDER BY created_at, id",
+                (blueprint_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def diagnostic_pack_cards_for(self, pack_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM diagnostic_pack_cards WHERE pack_id = ? ORDER BY card_slug",
+                (pack_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def diagnostic_pack_events_for(self, pack_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM diagnostic_pack_events WHERE pack_id = ? ORDER BY created_at, id",
+                (pack_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def pin_diagnostic_pack(
+        self,
+        *,
+        run_id: str,
+        pack_id: str,
+        goal_contract_version_id: str,
+        visible_cap: int,
+        probe_episode_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Pin exactly one reviewed pack to a run at diagnostic entry (§5.2).
+        Idempotent on ``UNIQUE(run_id)`` -- a re-pin returns the existing pin."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT * FROM diagnostic_pack_pins WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            if existing is not None:
+                return {"pin": dict(existing), "already_exists": True}
+            pin_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO diagnostic_pack_pins(
+                  id, run_id, pack_id, goal_contract_version_id, probe_episode_id,
+                  visible_cap, pinned_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (pin_id, run_id, pack_id, goal_contract_version_id, probe_episode_id, visible_cap, now),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM diagnostic_pack_pins WHERE id = ?", (pin_id,)
+            ).fetchone()
+            return {"pin": dict(row), "already_exists": False}
+
+    def diagnostic_pack_pin_for_run(self, run_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM diagnostic_pack_pins WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # --- failure triage -------------------------------------------------
+
+    def failure_triage_routes(self, *, active_only: bool = True) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if active_only:
+                rows = connection.execute(
+                    "SELECT * FROM failure_triage_routes WHERE active = 1 ORDER BY reason, route_version"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM failure_triage_routes ORDER BY reason, route_version"
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def failure_triage_route_for_reason(self, reason: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM failure_triage_routes WHERE reason = ? AND active = 1 "
+                "ORDER BY route_version DESC LIMIT 1",
+                (reason,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def append_failure_triage_event(
+        self,
+        *,
+        run_id: str,
+        kind: str,
+        tier: str,
+        decisive: bool,
+        attempt_id: str | None = None,
+        route_id: str | None = None,
+        selected_reason: str | None = None,
+        distribution_json: str | None = None,
+        alternatives_json: str | None = None,
+        inputs_snapshot_json: str | None = None,
+        routing_prior_json: str | None = None,
+        override_actor: str | None = None,
+        override_reason: str | None = None,
+        anchor_sample_id: str | None = None,
+        auto_committed: bool = False,
+        goal_contract_head_version_id: str | None = None,
+        idempotency_key: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one triage decision to the append-only ledger (§6.1). ``seq`` is a
+        monotone per-run ordinal computed inside the write transaction. When
+        ``idempotency_key`` is supplied, a retried append with the same key returns the
+        EXISTING event instead of writing a duplicate (§12.6 exactly-once)."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            if idempotency_key is not None:
+                existing = connection.execute(
+                    "SELECT * FROM failure_triage_events WHERE run_id = ? AND idempotency_key = ?",
+                    (run_id, idempotency_key),
+                ).fetchone()
+                if existing is not None:
+                    connection.execute("ROLLBACK")
+                    return dict(existing)
+            head = connection.execute(
+                "SELECT COALESCE(MAX(seq), 0) AS s FROM failure_triage_events WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            seq = int(head["s"]) + 1
+            event_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO failure_triage_events(
+                  id, run_id, attempt_id, kind, tier, decisive, route_id, selected_reason,
+                  distribution_json, alternatives_json, inputs_snapshot_json, routing_prior_json,
+                  override_actor, override_reason, anchor_sample_id, auto_committed,
+                  goal_contract_head_version_id, seq, idempotency_key, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id, run_id, attempt_id, kind, tier, 1 if decisive else 0, route_id,
+                    selected_reason, distribution_json, alternatives_json, inputs_snapshot_json,
+                    routing_prior_json, override_actor, override_reason, anchor_sample_id,
+                    1 if auto_committed else 0, goal_contract_head_version_id, seq,
+                    idempotency_key, now,
+                ),
+            )
+            connection.execute("COMMIT")
+            row = connection.execute(
+                "SELECT * FROM failure_triage_events WHERE id = ?", (event_id,)
+            ).fetchone()
+            return dict(row)
+        except Exception:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise
+        finally:
+            connection.close()
+
+    def failure_triage_events_for(self, run_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM failure_triage_events WHERE run_id = ? ORDER BY seq",
+                (run_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def failure_triage_event(self, event_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM failure_triage_events WHERE id = ?", (event_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # ------------------------------------------------------------------
+    # P2 step B.11 -- reader dialogue (U-033, §7.6). Reader events ride the P0
+    # interaction_events envelope (migration 086 extends the kind vocabulary);
+    # these read helpers back the reader service + the replay-derived routing
+    # prior projection. No new event table.
+    # ------------------------------------------------------------------
+
+    def reader_interaction_events(
+        self,
+        *,
+        kind: str | None = None,
+        subject_id: str | None = None,
+        subject_type: str | None = None,
+        since: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Reader interaction events (payload_json decoded), oldest first."""
+
+        query = "SELECT * FROM interaction_events WHERE 1 = 1"
+        params: list[Any] = []
+        if kind is not None:
+            query += " AND kind = ?"
+            params.append(kind)
+        if subject_id is not None:
+            query += " AND subject_id = ?"
+            params.append(subject_id)
+        if subject_type is not None:
+            query += " AND subject_type = ?"
+            params.append(subject_type)
+        if since is not None:
+            query += " AND created_at >= ?"
+            params.append(since)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            event = dict(row)
+            event["payload"] = _loads(event.get("payload_json"), None)
+            out.append(event)
+        return out
+
+    def first_cold_observation_for_target(
+        self, target_contract_version_id: str
+    ) -> str | None:
+        """created_at of the FIRST cold administration pinned to this target
+        contract version (design A.1 supersession). Cold = no reading phase, a
+        measuring purpose (assessment/practice/diagnostic), and no
+        ``source_visible`` in the recorded administration context. Returns None
+        when no cold observation exists yet -- the reading-answer routing prior
+        then still contributes."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT created_at, purpose, reading_phase, admin_context_json
+                  FROM activity_administrations
+                 WHERE target_contract_version_id = ?
+                   AND reading_phase IS NULL
+                   AND purpose IN ('assessment', 'practice', 'diagnostic')
+                 ORDER BY created_at, id
+                """,
+                (target_contract_version_id,),
+            ).fetchall()
+        for row in rows:
+            context = _loads(row["admin_context_json"], None) or {}
+            if isinstance(context, Mapping) and context.get("source_visible") is True:
+                continue
+            return row["created_at"]
+        return None
+
+    # ------------------------------------------------------------------
+    # P2 LEARNING track -- pattern-ladder policy (spec_p2 §7.1, §7.2;
+    # migration 084). The ladder POLICY is reviewable DATA; ladder STATE lives on
+    # golden_path_run_events (no parallel table).
+    # ------------------------------------------------------------------
+
+    def active_ladder_policy(self, policy_slug: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM p2_ladder_policies WHERE policy_slug = ? AND status = 'active' "
+                "ORDER BY policy_version DESC LIMIT 1",
+                (policy_slug,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def ladder_stages_for_policy(self, policy_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM p2_ladder_stages WHERE policy_id = ? ORDER BY ordinal, stage_key",
+                (policy_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def activity_family_purpose_for_card_version(self, card_version_id: str) -> str | None:
+        """The immutable family purpose backing a card version (§12.4 role check).
+        Joins card_version -> card -> family; returns None when the row is absent."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT f.purpose AS purpose
+                  FROM activity_card_versions cv
+                  JOIN activity_cards c ON c.id = cv.card_id
+                  JOIN activity_families f ON f.id = c.family_id
+                 WHERE cv.id = ?
+                """,
+                (card_version_id,),
+            ).fetchone()
+        return row["purpose"] if row is not None else None
+
+    # ------------------------------------------------------------------
+    # P2 PRACTICE track -- rotating practice pool (spec_p2 §7.3, U-028;
+    # migration 085).
+    # ------------------------------------------------------------------
+
+    def ensure_practice_pool(
+        self,
+        *,
+        pool_slug: str,
+        blueprint_version_id: str,
+        content_hash: str,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Register/return the stable practice pool row. Idempotent on ``pool_slug``:
+        a re-register returns the existing row (``already_exists=True``) so pool
+        assembly is deterministic (§7.3)."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT * FROM practice_pools WHERE pool_slug = ?", (pool_slug,)
+            ).fetchone()
+            if existing is not None:
+                return {"pool": dict(existing), "already_exists": True}
+            pool_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO practice_pools(
+                  id, pool_slug, blueprint_version_id, status, content_hash, created_at
+                )
+                VALUES (?, ?, ?, 'draft', ?, ?)
+                """,
+                (pool_id, pool_slug, blueprint_version_id, content_hash, now),
+            )
+            connection.execute(
+                """
+                INSERT INTO practice_pool_events(
+                  id, pool_id, surface_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, NULL, 'registered', ?, 'owner', ?)
+                """,
+                (new_ulid(), pool_id, _json({"content_hash": content_hash}), now),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM practice_pools WHERE id = ?", (pool_id,)
+            ).fetchone()
+            return {"pool": dict(row), "already_exists": False}
+
+    def register_practice_pool_surface(
+        self,
+        *,
+        pool_id: str,
+        surface_slug: str,
+        angle: str,
+        content_hash: str,
+        provenance: str = "llm_within_bounds",
+        surface_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Register a candidate practice surface. Idempotent on
+        ``UNIQUE(pool_id, surface_slug)``."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM practice_pool_surfaces WHERE pool_id = ? AND surface_slug = ?",
+                (pool_id, surface_slug),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            row_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO practice_pool_surfaces(
+                  id, pool_id, surface_slug, angle, provenance, surface_id,
+                  admission_status, content_hash, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'candidate', ?, ?)
+                """,
+                (row_id, pool_id, surface_slug, angle, provenance, surface_id, content_hash, now),
+            )
+            connection.commit()
+            return row_id
+
+    def set_practice_pool_surface_admission(
+        self,
+        *,
+        pool_id: str,
+        surface_slug: str,
+        admission_status: str,
+        surface_id: str | None = None,
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        kind = "admitted" if admission_status == "admitted" else "rejected"
+        with self.connection() as connection:
+            if surface_id is not None:
+                connection.execute(
+                    "UPDATE practice_pool_surfaces SET admission_status = ?, surface_id = ? "
+                    "WHERE pool_id = ? AND surface_slug = ?",
+                    (admission_status, surface_id, pool_id, surface_slug),
+                )
+            else:
+                connection.execute(
+                    "UPDATE practice_pool_surfaces SET admission_status = ? "
+                    "WHERE pool_id = ? AND surface_slug = ?",
+                    (admission_status, pool_id, surface_slug),
+                )
+            connection.execute(
+                """
+                INSERT INTO practice_pool_events(
+                  id, pool_id, surface_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (new_ulid(), pool_id, surface_slug, kind, detail_json, author, now),
+            )
+            connection.commit()
+
+    def transition_practice_pool(
+        self,
+        *,
+        pool_id: str,
+        status: str,
+        kind: str,
+        detail_json: str | None = None,
+        author: str = "owner",
+        clock: Clock | None = None,
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE practice_pools SET status = ? WHERE id = ?", (status, pool_id)
+            )
+            connection.execute(
+                """
+                INSERT INTO practice_pool_events(
+                  id, pool_id, surface_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, NULL, ?, ?, ?, ?)
+                """,
+                (new_ulid(), pool_id, kind, detail_json, author, now),
+            )
+            connection.commit()
+
+    def append_practice_pool_event(
+        self,
+        *,
+        pool_id: str,
+        kind: str,
+        surface_slug: str | None = None,
+        detail_json: str | None = None,
+        author: str = "system",
+        clock: Clock | None = None,
+    ) -> str:
+        """Append one pool ledger event (§7.3 audit) -- e.g. ``served`` / ``rotated``
+        from ``next_practice_surface``. Pure ledger append; touches no pool status."""
+
+        now = utc_now_iso(clock)
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO practice_pool_events(
+                  id, pool_id, surface_slug, kind, detail_json, author, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, pool_id, surface_slug, kind, detail_json, author, now),
+            )
+            connection.commit()
+        return event_id
+
+    def practice_pool(self, pool_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM practice_pools WHERE id = ?", (pool_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def practice_pool_by_slug(self, pool_slug: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM practice_pools WHERE pool_slug = ?", (pool_slug,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def practice_pools_for_blueprint(self, blueprint_version_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM practice_pools WHERE blueprint_version_id = ? ORDER BY created_at, id",
+                (blueprint_version_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def practice_pool_surfaces_for(self, pool_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM practice_pool_surfaces WHERE pool_id = ? ORDER BY surface_slug",
+                (pool_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def practice_pool_events_for(self, pool_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM practice_pool_events WHERE pool_id = ? ORDER BY created_at, id",
+                (pool_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
+    # P2 ASSESSMENT + RESTORATION + MILESTONE track (migration 087;
+    # spec_p2 §8.2/§8.3/§8.4/§7.5; design B.8-B.10). Append-only inspectable
+    # run artifacts -- NO measurement/posterior/FSRS/certification here.
+    # ------------------------------------------------------------------
+
+    def resolved_activity_for_surface(self, surface_id: str) -> dict[str, Any] | None:
+        """Reconstruct the family/card identity of an existing surface (for opening a
+        reserved assessment administration from the run's stored ``reserved_surface_id``
+        alone). Returns the fields :class:`activities.ResolvedActivity` needs."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT s.id           AS surface_id,
+                       s.surface_hash AS surface_hash,
+                       s.fingerprint  AS fingerprint,
+                       cv.id          AS card_version_id,
+                       cv.card_id     AS card_id,
+                       cv.card_contract_hash AS card_contract_hash,
+                       c.family_id    AS family_id
+                  FROM activity_surfaces s
+                  JOIN activity_card_versions cv ON cv.id = s.card_version_id
+                  JOIN activity_cards c ON c.id = cv.card_id
+                 WHERE s.id = ?
+                """,
+                (surface_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def append_golden_path_artifact(
+        self,
+        *,
+        run_id: str,
+        kind: str,
+        payload_json: str,
+        idempotency_key: str | None = None,
+        administration_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one inspectable run artifact (§8.4). Idempotent on
+        ``UNIQUE(run_id, idempotency_key)``: a crash/retry collapses to exactly one
+        artifact and returns the existing row with ``already_exists=True`` (§12.6)."""
+
+        now = utc_now_iso(clock)
+        connection = self.connection()
+        connection.isolation_level = None
+        try:
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("BEGIN IMMEDIATE")
+            if idempotency_key is not None:
+                prior = connection.execute(
+                    "SELECT * FROM golden_path_artifacts WHERE run_id = ? AND idempotency_key = ?",
+                    (run_id, idempotency_key),
+                ).fetchone()
+                if prior is not None:
+                    connection.execute("ROLLBACK")
+                    return {"artifact": dict(prior), "already_exists": True}
+            head = connection.execute(
+                "SELECT seq FROM golden_path_artifacts WHERE run_id = ? ORDER BY seq DESC LIMIT 1",
+                (run_id,),
+            ).fetchone()
+            next_seq = (head["seq"] if head is not None else 0) + 1
+            artifact_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO golden_path_artifacts(
+                  id, run_id, seq, kind, administration_id, payload_json,
+                  idempotency_key, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    artifact_id, run_id, next_seq, kind, administration_id,
+                    payload_json, idempotency_key, now,
+                ),
+            )
+            connection.execute("COMMIT")
+            row = connection.execute(
+                "SELECT * FROM golden_path_artifacts WHERE id = ?", (artifact_id,)
+            ).fetchone()
+            return {"artifact": dict(row), "already_exists": False}
+        except Exception:
+            try:
+                connection.execute("ROLLBACK")
+            except sqlite3.OperationalError:
+                pass
+            raise
+        finally:
+            connection.close()
+
+    def golden_path_artifacts_for(
+        self, run_id: str, *, kind: str | None = None
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if kind is None:
+                rows = connection.execute(
+                    "SELECT * FROM golden_path_artifacts WHERE run_id = ? ORDER BY seq",
+                    (run_id,),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM golden_path_artifacts WHERE run_id = ? AND kind = ? ORDER BY seq",
+                    (run_id, kind),
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def latest_golden_path_artifact(
+        self, run_id: str, *, kind: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM golden_path_artifacts WHERE run_id = ? AND kind = ? "
+                "ORDER BY seq DESC LIMIT 1",
+                (run_id, kind),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
 
 def _decode_source_conflict(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
@@ -10391,7 +17896,13 @@ def _decode_synthesis_manifest(row: sqlite3.Row) -> dict[str, Any]:
 
 def _decode_synthesis_run(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
-    for key in ("span_request", "resolved_span_hashes", "coverage_decisions", "actual_usage"):
+    for key in (
+        "span_request",
+        "resolved_span_hashes",
+        "coverage_decisions",
+        "actual_usage",
+        "candidate_output",
+    ):
         data[key] = _loads(data.pop(f"{key}_json", None), None)
     return data
 
@@ -10454,13 +17965,13 @@ def _guard_legacy_facet_write(state: Mapping[str, Any]) -> None:
     version constant at module scope would cycle back through grading/recall.
     """
 
-    from learnloop.services.assessment_contracts import KM_ALGORITHM_VERSION
+    from learnloop.services.assessment_contracts import CANONICAL_STATE_VERSIONS
 
-    if state.get("algorithm_version") == KM_ALGORITHM_VERSION:
+    if state.get("algorithm_version") in CANONICAL_STATE_VERSIONS:
         raise AssertionError(
             "legacy facet state (evidence_facet_recall_state / facet_uncertainty) "
-            "must not be written under mvp-0.7; the canonical projection owns "
-            "facet belief state (KM2b)"
+            "must not be written under mvp-0.7/mvp-0.8; the canonical projection "
+            "owns facet belief state (KM2b; P0.5 mvp-0.8 cutover)"
         )
 
 
@@ -10714,6 +18225,9 @@ def _probe_episode_record(row: sqlite3.Row) -> ProbeEpisodeRecord:
         algorithm_version=row["algorithm_version"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        calibration_model_id=row["calibration_model_id"] if "calibration_model_id" in row.keys() else None,
+        calibration_model_hash=row["calibration_model_hash"] if "calibration_model_hash" in row.keys() else None,
+        probe_mapping_version=row["probe_mapping_version"] if "probe_mapping_version" in row.keys() else None,
     )
 
 

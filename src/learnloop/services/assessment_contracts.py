@@ -35,6 +35,19 @@ from learnloop.vault.models import (
 # knowledge model. Legacy vaults never compute or read snapshots.
 KM_ALGORITHM_VERSION = "mvp-0.7"
 
+# P0.3 (spec_p0_measurement_correctness §4.2/§4.3/§7.2): the authority-propagation
+# projection namespace. mvp-0.8 reads the P0.1/P0.2 authoritative event substrate
+# (administrations + calibrated interpretations + adjudications) and applies the
+# robust-composition + reliability-discount algorithm. The default is NOT flipped
+# here -- the cutover is P0.5's concern (design §5). mvp-0.8 is opt-in until then;
+# mvp-0.7 remains the byte-identical compatibility projection.
+P0_ALGORITHM_VERSION = "mvp-0.8"
+
+# Both mvp-0.7 and mvp-0.8 read/write canonical (shared-facet) state. mvp-0.8 is
+# the successor projection; the reader guards accept either so a mvp-0.8 vault
+# does not fall back to the retired legacy per-LO facet-state bridge.
+CANONICAL_STATE_VERSIONS: frozenset[str] = frozenset({KM_ALGORITHM_VERSION, P0_ALGORITHM_VERSION})
+
 CONTRACT_SCHEMA_VERSION = 1
 
 

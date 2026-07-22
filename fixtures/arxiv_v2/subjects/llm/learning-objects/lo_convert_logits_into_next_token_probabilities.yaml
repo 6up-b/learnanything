@@ -1,0 +1,67 @@
+schema_version: 1
+id: lo_convert_logits_into_next_token_probabilities
+title: Convert Logits into Next-Token Probabilities
+subjects:
+  - llm
+concept: concept_softmax_function
+knowledge_type: conceptual and procedural
+status: active
+contradicts:
+summary: Distinguish logits from probabilities and execute or explain the 
+  softmax normalization procedure.
+prerequisites:
+  - concept_logits
+confusables:
+  - concept_logits
+blueprints:
+  - id: bp_01KY1H1X_5
+    weight: 0.15
+    recipes:
+      - id: recipe-logits-to-probabilities
+        composition: conjunctive
+        all_of:
+          - facet: facet_logits_are_the_raw_unnormalized_vocabulary_score
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_softmax_converts_a_finite_list_of_logits_into_a_
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_softmax_converts_a_finite_list_of_logits_into_a_
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s377
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      path:
+      locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s423
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+      role: lecture
+      source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+      span_hash:
+created_at: '2026-07-21T05:06:38Z'
+updated_at: '2026-07-21T05:06:56Z'

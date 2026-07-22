@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import time
 
 import pytest
 
@@ -10,6 +11,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth, PageHealth
 from learnloop.services.ingest_runner import (
     IngestRunner,
+    IngestRunnerError,
     JobContext,
     JobSpec,
     RunnerServices,
@@ -67,6 +69,56 @@ def test_queue_survives_restart(tmp_path):
     assert all(job["status"] == "completed" for job in reopened.repo.ingest_jobs_for_batch(batch_id))
 
 
+def test_delete_finished_ingest_batches_removes_queue_history_only(tmp_path):
+    runner = _runner(tmp_path, handlers={"fake": _ok_handler({})})
+    finished_batch = runner.enqueue_batch(
+        "import",
+        [JobSpec("fake"), JobSpec("fake", depends_on=(0,))],
+    )
+    runner.drain()
+    active_batch = runner.enqueue_batch("import", [JobSpec("fake")])
+
+    deleted = runner.repo.delete_finished_ingest_batches([finished_batch])
+
+    assert deleted == {"batches": 1, "jobs": 2, "dependencies": 1}
+    assert runner.repo.get_ingest_batch(finished_batch) is None
+    assert runner.repo.ingest_jobs_for_batch(finished_batch) == []
+    assert runner.repo.get_ingest_batch(active_batch)["status"] == "queued"
+    with pytest.raises(ValueError, match="active ingest batches"):
+        runner.repo.delete_finished_ingest_batches([active_batch])
+
+
+def test_long_running_handler_emits_periodic_heartbeats(tmp_path, monkeypatch):
+    repo = _repo(tmp_path)
+    calls: list[str] = []
+    original = repo.heartbeat_ingest_job
+
+    def record_heartbeat(job_id, **kwargs):
+        calls.append(job_id)
+        return original(job_id, **kwargs)
+
+    monkeypatch.setattr(repo, "heartbeat_ingest_job", record_heartbeat)
+
+    def slow_handler(ctx: JobContext) -> dict:
+        time.sleep(0.06)
+        return {"ok": True}
+
+    runner = IngestRunner(
+        repo,
+        vault_root=tmp_path,
+        worker_id="heartbeat-worker",
+        clock=_clock(),
+        handlers={"slow": slow_handler},
+        heartbeat_interval_seconds=0.01,
+    )
+    batch_id = runner.enqueue_batch("import", [JobSpec("slow")])
+    runner.drain()
+
+    job = repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed"
+    assert calls.count(job["id"]) >= 2
+
+
 def test_lease_expiry_marks_interrupted(tmp_path):
     runner = _runner(tmp_path, handlers={"fake": _ok_handler({})}, clock=_clock())
     batch_id = runner.enqueue_batch("import", [JobSpec("fake")])
@@ -106,6 +158,36 @@ def test_dependency_failure_blocks_downstream(tmp_path):
     assert jobs[2]["status"] == "blocked"  # transitively blocked
     assert calls == {}  # neither downstream job ran
     assert runner.repo.get_ingest_batch(batch_id)["status"] == "failed"
+
+
+def test_actionable_failure_details_are_persisted_for_activity_ui(tmp_path):
+    def rejected(_ctx: JobContext) -> dict:
+        raise IngestRunnerError(
+            "Candidate failed validation.",
+            code="synthesis_gate_failed",
+            details={
+                "stage": "synthesis",
+                "completed_dependencies_preserved": True,
+                "diagnostics": [
+                    {
+                        "gate": "criterion_target",
+                        "severity": "hard_fail",
+                        "message": "unknown capability",
+                    }
+                ],
+            },
+            retryable=True,
+        )
+
+    runner = _runner(tmp_path, handlers={"fake": rejected})
+    batch_id = runner.enqueue_batch("import", [JobSpec("fake")])
+    runner.drain()
+
+    error = runner.repo.ingest_jobs_for_batch(batch_id)[0]["error"]
+    assert error["code"] == "synthesis_gate_failed"
+    assert error["retryable"] is True
+    assert error["details"]["completed_dependencies_preserved"] is True
+    assert error["details"]["diagnostics"][0]["gate"] == "criterion_target"
 
 
 def test_waiting_for_input_holds_no_lease(tmp_path):

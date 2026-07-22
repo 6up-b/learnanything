@@ -4,8 +4,15 @@
 // and the full journey ("Create study map").
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import type { StudyMapBriefDto } from "../api/dto";
+import type { StartingLevel, StudyMapBriefDto } from "../api/dto";
 import { COLOR, Faint, FONT_MONO } from "./term";
+
+export const STARTING_LEVELS: { id: StartingLevel; label: string }[] = [
+  { id: "new_to_this", label: "new to this" },
+  { id: "some_exposure", label: "some exposure" },
+  { id: "comfortable", label: "comfortable" },
+  { id: "strong_background", label: "strong background" }
+];
 
 type Outcome = "general_learning" | "reference_mastery" | "exam_prep";
 const OUTCOMES: { id: Outcome; label: string; blurb: string }[] = [
@@ -30,6 +37,7 @@ export function StudyMapBriefWizard({
 }) {
   const [step, setStep] = useState(0);
   const [outcome, setOutcome] = useState<Outcome>((initialBrief?.outcome as Outcome) ?? "general_learning");
+  const [startingLevel, setStartingLevel] = useState<StartingLevel | undefined>(initialBrief?.startingLevel);
   const [level, setLevel] = useState(initialBrief?.level ?? "");
   const [depth, setDepth] = useState(initialBrief?.depth ?? "standard");
   const [notation, setNotation] = useState(initialBrief?.notation ?? "");
@@ -48,6 +56,7 @@ export function StudyMapBriefWizard({
   const build = (): StudyMapBriefDto => {
     const brief: StudyMapBriefDto = {
       outcome,
+      startingLevel,
       level: level.trim() || undefined,
       depth,
       notation: notation.trim() || undefined,
@@ -134,7 +143,27 @@ export function StudyMapBriefWizard({
 
           {current === "depth" ? (
             <div>
-              <Label>level</Label>
+              <Label>where are you starting from</Label>
+              <div style={{ display: "flex", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                {STARTING_LEVELS.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setStartingLevel(startingLevel === s.id ? undefined : s.id)}
+                    style={{
+                      ...segBtn,
+                      border: `1px solid ${startingLevel === s.id ? COLOR.amber : COLOR.borderStrong}`,
+                      background: startingLevel === s.id ? "#241d12" : "transparent",
+                      color: startingLevel === s.id ? COLOR.amber : COLOR.textDim
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <Faint style={{ fontSize: 11, display: "block", marginBottom: 14 }}>
+                sets how hard your first questions are — practice adapts from there
+              </Faint>
+              <Label>level notes</Label>
               <input style={inputStyle} value={level} placeholder="e.g. undergraduate, graduate, refresher" onChange={(e) => setLevel(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
               <Label style={{ marginTop: 20 }}>depth</Label>
               <div style={{ display: "flex", gap: 8, marginTop: 4 }}>

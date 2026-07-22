@@ -1,0 +1,38 @@
+{
+  "alternatives": [
+    {
+      "reason": "false_belief_or_confusion",
+      "route": {
+        "coldFollowUp": "discriminating_fresh_surface",
+        "firstIntervention": "contrast_counterexample_after_bounded_diagnosis",
+        "ladderEntryStage": "instructing",
+        "reason": "false_belief_or_confusion",
+        "reopensDiagnostic": true,
+        "routeId": "false_belief_or_confusion"
+      },
+      "weight": 1.0
+    }
+  ],
+  "anchorSampleId": null,
+  "autoCommitted": false,
+  "decisive": false,
+  "distribution": {
+    "falseBeliefOrConfusion": 1.0
+  },
+  "eventId": "01KXYJ5SRX3Q71MW7458S6VT34",
+  "kind": "triaged",
+  "reason": "false_belief_or_confusion",
+  "route": {
+    "coldFollowUp": "discriminating_fresh_surface",
+    "firstIntervention": "contrast_counterexample_after_bounded_diagnosis",
+    "ladderEntryStage": "instructing",
+    "reason": "false_belief_or_confusion",
+    "reopensDiagnostic": true,
+    "routeId": "false_belief_or_confusion"
+  },
+  "routed": false,
+  "routedTo": null,
+  "runId": "01KXYJ5SHF9TM9D8S0DW9NYQNS",
+  "tier": "two",
+  "version": 1
+}

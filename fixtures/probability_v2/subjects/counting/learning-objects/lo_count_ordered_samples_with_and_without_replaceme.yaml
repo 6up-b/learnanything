@@ -1,0 +1,72 @@
+schema_version: 1
+id: lo_count_ordered_samples_with_and_without_replaceme
+title: Count ordered samples with and without replacement
+subjects:
+  - counting
+concept: concept_ordered_sampling
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Choose the appropriate stage counts according to whether selected 
+  objects return to the available pool.
+prerequisites:
+  - concept_multiplication_rule_for_counting
+confusables: []
+blueprints:
+  - id: bp_01KY12MA_7
+    weight: 1.0
+    recipes:
+      - id: recipe_ordered_sampling
+        composition: conjunctive
+        all_of:
+          - facet: facet_making_k_ordered_selections_from_n_objects_with_
+            capability: method_selection
+            modality: hard
+          - facet: facet_making_k_ordered_selections_from_n_objects_witho
+            capability: method_selection
+            modality: hard
+        any_of:
+          - facet: facet_making_k_ordered_selections_from_n_objects_with_
+            capability: procedure_execution
+            modality: path_specific
+          - facet: facet_making_k_ordered_selections_from_n_objects_witho
+            capability: procedure_execution
+            modality: path_specific
+        integration:
+          facet: facet_for_a_finite_multistage_choice_process_identify_
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s144
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s146
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:05Z'
+updated_at: '2026-07-21T00:54:10Z'

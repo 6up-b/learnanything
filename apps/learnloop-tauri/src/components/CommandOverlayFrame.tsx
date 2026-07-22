@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { COLOR, Faint, FONT_MONO } from "./term";
 
+export const learnloopShowOverlayWidth = "min(1120px, 100%)";
+
 /**
  * Shared shell for GUI mirrors of LearnLoop commands. The inspector established
  * this form factor; command-led overlays such as `learnloop diff` reuse it so
@@ -48,7 +50,19 @@ export function CommandOverlayFrame({
           {context ? (
             <>
               <Faint>·</Faint>
-              <span style={{ color: COLOR.amberLink, fontSize: 13, fontFamily: FONT_MONO }}>{context}</span>
+              <span
+                style={{
+                  color: COLOR.amberLink,
+                  fontSize: 13,
+                  fontFamily: FONT_MONO,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {context}
+              </span>
             </>
           ) : null}
           {badge}
@@ -57,7 +71,7 @@ export function CommandOverlayFrame({
           <button
             type="button"
             onClick={onClose}
-            style={{ ...commandOverlayActionStyle, color: COLOR.textDim, marginLeft: 6 }}
+            style={{ ...commandOverlayActionStyle, color: COLOR.textDim, marginLeft: 6, flexShrink: 0 }}
           >
             esc ×
           </button>

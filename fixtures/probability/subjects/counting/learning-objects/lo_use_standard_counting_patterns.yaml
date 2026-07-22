@@ -1,0 +1,86 @@
+schema_version: 1
+id: lo_use_standard_counting_patterns
+title: Use standard counting patterns
+subjects:
+  - counting
+concept: concept_subset_counting
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Recognize subsets, permutations, factorials, and repeated-letter word 
+  arrangements as standard patterns built from multiplication and overcounting 
+  adjustment.
+prerequisites:
+  - concept_multiplication_rule
+  - concept_adjusting_for_overcounting
+confusables:
+  - concept_binomial_coefficient
+  - concept_permutations_and_factorials
+blueprints:
+  - id: bp_01KXKVFA_8
+    weight: 0.18
+    recipes:
+      - id: r_standard_patterns
+        composition: conjunctive
+        all_of:
+          - facet: facet_an_n_element_set_has_2_n_subsets_because_each_el
+            capability: method_selection
+            modality: path_specific
+          - facet: facet_a_permutation_is_an_ordered_arrangement_of_all_n
+            capability: method_selection
+            modality: path_specific
+          - facet: facet_distinct_permutations_of_a_word_with_repeated_id
+            capability: method_selection
+            modality: path_specific
+        any_of: []
+        integration:
+          facet: facet_ordered_outcomes_distinguish_positions_or_time_o
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s139
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s147
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s200
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:00Z'
+updated_at: '2026-07-15T21:39:06Z'

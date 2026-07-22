@@ -1,0 +1,51 @@
+schema_version: 1
+id: lo_train_and_monitor_a_small_stochastic_classifier
+title: Train and monitor a small stochastic classifier
+subjects:
+  - llm
+concept: concept_stochastic_neural_network_training
+knowledge_type: implementation and interpretation
+status: active
+contradicts:
+summary: Execute the correct gradient-update sequence, compute periodic 
+  full-sample accuracy, and interpret fluctuating logs.
+prerequisites:
+  - concept_feedforward_classifier_implementation
+  - concept_supervised_coordinate_data_preparation
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_34
+    weight: 1.0
+    recipes:
+      - id: recipe-train-monitor-classifier
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_each_stochastic_update_select_one_example_co
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_an_unfavorable_initialization_can_place_relevant
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s573
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:54Z'
+updated_at: '2026-07-21T05:07:15Z'

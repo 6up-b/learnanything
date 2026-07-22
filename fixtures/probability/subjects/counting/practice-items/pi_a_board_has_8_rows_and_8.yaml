@@ -1,0 +1,86 @@
+schema_version: 1
+id: pi_a_board_has_8_rows_and_8
+learning_object_id: lo_apply_the_multiplication_rule
+subjects:
+practice_mode: worked_application
+attempt_types_allowed: []
+evidence_facets:
+  - facet_if_an_outcome_is_formed_through_stages_with_a_fi
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A board has 8 rows and 8 columns. Explain why multiplication, not 
+  addition, gives the number of squares. Then state the count.
+expected_answer: A square is specified by choosing both a row and a column. 
+  There are 8 choices of row and, for each row, 8 choices of column, so the 
+  count is 8·8=64.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.2
+scaffold_level: 0.3
+surface_family: grid_counting
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: chessboard_8_by_8
+  representation: grid row-column count
+  solution_recipe_family: multiplication_rule_components
+  answer_structure: short explanation plus numeric count
+misconception_consistent_answer:
+repair_targets:
+  - facet_if_an_outcome_is_formed_through_stages_with_a_fi
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_grid_components
+      points: 1.0
+      description: Identifies row and column as combined components of one 
+        square rather than alternatives.
+      tier: core
+      targets:
+        - facet: facet_if_an_outcome_is_formed_through_stages_with_a_fi
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - f_mult_rule_contract
+      correlation_group: grid_count
+      recipe_ids:
+        - r_mult_rule_apply
+    - id: crit_grid_product
+      points: 1.0
+      description: Computes 8·8=64 and does not add 8+8.
+      tier: core
+      targets:
+        - facet: facet_if_an_outcome_is_formed_through_stages_with_a_fi
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - f_mult_rule_contract
+      correlation_group: grid_count
+      recipe_ids:
+        - r_mult_rule_apply
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s121
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:14Z'
+updated_at: '2026-07-15T21:39:14Z'

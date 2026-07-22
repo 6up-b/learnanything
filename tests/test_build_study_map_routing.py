@@ -107,14 +107,38 @@ def test_helper_detects_applied_study_map() -> None:
 def test_no_map_routes_to_bootstrap_over_all_members(tmp_path: Path) -> None:
     root, repo = _seed(tmp_path)
     jobs = _RecordingJobs()
-    result = build_study_map_rpc(_ctx(root, repo, jobs), BuildStudyMapInput(source_set_id="set_x"))
+    result = build_study_map_rpc(
+        _ctx(root, repo, jobs),
+        BuildStudyMapInput(source_set_id="set_x", inventory_output_tokens=12_000),
+    )
 
     assert len(jobs.calls) == 1
     kind, kwargs = jobs.calls[0]
     assert kind == "build"
     # bootstrap inventories every member.
     assert {m["extraction_id"] for m in kwargs["members"]} == {"ext_a", "ext_b"}
+    assert kwargs["output_budget_tokens"] == 12_000
     assert result["mode"] == "bootstrap"
+
+
+def test_unlimited_budget_is_forwarded_to_every_build_stage(tmp_path: Path) -> None:
+    root, repo = _seed(tmp_path)
+    jobs = _RecordingJobs()
+
+    build_study_map_rpc(
+        _ctx(root, repo, jobs),
+        BuildStudyMapInput(
+            source_set_id="set_x",
+            inventory_output_tokens=1,
+            unlimited_token_budget=True,
+        ),
+    )
+
+    kind, kwargs = jobs.calls[0]
+    assert kind == "build"
+    assert kwargs["unlimited_token_budget"] is True
+    # Retaining the number lets the UI restore it if unlimited is toggled off.
+    assert kwargs["output_budget_tokens"] == 1
 
 
 def test_existing_map_routes_to_append_over_new_members_only(tmp_path: Path, monkeypatch) -> None:

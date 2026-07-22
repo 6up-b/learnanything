@@ -79,6 +79,38 @@ def test_marker_image_keys_coerced_to_string_asset_ids():
     assert ir.blocks[0].asset_ids == ["/page/0/Figure/9"]
 
 
+def _text_of(html, *, block_type="Text"):
+    ir = chunk_output_to_ir(
+        blocks=[{"id": "b1", "block_type": block_type, "html": html, "page": 0, "bbox": None, "polygon": None, "section_hierarchy": None, "images": None}],
+        metadata={},
+        extractor_version="test",
+    )
+    return ir.blocks[0].text
+
+
+def test_marker_inline_math_becomes_dollar_delimited():
+    # Regression: tag stripping used to leave bare LaTeX (`A \cup B`) that no
+    # renderer can recognize as math (probability_v2 audit, 2026-07-21).
+    text = _text_of("<p>the union <math display='inline'>A \\cup B</math> is the event</p>")
+    assert text == "the union $A \\cup B$ is the event"
+
+
+def test_marker_block_math_becomes_display_delimited():
+    text = _text_of('<math display="block">Av = \\lambda v</math>', block_type="Equation")
+    assert text == "$$Av = \\lambda v$$"
+
+
+def test_marker_math_entities_unescaped_inside_delimiters():
+    text = _text_of("<p><math display='inline'>a &lt; b &amp; c</math></p>")
+    assert text == "$a < b & c$"
+
+
+def test_marker_bare_and_empty_math_tags():
+    # No display attribute → inline; empty math bodies must not emit "$$".
+    assert _text_of("<p>x <math>y</math> z</p>") == "x $y$ z"
+    assert _text_of("<p>x <math display='inline'> </math> z</p>") == "x z"
+
+
 def test_marker_block_page_derived_from_block_id():
     # Real-source regression: marker emitted internal page ids (108, 358, ...)
     # in FlatBlockOutput.page on a pypdf-sliced PDF while block ids kept the
@@ -103,6 +135,140 @@ def test_marker_block_page_derived_from_block_id():
         extractor_version="test",
     )
     assert fallback.blocks[0].page == 3
+
+
+def _chunk(page, text, ordinal=1):
+    return {
+        "id": f"/page/{page}/Text/{ordinal}", "block_type": "Text", "html": f"<p>{text}</p>",
+        "page": page, "bbox": None, "polygon": None, "section_hierarchy": None, "images": None,
+    }
+
+
+def test_embedded_outline_preferred_over_detected_toc():
+    """A PDF's bookmark tree (author-curated) beats marker's layout-detected
+    ToC for unit derivation."""
+
+    ir = chunk_output_to_ir(
+        blocks=[_chunk(0, "alpha"), _chunk(1, "beta"), _chunk(2, "gamma")],
+        metadata={"table_of_contents": [
+            {"title": "1A and", "heading_level": 1, "page_id": 0},
+            {"title": "Complex Numbers", "heading_level": 1, "page_id": 1},
+        ]},
+        extractor_version="test",
+        embedded_outline=[
+            {"title": "Chapter 1 Vector Spaces", "heading_level": 1, "page_id": 0},
+            {"title": "1A Complex Numbers", "heading_level": 2, "page_id": 1},
+        ],
+    )
+    assert [unit.label for unit in ir.units] == ["Chapter 1 Vector Spaces", "1A Complex Numbers"]
+    assert ir.units[0].locator["scheme"] == "pdf_outline"
+    assert ir.units[1].parent_unit_id == ir.units[0].unit_id
+    # Chapter spans its own page up to the next entry; the subsection runs to the end.
+    assert ir.units[0].span_ids == ["s1"]
+    assert ir.units[1].span_ids == ["s2", "s3"]
+
+
+def test_single_entry_outline_falls_back_to_detected_toc():
+    """A lone bookmark ("Cover") is no structure — the detected ToC still wins."""
+
+    ir = chunk_output_to_ir(
+        blocks=[_chunk(0, "alpha"), _chunk(1, "beta")],
+        metadata={"table_of_contents": [
+            {"title": "A", "heading_level": 1, "page_id": 0},
+            {"title": "B", "heading_level": 1, "page_id": 1},
+        ]},
+        extractor_version="test",
+        embedded_outline=[{"title": "Cover", "heading_level": 1, "page_id": 0}],
+    )
+    assert [unit.label for unit in ir.units] == ["A", "B"]
+    assert ir.units[0].locator["scheme"] == "toc"
+
+
+def test_units_from_toc_entries_drops_empty_and_reparents():
+    """With a page-sliced import, outline entries outside the window drop and
+    their children re-parent to the nearest surviving ancestor."""
+
+    from learnloop.ingest.extractors.base import units_from_toc_entries
+
+    blocks = [_block("s1", "body", page=5, ordinal=1)]
+    units = units_from_toc_entries(
+        [
+            {"title": "Front Matter", "heading_level": 1, "page_id": 0},
+            {"title": "Chapter 1", "heading_level": 1, "page_id": 4},
+            {"title": "1A", "heading_level": 2, "page_id": 5},
+        ],
+        blocks,
+        locator_scheme="pdf_outline",
+        drop_empty=True,
+    )
+    # Front Matter (pages 0-3) holds no extracted blocks and drops; Chapter 1's
+    # own page 4 has no blocks either, but its range ends before 1A so it drops
+    # too, re-parenting 1A to the root.
+    assert [unit.label for unit in units] == ["1A"]
+    assert units[0].parent_unit_id is None
+    assert units[0].ordinal == 1
+    assert units[0].span_ids == ["s1"]
+
+
+def test_read_embedded_outline_flattens_nested_bookmarks():
+    import io
+
+    import pypdf
+
+    from learnloop.ingest.extractors.pypdf import read_embedded_outline
+
+    writer = pypdf.PdfWriter()
+    for _ in range(4):
+        writer.add_blank_page(width=72, height=72)
+    chapter = writer.add_outline_item("Chapter 1 Vector Spaces", 0)
+    writer.add_outline_item("1A Complex Numbers", 1, parent=chapter)
+    writer.add_outline_item("1B Definition of Vector Space", 2, parent=chapter)
+    writer.add_outline_item("Chapter 2 Finite-Dimensional Vector Spaces", 3)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+
+    entries = read_embedded_outline(buffer.getvalue())
+    assert entries == [
+        {"title": "Chapter 1 Vector Spaces", "heading_level": 1, "page_id": 0},
+        {"title": "1A Complex Numbers", "heading_level": 2, "page_id": 1},
+        {"title": "1B Definition of Vector Space", "heading_level": 2, "page_id": 2},
+        {"title": "Chapter 2 Finite-Dimensional Vector Spaces", "heading_level": 1, "page_id": 3},
+    ]
+    # No outline → empty, never an error.
+    plain = pypdf.PdfWriter()
+    plain.add_blank_page(width=72, height=72)
+    plain_buffer = io.BytesIO()
+    plain.write(plain_buffer)
+    assert read_embedded_outline(plain_buffer.getvalue()) == []
+    assert read_embedded_outline(b"%PDF-not really") == []
+
+
+def test_pypdf_extractor_builds_units_from_embedded_outline(monkeypatch):
+    import io
+
+    import pypdf
+
+    from learnloop.ingest.extractors.base import ExtractionContext
+    from learnloop.ingest.extractors.pypdf import PyPdfDocumentExtractor
+
+    writer = pypdf.PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(width=72, height=72)
+    chapter = writer.add_outline_item("Chapter 1", 0)
+    writer.add_outline_item("1A", 1, parent=chapter)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+
+    monkeypatch.setattr(
+        pypdf.PageObject, "extract_text", lambda self, *args, **kwargs: "page body text"
+    )
+    ir = PyPdfDocumentExtractor().extract(buffer.getvalue(), ExtractionContext(revision_id="rev"))
+    assert [unit.label for unit in ir.units] == ["Chapter 1", "1A"]
+    assert ir.units[0].locator["scheme"] == "pdf_outline"
+    assert ir.units[1].parent_unit_id == ir.units[0].unit_id
+    assert ir.units[0].span_ids == ["s1"]        # page 0 until 1A starts
+    assert ir.units[1].span_ids == ["s2", "s3"]  # pages 1-2
+    assert ir.extractor_version.endswith("+map2")
 
 
 def test_semantic_hash_stable_under_cosmetic_html_changes():

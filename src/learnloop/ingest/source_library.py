@@ -12,11 +12,13 @@ files** (§13). Registration is idempotent on artifact identity + ``asset_hash``
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ingest.hashing import asset_hash
+from learnloop.ingest.originals import store_original_bytes
 
 
 @dataclass(frozen=True)
@@ -39,12 +41,19 @@ def register_source_revision(
     retrieved_at: str | None = None,
     work_id: str | None = None,
     display_title: str | None = None,
+    reader_enabled: bool | None = None,
+    vault_root: Path | None = None,
     clock: Clock | None = None,
 ) -> RegisteredRevision:
     """Register (or reuse) the artifact/revision rows for one acquisition.
 
     Idempotent: identical artifact identity + identical bytes reuse the same
     revision; changed bytes link a new revision to the same artifact.
+
+    When ``vault_root`` is given, the raw bytes are also retained in the
+    vault's content-addressed originals store (``canonical-sources/raw/``) so
+    live-source viewers can reach them after the ingest-time file/URL is gone
+    — including on revision reuse, which backfills a missing store copy.
 
     ``display_title`` is a human-readable label captured at fetch time (e.g. a
     YouTube video's "<title> — <author>"). It is stored on first registration of
@@ -54,6 +63,8 @@ def register_source_revision(
     """
 
     digest = asset_hash(raw_bytes)
+    if vault_root is not None:
+        store_original_bytes(vault_root, digest, raw_bytes)
 
     artifact = (
         repo.source_artifact_by_uri(acquisition_kind, canonical_uri)
@@ -69,10 +80,15 @@ def register_source_revision(
             canonical_uri=canonical_uri,
             work_id=work_id,
             display_title=display_title,
+            reader_enabled=reader_enabled,
             clock=clock,
         )
     else:
         source_id = artifact["id"]
+        # An explicit ingest-time choice on a re-import updates the flag; a
+        # re-import with no opinion leaves the earlier choice alone.
+        if reader_enabled is not None:
+            repo.set_source_reader_enabled(source_id, reader_enabled, clock=clock)
 
     existing = repo.source_revision_by_asset_hash(source_id, digest)
     if existing is not None:

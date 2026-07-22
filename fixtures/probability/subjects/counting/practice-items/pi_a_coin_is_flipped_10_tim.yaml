@@ -1,0 +1,138 @@
+schema_version: 1
+id: pi_a_coin_is_flipped_10_tim
+learning_object_id: lo_translate_event_language_and_set_operations
+subjects:
+practice_mode: symbolic_translation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'A coin is flipped 10 times and A_j is the event that the jth flip is Heads.
+  Write set-operation expressions for: at least one Heads, all Heads, and at least
+  two consecutive Heads.'
+expected_answer: At least one Heads is union over j=1 to 10 of A_j. All Heads is
+  intersection over j=1 to 10 of A_j. At least two consecutive Heads is union 
+  over j=1 to 9 of A_j intersection A_{j+1}.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.15
+scaffold_level: 0.35
+surface_family: coin_flip_event_translation
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: ten_coin_flips_Aj
+  representation: indexed event notation
+  solution_recipe_family: event_language_to_set_operations
+  answer_structure: three symbolic expressions
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: cr_at_least_one_union
+      points: 1.0
+      description: Uses an indexed union for at least one Heads.
+      tier: core
+      targets:
+        - facet: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: coin_event_translation
+      recipe_ids:
+        - r_translate_events
+    - id: cr_all_heads_intersection
+      points: 1.0
+      description: Uses an indexed intersection for all Heads.
+      tier: core
+      targets:
+        - facet: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: coin_event_translation
+      recipe_ids:
+        - r_translate_events
+    - id: cr_consecutive_heads_union_of_adjacent_intersections
+      points: 1.0
+      description: Represents at least two consecutive Heads as a union of 
+        adjacent pair intersections.
+      tier: transfer
+      targets:
+        - facet: facet_for_events_a_and_b_a_union_b_occurs_iff_at_least
+          capability: coordination
+          role: primary
+      depends_on:
+        - cr_at_least_one_union
+        - cr_all_heads_intersection
+      correlation_group: coin_event_translation
+      recipe_ids:
+        - r_translate_events
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s65
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s67
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s69
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s73
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:12Z'
+updated_at: '2026-07-15T21:39:12Z'

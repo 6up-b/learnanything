@@ -1,0 +1,138 @@
+schema_version: 1
+id: pi_compare_two_networks_bui
+learning_object_id: lo_explain_nonlinear_expressivity_through_relu_geom
+subjects:
+practice_mode: contrastive_explanation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_a_composition_of_affine_layers_with_no_interveni
+  - facet_relu_clips_negative_affine_outputs_to_zero_and_p
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: 'Compare two networks built from affine layers: Network A has no activation
+  between layers, while Network B applies ReLU between layers. Explain algebraically
+  what happens in A and geometrically how B can form a more complex decision boundary.'
+expected_answer: Substituting A's affine layer equations into one another and 
+  collecting coefficients yields one affine mapping, so added depth alone does 
+  not create nonlinear boundaries. In B, ReLU clips negative regions of each 
+  affine plane to zero and preserves nonnegative regions, creating folds and 
+  piecewise-linear surfaces that later affine combinations can assemble into 
+  more complex decision regions.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.45
+scaffold_level: 0.15
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - symbolic
+    - diagram
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: network_architecture_contrast
+evidence_fingerprint:
+  source_family: primary_textbook_relu_geometry
+  shared_stimulus_id: two_affine_networks_activation_contrast
+  representation: algebra and geometric explanation
+  solution_recipe_family: collapse_vs_fold
+  answer_structure: paired contrastive explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_a_composition_of_affine_layers_with_no_interveni
+  - facet_relu_clips_negative_affine_outputs_to_zero_and_p
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_affine_collapse
+      points: 3.0
+      description: Explains by substitution and coefficient collection that 
+        Network A remains affine.
+      tier: core
+      targets:
+        - facet: facet_a_composition_of_affine_layers_with_no_interveni
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: activation_contrast
+      recipe_ids:
+        - recipe_relu_expressivity
+    - id: criterion_relu_geometry
+      points: 3.0
+      description: Explains clipping, fold formation, and later combination into
+        piecewise-linear surfaces.
+      tier: core
+      targets:
+        - facet: facet_relu_clips_negative_affine_outputs_to_zero_and_p
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: activation_contrast
+      recipe_ids:
+        - recipe_relu_expressivity
+    - id: criterion_expressivity_contrast
+      points: 2.0
+      description: Connects the algebraic and geometric accounts to the 
+        difference in decision-boundary capacity.
+      tier: transfer
+      targets:
+        - facet: facet_a_composition_of_affine_layers_with_no_interveni
+          capability: coordination
+          role: supporting
+        - facet: facet_relu_clips_negative_affine_outputs_to_zero_and_p
+          capability: coordination
+          role: primary
+      depends_on:
+        - criterion_affine_collapse
+        - criterion_relu_geometry
+      correlation_group: activation_contrast
+      recipe_ids:
+        - recipe_relu_expressivity
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s439
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s448
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:32Z'
+updated_at: '2026-07-21T18:14:51Z'

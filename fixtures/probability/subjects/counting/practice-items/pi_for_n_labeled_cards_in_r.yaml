@@ -1,0 +1,138 @@
+schema_version: 1
+id: pi_for_n_labeled_cards_in_r
+learning_object_id: lo_apply_inclusion_exclusion_to_matching_problems
+subjects:
+practice_mode: worked_derivation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_in_de_montmort_s_matching_problem_define_a_i_as_
+  - facet_for_finite_events_a_1_a_n_compute_p_a_1_union_un
+  - facet_for_k_specified_matching_positions_in_the_n_card
+  - facet_by_inclusion_exclusion_and_symmetry_the_probabil
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: For n labeled cards in random order, let A_i be the event that card i is
+  in position i. Set up the probability of at least one match and derive the 
+  inclusion-exclusion expression through the alternating factorial sum.
+expected_answer: Define the target as P(A_1 union ... union A_n). For k fixed 
+  matching positions there are (n-k)! favorable permutations out of n!, and 
+  there are binom(n,k) such intersections. Inclusion-exclusion gives sum_{k=1}^n
+  (-1)^{k+1} binom(n,k)(n-k)!/n! = 1 - 1/2! + 1/3! - ... + (-1)^{n+1}/n!.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.45
+scaffold_level: 0.35
+surface_family: card_matching_derivation
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: matching_problem_n_cards
+  representation: verbal setup plus event notation and factorial ratios
+  solution_recipe_family: inclusion_exclusion_symmetric_grouping
+  answer_structure: derivation ending in alternating factorial sum
+misconception_consistent_answer:
+repair_targets:
+  - facet_in_de_montmort_s_matching_problem_define_a_i_as_
+  - facet_for_finite_events_a_1_a_n_compute_p_a_1_union_un
+  - facet_for_k_specified_matching_positions_in_the_n_card
+  - facet_by_inclusion_exclusion_and_symmetry_the_probabil
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_target_union
+      points: 1.0
+      description: Identifies winning as P(A_1 union ... union A_n), not as one 
+        event A_i.
+      tier: core
+      targets:
+        - facet: facet_in_de_montmort_s_matching_problem_define_a_i_as_
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: matching_model
+      recipe_ids:
+        - recipe_ie_matching_full
+    - id: crit_intersection_counts
+      points: 2.0
+      description: Computes k-position intersections from fixed positions, 
+        including pairwise/triple cases or the general (n-k)!/n! form.
+      tier: core
+      targets:
+        - facet: facet_for_k_specified_matching_positions_in_the_n_card
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_target_union
+      correlation_group: matching_counting
+      recipe_ids:
+        - recipe_ie_matching_full
+    - id: crit_ie_grouping
+      points: 2.0
+      description: Applies inclusion-exclusion with alternating signs and groups
+        same-size intersections using symmetry.
+      tier: core
+      targets:
+        - facet: facet_for_finite_events_a_1_a_n_compute_p_a_1_union_un
+          capability: procedure_execution
+          role: primary
+        - facet: facet_by_inclusion_exclusion_and_symmetry_the_probabil
+          capability: coordination
+          role: supporting
+      depends_on:
+        - crit_intersection_counts
+      correlation_group: matching_ie
+      recipe_ids:
+        - recipe_ie_matching_full
+    - id: crit_final_sum
+      points: 1.0
+      description: Simplifies to the alternating factorial sum 1 - 1/2! + 1/3! -
+        ... + (-1)^{n+1}/n!.
+      tier: transfer
+      targets:
+        - facet: facet_by_inclusion_exclusion_and_symmetry_the_probabil
+          capability: coordination
+          role: primary
+      depends_on:
+        - crit_ie_grouping
+      correlation_group: matching_result
+      recipe_ids:
+        - recipe_ie_matching_full
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s254
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s266
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:16Z'
+updated_at: '2026-07-15T21:39:16Z'

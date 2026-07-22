@@ -1,0 +1,72 @@
+schema_version: 1
+id: lo_compare_mha_mqa_and_gqa
+title: Compare MHA, MQA, and GQA
+subjects:
+  - llm
+concept: concept_grouped_query_attention
+knowledge_type: comparative schema and method selection
+status: active
+contradicts:
+summary: Compare attention variants through their number of distinct cached 
+  key-value representations and their memory-capacity tradeoffs.
+prerequisites:
+  - concept_multi_head_attention
+  - concept_kv_caching
+  - concept_multi_query_attention
+confusables:
+  - concept_multi_query_attention
+blueprints:
+  - id: bp_01KY1H1X_15
+    weight: 1.0
+    recipes:
+      - id: recipe_shared_kv_comparison
+        composition: conjunctive
+        all_of:
+          - facet: facet_multi_query_attention_uses_one_shared_key_and_on
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_grouped_query_attention_partitions_query_heads_i
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_select_among_mha_gqa_mqa_and_mla_by_comparing_th
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_select_among_mha_gqa_mqa_and_mla_by_comparing_th
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s222
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      path:
+      locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s247
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+      role: paper
+      source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+      span_hash:
+created_at: '2026-07-21T05:06:44Z'
+updated_at: '2026-07-21T05:07:04Z'

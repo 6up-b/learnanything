@@ -67,6 +67,20 @@ def build_sim_vault(root: Path) -> Path:
 
     clock = FrozenClock(NOW)
     init_vault(root, clock=clock)
+    # P0.5 cutover: `learnloop init` now defaults new vaults to mvp-0.8, whose
+    # robust-composition certainty is recomputed fresh (seeded partly from
+    # per-run administration ids) and so is not reproducible across two FRESH sim
+    # runs -- production pins a decision-time snapshot instead. This sim
+    # characterizes the mvp-0.7 scheduler/learner baseline; pin it there so its
+    # seed-determinism and in-band metric contracts hold.
+    import re as _re
+
+    _cfg = root / "learnloop.toml"
+    _cfg.write_text(
+        _re.sub(r'algorithm_version = "[^"]+"', 'algorithm_version = "mvp-0.7"',
+                _cfg.read_text(encoding="utf-8"), count=1),
+        encoding="utf-8",
+    )
     add_subject(root, "algebra", "Algebra", clock=clock)
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)

@@ -1,0 +1,66 @@
+schema_version: 1
+id: lo_separate_representation_from_optimization
+title: Separate representation from optimization
+subjects:
+  - llm
+concept: concept_neural_network_representation_versus_trainabilit
+knowledge_type: conceptual and causal
+status: active
+contradicts:
+summary: Qualify universal approximation and diagnose how initialization and 
+  zero ReLU gradients can block training.
+prerequisites: []
+confusables:
+  - concept_representational_capacity_guarantees_successful_
+blueprints:
+  - id: bp_01KY1H1X_28
+    weight: 1.0
+    recipes:
+      - id: recipe-representation-diagnosis
+        composition: conjunctive
+        all_of:
+          - facet: facet_under_its_continuity_and_sufficient_width_condit
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_an_unfavorable_initialization_can_place_relevant
+            capability: coordination
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_it_is_invalid_to_infer_that_gradient_descent_wil
+          capability: method_selection
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s462
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s475
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:54Z'
+updated_at: '2026-07-21T05:07:14Z'

@@ -1,0 +1,69 @@
+schema_version: 1
+id: lo_simulate_matching_probabilities_in_r
+title: Simulate matching probabilities in R
+subjects:
+  - counting
+concept: concept_r_sampling_and_simulation
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Use sample(), replicate(), vector equality, logical summation, and 
+  empirical proportions to simulate the matching problem and estimate the 
+  probability of at least one match.
+prerequisites:
+  - concept_r_vectors_and_indexing
+  - concept_de_montmort_s_matching_problem
+confusables:
+  - concept_confusing_r_sampling_replacement_defaults
+blueprints:
+  - id: bp_01KXKVFA_13
+    weight: 0.15
+    recipes:
+      - id: recipe_r_matching_simulation
+        composition: conjunctive
+        all_of:
+          - facet: facet_r_s_sample_command_draws_pseudo_random_samples_s
+            capability: method_selection
+            modality: hard
+          - facet: facet_to_simulate_the_matching_problem_in_r_use_sample
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_simulate_the_matching_problem_in_r_use_sample
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s331
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s334
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:01Z'
+updated_at: '2026-07-15T21:39:08Z'

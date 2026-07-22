@@ -1,0 +1,115 @@
+schema_version: 1
+id: pi_a_person_argues_that_lif
+learning_object_id: lo_compute_counting_based_probabilities_validly
+subjects:
+practice_mode: scenario_analysis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_to_compute_naive_probability_identify_a_finite_s
+  - facet_the_number_of_verbal_possibilities_does_not_dete
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A person argues that life on a planet has probability 1/2 because either
+  life exists or it does not. Decide whether P_naive(A)=|A|/|S| is justified. 
+  State the missing condition and describe one kind of evidence that could 
+  justify an equally likely model.
+expected_answer: The argument is not justified. Two verbal possibilities do not 
+  imply equal probabilities. The naive ratio requires a finite sample space 
+  whose elementary outcomes are equally likely. Equal likelihood could be 
+  supported by an appropriate symmetry argument or guaranteed by a valid 
+  randomization design.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.35
+scaffold_level: 0.15
+surface_family: assumption_checking
+evidence_fingerprint:
+  source_family: primary_textbook_conceptual_warning
+  shared_stimulus_id: binary_verbal_possibilities
+  representation: verbal modeling claim
+  solution_recipe_family: check applicability before counting
+  answer_structure: decision, missing condition, and possible justification
+misconception_consistent_answer:
+repair_targets:
+  - facet_to_compute_naive_probability_identify_a_finite_s
+  - facet_the_number_of_verbal_possibilities_does_not_dete
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_reject_binary_half
+      points: 2.0
+      description: Rejects the inference that two verbal possibilities alone 
+        imply probability 1/2.
+      tier: core
+      targets:
+        - facet: facet_the_number_of_verbal_possibilities_does_not_dete
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_unjustified_equiprobability_error
+      correlation_group: equiprobability_validity
+      recipe_ids:
+        - recipe_diagnose_equiprobability
+        - recipe_counting_probability
+    - id: criterion_state_naive_conditions
+      points: 2.0
+      description: States that the counting ratio requires a finite sample space
+        with equally likely elementary outcomes and names symmetry or valid 
+        design as a possible justification.
+      tier: transfer
+      targets:
+        - facet: facet_to_compute_naive_probability_identify_a_finite_s
+          capability: schema_interpretation
+          role: primary
+        - facet: facet_the_number_of_verbal_possibilities_does_not_dete
+          capability: coordination
+          role: supporting
+      depends_on:
+        - facet_naive_probability_contract
+        - facet_unjustified_equiprobability_error
+        - criterion_reject_binary_half
+      correlation_group: equiprobability_validity
+      recipe_ids:
+        - recipe_counting_probability
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s100
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s101
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:13Z'
+updated_at: '2026-07-21T00:54:13Z'

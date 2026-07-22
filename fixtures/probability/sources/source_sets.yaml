@@ -1,0 +1,66 @@
+schema_version: 1
+source_sets:
+  - id: sset_quickadd_src_01KXKBMGS2HZEN0AMVHPBKB15E
+    subject_id: counting
+    title: joseph_blitzstein_jessica_hwang-introduction_to_probability.pdf
+    members:
+      - source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+        revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+        default_role: primary_textbook
+        scope:
+          - unit_id: u1
+            role_override:
+          - unit_id: u2
+            role_override:
+          - unit_id: u3
+            role_override:
+          - unit_id: u4
+            role_override:
+          - unit_id: u5
+            role_override:
+          - unit_id: u6
+            role_override:
+          - unit_id: u7
+            role_override:
+          - unit_id: u8
+            role_override:
+          - unit_id: u9
+            role_override:
+          - unit_id: u10
+            role_override:
+          - unit_id: u11
+            role_override:
+          - unit_id: u12
+            role_override:
+          - unit_id: u13
+            role_override:
+          - unit_id: u14
+            role_override:
+          - unit_id: u15
+            role_override:
+          - unit_id: u16
+            role_override:
+          - unit_id: u17
+            role_override:
+          - unit_id: u18
+            role_override:
+          - unit_id: u19
+            role_override:
+          - unit_id: u20
+            role_override:
+          - unit_id: u21
+            role_override:
+          - unit_id: u22
+            role_override:
+          - unit_id: u23
+            role_override:
+          - unit_id: u24
+            role_override:
+          - unit_id: u25
+            role_override:
+          - unit_id: u26
+            role_override:
+        priority: 1
+    priority: 1
+    created_at: '2026-07-15T18:07:20Z'
+    updated_at: '2026-07-15T19:13:56Z'

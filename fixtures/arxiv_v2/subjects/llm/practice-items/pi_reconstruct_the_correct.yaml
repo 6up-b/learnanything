@@ -1,0 +1,122 @@
+schema_version: 1
+id: pi_reconstruct_the_correct
+learning_object_id: lo_train_and_monitor_a_small_stochastic_classifier
+subjects:
+practice_mode: procedure reconstruction
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_each_stochastic_update_select_one_example_co
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Reconstruct the correct order of operations for one single-example 
+  PyTorch training update using cross-entropy and Adam. Then explain how to 
+  compute periodic accuracy on all samples and why checkpoint loss and accuracy 
+  may fluctuate rather than improve monotonically.
+expected_answer: Select one example and label, run the model to obtain logits, 
+  compute cross-entropy loss, call optimizer.zero_grad(), call loss.backward(), 
+  and then optimizer.step(). For periodic evaluation, run all feature samples 
+  through the model, take argmax across the two class logits, compare 
+  predictions with all labels, and average the correct indicators. The displayed
+  loss is for a selected stochastic example while accuracy is computed across 
+  the full sample, and successive single-example updates can help some examples 
+  while hurting others, so both logged quantities may fluctuate.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.35
+scaffold_level: 0.2
+capability: procedure_execution
+task_features:
+  complexity: 3
+  transfer: near
+  representation:
+    - code
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: training-loop-reconstruction
+evidence_fingerprint:
+  source_family: small-network stochastic training notebook
+  shared_stimulus_id: single-example-update-and-periodic-evaluation
+  representation: ordered operations and training-log interpretation
+  solution_recipe_family: update sequence, batch accuracy, stochastic caveat
+  answer_structure: procedure followed by evaluation and interpretation
+misconception_consistent_answer:
+repair_targets:
+  - facet_for_each_stochastic_update_select_one_example_co
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-training-update-order
+      points: 4.0
+      description: Orders forward computation, loss, gradient clearing, 
+        backpropagation, and optimizer update correctly.
+      tier: core
+      targets:
+        - facet: facet_for_each_stochastic_update_select_one_example_co
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: stochastic-training
+      recipe_ids:
+        - recipe-train-monitor-classifier
+    - id: criterion-full-sample-accuracy
+      points: 2.0
+      description: Computes predicted classes with argmax over logits and 
+        compares them with all labels to obtain accuracy.
+      tier: core
+      targets:
+        - facet: facet_for_each_stochastic_update_select_one_example_co
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - criterion-training-update-order
+      correlation_group: stochastic-training
+      recipe_ids:
+        - recipe-train-monitor-classifier
+    - id: criterion-interpret-nonmonotonic-logs
+      points: 2.0
+      description: Distinguishes single-example checkpoint loss from full-sample
+        accuracy and explains stochastic fluctuations.
+      tier: transfer
+      targets:
+        - facet: facet_for_each_stochastic_update_select_one_example_co
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - criterion-full-sample-accuracy
+      correlation_group: stochastic-training
+      recipe_ids:
+        - recipe-train-monitor-classifier
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s573
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:38Z'
+updated_at: '2026-07-21T18:14:58Z'

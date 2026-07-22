@@ -116,6 +116,8 @@ class GateProposal:
 @dataclass
 class GateContext:
     registered_facet_ids: set[str] = field(default_factory=set)
+    # Existing registry concepts — legal endpoints for proposed concept edges.
+    registered_concept_ids: set[str] = field(default_factory=set)
     registered_capabilities: set[str] | None = None  # None = accept any capability
     selected_revision_ids: set[str] = field(default_factory=set)
     # extraction_id -> valid unit ids / span ids for that extraction run.
@@ -567,11 +569,15 @@ def _gate_duplicate_ids_dangling(proposal: GateProposal, ctx: GateContext) -> li
             )
         seen.setdefault(key, item.client_item_id)
     # Dangling concept_edge endpoints.
-    concept_ids = {
-        item.entity_id or item.client_item_id
-        for item in proposal.items
-        if item.item_type == "concept"
-    } | ctx.registered_facet_ids  # tolerate pre-existing endpoints via registry
+    concept_ids = (
+        {
+            item.entity_id or item.client_item_id
+            for item in proposal.items
+            if item.item_type == "concept"
+        }
+        | ctx.registered_concept_ids
+        | ctx.registered_facet_ids  # legacy tolerance for facet-registry endpoints
+    )
     for item in proposal.items:
         if item.item_type != "concept_edge":
             continue

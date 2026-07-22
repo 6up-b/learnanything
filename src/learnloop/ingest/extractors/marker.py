@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ingest.block_roles import classify_block_role
-from learnloop.ingest.extractors.base import ExtractionContext
+from learnloop.ingest.extractors.base import ExtractionContext, units_from_toc_entries
 from learnloop.ingest.hashing import semantic_hash
 from learnloop.ingest.ir import (
     IR_SCHEMA_VERSION,
@@ -37,9 +37,24 @@ from learnloop.ingest.ir import (
 
 EXTRACTOR_NAME = "marker"
 
+# Marker loads its CUDA models before PdfProvider asks pdftext to extract native
+# PDF text.  pdftext's default ProcessPoolExecutor uses ``fork`` on Linux, so
+# its workers inherit an already-initialized CUDA/PyTorch process and can hang
+# forever waiting on inherited locks.  Keep that CPU-only pre-pass in-process;
+# Marker/Surya's model inference remains GPU-batched.  Advanced callers may
+# explicitly override this through marker_options when they run in a process
+# topology where spawning pdftext workers is known to be safe.
+_SAFE_PDFTEXT_WORKERS = 1
+
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
 _VERBATIM_TYPES = {"equation", "equationnumber", "math", "inlinemath", "table", "tablegroup", "code", "codeblock"}
+
+
+def _marker_runtime_options(config: dict[str, Any]) -> dict[str, Any]:
+    options: dict[str, Any] = {"output_format": "chunks", **config}
+    options.setdefault("pdftext_workers", _SAFE_PDFTEXT_WORKERS)
+    return options
 
 
 class MarkerUnavailableError(RuntimeError):
@@ -104,9 +119,29 @@ def _section_path(section_hierarchy: dict | None) -> list[str]:
     return [str(section_hierarchy[level]).strip() for level in ordered_levels if str(section_hierarchy[level]).strip()]
 
 
+_MATH_TAG_RE = re.compile(r"<math\b([^>]*)>(.*?)</math>", re.IGNORECASE | re.DOTALL)
+_MATH_DISPLAY_BLOCK_RE = re.compile(r"""display\s*=\s*["']block["']""", re.IGNORECASE)
+
+
+def _math_to_delimited(html: str) -> str:
+    """Marker encodes math as ``<math display='inline|block'>LaTeX</math>``. Rewrite to
+    $/$$ delimiters BEFORE tag stripping — stripping the tag bare leaves undelimited
+    LaTeX that no downstream renderer can recognize as math."""
+
+    def _sub(match: re.Match[str]) -> str:
+        body = match.group(2).strip()
+        if not body:
+            return " "
+        if _MATH_DISPLAY_BLOCK_RE.search(match.group(1) or ""):
+            return f"$${body}$$"
+        return f"${body}$"
+
+    return _MATH_TAG_RE.sub(_sub, html)
+
+
 def _block_text(block_type: str, html: str) -> str:
     normalized_type = (block_type or "").replace(" ", "").lower()
-    unescaped = _unescape(_TAG_RE.sub(" ", html or ""))
+    unescaped = _unescape(_TAG_RE.sub(" ", _math_to_delimited(html or "")))
     if normalized_type in _VERBATIM_TYPES:
         return unescaped.strip()
     return _WS_RE.sub(" ", unescaped).strip()
@@ -130,8 +165,12 @@ def chunk_output_to_ir(
     page_info: dict[Any, Any] | None = None,
     extractor_version: str,
     document_title: str | None = None,
+    embedded_outline: list[dict[str, Any]] | None = None,
 ) -> DocumentIR:
-    """Pure marker ``ChunkOutput`` → :class:`DocumentIR` mapping (§2.3)."""
+    """Pure marker ``ChunkOutput`` → :class:`DocumentIR` mapping (§2.3).
+
+    ``embedded_outline`` (ToC-shaped entries from the PDF's bookmark tree) takes
+    precedence over marker's detected table of contents for unit derivation."""
 
     metadata = metadata or {}
     document_blocks: list[DocumentBlock] = []
@@ -186,6 +225,7 @@ def chunk_output_to_ir(
         metadata.get("table_of_contents"),
         document_blocks,
         document_title=document_title,
+        embedded_outline=embedded_outline,
     )
     health = _health_from_page_stats(metadata.get("page_stats"), document_blocks)
 
@@ -205,76 +245,34 @@ def _units_from_toc(
     blocks: list[DocumentBlock],
     *,
     document_title: str | None,
+    embedded_outline: list[dict[str, Any]] | None = None,
 ) -> list[DocumentUnit]:
-    paged = [block for block in blocks if block.page is not None]
-    max_page = max((block.page for block in paged), default=None)
+    """Units from the best available section source.
 
-    if not toc:
-        label = document_title or "Document"
-        return [
-            DocumentUnit(
-                unit_id="u1",
-                parent_unit_id=None,
-                label=label,
-                ordinal=1,
-                locator={"scheme": "whole_document"},
-                semantic_hash=semantic_hash(blocks),
-                page_start=min((block.page for block in paged), default=None),
-                page_end=max_page,
-                span_ids=[block.span_id for block in blocks],
-            )
-        ]
+    The PDF's embedded outline (bookmarks) is author-curated — exact titles with
+    real destination pages — so it beats marker's layout-detected ToC whenever it
+    carries at least two entries (a lone "Cover" bookmark is no structure).
+    Fallback order: embedded outline → marker ToC → whole document."""
+
+    if embedded_outline and len(embedded_outline) >= 2:
+        units = units_from_toc_entries(
+            embedded_outline, blocks, document_title=document_title,
+            locator_scheme="pdf_outline", drop_empty=True,
+        )
+        if units:
+            return units
 
     entries: list[dict[str, Any]] = []
-    for raw in toc:
+    for raw in toc or []:
         entry = raw if isinstance(raw, dict) else {
             "title": getattr(raw, "title", ""),
             "heading_level": getattr(raw, "heading_level", 1),
             "page_id": getattr(raw, "page_id", None),
         }
         entries.append(entry)
-    entries.sort(key=lambda item: (item.get("page_id") if item.get("page_id") is not None else 0))
-
-    units: list[DocumentUnit] = []
-    parent_stack: list[tuple[int, str]] = []  # (heading_level, unit_id)
-    for ordinal, entry in enumerate(entries, start=1):
-        unit_id = f"u{ordinal}"
-        level = int(entry.get("heading_level") or 1)
-        page_start = entry.get("page_id")
-        next_start = entries[ordinal].get("page_id") if ordinal < len(entries) else None
-        if page_start is None:
-            page_end = None
-        elif next_start is None:
-            page_end = max_page if max_page is not None else page_start
-        else:
-            page_end = max(page_start, int(next_start) - 1)
-
-        while parent_stack and parent_stack[-1][0] >= level:
-            parent_stack.pop()
-        parent_unit_id = parent_stack[-1][1] if parent_stack else None
-
-        unit_blocks = [
-            block
-            for block in blocks
-            if page_start is not None
-            and block.page is not None
-            and page_start <= block.page <= (page_end if page_end is not None else page_start)
-        ]
-        units.append(
-            DocumentUnit(
-                unit_id=unit_id,
-                parent_unit_id=parent_unit_id,
-                label=str(entry.get("title") or unit_id).strip() or unit_id,
-                ordinal=ordinal,
-                locator={"scheme": "toc", "page": page_start, "heading_level": level},
-                semantic_hash=semantic_hash(unit_blocks),
-                page_start=page_start,
-                page_end=page_end,
-                span_ids=[block.span_id for block in unit_blocks],
-            )
-        )
-        parent_stack.append((level, unit_id))
-    return units
+    return units_from_toc_entries(
+        entries, blocks, document_title=document_title, locator_scheme="toc"
+    )
 
 
 def _health_from_page_stats(
@@ -356,11 +354,17 @@ class MarkerDocumentExtractor:
 
     name = EXTRACTOR_NAME
 
+    # Our chunk→IR mapping is part of the extraction contract: bumping this
+    # changes extraction_request_hash so cached runs from an older mapping
+    # (e.g. pre-math-delimiter _block_text) are not silently reused.
+    # 3: units prefer the PDF's embedded outline over the detected ToC.
+    CHUNK_MAP_VERSION = 3
+
     def __init__(self, *, config: dict[str, Any] | None = None) -> None:
         self._config = dict(config or {})
 
     def version(self) -> str:
-        return marker_package_version()
+        return f"{marker_package_version()}+map{self.CHUNK_MAP_VERSION}"
 
     def model_versions(self) -> dict[str, str]:
         # Best-effort; surya model weights carry no stable programmatic version.
@@ -379,12 +383,15 @@ class MarkerDocumentExtractor:
             raise MarkerUnavailableError(
                 "marker-pdf is not installed; use the pypdf fallback or install learnloop[pdf]"
             )
+        from learnloop.ingest.extractors.pypdf import read_embedded_outline
+
         chunk_output = self._run_marker(raw_bytes, context)
         return chunk_output_to_ir(
             blocks=list(getattr(chunk_output, "blocks", [])),
             metadata=dict(getattr(chunk_output, "metadata", {}) or {}),
             page_info=dict(getattr(chunk_output, "page_info", {}) or {}),
             extractor_version=self.version(),
+            embedded_outline=read_embedded_outline(raw_bytes),
         )
 
     def _run_marker(self, raw_bytes: bytes, context: ExtractionContext) -> Any:  # pragma: no cover - needs marker
@@ -395,7 +402,9 @@ class MarkerDocumentExtractor:
         from marker.converters.pdf import PdfConverter
         from marker.models import create_model_dict
 
-        options: dict[str, Any] = {"output_format": "chunks", **self._config}
+        options = _marker_runtime_options(self._config)
+        if context.page_selection is not None:
+            options["page_range"] = ",".join(str(page) for page in context.page_selection)
         torch_device = options.pop("torch_device", None)
         if torch_device:
             os.environ["TORCH_DEVICE"] = str(torch_device)

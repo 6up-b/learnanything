@@ -42,6 +42,9 @@ _VALID_CONTEXTS = {
     "provenance_panel",
     "conflict_review",
     "remediation",
+    # P3 reader (§3, §11): render-view open + post-cold reader restoration.
+    "reader",
+    "reader_restoration",
 }
 
 
@@ -108,9 +111,8 @@ def build_span_view(
         next_blocks = [_neighbor(b) for b in ordered[index + 1:index + 1 + _NEIGHBOR_RADIUS]]
 
     has_geometry = block.page is not None and bool(block.bbox)
-    page_render, page_render_size = _local_pdf_page_render(
-        original_uri or canonical_uri, block.page
-    )
+    pdf_path = _original_pdf_path(repo, revision, original_uri or canonical_uri)
+    page_render, page_render_size = _local_pdf_page_render(pdf_path, block.page)
     viewer_mode = "pdf_page" if page_render else ("pdf_text" if has_geometry else "text_anchor")
     # Every span on the focused page (multi-span highlight on one page).
     same_page_spans: list[dict[str, Any]] = []
@@ -172,14 +174,29 @@ def build_span_view(
     }
 
 
+def _original_pdf_path(
+    repo: Repository, revision: dict[str, Any] | None, fallback_uri: str | None
+) -> Path | None:
+    """Locate a readable local copy of the revision's original PDF: the vault's
+    content-addressed store first (survives file moves), else the ingest-time
+    ``original_uri``/``canonical_uri`` when it still points at a local file."""
+
+    from learnloop.ingest.originals import is_pdf_file, resolve_original_file
+
+    path = resolve_original_file(
+        repo.sqlite_path.parent,
+        digest=(revision or {}).get("asset_hash"),
+        original_uri=(revision or {}).get("original_uri") or fallback_uri,
+    )
+    if path is not None and is_pdf_file(path):
+        return path
+    return None
+
+
 def _local_pdf_page_render(
-    uri: str | None, page: int | None
+    path: Path | None, page: int | None
 ) -> tuple[str | None, list[float] | None]:
-    if not uri or page is None or uri.startswith(("http://", "https://")):
-        return None, None
-    candidate = uri[7:] if uri.startswith("file://") else uri
-    path = Path(candidate).expanduser()
-    if path.suffix.lower() != ".pdf" or not path.is_file():
+    if path is None or page is None:
         return None, None
     try:
         import pypdfium2 as pdfium
@@ -198,3 +215,79 @@ def _local_pdf_page_render(
         return encoded, page_size
     except Exception:
         return None, None
+
+
+_CROP_SCALE = 1.4
+
+
+def _local_pdf_block_crop(
+    path: Path | None, page: int | None, bbox: list[float] | None
+) -> tuple[str | None, list[float] | None]:
+    """Render an on-demand crop of one block's PDF region (spec §3.4). Derived from
+    the pinned revision bytes + exact block geometry; NOT a new authoritative
+    artifact and does not replace the source hash. bbox is in PDF-point space
+    ([x0, y0, x1, y1], origin top-left) matching the page size before upscaling."""
+
+    if path is None or page is None or not bbox or len(bbox) != 4:
+        return None, None
+    try:
+        import pypdfium2 as pdfium
+
+        document = pdfium.PdfDocument(str(path))
+        page_index = int(page)
+        if page_index < 0 or page_index >= len(document):
+            return None, None
+        pdf_page = document[page_index]
+        page_size = [float(value) for value in pdf_page.get_size()]
+        bitmap = pdf_page.render(scale=_CROP_SCALE)
+        image = bitmap.to_pil()
+        x0, y0, x1, y1 = (float(v) * _CROP_SCALE for v in bbox)
+        left, right = sorted((x0, x1))
+        top, bottom = sorted((y0, y1))
+        left = max(0, int(left))
+        top = max(0, int(top))
+        right = min(image.width, int(round(right)))
+        bottom = min(image.height, int(round(bottom)))
+        if right <= left or bottom <= top:
+            return None, None
+        crop = image.crop((left, top, right, bottom))
+        output = io.BytesIO()
+        crop.save(output, format="PNG", optimize=True)
+        encoded = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+        return encoded, page_size
+    except Exception:
+        return None, None
+
+
+def build_block_region(
+    repo: Repository,
+    extraction_id: str,
+    span_id: str,
+) -> dict[str, Any]:
+    """On-demand original-region crop for one block (spec §3.4). Falls back to the
+    whole page when no bbox is available, and records nothing (a pure read)."""
+
+    ir = repo.load_document_ir(extraction_id)
+    block = ir.block_by_span(span_id) if ir is not None else None
+    if block is None:
+        return {"extraction_id": extraction_id, "span_id": span_id, "region_render": None, "reason": "block_not_found"}
+    run = repo.get_extraction_run(extraction_id) or {}
+    revision = repo.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
+    source_id = (revision or {}).get("source_id")
+    artifact = repo.get_source_artifact(source_id) if source_id else None
+    uri = (revision or {}).get("original_uri") or (artifact or {}).get("canonical_uri")
+    pdf_path = _original_pdf_path(repo, revision, uri)
+    crop, page_size = _local_pdf_block_crop(pdf_path, block.page, block.bbox)
+    reason = "crop"
+    if crop is None:
+        crop, page_size = _local_pdf_page_render(pdf_path, block.page)
+        reason = "page_fallback" if crop is not None else "no_geometry"
+    return {
+        "extraction_id": extraction_id,
+        "span_id": span_id,
+        "page": block.page,
+        "bbox": list(block.bbox) if block.bbox else None,
+        "region_render": crop,
+        "page_render_size": page_size,
+        "reason": reason,
+    }

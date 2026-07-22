@@ -1,0 +1,724 @@
+schema_version: 1
+edges:
+  - id: 
+      edge_concept_adjusting_for_overcounting_prerequisite_concept_binomial_coefficient
+    relation_type: prerequisite
+    source: concept_adjusting_for_overcounting
+    target: concept_binomial_coefficient
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_count_unordered_selections_with_overcounting_and prerequisites
+    created_at: '2026-07-16T00:47:59Z'
+    updated_at: '2026-07-16T00:47:59Z'
+  - id: edge_concept_event_prerequisite_concept_event_operations
+    relation_type: prerequisite
+    source: concept_event
+    target: concept_event_operations
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_translate_event_language_and_set_operations prerequisites
+    created_at: '2026-07-16T00:48:00Z'
+    updated_at: '2026-07-16T00:48:00Z'
+  - id: edge_concept_event_prerequisite_concept_naive_probability
+    relation_type: prerequisite
+    source: concept_event
+    target: concept_naive_probability
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_and_vet_naive_probabilities prerequisites
+    created_at: '2026-07-16T00:48:00Z'
+    updated_at: '2026-07-16T00:48:00Z'
+  - id: edge_concept_event_operations_prerequisite_concept_complement_strategy
+    relation_type: prerequisite
+    source: concept_event_operations
+    target: concept_complement_strategy
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_use_complements_to_simplify_probability_counts prerequisites
+    created_at: '2026-07-16T00:48:01Z'
+    updated_at: '2026-07-16T00:48:01Z'
+  - id: 
+      edge_concept_events_and_sample_spaces_prerequisite_concept_inclusion_exclusion_for_finite_unions
+    relation_type: prerequisite
+    source: concept_events_and_sample_spaces
+    target: concept_inclusion_exclusion_for_finite_unions
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_apply_inclusion_exclusion_to_matching_problems prerequisites
+    created_at: '2026-07-16T00:48:02Z'
+    updated_at: '2026-07-16T00:48:02Z'
+  - id: 
+      edge_concept_events_and_sample_spaces_prerequisite_concept_naive_probability_by_counting
+    relation_type: prerequisite
+    source: concept_events_and_sample_spaces
+    target: concept_naive_probability_by_counting
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_model_finite_probability_problems_by_events_and_ prerequisites
+    created_at: '2026-07-16T00:48:02Z'
+    updated_at: '2026-07-16T00:48:02Z'
+  - id: edge_concept_multiplication_rule_prerequisite_concept_ordered_sampling
+    relation_type: prerequisite
+    source: concept_multiplication_rule
+    target: concept_ordered_sampling
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_choose_the_right_ordered_sampling_model prerequisites
+    created_at: '2026-07-16T00:48:03Z'
+    updated_at: '2026-07-16T00:48:03Z'
+  - id: edge_concept_multiplication_rule_prerequisite_concept_subset_counting
+    relation_type: prerequisite
+    source: concept_multiplication_rule
+    target: concept_subset_counting
+    strength: 1.0
+    rationale: derived from learning object lo_use_standard_counting_patterns 
+      prerequisites
+    created_at: '2026-07-16T00:48:03Z'
+    updated_at: '2026-07-16T00:48:03Z'
+  - id: edge_concept_naive_probability_prerequisite_concept_complement_strategy
+    relation_type: prerequisite
+    source: concept_naive_probability
+    target: concept_complement_strategy
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_use_complements_to_simplify_probability_counts prerequisites
+    created_at: '2026-07-16T00:48:04Z'
+    updated_at: '2026-07-16T00:48:04Z'
+  - id: 
+      edge_concept_naive_probability_by_counting_prerequisite_concept_inclusion_exclusion_for_finite_unions
+    relation_type: prerequisite
+    source: concept_naive_probability_by_counting
+    target: concept_inclusion_exclusion_for_finite_unions
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_apply_inclusion_exclusion_to_matching_problems prerequisites
+    created_at: '2026-07-16T00:48:05Z'
+    updated_at: '2026-07-16T00:48:05Z'
+  - id: 
+      edge_concept_ordered_sampling_prerequisite_concept_labeling_objects_for_counting
+    relation_type: prerequisite
+    source: concept_ordered_sampling
+    target: concept_labeling_objects_for_counting
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_build_counting_models_for_probability prerequisites
+    created_at: '2026-07-16T00:48:05Z'
+    updated_at: '2026-07-16T00:48:05Z'
+  - id: 
+      edge_concept_adjusting_for_overcounting_prerequisite_concept_subset_counting
+    relation_type: prerequisite
+    source: concept_adjusting_for_overcounting
+    target: concept_subset_counting
+    strength: 1.0
+    rationale: derived from learning object lo_use_standard_counting_patterns 
+      prerequisites
+    created_at: '2026-07-16T00:48:06Z'
+    updated_at: '2026-07-16T00:48:06Z'
+  - id: 
+      edge_concept_r_vectors_and_indexing_prerequisite_concept_r_sampling_and_simulation
+    relation_type: prerequisite
+    source: concept_r_vectors_and_indexing
+    target: concept_r_sampling_and_simulation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_matching_probabilities_in_r prerequisites
+    created_at: '2026-07-16T00:48:07Z'
+    updated_at: '2026-07-16T00:48:07Z'
+  - id: edge_concept_sample_space_prerequisite_concept_event_operations
+    relation_type: prerequisite
+    source: concept_sample_space
+    target: concept_event_operations
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_translate_event_language_and_set_operations prerequisites
+    created_at: '2026-07-16T00:48:07Z'
+    updated_at: '2026-07-16T00:48:07Z'
+  - id: edge_concept_sample_space_prerequisite_concept_naive_probability
+    relation_type: prerequisite
+    source: concept_sample_space
+    target: concept_naive_probability
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_and_vet_naive_probabilities prerequisites
+    created_at: '2026-07-16T00:48:08Z'
+    updated_at: '2026-07-16T00:48:08Z'
+  - id: 
+      edge_concept_sampling_with_replacement_prerequisite_concept_labeling_objects_for_counting
+    relation_type: prerequisite
+    source: concept_sampling_with_replacement
+    target: concept_labeling_objects_for_counting
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_build_counting_models_for_probability prerequisites
+    created_at: '2026-07-16T00:48:08Z'
+    updated_at: '2026-07-16T00:48:08Z'
+  - id: 
+      edge_concept_sampling_without_replacement_prerequisite_concept_binomial_coefficient
+    relation_type: prerequisite
+    source: concept_sampling_without_replacement
+    target: concept_binomial_coefficient
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_count_unordered_selections_with_overcounting_and prerequisites
+    created_at: '2026-07-16T00:48:09Z'
+    updated_at: '2026-07-16T00:48:09Z'
+  - id: 
+      edge_concept_sampling_without_replacement_prerequisite_concept_labeling_objects_for_counting
+    relation_type: prerequisite
+    source: concept_sampling_without_replacement
+    target: concept_labeling_objects_for_counting
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_build_counting_models_for_probability prerequisites
+    created_at: '2026-07-16T00:48:10Z'
+    updated_at: '2026-07-16T00:48:10Z'
+  - id: 
+      edge_concept_binomial_coefficient_confusable_with_concept_ordered_sampling
+    relation_type: confusable_with
+    source: concept_binomial_coefficient
+    target: concept_ordered_sampling
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_count_unordered_selections_with_overcounting_and confusables
+    created_at: '2026-07-16T00:48:10Z'
+    updated_at: '2026-07-16T00:48:10Z'
+  - id: 
+      edge_concept_birthday_match_probability_confusable_with_concept_unequal_birthday_probabilities
+    relation_type: confusable_with
+    source: concept_birthday_match_probability
+    target: concept_unequal_birthday_probabilities
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_birthday_match_probability_by_complement confusables
+    created_at: '2026-07-16T00:48:11Z'
+    updated_at: '2026-07-16T00:48:11Z'
+  - id: 
+      edge_concept_birthday_monte_carlo_simulation_confusable_with_concept_sampling_birthdays_without_replacement
+    relation_type: confusable_with
+    source: concept_birthday_monte_carlo_simulation
+    target: concept_sampling_birthdays_without_replacement
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_birthday_matches_with_tabulated_counts confusables
+    created_at: '2026-07-16T00:48:12Z'
+    updated_at: '2026-07-16T00:48:12Z'
+  - id: 
+      edge_concept_birthday_monte_carlo_simulation_confusable_with_concept_using_r_1_for_birthday_matches
+    relation_type: confusable_with
+    source: concept_birthday_monte_carlo_simulation
+    target: concept_using_r_1_for_birthday_matches
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_birthday_matches_with_tabulated_counts confusables
+    created_at: '2026-07-16T00:48:12Z'
+    updated_at: '2026-07-16T00:48:12Z'
+  - id: 
+      edge_concept_basic_counting_tools_prerequisite_concept_inclusion_exclusion_for_finite_unions
+    relation_type: prerequisite
+    source: concept_basic_counting_tools
+    target: concept_inclusion_exclusion_for_finite_unions
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_apply_inclusion_exclusion_to_matching_problems prerequisites
+    created_at: '2026-07-16T00:48:13Z'
+    updated_at: '2026-07-16T00:48:13Z'
+  - id: 
+      edge_concept_card_fixed_point_simulation_confusable_with_concept_birthday_monte_carlo_simulation
+    relation_type: confusable_with
+    source: concept_card_fixed_point_simulation
+    target: concept_birthday_monte_carlo_simulation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_card_fixed_position_matches confusables
+    created_at: '2026-07-16T00:48:13Z'
+    updated_at: '2026-07-16T00:48:13Z'
+  - id: 
+      edge_concept_inclusion_exclusion_for_finite_unions_confusable_with_concept_treating_overlapping_events_as_disjoint
+    relation_type: confusable_with
+    source: concept_inclusion_exclusion_for_finite_unions
+    target: concept_treating_overlapping_events_as_disjoint
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_apply_inclusion_exclusion_to_matching_problems confusables
+    created_at: '2026-07-16T00:48:14Z'
+    updated_at: '2026-07-16T00:48:14Z'
+  - id: 
+      edge_concept_labeling_objects_for_counting_confusable_with_concept_common_counting_misconceptions
+    relation_type: confusable_with
+    source: concept_labeling_objects_for_counting
+    target: concept_common_counting_misconceptions
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_build_counting_models_for_probability confusables
+    created_at: '2026-07-16T00:48:15Z'
+    updated_at: '2026-07-16T00:48:15Z'
+  - id: 
+      edge_concept_multiplication_rule_confusable_with_concept_common_counting_misconceptions
+    relation_type: confusable_with
+    source: concept_multiplication_rule
+    target: concept_common_counting_misconceptions
+    strength: 1.0
+    rationale: derived from learning object lo_apply_the_multiplication_rule 
+      confusables
+    created_at: '2026-07-16T00:48:15Z'
+    updated_at: '2026-07-16T00:48:15Z'
+  - id: 
+      edge_concept_naive_probability_confusable_with_concept_naive_50_50_fallacy
+    relation_type: confusable_with
+    source: concept_naive_probability
+    target: concept_naive_50_50_fallacy
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_and_vet_naive_probabilities confusables
+    created_at: '2026-07-16T00:48:16Z'
+    updated_at: '2026-07-16T00:48:16Z'
+  - id: 
+      edge_concept_naive_probability_by_counting_confusable_with_concept_assuming_equal_likelihood_without_justification
+    relation_type: confusable_with
+    source: concept_naive_probability_by_counting
+    target: concept_assuming_equal_likelihood_without_justification
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_model_finite_probability_problems_by_events_and_ confusables
+    created_at: '2026-07-16T00:48:17Z'
+    updated_at: '2026-07-16T00:48:17Z'
+  - id: 
+      edge_concept_ordered_sampling_confusable_with_concept_sampling_with_replacement
+    relation_type: confusable_with
+    source: concept_ordered_sampling
+    target: concept_sampling_with_replacement
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_choose_the_right_ordered_sampling_model confusables
+    created_at: '2026-07-16T00:48:17Z'
+    updated_at: '2026-07-16T00:48:17Z'
+  - id: 
+      edge_concept_ordered_sampling_confusable_with_concept_sampling_without_replacement
+    relation_type: confusable_with
+    source: concept_ordered_sampling
+    target: concept_sampling_without_replacement
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_choose_the_right_ordered_sampling_model confusables
+    created_at: '2026-07-16T00:48:18Z'
+    updated_at: '2026-07-16T00:48:18Z'
+  - id: 
+      edge_concept_r_sampling_and_simulation_confusable_with_concept_confusing_r_sampling_replacement_defaults
+    relation_type: confusable_with
+    source: concept_r_sampling_and_simulation
+    target: concept_confusing_r_sampling_replacement_defaults
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_matching_probabilities_in_r confusables
+    created_at: '2026-07-16T00:48:19Z'
+    updated_at: '2026-07-16T00:48:19Z'
+  - id: edge_concept_sample_space_confusable_with_concept_event
+    relation_type: confusable_with
+    source: concept_sample_space
+    target: concept_event
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_model_experiments_with_sample_spaces_and_events confusables
+    created_at: '2026-07-16T00:48:19Z'
+    updated_at: '2026-07-16T00:48:19Z'
+  - id: 
+      edge_concept_basic_counting_tools_prerequisite_concept_naive_probability_by_counting
+    relation_type: prerequisite
+    source: concept_basic_counting_tools
+    target: concept_naive_probability_by_counting
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_model_finite_probability_problems_by_events_and_ prerequisites
+    created_at: '2026-07-16T00:48:20Z'
+    updated_at: '2026-07-16T00:48:20Z'
+  - id: 
+      edge_concept_subset_counting_confusable_with_concept_binomial_coefficient
+    relation_type: confusable_with
+    source: concept_subset_counting
+    target: concept_binomial_coefficient
+    strength: 1.0
+    rationale: derived from learning object lo_use_standard_counting_patterns 
+      confusables
+    created_at: '2026-07-16T00:48:21Z'
+    updated_at: '2026-07-16T00:48:21Z'
+  - id: 
+      edge_concept_subset_counting_confusable_with_concept_permutations_and_factorials
+    relation_type: confusable_with
+    source: concept_subset_counting
+    target: concept_permutations_and_factorials
+    strength: 1.0
+    rationale: derived from learning object lo_use_standard_counting_patterns 
+      confusables
+    created_at: '2026-07-16T00:48:21Z'
+    updated_at: '2026-07-16T00:48:21Z'
+  - id: 
+      edge_concept_basic_counting_tools_prerequisite_concept_r_vectors_and_indexing
+    relation_type: prerequisite
+    source: concept_basic_counting_tools
+    target: concept_r_vectors_and_indexing
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_use_r_vectors_and_functions_for_probability_comp prerequisites
+    created_at: '2026-07-16T00:48:22Z'
+    updated_at: '2026-07-16T00:48:22Z'
+  - id: 
+      edge_concept_birthday_match_probability_prerequisite_concept_birthday_monte_carlo_simulation
+    relation_type: prerequisite
+    source: concept_birthday_match_probability
+    target: concept_birthday_monte_carlo_simulation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_birthday_matches_with_tabulated_counts prerequisites
+    created_at: '2026-07-16T00:48:22Z'
+    updated_at: '2026-07-16T00:48:22Z'
+  - id: 
+      edge_concept_birthday_match_probability_prerequisite_concept_r_birthday_built_in_functions
+    relation_type: prerequisite
+    source: concept_birthday_match_probability
+    target: concept_r_birthday_built_in_functions
+    strength: 1.0
+    rationale: derived from learning object lo_use_r_birthday_built_ins 
+      prerequisites
+    created_at: '2026-07-16T00:48:23Z'
+    updated_at: '2026-07-16T00:48:23Z'
+  - id: 
+      edge_concept_birthday_monte_carlo_simulation_prerequisite_concept_unequal_birthday_probabilities
+    relation_type: prerequisite
+    source: concept_birthday_monte_carlo_simulation
+    target: concept_unequal_birthday_probabilities
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_adapt_birthday_simulation_to_unequal_probabiliti prerequisites
+    created_at: '2026-07-16T00:48:24Z'
+    updated_at: '2026-07-16T00:48:24Z'
+  - id: 
+      edge_concept_de_montmort_s_matching_problem_prerequisite_concept_r_sampling_and_simulation
+    relation_type: prerequisite
+    source: concept_de_montmort_s_matching_problem
+    target: concept_r_sampling_and_simulation
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_simulate_matching_probabilities_in_r prerequisites
+    created_at: '2026-07-16T00:48:24Z'
+    updated_at: '2026-07-16T00:48:24Z'
+  - id: 
+      edge_concept_equal_likelihood_assumptions_prerequisite_concept_naive_probability
+    relation_type: prerequisite
+    source: concept_equal_likelihood_assumptions
+    target: concept_naive_probability
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_and_vet_naive_probabilities prerequisites
+    created_at: '2026-07-16T00:48:25Z'
+    updated_at: '2026-07-16T00:48:25Z'
+  - id: edge_concept_naive_50_50_fallacy_part_of_concept_naive_probability
+    relation_type: part_of
+    source: concept_naive_50_50_fallacy
+    target: concept_naive_probability
+    strength: 1.0
+    rationale: The 50-50 fallacy is a misconception about the naive definition 
+      of probability.
+    created_at: '2026-07-16T01:04:12Z'
+    updated_at: '2026-07-16T01:04:12Z'
+  - id: 
+      edge_concept_inclusion_exclusion_for_finite_unions_part_of_concept_naive_probability
+    relation_type: part_of
+    source: concept_inclusion_exclusion_for_finite_unions
+    target: concept_naive_probability
+    strength: 1.0
+    rationale: Inclusion-exclusion extends counting-based probability to the 
+      union of non-disjoint events.
+    created_at: '2026-07-16T01:04:13Z'
+    updated_at: '2026-07-16T01:04:13Z'
+  - id: 
+      edge_concept_treating_overlapping_events_as_disjoint_part_of_concept_inclusion_exclusion_for_finite_unions
+    relation_type: part_of
+    source: concept_treating_overlapping_events_as_disjoint
+    target: concept_inclusion_exclusion_for_finite_unions
+    strength: 1.0
+    rationale: Adding probabilities without subtracting overlaps is the 
+      misconception inclusion-exclusion corrects.
+    created_at: '2026-07-16T01:04:14Z'
+    updated_at: '2026-07-16T01:04:14Z'
+  - id: edge_concept_multiplication_rule_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_multiplication_rule
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: The multiplication rule is the fundamental principle among the 
+      basic counting tools.
+    created_at: '2026-07-16T01:04:14Z'
+    updated_at: '2026-07-16T01:04:14Z'
+  - id: 
+      edge_concept_labeling_objects_for_counting_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_labeling_objects_for_counting
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: Labeling distinguishable objects is a technique within the basic 
+      counting tools.
+    created_at: '2026-07-16T01:04:15Z'
+    updated_at: '2026-07-16T01:04:15Z'
+  - id: edge_concept_ordered_sampling_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_ordered_sampling
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: Ordered sampling is one of the basic counting tools.
+    created_at: '2026-07-16T01:04:16Z'
+    updated_at: '2026-07-16T01:04:16Z'
+  - id: edge_concept_sampling_with_replacement_part_of_concept_ordered_sampling
+    relation_type: part_of
+    source: concept_sampling_with_replacement
+    target: concept_ordered_sampling
+    strength: 1.0
+    rationale: Sampling with replacement is a kind of ordered sampling.
+    created_at: '2026-07-16T01:04:16Z'
+    updated_at: '2026-07-16T01:04:16Z'
+  - id: 
+      edge_concept_sampling_without_replacement_part_of_concept_ordered_sampling
+    relation_type: part_of
+    source: concept_sampling_without_replacement
+    target: concept_ordered_sampling
+    strength: 1.0
+    rationale: Sampling without replacement is a kind of ordered sampling.
+    created_at: '2026-07-16T01:04:17Z'
+    updated_at: '2026-07-16T01:04:17Z'
+  - id: 
+      edge_concept_permutations_and_factorials_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_permutations_and_factorials
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: Permutations and factorials are core counting tools.
+    created_at: '2026-07-16T01:04:18Z'
+    updated_at: '2026-07-16T01:04:18Z'
+  - id: 
+      edge_concept_repeated_letter_permutations_part_of_concept_permutations_and_factorials
+    relation_type: part_of
+    source: concept_repeated_letter_permutations
+    target: concept_permutations_and_factorials
+    strength: 1.0
+    rationale: Counting arrangements with repeated letters is a special case of 
+      permutations.
+    created_at: '2026-07-16T01:04:18Z'
+    updated_at: '2026-07-16T01:04:18Z'
+  - id: edge_concept_binomial_coefficient_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_binomial_coefficient
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: The binomial coefficient (unordered selection count) is one of 
+      the basic counting tools.
+    created_at: '2026-07-16T01:04:19Z'
+    updated_at: '2026-07-16T01:04:19Z'
+  - id: edge_concept_subset_counting_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_subset_counting
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: Counting all subsets by include/exclude choices is one of the 
+      basic counting tools.
+    created_at: '2026-07-16T01:04:20Z'
+    updated_at: '2026-07-16T01:04:20Z'
+  - id: 
+      edge_concept_adjusting_for_overcounting_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_adjusting_for_overcounting
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: Dividing out uniform overcounts is a correction technique within 
+      the basic counting tools.
+    created_at: '2026-07-16T01:04:20Z'
+    updated_at: '2026-07-16T01:04:20Z'
+  - id: 
+      edge_concept_common_counting_misconceptions_part_of_concept_basic_counting_tools
+    relation_type: part_of
+    source: concept_common_counting_misconceptions
+    target: concept_basic_counting_tools
+    strength: 1.0
+    rationale: These typical counting errors are misconceptions about the basic 
+      counting tools.
+    created_at: '2026-07-16T01:04:21Z'
+    updated_at: '2026-07-16T01:04:21Z'
+  - id: edge_concept_birthday_match_probability_part_of_concept_birthday_problem
+    relation_type: part_of
+    source: concept_birthday_match_probability
+    target: concept_birthday_problem
+    strength: 1.0
+    rationale: The at-least-one-match probability is the central quantity of the
+      birthday problem.
+    created_at: '2026-07-16T01:04:22Z'
+    updated_at: '2026-07-16T01:04:22Z'
+  - id: 
+      edge_concept_birthday_problem_complement_counting_part_of_concept_birthday_problem
+    relation_type: part_of
+    source: concept_birthday_problem_complement_counting
+    target: concept_birthday_problem
+    strength: 1.0
+    rationale: Complement counting is the exact method for the birthday problem.
+    created_at: '2026-07-16T01:04:23Z'
+    updated_at: '2026-07-16T01:04:23Z'
+  - id: 
+      edge_concept_birthday_monte_carlo_simulation_part_of_concept_birthday_problem
+    relation_type: part_of
+    source: concept_birthday_monte_carlo_simulation
+    target: concept_birthday_problem
+    strength: 1.0
+    rationale: Monte Carlo simulation is a method of estimating the 
+      birthday-problem probability.
+    created_at: '2026-07-16T01:04:23Z'
+    updated_at: '2026-07-16T01:04:23Z'
+  - id: 
+      edge_concept_using_r_1_for_birthday_matches_part_of_concept_birthday_monte_carlo_simulation
+    relation_type: part_of
+    source: concept_using_r_1_for_birthday_matches
+    target: concept_birthday_monte_carlo_simulation
+    strength: 1.0
+    rationale: Using a max-count threshold of 1 is a misconception in the 
+      birthday simulation.
+    created_at: '2026-07-16T01:04:24Z'
+    updated_at: '2026-07-16T01:04:24Z'
+  - id: 
+      edge_concept_sampling_birthdays_without_replacement_part_of_concept_birthday_monte_carlo_simulation
+    relation_type: part_of
+    source: concept_sampling_birthdays_without_replacement
+    target: concept_birthday_monte_carlo_simulation
+    strength: 1.0
+    rationale: Sampling birthdays without replacement is a setup misconception 
+      in the birthday simulation.
+    created_at: '2026-07-16T01:04:25Z'
+    updated_at: '2026-07-16T01:04:25Z'
+  - id: 
+      edge_concept_r_birthday_built_in_functions_part_of_concept_birthday_problem
+    relation_type: part_of
+    source: concept_r_birthday_built_in_functions
+    target: concept_birthday_problem
+    strength: 1.0
+    rationale: pbirthday/qbirthday are R built-ins specific to the birthday 
+      problem.
+    created_at: '2026-07-16T01:04:25Z'
+    updated_at: '2026-07-16T01:04:25Z'
+  - id: edge_concept_sample_space_part_of_concept_events_and_sample_spaces
+    relation_type: part_of
+    source: concept_sample_space
+    target: concept_events_and_sample_spaces
+    strength: 1.0
+    rationale: The sample space is the set-of-outcomes component of the 
+      events-and-sample-spaces framework.
+    created_at: '2026-07-16T01:04:26Z'
+    updated_at: '2026-07-16T01:04:26Z'
+  - id: 
+      edge_concept_unequal_birthday_probabilities_part_of_concept_birthday_problem
+    relation_type: part_of
+    source: concept_unequal_birthday_probabilities
+    target: concept_birthday_problem
+    strength: 1.0
+    rationale: The unequal-day model is a variant of the birthday problem.
+    created_at: '2026-07-16T01:04:27Z'
+    updated_at: '2026-07-16T01:04:27Z'
+  - id: 
+      edge_concept_card_fixed_point_simulation_part_of_concept_de_montmort_s_matching_problem
+    relation_type: part_of
+    source: concept_card_fixed_point_simulation
+    target: concept_de_montmort_s_matching_problem
+    strength: 1.0
+    rationale: Simulating shuffled-card fixed points is the simulation approach 
+      to the matching problem.
+    created_at: '2026-07-16T01:04:27Z'
+    updated_at: '2026-07-16T01:04:27Z'
+  - id: edge_concept_r_sampling_and_simulation_part_of_concept_r_and_simulation
+    relation_type: part_of
+    source: concept_r_sampling_and_simulation
+    target: concept_r_and_simulation
+    strength: 1.0
+    rationale: R sampling/replication is the simulation-building part of using R
+      for probability.
+    created_at: '2026-07-16T01:04:28Z'
+    updated_at: '2026-07-16T01:04:28Z'
+  - id: 
+      edge_concept_confusing_r_sampling_replacement_defaults_part_of_concept_r_sampling_and_simulation
+    relation_type: part_of
+    source: concept_confusing_r_sampling_replacement_defaults
+    target: concept_r_sampling_and_simulation
+    strength: 1.0
+    rationale: Misreading sample()'s replacement default is a misconception 
+      about R sampling.
+    created_at: '2026-07-16T01:04:29Z'
+    updated_at: '2026-07-16T01:04:29Z'
+  - id: edge_concept_r_vectors_and_indexing_part_of_concept_r_and_simulation
+    relation_type: part_of
+    source: concept_r_vectors_and_indexing
+    target: concept_r_and_simulation
+    strength: 1.0
+    rationale: R vectors and indexing are the data-handling part of using R for 
+      probability.
+    created_at: '2026-07-16T01:04:29Z'
+    updated_at: '2026-07-16T01:04:29Z'
+  - id: edge_concept_event_part_of_concept_events_and_sample_spaces
+    relation_type: part_of
+    source: concept_event
+    target: concept_events_and_sample_spaces
+    strength: 1.0
+    rationale: An event (a subset of outcomes) is a core component of the 
+      events-and-sample-spaces framework.
+    created_at: '2026-07-16T01:04:30Z'
+    updated_at: '2026-07-16T01:04:30Z'
+  - id: edge_concept_event_operations_part_of_concept_events_and_sample_spaces
+    relation_type: part_of
+    source: concept_event_operations
+    target: concept_events_and_sample_spaces
+    strength: 1.0
+    rationale: Union/intersection/complement are operations on events within the
+      events-and-sample-spaces framework.
+    created_at: '2026-07-16T01:04:31Z'
+    updated_at: '2026-07-16T01:04:31Z'
+  - id: edge_concept_pebble_world_part_of_concept_events_and_sample_spaces
+    relation_type: part_of
+    source: concept_pebble_world
+    target: concept_events_and_sample_spaces
+    strength: 1.0
+    rationale: Pebble World is a visualization of a finite sample space and its 
+      events.
+    created_at: '2026-07-16T01:04:31Z'
+    updated_at: '2026-07-16T01:04:31Z'
+  - id: 
+      edge_concept_equal_likelihood_assumptions_part_of_concept_events_and_sample_spaces
+    relation_type: part_of
+    source: concept_equal_likelihood_assumptions
+    target: concept_events_and_sample_spaces
+    strength: 1.0
+    rationale: Equal likelihood is a property of how probability mass is 
+      assigned to the outcomes of a sample space.
+    created_at: '2026-07-16T01:04:32Z'
+    updated_at: '2026-07-16T01:04:32Z'
+  - id: 
+      edge_concept_assuming_equal_likelihood_without_justification_part_of_concept_equal_likelihood_assumptions
+    relation_type: part_of
+    source: concept_assuming_equal_likelihood_without_justification
+    target: concept_equal_likelihood_assumptions
+    strength: 1.0
+    rationale: This misconception is the unjustified use of the equal-likelihood
+      assumption.
+    created_at: '2026-07-16T01:04:33Z'
+    updated_at: '2026-07-16T01:04:33Z'
+  - id: 
+      edge_concept_naive_probability_by_counting_part_of_concept_naive_probability
+    relation_type: part_of
+    source: concept_naive_probability_by_counting
+    target: concept_naive_probability
+    strength: 1.0
+    rationale: Computing probabilities by counting favorable/total outcomes is 
+      the counting method of naive probability.
+    created_at: '2026-07-16T01:04:34Z'
+    updated_at: '2026-07-16T01:04:34Z'
+  - id: 
+      edge_concept_complement_strategy_part_of_concept_naive_probability_by_counting
+    relation_type: part_of
+    source: concept_complement_strategy
+    target: concept_naive_probability_by_counting
+    strength: 1.0
+    rationale: Counting the complement instead of the event directly is a tactic
+      within counting-based probability.
+    created_at: '2026-07-16T01:04:34Z'
+    updated_at: '2026-07-16T01:04:34Z'

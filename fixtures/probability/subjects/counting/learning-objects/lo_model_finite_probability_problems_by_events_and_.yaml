@@ -1,0 +1,85 @@
+schema_version: 1
+id: lo_model_finite_probability_problems_by_events_and_
+title: Model finite probability problems by events and counts
+subjects:
+  - counting
+concept: concept_naive_probability_by_counting
+knowledge_type: conceptual_procedure
+status: active
+contradicts:
+summary: Distinguish outcomes, events, and probability values; justify equal 
+  likelihood; then use factorial, subset, and overcount-correction tools to 
+  compute finite probabilities.
+prerequisites:
+  - concept_events_and_sample_spaces
+  - concept_basic_counting_tools
+confusables:
+  - concept_assuming_equal_likelihood_without_justification
+blueprints:
+  - id: bp_01KXKVFA_11
+    weight: 0.25
+    recipes:
+      - id: recipe_counting_model
+        composition: conjunctive
+        all_of:
+          - facet: facet_events_are_sets_of_outcomes_while_probabilities_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_in_a_finite_sample_space_with_equally_likely_out
+            capability: method_selection
+            modality: hard
+          - facet: facet_basic_finite_counting_tools_include_n_permutatio
+            capability: procedure_execution
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_in_a_finite_sample_space_with_equally_likely_out
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s273
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s276
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s277
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:00Z'
+updated_at: '2026-07-15T21:39:07Z'

@@ -16,7 +16,7 @@ import type {
   UnresolvedCauseDto,
 } from "../api/dto";
 import { BlockBar, COLOR, Dim, Faint, FONT_MONO, Pill, SectionHeader, type PillColor } from "./term";
-import { CommandOverlayFrame } from "./CommandOverlayFrame";
+import { CommandOverlayFrame, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
 
 const pct = (value: number | null | undefined): string =>
   value == null ? "—" : `${Math.round(value * 100)}%`;
@@ -804,7 +804,7 @@ export function FacetEvidenceDrawer({
       footerRight={<span>evidence receipt · <Dim>learnloop show {facetId}</Dim></span>}
       onClose={onClose}
       ariaLabel={`Evidence for ${facetTitle(facetId)}`}
-      width="min(680px, 100%)"
+      width={learnloopShowOverlayWidth}
       zIndex={220}
     >
       <div className="ll-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>

@@ -47,7 +47,23 @@ from learnloop.services.facet_diagnostics import required_facets
 from learnloop.vault.loader import add_note
 from learnloop.vault.models import LoadedVault, PracticeItem
 
-QUESTION_CONTEXTS = ("library", "practice", "feedback")
+QUESTION_CONTEXTS = ("library", "practice", "feedback", "reader")
+
+# U-033 (§7.6): per-ask reader answer modes. answer_directly is the launch default.
+READER_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
+READER_ANSWER_MODE_DEFAULT = "answer_directly"
+
+
+def reader_span_key(extraction_id: str, span_id: str) -> str:
+    """The persistence/budget key for a reader exchange: one source block span.
+
+    Reader Ask anchors to source block ids from the ingest structure (§7.6), so a
+    reader exchange is keyed by its span rather than a vault note. The key is
+    stored in ``question_events.note_id`` (a distinct ``reader`` context, so it
+    never collides with library note ids) which gives per-span budgeting and
+    per-span exchange history for free through the existing store."""
+
+    return f"span:{extraction_id}/{span_id}"
 
 # question_type → counts as a hint. Substantive content help is a hint;
 # clarifying the prompt, asking "am I right?" (which the tutor deflects), or
@@ -118,6 +134,14 @@ def question_usage(
             context="library", note_id=note_id, since=day_start, answer_status="answered"
         )
         return used, config.max_questions_library
+    if context == "reader":
+        # Per source span (note_id carries the reader_span_key) per UTC day.
+        now = parse_utc(utc_now_iso(clock))
+        day_start = now.strftime("%Y-%m-%dT00:00:00Z")
+        used = repository.count_question_events(
+            context="reader", note_id=note_id, since=day_start, answer_status="answered"
+        )
+        return used, config.max_questions_reader
     raise TutorQAError(f"Unknown question context {context!r}")
 
 
@@ -134,6 +158,9 @@ def ask_question(
     session_id: str | None = None,
     seconds_into_attempt: float | None = None,
     question_context: Mapping[str, Any] | None = None,
+    extraction_id: str | None = None,
+    span_id: str | None = None,
+    answer_mode: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -170,6 +197,17 @@ def ask_question(
         note = vault.notes.get(note_id)
         if note is None:
             raise TutorQAError(f"Note {note_id} was not found.")
+    if context == "reader":
+        # Reader Ask (§7.6) anchors to a source block span, never a practice item
+        # or vault note. The span key is stored in note_id so the existing
+        # per-context budget/thread store carries per-span history.
+        if not extraction_id or not span_id:
+            raise TutorQAError("Reader questions require extraction_id and span_id.")
+        if answer_mode is None:
+            answer_mode = READER_ANSWER_MODE_DEFAULT
+        if answer_mode not in READER_ANSWER_MODES:
+            raise TutorQAError(f"Unknown reader answer mode {answer_mode!r}.")
+        note_id = reader_span_key(extraction_id, span_id)
 
     used, limit = question_usage(
         vault,
@@ -204,6 +242,9 @@ def ask_question(
         attempt=attempt,
         note=note,
         note_id=note_id,
+        extraction_id=extraction_id,
+        span_id=span_id,
+        answer_mode=answer_mode,
     )
 
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -568,6 +609,12 @@ def _thread(
         events = repository.question_events(
             context="feedback", attempt_id=attempt_id, answer_status="answered"
         )
+    elif context == "reader":
+        # Prior reader exchanges on the SAME span only (note_id is the span key);
+        # never the practice/feedback history, never cold attempt content (§7.6).
+        events = repository.question_events(
+            context="reader", note_id=note_id, answer_status="answered"
+        )
     else:
         events = repository.question_events(
             context="library", note_id=note_id, answer_status="answered"
@@ -599,7 +646,25 @@ def _build_context(
     attempt: dict[str, Any] | None,
     note,
     note_id: str | None,
+    extraction_id: str | None = None,
+    span_id: str | None = None,
+    answer_mode: str | None = None,
 ) -> TutorQAContext:
+    if context == "reader":
+        # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
+        # (current block + neighbours) + the question + the chosen mode. It MUST
+        # NOT carry the learner ability estimate, any assessment-reserved surface's
+        # statement/rubric, or any cold in-flight response -- so no note body, no
+        # rubric, no expected answer, no diagnostic decision, no candidate facets.
+        return TutorQAContext(
+            context="reader",
+            question_md=question_md,
+            candidate_facets=[],
+            thread=thread,
+            source_spans=_reader_source_spans(repository, extraction_id, span_id),
+            answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
+        )
+
     lo_summaries: list[dict[str, Any]] = []
     lo_ids: list[str] = []
     if item is not None:
@@ -684,6 +749,55 @@ def _source_spans(
             spans.append(span.as_dict())
             if len(spans) >= _MAX_CITATION_SPANS:
                 return spans
+    return spans
+
+
+def _reader_source_spans(
+    repository: Repository, extraction_id: str | None, span_id: str | None
+) -> list[dict[str, Any]]:
+    """Block-level span views for the reader manifest (§7.6): the current source
+    block plus its immediate neighbours, as citable {extraction_id, span_id, label,
+    text} spans. NOT the P3 annotation layer -- just ``span_view`` geometry. The
+    tutor may cite ONLY these. Degrades to [] when the span cannot be resolved."""
+
+    if not extraction_id or not span_id:
+        return []
+    from learnloop.services.span_view import SpanViewError, build_span_view
+
+    try:
+        view = build_span_view(repository, extraction_id, span_id, record=False)
+    except SpanViewError:
+        return []
+    spans: list[dict[str, Any]] = []
+
+    def _label(text: str | None) -> str:
+        text = " ".join((text or "").split())
+        return text[:59].rstrip() + "…" if len(text) > 60 else text
+
+    spans.append(
+        {
+            "extraction_id": extraction_id,
+            "span_id": span_id,
+            "label": _label(view.get("text")),
+            "text": view.get("text"),
+            "relation": "in_view",
+        }
+    )
+    for neighbour in (view.get("previous_spans") or []) + (view.get("next_spans") or []):
+        nid = neighbour.get("span_id")
+        if nid is None:
+            continue
+        spans.append(
+            {
+                "extraction_id": extraction_id,
+                "span_id": nid,
+                "label": _label(neighbour.get("text")),
+                "text": neighbour.get("text"),
+                "relation": "surrounding",
+            }
+        )
+        if len(spans) >= _MAX_CITATION_SPANS:
+            break
     return spans
 
 

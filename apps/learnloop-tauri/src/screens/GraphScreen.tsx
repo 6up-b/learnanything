@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { api } from "../api/client";
 import type {
   CommandError,
@@ -970,6 +970,10 @@ function Legend({ counts }: { counts: ConceptGraphSnapshot["counts"] }) {
   );
 }
 
+const DETAIL_WIDTH_KEY = "ll.graph.detailWidth";
+const DETAIL_WIDTH_MIN = 240;
+const DETAIL_WIDTH_MAX = 720;
+
 function ConceptDetail({
   concept,
   edges,
@@ -979,9 +983,57 @@ function ConceptDetail({
   edges: ConceptGraphEdge[];
   onInspect: (id: string) => void;
 }) {
+  const [width, setWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem(DETAIL_WIDTH_KEY));
+    return Number.isFinite(saved) && saved >= DETAIL_WIDTH_MIN && saved <= DETAIL_WIDTH_MAX ? saved : 360;
+  });
+  const dragStart = useRef<{ x: number; width: number } | null>(null);
+
+  const onHandlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      dragStart.current = { x: event.clientX, width };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    },
+    [width]
+  );
+  const onHandlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = dragStart.current;
+    if (!start) return;
+    const next = Math.min(DETAIL_WIDTH_MAX, Math.max(DETAIL_WIDTH_MIN, start.width + (start.x - event.clientX)));
+    setWidth(next);
+  }, []);
+  const onHandlePointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragStart.current) return;
+    dragStart.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    setWidth((w) => {
+      window.localStorage.setItem(DETAIL_WIDTH_KEY, String(w));
+      return w;
+    });
+  }, []);
+
+  const resizeHandle = (
+    <div
+      onPointerDown={onHandlePointerDown}
+      onPointerMove={onHandlePointerMove}
+      onPointerUp={onHandlePointerUp}
+      style={{
+        position: "absolute",
+        left: -3,
+        top: 0,
+        bottom: 0,
+        width: 7,
+        cursor: "col-resize",
+        zIndex: 5
+      }}
+    />
+  );
+
   if (!concept) {
     return (
-      <div style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, padding: "16px 18px", color: COLOR.textFaint, fontSize: 13 }}>
+      <div style={{ position: "relative", width, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, padding: "16px 18px", color: COLOR.textFaint, fontSize: 13 }}>
+        {resizeHandle}
         no concept selected
       </div>
     );
@@ -990,7 +1042,9 @@ function ConceptDetail({
   const outgoing = edges.filter((edge) => edge.source === concept.id);
 
   return (
-    <div className = "ll-scroll" style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, overflowY: "auto", padding: "16px 18px", fontSize: 13 }}>
+    <div style={{ position: "relative", width, flexShrink: 0, minWidth: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}>
+      {resizeHandle}
+      <div className="ll-scroll" style={{ height: "100%", overflowY: "auto", padding: "16px 18px", fontSize: 13, overflowWrap: "break-word" }}>
       <div style={{ fontSize: 11, color: COLOR.textFaint, marginBottom: 4 }}>
         <EntityLink id={concept.id} onInspect={onInspect}>
           {concept.id}
@@ -1011,15 +1065,15 @@ function ConceptDetail({
       <SectionHeader>Edges</SectionHeader>
       <div style={{ display: "grid", gap: 4 }}>
         {incoming.map((edge) => (
-          <div key={`in-${edge.id}`} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12 }}>
-            <span style={{ color: relationStyle(edge.relationType).stroke, width: 78 }}>← {relationStyle(edge.relationType).label}</span>
-            <Dim>{edge.source}</Dim>
+          <div key={`in-${edge.id}`} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12 }}>
+            <span style={{ color: relationStyle(edge.relationType).stroke, width: 78, flexShrink: 0 }}>← {relationStyle(edge.relationType).label}</span>
+            <Dim style={{ minWidth: 0, overflowWrap: "anywhere" }}>{edge.source}</Dim>
           </div>
         ))}
         {outgoing.map((edge) => (
-          <div key={`out-${edge.id}`} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12 }}>
-            <span style={{ color: relationStyle(edge.relationType).stroke, width: 78 }}>→ {relationStyle(edge.relationType).label}</span>
-            <Dim>{edge.target}</Dim>
+          <div key={`out-${edge.id}`} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12 }}>
+            <span style={{ color: relationStyle(edge.relationType).stroke, width: 78, flexShrink: 0 }}>→ {relationStyle(edge.relationType).label}</span>
+            <Dim style={{ minWidth: 0, overflowWrap: "anywhere" }}>{edge.target}</Dim>
           </div>
         ))}
         {incoming.length === 0 && outgoing.length === 0 ? <Faint>no edges</Faint> : null}
@@ -1056,6 +1110,7 @@ function ConceptDetail({
           <Faint>open error events</Faint>{" "}
           <span style={{ color: concept.openErrorEventCount > 0 ? COLOR.red : COLOR.green }}>{concept.openErrorEventCount}</span>
         </div>
+      </div>
       </div>
     </div>
   );

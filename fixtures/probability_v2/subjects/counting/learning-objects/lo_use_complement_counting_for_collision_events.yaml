@@ -1,0 +1,68 @@
+schema_version: 1
+id: lo_use_complement_counting_for_collision_events
+title: Use complement counting for collision events
+subjects:
+  - counting
+concept: concept_complement_counting
+knowledge_type: method_selection_and_procedure
+status: active
+contradicts:
+summary: Replace overlapping direct collision cases with a count of the 
+  no-collision complement.
+prerequisites:
+  - concept_multiplication_rule_for_counting
+  - concept_ordered_sampling
+confusables:
+  - concept_inclusion_exclusion
+blueprints:
+  - id: bp_01KY12MA_11
+    weight: 1.0
+    recipes:
+      - id: recipe_complement
+        composition: conjunctive
+        all_of:
+          - facet: facet_to_count_an_at_least_one_collision_event_with_ov
+            capability: method_selection
+            modality: hard
+          - facet: facet_to_count_an_at_least_one_collision_event_with_ov
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_making_k_ordered_selections_from_n_objects_witho
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s155
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s159
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:05Z'
+updated_at: '2026-07-21T00:54:09Z'

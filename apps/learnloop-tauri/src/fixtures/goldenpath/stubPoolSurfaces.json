@@ -1,0 +1,13 @@
+{
+  "poolSlug": "pool_symmetric_method_selection",
+  "surfaces": [
+    {
+      "angle": "setup_only",
+      "surfaceSlug": "surf_setup_1"
+    },
+    {
+      "angle": "move_spotting",
+      "surfaceSlug": "surf_move_spotting_1"
+    }
+  ]
+}

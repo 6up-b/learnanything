@@ -1,0 +1,123 @@
+schema_version: 1
+id: pi_for_k_people_under_the_3
+learning_object_id: lo_build_counting_models_for_probability
+subjects:
+practice_mode: derivation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_under_the_365_day_equally_likely_independent_bir
+  - facet_for_k_ordered_draws_from_n_objects_with_replacem
+  - facet_for_k_ordered_choices_from_n_objects_without_rep
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: For k people under the 365-day equally likely independent birthday model
+  with k <= 365, derive the probability that at least two people share a 
+  birthday.
+expected_answer: 'Count the complement: no two people share a birthday. There are
+  365·364·...·(365-k+1) no-match assignments and 365^k total assignments. Thus P(no
+  match)=(365·364·...·(365-k+1))/365^k, so P(at least one match)=1-(365·364·...·(365-k+1))/365^k.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.45
+transfer_distance: 0.35
+scaffold_level: 0.4
+surface_family: birthday_problem
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: birthday_problem_k_people
+  representation: symbolic derivation with falling product
+  solution_recipe_family: complement_counting_probability
+  answer_structure: formula derivation
+misconception_consistent_answer:
+repair_targets:
+  - facet_under_the_365_day_equally_likely_independent_bir
+  - facet_for_k_ordered_draws_from_n_objects_with_replacem
+  - facet_for_k_ordered_choices_from_n_objects_without_rep
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_bday_complement
+      points: 1.0
+      description: Chooses the complement event of no birthday match rather than
+        directly enumerating overlapping match cases.
+      tier: core
+      targets:
+        - facet: facet_under_the_365_day_equally_likely_independent_bir
+          capability: method_selection
+          role: primary
+      depends_on:
+        - f_birthday_complement
+      correlation_group: birthday_derivation
+      recipe_ids:
+        - r_probability_counting_model
+    - id: crit_bday_counts
+      points: 1.0
+      description: Uses 365^k for total assignments and the falling product for 
+        no-match assignments.
+      tier: core
+      targets:
+        - facet: facet_for_k_ordered_draws_from_n_objects_with_replacem
+          capability: procedure_execution
+          role: supporting
+        - facet: facet_for_k_ordered_choices_from_n_objects_without_rep
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - f_sampling_with_replacement
+        - f_sampling_without_replacement
+      correlation_group: birthday_derivation
+      recipe_ids:
+        - r_probability_counting_model
+    - id: crit_bday_subtract
+      points: 1.0
+      description: Subtracts the no-match probability from 1 to obtain the 
+        at-least-one-match probability.
+      tier: core
+      targets:
+        - facet: facet_under_the_365_day_equally_likely_independent_bir
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - f_birthday_complement
+      correlation_group: birthday_derivation
+      recipe_ids:
+        - r_probability_counting_model
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s156
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s159
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:13Z'
+updated_at: '2026-07-15T21:39:13Z'

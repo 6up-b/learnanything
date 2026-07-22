@@ -1,0 +1,122 @@
+schema_version: 1
+id: pi_a_club_has_10_members_c
+learning_object_id: lo_count_unordered_selections_by_correcting_overcou
+subjects:
+practice_mode: contrastive
+attempt_types_allowed: []
+evidence_facets:
+  - facet_if_a_convenient_construction_counts_every_desire
+  - facet_the_binomial_coefficient_c_n_k_counts_size_k_sub
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A club has 10 members. Compare the number of ways to choose a president,
+  vice president, and treasurer with the number of ways to choose an untitled 
+  three-person committee. Explain the factor relating the answers.
+expected_answer: 'Titled roles: 10·9·8=720. Untitled committee: C(10,3)=10·9·8/3!=120.
+  Every committee appears in 3! role orders in the ordered construction.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.4
+scaffold_level: 0.1
+surface_family: roles_vs_subsets
+evidence_fingerprint:
+  source_family: club role and committee selection
+  shared_stimulus_id: stim_roles_committee
+  representation: verbal comparison with symbolic counts
+  solution_recipe_family: ordered count divided by role permutations
+  answer_structure: two counts plus factor explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_if_a_convenient_construction_counts_every_desire
+  - facet_the_binomial_coefficient_c_n_k_counts_size_k_sub
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_role_method
+      points: 2.0
+      description: Uses an ordered falling product for the titled roles and a 
+        binomial coefficient for the committee.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_c_n_k_counts_size_k_sub
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_binomial_definition_formula
+      correlation_group: binomial
+      recipe_ids:
+        - recipe_binomial
+    - id: crit_role_overcount
+      points: 2.0
+      description: Explains that each committee is represented by 3! role 
+        assignments and computes both counts correctly.
+      tier: transfer
+      targets:
+        - facet: facet_if_a_convenient_construction_counts_every_desire
+          capability: coordination
+          role: primary
+        - facet: facet_the_binomial_coefficient_c_n_k_counts_size_k_sub
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - facet_uniform_overcount_contract
+        - facet_binomial_definition_formula
+        - crit_role_method
+      correlation_group: binomial
+      recipe_ids:
+        - recipe_binomial
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s194
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s195
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s196
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:14Z'
+updated_at: '2026-07-21T00:54:14Z'

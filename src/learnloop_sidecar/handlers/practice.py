@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.codex.client import CodexUnavailable
+from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop.services.attempts import (
     AttemptDraft,
     AttemptValidationError,
@@ -332,7 +333,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
                     f"{unavailable_label} is unavailable. Grade your answer to continue.",
                     retryable=True,
                 )
-            if provider_name != "codex":
+            if provider_name not in CODEX_PROVIDER_NAMES:
                 result = complete_attempt_with_ai_required(
                     vault,
                     repository,
@@ -349,7 +350,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
                     codex_client=client,
                 )
         else:
-            if provider_name != "codex":
+            if provider_name not in CODEX_PROVIDER_NAMES:
                 result = complete_attempt_with_ai_fallback(
                     vault,
                     repository,

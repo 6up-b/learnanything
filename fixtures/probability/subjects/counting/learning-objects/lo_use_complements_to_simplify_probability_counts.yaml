@@ -1,0 +1,70 @@
+schema_version: 1
+id: lo_use_complements_to_simplify_probability_counts
+title: Use Complements to Simplify Probability Counts
+subjects:
+  - counting
+concept: concept_complement_strategy
+knowledge_type: method_selection_and_procedure
+status: active
+contradicts:
+summary: Use P_naive(A^c)=1−P_naive(A) and choose complement counting when it is
+  easier than direct counting.
+prerequisites:
+  - concept_event_operations
+  - concept_naive_probability
+confusables: []
+blueprints:
+  - id: bp_01KXKVFA_4
+    weight: 0.18
+    recipes:
+      - id: r_use_complement
+        composition: conjunctive
+        all_of:
+          - facet: facet_under_the_naive_definition_p_naive_a_c_1_p_naive
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_when_solving_for_an_event_probability_compare_di
+            capability: method_selection
+            modality: hard
+          - facet: facet_for_events_a_and_b_the_complement_of_a_union_is_
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_when_solving_for_an_event_probability_compare_di
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s98
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s99
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:38:57Z'
+updated_at: '2026-07-15T21:39:03Z'

@@ -1,0 +1,32 @@
+{
+  "currentState": "ready_to_assess",
+  "eventCount": 2,
+  "goalContractHeadVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+  "headEventId": "01KXYJ5RWREPPPAZE773DKQ3NN",
+  "headSeq": 2,
+  "history": [
+    {
+      "fromState": "draft",
+      "goalContractHeadVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+      "reason": "run_started",
+      "seq": 1,
+      "toState": "ready"
+    },
+    {
+      "fromState": "ready",
+      "goalContractHeadVersionId": "01KXYJ5R4DQK0R9JZR8XF6HJDJ",
+      "reason": "rta",
+      "seq": 2,
+      "toState": "ready_to_assess"
+    }
+  ],
+  "milestone": "m_method_selection_boundary",
+  "mode": "certifying",
+  "nextAction": {
+    "reason": "administer the fresh held-out assessment",
+    "terminal": false,
+    "toState": "assessing"
+  },
+  "runId": "01KXYJ5R4DTKP9BB1C9QK6V6NC",
+  "version": 1
+}

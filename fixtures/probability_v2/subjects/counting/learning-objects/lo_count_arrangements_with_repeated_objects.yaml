@@ -1,0 +1,56 @@
+schema_version: 1
+id: lo_count_arrangements_with_repeated_objects
+title: Count arrangements with repeated objects
+subjects:
+  - counting
+concept: concept_permutations_with_repeated_objects
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Remove the overcount created by permuting indistinguishable occurrences
+  within a full arrangement.
+prerequisites:
+  - concept_permutations_and_factorials
+  - concept_uniform_overcounting_correction
+  - concept_binomial_coefficients
+confusables:
+  - concept_permutations_and_factorials
+blueprints:
+  - id: bp_01KY12MA_10
+    weight: 0.9
+    recipes:
+      - id: recipe_repeated_objects
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_n_positions_containing_indistinguishable_gro
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_for_n_positions_containing_indistinguishable_gro
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_if_a_convenient_construction_counts_every_desire
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      path:
+      locator: span:ext_01KY0ZVFE357NA2D59D2AQ97H5/s199
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY0ZVFE357NA2D59D2AQ97H5
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY0ZT7P9VGQY3TSKZH5D1X64
+      role: primary_textbook
+      source_id: src_01KY0ZT7MZXEH0KEBR679F343N
+      span_hash:
+created_at: '2026-07-21T00:54:06Z'
+updated_at: '2026-07-21T00:54:11Z'

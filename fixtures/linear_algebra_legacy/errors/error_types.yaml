@@ -10,16 +10,28 @@ error_types:
     is_misconception: false
     tags:
       - recall
-    created_at: '2026-05-21T20:51:10Z'
-    updated_at: '2026-05-21T20:51:10Z'
-  - id: non_response
-    title: Non Response
-    description: '`learner_answer_md` is empty.'
-    related_concepts:
-      - concept_singular_values_vectors
-    severity_default: 1.0
+    created_at: '2026-05-25T18:43:17Z'
+    updated_at: '2026-05-25T18:43:17Z'
+  - id: scaffold_failure
+    title: Scaffold failure
+    description: The learner could not reconstruct the answer after hints or 
+      other support.
+    related_concepts: []
+    severity_default: 0.65
     is_misconception: false
     tags:
-      - grading_proposal
-    created_at: '2026-05-24T01:47:36Z'
-    updated_at: '2026-05-24T01:47:36Z'
+      - recall
+      - scaffold
+    created_at: '2026-05-25T18:43:17Z'
+    updated_at: '2026-05-25T18:43:17Z'
+  - id: arithmetic_slip
+    title: Arithmetic slip
+    description: The learner used the right concept but made a local numeric or 
+      algebraic error.
+    related_concepts: []
+    severity_default: 0.15
+    is_misconception: false
+    tags:
+      - calculation
+    created_at: '2026-05-25T18:43:17Z'
+    updated_at: '2026-05-25T18:43:17Z'

@@ -82,7 +82,11 @@ def _resolve_engine(config: PdfIngestConfig) -> str:
 
 
 def _marker_options(config: PdfIngestConfig) -> dict[str, Any]:
-    options: dict[str, Any] = {"output_format": "markdown"}
+    # pdftext otherwise forks its default worker pool after Marker has loaded
+    # CUDA models.  Forking a CUDA-initialized, multithreaded process can leave
+    # every worker asleep on inherited locks.  Serializing this CPU pre-pass is
+    # a safe default and does not disable Surya's batched GPU inference.
+    options: dict[str, Any] = {"output_format": "markdown", "pdftext_workers": 1}
     if config.force_ocr:
         options["force_ocr"] = True
     if config.use_llm:

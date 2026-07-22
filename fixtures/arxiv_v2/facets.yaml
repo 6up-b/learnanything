@@ -1,0 +1,4742 @@
+schema_version: 2
+facets:
+  - id: facet_autoregressive_generation_repeatedly_predicts_a_
+    title:
+    aliases:
+      - predict-sample-append-repeat procedure
+    description:
+    tags: []
+    concept_id: concept_autoregressive_text_generation
+    kind: procedure_contract
+    claim: Autoregressive generation repeatedly predicts a next-token 
+      distribution from the current text, samples a token, appends it to the 
+      text, and uses the expanded text for the next prediction.
+    preconditions:
+      - Seed text and a next-token prediction model are available.
+    postconditions:
+      - The sequence grows by one sampled token per iteration.
+    applicability:
+      - Stochastic next-token text generation.
+    positive_examples:
+      - Predict, sample, append, and repeat from a seed prompt.
+    negative_examples:
+      - Discarding previously generated tokens before the next prediction.
+      - Treating one next-token prediction as an entire generated passage.
+    non_goals:
+      - This procedure does not guarantee coherence or factuality.
+    error_signatures:
+      - Failing to feed the expanded sequence back into the model.
+    instructional_repairs:
+      - Write the generation state after each iteration and use that complete 
+        state as the next input.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_3927402385952e76
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s30
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s31
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s32
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s35
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+  - id: facet_attention_allows_information_encoded_at_one_toke
+    title:
+    aliases:
+      - attention-versus-MLP information flow
+    description:
+    tags: []
+    concept_id: concept_contextualized_token_representation
+    kind: proposition
+    claim: Attention allows information encoded at one token position to 
+      influence another, producing token representations that incorporate 
+      relevant context; position-wise MLP processing transforms positions 
+      independently rather than exchanging information between them.
+    preconditions:
+      - A sequence of token-position vectors is available.
+    postconditions:
+      - Representations may encode information from relevant surrounding 
+        positions.
+      - The distinct interaction roles of attention and the position-wise MLP 
+        are identifiable.
+    applicability:
+      - Transformer attention and feed-forward processing.
+    positive_examples:
+      - Attention refining the representation of an ambiguous word using 
+        surrounding words.
+      - An MLP applying the same transformation independently at every token 
+        position.
+    negative_examples:
+      - Attributing cross-token communication to the position-wise MLP.
+    non_goals:
+      - This facet does not specify the query-key-value equations.
+      - It does not claim every learned attention head has a simple 
+        human-interpretable role.
+    error_signatures:
+      - Saying that attention and the MLP exchange information between positions
+        in the same way.
+    instructional_repairs:
+      - Attribute cross-position information flow to attention and 
+        position-independent transformation to the MLP.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_47fe6ed29f4252ca
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          path:
+          locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s42
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+          role: lecture
+          source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          path:
+          locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s43
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+          role: lecture
+          source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+          path:
+          locator: span:ext_01KY18ZNKKJ4FX1JW191NN77G0/s106
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZNKKJ4FX1JW191NN77G0
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZNFRJKBF3RF1MPD41D6D
+          role: lecture
+          source_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+          path:
+          locator: span:ext_01KY18ZNKKJ4FX1JW191NN77G0/s107
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZNKKJ4FX1JW191NN77G0
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZNFRJKBF3RF1MPD41D6D
+          role: lecture
+          source_id: src_01KY18ZNEFGZFGS3XYT7VR6MH0
+          span_hash:
+  - id: facet_an_embedding_matrix_associates_each_vocabulary_t
+    title:
+    aliases:
+      - embedding-matrix lookup
+    description:
+    tags: []
+    concept_id: concept_token_embedding
+    kind: procedure_contract
+    claim: An embedding matrix associates each vocabulary token with an initial 
+      learned vector, obtained from the token's corresponding matrix entry; this
+      initial lookup does not by itself incorporate surrounding lexical context.
+    preconditions:
+      - The input has been tokenized.
+      - A learned embedding matrix and vocabulary are available.
+    postconditions:
+      - Each token has an initial vector representation.
+    applicability:
+      - Transformer input embedding.
+    positive_examples:
+      - Looking up the learned vector associated with a vocabulary token.
+    negative_examples:
+      - Claiming that the lookup vector already changes solely because 
+        surrounding words differ.
+    non_goals:
+      - This facet does not deny that positional information may be added or 
+        otherwise encoded at the model input.
+      - This facet does not describe later contextual refinement.
+    error_signatures:
+      - Conflating an initial lookup vector with a later contextualized 
+        representation.
+    instructional_repairs:
+      - 'Identify the computation stage: embedding lookup supplies the initial vector,
+        while later attention and processing blocks incorporate context.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ab22eb1ff4d5b78e
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s220
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s221
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s323
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          path:
+          locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s37
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+          role: lecture
+          source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          span_hash:
+  - id: facet_logits_are_the_raw_unnormalized_vocabulary_score
+    title:
+    aliases:
+      - raw vocabulary score
+    description:
+    tags: []
+    concept_id: concept_logits
+    kind: definition
+    claim: Logits are the raw, unnormalized vocabulary scores produced before 
+      softmax; they are not themselves probabilities.
+    preconditions:
+      - A final contextual representation has been mapped through the output 
+        transformation.
+    postconditions:
+      - One unnormalized score is available for each vocabulary token.
+    applicability:
+      - Next-token output computation.
+    positive_examples:
+      - A negative or greater-than-one output score interpreted as a logit.
+    negative_examples:
+      - Interpreting unembedding outputs directly as probabilities.
+    non_goals:
+      - This facet does not prescribe a token-selection rule.
+    error_signatures:
+      - Calling raw scores probabilities even though they may be negative or 
+        fail to sum to one.
+    instructional_repairs:
+      - Label the raw outputs as logits and apply softmax before probability 
+        interpretation.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_828dd8c39c750a38
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s423
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s424
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s429
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+  - id: facet_softmax_converts_a_finite_list_of_logits_into_a_
+    title:
+    aliases:
+      - softmax normalization
+    description:
+    tags: []
+    concept_id: concept_softmax_function
+    kind: procedure_contract
+    claim: Softmax converts a finite list of logits into a probability 
+      distribution by exponentiating each logit and dividing each exponential by
+      the sum of all exponentials, yielding positive values that sum to one.
+    preconditions:
+      - A finite list of real-valued logits is available.
+    postconditions:
+      - Every output is positive.
+      - The outputs sum to one.
+    applicability:
+      - Next-token vocabulary normalization.
+      - Attention-score normalization when applied along the specified axis.
+    positive_examples:
+      - Applying softmax to one vocabulary logit per candidate token.
+    negative_examples:
+      - Using raw logits as probabilities.
+      - Replacing softmax with a hard maximum when a distribution is required.
+    non_goals:
+      - Softmax does not itself sample or select the next token.
+      - The outputs need not be calibrated probabilities.
+    error_signatures:
+      - Omitting exponentiation.
+      - Normalizing raw signed values directly.
+      - Returning only the maximum entry.
+    instructional_repairs:
+      - 'Apply the three-step procedure: exponentiate, sum, then divide each exponential
+        by the sum.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_9668fdae840b80da
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s377
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s378
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s389
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          path:
+          locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s154
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+          role: lecture
+          source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          span_hash:
+  - id: facet_increasing_sampling_temperature_makes_lower_valu
+    title:
+    aliases:
+      - temperature-sharpness relationship
+    description:
+    tags: []
+    concept_id: concept_sampling_temperature
+    kind: interpretation
+    claim: Increasing sampling temperature makes lower-valued logits relatively 
+      more influential and produces a flatter, less predictable distribution, 
+      whereas decreasing temperature sharpens the distribution around the 
+      largest logits.
+    preconditions:
+      - A set of logits is available for temperature-scaled softmax.
+    postconditions:
+      - The relative sharpness of the sampling distribution changes.
+    applicability:
+      - Stochastic next-token generation.
+    positive_examples:
+      - Comparing generated continuations from the same seed at lower and higher
+        temperatures.
+    negative_examples:
+      - Claiming higher temperature necessarily improves quality or coherence.
+    non_goals:
+      - Temperature does not guarantee originality, correctness, or coherence.
+      - This facet does not specify an optimal temperature.
+    error_signatures:
+      - Equating higher temperature with uniformly better text.
+      - Describing temperature as changing the learned model weights.
+    instructional_repairs:
+      - Frame temperature as a predictability-diversity tradeoff applied to 
+        output scores, not as a quality guarantee.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_62d2c236730147af
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s399
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s403
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s410
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s414
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+  - id: facet_tokenization_divides_input_into_discrete_pieces_
+    title:
+    aliases:
+      - token definition
+    description:
+    tags: []
+    concept_id: concept_tokenization
+    kind: definition
+    claim: Tokenization divides input into discrete pieces; text tokens may be 
+      complete words, word pieces, or common character combinations rather than 
+      necessarily whole words.
+    preconditions:
+      - An input has been selected for model processing.
+    postconditions:
+      - The input is represented as a token sequence.
+    applicability:
+      - Text and other transformer inputs.
+    positive_examples:
+      - A word piece used as one text token.
+      - An image patch or audio chunk used as a token-like input unit.
+    negative_examples:
+      - Assuming every text token must be a complete word.
+    non_goals:
+      - This facet does not specify a particular tokenizer algorithm or 
+        vocabulary.
+    error_signatures:
+      - Treating word-level lecture examples as a universal definition of 
+        tokenization.
+    instructional_repairs:
+      - Separate pedagogical whole-word examples from the broader definition 
+        that permits word pieces and character combinations.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_4b87df38765590a8
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s55
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s56
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s57
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          path:
+          locator: span:ext_01KY18ZKYGJMSG49FCJHK6MZYK/s11
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZKYGJMSG49FCJHK6MZYK
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY18ZKTHE0R5QAXNA0VXYC4E
+          role: lecture
+          source_id: src_01KY18ZKS8ARP6W2DF4249ABTE
+          span_hash:
+  - id: facet_a_high_level_decoder_style_transformer_inference
+    title:
+    aliases:
+      - next-token inference pipeline
+    description:
+    tags: []
+    concept_id: concept_transformer_inference_pipeline
+    kind: procedure_contract
+    claim: A high-level decoder-style transformer inference pass tokenizes 
+      input, maps tokens to initial vectors, repeatedly applies contextual 
+      attention and position-wise feed-forward processing, maps a final 
+      contextual representation to vocabulary logits, and applies softmax to 
+      obtain a next-token distribution.
+    preconditions:
+      - Input text is available.
+      - The model's learned parameters and vocabulary are available.
+    postconditions:
+      - A probability distribution over possible next tokens is produced.
+    applicability:
+      - High-level next-token language-model inference.
+    positive_examples:
+      - Tracing text through tokenization, embeddings, transformer blocks, 
+        unembedding, and softmax.
+    negative_examples:
+      - Treating raw output scores as probabilities.
+      - Claiming that the MLP alone exchanges information across token 
+        positions.
+    non_goals:
+      - This facet omits training, loss computation, and detailed normalization 
+        placement.
+      - It abstracts over architecture-specific block ordering.
+    error_signatures:
+      - Skipping the output normalization step.
+      - Confusing learned weights with run-specific activation vectors.
+    instructional_repairs:
+      - Name each representation in order and distinguish initial vectors, 
+        contextual vectors, logits, and probabilities.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_29815d37ea900e75
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s50
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s60
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s65
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s75
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          path:
+          locator: span:ext_01KY18ZJCCGH296FEY0FA77EXF/s93
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZJCCGH296FEY0FA77EXF
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZJ85KRJAQT2NB7728YTS
+          role: lecture
+          source_id: src_01KY18ZJ6GRE2MKT52TWGFW6QQ
+          span_hash:
+  - id: facet_to_differentiate_a_parameter_s_contribution_to_c
+    title:
+    aliases:
+      - recursive chain-rule backpropagation
+    description:
+    tags: []
+    concept_id: concept_backpropagation
+    kind: procedure_contract
+    claim: To differentiate a parameter's contribution to cost, multiply the 
+      local derivatives along each dependency path, sum contributions from 
+      alternative downstream paths, and recursively propagate the resulting 
+      activation sensitivity toward earlier layers.
+    preconditions:
+      - The dependency path from a parameter or activation to the cost is known.
+      - The required local derivatives exist.
+    postconditions:
+      - Cost sensitivities for earlier-layer activations, weights, and biases 
+        are expressed in terms of local derivatives.
+    applicability:
+      - Differentiable layered computation graphs, including multi-neuron 
+        fan-out.
+    positive_examples:
+      - Factoring ∂C/∂w^(L) through w^(L)→z^(L)→a^(L)→C.
+      - Adding contributions when one activation feeds multiple neurons.
+    negative_examples:
+      - Multiplying mutually alternative path contributions together.
+      - Discarding the scalar chain-rule structure when neuron indices are 
+        introduced.
+    non_goals:
+      - This facet does not prescribe a particular loss or activation function.
+    error_signatures:
+      - Omitting a local derivative factor.
+      - Failing to sum fan-out path contributions.
+      - Reading layer superscripts as exponents.
+    instructional_repairs:
+      - Draw the dependency paths and label each edge with its local derivative.
+      - Multiply within a path and add across distinct paths.
+      - Treat superscripts as layer indices and subscripts as neuron indices.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_260c513552b9c375
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s50
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s57
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s93
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s121
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s127
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+  - id: facet_backpropagation_computes_the_partial_derivatives
+    title:
+    aliases:
+      - gradient computation by backpropagation
+    description:
+    tags: []
+    concept_id: concept_backpropagation
+    kind: definition
+    claim: Backpropagation computes the partial derivatives of a neural-network 
+      cost with respect to its trainable weights and biases.
+    preconditions:
+      - A differentiable feedforward network, cost function, weights, and biases
+        are specified.
+    postconditions:
+      - The gradient components associated with trainable parameters can be 
+        obtained.
+    applicability:
+      - Gradient-based training of differentiable feedforward neural networks.
+    positive_examples:
+      - Computing derivatives for a handwritten-digit classifier before a 
+        gradient-descent update.
+    negative_examples:
+      - Directly treating desired hidden activations as independently trainable 
+        parameters.
+    non_goals:
+      - Backpropagation does not itself guarantee a global minimum of the cost.
+    error_signatures:
+      - Describing backpropagation as the parameter update rule rather than the 
+        gradient-computation procedure.
+      - Attempting to update intermediate activations directly.
+    instructional_repairs:
+      - Separate gradient computation by backpropagation from the optimizer step
+        that uses the gradient.
+      - Trace desired activation effects back to the weights and biases that 
+        determine those activations.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_130167589f3affb9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          path:
+          locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s25
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+          role: reference
+          source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          path:
+          locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s26
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+          role: reference
+          source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s79
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s84
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+  - id: facet_when_the_training_cost_is_an_average_of_per_exam
+    title:
+    aliases:
+      - gradient aggregation across examples
+    description:
+    tags: []
+    concept_id: concept_backpropagation
+    kind: proposition
+    claim: When the training cost is an average of per-example costs, its 
+      parameter gradient is the corresponding average of per-example gradients; 
+      a mini-batch gradient is a cheaper approximation rather than the exact 
+      full-data gradient.
+    preconditions:
+      - The full objective is defined as an average over training examples.
+    postconditions:
+      - Per-example backpropagation results can be combined into full-batch or 
+        mini-batch updates.
+    applicability:
+      - Full-batch gradient descent and mini-batch stochastic gradient descent.
+    positive_examples:
+      - Averaging parameter gradients across the whole training set.
+      - Shuffling data and using one small batch for each approximate update.
+    negative_examples:
+      - Treating the preferred update for one digit-2 example as the complete 
+        training update.
+      - Calling a mini-batch result the exact full-data gradient.
+    non_goals:
+      - This facet does not claim that every mini-batch step is the exact 
+        steepest descent direction for the full objective.
+    error_signatures:
+      - Using one example's gradient as though it represented the whole dataset.
+      - Failing to distinguish a mini-batch estimate from the full gradient.
+    instructional_repairs:
+      - State the dataset subset over which the gradient was averaged.
+      - Label mini-batch gradients as stochastic approximations.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ebf74f75c387193f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s74
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          path:
+          locator: span:ext_01KY18ZGXJAME8Z202DN36M0CD/s78
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZGXJAME8Z202DN36M0CD
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZGRCAZW01G8VD91BW189
+          role: reference
+          source_id: src_01KY18ZGPTGVV5RXQS78CS8PXT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          path:
+          locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s132
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+          role: reference
+          source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          path:
+          locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s150
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+          role: reference
+          source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          path:
+          locator: span:ext_01KY18ZF932SXP4W24M4KZV72S/s157
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZF932SXP4W24M4KZV72S
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZF49C74748SKQ04K05XM
+          role: reference
+          source_id: src_01KY18ZF2K09K83A9D0E2CKAEH
+          span_hash:
+  - id: facet_a_causal_self_attention_head_projects_token_repr
+    title:
+    aliases:
+      - scaled dot-product causal attention
+    description:
+    tags: []
+    concept_id: concept_causal_self_attention_and_kv_caching
+    kind: procedure_contract
+    claim: A causal self-attention head projects token representations into 
+      queries, keys, and values; forms scaled query-key scores; masks future 
+      positions; applies row-wise softmax; and uses the resulting weights to 
+      combine values.
+    preconditions:
+      - The input matrix has one row per token.
+      - Compatible learned query, key, and value projection weights are 
+        available.
+    postconditions:
+      - Each token position receives an attention output formed from eligible 
+        value vectors.
+    applicability:
+      - Dense causal self-attention in autoregressive Transformers.
+    positive_examples:
+      - Computing softmax over masked, scaled QK^T scores and multiplying the 
+        attention pattern by V.
+    negative_examples:
+      - Treating the attention-pattern matrix as the value matrix or final 
+        attention output.
+      - Allowing a position to attend to future tokens during causal next-token 
+        processing.
+    non_goals:
+      - This procedure does not describe sparse-attention shortcuts or MLA cache
+        compression.
+    error_signatures:
+      - Omitting the causal mask.
+      - Omitting score scaling or softmax.
+      - Stopping before multiplying by the value matrix.
+    instructional_repairs:
+      - Track the distinct roles and matrix shapes of Q, K, V, the score matrix,
+        and the weighted-value output.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_0f156600872cbd93
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s102
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s129
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s135
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s142
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s158
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+  - id: facet_when_one_token_is_appended_during_causal_decodin
+    title:
+    aliases:
+      - incremental KV-cache update
+    description:
+    tags: []
+    concept_id: concept_causal_self_attention_and_kv_caching
+    kind: procedure_contract
+    claim: When one token is appended during causal decoding, reuse cached keys 
+      and values for prior tokens, compute only the new token's query, key, and 
+      value, form the new bottom attention row, and append the new key and value
+      to the cache.
+    preconditions:
+      - Generation is autoregressive and causally masked.
+      - Prior key and value rows are cached.
+      - Projection operations are applied consistently to each token position.
+    postconditions:
+      - The newly appended token's attention output is computed without 
+        recomputing earlier key and value rows.
+      - The cache is extended for the next decoding step.
+    applicability:
+      - Incremental causal self-attention decoding.
+    positive_examples:
+      - Reusing nine prior key and value rows after appending a tenth token.
+    negative_examples:
+      - Caching every old query row for use in the new attention row.
+      - Recomputing all previous key and value projections.
+    non_goals:
+      - KV caching does not eliminate memory storage or bandwidth costs.
+    error_signatures:
+      - Treating prior Q, K, and V rows as equally necessary to cache.
+      - Computing the causally masked upper-right column for earlier positions.
+    instructional_repairs:
+      - Identify the single new output row required at the current decoding 
+        step.
+      - Cache prior K and V rows, but compute only the newest query.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_219a3b4b148c97ca
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s215
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s232
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s237
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s245
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s248
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+  - id: facet_dense_attention_pattern_storage_scales_quadratic
+    title:
+    aliases:
+      - KV-cache memory scaling
+    description:
+    tags: []
+    concept_id: concept_causal_self_attention_and_kv_caching
+    kind: proposition
+    claim: Dense attention-pattern storage scales quadratically with sequence 
+      length, while a conventional autoregressive KV cache stores keys and 
+      values with size proportional to sequence length, head dimension, head 
+      count, and layer count.
+    preconditions:
+      - Attention is dense over eligible token pairs.
+      - Distinct keys and values are cached for each head and layer in the 
+        conventional design.
+    postconditions:
+      - Attention computation and KV-cache memory can be analyzed as separate 
+        long-context resource costs.
+    applicability:
+      - Conventional multi-head causal attention without sparse attention or 
+        shared latent caches.
+    positive_examples:
+      - Using 2 × n × DH × NH × L cached numbers for keys and values under the 
+        stated architecture assumptions.
+    negative_examples:
+      - Concluding that KV caching makes incremental attention free.
+      - Applying the conventional per-head cache formula unchanged to MLA.
+    non_goals:
+      - The formula does not describe all model memory or every attention 
+        variant.
+    error_signatures:
+      - Ignoring cache reads after eliminating recomputation.
+      - Claiming that every inference component has quadratic cost.
+    instructional_repairs:
+      - Separate attention-pattern entry count from KV-cache storage and 
+        bandwidth.
+      - State architecture and datatype assumptions with numerical estimates.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_51209d866e96d7b8
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s182
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s190
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s265
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s276
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+  - id: facet_in_the_described_mla_implementation_cache_storag
+    title:
+    aliases:
+      - MLA cache scaling
+    description:
+    tags: []
+    concept_id: concept_multi_head_latent_attention
+    kind: proposition
+    claim: In the described MLA implementation, cache storage is governed by the
+      shared latent-cache dimensions rather than being multiplied directly by 
+      the number of attention heads, producing an architecture-specific 
+      reduction relative to conventional and grouped-query caches.
+    preconditions:
+      - Keys and values are represented through the shared MLA latent cache.
+      - Comparisons use consistent architectural and datatype assumptions.
+    postconditions:
+      - The source's cache reductions can be explained by counting stored 
+        representations rather than treated as universal constants.
+    applicability:
+      - Cache analysis for the described DeepSeek R1 MLA configuration.
+    positive_examples:
+      - Comparing conventional per-head KV storage, grouped sharing, and a 
+        shared latent width on a per-token basis.
+    negative_examples:
+      - Claiming that the reported 57-fold reduction applies to every MLA 
+        implementation.
+      - Inferring that all model memory becomes independent of head count.
+    non_goals:
+      - This facet does not independently validate source-reported speed or 
+        performance figures.
+    error_signatures:
+      - Quoting cache figures without architecture assumptions.
+      - Using conventional KV-cache dimensionality for the MLA latent cache.
+    instructional_repairs:
+      - Count the number and width of representations actually cached per token 
+        for each design.
+      - Label numerical results as architecture-specific.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_c44e387a4c05e47b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s412
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s419
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s420
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s428
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+  - id: facet_multi_head_latent_attention_caches_a_compressed_
+    title:
+    aliases:
+      - MLA latent KV cache
+    description:
+    tags: []
+    concept_id: concept_multi_head_latent_attention
+    kind: definition
+    claim: Multi-head latent attention caches a compressed latent representation
+      shared across heads and uses learned head-specific up-projections so that 
+      heads can retain distinct key and value behavior.
+    preconditions:
+      - A learned down-projection into latent space and head-specific key and 
+        value up-projections are available.
+    postconditions:
+      - A shared compressed representation can replace explicit per-head key and
+        value cache entries.
+      - Different heads need not use identical reconstructed keys and values.
+    applicability:
+      - Transformer attention blocks using the described MLA design.
+    positive_examples:
+      - Caching one latent vector per token and reconstructing head-specific 
+        behavior through WUK and WUV.
+    negative_examples:
+      - Treating MLA as identical to multi-query attention merely because both 
+        share information across heads.
+    non_goals:
+      - The claim does not imply that total model memory is independent of head 
+        count.
+    error_signatures:
+      - Omitting the head-specific up-projections.
+      - Assuming all heads consume identical key and value representations.
+    instructional_repairs:
+      - Trace the shared latent vector through the separate learned 
+        up-projections for each head.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_599b97adfa61bddb
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s365
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s374
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s381
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s388
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+  - id: facet_at_inference_fixed_mla_key_up_projection_weights
+    title:
+    aliases:
+      - MLA inference weight absorption
+    description:
+    tags: []
+    concept_id: concept_multi_head_latent_attention
+    kind: procedure_contract
+    claim: At inference, fixed MLA key up-projection weights can be absorbed 
+      into query-side computation and fixed value up-projection weights into 
+      output-side computation, allowing attention to operate directly against 
+      the latent cache without explicit per-step key and value reconstruction.
+    preconditions:
+      - MLA projection weights are fixed for inference.
+      - The matrix products permit algebraic reassociation.
+    postconditions:
+      - Absorbed weights are precomputed once.
+      - Per-token attention uses the latent cache directly.
+    applicability:
+      - Inference with the described linear MLA formulation.
+    positive_examples:
+      - Folding WUK into the query-side operation before decoding begins.
+    negative_examples:
+      - Recomputing absorbed weights for every generated token.
+      - Counting explicit per-head key and value reconstruction as unavoidable 
+        inference work.
+    non_goals:
+      - The claim does not say that training avoids the additional learned 
+        projections.
+    error_signatures:
+      - Reading the unreassociated training graph as the mandatory inference 
+        graph.
+      - Applying weight absorption when the relevant operation is not a fixed 
+        linear map.
+    instructional_repairs:
+      - Write the matrix products and reassociate only fixed linear factors 
+        before inference.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_fcc31225c5cee4f0
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s389
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s396
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s401
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          path:
+          locator: span:ext_01KY18ZDJR244KBWW5329ERGNW/s407
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZDJR244KBWW5329ERGNW
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZDEDG4E36S015HMQ5MN8
+          role: lecture
+          source_id: src_01KY18ZDD36HXZKRYART7AZ0XZ
+          span_hash:
+  - id: facet_candidate_sparse_feature_meanings_are_inferred_f
+    title:
+    aliases:
+      - sparse-feature interpretation and steering
+    description:
+    tags: []
+    concept_id: concept_sparse_autoencoder_interpretability
+    kind: interpretation
+    claim: Candidate sparse-feature meanings are inferred from highly activating
+      examples and tested through causal intervention; coherent steering 
+      supports an interpretation, but extreme clamping and incomplete feature 
+      coverage limit the conclusion.
+    preconditions:
+      - A trained sparse autoencoder and activation corpus are available.
+      - Candidate features can be observed and intervened on.
+    postconditions:
+      - Evidence for a feature interpretation combines activation examples with 
+        causal effects.
+      - Intervention-strength and coverage limitations are reported.
+    applicability:
+      - Interpretation and steering of learned sparse features.
+    positive_examples:
+      - Identifying a questioning or uncertainty pattern among highly activating
+        texts and testing it with moderate feature clamping.
+    negative_examples:
+      - Assuming maximally activating examples prove a unique exhaustive 
+        meaning.
+      - Assuming stronger clamping always yields stronger coherent behavior.
+      - Treating millions of extracted features as a complete inventory of model
+        knowledge.
+    non_goals:
+      - The method does not guarantee recovery of every represented concept.
+    error_signatures:
+      - Using correlational examples without intervention as conclusive proof.
+      - Extrapolating linearly from moderate to extreme clamp strengths.
+      - Equating a large feature count with semantic completeness.
+    instructional_repairs:
+      - Combine activation analysis with causal tests.
+      - Vary intervention strength while monitoring generation quality.
+      - Compare extracted features with independently observable model 
+        capabilities.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_26f9726f1b678ac4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s537
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s555
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s572
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s592
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s608
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+  - id: facet_sparse_autoencoders_are_motivated_by_polysemanti
+    title:
+    aliases:
+      - polysemanticity motivation for SAEs
+    description:
+    tags: []
+    concept_id: concept_sparse_autoencoder_interpretability
+    kind: applicability_condition
+    claim: 'Sparse autoencoders are motivated by polysemanticity and superposition:
+      individual neurons may mix unrelated concepts, so interpretable features may
+      need to be represented as sparse directions or combinations rather than identified
+      with single neurons.'
+    preconditions:
+      - Model activations exhibit polysemantic or distributed representation 
+        behavior.
+    postconditions:
+      - Interpretability analysis targets learned sparse features rather than 
+        assuming one concept per neuron.
+    applicability:
+      - Mechanistic interpretation of internal language-model activations.
+    positive_examples:
+      - A neuron causally affecting skeptical output also activating on 
+        capitalization and proper nouns.
+    negative_examples:
+      - Naming a neuron a dedicated skepticism neuron from one intervention 
+        alone.
+      - Assuming one active neuron guarantees one disentangled concept.
+    non_goals:
+      - Polysemanticity does not imply that neuron activations are causally 
+        irrelevant.
+    error_signatures:
+      - Inferring a unique semantic label from a single causal intervention.
+      - Equating activation sparsity with representational disentanglement.
+    instructional_repairs:
+      - Inspect maximally activating examples across diverse inputs.
+      - Distinguish causal effect, activation sparsity, and semantic uniqueness.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_3a97edb11ae9fe6d
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s343
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s376
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s396
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s409
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+  - id: facet_a_sparse_autoencoder_encodes_model_activations_i
+    title:
+    aliases:
+      - sparse autoencoder feature extraction
+    description:
+    tags: []
+    concept_id: concept_sparse_autoencoder_interpretability
+    kind: procedure_contract
+    claim: A sparse autoencoder encodes model activations into a wider feature 
+      vector, suppresses most feature values, decodes the active features back 
+      into activation space, and is trained to balance sparse representation 
+      with accurate reconstruction.
+    preconditions:
+      - Activations from a chosen model location are available.
+      - Encoder and decoder mappings and a sparsifying mechanism are specified.
+    postconditions:
+      - A sparse feature vector and reconstructed activation are produced.
+      - Training can optimize reconstruction while maintaining sparsity.
+    applicability:
+      - Feature extraction from a selected residual-stream or layer activation 
+        location.
+    positive_examples:
+      - Mapping a 2304-dimensional activation to 16,384 candidate features and 
+        decoding back to 2304 dimensions.
+    negative_examples:
+      - Treating low reconstruction loss alone as proof that every learned 
+        feature has a human-readable meaning.
+    non_goals:
+      - The procedure does not assign semantic labels to feature indices in 
+        advance.
+    error_signatures:
+      - Ignoring the sparsity constraint.
+      - Evaluating only feature count without reconstruction quality.
+      - Assuming reconstruction quality proves semantic completeness.
+    instructional_repairs:
+      - Track encoder, sparse feature vector, decoder, and reconstruction loss 
+        as separate elements.
+      - Evaluate both reconstruction and sparsity.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_c1ad6e3a4a60adc6
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s439
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s466
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s480
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s489
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          path:
+          locator: span:ext_01KY18ZC3MK9SR6SEQSTW8Y4GT/s505
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18ZC3MK9SR6SEQSTW8Y4GT
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18ZBZ4AFM0WY56JRX6G61Q
+          role: reference
+          source_id: src_01KY18ZBXSPTZM4D36Z285XDCG
+          span_hash:
+  - id: facet_given_token_features_and_learned_projection_matr
+    title:
+    aliases:
+      - scaled dot-product attention procedure
+    description:
+    tags: []
+    concept_id: concept_scaled_self_attention
+    kind: procedure_contract
+    claim: Given token features and learned projection matrices, scaled 
+      self-attention projects queries, keys, and values; computes query-key dot 
+      products; scales logits by 1/sqrt(d_k); applies softmax; and aggregates 
+      value vectors into contextualized outputs.
+    preconditions:
+      - Token feature vectors and learned query, key, and value projection 
+        matrices are available.
+    postconditions:
+      - Each position receives a contextualized representation formed from 
+        normalized weighted values.
+    applicability:
+      - Transformer attention layers.
+    positive_examples:
+      - Tracing Q, K, and V projections followed by scaled logits, softmax, and 
+        value aggregation.
+    negative_examples:
+      - Using unnormalized raw dot products directly as final attention weights.
+    non_goals:
+      - Specifying a particular model's learned attention weights.
+    error_signatures:
+      - The scaling factor is omitted.
+      - Raw logits are treated as probabilities.
+      - Values are not included in the weighted aggregation.
+    instructional_repairs:
+      - Separate relevance computation from content aggregation and normalize 
+        the scaled relevance scores before weighting values.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_495c960f7d912966
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          path:
+          locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s173
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+          role: lecture
+          source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          path:
+          locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s146
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+          role: lecture
+          source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          span_hash:
+  - id: facet_select_among_mha_gqa_mqa_and_mla_by_comparing_th
+    title:
+    aliases:
+      - KV-efficient attention method selection
+    description:
+    tags: []
+    concept_id: concept_grouped_query_attention
+    kind: applicability_condition
+    claim: Select among MHA, GQA, MQA, and MLA by comparing the required 
+      head-specific key-value capacity, acceptable architectural complexity, and
+      KV-cache memory budget rather than treating cache reduction as cost-free.
+    preconditions:
+      - The attention variants' distinct cached representations are known.
+      - An inference memory constraint or capacity requirement is specified.
+    postconditions:
+      - The selected method is justified by both cache organization and 
+        representation tradeoffs.
+    applicability:
+      - Transformer architecture comparison and method selection.
+    positive_examples:
+      - Choosing GQA when an intermediate number of KV groups satisfies both 
+        memory and capacity requirements.
+    negative_examples:
+      - Choosing MQA solely because it minimizes KV heads while asserting no 
+        potential capacity cost.
+    non_goals:
+      - Declaring one variant universally superior.
+    error_signatures:
+      - The comparison counts query heads instead of distinct cached KV 
+        representations.
+      - Only memory is discussed despite an expressiveness requirement.
+    instructional_repairs:
+      - Tabulate the cached object and number of distinct KV representations for
+        each candidate before selecting a method.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_31f49674dc396dd8
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s238
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s257
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s304
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_causal_masking_assigns_disallowed_future_positio
+    title:
+    aliases:
+      - causal attention mask
+    description:
+    tags: []
+    concept_id: concept_causal_masking
+    kind: procedure_contract
+    claim: Causal masking assigns disallowed future-position logits a value 
+      whose softmax weight is zero, so each autoregressive position attends only
+      to itself and preceding positions.
+    preconditions:
+      - Attention logits are available before softmax.
+      - Positions have an autoregressive ordering.
+    postconditions:
+      - Future-token attention weights are zero.
+    applicability:
+      - Autoregressive Transformer training and generation.
+    positive_examples:
+      - Masking future logits with negative infinity before softmax.
+    negative_examples:
+      - Applying unrestricted attention across all target positions.
+    non_goals:
+      - Preventing parallel computation over all positions during training or 
+        prefill.
+    error_signatures:
+      - A position receives nonzero attention weight from a later position.
+      - Masking is applied after softmax without renormalization.
+    instructional_repairs:
+      - Apply the causal mask to logits before softmax and verify the resulting 
+        attention matrix is lower triangular.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_4e789514218bb5eb
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          path:
+          locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s339
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+          role: lecture
+          source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s113
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_grouped_query_attention_partitions_query_heads_i
+    title:
+    aliases:
+      - GQA group sharing
+    description:
+    tags: []
+    concept_id: concept_grouped_query_attention
+    kind: definition
+    claim: Grouped-query attention partitions query heads into groups and shares
+      a distinct key-value representation within each group, placing its 
+      cache-memory and representation-capacity tradeoff between MHA and MQA.
+    preconditions:
+      - Query heads can be partitioned into fewer key-value groups.
+    postconditions:
+      - Each query head uses the key and value representation assigned to its 
+        group.
+    applicability:
+      - Transformer designs balancing cache memory and head-specific capacity.
+    positive_examples:
+      - Assigning 128 query heads to 16 key-value groups.
+    negative_examples:
+      - Sharing one key-value set across every head and calling the result 
+        grouped-query rather than multi-query attention.
+    non_goals:
+      - Specifying an optimal number of groups for every model.
+    error_signatures:
+      - Group count is confused with query-head count.
+      - Every head is assigned its own KV set while cache savings are claimed.
+    instructional_repairs:
+      - 'Count distinct KV groups: MHA uses one per head, MQA uses one overall, and
+        GQA uses an intermediate number.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_3c13b2fe8ebd3bf6
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s247
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s265
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_during_autoregressive_decoding_a_kv_cache_stores
+    title:
+    aliases:
+      - KV-cache reuse contract
+    description:
+    tags: []
+    concept_id: concept_kv_caching
+    kind: procedure_contract
+    claim: During autoregressive decoding, a KV cache stores prior tokens' keys 
+      and values and reuses them for later tokens, while prior query vectors 
+      need not be cached.
+    preconditions:
+      - Autoregressive causal decoding is underway.
+      - Previously computed keys and values remain valid.
+    postconditions:
+      - Prior keys and values are reused instead of recomputed for every new 
+        token.
+    applicability:
+      - Token-by-token Transformer decoding.
+    positive_examples:
+      - Computing the new token's query, key, and value while retrieving earlier
+        keys and values from the cache.
+    negative_examples:
+      - Caching all prior queries as required decoding state.
+      - Recomputing all prior keys and values for every generated token.
+    non_goals:
+      - Eliminating attention over preceding tokens.
+    error_signatures:
+      - The cache contains queries as though later outputs reused them.
+      - Decode-time computation recreates every preceding key and value.
+    instructional_repairs:
+      - "Trace which side of the new token's attention calculation consumes prior-position
+        vectors: earlier keys and values are reused, while the current query is newly
+        computed."
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_aeaf3d0cb18545a5
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s177
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s192
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_kv_cache_storage_scales_with_sequence_length_lay
+    title:
+    aliases:
+      - KV-cache memory scaling
+    description:
+    tags: []
+    concept_id: concept_kv_caching
+    kind: proposition
+    claim: KV-cache storage scales with sequence length, layer count, numeric 
+      precision, key-plus-value dimensionality, and the number of distinct 
+      key-value heads or groups.
+    preconditions:
+      - The architecture's layer count, cache precision, sequence length, and 
+        key-value dimensions are known.
+    postconditions:
+      - Cache memory can be estimated and compared across attention variants.
+    applicability:
+      - Memory analysis of autoregressive Transformer inference.
+    positive_examples:
+      - Multiplying per-token key-plus-value storage by distinct KV heads, 
+        layers, sequence length, and bytes per element.
+    negative_examples:
+      - Comparing MHA and GQA cache memory using the number of query heads while
+        ignoring shared KV groups.
+    non_goals:
+      - Estimating all inference memory, including weights and temporary 
+        activations.
+    error_signatures:
+      - Keys or values are omitted from the estimate.
+      - Query vectors are counted as persistent cache entries.
+      - Distinct KV groups are replaced by query-head count for MQA or GQA.
+    instructional_repairs:
+      - Write the storage contribution per token and layer first, then multiply 
+        by the number of cached positions and layers.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_85433c4ff16a586f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s198
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s229
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_multi_head_latent_attention_compresses_a_token_r
+    title:
+    aliases:
+      - MLA latent KV compression
+    description:
+    tags: []
+    concept_id: concept_multi_head_latent_attention
+    kind: definition
+    claim: Multi-head latent attention compresses a token representation into a 
+      low-dimensional latent key-value vector and uses learned up-projections to
+      reconstruct distinct key and value vectors for attention heads, allowing 
+      the latent vector to replace full per-head KV cache entries.
+    preconditions:
+      - Learned down- and up-projection matrices are available.
+      - Multi-head attention and KV-cache organization are understood.
+    postconditions:
+      - A compact latent key-value representation can be cached per token and 
+        layer.
+    applicability:
+      - Reducing KV-cache memory while retaining head-specific reconstructed 
+        keys and values.
+    positive_examples:
+      - Caching c_KV and reconstructing head-specific keys and values through 
+        learned up-projections.
+    negative_examples:
+      - Attributing inference KV-cache savings to query compression alone.
+    non_goals:
+      - Claiming the latent dimension or memory-reduction factor is universal.
+    error_signatures:
+      - Full reconstructed keys and values are cached despite claiming 
+        latent-cache storage.
+      - Query compression is identified as the source of KV-cache reduction.
+    instructional_repairs:
+      - 'Identify which persistent representation replaces cached per-head keys and
+        values: the key-value latent vector.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_d5595d78c9fae2f0
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s301
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s331
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_multi_query_attention_uses_one_shared_key_and_on
+    title:
+    aliases:
+      - MQA sharing
+    description:
+    tags: []
+    concept_id: concept_multi_query_attention
+    kind: definition
+    claim: Multi-query attention uses one shared key and one shared value 
+      representation across all query heads, reducing KV-cache memory relative 
+      to standard MHA while reducing head-specific key-value capacity.
+    preconditions:
+      - Multiple query heads are used.
+      - Standard MHA cache organization is understood.
+    postconditions:
+      - Only one key-value representation per token and layer is cached for all 
+        query heads.
+    applicability:
+      - Memory-constrained autoregressive inference.
+    positive_examples:
+      - Many query heads attending through one shared key-value set.
+    negative_examples:
+      - Claiming MQA preserves all head-specific key-value representations.
+    non_goals:
+      - Guaranteeing identical model quality to standard MHA.
+    error_signatures:
+      - MQA is described as having one distinct KV set per query head.
+      - Memory savings are stated without recognizing the 
+        representation-capacity tradeoff.
+    instructional_repairs:
+      - Contrast the number of query heads with the number of distinct cached KV
+        heads.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ba59c4c3201ac564
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s222
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s238
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_multi_head_attention_applies_attention_through_m
+    title:
+    aliases:
+      - MHA construction
+    description:
+    tags: []
+    concept_id: concept_multi_head_attention
+    kind: definition
+    claim: Multi-head attention applies attention through multiple learned 
+      query, key, and value projection sets, concatenates the head outputs, and 
+      applies a learned output projection, allowing different representation 
+      subspaces to contribute.
+    preconditions:
+      - Single-head attention and learned linear projections are understood.
+    postconditions:
+      - Multiple head outputs are combined into one attention-layer output.
+    applicability:
+      - Transformer architectures requiring multiple attention subspaces.
+    positive_examples:
+      - Distinct heads representing different token relationships before 
+        concatenation.
+    negative_examples:
+      - A single query-key-value projection set described as multi-head 
+        attention.
+    non_goals:
+      - Guaranteeing a human-interpretable role for every head.
+    error_signatures:
+      - All heads are treated as sharing every projection while still claiming 
+        standard MHA.
+      - Head outputs are not combined.
+    instructional_repairs:
+      - Track the per-head projections and the concatenate-then-output-project 
+        construction explicitly.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_8362341f091df5b9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          path:
+          locator: span:ext_01KY18Z8GHXR8DA9KD0V2NBHJH/s194
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z8GHXR8DA9KD0V2NBHJH
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY18Z8CFNZTPB62F9S4SZY40
+          role: lecture
+          source_id: src_01KY18Z8B6CXZ8VFMQF374VKTD
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          path:
+          locator: span:ext_01KY18Z9X90SGNF7PZ1BYZNJ7A/s147
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY18Z9X90SGNF7PZ1BYZNJ7A
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY18Z9SC7M4341X7KHKA6PMP
+          role: paper
+          source_id: src_01KY18Z9R17R1FK738QV2ANKJJ
+          span_hash:
+  - id: facet_for_class_i_and_input_features_x_j_an_affine_cla
+    title:
+    aliases:
+      - linear neuron output
+      - class score
+      - logit
+    description:
+    tags: []
+    concept_id: concept_affine_multiclass_classifier
+    kind: definition
+    claim: For class i and input features x_j, an affine classifier computes a 
+      logit h_i as a weighted sum of the inputs plus a bias; with two inputs, 
+      h_i=m_{i1}x_1+m_{i2}x_2+b_i and its graph is a plane.
+    preconditions:
+      - The numerical input features and the class-specific weights and bias are
+        specified.
+    postconditions:
+      - One unbounded scalar logit is produced for each class.
+    applicability:
+      - One- or multiple-input linear classification models.
+    positive_examples:
+      - A four-city classifier uses one two-input affine logit for each city.
+    negative_examples:
+      - Treating a two-input affine logit as a one-dimensional line.
+    non_goals:
+      - The affine calculation alone does not produce normalized probabilities.
+    error_signatures:
+      - Omitting an input weight.
+      - Equating a logit with a final class probability.
+    instructional_repairs:
+      - Write one weighted term per input feature and keep the logit distinct 
+        from the softmax output.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_bd682c8649b3a39e
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s189
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s297
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s301
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_affine_logits_h_i_σ_j_m_ij_x_j_b_i_with_soft
+    title:
+    aliases:
+      - linear-softmax parameter gradients
+    description:
+    tags: []
+    concept_id: concept_backpropagation
+    kind: procedure_contract
+    claim: For affine logits h_i=Σ_j m_{ij}x_j+b_i with softmax and one-hot 
+      cross-entropy, backpropagation gives ∂L/∂m_{ij}=x_j(hat_y_i-y_i) and 
+      ∂L/∂b_i=hat_y_i-y_i.
+    preconditions:
+      - Inputs, one-hot target, logits, and softmax probabilities are available.
+      - The model uses affine class logits and cross-entropy loss.
+    postconditions:
+      - A loss derivative is available for every weight and bias.
+    applicability:
+      - One- or multiple-input affine softmax classifiers.
+    positive_examples:
+      - A four-class, two-input model has eight weight gradients and four bias 
+        gradients.
+    negative_examples:
+      - Using m_{ij} instead of x_j as the derivative of h_i with respect to 
+        m_{ij}.
+    non_goals:
+      - These formulas do not include a learning-rate-scaled parameter update.
+    error_signatures:
+      - Omitting the input factor from a weight gradient.
+      - Multiplying a bias gradient by the input.
+      - Computing fewer gradients than trainable parameters.
+    instructional_repairs:
+      - First compute hat_y-y, then multiply each class error component by the 
+        corresponding input for weight gradients; copy the component directly 
+        for the bias gradient.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_2c340d6029209452
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s237
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s243
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s303
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_differentiable_stages_composed_in_sequence_m
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_chain_rule
+    kind: procedure_contract
+    claim: For differentiable stages composed in sequence, multiply the local 
+      derivatives along the dependency path to obtain the derivative of the 
+      final output with respect to an earlier quantity.
+    preconditions:
+      - The computation is decomposed into differentiable stages.
+      - The relevant local derivatives are available.
+    postconditions:
+      - A derivative through the composed computation is obtained.
+    applicability:
+      - Layered neural-network computations and other multistage differentiable 
+        functions.
+    positive_examples:
+      - If y=2x and z=4y, then dz/dx=(dy/dx)(dz/dy)=2·4=8.
+    negative_examples:
+      - Treating the local derivatives as unrelated quantities that should be 
+        added.
+    non_goals:
+      - The chain rule does not itself specify the model's loss or 
+        parameter-update rule.
+    error_signatures:
+      - Omitting a dependency-path factor.
+      - Multiplying derivatives from unrelated branches.
+    instructional_repairs:
+      - Trace the path from the parameter to the loss and multiply the 
+        derivative contributed by each stage on that path.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_7997254ef2b32beb
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s224
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s226
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s227
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+    title:
+    aliases:
+      - token-level cross-entropy
+      - correct-class negative log loss
+    description:
+    tags: []
+    concept_id: concept_cross_entropy_loss
+    kind: definition
+    claim: 'For a one-hot target, cross-entropy loss is the negative natural logarithm
+      of the predicted probability assigned to the correct class or next token: L=-ln(p_correct).'
+    preconditions:
+      - The model supplies a probability for the correct outcome.
+    postconditions:
+      - Probability one for the correct outcome gives zero loss.
+      - Smaller correct-outcome probabilities produce larger loss.
+    applicability:
+      - Multiclass classification with a one-hot target.
+      - Scored next-token predictions.
+    positive_examples:
+      - A correct-class probability of 0.086 yields a loss of approximately 
+        2.45.
+    negative_examples:
+      - Using the probability of the model's top prediction when that prediction
+        is not the correct outcome.
+    non_goals:
+      - The loss is not computed by averaging probabilities directly.
+    error_signatures:
+      - Selecting an incorrect-class probability.
+      - Using the top-token probability instead of the correct-token 
+        probability.
+      - Dropping the negative sign or logarithm.
+    instructional_repairs:
+      - Locate the probability at the correct target index before applying -ln.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_a5b0146b2b0c8a86
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s199
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s203
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s138
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_to_reduce_loss_by_gradient_descent_update_each_p
+    title:
+    aliases:
+      - gradient update
+    description:
+    tags: []
+    concept_id: concept_gradient_descent
+    kind: procedure_contract
+    claim: To reduce loss by gradient descent, update each parameter θ as 
+      θ←θ-α∂L/∂θ, where the positive learning rate α scales the step; positive 
+      gradients decrease their parameters and negative gradients increase them.
+    preconditions:
+      - Current parameter values and their loss gradients are available.
+      - A positive learning rate is selected.
+    postconditions:
+      - Every parameter is moved opposite its local direction of increasing 
+        loss.
+    applicability:
+      - Iterative minimization of a differentiable loss.
+    positive_examples:
+      - A parameter with a negative gradient increases after subtracting the 
+        scaled gradient.
+    negative_examples:
+      - Adding the gradient while intending to minimize loss.
+    non_goals:
+      - A single local gradient does not describe the entire loss landscape or 
+        guarantee convergence.
+    error_signatures:
+      - Updating in the same direction as the gradient.
+      - Applying the learning rate inconsistently across corresponding 
+        parameter-gradient pairs.
+    instructional_repairs:
+      - Write the subtraction explicitly and check the sign of each resulting 
+        parameter change.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_4d8839bdeadec6ac
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s250
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s255
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s256
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_the_gradient_vector_contains_one_partial_derivat
+    title:
+    aliases: []
+    description:
+    tags: []
+    concept_id: concept_gradient_vector
+    kind: definition
+    claim: The gradient vector contains one partial derivative of the loss for 
+      each trainable model parameter and records the local direction and rate of
+      loss change in parameter space.
+    preconditions:
+      - A differentiable loss and a collection of trainable parameters are 
+        specified.
+    postconditions:
+      - Each trainable parameter has a corresponding gradient component.
+    applicability:
+      - Differentiable parameterized models.
+    positive_examples:
+      - A three-neuron model with one weight and one bias per neuron has a 
+        six-component gradient.
+    negative_examples:
+      - Reporting only the derivative for the correct class while omitting the 
+        remaining trainable parameters.
+    non_goals:
+      - The gradient does not by itself specify the learning rate.
+    error_signatures:
+      - Gradient dimension does not match parameter count.
+      - A parameter derivative is omitted or duplicated.
+    instructional_repairs:
+      - Enumerate the model parameters and align exactly one derivative with 
+        each parameter.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_628af0f651af405d
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s241
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s245
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s246
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_because_model_parameters_interact_through_a_join
+    title:
+    aliases:
+      - joint parameter optimization
+    description:
+    tags: []
+    concept_id: concept_loss_landscape
+    kind: interpretation
+    claim: Because model parameters interact through a joint loss function, 
+      one-parameter-at-a-time optimization and exhaustive enumeration of 
+      parameter combinations are inadequate strategies for training large 
+      models; coordinated gradient-based updates use local information across 
+      parameters.
+    preconditions:
+      - The model has many interacting trainable parameters.
+    postconditions:
+      - Optimization strategies are evaluated with respect to parameter 
+        interaction and search-space scale.
+    applicability:
+      - Reasoning about optimization of large neural networks.
+    positive_examples:
+      - Computing a full gradient and updating all parameters together.
+    negative_examples:
+      - Optimizing each parameter independently while ignoring interactions.
+      - Testing every combination of parameter values.
+    non_goals:
+      - The claim does not assert that every local gradient step reaches a 
+        global optimum.
+    error_signatures:
+      - Treating isolated one-dimensional parameter changes as independent.
+      - Proposing exhaustive search for a continuous high-dimensional model.
+    instructional_repairs:
+      - Represent loss as a joint function of all parameters and use gradients 
+        to coordinate local updates.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_4a6377d5d013da8b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s134
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s249
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s255
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+    title:
+    aliases:
+      - normalized exponential
+    description:
+    tags: []
+    concept_id: concept_softmax_function
+    kind: procedure_contract
+    claim: Given logits h_i, softmax computes exp(h_i) divided by the sum of 
+      exp(h_j) over all classes, producing positive probabilities that sum to 
+      one while preserving which logit is largest.
+    preconditions:
+      - A finite vector of class logits is available.
+    postconditions:
+      - Each output lies between zero and one.
+      - The outputs sum to one.
+      - The class with the largest logit also has the largest softmax 
+        probability.
+    applicability:
+      - Mutually exclusive multiclass prediction from a vector of logits.
+    positive_examples:
+      - For logits 1, 2, and 1, all classes retain positive probability and the 
+        middle class has the largest probability.
+    negative_examples:
+      - Replacing softmax with a hard argmax that assigns probability one to 
+        only the largest logit.
+    non_goals:
+      - Softmax does not independently compute a training loss.
+    error_signatures:
+      - Normalizing each class with a different denominator.
+      - Omitting a class from the shared denominator.
+      - Returning a one-hot vector for ordinary finite logits.
+    instructional_repairs:
+      - Exponentiate every logit and divide each result by the same sum over all
+        classes.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_a0873f7ade2ed171
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s194
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s195
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s279
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_softmax_probabilities_hat_y_followed_by_one_
+    title:
+    aliases:
+      - softmax-cross-entropy gradient
+    description:
+    tags: []
+    concept_id: concept_backpropagation
+    kind: proposition
+    claim: For softmax probabilities hat_y followed by one-hot cross-entropy 
+      with target y, the derivative of the loss with respect to each logit is 
+      ∂L/∂h_i=hat_y_i-y_i.
+    preconditions:
+      - The output layer uses softmax.
+      - The target is represented as a one-hot vector.
+      - The loss is cross-entropy.
+    postconditions:
+      - The correct-class logit derivative is hat_y_i-1.
+      - Each non-correct-class logit derivative is hat_y_i.
+    applicability:
+      - Softmax classifiers trained with one-hot cross-entropy.
+    positive_examples:
+      - If the correct-class probability is 0.09, its logit derivative is 
+        0.09-1=-0.91.
+    negative_examples:
+      - Using hat_y_i-1 for every class.
+    non_goals:
+      - The identity is not asserted for arbitrary activation-loss combinations.
+    error_signatures:
+      - Dropping the negative sign for the correct class.
+      - Subtracting one from every class probability.
+    instructional_repairs:
+      - Write the one-hot target explicitly and subtract it componentwise from 
+        the probability vector.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_be5cc0fa597b04b0
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s228
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s231
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s243
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_to_reconstruct_an_example_level_language_model_l
+    title:
+    aliases:
+      - example-level average cross-entropy
+    description:
+    tags: []
+    concept_id: concept_cross_entropy_loss
+    kind: procedure_contract
+    claim: To reconstruct an example-level language-model loss, compute -ln(P_i)
+      from the probability assigned to each correct next token and then take the
+      arithmetic mean of the token losses included by the scoring convention.
+    preconditions:
+      - A correct-next-token probability is available at each scored position.
+      - The set of token positions included in the reduction is known.
+    postconditions:
+      - A token loss is obtained at each scored position.
+      - Their arithmetic mean can be compared with the framework-reported 
+        example loss.
+    applicability:
+      - Causal-language-model examples with token probability tables.
+    positive_examples:
+      - Manually reconstructing a reported average cross-entropy loss from a 
+        next-token table.
+    negative_examples:
+      - Averaging the correct-token probabilities before applying the negative 
+        logarithm.
+    non_goals:
+      - The procedure does not assume that every framework configuration 
+        includes exactly the same token positions.
+    error_signatures:
+      - Averaging probabilities directly.
+      - Using top-prediction probabilities.
+      - Ignoring token-shift or inclusion conventions when a manual result 
+        differs from framework output.
+    instructional_repairs:
+      - Transform every included correct-token probability into a token loss 
+        before averaging, then check the framework's scoring convention.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_32cda5202461860e
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s138
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s142
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: exercise
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s149
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: exercise
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_class_i_with_two_inputs_the_affine_score_is_
+    title:
+    aliases:
+      - class-specific affine logits
+    description:
+    tags: []
+    concept_id: concept_affine_multiclass_classifier
+    kind: definition
+    claim: For class i with two inputs, the affine score is 
+      h_i=m_{i1}x_1+m_{i2}x_2+b_i; a four-class model therefore has eight slopes
+      and four biases.
+    preconditions:
+      - Two numerical inputs are available for every example.
+      - One output neuron is assigned to each of four classes.
+    postconditions:
+      - Four scalar class scores are produced.
+      - The model has twelve trainable parameters.
+    applicability:
+      - Two-input, four-class affine classifiers.
+    positive_examples:
+      - A geographic classifier using longitude and latitude for Madrid, Paris, 
+        Berlin, and Barcelona.
+    negative_examples:
+      - A hidden-layer nonlinear classifier with additional parameters.
+    non_goals:
+      - This facet does not define probability normalization or an optimizer.
+    error_signatures:
+      - Counting only one slope per two-input neuron.
+      - Counting neurons instead of trainable parameters.
+    instructional_repairs:
+      - Count one slope for each input plus one bias for every class neuron.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_eeff2fdb06cc8c33
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s297
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s298
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_a_composition_of_affine_layers_with_no_interveni
+    title:
+    aliases:
+      - linear-layer collapse
+    description:
+    tags: []
+    concept_id: concept_geometric_expressivity_of_relu_networks
+    kind: proposition
+    claim: A composition of affine layers with no intervening nonlinear 
+      activation is itself affine and therefore does not gain nonlinear 
+      decision-boundary capacity merely by adding layers.
+    preconditions:
+      - Every composed layer is affine.
+      - No nonlinear activation occurs between layers.
+    postconditions:
+      - The composed mapping can be rewritten as one affine mapping.
+    applicability:
+      - Stacks of linear or affine neural-network layers.
+    positive_examples:
+      - Substituting one affine layer into another and collecting coefficients.
+    negative_examples:
+      - A stack containing ReLU between affine layers.
+    non_goals:
+      - This claim does not apply to networks with nonlinear activations.
+    error_signatures:
+      - Assuming depth alone makes a fully affine network nonlinear.
+    instructional_repairs:
+      - Substitute the layer equations and collect coefficients of each input 
+        and the constant term.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_f24f62a1805eafb2
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s439
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s440
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_intermediate_activations_for_varied_contexts_may
+    title:
+    aliases:
+      - context-to-token geometric consolidation
+    description:
+    tags: []
+    concept_id: concept_neural_representation_geometry
+    kind: interpretation
+    claim: Intermediate activations for varied contexts may occupy distinct 
+      semantic regions, while later processing maps contexts sharing a next 
+      token toward the location associated with that token's embedding.
+    preconditions:
+      - Different contexts share a target next token.
+      - The final residual-stream position participates in next-token 
+        prediction.
+    postconditions:
+      - Intermediate contextual clustering and later target-token consolidation 
+        can be distinguished.
+    applicability:
+      - The city-token representation example described for Llama.
+    positive_examples:
+      - Treaty, sports, birth, and return contexts can form different 
+        intermediate clusters while predicting the same city token.
+    negative_examples: []
+    non_goals:
+      - The source does not require monotonic movement toward the target 
+        embedding at every layer.
+    error_signatures:
+      - Assuming all contexts predicting one token must already form a single 
+        intermediate cluster.
+    instructional_repairs:
+      - Separate contextual organization at an intermediate layer from the final
+        requirement to predict a shared token.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_5a2f48210fb56f55
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s322
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s326
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_to_visualize_intermediate_representation_geometr
+    title:
+    aliases:
+      - intermediate-activation probing
+    description:
+    tags: []
+    concept_id: concept_neural_representation_geometry
+    kind: procedure_contract
+    claim: To visualize intermediate representation geometry, collect the final 
+      residual-stream position at a selected intermediate layer for many labeled
+      next-token contexts and project the high-dimensional vectors to two 
+      dimensions with UMAP.
+    preconditions:
+      - Target next tokens are known.
+      - Intermediate residual-stream activations can be sampled.
+    postconditions:
+      - A two-dimensional visualization of sampled intermediate activations is 
+        produced.
+      - Context-related clusters can be inspected.
+    applicability:
+      - Probing intermediate representations in a transformer language model.
+    positive_examples:
+      - Sampling layer-7 final-position vectors for contexts predicting Madrid, 
+        Paris, or Berlin.
+    negative_examples:
+      - Treating arbitrary token positions as equivalent to the final position 
+        used for next-token prediction.
+    non_goals:
+      - The projection is not the original high-dimensional representation 
+        space.
+    error_signatures:
+      - Sampling only final-layer outputs when intermediate organization is the 
+        target.
+      - Interpreting UMAP coordinates as original embedding coordinates.
+    instructional_repairs:
+      - Record the sampled layer and token position, and explicitly label the 
+        plot as a dimensionality-reduced view.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_2adc994465be777e
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s315
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s322
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s324
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_relu_clips_negative_affine_outputs_to_zero_and_p
+    title:
+    aliases:
+      - ReLU bent-plane geometry
+    description:
+    tags: []
+    concept_id: concept_geometric_expressivity_of_relu_networks
+    kind: interpretation
+    claim: ReLU clips negative affine outputs to zero and preserves nonnegative 
+      outputs, bending each affine plane into a piecewise-linear surface; later 
+      neurons can combine such surfaces to form more complex decision regions.
+    preconditions:
+      - An affine pre-activation has been computed.
+      - ReLU is applied before the next affine layer.
+    postconditions:
+      - Negative regions become flat at zero.
+      - The network can construct piecewise-linear output surfaces.
+    applicability:
+      - Feed-forward ReLU networks.
+    positive_examples:
+      - A first-layer fold line separates clipped and preserved regions of a 
+        plane.
+    negative_examples:
+      - Passing a negative pre-activation forward unchanged.
+    non_goals:
+      - Additional expressivity does not guarantee successful training.
+    error_signatures:
+      - Applying ReLU before computing the affine pre-activation.
+      - Failing to clip negative values.
+    instructional_repairs:
+      - Compute the affine value first, apply max(0,h), then evaluate the next 
+        layer.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_d932a7338fd26651
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s441
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s448
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s400
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_softmax_normalizes_class_scores_into_probabiliti
+    title:
+    aliases:
+      - softmax preserves argmax
+    description:
+    tags: []
+    concept_id: concept_affine_multiclass_classifier
+    kind: interpretation
+    claim: Softmax normalizes class scores into probabilities while preserving 
+      their ordering, so it does not move decision boundaries defined by equal 
+      scores or change the argmax class.
+    preconditions:
+      - All class scores are normalized jointly by softmax.
+      - Prediction selects the largest output.
+    postconditions:
+      - Probabilities sum to one.
+      - The winning class and equal-score boundary locations are preserved.
+    applicability:
+      - Argmax-based multiclass classification.
+    positive_examples:
+      - Two equal class scores remain equal after softmax.
+    negative_examples: []
+    non_goals:
+      - Softmax does change output magnitudes.
+    error_signatures:
+      - Inferring that changed probability magnitudes imply a moved decision 
+        boundary.
+    instructional_repairs:
+      - Compare score ordering and equality before and after softmax.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_18fbbe400f53ff28
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s421
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s427
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_the_displayed_affine_softmax_loss_model_comp
+    title:
+    aliases:
+      - affine softmax-loss gradient pattern
+    description:
+    tags: []
+    concept_id: concept_softmax_classification_gradients
+    kind: procedure_contract
+    claim: For the displayed affine softmax-loss model, compute each slope 
+      derivative as ∂L/∂m_ij=x_j(ŷ_i-y_i) and each bias derivative as 
+      ∂L/∂b_i=ŷ_i-y_i.
+    preconditions:
+      - Affine class scores, predicted outputs, target components, and loss are 
+        available.
+    postconditions:
+      - One derivative is obtained for every slope and bias.
+      - A four-class, two-input model yields twelve parameter derivatives.
+    applicability:
+      - The softmax classification-loss setup underlying the displayed gradient 
+        equations.
+    positive_examples:
+      - ∂L/∂m_32=x_2(ŷ_3-y_3).
+      - ∂L/∂b_4=ŷ_4-y_4.
+    negative_examples:
+      - Using a bias derivative for a slope without multiplying by its input.
+    non_goals:
+      - This facet does not specify a learning rate or parameter-update 
+        equation.
+    error_signatures:
+      - Omitting derivatives for some parameters.
+      - Multiplying a slope gradient by the wrong input coordinate.
+    instructional_repairs:
+      - Index derivatives by class and input, then verify that the derivative 
+        count equals the parameter count.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_25bc07181eb85c3e
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s303
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s298
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_universal_approximation_is_a_representational_ex
+    title:
+    aliases:
+      - capacity-versus-optimization distinction
+    description:
+    tags: []
+    concept_id: concept_universal_approximation
+    kind: interpretation
+    claim: Universal approximation is a representational existence result for 
+      sufficiently wide networks on the relevant continuous targets; it does not
+      guarantee that training finds suitable parameters or provide a 
+      problem-specific neuron count.
+    preconditions:
+      - The target and architecture meet the theorem's representational 
+        conditions.
+    postconditions:
+      - Representational capacity is separated from optimization success and 
+        width selection.
+    applicability:
+      - Interpreting universal-approximation claims about neural networks.
+    positive_examples:
+      - A suitable parameterization may exist even when a practical training run
+        fails to find it.
+    negative_examples:
+      - Claiming that a very wide initialized network must train successfully.
+    non_goals:
+      - This facet does not give a quantitative width bound or convergence 
+        theorem.
+    error_signatures:
+      - Treating existence as a learning guarantee.
+      - Inferring a required neuron count directly from the theorem.
+    instructional_repairs:
+      - State separately what exists, what the training algorithm can guarantee,
+        and what architecture size is known.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_523ae6f9a13678e0
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s460
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s463
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s464
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_construct_a_configurable_two_input_relu_classifi
+    title:
+    aliases:
+      - BaarleNet architecture contract
+    description:
+    tags: []
+    concept_id: concept_feedforward_classifier_implementation
+    kind: procedure_contract
+    claim: Construct a configurable two-input ReLU classifier by composing an 
+      initial two-to-hidden linear layer and ReLU, optional hidden linear/ReLU 
+      pairs, and a final linear layer with two output logits; forward 
+      computation applies the assembled sequential model.
+    preconditions:
+      - The hidden-layer width list contains at least one entry.
+    postconditions:
+      - The model maps two-feature inputs to two class logits.
+    applicability:
+      - Implementing feedforward binary classifiers with two output scores in 
+        PyTorch.
+    positive_examples:
+      - A default hidden-layer configuration of [64].
+    negative_examples:
+      - Adding softmax inside the model when the shown cross-entropy setup 
+        expects logits.
+    non_goals:
+      - Defining loss, optimization, or training behavior.
+    error_signatures:
+      - Incorrect adjacent layer dimensions.
+      - Omitting the final two-output linear layer.
+    instructional_repairs:
+      - Track the input and output width of every linear transformation while 
+        assembling the layer list.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_521396e922b023df
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s568
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_applying_relu_to_an_already_piecewise_planar_hid
+    title:
+    aliases:
+      - recursive ReLU partitioning
+    description:
+    tags: []
+    concept_id: concept_geometric_expressivity_of_relu_networks
+    kind: interpretation
+    claim: Applying ReLU to an already piecewise-planar hidden representation 
+      can create multiple fold lines where the incoming surface crosses zero, so
+      successive layers can recursively refine the input-space partition.
+    preconditions:
+      - An incoming hidden representation is piecewise planar.
+      - The surface crosses zero in multiple regions.
+    postconditions:
+      - A later neuron may add several folds inherited from earlier-layer 
+        geometry.
+      - Depth can compound geometric complexity.
+    applicability:
+      - Interpreting stacked ReLU layers geometrically.
+    positive_examples:
+      - Two first-layer folds form four regions and later folds refine them into
+        ten regions.
+    negative_examples:
+      - Treating every hidden neuron as contributing exactly one input-space 
+        fold.
+    non_goals:
+      - Guaranteeing that every available neuron is active.
+      - Claiming that a more complex partition necessarily gives a better 
+        boundary.
+    error_signatures:
+      - Counting neurons as if each always contributed one independent line.
+    instructional_repairs:
+      - Trace zero crossings and region refinement separately at each layer.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_8363480617bd2eb1
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s486
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s488
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s489
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s499
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_a_maximum_region_formula_describes_possible_arch
+    title:
+    aliases:
+      - capacity-observation conflation
+    description:
+    tags: []
+    concept_id: concept_maximum_region_count_predicts_trained_behavior
+    kind: interpretation
+    claim: A maximum-region formula describes possible architectural capacity 
+      under its assumptions, not the typical or guaranteed number of regions 
+      produced by training.
+    preconditions: []
+    postconditions:
+      - Theoretical and empirical region counts are reported separately.
+    applicability:
+      - Interpreting exponential-in-depth region-count results.
+    positive_examples:
+      - Comparing a maximum of 16 with ten regions actually learned.
+    negative_examples:
+      - Claiming exponential empirical growth solely from the upper-bound 
+        exponent.
+    non_goals: []
+    error_signatures:
+      - Using 'maximum' and 'observed' region counts interchangeably.
+    instructional_repairs:
+      - Label the formula result as an upper bound and compare it with a counted
+        trained partition.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_62dd25cfa0c266d1
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s509
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s512
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_it_is_invalid_to_infer_that_gradient_descent_wil
+    title:
+    aliases:
+      - existence-implies-convergence error
+    description:
+    tags: []
+    concept_id: concept_representational_capacity_guarantees_successful_
+    kind: interpretation
+    claim: It is invalid to infer that gradient descent will find a good 
+      solution solely from the fact that the architecture can represent one; 
+      optimization depends on initialization, activation derivatives, and the 
+      reachable update path.
+    preconditions: []
+    postconditions:
+      - Representation and optimization claims are evaluated separately.
+    applicability:
+      - Critiquing claims that neural networks can learn anything.
+    positive_examples:
+      - A known representable solution remains unreachable after relevant ReLU 
+        gradients become zero.
+    negative_examples:
+      - A successful initialization used as evidence that every initialization 
+        succeeds.
+    non_goals: []
+    error_signatures:
+      - Existence is used as a convergence guarantee.
+    instructional_repairs:
+      - Cite the representation theorem's scope, then separately analyze the 
+        optimizer and gradient flow.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_b250168b14ab6666
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s462
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s475
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_prepare_a_binary_coordinate_dataset_by_sampling_
+    title:
+    aliases:
+      - aligned feature-label tensor preparation
+    description:
+    tags: []
+    concept_id: concept_supervised_coordinate_data_preparation
+    kind: procedure_contract
+    claim: Prepare a binary coordinate dataset by sampling rows from both class 
+      arrays, stacking the feature blocks, constructing label blocks in the same
+      class order, applying one shared random permutation to features and 
+      labels, and converting the results to PyTorch tensors.
+    preconditions:
+      - Both coordinate arrays exist, are indexable, and have compatible feature
+        dimensions.
+      - The label mapping is explicitly chosen to match the feature-stack order.
+    postconditions:
+      - Feature and label tensors remain positionally aligned after shuffling.
+    applicability:
+      - Preparing two-dimensional supervised examples for a PyTorch classifier.
+    positive_examples:
+      - One shuffled index array is applied to both X_sample and y_sample.
+    negative_examples:
+      - Shuffling features and labels independently.
+      - Inferring label semantics from array-length expressions without checking
+        stack order.
+    non_goals:
+      - Defining a model or training loop.
+      - Claiming that the source excerpt unambiguously names the 
+        country-to-label mapping.
+    error_signatures:
+      - Different feature and label permutations.
+      - Label blocks ordered differently from feature blocks.
+      - Using the malformed extracted identifier 'X sample'.
+    instructional_repairs:
+      - Document the class order, create labels from that order, and reuse one 
+        permutation for both arrays.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_b05382dbbbd0474d
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s553
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_the_stated_equal_width_relu_architecture_ide
+    title:
+    aliases:
+      - deep ReLU region-count upper bound
+    description:
+    tags: []
+    concept_id: concept_relu_linear_region_count_analysis
+    kind: procedure_contract
+    claim: For the stated equal-width ReLU architecture, identify width D, input
+      count D_i, and hidden-layer count K excluding the output layer, then 
+      compute N_r=((D/D_i)+1)^(D_i(K-1))((D^2+D+2)/2) and interpret the result 
+      only as a theoretical upper bound.
+    preconditions:
+      - The architecture matches the assumptions and notation of the source 
+        formula.
+    postconditions:
+      - A theoretical maximum region count is computed.
+      - The result is not presented as the expected learned count.
+    applicability:
+      - Comparing potential ReLU region counts across depth and width under the 
+        stated convention.
+    positive_examples:
+      - D=2, D_i=2, and K=2 gives an upper bound of 16 regions, compared with 
+        ten learned regions in the illustrated network.
+    negative_examples:
+      - Including the output layer in K.
+      - Reporting the computed bound as the trained network's realized count.
+    non_goals:
+      - Predicting typical empirical region growth.
+    error_signatures:
+      - Using the wrong layer convention for K.
+      - Equating maximum capacity with observed behavior.
+    instructional_repairs:
+      - Label every parameter before substitution and finish by comparing the 
+        bound with an observed count.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_9a6b12b22d72969b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s507
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s508
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s509
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s512
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s517
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_an_unfavorable_initialization_can_place_relevant
+    title:
+    aliases:
+      - initialization-sensitive ReLU failure
+    description:
+    tags: []
+    concept_id: concept_neural_network_representation_versus_trainabilit
+    kind: proposition
+    claim: An unfavorable initialization can place relevant inputs in 
+      zero-output ReLU regions, produce zero gradients through affected units, 
+      and prevent gradient descent from reaching a known better solution.
+    preconditions:
+      - A ReLU network is trained by gradient-based updates.
+      - Relevant activations lie in the zero-gradient portion of ReLU.
+    postconditions:
+      - Architectural capacity does not imply optimization reachability.
+    applicability:
+      - Diagnosing failed training trajectories in ReLU networks.
+    positive_examples:
+      - A small network loses usable folds and retains only a suboptimal linear 
+        boundary.
+    negative_examples:
+      - Assuming further identical updates must recover a good solution after 
+        the useful gradients become zero.
+    non_goals:
+      - Claiming that every large-network failure has the same local-minimum 
+        mechanism.
+    error_signatures:
+      - Reasoning only from solution existence while ignoring activation 
+        derivatives and initialization.
+    instructional_repairs:
+      - Trace initialization, activation support, derivatives, and the resulting
+        parameter-update path.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_83cad965fed6231f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s474
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s475
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s483
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_visualize_predicted_decision_regions_by_building
+    title:
+    aliases:
+      - probe-grid decision map
+    description:
+    tags: []
+    concept_id: concept_decision_region_visualization
+    kind: procedure_contract
+    claim: Visualize predicted decision regions by building a dense 
+      two-dimensional grid, evaluating all grid points as a batch, reshaping the
+      two-output logits, taking argmax across the class dimension, and 
+      overlaying the resulting class map on the coordinate domain.
+    preconditions:
+      - The model accepts two-feature tensors and returns two logits per sample.
+      - The plotting domain and tensor device are defined.
+    postconditions:
+      - A two-dimensional class-region overlay is rendered.
+    applicability:
+      - Inspecting the learned geometry of a two-input classifier.
+    positive_examples:
+      - Probe coordinates from -1 to 1 and reshape predictions back to a square 
+        grid.
+    negative_examples:
+      - Taking argmax over the grid-coordinate dimension.
+      - Reshaping outputs without preserving probe-grid order.
+    non_goals:
+      - Training the model.
+    error_signatures:
+      - Incorrect output-axis argmax.
+      - Device conversion errors before NumPy plotting.
+      - An orientation mismatch between the grid and overlay.
+    instructional_repairs:
+      - Record grid shape, flattened sample order, logit shape, class axis, and 
+        display orientation explicitly.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_7fe96fd3b72decc9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s568
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s569
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_a_two_dimensional_relu_network_with_one_hidd
+    title:
+    aliases:
+      - line-arrangement region formula
+    description:
+    tags: []
+    concept_id: concept_relu_linear_region_count_analysis
+    kind: procedure_contract
+    claim: For a two-dimensional ReLU network with one hidden layer under the 
+      source's convention, set K=1 and compute the maximum number of regions 
+      formed by D first-layer folds as N_r=(D^2+D+2)/2.
+    preconditions:
+      - The input is two-dimensional.
+      - The architecture has one hidden layer.
+      - The D folds are treated as lines in general position for the maximum 
+        calculation.
+    postconditions:
+      - The shallow planar upper bound is computed without a depth-dependent 
+        exponential factor.
+    applicability:
+      - Analyzing maximum region counts for shallow two-dimensional ReLU 
+        networks.
+    positive_examples:
+      - D=64 gives a maximum of 2,081 planar regions.
+    negative_examples:
+      - Applying exponential-in-depth growth when K=1.
+    non_goals:
+      - Describing empirical region counts after training.
+    error_signatures:
+      - Counting the output layer as a hidden layer.
+    instructional_repairs:
+      - First apply the K=1 special case, then evaluate the quadratic 
+        expression.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_e1fac3b7f3b0bf66
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s510
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s514
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s515
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s516
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_for_each_stochastic_update_select_one_example_co
+    title:
+    aliases:
+      - stochastic PyTorch training loop
+    description:
+    tags: []
+    concept_id: concept_stochastic_neural_network_training
+    kind: procedure_contract
+    claim: For each stochastic update, select one example, compute logits and 
+      cross-entropy loss, clear accumulated gradients, backpropagate, and update
+      parameters; periodically evaluate all samples using argmax predictions, 
+      while recognizing that stochastic loss and accuracy need not improve 
+      monotonically.
+    preconditions:
+      - A compatible model, labeled tensors, cross-entropy criterion, and 
+        optimizer are available.
+    postconditions:
+      - Model parameters receive repeated single-example updates.
+      - Periodic full-sample accuracy is reported.
+    applicability:
+      - Training and monitoring the illustrated small ReLU classifier.
+    positive_examples:
+      - Three hidden neurons, Adam with learning rate 0.01, and 10,000 updates 
+        in the displayed run.
+    negative_examples:
+      - Omitting gradient clearing before backward propagation.
+      - Treating each later checkpoint as necessarily better than every earlier 
+        checkpoint.
+    non_goals:
+      - Claiming that the illustrated configuration is optimal or that its final
+        accuracy is guaranteed across seeds.
+    error_signatures:
+      - Unintended gradient accumulation.
+      - Accuracy computed directly from scores without argmax.
+      - Interpreting stochastic logs as monotonic.
+    instructional_repairs:
+      - Check the update order and distinguish single-example checkpoint loss 
+        from full-sample accuracy.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_e3c339b7b94a2239
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s573
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_under_its_continuity_and_sufficient_width_condit
+    title:
+    aliases:
+      - universal approximation qualification
+    description:
+    tags: []
+    concept_id: concept_neural_network_representation_versus_trainabilit
+    kind: proposition
+    claim: Under its continuity and sufficient-width conditions, the Universal 
+      Approximation Theorem establishes the existence of arbitrarily accurate 
+      representing networks; it does not guarantee that training will find their
+      parameters or specify the width needed for a particular problem.
+    preconditions:
+      - The target representation satisfies the theorem's continuity framing.
+      - The network is sufficiently wide.
+    postconditions:
+      - Representational existence is distinguished from optimization success.
+    applicability:
+      - Reasoning about what universal approximation does and does not 
+        guarantee.
+    positive_examples:
+      - Continuous output surfaces can intersect to define the 
+        town-classification border.
+    negative_examples:
+      - Inferring that gradient descent can learn every target merely because a 
+        representing network exists.
+    non_goals:
+      - Guaranteeing global optimization.
+      - Giving a neuron count for every target.
+    error_signatures:
+      - Treating a representation theorem as a convergence theorem.
+    instructional_repairs:
+      - State separately the representational claim, its conditions, and the 
+        absence of an optimization guarantee.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_f94fe144573ce8b3
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s460
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s462
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s463
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+  - id: facet_visualize_labeled_two_dimensional_samples_by_plo
+    title:
+    aliases:
+      - labeled coordinate scatter plot
+    description:
+    tags: []
+    concept_id: concept_supervised_coordinate_data_preparation
+    kind: procedure_contract
+    claim: Visualize labeled two-dimensional samples by plotting the first two 
+      feature columns, mapping labels to point color, using small translucent 
+      markers, and setting square axes.
+    preconditions:
+      - The feature data have at least two columns.
+      - The label sequence is aligned with the plotted rows.
+    postconditions:
+      - A square scatter plot displays the spatial distribution of both classes.
+    applicability:
+      - Inspecting coordinate data before classifier training.
+    positive_examples:
+      - Use point size 1, alpha 0.3, and square axes for a dense sample.
+    negative_examples: []
+    non_goals:
+      - Interpreting the resulting class geometry without seeing the plot.
+    error_signatures:
+      - Plotting mismatched labels or unequal coordinate scaling.
+    instructional_repairs:
+      - Verify feature-label alignment and use equal axis scaling.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_5a296a6930f567ab
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s559
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          path:
+          locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s560
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+          role: primary_textbook
+          source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+          span_hash:

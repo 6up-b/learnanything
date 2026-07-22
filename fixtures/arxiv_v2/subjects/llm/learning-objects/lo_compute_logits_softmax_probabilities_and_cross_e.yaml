@@ -1,0 +1,83 @@
+schema_version: 1
+id: lo_compute_logits_softmax_probabilities_and_cross_e
+title: Compute logits, softmax probabilities, and cross-entropy
+subjects:
+  - llm
+concept: concept_cross_entropy_loss
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Carry out the forward computation of an affine multiclass classifier 
+  and calculate loss from the correct-class probability.
+prerequisites:
+  - concept_affine_multiclass_classifier
+  - concept_softmax_function
+confusables: []
+blueprints:
+  - id: bp_01KY1H1X_17
+    weight: 1.0
+    recipes:
+      - id: recipe_forward_loss
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_class_i_and_input_features_x_j_an_affine_cla
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_given_logits_h_i_softmax_computes_exp_h_i_divide
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_for_a_one_hot_target_cross_entropy_loss_is_the_n
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s197
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s199
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s203
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:06:45Z'
+updated_at: '2026-07-21T05:07:05Z'

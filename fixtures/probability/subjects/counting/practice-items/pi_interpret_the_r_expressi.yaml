@@ -1,0 +1,114 @@
+schema_version: 1
+id: pi_interpret_the_r_expressi
+learning_object_id: lo_use_r_vectors_and_functions_for_probability_comp
+subjects:
+practice_mode: code_interpretation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_in_r_vectors_can_be_created_with_c_assigned_with
+  - facet_r_applies_many_vector_operations_componentwise_a
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: Interpret the R expression 1/(1:100)^2, and explain why it is valid R 
+  vector syntax.
+expected_answer: 1:100 creates the integer vector from 1 to 100. R squares the 
+  vector componentwise, then divides 1 by each squared entry, giving (1, 1/2^2, 
+  1/3^2, ..., 1/100^2).
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.25
+scaffold_level: 0.4
+surface_family: r_vectorized_expression
+evidence_fingerprint:
+  source_family: primary_textbook
+  shared_stimulus_id: r_reciprocal_square_expression
+  representation: R expression
+  solution_recipe_family: colon_sequence_componentwise_arithmetic
+  answer_structure: expression expansion and syntax explanation
+misconception_consistent_answer:
+repair_targets:
+  - facet_in_r_vectors_can_be_created_with_c_assigned_with
+  - facet_r_applies_many_vector_operations_componentwise_a
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_colon_sequence
+      points: 1.0
+      description: Interprets 1:100 as the integer vector from 1 through 100.
+      tier: core
+      targets:
+        - facet: facet_in_r_vectors_can_be_created_with_c_assigned_with
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group: r_vector_expression
+      recipe_ids:
+        - recipe_r_vector_computation
+    - id: crit_componentwise
+      points: 1.0
+      description: Explains exponentiation and reciprocal division as 
+        componentwise operations in R.
+      tier: core
+      targets:
+        - facet: facet_r_applies_many_vector_operations_componentwise_a
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_colon_sequence
+      correlation_group: r_vector_expression
+      recipe_ids:
+        - recipe_r_vector_computation
+    - id: crit_vector_expansion
+      points: 1.0
+      description: Gives the resulting reciprocal-square vector in mathematical 
+        notation or equivalent prose.
+      tier: transfer
+      targets:
+        - facet: facet_r_applies_many_vector_operations_componentwise_a
+          capability: coordination
+          role: primary
+      depends_on:
+        - crit_componentwise
+      correlation_group: r_vector_expression
+      recipe_ids:
+        - recipe_r_vector_computation
+  fatal_errors: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s312
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      path:
+      locator: span:ext_01KXKHNJQWKQRBYMPVATP3TDXN/s313
+      quote:
+      quote_hash:
+      extraction_id: ext_01KXKHNJQWKQRBYMPVATP3TDXN
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      role: primary_textbook
+      source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
+      span_hash:
+created_at: '2026-07-15T21:39:17Z'
+updated_at: '2026-07-15T21:39:17Z'

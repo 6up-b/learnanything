@@ -1,0 +1,144 @@
+schema_version: 1
+id: pi_a_preprocessing_pipeline
+learning_object_id: lo_prepare_and_inspect_aligned_coordinate_tensors
+subjects:
+practice_mode: code review
+attempt_types_allowed: []
+evidence_facets:
+  - facet_prepare_a_binary_coordinate_dataset_by_sampling_
+  - facet_visualize_labeled_two_dimensional_samples_by_plo
+evidence_weights: {}
+criterion_facet_weights: {}
+prompt: A preprocessing pipeline stacks Netherlands coordinates first and 
+  Belgium coordinates second. It then creates one label block for each class, 
+  shuffles X and y, converts them to tensors, and plots the first two feature 
+  columns. Specify a correct, unambiguous sequence that preserves feature-label 
+  alignment. Identify two errors to guard against and describe the diagnostic 
+  scatter plot.
+expected_answer: Choose and document a mapping such as Netherlands=0 and 
+  Belgium=1. Sample each coordinate array, stack them in the documented order, 
+  and create the zero and one label blocks in exactly that same order and with 
+  the corresponding lengths. Create one permutation over row indices and apply 
+  it to both X_sample and y_sample. Convert X_sample with a consistent valid 
+  identifier to a floating tensor and y_sample to a label tensor. Guard against 
+  independent shuffles and against reversed label-block order or the malformed 
+  identifier 'X sample'. Plot X_sample[:,0] against X_sample[:,1], color by 
+  y_sample, use small translucent points, and set square axes.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.55
+scaffold_level: 0.35
+capability: coordination
+task_features:
+  complexity: 3
+  transfer: far
+  representation:
+    - code
+    - verbal
+  response: structured_steps
+  scaffolding: partial
+  span: whole_task
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family: data-pipeline-repair
+evidence_fingerprint:
+  source_family: PyTorch notebook preprocessing
+  shared_stimulus_id: country-coordinate-label-order
+  representation: code-review scenario
+  solution_recipe_family: declare mapping, align blocks, jointly shuffle, 
+    tensorize, inspect
+  answer_structure: corrected procedure plus error checks
+misconception_consistent_answer:
+repair_targets:
+  - facet_prepare_a_binary_coordinate_dataset_by_sampling_
+  - facet_visualize_labeled_two_dimensional_samples_by_plo
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-align-feature-label-blocks
+      points: 3.0
+      description: Documents a class mapping and constructs label blocks in the 
+        same order as the stacked feature blocks.
+      tier: core
+      targets:
+        - facet: facet_prepare_a_binary_coordinate_dataset_by_sampling_
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group: coordinate-pipeline
+      recipe_ids:
+        - recipe-coordinate-preparation
+    - id: criterion-use-shared-permutation
+      points: 2.0
+      description: Creates one row permutation and applies it to both features 
+        and labels.
+      tier: core
+      targets:
+        - facet: facet_prepare_a_binary_coordinate_dataset_by_sampling_
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - criterion-align-feature-label-blocks
+      correlation_group: coordinate-pipeline
+      recipe_ids:
+        - recipe-coordinate-preparation
+    - id: criterion-tensorize-and-plot
+      points: 2.0
+      description: Uses a consistent feature identifier, converts arrays to 
+        appropriate tensors, and describes the labeled square scatter plot.
+      tier: transfer
+      targets:
+        - facet: facet_visualize_labeled_two_dimensional_samples_by_plo
+          capability: procedure_execution
+          role: primary
+        - facet: facet_prepare_a_binary_coordinate_dataset_by_sampling_
+          capability: coordination
+          role: supporting
+      depends_on:
+        - criterion-use-shared-permutation
+      correlation_group: coordinate-pipeline
+      recipe_ids:
+        - recipe-coordinate-preparation
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s553
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      path:
+      locator: span:ext_01KY1B9SJWKN44861QKN84WDWA/s559
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY1B9SJWKN44861QKN84WDWA
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY1B5YSE81JJQ22Q9RYTPRMD
+      role: primary_textbook
+      source_id: src_01KY1B5YQFV1NNM7CHPGFV6PHT
+      span_hash:
+created_at: '2026-07-21T05:07:39Z'
+updated_at: '2026-07-21T18:14:47Z'

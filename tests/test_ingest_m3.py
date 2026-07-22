@@ -253,7 +253,8 @@ def test_acquisition_preview_flags_potential_external_consent(tmp_path):
 
 def _config_with_provider(context_tokens=None, max_output_tokens=None) -> LearnLoopConfig:
     config = LearnLoopConfig()
-    config.ingest.providers["codex"] = IngestProviderLimits(
+    # Canonical ingest now routes to the workload-specific "codex_medium" profile.
+    config.ingest.providers["codex_medium"] = IngestProviderLimits(
         context_tokens=context_tokens, max_output_tokens=max_output_tokens
     )
     return config
@@ -279,7 +280,7 @@ def test_token_budgets_preflight_emits_per_stage_estimates(tmp_path):
         assert stage.ceiling > 0
     payload = plan.as_dict()
     assert payload["totals"]["calls"] == sum(stage.calls for stage in plan.stages)
-    assert payload["provider"] == "codex"
+    assert payload["provider"] == "codex_medium"
 
 
 def test_build_plan_routes_create_vs_update(tmp_path):
@@ -502,3 +503,50 @@ def test_import_snapshots_build_plan_estimate_into_payload(tmp_path):
     jobs.drain_foreground()
     batch = jobs.get_batch(batch_id)
     assert batch["jobs"][0]["estimate"] == estimate
+
+
+def test_import_snapshots_pdf_page_selection_into_payload(tmp_path):
+    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+
+    repo = _repo(tmp_path)
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, tmp_path, clock=_CLOCK, background=False)
+    batch_id = jobs.enqueue_import([str(tmp_path / "textbook.pdf")], page_selection=[9, 10, 11])
+
+    job = repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["payload"]["page_selection"] == [9, 10, 11]
+
+
+def test_import_snapshots_pdf_engine_choice_into_payload(tmp_path):
+    """An explicit marker/pypdf choice rides the import payload; "auto" (or
+    None) stays implicit so unchanged sources keep their extraction identity."""
+
+    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+
+    repo = _repo(tmp_path)
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, tmp_path, clock=_CLOCK, background=False)
+
+    forced = jobs.enqueue_import([str(tmp_path / "scan.pdf")], pdf_engine="pypdf")
+    assert repo.ingest_jobs_for_batch(forced)[0]["payload"]["pdf_config"] == {"engine": "pypdf"}
+
+    auto = jobs.enqueue_import([str(tmp_path / "scan.pdf")], pdf_engine="auto")
+    assert "pdf_config" not in repo.ingest_jobs_for_batch(auto)[0]["payload"]
+
+
+def test_multi_source_import_assigns_page_selection_per_source(tmp_path):
+    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+
+    repo = _repo(tmp_path)
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, tmp_path, clock=_CLOCK, background=False)
+    first = str(tmp_path / "volume-one.pdf")
+    second = str(tmp_path / "volume-two.pdf")
+    batch_id = jobs.enqueue_import(
+        [first, second],
+        page_selections={first: [9, 10, 11], second: [49, 50]},
+    )
+
+    queued = repo.ingest_jobs_for_batch(batch_id)
+    assert queued[0]["payload"]["page_selection"] == [9, 10, 11]
+    assert queued[1]["payload"]["page_selection"] == [49, 50]

@@ -1,0 +1,92 @@
+schema_version: 1
+source_sets:
+  - id: sset_quickadd_src_01KY2YG27G1SDWA4FN939ZBB34
+    subject_id: vector-spaces
+    title: sheldon_axler-linear_algebra_done_right.pdf
+    members:
+      - source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+        revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+        default_role: primary_textbook
+        scope:
+          - unit_id: u1
+            role_override:
+          - unit_id: u2
+            role_override:
+          - unit_id: u3
+            role_override:
+          - unit_id: u4
+            role_override:
+          - unit_id: u5
+            role_override:
+          - unit_id: u6
+            role_override:
+          - unit_id: u7
+            role_override:
+          - unit_id: u8
+            role_override:
+          - unit_id: u9
+            role_override:
+          - unit_id: u10
+            role_override:
+          - unit_id: u11
+            role_override:
+          - unit_id: u12
+            role_override:
+          - unit_id: u13
+            role_override:
+          - unit_id: u14
+            role_override:
+          - unit_id: u15
+            role_override:
+          - unit_id: u16
+            role_override:
+          - unit_id: u17
+            role_override:
+          - unit_id: u18
+            role_override:
+          - unit_id: u19
+            role_override:
+          - unit_id: u20
+            role_override:
+          - unit_id: u21
+            role_override:
+          - unit_id: u22
+            role_override:
+          - unit_id: u23
+            role_override:
+          - unit_id: u24
+            role_override:
+          - unit_id: u25
+            role_override:
+          - unit_id: u26
+            role_override:
+          - unit_id: u27
+            role_override:
+          - unit_id: u28
+            role_override:
+          - unit_id: u29
+            role_override:
+          - unit_id: u30
+            role_override:
+          - unit_id: u31
+            role_override:
+          - unit_id: u32
+            role_override:
+          - unit_id: u33
+            role_override:
+          - unit_id: u34
+            role_override:
+          - unit_id: u35
+            role_override:
+          - unit_id: u36
+            role_override:
+          - unit_id: u37
+            role_override:
+          - unit_id: u38
+            role_override:
+          - unit_id: u39
+            role_override:
+        priority: 1
+    priority: 1
+    created_at: '2026-07-21T18:20:49Z'
+    updated_at: '2026-07-21T18:20:49Z'
