@@ -132,3 +132,11 @@ def test_optional_dependency_missing_is_actionable(monkeypatch, fetcher, arg, pa
         fetcher(arg)
     assert package in str(excinfo.value)
     assert "pip install learnloop[ingest]" in str(excinfo.value)
+
+
+def test_legacy_fetch_source_rejects_audio(tmp_path):
+    from learnloop.ingest.fetchers import fetch_source
+    from learnloop.ingest.models import UnsupportedSourceError
+
+    with pytest.raises(UnsupportedSourceError, match="durable import pipeline"):
+        fetch_source(str(tmp_path / "lecture.mp3"))

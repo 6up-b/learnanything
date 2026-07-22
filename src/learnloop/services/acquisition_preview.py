@@ -27,6 +27,7 @@ _NORMALIZER_BY_CATEGORY = {
     "arxiv": "html_normalizer",
     "youtube": "youtube_captions",
     "textfile": "text_normalizer",
+    "audio": "audio_transcription",
 }
 
 
@@ -161,6 +162,17 @@ def _potential_external(category: str, config: LearnLoopConfig) -> list[dict]:
                 "base_url": config.ingest.pdf.llm_base_url or None,
                 "model": config.ingest.pdf.llm_model or None,
                 "reason": "marker VLM boost sends difficult pages to an external service",
+            }
+        )
+    if category == "audio":
+        # Audio ingestion is ALWAYS external (transcription endpoint), so the
+        # consent card fires before any bytes leave the machine.
+        external.append(
+            {
+                "kind": "audio_transcription",
+                "base_url": config.ingest.audio.transcription_base_url,
+                "model": config.ingest.audio.transcription_model,
+                "reason": "audio files are transcribed by the configured [ingest.audio] endpoint",
             }
         )
     return external

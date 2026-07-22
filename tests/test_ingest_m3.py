@@ -246,6 +246,23 @@ def test_acquisition_preview_flags_potential_external_consent(tmp_path):
     assert preview.needs_consent_count == 1
 
 
+def test_acquisition_preview_audio_is_always_external(tmp_path):
+    repo = _repo(tmp_path)
+    audio = tmp_path / "lecture.mp3"
+    audio.write_bytes(b"\x00fake-mp3")
+    config = LearnLoopConfig()
+
+    preview = build_acquisition_preview(repo, config, [str(audio)])
+    item = preview.items[0]
+    assert item.recognized and item.category == "audio"
+    assert item.configured_extractor == "audio_transcription"
+    assert item.is_local and item.file_size_bytes == len(b"\x00fake-mp3")
+    external = item.potential_external[0]
+    assert external["kind"] == "audio_transcription"
+    assert external["model"] == "whisper-1"
+    assert preview.needs_consent_count == 1
+
+
 # --------------------------------------------------------------------------
 # Build plan (§8.6.2) — §14 "Token budgets: preflight emits per-stage estimates"
 # --------------------------------------------------------------------------

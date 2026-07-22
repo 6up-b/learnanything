@@ -766,3 +766,136 @@ def test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable(
 
     with pytest.raises(IngestRunnerError):
         default_inventory_client(types.SimpleNamespace(vault_root=vault_root))
+
+
+# --------------------------------------------------------------------------
+# Audio ingestion (transcription path)
+# --------------------------------------------------------------------------
+
+
+def test_audio_extract_routes_transcription_to_time_range_ir(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extract
+    from tests.openai_fakes import fake_verbose_transcription, install_fake_openai
+
+    install_fake_openai(
+        monkeypatch,
+        transcriptions=(
+            fake_verbose_transcription((0.0, 4.0, "hello from the lecture"), (4.0, 9.0, "second cue")),
+        ),
+    )
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "tr-secret")
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00fake-mp3-bytes",
+        content_type="audio/mpeg",
+        original_uri=str(tmp_path / "lecture.mp3"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    ir = default_extract(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert ir.extractor == "audio_transcript"
+    assert "hello from the lecture" in " ".join(block.text for block in ir.blocks)
+    assert ir.units
+    assert ir.units[0].locator.get("scheme") == "time_range"
+
+
+def test_audio_extraction_identity_tracks_model_and_endpoint(tmp_path):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extraction_identity
+
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="lecture.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert identity["extractor"] == "audio_transcript"
+    assert identity["extractor_version"] == "1"
+    assert identity["model_versions"] == {"transcription_model": "whisper-1"}
+    assert identity["config"] == {"base_url": "https://api.openai.com/v1"}
+
+
+def test_audio_oversize_rejected_before_any_upload(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    fake = install_fake_openai(monkeypatch)
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "tr-secret")
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00" * (26 * 1024 * 1024),
+        content_type="audio/mpeg",
+        original_uri="big.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert excinfo.value.code == "audio_too_large"
+    assert excinfo.value.retryable is True
+    assert not fake.instances  # size gate fires before the client is built
+
+
+def test_audio_transcription_unavailable_is_typed_retryable(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    install_fake_openai(monkeypatch)
+    monkeypatch.delenv("LEARNLOOP_TRANSCRIPTION_API_KEY", raising=False)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert excinfo.value.code == "transcription_unavailable"
+    assert excinfo.value.retryable is True
+
+
+def _audio_import_services():
+    from learnloop.services.ingest_runner import FetchedBytes
+
+    def fetch(source, category, ctx):
+        return FetchedBytes(
+            raw_bytes=b"\x00fake-mp3-bytes",
+            content_type="audio/mpeg",
+            original_uri=source,
+            retrieved_at="2026-07-22T00:00:00Z",
+        )
+
+    # No extract override -> the real default_extract transcribes via the fake
+    # openai module.
+    return RunnerServices(fetch=fetch)
+
+
+def test_audio_import_end_to_end_and_cache_reuse(tmp_path, monkeypatch):
+    from tests.openai_fakes import fake_verbose_transcription, install_fake_openai
+
+    install_fake_openai(
+        monkeypatch,
+        transcriptions=(fake_verbose_transcription((0.0, 3.0, "audio ingest works")),),
+    )
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "tr-secret")
+    source = str(tmp_path / "lecture.mp3")
+    runner = _runner(tmp_path, services=_audio_import_services())
+
+    batch_id = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed"
+    ir = runner.repo.load_document_ir(job["result"]["extraction_id"])
+    assert ir.extractor == "audio_transcript"
+    assert "audio ingest works" in " ".join(block.text for block in ir.blocks)
+
+    # Second import of the same file: extraction cache hit — the model is never
+    # called again (the fake has no second transcription queued).
+    second = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+    assert runner.repo.ingest_jobs_for_batch(second)[0]["result"]["reused_extraction"] is True

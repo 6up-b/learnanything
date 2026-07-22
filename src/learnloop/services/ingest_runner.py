@@ -332,11 +332,15 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     """Produce Document IR from fetched bytes using the M1 extractor providers.
 
     PDFs go through the engine the payload/vault config selects (marker, the
-    pypdf fallback, or auto); everything else gets honest trivial IR from its
-    decoded text (§2.3)."""
+    pypdf fallback, or auto); audio is transcribed via the [ingest.audio]
+    endpoint; everything else gets honest trivial IR from its decoded text
+    (§2.3)."""
 
     from learnloop.ingest.extractors import MarkerUnavailableError, markdown_to_ir, pdf_extractor_for
     from learnloop.ingest.extractors.base import ExtractionContext
+
+    if category == "audio":
+        return _extract_audio(fetched, ctx)
 
     is_pdf = (
         category == "pdf"
@@ -419,6 +423,18 @@ def default_extraction_identity(
 
     from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
 
+    if category == "audio":
+        # Identity carries the transcription model + endpoint so re-pointing
+        # either forces a fresh transcription (cache key changes). Keys named
+        # api_key* are stripped by hashing._sanitized_config.
+        audio_config = _audio_ingest_config(ctx)
+        return {
+            "extractor": "audio_transcript",
+            "extractor_version": "1",
+            "model_versions": {"transcription_model": audio_config.transcription_model},
+            "config": {"base_url": audio_config.transcription_base_url},
+        }
+
     is_pdf = (
         category == "pdf"
         or (fetched.content_type or "").lower().startswith("application/pdf")
@@ -457,6 +473,66 @@ def default_extraction_identity(
     # Markdown normalizer (markdown_to_ir) is at version "2" (level-2 unit fallback);
     # must match markdown_to_ir's default so preflight cache keys line up.
     return {"extractor": "text", "extractor_version": "2", "model_versions": {}, "config": {}}
+
+
+def _audio_ingest_config(ctx: JobContext):
+    """The vault's [ingest.audio] settings (defaults when the vault is gone)."""
+
+    from learnloop.config import AudioIngestConfig
+    from learnloop.vault.loader import load_vault
+
+    try:
+        return load_vault(ctx.vault_root).config.ingest.audio
+    except FileNotFoundError:
+        return AudioIngestConfig()
+
+
+def _audio_filename(fetched: FetchedBytes) -> str:
+    from urllib.parse import urlparse
+
+    raw = fetched.original_uri or ""
+    if raw.lower().startswith(("http://", "https://")):
+        raw = urlparse(raw).path
+    name = Path(raw).name
+    return name or "audio"
+
+
+def _extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any:
+    """Audio → timestamped transcript → the same time_range IR captions use.
+
+    Both failure modes are retryable typed errors: transcription is always an
+    external call, so the durable queue owns retry semantics — no partial IR
+    ever persists."""
+
+    from learnloop.ingest.extractors import transcript_to_ir
+    from learnloop.ingest.transcription import (
+        TranscriptionFailed,
+        TranscriptionUnavailable,
+        transcribe_audio,
+    )
+
+    config = _audio_ingest_config(ctx)
+    size_mb = len(fetched.raw_bytes) / (1024 * 1024)
+    if size_mb > config.max_file_mb:
+        raise IngestRunnerError(
+            f"Audio file is {size_mb:.1f} MB; [ingest.audio] max_file_mb is {config.max_file_mb}.",
+            code="audio_too_large",
+            retryable=True,
+        )
+    try:
+        result = transcribe_audio(
+            fetched.raw_bytes, filename=_audio_filename(fetched), config=config
+        )
+    except TranscriptionUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="transcription_unavailable", retryable=True) from exc
+    except TranscriptionFailed as exc:
+        raise IngestRunnerError(str(exc), code="transcription_failed", retryable=True) from exc
+    return transcript_to_ir(
+        result.cues,
+        title=ctx.payload.get("title"),
+        extractor_name="audio_transcript",
+        extractor_version="1",
+    )
 
 
 def _caption_cues(text: str) -> list[dict[str, Any]] | None:
