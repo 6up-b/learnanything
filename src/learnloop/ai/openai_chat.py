@@ -9,6 +9,16 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from learnloop.config import AIProviderConfig
+from learnloop.ai.multimodal import (
+    MediaTranscript,
+    MediaTranscriptionContext,
+    PdfExtractionContextNative,
+    audio_content_parts,
+    media_transcription_prompt,
+    pdf_content_parts,
+    pdf_markdown_prompt,
+    strip_markdown_fences,
+)
 from learnloop.codex.client import (
     AppendReconciliationContext,
     AuthoringContext,
@@ -167,8 +177,60 @@ class OpenAIChatProviderClient:
     def run_concept_graph_structuring(self, context: ConceptGraphContext) -> ConceptGraphStructuring:
         return self._run_json_model(_concept_graph_structuring_prompt(context), ConceptGraphStructuring)
 
+    def run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript:
+        """Native-multimodal audio → timestamped transcript ([ingest.native]).
+
+        The user content carries an ``input_audio`` part; the output contract is
+        a transcript, never a study map, so downstream IR matches the endpoint
+        transcription path exactly. The JSON-repair round is text-only — the
+        audio is never re-uploaded."""
+
+        parts = audio_content_parts(
+            media_transcription_prompt(context), context.media_bytes, context.media_format
+        )
+        return self._run_json_messages(
+            [
+                {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
+                {"role": "user", "content": parts},
+            ],
+            MediaTranscript,
+        )
+
+    def run_media_markdown(self, context: PdfExtractionContextNative) -> str:
+        """Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine
+        "native"). Suppresses the profile's JSON response_format — the output is
+        a document, not JSON."""
+
+        parts = pdf_content_parts(
+            pdf_markdown_prompt(context), context.media_bytes, context.filename
+        )
+        text = self._chat_messages(
+            [
+                {
+                    "role": "system",
+                    "content": "Convert documents to complete GitHub-flavored Markdown. Do not wrap the whole output in code fences.",
+                },
+                {"role": "user", "content": parts},
+            ],
+            None,
+            use_response_format=False,
+        )
+        markdown = strip_markdown_fences(text)
+        if not markdown:
+            raise CodexUnavailable(f"{self.provider_name} returned an empty document")
+        return markdown
+
     def _run_json_model(self, prompt: str, model_type: type[BaseModel]) -> Any:
-        text = self._chat(prompt, model_type)
+        return self._run_json_messages(
+            [
+                {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
+                {"role": "user", "content": prompt},
+            ],
+            model_type,
+        )
+
+    def _run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any:
+        text = self._chat_messages(messages, model_type)
         try:
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError, json.JSONDecodeError):
@@ -179,16 +241,29 @@ class OpenAIChatProviderClient:
                 raise CodexUnavailable(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from second_exc
 
     def _chat(self, prompt: str, model_type: type[BaseModel] | None = None) -> str:
-        kwargs: dict[str, Any] = {
-            "model": self.model,
-            "messages": [
+        return self._chat_messages(
+            [
                 {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
                 {"role": "user", "content": prompt},
             ],
+            model_type,
+        )
+
+    def _chat_messages(
+        self,
+        messages: list[dict[str, Any]],
+        model_type: type[BaseModel] | None = None,
+        *,
+        use_response_format: bool = True,
+    ) -> str:
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
         }
-        response_format = self._response_format(model_type)
-        if response_format:
-            kwargs["response_format"] = response_format
+        if use_response_format:
+            response_format = self._response_format(model_type)
+            if response_format:
+                kwargs["response_format"] = response_format
         if self.profile.max_tokens is not None:
             kwargs["max_tokens"] = self.profile.max_tokens
         kwargs.update(self._reasoning_kwargs())
