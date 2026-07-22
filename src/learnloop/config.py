@@ -414,6 +414,34 @@ llm_base_url = ""
 llm_model = ""
 llm_api_key_env = "LEARNLOOP_PDF_LLM_API_KEY"
 
+# Audio ingestion (.mp3/.wav/.m4a/.flac/.ogg/.oga/.opus/.aac). The file is sent
+# to an OpenAI-compatible POST {base_url}/audio/transcriptions endpoint
+# (OpenAI whisper, Groq, a local faster-whisper server, ...). The API key is
+# read from the env var named by transcription_api_key_env. Models that reject
+# verbose_json (e.g. gpt-4o-transcribe) degrade to a single untimestamped
+# transcript unit.
+[ingest.audio]
+transcription_base_url = "https://api.openai.com/v1"
+transcription_model = "whisper-1"
+transcription_api_key_env = "LEARNLOOP_TRANSCRIPTION_API_KEY"
+# BCP-47 hint forwarded to the endpoint; "" lets the model auto-detect.
+language = ""
+timeout_seconds = 600
+# Rejected before any upload (OpenAI's transcription limit is 25 MB).
+max_file_mb = 25
+
+# Native multimodal ingestion: when enabled AND the routed canonical_ingest
+# provider is an OpenAI-compatible chat provider whose profile lists the
+# modality under input_modalities, media is ingested via chat content parts
+# instead of the local pipeline: audio as input_audio (yielding a timestamped
+# transcript), PDFs as file parts (set engine = "native" under [ingest.pdf]).
+# Off by default: media bytes leave the machine to the chat provider.
+[ingest.native]
+enabled = false
+audio = true
+pdf = true
+max_audio_mb = 20
+
 # Per-stage token budgets for ingestion v2 (source-ingestion spec §3.1).
 # Preflight/build-plan estimates read these; a stage exceeding its ceiling
 # shards or pauses for narrower scope — it never silently truncates.
@@ -521,6 +549,7 @@ timeout_seconds = 180
 # reasoning_effort = "medium"                # OpenRouter unified reasoning effort
 # http_referer = ""                          # optional attribution header
 # x_title = "LearnLoop"                      # optional attribution header
+# input_modalities = ["audio", "pdf"]        # native media this model accepts ([ingest.native])
 
 [codex]
 provider = "sdk"
@@ -1249,7 +1278,9 @@ class TeachBackConfig(BaseModel):
 
 
 class PdfIngestConfig(BaseModel):
-    engine: Literal["auto", "marker", "pypdf"] = "auto"
+    # "native" sends the PDF to the routed OpenAI-compatible chat provider as a
+    # file content part instead of extracting locally (see [ingest.native]).
+    engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
     # Device for marker model inference: "" lets marker/surya auto-detect
     # (cuda when available), or pin e.g. "cuda", "cuda:1", "cpu", "mps".
     torch_device: str = ""
@@ -1262,6 +1293,41 @@ class PdfIngestConfig(BaseModel):
     # Escape hatch: raw marker settings merged over the derived config
     # (e.g. {"paginate_output" = true} under [ingest.pdf.marker_options]).
     marker_options: dict[str, Any] = Field(default_factory=dict)
+
+
+class AudioIngestConfig(BaseModel):
+    """Audio-source ingestion (.mp3/.wav/...): transcription endpoint settings.
+
+    The default path sends the file to an OpenAI-compatible POST
+    {base_url}/audio/transcriptions endpoint (OpenAI whisper, Groq, a local
+    faster-whisper server, ...). The API key is read from the env var named by
+    ``transcription_api_key_env`` — never stored in this file."""
+
+    transcription_base_url: str = "https://api.openai.com/v1"
+    transcription_model: str = "whisper-1"
+    transcription_api_key_env: str = "LEARNLOOP_TRANSCRIPTION_API_KEY"
+    # BCP-47 hint forwarded to the endpoint; "" lets the model auto-detect.
+    language: str = ""
+    timeout_seconds: int = 600
+    # Rejected before any upload (OpenAI's transcription limit is 25 MB).
+    max_file_mb: int = 25
+
+
+class NativeIngestConfig(BaseModel):
+    """Native multimodal ingestion: media as chat content parts (§spec 1a).
+
+    When enabled AND the routed canonical_ingest provider is an
+    OpenAI-compatible chat provider whose profile lists the modality under
+    ``input_modalities``, media is ingested natively instead of via the local
+    pipeline: audio as input_audio parts (yielding a timestamped transcript),
+    PDFs as file parts (set engine = "native" under [ingest.pdf]). Off by
+    default: media bytes leave the machine to the chat provider."""
+
+    enabled: bool = False
+    audio: bool = True
+    pdf: bool = True
+    # Base64 inflates ~33% inside a chat body; rejected before any upload.
+    max_audio_mb: int = 20
 
 
 class IngestBudgetsConfig(BaseModel):
@@ -1323,6 +1389,8 @@ class IngestConfig(BaseModel):
     # briefless callers.
     bootstrap_practice_items: str = "upfront"
     pdf: PdfIngestConfig = Field(default_factory=PdfIngestConfig)
+    audio: AudioIngestConfig = Field(default_factory=AudioIngestConfig)
+    native: NativeIngestConfig = Field(default_factory=NativeIngestConfig)
     budgets: IngestBudgetsConfig = Field(default_factory=IngestBudgetsConfig)
     providers: dict[str, IngestProviderLimits] = Field(default_factory=dict)
     runner: IngestRunnerConfig = Field(default_factory=IngestRunnerConfig)
@@ -1389,6 +1457,11 @@ class AIProviderConfig(BaseModel):
     # OpenRouter attribution headers (type = "openrouter" only).
     http_referer: str | None = None
     x_title: str | None = None
+    # Chat content-part modalities this model accepts natively (e.g. "audio",
+    # "pdf"); consulted by [ingest.native]. Declared, not runtime-probed —
+    # OpenRouter's /api/v1/models architecture.input_modalities can autofill
+    # this in a future settings UI.
+    input_modalities: list[str] = Field(default_factory=list)
 
     checkout_path: str | None = None
     revision: str | None = None

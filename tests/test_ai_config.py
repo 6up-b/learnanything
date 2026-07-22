@@ -43,6 +43,51 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.routing.canonical_ingest_retry == "codex_medium"
 
 
+def test_default_config_contains_audio_and_native_ingest(tmp_path):
+    init_vault(tmp_path)
+
+    loaded = load_config(tmp_path / "learnloop.toml")
+    in_memory = LearnLoopConfig()
+
+    # Written template and in-memory defaults must agree so older vaults pick
+    # up identical behavior.
+    for config in (loaded, in_memory):
+        audio = config.ingest.audio
+        assert audio.transcription_base_url == "https://api.openai.com/v1"
+        assert audio.transcription_model == "whisper-1"
+        assert audio.transcription_api_key_env == "LEARNLOOP_TRANSCRIPTION_API_KEY"
+        assert audio.language == ""
+        assert audio.timeout_seconds == 600
+        assert audio.max_file_mb == 25
+        native = config.ingest.native
+        assert native.enabled is False
+        assert native.audio is True
+        assert native.pdf is True
+        assert native.max_audio_mb == 20
+        assert config.ingest.pdf.engine == "auto"
+        assert config.ai.providers["openrouter"].input_modalities == []
+
+
+def test_pdf_native_engine_and_input_modalities_parse():
+    config = LearnLoopConfig.model_validate(
+        {
+            "ingest": {"pdf": {"engine": "native"}},
+            "ai": {
+                "providers": {
+                    "openrouter": {
+                        "type": "openrouter",
+                        "model": "google/gemini-2.5-pro",
+                        "input_modalities": ["audio", "pdf"],
+                    }
+                }
+            },
+        }
+    )
+
+    assert config.ingest.pdf.engine == "native"
+    assert config.ai.providers["openrouter"].input_modalities == ["audio", "pdf"]
+
+
 def test_default_config_seeds_openrouter_profile(tmp_path):
     init_vault(tmp_path)
 
