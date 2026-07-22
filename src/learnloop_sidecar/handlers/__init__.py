@@ -32,6 +32,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     remediation,
     review,
     sessions,
+    settings,
     sqlite_admin,
     teach_back,
     tutor_qa,
