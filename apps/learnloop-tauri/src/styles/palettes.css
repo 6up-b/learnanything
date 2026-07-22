@@ -1,0 +1,122 @@
+/* Selectable color palettes. The default look lives in app.css :root; a palette
+   is activated by data-palette on <html> (set in main.tsx from
+   localStorage["learnloop.palette"], instantly from the Settings screen).
+
+   Each palette hand-sets the base tokens; every derived token (washes, pills,
+   amber tiers, chrome backgrounds) is computed from those bases with color-mix
+   in the shared block below, so a palette stays ~18 lines. The default :root
+   keeps its original literals in app.css and is untouched by this file. */
+
+:root[data-palette="dracula"],
+:root[data-palette="gruvbox"],
+:root[data-palette="nord"],
+:root[data-palette="catppuccin-mocha"] {
+  --border-focus: var(--amber);
+  --text-strong: color-mix(in srgb, var(--text) 90%, var(--bg));
+  --text-italic: color-mix(in srgb, var(--dim) 70%, var(--text));
+  --amber-link: color-mix(in srgb, var(--amber) 78%, white);
+  --amber-hi: color-mix(in srgb, var(--amber) 62%, white);
+  --amber-mid: color-mix(in srgb, var(--amber) 58%, var(--bg));
+  --amber-low: color-mix(in srgb, var(--amber) 30%, var(--bg));
+  --faint-dot: color-mix(in srgb, var(--amber) 16%, var(--bg));
+  --green-soft: color-mix(in srgb, var(--green) 72%, var(--bg));
+  --purple-text: color-mix(in srgb, var(--purple-pill) 32%, white);
+  --shell-bg: color-mix(in srgb, var(--bg) 55%, black);
+  --titlebar-bg: color-mix(in srgb, var(--bg) 78%, black);
+  --inspector-bg: color-mix(in srgb, var(--bg) 90%, black);
+  --border-amber-dim: color-mix(in srgb, var(--amber) 36%, var(--bg));
+  --wash-amber: color-mix(in srgb, var(--amber) 12%, var(--bg));
+  --wash-amber-strong: color-mix(in srgb, var(--amber) 18%, var(--bg));
+  --wash-amber-faint: color-mix(in srgb, var(--amber) 6%, var(--bg));
+  --wash-cyan: color-mix(in srgb, var(--cyan) 12%, var(--bg));
+  --wash-cyan-banner: color-mix(in srgb, var(--cyan) 9%, var(--bg));
+  --wash-red: color-mix(in srgb, var(--red) 10%, var(--bg));
+  --wash-green: color-mix(in srgb, var(--green) 10%, var(--bg));
+  --wash-purple: color-mix(in srgb, var(--purple-pill) 18%, var(--bg));
+  --pill-purple-bg: color-mix(in srgb, var(--purple-pill) 78%, var(--bg));
+  --pill-purple-fg: color-mix(in srgb, var(--purple-pill) 30%, white);
+  --pill-amber-bg: color-mix(in srgb, var(--amber) 40%, var(--bg));
+  --pill-amber-fg: color-mix(in srgb, var(--amber) 45%, white);
+  --pill-green-bg: color-mix(in srgb, var(--green) 38%, var(--bg));
+  --pill-green-fg: color-mix(in srgb, var(--green) 45%, white);
+  --pill-cyan-bg: color-mix(in srgb, var(--cyan) 38%, var(--bg));
+  --pill-cyan-fg: color-mix(in srgb, var(--cyan) 45%, white);
+  --pill-red-bg: color-mix(in srgb, var(--red) 38%, var(--bg));
+  --pill-red-fg: color-mix(in srgb, var(--red) 45%, white);
+  --pill-pink-bg: color-mix(in srgb, var(--pink) 34%, var(--bg));
+  --pill-pink-fg: color-mix(in srgb, var(--pink) 45%, white);
+  --pill-slate-bg: color-mix(in srgb, var(--dim) 26%, var(--bg));
+  --pill-slate-fg: color-mix(in srgb, var(--dim) 55%, white);
+}
+
+:root[data-palette="dracula"] {
+  --bg: #282a36;
+  --elev: #313341;
+  --input: #21222c;
+  --border: #44475a;
+  --border-strong: #565a70;
+  --text: #f8f8f2;
+  --dim: #a8abbe;
+  --faint: #6272a4;
+  --amber: #ffb86c;
+  --green: #50fa7b;
+  --cyan: #8be9fd;
+  --red: #ff5555;
+  --pink: #ff79c6;
+  --yellow: #f1fa8c;
+  --purple-pill: #6c5a9e;
+}
+
+:root[data-palette="gruvbox"] {
+  --bg: #282828;
+  --elev: #32302f;
+  --input: #1d2021;
+  --border: #3c3836;
+  --border-strong: #504945;
+  --text: #ebdbb2;
+  --dim: #a89984;
+  --faint: #7c6f64;
+  --amber: #fe8019;
+  --green: #b8bb26;
+  --cyan: #8ec07c;
+  --red: #fb4934;
+  --pink: #d3869b;
+  --yellow: #fabd2f;
+  --purple-pill: #8f5a76;
+}
+
+:root[data-palette="nord"] {
+  --bg: #2e3440;
+  --elev: #3b4252;
+  --input: #272c36;
+  --border: #434c5e;
+  --border-strong: #4c566a;
+  --text: #e5e9f0;
+  --dim: #aab2c4;
+  --faint: #71809a;
+  --amber: #d08770;
+  --green: #a3be8c;
+  --cyan: #88c0d0;
+  --red: #bf616a;
+  --pink: #b48ead;
+  --yellow: #ebcb8b;
+  --purple-pill: #7a6a94;
+}
+
+:root[data-palette="catppuccin-mocha"] {
+  --bg: #1e1e2e;
+  --elev: #27273a;
+  --input: #181825;
+  --border: #313244;
+  --border-strong: #45475a;
+  --text: #cdd6f4;
+  --dim: #a6adc8;
+  --faint: #6c7086;
+  --amber: #fab387;
+  --green: #a6e3a1;
+  --cyan: #89dceb;
+  --red: #f38ba8;
+  --pink: #f5c2e7;
+  --yellow: #f9e2af;
+  --purple-pill: #7c6a9e;
+}
