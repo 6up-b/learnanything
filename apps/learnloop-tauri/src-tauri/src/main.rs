@@ -45,6 +45,94 @@ fn serve_llpdf(
     }
 }
 
+// llmedia://localhost/<sha256-<hex>.mp4> serves rendered explainer animations
+// from the vault's media/animations/ store. Same strict content-addressed-name
+// rule as llpdf (no path traversal surface), plus Range/206 support because
+// HTML5 <video> seeking issues byte-range requests.
+fn llmedia_response(
+    status: u16,
+    body: Vec<u8>,
+    extra: Option<(String, String)>,
+) -> tauri::http::Response<Cow<'static, [u8]>> {
+    let mut builder = tauri::http::Response::builder()
+        .status(status)
+        .header("Content-Type", "video/mp4")
+        .header("Accept-Ranges", "bytes")
+        .header("Access-Control-Allow-Origin", "*");
+    if let Some((name, value)) = extra {
+        builder = builder.header(name, value);
+    }
+    builder.body(Cow::Owned(body)).expect("static llmedia response")
+}
+
+/// Parse a `bytes=start-end` Range header against a body of `len` bytes.
+/// Returns None for absent/unsupported forms (serve 200 full-body) and
+/// Some(Err(())) for unsatisfiable ranges (416).
+fn slice_range(len: u64, range_header: Option<&str>) -> Option<Result<(u64, u64), ()>> {
+    let header = range_header?.trim();
+    let spec = header.strip_prefix("bytes=")?;
+    if spec.contains(',') {
+        return None; // multipart ranges unsupported: fall back to 200
+    }
+    let (start_raw, end_raw) = spec.split_once('-')?;
+    if start_raw.is_empty() {
+        // suffix form: last N bytes
+        let suffix: u64 = end_raw.parse().ok()?;
+        if suffix == 0 || len == 0 {
+            return Some(Err(()));
+        }
+        let start = len.saturating_sub(suffix);
+        return Some(Ok((start, len - 1)));
+    }
+    let start: u64 = start_raw.parse().ok()?;
+    let end: u64 = if end_raw.is_empty() {
+        len.saturating_sub(1)
+    } else {
+        end_raw.parse().ok()?
+    };
+    if start >= len || end < start {
+        return Some(Err(()));
+    }
+    Some(Ok((start, end.min(len.saturating_sub(1)))))
+}
+
+fn serve_llmedia(
+    manager: &SidecarManager,
+    uri_path: &str,
+    range_header: Option<&str>,
+) -> tauri::http::Response<Cow<'static, [u8]>> {
+    let name = uri_path.trim_start_matches('/');
+    let content_addressed = name
+        .strip_prefix("sha256-")
+        .and_then(|rest| rest.strip_suffix(".mp4"))
+        .is_some_and(|hex| !hex.is_empty() && hex.chars().all(|c| c.is_ascii_hexdigit()));
+    if !content_addressed {
+        return llmedia_response(400, b"invalid animation name".to_vec(), None);
+    }
+    let path = manager
+        .resolved_vault_path()
+        .join("media")
+        .join("animations")
+        .join(name);
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(_) => return llmedia_response(404, b"not in animation store".to_vec(), None),
+    };
+    let total = bytes.len() as u64;
+    match slice_range(total, range_header) {
+        None => llmedia_response(200, bytes, None),
+        Some(Err(())) => llmedia_response(416, Vec::new(), Some(("Content-Range".into(), format!("bytes */{total}")))),
+        Some(Ok((start, end))) => {
+            let body = bytes[start as usize..=(end as usize)].to_vec();
+            llmedia_response(
+                206,
+                body,
+                Some(("Content-Range".into(), format!("bytes {start}-{end}/{total}"))),
+            )
+        }
+    }
+}
+
 fn debug_zoom_enabled() -> bool {
     std::env::var(DEBUG_ZOOM_ENV).is_ok_and(|value| {
         matches!(
@@ -62,6 +150,15 @@ fn main() {
         .register_uri_scheme_protocol("llpdf", |ctx, request| {
             let manager = ctx.app_handle().state::<SidecarManager>();
             serve_llpdf(&manager, request.uri().path())
+        })
+        .register_uri_scheme_protocol("llmedia", |ctx, request| {
+            let manager = ctx.app_handle().state::<SidecarManager>();
+            let range = request
+                .headers()
+                .get("range")
+                .and_then(|value| value.to_str().ok())
+                .map(|value| value.to_string());
+            serve_llmedia(&manager, request.uri().path(), range.as_deref())
         })
         .setup(|app| {
             let main_window = app
@@ -190,6 +287,10 @@ fn main() {
             set_openrouter_api_key,
             update_ingest_settings,
             set_transcription_api_key,
+            get_animation_runtime,
+            request_concept_animation,
+            get_concept_animation_status,
+            list_concept_animations,
             ask_tutor_question,
             preview_tutor_opening,
             rate_tutor_answer,
@@ -362,5 +463,46 @@ mod tests {
     fn llpdf_404s_for_absent_store_file() {
         let manager = SidecarManager::new();
         assert_eq!(serve_llpdf(&manager, "/sha256-deadbeef").status(), 404);
+    }
+
+    #[test]
+    fn llmedia_rejects_non_content_addressed_names() {
+        let manager = SidecarManager::new();
+        for name in [
+            "/../../etc/passwd",
+            "/sha256-XYZ.mp4",
+            "/sha256-.mp4",
+            "/sha256-deadbeef",
+            "/sha256-deadbeef.mkv",
+            "/notahash.mp4",
+            "/sha256-abc/../x.mp4",
+            "/",
+        ] {
+            assert_eq!(serve_llmedia(&manager, name, None).status(), 400, "{name}");
+        }
+    }
+
+    #[test]
+    fn llmedia_404s_for_absent_animation() {
+        let manager = SidecarManager::new();
+        assert_eq!(serve_llmedia(&manager, "/sha256-deadbeef.mp4", None).status(), 404);
+    }
+
+    #[test]
+    fn slice_range_math() {
+        // Absent / malformed / multipart headers -> whole-body 200.
+        assert_eq!(slice_range(100, None), None);
+        assert_eq!(slice_range(100, Some("chunks=0-1")), None);
+        assert_eq!(slice_range(100, Some("bytes=0-10,20-30")), None);
+        // Normal forms.
+        assert_eq!(slice_range(100, Some("bytes=0-49")), Some(Ok((0, 49))));
+        assert_eq!(slice_range(100, Some("bytes=50-")), Some(Ok((50, 99))));
+        assert_eq!(slice_range(100, Some("bytes=-10")), Some(Ok((90, 99))));
+        // End clamps to the last byte.
+        assert_eq!(slice_range(100, Some("bytes=90-500")), Some(Ok((90, 99))));
+        // Unsatisfiable -> 416.
+        assert_eq!(slice_range(100, Some("bytes=100-")), Some(Err(())));
+        assert_eq!(slice_range(100, Some("bytes=30-10")), Some(Err(())));
+        assert_eq!(slice_range(0, Some("bytes=-5")), Some(Err(())));
     }
 }
