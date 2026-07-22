@@ -135,6 +135,8 @@ class RunnerServices:
     synthesis_client_factory: Callable[["JobContext"], Any] | None = None
     quick_check_client_factory: Callable[["JobContext"], Any] | None = None
     rung_variant_client_factory: Callable[["JobContext"], Any] | None = None
+    animation_client_factory: Callable[["JobContext"], Any] | None = None
+    animation_renderer: Callable[..., Any] | None = None
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
         return (self.fetch or default_fetch)(source, category, ctx)
@@ -164,6 +166,9 @@ class RunnerServices:
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
         return (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
+
+    def animation_client(self, ctx: "JobContext") -> Any:
+        return (self.animation_client_factory or default_animation_client)(ctx)
 
 
 @dataclass
@@ -879,6 +884,13 @@ def default_synthesis_client(ctx: JobContext) -> Any:
     """
 
     return _routed_task_client(ctx, "canonical_ingest")
+
+
+def default_animation_client(ctx: JobContext) -> Any:
+    """Resolve the animation route (default: the medium-effort profile) — any
+    configured provider works; run_concept_animation is getattr-discovered."""
+
+    return _routed_task_client(ctx, "animation")
 
 
 def default_rung_variant_client(ctx: JobContext) -> Any:
@@ -1739,6 +1751,43 @@ def handle_rung_variant(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError(str(exc)) from exc
 
 
+def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
+    """concept_animation: author + validate + render one explainer scene.
+
+    Payload: ``animation_id``. The service owns the row's status machine
+    (completed / failed with stage + stderr); consent was checked at request
+    time before the row existed."""
+
+    from learnloop.services.concept_animation import (
+        ConceptAnimationError,
+        generate_concept_animation,
+    )
+
+    animation_id = str(ctx.payload.get("animation_id") or "")
+    if not animation_id:
+        raise IngestRunnerError("concept_animation job requires an 'animation_id'.")
+    ctx.report("generation", message="Authoring the explainer scene")
+    client = ctx.services.animation_client(ctx)
+    try:
+        row = generate_concept_animation(
+            ctx.vault_root,
+            client,
+            animation_id=animation_id,
+            renderer=ctx.services.animation_renderer,
+            clock=ctx.clock,
+        )
+    except ConceptAnimationError as exc:
+        raise IngestRunnerError(str(exc), code=exc.code) from exc
+    # Compact job result: the status RPC serves the full row (code, stderr).
+    return {
+        "animation_id": row["id"],
+        "concept_id": row["concept_id"],
+        "status": row["status"],
+        "video_file_name": row.get("video_file_name"),
+        "failure_stage": row.get("failure_stage"),
+    }
+
+
 DEFAULT_HANDLERS: dict[str, Handler] = {
     "import": handle_import,
     "legacy_ingest": handle_legacy_ingest,
@@ -1750,6 +1799,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "reader_quick_check": handle_reader_quick_check,
     "practice_expansion": handle_practice_expansion,
     "rung_variant": handle_rung_variant,
+    "concept_animation": handle_concept_animation,
 }
 
 
