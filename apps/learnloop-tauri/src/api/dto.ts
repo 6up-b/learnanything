@@ -49,6 +49,54 @@ export interface GradingProviderResult {
   availableProviders: string[];
 }
 
+export interface SettingsProviderDto {
+  name: string;
+  type: string;
+  model: string | null;
+  baseUrl: string | null;
+  apiKeyEnv: string | null;
+}
+
+export interface SettingsAiDto {
+  activeProvider: string;
+  fallbackProvider: string | null;
+  routing: Record<string, string | null>;
+  useCases: string[];
+  providers: SettingsProviderDto[];
+  envProviderOverride: string | null;
+}
+
+export interface OpenrouterKeyStateDto {
+  keyPresent: boolean;
+  keyHint: string | null;
+  settingsEnvPath: string;
+}
+
+export interface SettingsDto {
+  version: number;
+  ai: SettingsAiDto;
+  openrouter: OpenrouterKeyStateDto;
+  health?: RuntimeHealth;
+}
+
+export interface UseCaseChoiceInput {
+  provider: string;
+  openrouterModel?: string | null;
+}
+
+export interface UpdateAiSettingsInput {
+  activeProvider?: string | null;
+  useCases?: Record<string, UseCaseChoiceInput>;
+}
+
+export interface OpenrouterKeyResult {
+  keyPresent: boolean;
+  keyHint: string | null;
+  settingsEnvPath: string;
+  ready: boolean;
+  status: string;
+}
+
 export interface FacetMasteryLearningObject {
   id: string;
   title: string;
