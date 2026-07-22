@@ -866,6 +866,45 @@ pub async fn set_transcription_api_key(
 }
 
 #[tauri::command]
+pub async fn get_animation_runtime(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_animation_runtime", json!({})).await
+}
+
+#[tauri::command]
+pub async fn request_concept_animation(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "request_concept_animation", input).await
+}
+
+#[tauri::command]
+pub async fn get_concept_animation_status(
+    animation_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "get_concept_animation_status",
+        json!({ "animationId": animation_id }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn list_concept_animations(
+    concept_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "list_concept_animations",
+        json!({ "conceptId": concept_id }),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn ask_tutor_question(
     input: Value,
     sidecar: State<'_, SidecarManager>,

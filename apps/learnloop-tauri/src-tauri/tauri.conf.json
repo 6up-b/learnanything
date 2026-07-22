@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; frame-src https://www.youtube-nocookie.com; img-src 'self' data: blob: https:; media-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost llpdf: http://llpdf.localhost; font-src 'self' data:"
+      "csp": "default-src 'self'; frame-src https://www.youtube-nocookie.com; img-src 'self' data: blob: https:; media-src 'self' https: llmedia: http://llmedia.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost llpdf: http://llpdf.localhost llmedia: http://llmedia.localhost; font-src 'self' data:"
     }
   },
   "bundle": {
