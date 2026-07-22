@@ -26,3 +26,30 @@ else:
 # a temp Codex checkout/revision are not overridden by the ambient environment.
 os.environ["LEARNLOOP_CONFIG_DIR"] = str(_TEMP_ROOT / "global_settings_isolated")
 os.environ.pop("LEARNLOOP_CODEX_CHECKOUT_PATH", None)
+
+# Disable sqlite durability for every test connection. The tmpfs relocation
+# above solves the fsync problem on Linux, but Windows has no tmpfs: each
+# durable commit pays a rollback-journal create/delete plus an fsync, and
+# on-access antivirus scanning amplifies every one of those file operations
+# (measured: a fresh 100+-migration vault took ~17.5s with default pragmas vs
+# ~0.3s with these — the difference between a ~10-minute suite on Linux and a
+# multi-hour one on Windows). Tests are deterministic and their databases
+# disposable, so crash durability buys nothing here. Patch the shared connect()
+# at the source AND rebind any already-imported `from ... import connect`
+# aliases so every module sees the fast version.
+import learnloop.db.connection as _db_connection  # noqa: E402
+
+_durable_connect = _db_connection.connect
+
+
+def _fast_test_connect(sqlite_path):
+    connection = _durable_connect(sqlite_path)
+    connection.execute("PRAGMA synchronous=OFF")
+    connection.execute("PRAGMA journal_mode=MEMORY")
+    return connection
+
+
+_db_connection.connect = _fast_test_connect
+for _module in list(sys.modules.values()):
+    if getattr(_module, "__name__", "").startswith("learnloop") and getattr(_module, "connect", None) is _durable_connect:
+        _module.connect = _fast_test_connect
