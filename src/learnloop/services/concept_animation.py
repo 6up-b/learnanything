@@ -9,10 +9,15 @@ a temp directory with a timeout; the mp4 lands content-addressed under
 SECURITY POSTURE, stated honestly: the AST allowlist below is best-effort
 hardening against accidents and lazy exfiltration attempts — it is NOT a
 sandbox, and a determined adversary-shaped model output could in principle
-reach the OS through library internals. The actual boundary is the per-run
-learner consent click (server-side re-checked before any model call) plus the
-subprocess constraints (fresh temp cwd, no vault paths in the environment,
-hard timeout).
+reach the OS through library internals. The boundaries are (1) the per-run
+learner consent click (server-side re-checked before any model call), (2) on
+Linux, a mandatory bubblewrap sandbox around the render subprocess — no
+network, read-only system/venv mounts, the scratch dir as the only writable
+path — and (3) the subprocess constraints everywhere (fresh temp cwd, no
+vault paths in the environment, hard timeout). On Linux without ``bwrap``
+installed, rendering refuses rather than silently degrading; macOS/Windows
+have no bubblewrap and keep the unsandboxed constraints under the same
+consent copy.
 """
 
 from __future__ import annotations
@@ -135,6 +140,70 @@ def _render_env() -> dict[str, str]:
     return env
 
 
+def _sandbox_bwrap_path() -> str | None:
+    """The bubblewrap binary to sandbox renders with, or None off-Linux."""
+
+    if sys.platform != "linux":
+        return None
+    return shutil.which("bwrap")
+
+
+def _executable_mount_roots(executable: str) -> set[str]:
+    """Install roots (``<root>/bin/exe`` → ``<root>``) for an executable and
+    every hop of its symlink chain, so a venv python that links into e.g. a
+    uv-managed interpreter tree stays runnable inside the sandbox."""
+
+    import os
+
+    roots: set[str] = set()
+    path = Path(executable)
+    for _ in range(10):
+        if len(path.parents) >= 2:
+            roots.add(str(path.parents[1]))
+        try:
+            target = Path(os.readlink(path))
+        except OSError:
+            break
+        path = target if target.is_absolute() else path.parent / target
+    return roots
+
+
+def _sandboxed_command(
+    command: list[str], workdir: Path, bwrap: str, manim_executable: str | None
+) -> list[str]:
+    """Wrap a render command in bubblewrap: every namespace unshared (so no
+    network), system + interpreter mounts read-only, the scratch workdir as
+    the only writable path, and the sandbox dying with the sidecar."""
+
+    args = [
+        bwrap,
+        "--die-with-parent",
+        "--new-session",
+        "--unshare-all",
+        "--proc", "/proc",
+        "--dev", "/dev",
+        "--tmpfs", "/tmp",
+        "--ro-bind", "/usr", "/usr",
+        "--ro-bind-try", "/lib", "/lib",
+        "--ro-bind-try", "/lib64", "/lib64",
+        "--ro-bind-try", "/bin", "/bin",
+        "--ro-bind-try", "/sbin", "/sbin",
+        # Font/loader config manim + its ffmpeg need; nothing else from /etc.
+        "--ro-bind-try", "/etc/fonts", "/etc/fonts",
+        "--ro-bind-try", "/etc/alternatives", "/etc/alternatives",
+        "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
+    ]
+    prefixes = {sys.prefix, sys.base_prefix}
+    prefixes |= _executable_mount_roots(sys.executable)
+    if manim_executable:
+        prefixes |= _executable_mount_roots(manim_executable)
+    for prefix in sorted(prefixes):
+        if prefix and prefix != "/usr" and not prefix.startswith("/usr/"):
+            args += ["--ro-bind-try", prefix, prefix]
+    args += ["--bind", str(workdir), str(workdir), "--chdir", str(workdir)]
+    return [*args, "--", *command]
+
+
 def render_scene(
     scene_code: str,
     scene_class: str,
@@ -142,14 +211,31 @@ def render_scene(
     quality: str = "ql",
     timeout_seconds: int = 300,
     manim_executable: str | None = None,
+    sandbox: bool | None = None,
     run=subprocess.run,
 ) -> RenderResult:
     """Render one validated scene to mp4 in a fresh temp cwd with a timeout.
+
+    ``sandbox=None`` (the default) requires bubblewrap on Linux — a Linux
+    machine without ``bwrap`` gets a typed failure telling the user to install
+    it — and runs direct elsewhere (bubblewrap is Linux-only). ``True`` forces
+    the requirement on any platform; ``False`` opts out (tests only).
 
     The ``run`` parameter is the offline-test seam (a fake writes an mp4 into
     the expected media glob). The temp directory is always cleaned."""
 
     quality_flag = f"-q{quality[-1].lower()}" if quality else "-ql"
+    bwrap = None
+    if sandbox is not False:
+        bwrap = _sandbox_bwrap_path()
+        if bwrap is None and (sandbox is True or sys.platform == "linux"):
+            return RenderResult(
+                False,
+                None,
+                "sandboxed rendering requires bubblewrap; install it (e.g. "
+                "apt install bubblewrap) and retry",
+                None,
+            )
     workdir = Path(tempfile.mkdtemp(prefix="learnloop-manim-"))
     try:
         scene_path = workdir / "scene.py"
@@ -163,11 +249,18 @@ def render_scene(
             str(scene_path),
             scene_class,
         ]
+        env = _render_env()
+        if bwrap is not None:
+            command = _sandboxed_command(command, workdir, bwrap, manim_executable)
+            # Caches (matplotlib, fontconfig, manim) land in the scratch dir,
+            # the sandbox's only writable path.
+            env["HOME"] = str(workdir)
+            env["XDG_CACHE_HOME"] = str(workdir / ".cache")
         try:
             result = run(
                 command,
                 cwd=str(workdir),
-                env=_render_env(),
+                env=env,
                 capture_output=True,
                 timeout=timeout_seconds,
             )

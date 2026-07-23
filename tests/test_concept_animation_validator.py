@@ -74,7 +74,9 @@ def test_render_scene_success_reads_mp4_and_cleans_temp(tmp_path):
         captured["env"] = env
         return _fake_run_success(command, cwd=cwd)
 
-    result = render_scene(VALID_SCENE, "ExplainSVD", quality="ql", timeout_seconds=60, run=spy_run)
+    result = render_scene(
+        VALID_SCENE, "ExplainSVD", quality="ql", timeout_seconds=60, sandbox=False, run=spy_run
+    )
 
     assert result.ok is True
     assert result.video_bytes == b"fake-mp4-bytes"
@@ -89,7 +91,7 @@ def test_render_scene_failure_captures_stderr_tail():
     def failing_run(command, cwd=None, env=None, capture_output=None, timeout=None):
         return types.SimpleNamespace(returncode=1, stdout=b"", stderr=b"Tex not found: latex missing")
 
-    result = render_scene(VALID_SCENE, "ExplainSVD", run=failing_run)
+    result = render_scene(VALID_SCENE, "ExplainSVD", sandbox=False, run=failing_run)
 
     assert result.ok is False
     assert result.video_bytes is None
@@ -101,7 +103,7 @@ def test_render_scene_timeout_is_typed():
     def timeout_run(command, cwd=None, env=None, capture_output=None, timeout=None):
         raise subprocess.TimeoutExpired(cmd=command, timeout=timeout)
 
-    result = render_scene(VALID_SCENE, "ExplainSVD", timeout_seconds=5, run=timeout_run)
+    result = render_scene(VALID_SCENE, "ExplainSVD", timeout_seconds=5, sandbox=False, run=timeout_run)
 
     assert result.ok is False
     assert "timed out after 5s" in result.stderr_tail
@@ -127,3 +129,62 @@ def test_manim_runtime_probe_found_and_missing():
 def test_render_result_is_plain_dataclass():
     result = RenderResult(ok=False, video_bytes=None, stderr_tail="x", returncode=2)
     assert result.stderr_tail == "x"
+
+
+def _spy_run_factory(captured):
+    def spy_run(command, cwd=None, env=None, capture_output=None, timeout=None):
+        captured["command"] = command
+        captured["cwd"] = cwd
+        captured["env"] = env
+        return _fake_run_success(command, cwd=cwd)
+
+    return spy_run
+
+
+def test_render_scene_sandboxes_with_bwrap(monkeypatch):
+    import learnloop.services.concept_animation as ca
+
+    monkeypatch.setattr(ca.sys, "platform", "linux")
+    monkeypatch.setattr(ca.shutil, "which", lambda name: "/usr/bin/bwrap")
+    captured = {}
+
+    result = render_scene(VALID_SCENE, "ExplainSVD", run=_spy_run_factory(captured))
+
+    assert result.ok is True
+    command = captured["command"]
+    assert command[0] == "/usr/bin/bwrap"
+    assert "--unshare-all" in command  # includes the network namespace
+    assert "--" in command
+    inner = command[command.index("--") + 1 :]
+    assert "render" in inner and "ExplainSVD" in inner
+    # The scratch dir is the only writable mount and doubles as HOME.
+    assert command[command.index("--bind") + 1] == captured["cwd"]
+    assert captured["env"]["HOME"] == captured["cwd"]
+
+
+def test_render_scene_requires_bwrap_on_linux(monkeypatch):
+    import learnloop.services.concept_animation as ca
+
+    monkeypatch.setattr(ca.sys, "platform", "linux")
+    monkeypatch.setattr(ca.shutil, "which", lambda name: None)
+
+    def never_run(command, **kwargs):
+        raise AssertionError("render must not run without the sandbox on linux")
+
+    result = render_scene(VALID_SCENE, "ExplainSVD", run=never_run)
+
+    assert result.ok is False
+    assert "bubblewrap" in result.stderr_tail
+
+
+def test_render_scene_off_linux_runs_direct_without_bwrap(monkeypatch):
+    import learnloop.services.concept_animation as ca
+
+    monkeypatch.setattr(ca.sys, "platform", "darwin")
+    captured = {}
+
+    result = render_scene(VALID_SCENE, "ExplainSVD", run=_spy_run_factory(captured))
+
+    assert result.ok is True
+    assert captured["command"][0] != "/usr/bin/bwrap"
+    assert "render" in captured["command"]
