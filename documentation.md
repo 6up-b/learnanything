@@ -257,12 +257,12 @@ The `ai:<provider>` chip at the far right of the tab bar (or Alt+S) opens the Se
 
 - **AI models** — the active provider plus per-use-case rows (grading, ingest/synthesis, tutor, animation). Picking OpenRouter for a use case takes any model slug and materializes a dedicated `[ai.providers.openrouter_<usecase>]` profile, so different tasks can run different OpenRouter models. Grading also offers manual (self-grade) mode.
 - **OpenRouter API key** — saved (masked) to the machine-global `settings.env`, never the committed vault config, and applied to the running process immediately.
-- **Ingestion** — the native-multimodal toggle, the transcription endpoint model/base URL, and its API key.
+- **Ingestion** — the native-multimodal toggle and the transcription provider: `openai-compatible` (any `/audio/transcriptions` endpoint — model, base URL, and its own API key) or `openrouter` (an audio-capable model slug transcribes via chat `input_audio`, mp3/wav only, reusing the OpenRouter key above).
 - **Appearance** — color palettes: the default terminal look, dracula, gruvbox, nord, and catppuccin-mocha. The choice is per-machine (localStorage) and applies instantly.
 
 ### Audio sources
 
-Local audio files (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.opus`, `.aac`) ingest like any other source (Ingest tab, Quick add, or drag-drop). By default the file is transcribed by the OpenAI-compatible `/audio/transcriptions` endpoint configured under `[ingest.audio]` (OpenAI whisper, Groq, or a local faster-whisper server; the key comes from the env var it names). The transcript keeps per-segment timestamps, so outline units, reader locators, and provenance work exactly as they do for YouTube captions. Audio always leaves the machine, so the import consent card lists it before anything uploads.
+Local audio files (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.opus`, `.aac`) ingest like any other source (Ingest tab, Quick add, or drag-drop). By default the file is transcribed by the OpenAI-compatible `/audio/transcriptions` endpoint configured under `[ingest.audio]` (OpenAI whisper, Groq, or a local faster-whisper server; the key comes from the env var it names). Setting `provider = "openrouter"` under `[ingest.audio]` (or picking openrouter in the Settings tab's transcription row) instead sends the audio as chat `input_audio` parts to the configured `transcription_model` slug — the model must accept audio input, only mp3/wav apply, and the machine-global OpenRouter key is reused, since OpenRouter has no transcriptions endpoint. Either way the transcript keeps per-segment timestamps, so outline units, reader locators, and provenance work exactly as they do for YouTube captions. Audio always leaves the machine, so the import consent card lists it before anything uploads.
 
 ### Native multimodal ingestion
 

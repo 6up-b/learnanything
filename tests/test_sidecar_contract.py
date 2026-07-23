@@ -2680,6 +2680,65 @@ def test_update_ingest_settings_toggles_native_and_transcription(tmp_path, monke
     assert bad["error"]["data"]["code"] == "invalid_base_url"
 
 
+def test_update_ingest_settings_transcription_provider_switch(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    # Switching to openrouter with an endpoint-style model is rejected: the
+    # openrouter path sends chat input_audio to a "vendor/model" slug.
+    bad = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"transcriptionProvider": "openrouter"}),
+    )[0]
+    assert bad["error"]["data"]["code"] == "invalid_model"
+
+    unknown = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"transcriptionProvider": "groq"}),
+    )[0]
+    assert unknown["error"]["data"]["code"] == "invalid_provider"
+
+    result = _settings_rpc(
+        vault_root,
+        (
+            "update_ingest_settings",
+            {
+                "transcriptionProvider": "openrouter",
+                "transcriptionModel": "google/gemini-2.5-flash",
+            },
+        ),
+    )[0]["result"]
+    assert result["ingest"]["transcriptionProvider"] == "openrouter"
+    assert result["ingest"]["transcriptionModel"] == "google/gemini-2.5-flash"
+
+    from learnloop.config import load_config
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ingest.audio.provider == "openrouter"
+    assert config.ingest.audio.transcription_model == "google/gemini-2.5-flash"
+
+    # An update that never touches provider/model (the native toggle) must not
+    # trip the slug check, even against a hand-edited non-slug model.
+    from learnloop.services.settings_store import apply_config_updates
+
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {("ingest", "audio", "transcription_model"): "whisper-1"},
+    )
+    toggled = _settings_rpc(
+        vault_root, ("update_ingest_settings", {"nativeMultimodal": True})
+    )[0]["result"]
+    assert toggled["ingest"]["nativeMultimodal"] is True
+
+    # Switching back to the endpoint provider accepts endpoint-style models.
+    back = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"transcriptionProvider": "openai_compatible"}),
+    )[0]["result"]
+    assert back["ingest"]["transcriptionProvider"] == "openai_compatible"
+
+
 def test_set_transcription_api_key_writes_env_and_get_settings_reflects_it(tmp_path, monkeypatch):
     global_dir = tmp_path / "global"
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(global_dir))

@@ -453,9 +453,9 @@ def default_extraction_identity(
 
     if category == "audio":
         # Lock-step with _extract_audio: the same pure route decision picks
-        # native vs endpoint transcription, and the identity carries the model
-        # + provider/endpoint so re-pointing either forces a fresh
-        # transcription. Keys named api_key* are stripped by
+        # native vs openrouter vs endpoint transcription, and the identity
+        # carries the model + provider/endpoint so re-pointing either forces a
+        # fresh transcription. Keys named api_key* are stripped by
         # hashing._sanitized_config.
         from learnloop.ai.multimodal import chat_audio_format
 
@@ -468,6 +468,19 @@ def default_extraction_identity(
                 "config": {"provider": route.provider_name},
             }
         audio_config = _audio_ingest_config(ctx)
+        if audio_config.provider.strip().lower() == "openrouter":
+            if chat_audio_format(_audio_filename(fetched)) is None:
+                raise IngestRunnerError(
+                    _OPENROUTER_AUDIO_FORMAT_MESSAGE,
+                    code="audio_format_unsupported",
+                    retryable=True,
+                )
+            return {
+                "extractor": "audio_native",
+                "extractor_version": "1",
+                "model_versions": {"chat_model": audio_config.transcription_model},
+                "config": {"provider": "openrouter"},
+            }
         return {
             "extractor": "audio_transcript",
             "extractor_version": "1",
@@ -603,15 +616,24 @@ def _audio_filename(fetched: FetchedBytes) -> str:
     return name or "audio"
 
 
+# Shared by identity and extraction so both raise the same actionable message.
+_OPENROUTER_AUDIO_FORMAT_MESSAGE = (
+    "OpenRouter transcription sends audio as chat input_audio and supports "
+    "mp3/wav only; convert the file or switch the transcription provider to "
+    "an OpenAI-compatible endpoint."
+)
+
+
 def _extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any:
     """Audio → timestamped transcript → the same time_range IR captions use.
 
     Native-multimodal route first (when configured and the container is a chat
-    input_audio format); otherwise the [ingest.audio] transcription endpoint.
-    All failure modes are retryable typed errors: audio is always an external
-    call, so the durable queue owns retry semantics — no partial IR ever
-    persists, and a mid-run provider failure never silently switches routes
-    (different cost/consent surface)."""
+    input_audio format); then [ingest.audio] provider = "openrouter" (chat
+    input_audio against the openrouter profile); otherwise the [ingest.audio]
+    transcription endpoint. All failure modes are retryable typed errors: audio
+    is always an external call, so the durable queue owns retry semantics — no
+    partial IR ever persists, and a mid-run provider failure never silently
+    switches routes (different cost/consent surface)."""
 
     from learnloop.ai.multimodal import chat_audio_format
     from learnloop.ingest.extractors import transcript_to_ir
@@ -627,6 +649,9 @@ def _extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any:
         return _extract_audio_native(fetched, ctx, route, chat_format)
 
     config = _audio_ingest_config(ctx)
+    if config.provider.strip().lower() == "openrouter":
+        return _extract_audio_openrouter(fetched, ctx, config, chat_format)
+
     size_mb = len(fetched.raw_bytes) / (1024 * 1024)
     if size_mb > config.max_file_mb:
         raise IngestRunnerError(
@@ -655,8 +680,6 @@ def _extract_audio_native(
 ) -> Any:
     from learnloop.ai.multimodal import MediaTranscriptionContext
     from learnloop.codex.client import CodexUnavailable
-    from learnloop.ingest.extractors import transcript_to_ir
-    from learnloop.ingest.transcripts import TranscriptCue
 
     size_mb = len(fetched.raw_bytes) / (1024 * 1024)
     if size_mb > route.max_audio_mb:
@@ -676,6 +699,95 @@ def _extract_audio_native(
         )
     except CodexUnavailable as exc:
         raise IngestRunnerError(str(exc), code="native_audio_failed", retryable=True) from exc
+    return _chat_transcript_to_ir(
+        transcript, ctx, provider_label=route.provider_name, empty_code="native_audio_failed"
+    )
+
+
+def _extract_audio_openrouter(
+    fetched: FetchedBytes, ctx: JobContext, config: Any, chat_format: str | None
+) -> Any:
+    """[ingest.audio] provider = "openrouter": transcribe via chat input_audio.
+
+    Builds an OpenRouter chat client from the base openrouter profile with
+    transcription_model as the slug — independent of [ingest.native] and the
+    canonical_ingest route, so the transcription model never has to match the
+    synthesis model. No silent fallback to the endpoint path (different
+    cost/consent surface)."""
+
+    import os
+
+    from learnloop.ai.client import make_ai_provider_client_from_profile
+    from learnloop.ai.multimodal import MediaTranscriptionContext
+    from learnloop.codex.client import CodexUnavailable
+    from learnloop.vault.loader import load_vault
+
+    if chat_format is None:
+        raise IngestRunnerError(
+            _OPENROUTER_AUDIO_FORMAT_MESSAGE, code="audio_format_unsupported", retryable=True
+        )
+    config_full = load_vault(ctx.vault_root).config
+    base = config_full.ai.providers.get("openrouter")
+    if base is None:
+        raise IngestRunnerError(
+            "No openrouter provider profile is configured.",
+            code="transcription_unavailable",
+            retryable=True,
+        )
+    api_key_env = base.api_key_env or "OPENROUTER_API_KEY"
+    if not os.environ.get(api_key_env):
+        raise IngestRunnerError(
+            f"Environment variable {api_key_env} is required for OpenRouter "
+            "transcription. Save the OpenRouter API key in Settings.",
+            code="transcription_unavailable",
+            retryable=True,
+        )
+    max_audio_mb = config_full.ingest.native.max_audio_mb
+    size_mb = len(fetched.raw_bytes) / (1024 * 1024)
+    if size_mb > max_audio_mb:
+        # Base64 inflates ~33% inside a chat body, so the chat-path cap
+        # applies, not the endpoint's max_file_mb.
+        raise IngestRunnerError(
+            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {max_audio_mb}.",
+            code="audio_too_large",
+            retryable=True,
+        )
+    profile = base.model_copy(
+        update={"model": config.transcription_model, "timeout_seconds": config.timeout_seconds}
+    )
+    try:
+        client = make_ai_provider_client_from_profile("openrouter", profile, ctx.vault_root)
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="transcription_unavailable", retryable=True) from exc
+    try:
+        transcript = client.run_media_transcription(
+            MediaTranscriptionContext(
+                media_bytes=fetched.raw_bytes,
+                media_format=chat_format,
+                title=ctx.payload.get("title") or fetched.title,
+                language=config.language or None,
+            )
+        )
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(
+            f"OpenRouter transcription failed: {exc}. Check that the model accepts audio input.",
+            code="transcription_failed",
+            retryable=True,
+        ) from exc
+    return _chat_transcript_to_ir(
+        transcript, ctx, provider_label="openrouter", empty_code="transcription_failed"
+    )
+
+
+def _chat_transcript_to_ir(
+    transcript: Any, ctx: JobContext, *, provider_label: str, empty_code: str
+) -> Any:
+    """Chat-model MediaTranscript segments → the same time_range IR the
+    endpoint transcription path produces (shared native/openrouter tail)."""
+
+    from learnloop.ingest.extractors import transcript_to_ir
+    from learnloop.ingest.transcripts import TranscriptCue
+
     cues = [
         TranscriptCue(
             start=segment.start_seconds,
@@ -688,8 +800,8 @@ def _extract_audio_native(
     ]
     if not cues:
         raise IngestRunnerError(
-            f"{route.provider_name} returned no transcript segments",
-            code="native_audio_failed",
+            f"{provider_label} returned no transcript segments",
+            code=empty_code,
             retryable=True,
         )
     return transcript_to_ir(

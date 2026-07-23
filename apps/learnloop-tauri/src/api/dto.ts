@@ -79,6 +79,7 @@ export interface KeyStateDto {
 
 export interface SettingsIngestDto {
   nativeMultimodal: boolean;
+  transcriptionProvider: string;
   transcriptionModel: string;
   transcriptionBaseUrl: string;
   transcriptionKey: KeyStateDto;
@@ -94,6 +95,7 @@ export interface SettingsDto {
 
 export interface UpdateIngestSettingsInput {
   nativeMultimodal?: boolean;
+  transcriptionProvider?: string;
   transcriptionModel?: string;
   transcriptionBaseUrl?: string;
 }

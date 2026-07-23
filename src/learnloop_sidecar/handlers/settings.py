@@ -85,6 +85,7 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
         },
         "ingest": {
             "native_multimodal": config.ingest.native.enabled,
+            "transcription_provider": config.ingest.audio.provider,
             "transcription_model": config.ingest.audio.transcription_model,
             "transcription_base_url": config.ingest.audio.transcription_base_url,
             "transcription_key": _key_state(config.ingest.audio.transcription_api_key_env),
@@ -187,8 +188,12 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
 
 class UpdateIngestSettingsParams(ParamsModel):
     native_multimodal: bool | None = None
+    transcription_provider: str | None = None
     transcription_model: str | None = None
     transcription_base_url: str | None = None
+
+
+TRANSCRIPTION_PROVIDERS = ("openai_compatible", "openrouter")
 
 
 @method("update_ingest_settings", UpdateIngestSettingsParams)
@@ -197,6 +202,16 @@ def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsPara
     updates: dict[tuple[str, ...], Any] = {}
     if params.native_multimodal is not None:
         updates[("ingest", "native", "enabled")] = params.native_multimodal
+    provider: str | None = None
+    if params.transcription_provider is not None:
+        provider = params.transcription_provider.strip().lower()
+        if provider not in TRANSCRIPTION_PROVIDERS:
+            raise SidecarError(
+                "invalid_provider",
+                f"Transcription provider must be one of: {', '.join(TRANSCRIPTION_PROVIDERS)}.",
+            )
+        updates[("ingest", "audio", "provider")] = provider
+    model: str | None = None
     if params.transcription_model is not None:
         model = params.transcription_model.strip()
         if not model:
@@ -207,6 +222,24 @@ def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsPara
         if not base_url.lower().startswith(("http://", "https://")):
             raise SidecarError("invalid_base_url", "Transcription base URL must be http(s).")
         updates[("ingest", "audio", "transcription_base_url")] = base_url
+    # OpenRouter transcription runs as chat input_audio against a model slug;
+    # catch an endpoint model (e.g. whisper-1) left behind on a provider
+    # switch. Only when the request touches provider/model — an unrelated
+    # update (e.g. the native toggle) must not fail on a pre-existing mismatch.
+    if provider is not None or model is not None:
+        effective_provider = (
+            provider
+            if provider is not None
+            else vault.config.ingest.audio.provider.strip().lower()
+        )
+        effective_model = (
+            model if model is not None else vault.config.ingest.audio.transcription_model
+        )
+        if effective_provider == "openrouter" and "/" not in effective_model:
+            raise SidecarError(
+                "invalid_model",
+                'OpenRouter transcription models are slugs like "vendor/model" and must accept audio input.',
+            )
     if updates:
         try:
             apply_config_updates(vault.root / "learnloop.toml", updates)

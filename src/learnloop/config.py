@@ -414,13 +414,17 @@ llm_base_url = ""
 llm_model = ""
 llm_api_key_env = "LEARNLOOP_PDF_LLM_API_KEY"
 
-# Audio ingestion (.mp3/.wav/.m4a/.flac/.ogg/.oga/.opus/.aac). The file is sent
-# to an OpenAI-compatible POST {base_url}/audio/transcriptions endpoint
-# (OpenAI whisper, Groq, a local faster-whisper server, ...). The API key is
-# read from the env var named by transcription_api_key_env. Models that reject
-# verbose_json (e.g. gpt-4o-transcribe) degrade to a single untimestamped
-# transcript unit.
+# Audio ingestion (.mp3/.wav/.m4a/.flac/.ogg/.oga/.opus/.aac). With provider =
+# "openai_compatible" the file is sent to an OpenAI-style POST
+# {base_url}/audio/transcriptions endpoint (OpenAI whisper, Groq, a local
+# faster-whisper server, ...) with the API key read from the env var named by
+# transcription_api_key_env; models that reject verbose_json (e.g.
+# gpt-4o-transcribe) degrade to a single untimestamped transcript unit. With
+# provider = "openrouter" the audio is sent as chat input_audio parts to the
+# openrouter profile with transcription_model as the slug (must accept audio
+# input; mp3/wav only), reusing OPENROUTER_API_KEY.
 [ingest.audio]
+provider = "openai_compatible"
 transcription_base_url = "https://api.openai.com/v1"
 transcription_model = "whisper-1"
 transcription_api_key_env = "LEARNLOOP_TRANSCRIPTION_API_KEY"
@@ -1331,13 +1335,18 @@ class AnimationConfig(BaseModel):
 
 
 class AudioIngestConfig(BaseModel):
-    """Audio-source ingestion (.mp3/.wav/...): transcription endpoint settings.
+    """Audio-source ingestion (.mp3/.wav/...): transcription settings.
 
-    The default path sends the file to an OpenAI-compatible POST
-    {base_url}/audio/transcriptions endpoint (OpenAI whisper, Groq, a local
-    faster-whisper server, ...). The API key is read from the env var named by
-    ``transcription_api_key_env`` — never stored in this file."""
+    provider "openai_compatible" (default) sends the file to an OpenAI-style
+    POST {base_url}/audio/transcriptions endpoint (OpenAI whisper, Groq, a
+    local faster-whisper server, ...) with the key from the env var named by
+    ``transcription_api_key_env``. provider "openrouter" instead sends the
+    audio as chat ``input_audio`` parts to the base openrouter profile with
+    ``transcription_model`` as the slug (must accept audio input; mp3/wav
+    only), reusing OPENROUTER_API_KEY — OpenRouter has no transcriptions
+    endpoint. Keys are never stored in this file."""
 
+    provider: str = "openai_compatible"
     transcription_base_url: str = "https://api.openai.com/v1"
     transcription_model: str = "whisper-1"
     transcription_api_key_env: str = "LEARNLOOP_TRANSCRIPTION_API_KEY"

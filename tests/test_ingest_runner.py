@@ -1314,6 +1314,149 @@ def test_native_audio_failure_is_typed_and_never_switches_routes(tmp_path, monke
 
 
 # --------------------------------------------------------------------------
+# OpenRouter transcription setting ([ingest.audio] provider = "openrouter")
+# --------------------------------------------------------------------------
+
+
+def _openrouter_transcription_vault(tmp_path, monkeypatch):
+    from learnloop.services.settings_store import apply_config_updates
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "audio", "provider"): "openrouter",
+            ("ingest", "audio", "transcription_model"): "google/gemini-2.5-flash",
+        },
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    return vault_root
+
+
+def test_openrouter_transcription_setting_routes_audio_via_chat(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import (
+        FetchedBytes,
+        default_extract,
+        default_extraction_identity,
+    )
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch, _media_transcript_json())
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00chat-audio",
+        content_type="audio/mpeg",
+        original_uri=str(tmp_path / "lecture.mp3"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    ir = default_extract(fetched, "audio", _extract_ctx(vault_root))
+
+    # Lock-step: identity and extraction agree on the openrouter chat route,
+    # stamped with the transcription model (not the canonical_ingest route's).
+    assert identity["extractor"] == "audio_native"
+    assert identity["model_versions"] == {"chat_model": "google/gemini-2.5-flash"}
+    assert identity["config"] == {"provider": "openrouter"}
+    assert ir.extractor == "audio_native"
+    assert "native transcript" in ir.blocks[0].text
+    client = fake.instances[0]
+    assert client.kwargs["base_url"] == "https://openrouter.ai/api/v1"
+    # [ingest.audio] timeout applies, not the chat profile's default.
+    assert client.kwargs["timeout"] == 600
+    request = client.requests[0]
+    assert request["model"] == "google/gemini-2.5-flash"
+    parts = request["messages"][1]["content"]
+    assert parts[1]["type"] == "input_audio"
+    assert parts[1]["input_audio"]["format"] == "mp3"
+    # The transcription endpoint is never called.
+    assert not client.transcription_requests
+
+
+def test_openrouter_transcription_missing_key_is_typed(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    fake = install_fake_openai(monkeypatch)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(vault_root))
+
+    assert excinfo.value.code == "transcription_unavailable"
+    assert excinfo.value.retryable is True
+    assert "OPENROUTER_API_KEY" in str(excinfo.value)
+    # The key gate fires before any client is built.
+    assert not fake.instances
+
+
+def test_openrouter_transcription_unsupported_container_errors(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import (
+        FetchedBytes,
+        IngestRunnerError,
+        default_extract,
+        default_extraction_identity,
+    )
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/flac",
+        original_uri="talk.flac",  # not a chat input_audio format
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    # Identity AND extraction raise the same typed error — no silent fallback
+    # to the endpoint the user never configured.
+    for call in (default_extraction_identity, default_extract):
+        with pytest.raises(IngestRunnerError) as excinfo:
+            call(fetched, "audio", _extract_ctx(vault_root))
+        assert excinfo.value.code == "audio_format_unsupported"
+        assert excinfo.value.retryable is True
+    assert not fake.instances
+
+
+def test_native_route_takes_precedence_over_openrouter_transcription_setting(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extraction_identity
+    from learnloop.services.settings_store import apply_config_updates
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "audio", "provider"): "openrouter",
+            ("ingest", "audio", "transcription_model"): "google/gemini-2.5-flash",
+        },
+    )
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+
+    # The [ingest.native] canonical_ingest route wins (unchanged precedence):
+    # its provider/model stamp the identity, not the transcription setting.
+    assert identity["extractor"] == "audio_native"
+    assert identity["model_versions"] == {"chat_model": "deepseek/deepseek-chat"}
+    assert identity["config"] == {"provider": "openrouter"}
+
+
+# --------------------------------------------------------------------------
 # Native PDF engine ([ingest.pdf] engine = "native")
 # --------------------------------------------------------------------------
 
