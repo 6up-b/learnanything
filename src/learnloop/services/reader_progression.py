@@ -14,11 +14,17 @@ triggers at most one generation, stamped atomically before the job runs.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from learnloop.db.repositories import Repository
 from learnloop.services.reader_guidance import _span_for_ref, extraction_sections
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
+from learnloop.vault.paths import VaultPaths
+
+
+_SOURCE_BUNDLE_RADIUS = 5
+_MAX_SOURCE_BUNDLES_PER_LO = 4
 
 
 def learning_objects_for_section(
@@ -119,3 +125,138 @@ def section_generation_candidates(
         for target in plan.targets
         if target.existing_practice_items < target_items_per_lo
     )
+
+
+def source_refs_for_section(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    extraction_id: str,
+    section_id: str,
+    learning_object_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Build bounded, proposal-local citation bundles for reader seeding.
+
+    Section completion previously used LO/facet provenance only for routing and
+    then discarded it before authoring.  These refs preserve the immutable
+    source/revision/extraction identity plus enough neighboring blocks to avoid
+    handing the model a sentence fragment (common for captions and PDF blocks).
+
+    ``ref_id`` identifies the citation bundle, not merely the source artifact,
+    so several distinct spans from one source remain independently selectable by
+    ``AuthoringProposalItem.source_ref_ids``.
+    """
+
+    run = repository.get_extraction_run(extraction_id)
+    if run is None:
+        return []
+    revision = repository.get_source_revision(str(run.get("revision_id") or ""))
+    if revision is None:
+        return []
+    source_id = str(revision.get("source_id") or "")
+    ir = repository.load_document_ir(extraction_id)
+    if not source_id or ir is None:
+        return []
+    section_rows, block_by_span, _span_to_section = extraction_sections(ir)
+    section = next((row for row in section_rows if row["id"] == section_id), None)
+    if section is None:
+        return []
+    ordered_spans = [span_id for span_id in section["span_ids"] if span_id in block_by_span]
+    if not ordered_spans:
+        return []
+    blocks = [block_by_span[span_id] for span_id in ordered_spans]
+    index_by_span = {span_id: index for index, span_id in enumerate(ordered_spans)}
+
+    from learnloop.services.reader_guidance import _canonical_note_ids
+
+    artifact = repository.get_source_artifact(source_id) or {}
+    note_ids = _canonical_note_ids(vault, artifact)
+    raw_path = VaultPaths(vault.root, vault.config).canonical_source_raw_path(
+        str(revision.get("asset_hash") or "")
+    )
+    relative_raw_path = (
+        raw_path.relative_to(vault.root).as_posix() if raw_path.is_file() else None
+    )
+
+    source_refs: list[dict[str, Any]] = []
+    for learning_object_id in learning_object_ids:
+        learning_object = vault.learning_objects.get(learning_object_id)
+        if learning_object is None:
+            continue
+        prioritized_refs: list[tuple[int, Any]] = [
+            (0, ref) for ref in learning_object.provenance.source_refs
+        ]
+        for facet_id in learning_object_facet_union(learning_object):
+            facet = vault.evidence_facets.get(vault.canonical_facet_id(str(facet_id)))
+            if facet is not None:
+                prioritized_refs.extend((1, ref) for ref in facet.provenance.source_refs)
+
+        anchors_by_span: dict[str, tuple[int, Any]] = {}
+        for priority, ref in prioritized_refs:
+            span_id = _span_for_ref(
+                ref,
+                source_id=source_id,
+                extraction_id=extraction_id,
+                note_ids=note_ids,
+                blocks=blocks,
+            )
+            if span_id is None or span_id not in index_by_span:
+                continue
+            prior = anchors_by_span.get(span_id)
+            if prior is None or priority < prior[0]:
+                anchors_by_span[span_id] = (priority, ref)
+        selected_anchors = sorted(
+            anchors_by_span,
+            key=lambda span_id: (anchors_by_span[span_id][0], index_by_span[span_id]),
+        )[:_MAX_SOURCE_BUNDLES_PER_LO]
+        intervals = _merged_context_intervals(
+            [index_by_span[span_id] for span_id in selected_anchors], len(ordered_spans)
+        )
+        for start, end in intervals:
+            bundle_blocks = blocks[start : end + 1]
+            bundle_span_ids = [block.span_id for block in bundle_blocks]
+            quote = "\n".join(block.text for block in bundle_blocks)
+            quote_hash = "sha256:" + hashlib.sha256(quote.encode("utf-8")).hexdigest()
+            span_hash_material = "\n".join(block.content_hash for block in bundle_blocks)
+            span_hash = "sha256:" + hashlib.sha256(
+                span_hash_material.encode("utf-8")
+            ).hexdigest()
+            first_span, last_span = bundle_span_ids[0], bundle_span_ids[-1]
+            source_refs.append(
+                {
+                    "ref_type": "canonical_source",
+                    "ref_id": (
+                        f"reader_citation:{extraction_id}:{learning_object_id}:"
+                        f"{first_span}-{last_span}"
+                    ),
+                    "path": relative_raw_path,
+                    "locator": f"span:{extraction_id}/{first_span}",
+                    "quote": quote,
+                    "quote_hash": quote_hash,
+                    "source_id": source_id,
+                    "revision_id": str(revision["id"]),
+                    "extraction_id": extraction_id,
+                    "span_ids": bundle_span_ids,
+                    "span_hash": span_hash,
+                    "section_id": section_id,
+                    "learning_object_ids": [learning_object_id],
+                }
+            )
+    return source_refs
+
+
+def _merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]:
+    intervals = sorted(
+        (
+            max(0, index - _SOURCE_BUNDLE_RADIUS),
+            min(span_count - 1, index + _SOURCE_BUNDLE_RADIUS),
+        )
+        for index in set(anchor_indices)
+    )
+    merged: list[tuple[int, int]] = []
+    for start, end in intervals:
+        if merged and start <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged

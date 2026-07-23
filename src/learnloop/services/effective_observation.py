@@ -4,21 +4,32 @@ Canonical certification (and the mastery reliability path) consume an
 ``EffectiveObservation``, not raw attempt columns. For a coarse outcome
 distribution ``p(z) = P(Z | E)``::
 
-    certainty      = 1 - H(p) / log(K)                 # K = number of true classes
-    certainty_LCB  = 10th-pct of certainty across the calibration ensemble
-    effective_mass = attempt_type_mass
-                   * assistance_discount
-                   * familiarity_discount
-                   * certainty_LCB
-    positive_mass  = effective_mass * E[true_score_fraction]
-    negative_mass  = effective_mass * (1 - E[true_score_fraction])
+    certainty        = 1 - H(p) / log(K)               # K = number of true classes
+    certainty_LCB    = lower-pct of certainty across the calibration ensemble
+    epistemic_factor = certainty_LCB / certainty       # 1 as the ensemble tightens
+    effective_mass   = attempt_type_mass
+                     * assistance_discount
+                     * familiarity_discount
+                     * epistemic_factor
+    positive_mass    = effective_mass * E[true_score_fraction]
+    negative_mass    = effective_mass * (1 - E[true_score_fraction])
 
 ``E[true_score_fraction] = sum_z P(Z|E) * score_fraction[z]`` from the bound outcome
-schema. Reliability *discounts* (never creates) mass, so the existing correlation
-caps, dependency localization, assistance, and familiarity discounts still bind
-AFTER this discount. Deterministic / point-adjudicated outcomes have certainty 1;
-a uniform interpretation has certainty 0 -> zero mass; a quarantined observation
-contributes zero until an append-only resolution activates a new interpretation.
+schema. The posterior spread ALREADY hedges the mass split (P4.2 revision): a
+0.8/0.1/0.1 posterior banks 0.85 positive / 0.15 negative, so multiplying the mass
+by the certainty LCB as well double-counted the same aleatoric uncertainty and made
+Demonstrated effectively unreachable under the permanent heuristic prior. The mass
+discount is now only the EPISTEMIC part — how far model uncertainty (the Dirichlet
+ensemble spread) degrades the interpretive certainty below its point value. It
+tends to 1 as calibration data accumulates and stays 1 for deterministic grades,
+while a genuinely noisy grader keeps paying through the posterior split itself.
+
+Reliability *discounts* (never creates) mass, so the existing correlation caps,
+dependency localization, assistance, and familiarity discounts still bind AFTER
+this discount. Deterministic / point-adjudicated outcomes have certainty 1; a
+uniform interpretation has certainty 0 -> zero mass (its LCB is also 0 and the
+factor is defined as 0 there); a quarantined observation contributes zero until
+an append-only resolution activates a new interpretation.
 """
 
 from __future__ import annotations
@@ -44,6 +55,7 @@ def shared_certainty_lcb(
     calibration_model_hash: str,
     posterior: Mapping[str, float],
     projection_algorithm_version: str = SHARED_CERTAINTY_PROJECTION_VERSION,
+    quantile: float | None = None,
 ) -> float:
     """THE one canonical certainty LCB (spec §4.3 final ¶).
 
@@ -54,6 +66,10 @@ def shared_certainty_lcb(
     canonical decision context (independent of episode/observation/item identity
     -- those inputs are what made the two paths diverge), so the value is a pure
     function of the pinned model + emission + posterior + registered params.
+
+    ``quantile`` is the ensemble percentile the bound reads (P4: a fitted policy
+    knob, ``fitted_params.resolve_grader_channel_prior``); ``None`` keeps the
+    robust-composition default.
     """
 
     ctx = rc.decision_context_hash(
@@ -63,11 +79,15 @@ def shared_certainty_lcb(
         posterior_at_selection=posterior,
         projection_algorithm_version=projection_algorithm_version,
     )
+    kwargs: dict[str, Any] = {}
+    if quantile is not None:
+        kwargs["quantile"] = quantile
     return rc.certainty_lcb(
         joint_alpha=joint_alpha,
         observed_emission=observed_emission,
         calibration_model_hash=calibration_model_hash,
         decision_context_hash=ctx,
+        **kwargs,
     )
 
 
@@ -120,6 +140,23 @@ class EffectiveObservation:
     lineage_model_ids: tuple[str, ...]
 
     @property
+    def epistemic_factor(self) -> float:
+        """``certainty_lcb / certainty`` — model-level doubt only (module docstring).
+
+        The ratio strips the aleatoric component (already priced into the
+        positive/negative split via ``expected_true_score_fraction``) out of the
+        LCB: a cold-but-consistent channel scores ~0.9, a data-backed channel ~1,
+        and a uniform/empty posterior (certainty 0) scores 0 so the §4.3
+        zero-mass invariants hold unchanged.
+        """
+
+        # Epsilon guards float dust: an exactly-uniform posterior computes
+        # certainty ~1e-16, and a bare ratio would blow that up to 1.
+        if self.certainty < 1e-9:
+            return 0.0
+        return max(0.0, min(1.0, self.certainty_lcb / self.certainty))
+
+    @property
     def effective_mass(self) -> float:
         if self.quarantined or self.unassessable:
             return 0.0
@@ -127,7 +164,7 @@ class EffectiveObservation:
             self.attempt_type_mass
             * self.assistance_discount
             * self.familiarity_discount
-            * self.certainty_lcb
+            * self.epistemic_factor
         )
         return max(0.0, mass)
 
@@ -296,6 +333,8 @@ def _certainty_lcb_for_interpretation(
     if raw is None:
         return _certainty(posterior)
     emission = f"{raw['observed_class']}|{raw['confidence_bucket']}"
+    from learnloop.services.fitted_params import resolve_grader_channel_prior
+
     return shared_certainty_lcb(
         joint_alpha=pooled,
         observed_emission=emission,
@@ -305,4 +344,5 @@ def _certainty_lcb_for_interpretation(
             interpretation.get("projection_algorithm_version")
             or SHARED_CERTAINTY_PROJECTION_VERSION
         ),
+        quantile=resolve_grader_channel_prior(repository).lcb_quantile,
     )

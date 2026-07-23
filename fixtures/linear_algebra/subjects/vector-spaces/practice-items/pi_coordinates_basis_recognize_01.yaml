@@ -1,0 +1,158 @@
+schema_version: 1
+id: pi_coordinates_basis_recognize_01
+learning_object_id: lo_coordinates_require_a_basis
+subjects:
+  - vector-spaces
+practice_mode: recognition
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_coordinates_are_scalar_coefficients_relative_to_
+evidence_weights:
+  facet_coordinates_are_scalar_coefficients_relative_to_: 1.0
+criterion_facet_weights:
+  criterion_correct_selection:
+    facet_coordinates_are_scalar_coefficients_relative_to_: 1.0
+prompt: "A vector is labeled with coordinates (3, -2). What must be known to interpret
+  those numbers as a vector?\nA. Only the vector's length\nB. The basis vectors that
+  3 and -2 scale\nC. Only the dimension of the space"
+expected_answer: B. The basis vectors that 3 and -2 scale.
+difficulty: 0.0
+difficulty_source: llm_estimate
+tags:
+  - basis
+  - coordinates
+  - recognition
+hints:
+  - Ask what the coordinate scalars multiply.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.05
+scaffold_level: 0.3
+capability: retrieval
+task_features:
+  complexity: 0
+  representation:
+    - verbal
+  response: recognize
+  scaffolding: cue
+  span: atomic
+  tools:
+    - closed_book
+  transfer: same_context
+task_feature_schema: p1_launch@1
+surface_family: verbal_option_recognition
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: 'A or C: treating coordinates as basis-free information.'
+repair_targets:
+  - facet_coordinates_are_scalar_coefficients_relative_to_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_correct_selection
+      points: 4.0
+      description: Selects option B, identifying the basis vectors scaled by the
+        coordinates.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+  fatal_errors: []
+status: retired
+status_reason: too_easy
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KY3VMAQ2JGYG900ZH3HTET4R:lo_coordinates_require_a_basis:s9-s19
+      path: 
+        canonical-sources/raw/sha256-427978a30dcb7d1f8e31662626f36cdddd466d5f605fdee0018bdad337bf51c1
+      locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s9
+      quote: "meaning, think about how each one stretches or squishes vectors.\nIn
+        the xy coordinate system, there are two very special vectors,\nthe one pointing
+        to the right with length 1, commonly called i-hat,\nor the unit vector in
+        the x direction, and the one pointing straight up with length 1,\ncommonly
+        called j-hat, or the unit vector in the y direction.\nNow, think of the x
+        coordinate of our vector as a scalar that scales i-hat,\nstretching it by
+        a factor of 3, and the y coordinate as a scalar that scales j-hat,\nflipping
+        it and stretching it by a factor of 2.\nIn this sense, the vector that these
+        coordinates\ndescribe is the sum of two scaled vectors.\nThat's a surprisingly
+        important concept, this idea of adding together two scaled vectors."
+      quote_hash: 
+        sha256:7d3851dea3e4a0bdad58fa038667528dfccf9483d2c538057a0a7ee7897be5c7
+      source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+      extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+      span_ids:
+        - s9
+        - s10
+        - s11
+        - s12
+        - s13
+        - s14
+        - s15
+        - s16
+        - s17
+        - s18
+        - s19
+      span_hash: 
+        sha256:3e9b8ca6b4b8c123f30d9da3b1de2f087d22e6b0dda086ce34e2f512edbe6b8c
+      section_id: u1
+      learning_object_ids:
+        - lo_coordinates_require_a_basis
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KY3VMAQ2JGYG900ZH3HTET4R:lo_coordinates_require_a_basis:s37-s50
+      path: 
+        canonical-sources/raw/sha256-427978a30dcb7d1f8e31662626f36cdddd466d5f605fdee0018bdad337bf51c1
+      locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s37
+      quote: "between pairs of numbers and two-dimensional vectors,\nbut the association
+        is definitely different from the one that you get using the more\nstandard
+        basis of i-hat and j-hat.\nThis is something I'll go into much more detail
+        on later,\ndescribing the exact relationship between different coordinate
+        systems,\nbut for right now, I just want you to appreciate the fact that any
+        time we\ndescribe vectors numerically, it depends on an implicit choice of
+        what basis\nvectors we're using.\nSo any time that you're scaling two vectors
+        and adding them like this,\nit's called a linear combination of those two
+        vectors.\nWhere does this word linear come from?\nWhy does this have anything
+        to do with lines?\nWell, this isn't the etymology, but one way I like to think
+        about it\nis that if you fix one of those scalars and let the other one change
+        its value freely,"
+      quote_hash: 
+        sha256:9c1d7f350ead4acc267781accb2ffc485f7eae835d4ebbe61e80b47f0d5b2ccc
+      source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+      extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+      span_ids:
+        - s37
+        - s38
+        - s39
+        - s40
+        - s41
+        - s42
+        - s43
+        - s44
+        - s45
+        - s46
+        - s47
+        - s48
+        - s49
+        - s50
+      span_hash: 
+        sha256:3e3c68eab8abb5d399b6951cd4610f99078401c39b85068c636c8fadf01feb5b
+      section_id: u1
+      learning_object_ids:
+        - lo_coordinates_require_a_basis
+created_at: '2026-07-22T13:18:44Z'
+updated_at: '2026-07-22T13:42:13Z'

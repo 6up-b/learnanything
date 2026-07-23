@@ -87,6 +87,16 @@ source_sets:
           - unit_id: u39
             role_override:
         priority: 1
+      - source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+        revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+        default_role: lecture
+        scope: []
+        priority: 1
+      - source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+        revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+        default_role: lecture
+        scope: []
+        priority: 1
     priority: 1
     created_at: '2026-07-21T18:20:49Z'
-    updated_at: '2026-07-21T18:20:49Z'
+    updated_at: '2026-07-22T02:50:27Z'

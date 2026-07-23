@@ -18,6 +18,7 @@ def codex_config_from_ai_profile(profile: AIProviderConfig) -> CodexConfig:
         startup_command=profile.startup_command or "",
         startup_timeout_seconds=profile.startup_timeout_seconds or 20,
         healthcheck_timeout_seconds=profile.healthcheck_timeout_seconds or profile.timeout_seconds or 5,
+        timeout_seconds=profile.timeout_seconds or 60,
         auth_mode=profile.auth_mode or "chatgpt",
         model=profile.model or "gpt-5.6-sol",
         reasoning_effort=profile.reasoning_effort or "low",

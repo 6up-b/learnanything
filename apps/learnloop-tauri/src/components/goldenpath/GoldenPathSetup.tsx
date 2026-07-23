@@ -14,7 +14,7 @@ import type {
   GoalDto,
   RunListEntryDto,
 } from "../../api/dto";
-import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader } from "../term";
+import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, TermCheckbox } from "../term";
 import { PrimaryButton, SecondaryButton } from "./shared";
 import { ExemplarConfirmDialog, type ConfirmInput } from "../ExemplarConfirmDialog";
 
@@ -286,23 +286,21 @@ export function GoldenPathSetup({
                 <Pill color={reviewed ? "green" : "amber"}>{reviewed ? "reviewed" : composed.blueprint.status}</Pill>
               </div>
               {REVIEW_CHECKS.map((c) => (
-                <label key={c.key} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={checks.has(c.key)}
-                    disabled={reviewed}
-                    onChange={() =>
-                      setChecks((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(c.key)) next.delete(c.key);
-                        else next.add(c.key);
-                        return next;
-                      })
-                    }
-                    style={{ marginTop: 2 }}
-                  />
-                  <span>{c.label}</span>
-                </label>
+                <TermCheckbox
+                  key={c.key}
+                  checked={checks.has(c.key)}
+                  disabled={reviewed}
+                  onChange={() =>
+                    setChecks((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(c.key)) next.delete(c.key);
+                      else next.add(c.key);
+                      return next;
+                    })
+                  }
+                  label={c.label}
+                  style={{ alignItems: "flex-start", justifyContent: "flex-start", textAlign: "left" }}
+                />
               ))}
               {!reviewed ? (
                 <div>

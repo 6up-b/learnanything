@@ -544,6 +544,41 @@ def ask(
     }
 
 
+def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str, Any]]:
+    """Return every completed Reader Ask for one extraction, newest first.
+
+    Reader exchanges are already durable ``reader_answer_submitted`` interaction
+    events.  This projection makes that existing history available to the Reader
+    UI without creating a second persistence path.  Failed/pending provider calls
+    are intentionally absent because they have no answer to reopen.
+    """
+
+    prefix = f"span:{extraction_id}/"
+    exchanges: list[dict[str, Any]] = []
+    for event in repository.reader_interaction_events(kind="reader_answer_submitted"):
+        subject_id = str(event.get("subject_id") or "")
+        if not subject_id.startswith(prefix):
+            continue
+        payload = event.get("payload") or {}
+        if str(payload.get("extraction_id") or "") != extraction_id:
+            continue
+        manifest = payload.get("manifest") or {}
+        exchanges.append(
+            {
+                "event_id": str(event["id"]),
+                "extraction_id": extraction_id,
+                "span_id": str(payload.get("span_id") or subject_id[len(prefix):]),
+                "question_md": str(manifest.get("question_md") or ""),
+                "answer_md": str(payload.get("answer_md") or ""),
+                "answer_mode": str(payload.get("answer_mode") or READER_ANSWER_MODE_DEFAULT),
+                "citations": list(payload.get("citations") or []),
+                "created_at": event.get("created_at"),
+            }
+        )
+    exchanges.reverse()
+    return exchanges
+
+
 def _record_cold_hint_equivalent(
     repository: Repository,
     *,

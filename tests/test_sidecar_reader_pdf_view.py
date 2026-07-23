@@ -19,7 +19,13 @@ def test_pdf_view_manifest_from_originals_store(tmp_path: Path) -> None:
     assert result["extractionId"] == "ext1"
     assert result["sourceId"] == "src1"
     assert result["blocks"] == [
-        {"spanId": "s1", "page": 0, "bbox": [10, 50, 300, 90], "blockType": "Text"}
+        {
+            "spanId": "s1",
+            "page": 0,
+            "bbox": [10, 50, 300, 90],
+            "blockType": "Text",
+            "text": "Symmetric matrices have real eigenvalues.",
+        }
     ]
 
 

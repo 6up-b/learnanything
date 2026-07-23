@@ -1,0 +1,83 @@
+schema_version: 1
+id: lo_connect_coordinate_operations_with_two_dimension
+title: Connect coordinate operations with two-dimensional vector geometry
+subjects:
+  - vector-spaces
+concept: concept_geometric_interpretation_of_vectors
+knowledge_type: representational
+status: active
+contradicts:
+summary: Interpret vectors as movable arrows, construct sums tip-to-tail, and 
+  predict the direction and length of scalar multiples while retaining algebraic
+  definitions as authoritative.
+prerequisites:
+  - concept_coordinate_vector_operations
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_12
+    weight: 1.0
+    recipes:
+      - id: recipe_geometric_vectors_core
+        composition: conjunctive
+        all_of:
+          - facet: facet_in_two_dimensions_a_coordinate_space_element_can
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_to_construct_a_vector_sum_geometrically_in_two_d
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_in_two_dimensions_multiplication_by_a_positive_s
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_in_two_dimensions_a_coordinate_space_element_can
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s146
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s150
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s168
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:14Z'
+updated_at: '2026-07-22T03:48:54Z'

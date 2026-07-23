@@ -376,12 +376,13 @@ requested_items_per_session = 1
 
 # Teach-back conversations: the learner explains, an AI naive student asks up
 # to max_followups questions (one per rubric criterion, uncertainty-ranked with
-# transfer escalation), and the transcript is graded as one attempt.
+# transfer escalation; when the rubric has transfer criteria the final slot is
+# guaranteed to be one), and the transcript is graded as one attempt.
 # transfer_evidence_multiplier symmetrically discounts the evidence mass of
 # transfer-tier criterion evidence; session_cap bounds teach_back items per
 # built queue.
 [teach_back]
-max_followups = 3
+max_followups = 4
 transfer_evidence_multiplier = 0.5
 session_cap = 1
 
@@ -794,6 +795,14 @@ class MasteryConfig(BaseModel):
     base_observation_variance: float = 1.0   # probability-space scale: inverse effective trials in R_y
     sigma2_drift: float = 0.01
     p_max: float = 4.0
+    # Cold-start prior widths (P0 revision). A vault serves complete novices
+    # through rusty experts, so the no-signal prior must be broad: 3.0 puts the
+    # central 80% interval near [0.07, 0.93] instead of [0.22, 0.78] at 1.0.
+    # Claims move the MEAN but must not manufacture confidence — a claim-seeded
+    # prior keeps at least claim_prior_min_variance of logit variance however
+    # large its pseudo-count.
+    cold_start_prior_logit_variance: float = 3.0
+    claim_prior_min_variance: float = 2.0
     # Display banding for mastery means: > strong renders green, > developing
     # renders amber, else red. Owned here (not in the frontend) so the breakpoints
     # can become fitted values without a UI release.
@@ -812,11 +821,20 @@ class ProbeEpisodeConfig(BaseModel):
     """
 
     minimum_independent_observations: int = 2
+    # Initial/goal placement episodes are routing conclusions, not
+    # demonstrations: one qualifying observation may complete them.
+    placement_minimum_observations: int = 1
     maximum_observations: int = 4
     posterior_stop_threshold: float = 0.85
     # A high-cost hypothesis pair is unresolved while the smaller of the two
     # probabilities exceeds this fraction of the larger (§11).
     ambiguity_threshold: float = 0.30
+    # Decision-equivalence stop: complete after >=1 qualifying observation once
+    # every hypothesis holding at least action_equivalence_plausible_threshold
+    # posterior routes to the same first intervention — remaining uncertainty
+    # has no action value, so further probing only spends learner minutes.
+    action_equivalence_enabled: bool = True
+    action_equivalence_plausible_threshold: float = 0.10
     open_set_prior: float = 0.10
     open_set_trigger_threshold: float = 0.35
     hinted_evidence_weight: float = 0.5
@@ -1195,7 +1213,10 @@ class TeachBackConfig(BaseModel):
     """Teach-back conversation behavior.
 
     ``max_followups`` bounds the number of naive-student questions per
-    conversation (one per selected rubric criterion).
+    conversation (one per selected rubric criterion; when the rubric has
+    transfer-tier criteria the planner guarantees the final slot is one, so
+    the default leaves three uncertainty-driven slots plus that reserved
+    transfer slot).
     ``transfer_evidence_multiplier`` is the symmetric evidence-mass multiplier
     applied to facet evidence contributed by transfer-tier rubric criteria —
     both success and failure are discounted equally, and the multiplier is
@@ -1203,7 +1224,7 @@ class TeachBackConfig(BaseModel):
     is the maximum number of teach_back items in one built practice queue.
     """
 
-    max_followups: int = Field(default=3, ge=1)
+    max_followups: int = Field(default=4, ge=1)
     transfer_evidence_multiplier: float = Field(default=0.5, ge=0.0, le=1.0)
     session_cap: int = Field(default=1, ge=0)
 
@@ -1315,6 +1336,7 @@ class CodexConfig(BaseModel):
     startup_command: str = ""
     startup_timeout_seconds: int = 20
     healthcheck_timeout_seconds: int = 5
+    timeout_seconds: float = 60
     auth_mode: str = "chatgpt"
     model: str = "gpt-5.6-sol"
     reasoning_effort: str = "low"

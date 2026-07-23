@@ -222,23 +222,39 @@ def test_activation_records_derived_state_rebuild(tmp_path):
 
 
 def test_narrowing_model_monotonically_increases_effective_mass():
-    """Sweeping certainty upward (a narrower calibration ensemble) monotonically
-    raises effective mass with no status-gated discontinuity (§9.3 bullet 2)."""
+    """Sweeping the LCB upward (a narrower calibration ensemble) monotonically
+    raises effective mass with no status-gated discontinuity (§9.3 bullet 2).
+
+    P4.2 revision: the mass discount is the EPISTEMIC factor ``lcb / certainty``,
+    so mass rises strictly while the ensemble tightens (lcb below the point
+    certainty — the only regime the robust bound produces, since certainty_lcb
+    is floored by the mean-member certainty) and saturates at the full attempt
+    mass once lcb == certainty. It never exceeds attempt_type_mass.
+    """
 
     posterior = {"success": 0.8, "partial_success": 0.15, "other": 0.05}
     score_fraction = {"success": 1.0, "partial_success": 0.5, "other": 0.0}
-    masses = [
-        effective_observation_from_posterior(
+
+    def mass(lcb: float) -> float:
+        return effective_observation_from_posterior(
             observation_id="o",
             posterior=posterior,
             score_fraction=score_fraction,
             certainty_lcb=lcb,
             attempt_type_mass=1.0,
         ).effective_mass
-        for lcb in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-    ]
-    assert masses == sorted(masses)
-    assert all(b > a for a, b in zip(masses, masses[1:]))
+
+    point_certainty = effective_observation_from_posterior(
+        observation_id="o", posterior=posterior, score_fraction=score_fraction,
+        certainty_lcb=0.0, attempt_type_mass=1.0,
+    ).certainty
+    within = [mass(point_certainty * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9, 1.0)]
+    assert within == sorted(within)
+    assert all(b > a for a, b in zip(within, within[1:]))
+    assert within[-1] == pytest.approx(1.0)
+    # Synthetic lcb above the point certainty (the robust bound never produces
+    # one) clamps at full mass instead of inventing evidence.
+    assert mass(1.0) == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------

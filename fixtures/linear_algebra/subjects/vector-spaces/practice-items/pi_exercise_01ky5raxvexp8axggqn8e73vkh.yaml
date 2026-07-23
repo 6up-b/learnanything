@@ -1,0 +1,136 @@
+schema_version: 1
+id: pi_exercise_01ky5raxvexp8axggqn8e73vkh
+learning_object_id: lo_compute_with_complex_numbers
+subjects:
+practice_mode: worked_solution
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_multiply_complex_numbers_by_distributing_replaci
+  - facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_
+evidence_weights:
+  facet_multiply_complex_numbers_by_distributing_replaci: 0.8
+  facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 0.2
+criterion_facet_weights:
+  expand_square:
+    facet_multiply_complex_numbers_by_distributing_replaci: 0.5
+    facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 0.5
+  form_equations:
+    facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 0.5
+    facet_multiply_complex_numbers_by_distributing_replaci: 0.5
+  solve_equations:
+    facet_multiply_complex_numbers_by_distributing_replaci: 0.5
+    facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 0.5
+  state_roots:
+    facet_multiply_complex_numbers_by_distributing_replaci: 0.5
+    facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 0.5
+prompt: Find two distinct square roots of 𝑖
+expected_answer: "Let \\(z=a+bi\\), where \\(a,b\\in\\mathbb R\\). Then\n\\[\nz^2=(a^2-b^2)+2ab\\\
+  ,i.\n\\]\nFor \\(z^2=i\\), equating real and imaginary parts gives\n\\[\na^2-b^2=0,\\
+  qquad 2ab=1.\n\\]\nThe first equation implies \\(b=\\pm a\\). Since \\(2ab=1>0\\
+  ), \\(a\\) and \\(b\\) have the same sign, so \\(b=a\\). Thus \\(2a^2=1\\), giving
+  \\(a=\\pm 1/\\sqrt2\\), with the same sign for \\(b\\).\n\nTherefore the two distinct
+  square roots are\n\\[\n\\boxed{\\frac{1+i}{\\sqrt2}\\quad\\text{and}\\quad-\\frac{1+i}{\\\
+  sqrt2}}.\n\\]\nIndeed, squaring either number gives \\(i\\)."
+difficulty: 0.35
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Write an unknown square root as \(a+bi\), with \(a\) and \(b\) real.
+  - Expand \((a+bi)^2\) using \(i^2=-1\), then compare its real and imaginary 
+    parts with those of \(i\).
+  - Use the resulting real-part equation to relate \(a\) and \(b\), and use the 
+    sign of their product to choose the correct relation.
+  - After finding one root, recall that its additive inverse has the same 
+    square.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.1
+scaffold_level: 0.0
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: expand_square
+      points: 1.0
+      description: Correctly expands the square of a general complex number into
+        its real and imaginary parts.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: form_equations
+      points: 1.0
+      description: Equates real and imaginary parts to obtain the necessary real
+        equations.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: solve_equations
+      points: 1.0
+      description: Solves the equations with the correct sign relationship 
+        between the real and imaginary parts.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: state_roots
+      points: 1.0
+      description: States both distinct square roots correctly and verifies or 
+        otherwise establishes that each squares to i.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s181
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-22T20:30:07Z'
+updated_at: '2026-07-22T20:30:09Z'

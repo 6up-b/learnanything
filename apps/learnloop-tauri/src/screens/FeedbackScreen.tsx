@@ -897,6 +897,7 @@ export function FeedbackScreen({
   onBack,
   onOpenNotes,
   onPrimedRetry,
+  onOpenPractice,
   onOpenRepair,
   onOpenLibraryFile,
   onInspect,
@@ -913,6 +914,8 @@ export function FeedbackScreen({
   onOpenNotes: () => void;
   /** Open a sibling practice item as a primed retry. */
   onPrimedRetry: (practiceItemId: string) => void;
+  /** Open a practice item cold (teach-back opt-in navigation). */
+  onOpenPractice?: (practiceItemId: string) => void;
   /** Launch the §4.10 Repair flow for a matched misconception (the statement
    *  card's "repair this" action). Orchestrator wires App.tsx. */
   onOpenRepair?: (misconceptionId: string) => void;
@@ -1275,6 +1278,7 @@ export function FeedbackScreen({
               onRetired={() => {
                 api.getPracticeItem(item.id).then(setItem).catch(() => {});
               }}
+              onTeachBack={onOpenPractice}
             />
           ) : null}
 

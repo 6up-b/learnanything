@@ -92,6 +92,7 @@ class EvalReport:
     gates: dict[str, Any] | None
     retention: dict[str, Any] | None
     propensity: dict[str, Any] | None
+    coverage: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -99,12 +100,15 @@ class EvalReport:
             "gates": self.gates,
             "retention": self.retention,
             "propensity": self.propensity,
+            "coverage": self.coverage,
         }
 
     def format_text(self) -> str:
         lines: list[str] = []
         if self.predictions is not None:
             lines.extend(_format_predictions(self.predictions))
+        if self.coverage is not None:
+            lines.extend(_format_coverage(self.coverage))
         if self.gates is not None:
             lines.extend(_format_gates(self.gates))
         if self.retention is not None:
@@ -126,6 +130,7 @@ def build_eval_report(
         gates=_gates_section(vault, repository) if "gates" in sections else None,
         retention=_retention_section(vault, repository, bins=bins) if "retention" in sections else None,
         propensity=_propensity_section(repository) if "propensity" in sections else None,
+        coverage=_coverage_section(repository) if "coverage" in sections else None,
     )
 
 
@@ -158,6 +163,76 @@ def _predictions_section(repository: Repository, *, bins: int) -> dict[str, Any]
             for mode, mode_pairs in sorted(by_mode.items())
         },
         "by_attempt_decile": deciles,
+    }
+
+
+_COVERAGE_Z80 = 1.2815515655446004  # central 80% of the latent Gaussian
+_COLD_ATTEMPT_COUNT = 3  # attempts 1..3 on an LO count as the cold regime
+
+
+def _coverage_section(repository: Repository) -> dict[str, Any]:
+    """Prospective 80% predictive-interval coverage, sliced cold vs warm.
+
+    Each attempt_surprise row logged sigma(a(mu_z ± z80·sigma_z − b)) implicitly;
+    the observed score fraction either lands inside that interval or not. The
+    cold/warm split (first N attempts per LO vs later) is the slice every prior-
+    width and observation-weight experiment needs to read.
+    """
+
+    from math import exp
+
+    def sig(value: float) -> float:
+        return 1.0 / (1.0 + exp(-value))
+
+    slices: dict[str, list[dict[str, float]]] = {"cold": [], "warm": []}
+    seen_per_lo: dict[str, int] = {}
+    for row in repository.prediction_interval_rows():
+        dist = row["predicted_score_dist"]
+        if not isinstance(dist, dict):
+            continue
+        try:
+            a = float(dist["a"])
+            b = float(dist["b"])
+            mu = float(dist["mu_z"])
+            sigma = float(dist["sigma_z"])
+            predicted = float(dist.get("expected_correctness", sig(a * (mu - b))))
+        except (KeyError, TypeError, ValueError):
+            continue
+        lo_id = str(row["learning_object_id"])
+        ordinal = seen_per_lo.get(lo_id, 0) + 1
+        seen_per_lo[lo_id] = ordinal
+        p_lo = sig(a * (mu - _COVERAGE_Z80 * sigma - b))
+        p_hi = sig(a * (mu + _COVERAGE_Z80 * sigma - b))
+        observed = float(row["correctness"])
+        regime = "cold" if ordinal <= _COLD_ATTEMPT_COUNT else "warm"
+        slices[regime].append(
+            {
+                "covered": 1.0 if p_lo <= observed <= p_hi else 0.0,
+                "width": p_hi - p_lo,
+                "predicted": predicted,
+                "observed": observed,
+            }
+        )
+
+    def summarize(rows: list[dict[str, float]]) -> dict[str, Any]:
+        if not rows:
+            return {"count": 0}
+        pairs = [(entry["predicted"], entry["observed"]) for entry in rows]
+        return {
+            "count": len(rows),
+            "interval_coverage": sum(entry["covered"] for entry in rows) / len(rows),
+            "mean_interval_width": sum(entry["width"] for entry in rows) / len(rows),
+            "brier": brier_score(pairs),
+            "log_loss": log_loss(pairs),
+        }
+
+    combined = slices["cold"] + slices["warm"]
+    return {
+        "nominal_coverage": 0.8,
+        "cold_attempt_count": _COLD_ATTEMPT_COUNT,
+        "overall": summarize(combined),
+        "cold": summarize(slices["cold"]),
+        "warm": summarize(slices["warm"]),
     }
 
 
@@ -354,6 +429,25 @@ def _format_predictions(section: dict[str, Any]) -> list[str]:
         lines.append(f"  intent {mode}: n={stats['count']} brier={stats['brier']:.4f}")
     for decile in section["by_attempt_decile"]:
         lines.append(f"  decile {decile['decile']:2d}: n={decile['count']} brier={decile['brier']:.4f}")
+    lines.append("")
+    return lines
+
+
+def _format_coverage(section: dict[str, Any]) -> list[str]:
+    lines = ["── Predictive-interval coverage (80% nominal, cold vs warm) ──"]
+    if not section["overall"].get("count"):
+        return [*lines, "  no data", ""]
+    for label in ("overall", "cold", "warm"):
+        stats = section[label]
+        if not stats.get("count"):
+            lines.append(f"  {label}: no data")
+            continue
+        lines.append(
+            f"  {label}: n={stats['count']}  coverage={stats['interval_coverage']:.0%}"
+            f"  width={stats['mean_interval_width']:.3f}  brier={stats['brier']:.4f}"
+            f"  log-loss={stats['log_loss']:.4f}"
+        )
+    lines.append(f"  (cold = first {section['cold_attempt_count']} attempts per LO)")
     lines.append("")
     return lines
 

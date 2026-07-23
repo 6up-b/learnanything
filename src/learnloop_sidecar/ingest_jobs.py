@@ -38,6 +38,8 @@ _APPLYING_JOB_TYPES = (
     "practice_expansion",
     # Learner-requested easier/harder variants auto-apply when grounded.
     "rung_variant",
+    # Reader-selected textbook exercises become vault practice items directly.
+    "reader_exercise_import",
 )
 _ACTIVE_STATUSES = {"queued", "running", "waiting_for_input"}
 _RECENT_LIMIT = 30
@@ -46,6 +48,8 @@ _RECENT_LIMIT = 30
 # drain orders by batch priority DESC first, so anything above the default 0
 # jumps the queue between checkpoints. Bulk batches stay at 0.
 QUICK_ADD_PRIORITY = 100
+_PARALLEL_JOB_TYPES = ("reader_quick_check",)
+_QUICK_CHECK_WORKERS = 3
 
 
 class ActiveIngestJobError(RuntimeError):
@@ -64,6 +68,7 @@ class DurableIngestJobs:
         self._background = True
         self._poll_interval = 1.0
         self._worker_thread: threading.Thread | None = None
+        self._quick_check_threads: list[threading.Thread] = []
         self._stop = threading.Event()
         # Demand-paged reader synthesis: the same worker thread drains queued
         # reader_background_requests with a real model client (spec §6.4 — the
@@ -93,23 +98,43 @@ class DurableIngestJobs:
             self._reader_synth_client_factory = reader_synth_client_factory
             self._reader_client = None
             self._reader_client_checked = False
-            self._runner = IngestRunner(
-                repository,
-                vault_root=vault_root,
-                worker_id=f"sidecar-{os.getpid()}",
-                clock=clock,
-                services=services,
-                lease_ttl_seconds=lease_ttl_seconds,
-                heartbeat_interval_seconds=heartbeat_interval_seconds,
-            )
+            same_vault = self._runner is not None and self._runner.vault_root.resolve() == Path(
+                vault_root
+            ).resolve()
+            if same_vault:
+                # SidecarContext.reload() refreshes the loaded vault after an
+                # applying job completes. The drain thread may already be inside
+                # the next Codex call, so replacing its runner here would orphan
+                # that call's in-memory interrupt handle from `kill-codex`.
+                # The existing Repository remains valid for the same SQLite file.
+                runner = self._runner
+                assert runner is not None
+                if clock is not None:
+                    runner.clock = clock
+                if services is not None:
+                    runner.services = services
+                runner.lease_ttl_seconds = lease_ttl_seconds
+                runner.heartbeat_interval_seconds = heartbeat_interval_seconds
+            else:
+                runner = IngestRunner(
+                    repository,
+                    vault_root=vault_root,
+                    worker_id=f"sidecar-{os.getpid()}",
+                    clock=clock,
+                    services=services,
+                    lease_ttl_seconds=lease_ttl_seconds,
+                    heartbeat_interval_seconds=heartbeat_interval_seconds,
+                )
+                self._runner = runner
             self._background = background
             self._poll_interval = poll_interval_seconds
         # Recover anything a prior process left mid-flight before draining.
-        self._runner.recover_stale_leases()
+        if not same_vault:
+            runner.recover_stale_leases()
         # Jobs that finished before this bind are already reflected in the vault
         # load that accompanies it; only jobs completing AFTER this point should
         # trigger a reload from the batch-polling handlers.
-        for job in self._runner.repo.ingest_jobs_by_types(_APPLYING_JOB_TYPES):
+        for job in runner.repo.ingest_jobs_by_types(_APPLYING_JOB_TYPES):
             if job["status"] == "completed":
                 self._reloaded.add(job["id"])
 
@@ -197,6 +222,8 @@ class DurableIngestJobs:
         thread = self._worker_thread
         if thread is not None:
             thread.join(timeout=2)
+        for quick_thread in self._quick_check_threads:
+            quick_thread.join(timeout=2)
 
     # -- durable batch API (Source library / Batch progress screens) -------
 
@@ -293,12 +320,50 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch_id
 
+    def enqueue_reader_exercise_import(
+        self,
+        *,
+        extraction_id: str,
+        raw_selection: dict[str, Any],
+        render_view_id: str | None = None,
+        source_id: str | None = None,
+        revision_id: str | None = None,
+        learning_object_hint: str | None = None,
+    ) -> str:
+        """Enqueue authoring of the learner's selected textbook exercise(s).
+
+        Interactive priority (the learner is waiting on it), but on the main
+        single-writer lane — the handler writes vault YAML, so it must not
+        join the parallel read-only quick-check lane."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "reader_exercise_import",
+            [
+                JobSpec(
+                    "reader_exercise_import",
+                    {
+                        "extraction_id": extraction_id,
+                        "raw_selection": dict(raw_selection),
+                        "render_view_id": render_view_id,
+                        "source_id": source_id,
+                        "revision_id": revision_id,
+                        "learning_object_hint": learning_object_hint,
+                    },
+                )
+            ],
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
     def enqueue_practice_expansion(
         self,
         *,
         learning_object_ids: list[str],
         subject_id: str | None = None,
         reason: str | None = None,
+        source_refs: list[dict[str, Any]] | None = None,
     ) -> str:
         """Enqueue per-LO practice generation (reader-first progressive seeding).
 
@@ -314,6 +379,7 @@ class DurableIngestJobs:
                     {
                         "learning_object_ids": list(learning_object_ids),
                         "reason": reason or "reader_section_completed",
+                        "source_refs": list(source_refs or []),
                     },
                 )
             ],
@@ -643,6 +709,36 @@ class DurableIngestJobs:
         runner.cancel_batch(batch_id)
         return self.get_batch(batch_id)
 
+    def interrupt_codex(self, job_id: str | None = None) -> dict[str, Any]:
+        """Interrupt one live Codex call while keeping the sidecar process alive."""
+
+        runner = self._require_runner()
+        active = runner.active_interruptible_jobs()
+        if job_id is None:
+            if not active:
+                raise ValueError("No interruptible Codex ingest call is running.")
+            if len(active) > 1:
+                ids = ", ".join(job["id"] for job in active)
+                raise ValueError(f"More than one Codex call is running; pass a job id: {ids}")
+            selected = active[0]
+        else:
+            selected = next((job for job in active if job["id"] == job_id), None)
+            if selected is None:
+                job = runner.repo.get_ingest_job(job_id)
+                if job is None:
+                    raise ValueError(f"Ingest job '{job_id}' was not found.")
+                if job.get("status") != "running":
+                    raise ValueError(f"Ingest job '{job_id}' is {job.get('status')}, not running.")
+                raise ValueError(f"Ingest job '{job_id}' has no interruptible Codex call attached.")
+        if not runner.interrupt_job(selected["id"]):
+            raise ValueError(f"Codex call for ingest job '{selected['id']}' already finished.")
+        return {
+            "job_id": selected["id"],
+            "batch_id": selected["batch_id"],
+            "job_type": selected["job_type"],
+            "interrupted": True,
+        }
+
     def resume_batch(self, batch_id: str) -> dict[str, Any] | None:
         runner = self._require_runner()
         if runner.repo.get_ingest_batch(batch_id) is None:
@@ -663,13 +759,23 @@ class DurableIngestJobs:
             self.drain_foreground()
             return
         with self._lock:
-            if self._worker_thread is not None and self._worker_thread.is_alive():
-                return
             self._stop.clear()
-            self._worker_thread = threading.Thread(
-                target=self._worker_loop, name="learnloop-ingest-drain", daemon=True
-            )
-            self._worker_thread.start()
+            if self._worker_thread is None or not self._worker_thread.is_alive():
+                self._worker_thread = threading.Thread(
+                    target=self._worker_loop, name="learnloop-ingest-drain", daemon=True
+                )
+                self._worker_thread.start()
+            self._quick_check_threads = [
+                thread for thread in self._quick_check_threads if thread.is_alive()
+            ]
+            for index in range(len(self._quick_check_threads), _QUICK_CHECK_WORKERS):
+                quick_thread = threading.Thread(
+                    target=self._quick_check_worker_loop,
+                    name=f"learnloop-quick-check-{index + 1}",
+                    daemon=True,
+                )
+                self._quick_check_threads.append(quick_thread)
+                quick_thread.start()
 
     def _worker_loop(self) -> None:
         runner = self._runner
@@ -678,7 +784,14 @@ class DurableIngestJobs:
         idle_rounds = 0
         while not self._stop.is_set():
             try:
-                ran = runner.drain()
+                ran = runner.drain(
+                    eligible_job_types=tuple(
+                        job_type
+                        for job_type in runner.handlers
+                        if job_type not in _PARALLEL_JOB_TYPES
+                    ),
+                    compatible_running_job_types=_PARALLEL_JOB_TYPES,
+                )
             except Exception:  # noqa: BLE001 — the drain thread must never die silently on one bad job
                 ran = 0
             try:
@@ -687,6 +800,36 @@ class DurableIngestJobs:
                 pass
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
             if idle_rounds >= 3 and self._active_job_locked(runner) is None:
+                break
+            time.sleep(self._poll_interval)
+
+    def _quick_check_worker_loop(self) -> None:
+        """Drain independent quick checks beside the serialized vault writer.
+
+        Each job resolves its own provider client, so up to three Codex calls can
+        progress independently. Quick checks only write durable SQLite rows and
+        never mutate vault YAML, which keeps the single-writer invariant intact.
+        """
+
+        runner = self._runner
+        if runner is None:
+            return
+        idle_rounds = 0
+        while not self._stop.is_set():
+            try:
+                ran = runner.drain(
+                    max_jobs=1,
+                    eligible_job_types=_PARALLEL_JOB_TYPES,
+                    allow_parallel=True,
+                    max_parallel=_QUICK_CHECK_WORKERS,
+                )
+            except Exception:  # noqa: BLE001 — one worker must not kill the lane
+                ran = 0
+            idle_rounds = idle_rounds + 1 if ran == 0 else 0
+            active = runner.repo.ingest_jobs_by_types(_PARALLEL_JOB_TYPES)
+            if idle_rounds >= 3 and not any(
+                job["status"] in _ACTIVE_STATUSES for job in active
+            ):
                 break
             time.sleep(self._poll_interval)
 

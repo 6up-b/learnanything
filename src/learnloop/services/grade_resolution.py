@@ -35,6 +35,7 @@ from learnloop.services.grade_classifier import (
     length_bucket_for_text,
     schema_shape_from_row,
 )
+from learnloop.services.fitted_params import resolve_grader_channel_prior
 from learnloop.services.outcome_schemas import COARSE_RESPONSE_SLUG, resolve_schema_id
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -248,6 +249,7 @@ def resolve_grade(
         calibration_model_hash=resolved_model.model_hash,
         posterior=posterior,
         projection_algorithm_version=PROJECTION_ALGORITHM_VERSION,
+        quantile=resolve_grader_channel_prior(repository).lcb_quantile,
     )
 
     # Step 7: review + influence checks (§4.4).
@@ -386,7 +388,88 @@ def response_certainty_lcb(
         calibration_model_hash=resolved.model_hash,
         posterior=posterior,
         projection_algorithm_version=PROJECTION_ALGORITHM_VERSION,
+        quantile=resolve_grader_channel_prior(repository).lcb_quantile,
     )
+
+
+def response_soft_score(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    item: PracticeItem,
+    grading_source: str,
+    rubric_score: int | None,
+    max_points: int,
+    grader_confidence: float | None,
+    has_fatal: bool = False,
+    response_text: str | None = None,
+    domain: str | None = None,
+    grader_model_revision: str | None = None,
+    outcome_schema_slug: str = COARSE_RESPONSE_SLUG,
+    clock: Clock | None = None,
+) -> tuple[float, float]:
+    """(E[s(Z)|E], Var[s(Z)|E]) of the calibrated true-score, without persisting.
+
+    The prediction-lane summary of the SAME grade channel certification reads:
+    the posterior over the true response class carries both the directional
+    information (how well did the learner probably do) and the interpretation
+    uncertainty. Consumers feed the mean as the EKF observation and add the
+    variance to measurement noise — instead of multiplying the observation
+    weight by the conservative certainty LCB, which throws the direction away
+    and treats a confident correct answer as a third of an observation.
+    """
+
+    import json as _json
+
+    schema_id, schema_version = resolve_schema_id(repository, outcome_schema_slug, clock=clock)
+    schema_row = repository.fetch_outcome_schema_version_by_id(schema_id, schema_version)
+    shape = schema_shape_from_row(schema_row)
+    score_fraction: dict[str, float] = {}
+    if schema_row is not None and schema_row.get("score_fraction_json"):
+        score_fraction = {
+            str(k): float(v) for k, v in _json.loads(schema_row["score_fraction_json"]).items()
+        }
+    raw_fraction = (
+        max(0.0, min(1.0, float(rubric_score) / max(max_points, 1)))
+        if rubric_score is not None
+        else 0.0
+    )
+    if not score_fraction:
+        return raw_fraction, 0.0
+    response_empty = not (response_text or "").strip()
+    classification = classify_response(
+        rubric_score=rubric_score,
+        max_points=max_points,
+        schema=shape,
+        has_fatal=has_fatal,
+        response_empty=response_empty,
+    )
+    confidence_bucket = bucket_confidence(grader_confidence)
+    _word_count, declared_bucket = length_bucket_for_text(response_text)
+    gih = gc.grader_identity_hash(
+        provider=grading_source,
+        model_revision=grader_model_revision,
+        prompt_version=gc.GRADING_PROMPT_VERSION,
+        output_schema_version=gc.GRADER_OUTPUT_SCHEMA_VERSION,
+    )
+    resolved = gc.resolve_calibration_model(
+        repository,
+        grader_identity_hash=gih,
+        outcome_schema_id=schema_id,
+        outcome_schema_version=schema_version,
+        domain=domain,
+        length_bucket=declared_bucket,
+        clock=clock,
+    )
+    posterior = gc.posterior_over_true_class(
+        resolved,
+        observed_class=classification.observed_class,
+        confidence_bucket=confidence_bucket,
+    )
+    mean = sum(float(p) * score_fraction.get(z, 0.0) for z, p in posterior.items())
+    second_moment = sum(float(p) * score_fraction.get(z, 0.0) ** 2 for z, p in posterior.items())
+    variance = max(0.0, second_moment - mean * mean)
+    return mean, variance
 
 
 def _persist_fallback_model(

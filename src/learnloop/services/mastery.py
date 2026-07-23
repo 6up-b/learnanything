@@ -58,6 +58,15 @@ class MasteryObservation:
     # priming b-offset applied upstream) but last_evidence_at stays on the last
     # cold attempt so the spacing/drift clock is not reset.
     primed: bool = False
+    # Prediction lane is mean-preserving (P1 revision): the EKF's y stays the
+    # raw score fraction and grader-channel doubt enters ONLY through
+    # interpretation_variance (Var[s(Z)|emission]) added to measurement noise.
+    # soft_score_override remains for callers with a genuinely better point
+    # observation (e.g. adjudicated regrades) — the attempt path passes None,
+    # because substituting the channel posterior mean E[s(Z)|emission] shrank y
+    # toward the prior and could move mastery against the observed direction.
+    soft_score_override: float | None = None
+    interpretation_variance: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -142,11 +151,17 @@ def display_mastery(state: MasteryState) -> MasteryDisplay:
     )
 
 
-def initial_mastery_state(learning_object_id: str, algorithm_version: str, now_iso: str) -> MasteryState:
+def initial_mastery_state(
+    learning_object_id: str,
+    algorithm_version: str,
+    now_iso: str,
+    *,
+    logit_variance: float = 1.0,
+) -> MasteryState:
     return MasteryState(
         learning_object_id=learning_object_id,
         logit_mean=0.0,
-        logit_variance=1.0,
+        logit_variance=logit_variance,
         evidence_count=0,
         last_evidence_at=None,
         algorithm_version=algorithm_version,
@@ -155,7 +170,13 @@ def initial_mastery_state(learning_object_id: str, algorithm_version: str, now_i
 
 
 def initial_mastery_state_for_learning_object(vault, repository, learning_object_id: str, now_iso: str) -> MasteryState:
-    state = initial_mastery_state(learning_object_id, vault.config.algorithms.algorithm_version, now_iso)
+    mastery_config = vault.config.mastery
+    state = initial_mastery_state(
+        learning_object_id,
+        vault.config.algorithms.algorithm_version,
+        now_iso,
+        logit_variance=float(mastery_config.cold_start_prior_logit_variance),
+    )
     claim = covering_learner_claim(vault, repository, learning_object_id)
     if claim is None:
         return state
@@ -165,19 +186,87 @@ def initial_mastery_state_for_learning_object(vault, repository, learning_object
     # when this gated on claim_skip_threshold. That threshold keeps its role ONLY
     # in probes.py (probe skip / attempt-target). The low floor 0.05 stops a
     # claimed_level of 0 from seeding an absurdly confident prior; the high side
-    # stays at logit()'s native 0.98 clamp so claims >= claim_skip_threshold seed
-    # bit-identically to the pre-change code.
+    # stays at logit()'s native 0.98 clamp. Claims move the mean; the variance
+    # floor keeps a self-report from impersonating measured evidence.
     claimed_level = float(claim["claimed_level"])
     prior_pseudo_count = max(float(claim["prior_pseudo_count"]), 0.25)
     return MasteryState(
         learning_object_id=learning_object_id,
         logit_mean=logit(clamp(claimed_level, 0.05, 0.98)),
-        logit_variance=1 / prior_pseudo_count,
+        logit_variance=max(1 / prior_pseudo_count, float(mastery_config.claim_prior_min_variance)),
         evidence_count=0,
         last_evidence_at=None,
         algorithm_version=vault.config.algorithms.algorithm_version,
         updated_at=now_iso,
     )
+
+
+def apply_claim_evidence(
+    state: MasteryState,
+    *,
+    claimed_level: float,
+    prior_pseudo_count: float,
+    now_iso: str,
+) -> MasteryState:
+    """Precision-weighted merge of a learner claim into an existing state.
+
+    Claims arriving AFTER a mastery row exists (a rung-variant request, a
+    too-easy report) were previously inert — covering_learner_claim only feeds
+    first materialization. Treating the claim as a Gaussian observation in
+    logit space (mean logit(level), variance 1/pseudo_count) gives learner
+    reports standing weight against accumulated evidence: strong on a
+    near-prior state, proportionally weaker once real observations exist.
+    """
+
+    claim_mean = logit(clamp(float(claimed_level), 0.05, 0.98))
+    claim_variance = 1 / max(float(prior_pseudo_count), 0.25)
+    prior_precision = 1 / max(state.logit_variance, 1e-6)
+    claim_precision = 1 / claim_variance
+    merged_precision = prior_precision + claim_precision
+    merged_mean = (
+        state.logit_mean * prior_precision + claim_mean * claim_precision
+    ) / merged_precision
+    return MasteryState(
+        learning_object_id=state.learning_object_id,
+        logit_mean=merged_mean,
+        logit_variance=1 / merged_precision,
+        evidence_count=state.evidence_count,
+        last_evidence_at=state.last_evidence_at,
+        algorithm_version=state.algorithm_version,
+        updated_at=now_iso,
+    )
+
+
+def reanchor_mastery_from_claim(
+    vault,
+    repository,
+    learning_object_id: str,
+    *,
+    claimed_level: float,
+    prior_pseudo_count: float,
+    now_iso: str,
+) -> MasteryState:
+    """Make a newly written claim take effect on an already-materialized LO.
+
+    Zero-evidence states are fully re-seeded (the claim IS the prior); states
+    with evidence get the precision-weighted merge. Persists and returns the
+    updated state.
+    """
+
+    current = repository.mastery_state(learning_object_id)
+    if current is None or current.evidence_count == 0:
+        updated = initial_mastery_state_for_learning_object(
+            vault, repository, learning_object_id, now_iso
+        )
+    else:
+        updated = apply_claim_evidence(
+            current,
+            claimed_level=claimed_level,
+            prior_pseudo_count=prior_pseudo_count,
+            now_iso=now_iso,
+        )
+    repository.upsert_mastery_state(updated)
+    return updated
 
 
 def covering_learner_claim(vault, repository, learning_object_id: str) -> dict[str, Any] | None:
@@ -377,7 +466,10 @@ def irt_observation(
     pq = p * (1.0 - p)
     sensitivity_h = item_a * pq
     weight = observation_weight(observation)
-    measurement_noise = config.base_observation_variance * pq / max(weight, 0.10)
+    measurement_noise = (
+        config.base_observation_variance * pq / max(weight, 0.10)
+        + max(0.0, observation.interpretation_variance)
+    )
     predicted_variance = predicted_logit_variance(prior, observation, config)
     innovation_variance = sensitivity_h * sensitivity_h * predicted_variance + measurement_noise
     kalman_gain = predicted_variance * sensitivity_h / innovation_variance if innovation_variance > 0 else 0.0
@@ -438,7 +530,13 @@ def _ekf_update_mastery(
 ) -> tuple[MasteryState, MasteryObservationTrace]:
     irt = config.irt
     max_points = max(observation.max_points, 1)
-    y = clamp(observation.rubric_score / max_points, 0.0, 1.0)
+    y = clamp(
+        observation.soft_score_override
+        if observation.soft_score_override is not None
+        else observation.rubric_score / max_points,
+        0.0,
+        1.0,
+    )
     obs = irt_observation(item_a, item_b, prior, observation, config)
 
     mu_before = prior.logit_mean

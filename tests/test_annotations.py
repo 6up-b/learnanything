@@ -96,6 +96,43 @@ def test_duplicate_quote_uses_context_or_needs_reanchor(tmp_path: Path) -> None:
     assert tr["status"] == "needs_reanchor"
 
 
+def test_duplicate_quote_with_glyph_context_anchors_the_right_occurrence(tmp_path: Path) -> None:
+    # Atomic-unit ctrl+click capture sends the text around the unit from the
+    # rendered surface; a clear context winner anchors instead of refusing.
+    repo = Repository(tmp_path / "state.sqlite")
+    _register_revision(repo, source_id="src1", revision_id="rev1")
+    blocks = [DocumentBlock.build(span_id="s1", block_type="Text", text="one axis then another axis follows.", ordinal=1)]
+    _persist(repo, _ir(blocks), revision_id="rev1", extraction_id="ext1")
+    tr = ANN.translate_selection(
+        repo, extraction_id="ext1",
+        raw_selection={"nodes": [{"span_id": "s1", "quote": "axis", "prefix": "then another ", "suffix": " follows."}]},
+    )
+    assert tr["status"] == "exact"
+    segment = tr["segments"][0]
+    assert (segment["codepoint_start"], segment["codepoint_end"]) == (22, 26)
+    # Murky context (fits neither occurrence clearly) still refuses (§3.2).
+    tr = ANN.translate_selection(
+        repo, extraction_id="ext1",
+        raw_selection={"nodes": [{"span_id": "s1", "quote": "axis", "prefix": "zzz ", "suffix": " qqq"}]},
+    )
+    assert tr["status"] == "needs_reanchor"
+
+
+def test_glyph_quote_with_divergent_math_anchors_fuzzy(tmp_path: Path) -> None:
+    # pdf.js glyphs render math the extraction dropped or stored as LaTeX; the
+    # fuzzy tier still anchors the selection inside the learner-chosen block.
+    repo = Repository(tmp_path / "state.sqlite")
+    _register_revision(repo, source_id="src1", revision_id="rev1")
+    blocks = [DocumentBlock.build(span_id="s1", block_type="Text", text="Suppose $\\alpha, \\beta \\in \\mathbb{C}$. Then multiplication commutes.", ordinal=1)]
+    _persist(repo, _ir(blocks), revision_id="rev1", extraction_id="ext1")
+    tr = ANN.translate_selection(
+        repo, extraction_id="ext1",
+        raw_selection={"nodes": [{"span_id": "s1", "quote": "Suppose α, β ∈ C. Then multiplication commutes."}]},
+    )
+    assert tr["status"] == "exact"
+    assert "multiplication commutes" in tr["segments"][0]["exact_quote"]
+
+
 def test_marker_rerender_same_extraction_does_not_change_anchors(tmp_path: Path) -> None:
     repo = _setup(tmp_path)
     tr = ANN.translate_selection(repo, extraction_id="ext1", raw_selection={"nodes": [{"span_id": "s1", "quote": "spectral"}]})

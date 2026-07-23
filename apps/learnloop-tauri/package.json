@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+    "dev:datalab": "LEARNLOOP_MARKER_PROVIDER=datalab LEARNLOOP_SIDECAR_TIMEOUT_SECS=900 tauri dev",
     "build": "tauri build",
     "vite": "vite",
     "frontend:build": "vite build",

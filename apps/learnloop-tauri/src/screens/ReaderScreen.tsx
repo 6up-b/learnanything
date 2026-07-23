@@ -19,7 +19,6 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import type {
   CommandError,
-  ReaderAnswerDto,
   ReaderAnswerMode,
   ReaderDisposition,
   ReaderGuidePlanDto,
@@ -32,6 +31,7 @@ import type {
   ReaderWatchPlanDto,
   ReaderArcDto,
   ReaderCoachLintDto,
+  ReaderExerciseImportResult,
   SourceLibraryCard,
 } from "../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, TermSelect } from "../components/term";
@@ -111,14 +111,24 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-// The wire nodes for a selection: one per covered block, falling back to the
-// single primary block for selections made outside the DOM capture path (the
-// PDF pane reports one block).
+// The wire nodes for a selection: one per covered block (atomic-unit captures
+// also carry glyph context for backend disambiguation), falling back to the
+// single primary block for selections made outside the DOM capture path.
+export interface SelectionNode {
+  spanId: string;
+  quote: string;
+  prefix?: string;
+  suffix?: string;
+  /** Learner edited this quote (OCR fix) — the backend prefers it over the
+   *  extraction slice as the exercise surface. */
+  edited?: boolean;
+}
+
 function selectionNodes(sel: {
   spanId: string;
   quote: string;
-  nodes?: Array<{ spanId: string; quote: string }>;
-}): Array<{ spanId: string; quote: string }> {
+  nodes?: SelectionNode[];
+}): SelectionNode[] {
   return sel.nodes && sel.nodes.length ? sel.nodes : [{ spanId: sel.spanId, quote: sel.quote }];
 }
 
@@ -156,8 +166,12 @@ function parseRequestResult(resultJson: string | null | undefined): { sourceObje
 }
 
 interface ReaderExchange {
+  id: string;
+  spanId: string;
   question: string;
-  answer: ReaderAnswerDto;
+  answerMd: string;
+  answerMode: ReaderAnswerMode;
+  createdAt: string | null;
 }
 
 type ReaderRailTab = "guide" | "ask" | "notes";
@@ -234,9 +248,16 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [selection, setSelection] = useState<{
     spanId: string;
     quote: string;
-    nodes?: Array<{ spanId: string; quote: string }>;
+    nodes?: SelectionNode[];
+    /** Learner-edited combined passage (capture editor). The nodes keep
+     *  anchoring the original blocks; this overrides the exercise surface. */
+    editedText?: string;
   } | null>(null);
   const [selectionActions, setSelectionActions] = useState<string[]>([]);
+  // Capture editor: the learner can fix OCR mishaps in the captured text
+  // before acting on it; edited nodes are flagged so the backend prefers the
+  // fixed text as the exercise surface.
+  const [editingCapture, setEditingCapture] = useState(false);
   const [railTab, setRailTab] = useState<ReaderRailTab>("guide");
   const [readingSpan, setReadingSpan] = useState<string | null>(null);
   const [revealedSections, setRevealedSections] = useState<string[]>([]);
@@ -252,8 +273,12 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [annotations, setAnnotations] = useState<MarginAnnotation[]>([]);
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
+  const [askComposerVersion, setAskComposerVersion] = useState(0);
   const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
-  const [history, setHistory] = useState<Record<string, ReaderExchange[]>>({});
+  const [history, setHistory] = useState<ReaderExchange[]>([]);
+  const [collapsedAskIds, setCollapsedAskIds] = useState<Set<string>>(new Set());
+  const [askFindOpen, setAskFindOpen] = useState(false);
+  const [askFindQuery, setAskFindQuery] = useState("");
   const [disposition, setDisposition] = useState<ReaderDisposition | null>(null);
   const [boundarySkipped, setBoundarySkipped] = useState(false);
   const [boundaryAnswered, setBoundaryAnswered] = useState(false);
@@ -289,6 +314,16 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [authoringSpanId, setAuthoringSpanId] = useState<string | null>(null);
   const [authoringQuote, setAuthoringQuote] = useState("");
   const [authoringBusy, setAuthoringBusy] = useState(false);
+  // Exact-exercise slice: one background import job per "add exercise to
+  // practice" click; the panel survives clearing the selection so the learner
+  // can keep reading while it authors.
+  const [exerciseImport, setExerciseImport] = useState<{
+    batchId: string;
+    status: string;
+    quote: string;
+    result: ReaderExerciseImportResult | null;
+    error: string | null;
+  } | null>(null);
   // Across-source search on the library screen ("where did I read that?").
   const [librarySearch, setLibrarySearch] = useState("");
   const [searchResults, setSearchResults] = useState<ReaderSourceSearchDto | null>(null);
@@ -307,6 +342,8 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
   const watchRef = useRef<WatchPanelHandle | null>(null);
+  const askFindInputRef = useRef<HTMLInputElement | null>(null);
+  const askComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const readingRafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -372,7 +409,11 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     setAnnotations([]);
     setNote("");
     setQuestion("");
-    setHistory({});
+    setAskComposerVersion(0);
+    setHistory([]);
+    setCollapsedAskIds(new Set());
+    setAskFindOpen(false);
+    setAskFindQuery("");
     setDisposition(null);
     setBoundarySkipped(false);
     setBoundaryAnswered(false);
@@ -484,6 +525,40 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
 
   const enabled = contract?.readerEnabled ?? false;
   const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled;
+
+  // Reader Ask answers already live durably in interaction_events. Rehydrate
+  // them whenever a source opens so changing tabs, reopening the source, or
+  // restarting the app cannot erase the conversation.
+  useEffect(() => {
+    if (!render || offline) return;
+    let cancelled = false;
+    void api
+      .readerAskHistory(render.extractionId)
+      .then((result) => {
+        if (cancelled) return;
+        const restored: ReaderExchange[] = result.exchanges.map((exchange) => ({
+          id: exchange.eventId,
+          spanId: exchange.spanId,
+          question: exchange.questionMd,
+          answerMd: exchange.answerMd,
+          answerMode: exchange.answerMode,
+          createdAt: exchange.createdAt,
+        }));
+        setHistory((current) => {
+          const live = new Map(current.map((exchange) => [exchange.id, exchange]));
+          for (const exchange of restored) if (!live.has(exchange.id)) live.set(exchange.id, exchange);
+          return [...live.values()].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+        });
+        setCollapsedAskIds((ids) => new Set([...ids, ...restored.map((exchange) => exchange.id)]));
+      })
+      .catch(() => {
+        /* Ask remains usable when history hydration is temporarily unavailable. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [render, offline]);
+
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
     [render],
@@ -564,6 +639,14 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         ),
     [stickyQuestionSections, guidePlan, dismissedSections, completedSections],
   );
+  const pendingQuickCheckCount = useMemo(
+    () => (guidePlan?.sections ?? []).filter(
+      (section) => section.question !== null
+        && !dismissedSections.includes(section.id)
+        && !completedSections.includes(section.id),
+    ).length,
+    [guidePlan, dismissedSections, completedSections],
+  );
   const readingProgress = useMemo(() => {
     const at = blocks.findIndex((block) => block.spanId === (readingSpan ?? activeSpan));
     return at < 0 ? 0 : (at + 1) / Math.max(1, blocks.length);
@@ -618,7 +701,14 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       void api
         .readerGuidePlan({ extractionId })
         .then((plan) => {
-          setGuidePlan(plan);
+          // Keep the last complete guide visible if a poll races the author's
+          // write and transiently returns an empty projection. A quick-check
+          // refresh must never blank the stable Guide/Ask/Notes rail.
+          setGuidePlan((current) => {
+            if (plan.extractionId !== extractionId) return current;
+            if (current && current.sections.length > 0 && plan.sections.length === 0) return current;
+            return plan;
+          });
           setAuthoringSections((ids) =>
             ids.filter((id) => !plan.sections.find((s) => s.id === id)?.question),
           );
@@ -641,6 +731,26 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     return map;
   }, [guidePlan, revealedSections, annotatedSpans]);
   const revealedGuidanceSpans = useMemo(() => new Set(revealedPassages.keys()), [revealedPassages]);
+
+  // Blocks of the committed selection, painted in the PDF pane until cleared.
+  const selectedSpanSet = useMemo(
+    () => new Set((selection ? selectionNodes(selection) : []).map((node) => node.spanId)),
+    [selection],
+  );
+
+  // Rewrite the captured passage as one combined text (OCR fix). The per-block
+  // nodes stay untouched — they keep anchoring the original blocks — while the
+  // edited passage overrides the exercise surface.
+  const editCaptureText = useCallback((text: string) => {
+    setSelection((sel) => (sel ? { ...sel, editedText: text } : sel));
+  }, []);
+  const resetCaptureText = useCallback(() => {
+    setSelection((sel) => {
+      if (!sel) return sel;
+      const { editedText: _dropped, ...rest } = sel;
+      return rest;
+    });
+  }, []);
 
   const updateReadingPosition = useCallback(() => {
     const container = bodyRef.current;
@@ -871,8 +981,12 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     if (!nodes.length) return;
     setSelection({ spanId: nodes[0].spanId, quote, nodes });
     setSelectionActions([]);
+    setEditingCapture(false);
     setActiveSpan(nodes[0].spanId);
-    setRailTab("notes");
+    // A selection updates Ask's grounding too. Do not unexpectedly hide an Ask
+    // conversation; Guide still yields to Capture so a first-time selection
+    // exposes the annotation actions.
+    setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
   }, [collectSelectionNodes]);
 
   const refreshRequests = useCallback(async () => {
@@ -1194,6 +1308,65 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     [arc, offline, enabled, onError],
   );
 
+  // Exact-exercise slice: send the ordered per-block selection segments to one
+  // background authoring job. The exercise text stays verbatim (source-owned);
+  // AI completes the answer, rubric, facets, hints, and depth-rung metadata.
+  const importExercise = useCallback(async () => {
+    if (!render || !selection || offline) return;
+    const nodes = selectionNodes(selection);
+    const editedText = selection.editedText?.trim();
+    setBusy(true);
+    try {
+      const receipt = await api.readerImportExercise({
+        extractionId: render.extractionId,
+        sourceId: render.sourceId,
+        revisionId: render.revisionId,
+        renderViewId: render.renderViewId,
+        rawSelection: editedText ? { nodes, editedText } : { nodes },
+        clientIdempotencyKey: newKey(),
+      });
+      setExerciseImport({
+        batchId: receipt.batchId,
+        status: receipt.status || "queued",
+        quote: editedText ? editedText.replace(/\s+/g, " ") : selection.quote,
+        result: null,
+        error: null,
+      });
+      setSelectionActions((prev) => [...prev, "exercise_import"]);
+    } catch (error) {
+      onError((error as CommandError).message);
+    } finally {
+      setBusy(false);
+    }
+  }, [render, selection, offline, onError]);
+
+  // Poll the import job while it is in flight; completion carries the written
+  // card summaries (and reloads the vault sidecar-side so they schedule).
+  const exerciseImportBatchId = exerciseImport?.batchId ?? null;
+  const exerciseImportActive =
+    exerciseImport != null && ["queued", "running", "blocked"].includes(exerciseImport.status);
+  useEffect(() => {
+    if (!exerciseImportBatchId || !exerciseImportActive || offline) return;
+    const timer = setInterval(async () => {
+      try {
+        const status = await api.readerExerciseImportStatus({ batchId: exerciseImportBatchId });
+        setExerciseImport((prev) =>
+          prev && prev.batchId === exerciseImportBatchId
+            ? {
+                ...prev,
+                status: status.status,
+                result: status.result ?? prev.result,
+                error: status.error?.message ?? status.message ?? null,
+              }
+            : prev,
+        );
+      } catch {
+        // transient poll failure: keep polling; the job is durable.
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [exerciseImportBatchId, exerciseImportActive, offline]);
+
   const saveOwnQuestion = useCallback(async () => {
     if (!render || !authoredQuestion.trim() || !authoredAnswer.trim()) return;
     setAuthoringBusy(true);
@@ -1268,8 +1441,26 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         question: asked,
         answerMode,
       });
-      setHistory((h) => ({ ...h, [activeSpan]: [...(h[activeSpan] ?? []), { question: asked, answer }] }));
+      const exchange: ReaderExchange = {
+        id: answer.readerAnswerEventId,
+        spanId: activeSpan,
+        question: asked,
+        answerMd: answer.answerMd,
+        answerMode: answer.answerMode,
+        createdAt: new Date().toISOString(),
+      };
+      setHistory((items) => [exchange, ...items.filter((item) => item.id !== exchange.id)]);
+      setCollapsedAskIds((ids) => {
+        const next = new Set(ids);
+        next.delete(exchange.id);
+        return next;
+      });
       setQuestion("");
+      // WebKit can retain the submitted textarea's stale compositing layer when
+      // the completed exchange mounts below it. Remounting gives the next Ask a
+      // fresh input surface; focus restoration makes repeated questions fluid.
+      setAskComposerVersion((version) => version + 1);
+      window.requestAnimationFrame(() => askComposerRef.current?.focus());
     } catch (error) {
       onError((error as CommandError).message);
     } finally {
@@ -1289,6 +1480,35 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     },
     [enabled, boundaryBlock, onError],
   );
+
+  const normalizedAskFind = askFindQuery.trim().toLowerCase();
+  const visibleAskHistory = useMemo(
+    () => history.filter((exchange) => {
+      if (!normalizedAskFind) return true;
+      return `${exchange.question}\n${exchange.answerMd}`.toLowerCase().includes(normalizedAskFind);
+    }),
+    [history, normalizedAskFind],
+  );
+
+  // In video mode the transcript owns Ctrl/Cmd+F everywhere except while the
+  // Ask tab is active. Ask then provides a source-local index over durable
+  // questions and answers, including text hidden inside collapsed exchanges.
+  useEffect(() => {
+    if (railTab !== "ask") return;
+    const onFind = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setAskFindOpen(true);
+        window.setTimeout(() => askFindInputRef.current?.focus(), 0);
+      } else if (event.key === "Escape" && askFindOpen) {
+        setAskFindOpen(false);
+        setAskFindQuery("");
+      }
+    };
+    window.addEventListener("keydown", onFind, { capture: true });
+    return () => window.removeEventListener("keydown", onFind, { capture: true });
+  }, [railTab, askFindOpen]);
 
   // ── Source picker: the Reader's front door is the real library ──
   if (!render) {
@@ -1462,7 +1682,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         ) : null}
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
         <div
           ref={bodyRef}
           onMouseUp={onMouseUp}
@@ -1478,6 +1698,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               annotatedSpans={annotatedSpans}
               guidanceSpans={revealedGuidanceSpans}
               resumeSpan={readingSpan}
+              findShortcutEnabled={railTab !== "ask"}
               onPlaybackSpan={setReadingSpan}
               onAskSpan={(spanId) => {
                 if (spanId) setActiveSpan(spanId);
@@ -1494,13 +1715,20 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               blocks={pdfView.blocks}
               trails={trails}
               guidanceSpans={revealedGuidanceSpans}
+              selectedSpans={selectedSpanSet}
               activeSpan={activeSpan}
               onSelectSpan={setActiveSpan}
               onTextSelection={(sel) => {
                 setSelection(sel);
                 setSelectionActions([]);
+                setEditingCapture(false);
                 setActiveSpan(sel.spanId);
-                setRailTab("notes");
+                setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
+              }}
+              onSelectionCleared={() => {
+                setSelection(null);
+                setSelectionActions([]);
+                setEditingCapture(false);
               }}
               onTagMenu={setTagMenu}
               onError={onError}
@@ -1587,19 +1815,60 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         </div>
 
         {/* Right rail: annotation margin + capture + Ask */}
-        <div style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, padding: "18px 20px", overflowY: "auto" }} className="ll-scroll">
-          <div style={{ position: "sticky", top: -18, zIndex: 8, margin: "-18px -20px 16px", padding: "12px 20px 10px", background: COLOR.bg, borderBottom: `1px solid ${COLOR.border}`, display: "flex", gap: 4 }}>
-            {(["guide", "ask", "notes"] as ReaderRailTab[]).map((tab) => (
+        <div
+          style={{
+            width: 360,
+            height: "100%",
+            minHeight: 0,
+            flexShrink: 0,
+            borderLeft: `1px solid ${COLOR.border}`,
+            padding: "18px 20px",
+            overflowX: "hidden",
+            overflowY: "auto",
+            overscrollBehaviorY: "contain",
+            scrollbarGutter: "stable",
+          }}
+          className="ll-scroll"
+        >
+          <div style={{ position: "sticky", top: -18, zIndex: 8, margin: "-18px -20px 16px", padding: "12px 20px 10px", background: COLOR.bg, borderBottom: `1px solid ${COLOR.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["guide", "ask", "notes"] as ReaderRailTab[]).map((tab) => {
+                const active = railTab === tab;
+                const guideAlert = tab === "guide" && pendingQuickCheckCount > 0;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={guideAlert && !active ? "ll-reader-guide-alert" : undefined}
+                    onClick={() => setRailTab(tab)}
+                    aria-pressed={active}
+                    aria-label={guideAlert ? `Guide, ${pendingQuickCheckCount} quick check${pendingQuickCheckCount === 1 ? "" : "s"} ready` : tab}
+                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${guideAlert ? COLOR.pink : active ? COLOR.borderFocus : COLOR.border}`, background: guideAlert ? (active ? COLOR.washPurple : undefined) : active ? COLOR.washAmber : "transparent", color: guideAlert ? COLOR.purpleText : active ? COLOR.amberLink : COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}
+                  >
+                    {tab}
+                    {guideAlert ? (
+                      <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span className="ll-qc-blink">◆</span>
+                        {pendingQuickCheckCount}
+                      </span>
+                    ) : null}
+                    {tab === "notes" && annotations.length > 0 ? <span>{annotations.length}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+            {pendingQuickCheckCount > 0 && railTab !== "guide" ? (
               <button
-                key={tab}
                 type="button"
-                onClick={() => setRailTab(tab)}
-                aria-pressed={railTab === tab}
-                style={{ flex: 1, border: `1px solid ${railTab === tab ? COLOR.borderFocus : COLOR.border}`, background: railTab === tab ? COLOR.washAmber : "transparent", color: railTab === tab ? COLOR.amberLink : COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}
+                className="ll-reader-qc-strip"
+                onClick={() => setRailTab("guide")}
+                style={{ fontFamily: FONT_MONO }}
               >
-                {tab}{tab === "notes" && annotations.length > 0 ? ` ${annotations.length}` : ""}
+                <span className="ll-qc-blink" aria-hidden="true">◆</span>
+                <span>{pendingQuickCheckCount === 1 ? "quick check ready" : `${pendingQuickCheckCount} quick checks ready`}</span>
+                <span className="ll-qc-strip-go" aria-hidden="true">guide →</span>
               </button>
-            ))}
+            ) : null}
           </div>
 
           <div style={{ display: railTab === "guide" ? "block" : "none" }}>
@@ -1645,7 +1914,9 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
             {(guidePlan?.sections.length ?? 0) > 1 ? (
               <>
                 <SectionHeader>Contents</SectionHeader>
-                <div className="ll-scroll" style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", marginBottom: 4 }}>
+                {/* The rail owns vertical scrolling. A nested Contents scroller
+                    traps wheel events at its edges in WebKitGTK/Tauri. */}
+                <div style={{ display: "flex", flexDirection: "column", marginBottom: 4 }}>
                   {guidePlan!.sections.map((section, index) => {
                     const currentIndex = guidePlan!.sections.findIndex((s) => s.id === currentGuideSection?.id);
                     const state = index < currentIndex ? "read" : index === currentIndex ? "current" : "upcoming";
@@ -1742,9 +2013,60 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                   <Faint style={{ fontSize: 11 }}>
                     selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : selection.spanId}
                   </Faint>
-                  <button type="button" onClick={() => { setSelection(null); setSelectionActions([]); }} style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}>clear</button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCapture((v) => !v)}
+                    style={{ marginLeft: "auto", border: 0, background: "transparent", color: editingCapture ? COLOR.amberLink : COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}
+                  >
+                    {editingCapture ? "done" : "edit"}
+                  </button>
+                  <button type="button" onClick={() => { setSelection(null); setSelectionActions([]); setEditingCapture(false); }} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}>clear</button>
                 </div>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>“{selection.quote}”</span>
+                {editingCapture ? (
+                  // OCR-mishap repair: the whole selection edits as ONE
+                  // combined passage (block fragments joined in reading
+                  // order); the edited text becomes the practice surface while
+                  // the anchors stay on the source blocks.
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <textarea
+                      value={selection.editedText ?? selectionNodes(selection).map((n) => n.quote).join("\n\n")}
+                      onChange={(e) => editCaptureText(e.target.value)}
+                      autoFocus
+                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${selection.editedText != null ? COLOR.amberLink : COLOR.border}`, color: COLOR.text, padding: 6, minHeight: 110, resize: "vertical" }}
+                    />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Faint style={{ fontSize: 10 }}>
+                        fix any OCR mishaps — the edited passage becomes the practice surface; anchors stay on the source blocks.
+                      </Faint>
+                      {selection.editedText != null ? (
+                        <button
+                          type="button"
+                          onClick={resetCaptureText}
+                          style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+                        >
+                          reset
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : selection.editedText != null ? (
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+                    “{clip(selection.editedText.replace(/\s+/g, " ").trim(), 360)}”
+                    <Faint style={{ fontSize: 10, color: COLOR.amberLink }}> (edited)</Faint>
+                  </span>
+                ) : selection.nodes && selection.nodes.length > 1 ? (
+                  // Per-block anchor preview: exactly what each capture will
+                  // ground to, so an over-wide sweep is visible before acting.
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {selection.nodes.map((node, index) => (
+                      <span key={`${node.spanId}-${index}`} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
+                        <Faint style={{ fontSize: 10 }}>[{index + 1}]</Faint> “{clip(node.quote, 110)}”
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>“{clip(selection.quote, 360)}”</span>
+                )}
                 {selectionActions.length > 0 ? (
                   <Faint style={{ fontSize: 10, color: COLOR.green }}>✓ saved · choose another action or select another passage</Faint>
                 ) : null}
@@ -1758,6 +2080,20 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               <PrimaryButton onClick={() => captureHighlight()} disabled={busy || selectionActions.includes("highlight")}>
                 {selectionActions.includes("highlight") ? "highlighted ✓" : "highlight"}
               </PrimaryButton>
+              {!offline ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>EXERCISES</Faint>
+                  <PrimaryButton
+                    onClick={() => void importExercise()}
+                    disabled={busy || exerciseImportActive || selectionActions.includes("exercise_import")}
+                  >
+                    {selectionActions.includes("exercise_import") ? "exercise queued ✓" : "add exercise to practice"}
+                  </PrimaryButton>
+                  <Faint style={{ fontSize: 10 }}>
+                    the exercise text stays verbatim — AI completes the answer, rubric, hints, and depth.
+                  </Faint>
+                </div>
+              ) : null}
               {PALETTE.map((grp) => (
                 <div key={grp.group} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>{grp.group.toUpperCase()}</Faint>
@@ -1772,8 +2108,76 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               ))}
             </div>
           ) : (
-            <Faint style={{ fontSize: 12 }}>select text in the reading column to capture it.</Faint>
+            <Faint style={{ fontSize: 12 }}>
+              {pdfView && surface === "pdf" && !offline
+                ? "drag across the page to select whole blocks (an exercise, a proof) · ctrl+click a word or equation for fine capture, ctrl+shift+click to extend · alt+drag for free text selection."
+                : "select text in the reading column to capture it."}
+            </Faint>
           )}
+
+          {exerciseImport ? (
+            <>
+              <SectionHeader>Exercise import</SectionHeader>
+              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {exerciseImportActive ? (
+                  <Faint style={{ fontSize: 11 }}>
+                    ◐ authoring practice from “{clip(exerciseImport.quote, 90)}” — keep reading, the cards land here.
+                  </Faint>
+                ) : exerciseImport.status === "completed" && exerciseImport.result ? (
+                  <>
+                    {exerciseImport.result.items.map((item) => (
+                      <div key={item.practiceItemId} style={{ display: "flex", flexDirection: "column", gap: 3, borderBottom: `1px solid ${COLOR.border}`, paddingBottom: 6 }}>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>
+                          ✓ {item.title || clip(item.prompt, 80)}
+                        </span>
+                        <Faint style={{ fontSize: 10 }}>→ {item.learningObjectTitle}</Faint>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {item.capability ? (
+                            <Pill color="purple">{item.capability.replace(/_/g, " ")}</Pill>
+                          ) : (
+                            <Pill color="slate">depth unclassified</Pill>
+                          )}
+                          {typeof item.taskFeatures.span === "string" ? (
+                            <Pill color="cyan">{String(item.taskFeatures.span).replace(/_/g, " ")}</Pill>
+                          ) : null}
+                          {item.difficulty != null ? (
+                            <Pill color="amber">difficulty {Math.round(item.difficulty * 100) / 100}</Pill>
+                          ) : null}
+                        </div>
+                        <Faint style={{ fontSize: 10 }}>
+                          verbatim from the source · {item.evidenceFacets.length} facet{item.evidenceFacets.length === 1 ? "" : "s"} · {item.hintCount} hint{item.hintCount === 1 ? "" : "s"} · scheduled as practice
+                        </Faint>
+                        {item.classificationReason ? (
+                          <Faint style={{ fontSize: 10 }}>{item.classificationReason}</Faint>
+                        ) : null}
+                      </div>
+                    ))}
+                    {exerciseImport.result.skipped.map((skip, index) => (
+                      <Faint key={index} style={{ fontSize: 10 }}>
+                        skipped{skip.title ? ` ${skip.title}` : ""}: {skip.reason}
+                      </Faint>
+                    ))}
+                    {exerciseImport.result.warnings.slice(0, 4).map((warning, index) => (
+                      <Faint key={index} style={{ fontSize: 10, color: COLOR.amberLink }}>⚠ {warning}</Faint>
+                    ))}
+                  </>
+                ) : (
+                  <Faint style={{ fontSize: 11, color: COLOR.red }}>
+                    ✗ {exerciseImport.error || "the exercise import did not complete."}
+                  </Faint>
+                )}
+                {!exerciseImportActive ? (
+                  <button
+                    type="button"
+                    onClick={() => setExerciseImport(null)}
+                    style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+                  >
+                    dismiss
+                  </button>
+                ) : null}
+              </Card>
+            </>
+          ) : null}
 
           {(selection || activeSpan || authoringOpen) ? (
             <>
@@ -2139,50 +2543,108 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                 the reader Ask is disabled in this vault's config (on by default for new vaults). Set <Dim>tutor_qa.reader_enabled = true</Dim> to ask span-grounded questions.
               </Faint>
             </Card>
-          ) : !activeSpan ? (
-            <Faint style={{ fontSize: 12 }}>select a paragraph to ask about it.</Faint>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {activeBlock ? (
-                <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
-                  <Faint style={{ fontSize: 10 }}>ASKING ABOUT</Faint>
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(activeBlock.markdown.replace(/\s+/g, " "), 150)}”</span>
-                </Card>
-              ) : null}
+              {activeSpan ? (
+                <>
+                  {activeBlock ? (
+                    <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
+                      <Faint style={{ fontSize: 10 }}>ASKING ABOUT</Faint>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(activeBlock.markdown.replace(/\s+/g, " "), 150)}”</span>
+                    </Card>
+                  ) : null}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Faint style={{ fontSize: 11 }}>mode</Faint>
+                    <TermSelect
+                      value={answerMode}
+                      options={ANSWER_MODE_OPTIONS}
+                      onChange={(v) => {
+                        const mode = v as ReaderAnswerMode;
+                        setAnswerMode(mode);
+                        if (render && activeSpan) {
+                          api.readerSetAnswerMode({ extractionId: render.extractionId, spanId: activeSpan, answerMode: mode }).catch(() => {});
+                        }
+                      }}
+                      width={160}
+                    />
+                  </div>
+                  <textarea
+                    key={`${activeSpan}:${askComposerVersion}`}
+                    ref={askComposerRef}
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="ask about this span…"
+                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
+                  />
+                  <PrimaryButton onClick={ask} disabled={busy || !question.trim()}>ask ↵</PrimaryButton>
+                </>
+              ) : (
+                <Faint style={{ fontSize: 12 }}>select a paragraph to ask about it.</Faint>
+              )}
+
+              <SectionHeader>Previous asks</SectionHeader>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Faint style={{ fontSize: 11 }}>mode</Faint>
-                <TermSelect
-                  value={answerMode}
-                  options={ANSWER_MODE_OPTIONS}
-                  onChange={(v) => {
-                    const mode = v as ReaderAnswerMode;
-                    setAnswerMode(mode);
-                    if (render && activeSpan) {
-                      api.readerSetAnswerMode({ extractionId: render.extractionId, spanId: activeSpan, answerMode: mode }).catch(() => {});
-                    }
-                  }}
-                  width={160}
-                />
+                <Faint style={{ fontSize: 10 }}>{history.length} saved</Faint>
+                {!askFindOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => { setAskFindOpen(true); window.setTimeout(() => askFindInputRef.current?.focus(), 0); }}
+                    title="find in previous asks (ctrl+f)"
+                    aria-label="find in previous asks"
+                    style={{ marginLeft: "auto", width: 20, height: 18, border: `1px solid ${COLOR.border}`, background: "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
+                  >
+                    ⌕
+                  </button>
+                ) : (
+                  <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      ref={askFindInputRef}
+                      value={askFindQuery}
+                      onChange={(event) => setAskFindQuery(event.target.value)}
+                      placeholder="find in asks…"
+                      style={{ width: 170, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, fontFamily: FONT_MONO, fontSize: 11, padding: "4px 6px" }}
+                    />
+                    <Faint style={{ fontSize: 10 }}>{visibleAskHistory.length}/{history.length}</Faint>
+                    <button type="button" onClick={() => { setAskFindOpen(false); setAskFindQuery(""); }} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer", padding: 0 }}>×</button>
+                  </div>
+                )}
               </div>
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="ask about this span…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
-              />
-              <PrimaryButton onClick={ask} disabled={busy || !question.trim()}>ask ↵</PrimaryButton>
-              {(history[activeSpan] ?? []).map((exchange, i) => (
-                <Card key={i} status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <Faint style={{ fontSize: 10 }}>YOU ASKED</Faint>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                    <MarkdownMath value={exchange.question} />
-                  </div>
-                  <Pill color="cyan">{exchange.answer.answerMode}</Pill>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                    <MarkdownMath value={exchange.answer.answerMd} />
-                  </div>
-                </Card>
-              ))}
+              {history.length === 0 ? (
+                <Faint style={{ fontSize: 11 }}>No saved asks for this source yet.</Faint>
+              ) : visibleAskHistory.length === 0 ? (
+                <Faint style={{ fontSize: 11 }}>No questions or answers match “{askFindQuery}”.</Faint>
+              ) : visibleAskHistory.map((exchange) => {
+                const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
+                return (
+                  <Card key={exchange.id} status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => setCollapsedAskIds((ids) => {
+                        const next = new Set(ids);
+                        if (next.has(exchange.id)) next.delete(exchange.id); else next.add(exchange.id);
+                        return next;
+                      })}
+                      aria-expanded={expanded}
+                      style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", border: 0, background: "transparent", color: COLOR.text, fontFamily: FONT_MONO, padding: 0, textAlign: "left", cursor: "pointer" }}
+                    >
+                      <span style={{ color: COLOR.purpleText, flexShrink: 0 }}>{expanded ? "▼" : "▶"}</span>
+                      <span style={{ fontSize: 11, flex: 1 }}>{clip(exchange.question, 130)}</span>
+                    </button>
+                    {expanded ? (
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                          <Pill color="cyan">{exchange.answerMode}</Pill>
+                          <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
+                          {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
+                        </div>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+                          <MarkdownMath value={exchange.answerMd} />
+                        </div>
+                      </>
+                    ) : null}
+                  </Card>
+                );
+              })}
               <AffectTap />
             </div>
           )}
@@ -2722,6 +3184,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   annotatedSpans: Set<string>;
   guidanceSpans: Set<string>;
   resumeSpan: string | null;
+  findShortcutEnabled: boolean;
   onPlaybackSpan: (spanId: string | null) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
@@ -2731,6 +3194,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   annotatedSpans,
   guidanceSpans,
   resumeSpan,
+  findShortcutEnabled,
   onPlaybackSpan,
   onAskSpan,
   onTagMenu,
@@ -2899,6 +3363,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   }, []);
 
   useEffect(() => {
+    if (!findShortcutEnabled) return;
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
@@ -2907,7 +3372,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [openFind]);
+  }, [findShortcutEnabled, openFind]);
 
   // Imperative jump for the guide rail (contents outline, quick-check "show me
   // the passage", suggested passages): seek the video to the cue's start

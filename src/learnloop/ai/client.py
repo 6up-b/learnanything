@@ -37,6 +37,8 @@ def make_ai_provider_client(
     profile = config.ai.providers.get(selected)
     if profile is None:
         raise AIProviderUnavailable(f"AI provider {selected!r} is not configured")
+    if profile.timeout_seconds is None:
+        profile = profile.model_copy(update={"timeout_seconds": config.ai.timeout_seconds})
     return make_ai_provider_client_from_profile(selected, profile, vault_root)
 
 

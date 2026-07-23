@@ -1,0 +1,132 @@
+schema_version: 1
+id: pi_exercise_01ky5pvsbj6vz0h6t49z70dkkv
+learning_object_id: lo_compute_with_complex_numbers
+subjects:
+practice_mode: proof
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_multiply_complex_numbers_by_distributing_replaci
+evidence_weights:
+  facet_multiply_complex_numbers_by_distributing_replaci: 1.0
+criterion_facet_weights:
+  square_value:
+    facet_multiply_complex_numbers_by_distributing_replaci: 1.0
+  cube_computation:
+    facet_multiply_complex_numbers_by_distributing_replaci: 1.0
+  conclusion:
+    facet_multiply_complex_numbers_by_distributing_replaci: 1.0
+prompt: "Show that\n\n$\\frac{-1+\\sqrt{3}i}{2}$\n\nis a cube root of 1 (meaning
+  that its cube equals 1)"
+expected_answer: "Let\n\n$$z=\\frac{-1+\\sqrt{3}i}{2}.$$\n\nFirst compute\n\n$$z^2=\\\
+  frac{(-1+\\sqrt{3}i)^2}{4}=\\frac{1-2\\sqrt{3}i+3i^2}{4}=\\frac{-2-2\\sqrt{3}i}{4}=\\\
+  frac{-1-\\sqrt{3}i}{2},$$\n\nwhere $i^2=-1$. Therefore\n\n$$z^3=z^2z=\\frac{(-1-\\\
+  sqrt{3}i)(-1+\\sqrt{3}i)}{4}.$$\n\nThe numerator is a product of conjugates, so\n\
+  \n$$(-1-\\sqrt{3}i)(-1+\\sqrt{3}i)=(-1)^2-(\\sqrt{3}i)^2=1-3i^2=4.$$\n\nThus\n\n\
+  $$z^3=\\frac{4}{4}=1,$$\n\nso $\\frac{-1+\\sqrt{3}i}{2}$ is a cube root of $1$."
+difficulty: 0.35
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Let the given complex number be $z$. To verify the claim directly, compute 
+    $z^3$ using complex multiplication.
+  - Begin by finding $z^2$. Expand $(-1+\sqrt{3}i)^2$ and replace $i^2$ with 
+    $-1$.
+  - Multiply your expression for $z^2$ by $z$. The two numerators form a product
+    of complex conjugates, which simplifies using $(a-bi)(a+bi)=a^2+b^2$.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.1
+scaffold_level: 0.2
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: square_value
+      points: 2.0
+      description: Correctly expands the square using distributivity and 
+        $i^2=-1$, obtaining $z^2=(-1-\sqrt{3}i)/2$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: cube_computation
+      points: 1.0
+      description: Correctly multiplies $z^2$ by $z$ and simplifies the 
+        resulting complex product.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: conclusion
+      points: 1.0
+      description: Shows that the cube equals $1$ and explicitly concludes that 
+        the given number is a cube root of $1$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s179
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s180
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-22T20:04:23Z'
+updated_at: '2026-07-22T20:04:24Z'

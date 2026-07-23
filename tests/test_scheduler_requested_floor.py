@@ -195,3 +195,23 @@ def test_requested_floor_honored_before_limit_slice(tmp_path):
     # Even a single-item session surfaces the requested item (prefix floor before slice).
     queue = build_due_queue(loaded, repository, clock=clock, limit=1, persist_explanations=False)
     assert [item.practice_item_id for item in queue] == ["pi_requested"]
+
+
+def test_stateless_requested_item_survives_eligibility(tmp_path):
+    """A freshly authored requested item — no attempts, no FSRS state, no
+    due_at — must still enter the queue. Previously it zeroed out at the
+    priority filter before the reorder floor ran, so a vault whose only items
+    were requested variants scheduled an EMPTY queue."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _write_item(paths, "pi_fresh_variant", prompt="A just-minted harder sibling.")
+    repository = Repository(paths.sqlite_path)
+    # NO practice_item_state, NO mastery, NO attempts for the variant: the
+    # learner-request row is its only signal.
+    _promote_item(repository, event_suffix="fresh", created_practice_item_id="pi_fresh_variant")
+    vault = load_vault(paths.root)
+    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    ids = [item.practice_item_id for item in queue]
+    assert "pi_fresh_variant" in ids
+    assert ids[0] == "pi_fresh_variant"
+    assert queue[0].plain_english[0].startswith("requested")

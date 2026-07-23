@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from learnloop.codex.client import GradingContext
-from learnloop.codex.schemas import GradingProposal
+from learnloop.codex.schemas import CriterionEvidence, GradingProposal
 from learnloop.config import EvidenceConfig
 from learnloop.services.error_taxonomy_map import (
     MECHANISM_SEVERITY_DEFAULT,
@@ -110,6 +110,74 @@ def confidence_to_grader_confidence(confidence: int) -> float:
 
 class GradingValidationError(ValueError):
     pass
+
+
+_OPTION_LETTER = re.compile(r"^\s*\(?([A-H])\)?\s*[\.\):—-]?\s*", re.IGNORECASE)
+_OPTION_LINE = re.compile(r"^\s*\(?([A-H])\)?\s*[\.\)]\s+\S", re.MULTILINE)
+
+
+def _option_letter(text: str | None) -> str | None:
+    if not text:
+        return None
+    match = _OPTION_LETTER.match(text.strip())
+    return match.group(1).upper() if match else None
+
+
+def deterministic_recognition_grade(
+    item,
+    rubric,
+    learner_answer_md: str,
+    *,
+    attempt_id: str,
+) -> GradingProposal | None:
+    """Exact option-letter grading for recognition/multiple-choice items.
+
+    Returns a full-confidence proposal when BOTH the authored expected answer
+    and the learner answer unambiguously name one of the prompt's option
+    letters; returns None (defer to the model grader) otherwise. Grading a
+    constrained selection by string comparison costs nothing and — unlike an
+    LLM grade — carries no calibration-channel uncertainty, so a correct pick
+    is a certainty-1.0 observation instead of a cold-channel-discounted one.
+    """
+
+    mode = (getattr(item, "practice_mode", None) or "").lower()
+    if mode not in ("recognition", "multiple_choice"):
+        return None
+    if rubric is None or len(rubric.criteria) != 1:
+        return None
+    prompt_options = {m.group(1).upper() for m in _OPTION_LINE.finditer(item.prompt or "")}
+    if len(prompt_options) < 2:
+        return None
+    expected = _option_letter(getattr(item, "expected_answer", None))
+    chosen = _option_letter(learner_answer_md)
+    if expected is None or expected not in prompt_options:
+        return None
+    if chosen is None or chosen not in prompt_options:
+        return None  # free-text response: the model grader must interpret it
+    criterion = rubric.criteria[0]
+    correct = chosen == expected
+    points = float(criterion.points) if correct else 0.0
+    score = 4 if correct else 0
+    evidence = (
+        f"Selected option {chosen}; expected option {expected}."
+        + (" Exact match." if correct else " Mismatch.")
+    )
+    return GradingProposal(
+        attempt_id=attempt_id,
+        practice_item_id=item.id,
+        rubric_score=score,
+        criterion_evidence=[
+            CriterionEvidence(
+                criterion_id=criterion.id,
+                points_awarded=points,
+                evidence=evidence,
+            )
+        ],
+        grader_confidence=1.0,
+        feedback_md=(
+            f"Correct — option {expected}." if correct else f"The expected answer is option {expected}."
+        ),
+    )
 
 
 @dataclass(frozen=True)

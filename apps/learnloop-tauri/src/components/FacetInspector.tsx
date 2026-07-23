@@ -22,7 +22,7 @@ import type {
   RestructureRequestDto,
 } from "../api/dto";
 import { EntityLink } from "./ui";
-import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader } from "./term";
+import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader, TermSelect } from "./term";
 import { FacetEvidenceReceipt } from "./KnowledgeModel";
 
 const LOCK_GLYPH = "\u{1F512}"; // 🔒
@@ -492,11 +492,7 @@ function MergeFlow({
             {subjects && subjects.length > 1 ? (
               <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                 <Faint>subject</Faint>
-                <select style={selectStyle} value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-                  {subjects.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                <TermSelect ariaLabel="Subject" value={subjectId} options={subjects} onChange={setSubjectId} width={220} />
               </div>
             ) : null}
 
@@ -835,16 +831,6 @@ const textareaStyle: CSSProperties = {
   fontFamily: FONT_MONO,
   outline: "none",
   resize: "vertical",
-};
-
-const selectStyle: CSSProperties = {
-  background: COLOR.bgInput,
-  color: COLOR.text,
-  border: `1px solid ${COLOR.border}`,
-  padding: "4px 8px",
-  fontSize: 12,
-  fontFamily: FONT_MONO,
-  outline: "none",
 };
 
 const radioLabel: CSSProperties = {

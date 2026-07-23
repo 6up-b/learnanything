@@ -48,7 +48,10 @@ from learnloop.services.grading import (
     validate_codex_grading_proposal,
 )
 from learnloop.services.error_taxonomy import persist_unknown_error_type_proposals
-from learnloop.services.error_taxonomy_map import map_legacy_error_type
+from learnloop.services.error_taxonomy_map import (
+    ASSESSMENT_SIDE_ERROR_TYPES,
+    map_legacy_error_type,
+)
 from learnloop.services.facet_diagnostics import (
     apply_mastery_variance_floor,
     build_facet_uncertainty_updates,
@@ -393,6 +396,9 @@ def _complete_attempt_with_agent_fallback(
 ) -> AttemptResult:
     item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
     contract = _assessment_contract(repository, draft)
+    deterministic = _try_deterministic_grade(vault, repository, draft, item, rubric, clock=clock)
+    if deterministic is not None:
+        return deterministic
     if not runtime.ready or ai_client is None:
         reason = runtime.status if not runtime.ready else missing_client_reason
         result = complete_self_graded_attempt(vault, repository, draft, fallback_grade, clock=clock)
@@ -483,6 +489,45 @@ def complete_attempt_with_ai_required(
     )
 
 
+def _try_deterministic_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    item,
+    rubric,
+    *,
+    clock: Clock | None = None,
+) -> AttemptResult | None:
+    """Grade an unambiguous option-letter selection without the model grader.
+
+    Applies through the same proposal path as agent grades so every downstream
+    projection sees a normal graded attempt — but with grading_source
+    'deterministic' and grader_confidence 1.0, which the reliability resolver
+    exempts from the calibration-channel discount. Runs before the runtime
+    check: a constrained selection is gradable even when no agent is up.
+    """
+
+    from learnloop.services.grading import deterministic_recognition_grade
+
+    attempt_id = new_ulid()
+    proposal = deterministic_recognition_grade(
+        item, rubric, draft.learner_answer_md, attempt_id=attempt_id
+    )
+    if proposal is None:
+        return None
+    result = complete_codex_graded_attempt(
+        vault,
+        repository,
+        draft,
+        proposal,
+        attempt_id=attempt_id,
+        agent_run_id=None,
+        grading_source="deterministic",
+        clock=clock,
+    )
+    return _with_source(result, grading_source="deterministic", agent_run_id=None)
+
+
 def _complete_attempt_with_agent_required(
     vault: LoadedVault,
     repository: Repository,
@@ -494,11 +539,15 @@ def _complete_attempt_with_agent_required(
     missing_client_reason: str,
     clock: Clock | None = None,
 ) -> AttemptResult:
+    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    deterministic = _try_deterministic_grade(vault, repository, draft, item, rubric, clock=clock)
+    if deterministic is not None:
+        return deterministic
+
     if not runtime.ready or ai_client is None:
         reason = runtime.status if not runtime.ready else missing_client_reason
         raise CodexUnavailable(reason)
 
-    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
     contract = _assessment_contract(repository, draft)
     attempt_id = new_ulid()
     context = build_grading_context(
@@ -729,6 +778,14 @@ def replay_existing_attempt(
             replace_existing=True,
             record_probe_update=False,
             error_event_ids_override=error_event_ids,
+            # Replay must re-enter the same observation lane the live write
+            # used: an ai/codex attempt replays through the soft-score channel,
+            # a self/deterministic one through the raw fraction.
+            grading_source=(
+                (repository.fetch_attempt_feedback_metadata(attempt["id"]) or {}).get(
+                    "grading_source", "self"
+                )
+            ),
         ),
         clock=clock,
     )
@@ -1059,6 +1116,7 @@ def compute_attempt_application(
         error_event_ids_override=attempt.error_event_ids_override,
         prior_state=prior_state,
         replay=attempt.replace_existing,
+        grading_source=attempt.grading_source,
     )
 
 
@@ -1321,6 +1379,7 @@ def _compute_resolved_grade_application(
     error_event_ids_override: list[str] | None = None,
     prior_state: AttemptPriorState | None = None,
     replay: bool = False,
+    grading_source: str = "self",
 ) -> AttemptApplication:
     item, learning_object, rubric = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
@@ -1389,22 +1448,28 @@ def _compute_resolved_grade_application(
         attempt_type=draft.attempt_type,
         error_attributions=grade_attributions,
     )
-    # P0.3 (§4.3/§4.4): for new-version (mvp-0.8) writes the grader-confidence
-    # FACTOR is sourced from the calibrated interpretation's certainty LCB -- the
-    # SAME certainty certification consumes -- so mastery and certification cannot
-    # disagree about grader trust. The product SHAPE (clamp x hint x attempt_mass)
-    # is unchanged (pinned by test_characterization_mastery_reliability). Legacy
-    # versions keep the raw grader_confidence. Fail-safe: any resolution failure
-    # falls back to the legacy source (§7.3).
+    # Prediction lane, mean-preserving (P1 revision): the mastery EKF keeps the
+    # RAW rubric fraction as its observation y and consumes the calibrated grade
+    # channel only through Var[s(Z)|emission] added to measurement noise. The
+    # earlier soft-y substitution (y = E[s(Z)|emission]) shrank every observation
+    # toward the channel prior mean, which put a ~0.85 ceiling on a perfect score
+    # under the permanent heuristic prior and could move mastery AGAINST the
+    # observed direction on easy items (predicted p above the ceiling). Channel
+    # doubt now widens R — it never biases y. Certification is untouched:
+    # canonical projection consumes the channel through build_effective_observation.
+    # Deterministic and self grades are not channel-interpreted, so they keep the
+    # raw score and confidence with no extra noise.
     grader_confidence_source = grade.grader_confidence
+    interpretation_variance = 0.0
     if (
         vault.config.algorithms.algorithm_version == P0_ALGORITHM_VERSION
         and draft.attempt_type != "dont_know"
+        and grading_source in ("ai", "codex")
     ):
         try:
-            from learnloop.services.grade_resolution import response_certainty_lcb
+            from learnloop.services.grade_resolution import response_soft_score
 
-            grader_confidence_source = response_certainty_lcb(
+            _channel_mean, interpretation_variance = response_soft_score(
                 vault,
                 repository,
                 item=item,
@@ -1418,7 +1483,7 @@ def _compute_resolved_grade_application(
                 clock=clock,
             )
         except Exception:  # noqa: BLE001 - fail-safe reliability source (§7.3)
-            grader_confidence_source = grade.grader_confidence
+            interpretation_variance = 0.0
     reliability = resolve_reliability(
         item,
         attempt_type=draft.attempt_type,
@@ -1519,6 +1584,8 @@ def _compute_resolved_grade_application(
         observation_weight_override=error_impact.observation_weight,
         attempt_evidence_mass=attempt_evidence_mass(draft.attempt_type, vault.config.evidence),
         primed=draft.primed,
+        soft_score_override=None,
+        interpretation_variance=interpretation_variance,
     )
     # IRT (a, b) resolved once from static authored/LLM fields and shared by the
     # mastery EKF and the probability-space surprise (spec §4.3 / §8).
@@ -1698,6 +1765,11 @@ def _compute_resolved_grade_application(
         grader_confidence=grade.grader_confidence,
         now_iso=now_iso,
         algorithm_version=vault.config.algorithms.algorithm_version,
+        assessment_side_error=any(
+            (map_legacy_error_type(attribution.error_type) or attribution.error_type)
+            in ASSESSMENT_SIDE_ERROR_TYPES
+            for attribution in resolved_attributions
+        ),
     )
     ability_transition = estimate_ability_transition(
         item,

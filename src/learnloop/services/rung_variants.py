@@ -44,7 +44,7 @@ from learnloop.services.depth_rungs import (
     trajectory_slugs,
     waypoint_rung,
 )
-from learnloop.services.mastery import display_mastery
+from learnloop.services.mastery import display_mastery, reanchor_mastery_from_claim
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 
@@ -207,6 +207,18 @@ def request_rung_variant(
             "source": CLAIM_SOURCE,
         },
         clock=clock,
+    )
+    # Re-anchor immediately: for a warm LO the claim was previously inert
+    # (covering_learner_claim only feeds first materialization), which meant a
+    # learner asking for harder work changed nothing the scheduler or the
+    # generation rung selector could see.
+    reanchor_mastery_from_claim(
+        vault,
+        repository,
+        item.learning_object_id,
+        claimed_level=claim_level,
+        prior_pseudo_count=config.claim_pseudo_count,
+        now_iso=utc_now_iso(clock),
     )
 
     # The belief write: a deterministic self-graded self_report attempt on the

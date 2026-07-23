@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
+import time
 from enum import Enum
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -9,7 +11,12 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from learnloop.codex.client import AuthoringContext, SdkCodexClient, _codex_output_schema
+from learnloop.codex.client import (
+    AuthoringContext,
+    CodexTurnTimeout,
+    SdkCodexClient,
+    _codex_output_schema,
+)
 from learnloop.codex.schemas import AuthoringProposal, GradingProposal, PracticeItemPatchPayload
 from learnloop.config import CodexConfig
 
@@ -69,14 +76,24 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
         def __exit__(self, *_args):
             return None
 
+        def close(self):
+            return None
+
         def thread_start(self, **kwargs):
             captured["thread_start"] = kwargs
             return FakeThread()
 
     class FakeThread:
-        def run(self, prompt: str, **kwargs):
+        def turn(self, prompt: str, **kwargs):
             captured["run"] = {"prompt": prompt, **kwargs}
+            return FakeTurn()
+
+    class FakeTurn:
+        def run(self):
             return SimpleNamespace(final_response='{"summary": "ok"}')
+
+        def interrupt(self):
+            return None
 
     class SdkAppConfig:
         def __init__(self, **kwargs):
@@ -113,6 +130,74 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
     assert prompt_log["prompt"] == "full prompt body"
     assert prompt_log["output_schema"] == {"type": "object"}
     assert response_log["response"] == '{"summary": "ok"}'
+
+
+def test_sdk_codex_turn_timeout_interrupts_and_returns(tmp_path, monkeypatch):
+    interrupted = threading.Event()
+
+    class FakeCodex:
+        def __init__(self, config):
+            self.config = config
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            self.close()
+
+        def close(self):
+            interrupted.set()
+
+        def thread_start(self, **_kwargs):
+            return FakeThread()
+
+    class FakeThread:
+        def turn(self, _prompt: str, **_kwargs):
+            return FakeTurn()
+
+    class FakeTurn:
+        def run(self):
+            interrupted.wait(timeout=2)
+            raise RuntimeError("turn stopped")
+
+        def interrupt(self):
+            # Simulate an app-server that never answers turn/interrupt. The
+            # client's force-close fallback must still release turn.run().
+            threading.Event().wait(timeout=2)
+
+    class SdkAppConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class ReasoningEffort(Enum):
+        low = "low"
+
+    class ReasoningSummary:
+        @classmethod
+        def model_validate(cls, value):
+            return value
+
+    openai_codex = ModuleType("openai_codex")
+    openai_codex.Codex = FakeCodex
+    openai_codex.CodexConfig = SdkAppConfig
+    openai_codex_types = ModuleType("openai_codex.types")
+    openai_codex_types.Personality = SimpleNamespace(pragmatic="pragmatic")
+    openai_codex_types.ReasoningEffort = ReasoningEffort
+    openai_codex_types.ReasoningSummary = ReasoningSummary
+    monkeypatch.setitem(sys.modules, "openai_codex", openai_codex)
+    monkeypatch.setitem(sys.modules, "openai_codex.types", openai_codex_types)
+
+    client = SdkCodexClient(
+        CodexConfig(checkout_path=str(tmp_path / "codex"), timeout_seconds=0.05),
+        tmp_path,
+    )
+    started = time.monotonic()
+
+    with pytest.raises(CodexTurnTimeout, match="0.05-second deadline"):
+        client._run_structured("prompt", {"type": "object"}, purpose="authoring")
+
+    assert interrupted.is_set()
+    assert time.monotonic() - started < 1
 
 
 def test_authoring_payload_rejects_unknown_attempt_type():

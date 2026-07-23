@@ -272,14 +272,14 @@ export function LibraryScreen({
   const selectedFilePath = selected?.kind === "file" ? selected.path : null;
   const selectedContent = content && selectedFilePath === content.path ? content : null;
 
-  // An lo_/pi_ vault file is an inspectable entity whose id is the file stem;
+  // An lo_/pi_/practice_ vault file is an inspectable entity whose id is the file stem;
   // it can carry source provenance we surface in a read-only popover.
   const entityProvenanceTarget = useMemo<{ entityType: string; entityId: string } | null>(() => {
     const name = selectedContent?.name;
     if (!name) return null;
     const stem = name.replace(/\.(md|ya?ml|json|toml)$/i, "");
     if (name.startsWith("lo_")) return { entityType: "learning_object", entityId: stem };
-    if (name.startsWith("pi_")) return { entityType: "practice_item", entityId: stem };
+    if (name.startsWith("pi_") || name.startsWith("practice_")) return { entityType: "practice_item", entityId: stem };
     return null;
   }, [selectedContent]);
   const isMd = Boolean(selectedContent && selectedContent.kind === "md" && selectedContent.editable && !selectedContent.binary && !selectedContent.truncated);
@@ -580,38 +580,14 @@ export function LibraryScreen({
 
         {/* Viewer / editor */}
         <div className="ll-scroll" style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: COLOR.bg, minHeight: 0 }}>
-          {entityProvenanceTarget ? (
-            <>
-              <span
-                onClick={() => setProvenanceOpen((open) => !open)}
-                title="source provenance"
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 16,
-                  zIndex: 5,
-                  padding: "2px 10px",
-                  border: `1px solid ${provenanceOpen ? COLOR.amber : COLOR.borderStrong}`,
-                  background: provenanceOpen ? "#241d12" : "transparent",
-                  color: provenanceOpen ? COLOR.amber : COLOR.textDim,
-                  fontFamily: FONT_MONO,
-                  fontSize: 11,
-                  cursor: "pointer",
-                  borderRadius: 2
-                }}
-              >
-                provenance
-              </span>
-              {provenanceOpen ? (
-                <div style={{ position: "absolute", top: 42, right: 16, zIndex: 5 }}>
-                  <ProvenancePanel
-                    entityType={entityProvenanceTarget.entityType}
-                    entityId={entityProvenanceTarget.entityId}
-                    onClose={() => setProvenanceOpen(false)}
-                  />
-                </div>
-              ) : null}
-            </>
+          {entityProvenanceTarget && provenanceOpen ? (
+            <div style={{ position: "absolute", top: 42, right: 16, zIndex: 5 }}>
+              <ProvenancePanel
+                entityType={entityProvenanceTarget.entityType}
+                entityId={entityProvenanceTarget.entityId}
+                onClose={() => setProvenanceOpen(false)}
+              />
+            </div>
           ) : null}
           {selected?.kind === "proposal" ? (
             <ProposalEditor
@@ -640,6 +616,13 @@ export function LibraryScreen({
               dirty={Boolean(dirty)}
               saving={saving}
               canEditRaw={canEditRaw}
+              headerActions={entityProvenanceTarget ? (
+                <ActionButton
+                  label="provenance"
+                  active={provenanceOpen}
+                  onClick={() => setProvenanceOpen((open) => !open)}
+                />
+              ) : null}
               onChangeDraft={setDraft}
               onBeginEdit={beginEdit}
               onCancelEdit={() => { setEditing(false); setDraft(content?.body ?? ""); }}
@@ -1049,6 +1032,7 @@ function FileViewer({
   dirty,
   saving,
   canEditRaw,
+  headerActions,
   onChangeDraft,
   onBeginEdit,
   onCancelEdit,
@@ -1063,6 +1047,7 @@ function FileViewer({
   dirty: boolean;
   saving: boolean;
   canEditRaw: boolean;
+  headerActions?: ReactNode;
   onChangeDraft: (value: string) => void;
   onBeginEdit: () => void;
   onCancelEdit: () => void;
@@ -1085,7 +1070,17 @@ function FileViewer({
 
   return (
     <>
-      <ViewerHeader path={path} content={content} dirty={dirty} actions={actions} />
+      <ViewerHeader
+        path={path}
+        content={content}
+        dirty={dirty}
+        actions={
+          <>
+            {headerActions}
+            {actions}
+          </>
+        }
+      />
       <div style={{ flex: 1, overflow: "hidden", minHeight: 0, display: "flex" }}>
         {loading ? (
           <div style={{ padding: 20, color: COLOR.textFaint, fontSize: 13 }}>loading…</div>

@@ -6,6 +6,7 @@ import os
 import shlex
 import shutil
 import sys
+import threading
 import urllib.error
 import urllib.request
 from dataclasses import asdict
@@ -35,6 +36,8 @@ from learnloop.codex.prompts import (
     DEPTH_EDGE_INSTANCE_PROMPT_VERSION,
     RUNG_BACKFILL_PROMPT,
     RUNG_BACKFILL_PROMPT_VERSION,
+    EXERCISE_AUTHORING_PROMPT,
+    EXERCISE_AUTHORING_PROMPT_VERSION,
     READER_PRESET_SYNTHESIS_PROMPT,
     READER_PRESET_SYNTHESIS_PROMPT_VERSION,
     READING_QUICK_CHECK_PROMPT,
@@ -60,6 +63,7 @@ from learnloop.codex.schemas import (
     ProbeInstanceSurfaces,
     PromotionAnalysis,
     DepthEdgeInstanceBatch,
+    ExerciseAuthoring,
     RungBackfillClassification,
     ReaderPresetSynthesis,
     ReadingQuickCheck,
@@ -228,7 +232,7 @@ class TeachBackQuestionContext:
     facet_targets: list[str] = field(default_factory=list)
     transcript: list[dict] = field(default_factory=list)
     question_number: int = 1
-    max_followups: int = 3
+    max_followups: int = 4
     learning_object_title: str | None = None
     learning_object_summary: str | None = None
 
@@ -378,6 +382,31 @@ class RungBackfillContext:
 
 
 @dataclass(frozen=True)
+class ExerciseAuthoringContext:
+    """Bounded input for reader exercise import (exact-exercise slice).
+
+    ``exercise_text`` is the learner's verbatim selection (one or several
+    consecutive textbook exercises); ``segments`` are its resolved source
+    anchors [{span_id, exact_quote}]; ``context_blocks`` is the bounded
+    surrounding material [{span_id, kind, text}] (shared preambles,
+    definitions in scope). ``learning_objects`` is the curriculum catalog
+    [{id, title, summary, facets:[{id, title}]}] the item must map into;
+    ``task_feature_schema`` is the p1_launch dimension table. Source text is
+    untrusted — the prompt instructs the model to treat embedded directives
+    as inert.
+    """
+
+    extraction_id: str
+    exercise_text: str = ""
+    segments: list = field(default_factory=list)
+    section_path: list = field(default_factory=list)
+    context_blocks: list = field(default_factory=list)
+    learning_objects: list = field(default_factory=list)
+    learning_object_hint: str = ""
+    task_feature_schema: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class DepthEdgeInstanceContext:
     """Bounded input for LLM depth-edge-instance authoring (spec v2 depth).
 
@@ -509,6 +538,14 @@ class CodexClient(Protocol):
 
 class CodexUnavailable(RuntimeError):
     pass
+
+
+class CodexInterrupted(CodexUnavailable):
+    """Raised when a LearnLoop-owned Codex turn is explicitly interrupted."""
+
+
+class CodexTurnTimeout(CodexUnavailable, TimeoutError):
+    """Raised after a Codex SDK turn exceeds its wall-clock deadline."""
 
 
 def make_codex_client(config: CodexConfig, vault_root: Path) -> CodexClient:
@@ -686,6 +723,66 @@ class SdkCodexClient:
         self.vault_root = vault_root.resolve()
         self.checkout_path = _resolve_checkout_path(self.vault_root, config.checkout_path)
         self.sdk_python_path = _resolve_sdk_python_path(self.checkout_path, config.sdk_python_path)
+        self._turn_lock = threading.RLock()
+        self._active_turn: Any = None
+        self._active_codex: Any = None
+        self._active_deadline_timer: threading.Timer | None = None
+        self._active_force_close_timer: threading.Timer | None = None
+        self._active_stop_scheduled = False
+        self._interrupt_requested = threading.Event()
+        self._deadline_expired = threading.Event()
+
+    def interrupt(self) -> bool:
+        """Interrupt this client's active SDK turn without killing the sidecar.
+
+        The cancellation flag is set before looking up the turn handle so a
+        request racing with turn startup still prevents that call from running.
+        Clients are scoped to one ingest job, so the flag intentionally remains
+        set for the rest of that job attempt.
+        """
+
+        self._interrupt_requested.set()
+        with self._turn_lock:
+            turn = self._active_turn
+            codex = self._active_codex
+        if turn is not None:
+            self._schedule_turn_stop(turn, codex)
+        return True
+
+    def _expire_turn(self, turn: Any, codex: Any) -> None:
+        """Deadline callback: request a clean interrupt, then force-close if needed."""
+
+        with self._turn_lock:
+            if self._active_turn is not turn:
+                return
+            self._deadline_expired.set()
+        self._schedule_turn_stop(turn, codex)
+
+    def _schedule_turn_stop(self, turn: Any, codex: Any) -> None:
+        """Stop an SDK turn without blocking the palette or deadline thread."""
+
+        with self._turn_lock:
+            if self._active_turn is not turn or self._active_stop_scheduled:
+                return
+            self._active_stop_scheduled = True
+            close = getattr(codex, "close", None)
+            if callable(close):
+                force_close = threading.Timer(0.25, close)
+                force_close.daemon = True
+                self._active_force_close_timer = force_close
+                force_close.start()
+
+        def request_interrupt() -> None:
+            try:
+                turn.interrupt()
+            except Exception:  # noqa: BLE001 - force-close is the bounded fallback
+                return
+
+        threading.Thread(
+            target=request_interrupt,
+            name="learnloop-codex-interrupt",
+            daemon=True,
+        ).start()
 
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
         text = self._run_structured(
@@ -853,6 +950,24 @@ class SdkCodexClient:
         )
         return RungBackfillClassification.model_validate_json(text)
 
+    def run_exercise_authoring(self, context: ExerciseAuthoringContext) -> ExerciseAuthoring:
+        """Complete selected textbook exercises into full practice items.
+
+        Deliberately NOT on the ``CodexClient`` Protocol / ``HttpCodexClient`` —
+        ``services/exercise_authoring`` discovers it via ``getattr(client,
+        "run_exercise_authoring", None)`` and refuses (typed error) when the
+        provider lacks it. Output is candidate-only: the service re-anchors
+        every statement verbatim against the selection and admits or repairs
+        the rest through deterministic validators before writing the item.
+        """
+
+        text = self._run_structured(
+            _exercise_authoring_prompt(context),
+            _codex_output_schema(ExerciseAuthoring),
+            purpose="exercise_authoring",
+        )
+        return ExerciseAuthoring.model_validate_json(text)
+
     def run_depth_edge_instances(self, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch:
         """Author depth-edge instances from reviewed templates (spec v2 depth).
 
@@ -940,6 +1055,8 @@ class SdkCodexClient:
         return AppendReconciliation.model_validate_json(text)
 
     def _run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
+        if self._interrupt_requested.is_set():
+            raise CodexInterrupted("Codex turn interrupted by the learner.")
         _ensure_sdk_importable(self.sdk_python_path)
         try:
             from openai_codex import Codex
@@ -983,7 +1100,7 @@ class SdkCodexClient:
                     model=self.config.model or None,
                     service_name=f"learnloop:{purpose}",
                 )
-                result = thread.run(
+                turn = thread.turn(
                     prompt,
                     cwd=str(self.vault_root),
                     model=self.config.model or None,
@@ -992,7 +1109,46 @@ class SdkCodexClient:
                     personality=Personality.pragmatic,
                     summary=summary,
                 )
+                with self._turn_lock:
+                    self._active_turn = turn
+                    self._active_codex = codex
+                    self._active_stop_scheduled = False
+                    self._deadline_expired.clear()
+                    deadline_timer = threading.Timer(
+                        max(0.001, float(self.config.timeout_seconds)),
+                        self._expire_turn,
+                        args=(turn, codex),
+                    )
+                    deadline_timer.daemon = True
+                    self._active_deadline_timer = deadline_timer
+                    deadline_timer.start()
+                try:
+                    if self._interrupt_requested.is_set():
+                        self._schedule_turn_stop(turn, codex)
+                    result = turn.run()
+                finally:
+                    with self._turn_lock:
+                        if self._active_turn is turn:
+                            self._active_turn = None
+                            self._active_codex = None
+                            if self._active_deadline_timer is not None:
+                                self._active_deadline_timer.cancel()
+                            if self._active_force_close_timer is not None:
+                                self._active_force_close_timer.cancel()
+                            self._active_deadline_timer = None
+                            self._active_force_close_timer = None
+                            self._active_stop_scheduled = False
+        except CodexInterrupted:
+            raise
+        except CodexTurnTimeout:
+            raise
         except Exception as exc:
+            if self._deadline_expired.is_set():
+                raise CodexTurnTimeout(
+                    f"Codex SDK turn exceeded its {self.config.timeout_seconds:g}-second deadline."
+                ) from exc
+            if self._interrupt_requested.is_set():
+                raise CodexInterrupted("Codex turn interrupted by the learner.") from exc
             _log_codex_debug(
                 "codex.error",
                 provider="codex",
@@ -1003,6 +1159,13 @@ class SdkCodexClient:
                 error=str(exc),
             )
             raise CodexUnavailable(str(exc)) from exc
+
+        if self._deadline_expired.is_set():
+            raise CodexTurnTimeout(
+                f"Codex SDK turn exceeded its {self.config.timeout_seconds:g}-second deadline."
+            )
+        if self._interrupt_requested.is_set():
+            raise CodexInterrupted("Codex turn interrupted by the learner.")
 
         final_response = result.final_response
         _log_codex_debug(
@@ -1476,6 +1639,19 @@ def _rung_backfill_prompt(context: RungBackfillContext) -> str:
         RUNG_BACKFILL_PROMPT_VERSION,
         {
             "task": RUNG_BACKFILL_PROMPT,
+            "context": asdict(context),
+        },
+    )
+
+
+def _exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str:
+    """Reader exercise-import authoring prompt (exact-exercise slice)."""
+
+    return _json_prompt(
+        "learnloop exercise import",
+        EXERCISE_AUTHORING_PROMPT_VERSION,
+        {
+            "task": EXERCISE_AUTHORING_PROMPT,
             "context": asdict(context),
         },
     )

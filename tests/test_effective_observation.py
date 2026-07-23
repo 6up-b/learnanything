@@ -91,18 +91,44 @@ def test_point_posterior_has_certainty_one_and_full_split():
 
 
 def test_reliability_never_creates_mass_and_discounts_multiply():
+    """P4.2: the mass discount is the epistemic factor ``lcb / certainty`` — the
+    aleatoric spread is priced once, through the positive/negative split, not a
+    second time through the raw LCB multiplier."""
+
+    posterior = {"success": 0.8, "partial_success": 0.15, "other": 0.05}
     obs = effective_observation_from_posterior(
         observation_id="o",
-        posterior={"success": 0.8, "partial_success": 0.15, "other": 0.05},
+        posterior=posterior,
         score_fraction=_SCORE_FRACTION,
-        certainty_lcb=0.5,
+        certainty_lcb=0.3,
         attempt_type_mass=1.0,
         assistance_discount=0.5,
         familiarity_discount=0.5,
     )
-    # 1.0 * 0.5 * 0.5 * 0.5 = 0.125 -- strictly below attempt_type_mass.
-    assert obs.effective_mass == pytest.approx(0.125)
+    assert obs.epistemic_factor == pytest.approx(0.3 / obs.certainty)
+    assert obs.epistemic_factor < 1.0
+    # 1.0 * 0.5 * 0.5 * (0.3 / certainty) -- strictly below attempt_type_mass.
+    assert obs.effective_mass == pytest.approx(0.25 * obs.epistemic_factor)
     assert obs.effective_mass < obs.attempt_type_mass
+
+
+def test_epistemic_factor_strips_aleatoric_double_count():
+    """A cold-but-consistent channel (heuristic prior, high-confidence success)
+    keeps ~all its mass: the posterior split already hedges 0.85/0.15, so the
+    mass-side factor reflects only ensemble (model) doubt — not the posterior
+    entropy again. A perfect AI-graded attempt banks ~0.9 of a unit, not ~0.33."""
+
+    posterior = {"success": 0.8, "partial_success": 0.1, "other": 0.1}
+    obs = effective_observation_from_posterior(
+        observation_id="o",
+        posterior=posterior,
+        score_fraction=_SCORE_FRACTION,
+        certainty_lcb=0.385,  # the observed cold-channel robust bound
+        attempt_type_mass=1.0,
+    )
+    assert 0.85 < obs.epistemic_factor <= 1.0
+    assert obs.positive_mass == pytest.approx(obs.effective_mass * 0.85)
+    assert obs.positive_mass > 0.7
 
 
 def test_quarantined_and_unassessable_contribute_zero():

@@ -61,10 +61,17 @@ def build_target_models(
     cap: int,
 ) -> dict[str, list[TargetItemModel]]:
     """Per open facet: the LO's items whose candidate support probes the facet,
-    excluding the source attempt's item, sorted by id, capped at ``cap``."""
+    excluding the source attempt's item, capped at ``cap``.
+
+    The cap is filled by round-robin over (surface_family, practice_mode)
+    strata rather than first-N by item id: an id-ordered cap lets one authored
+    sibling family crowd out the whole held-out pool, so EIG would measure
+    prediction improvement against near-duplicates of a single surface.
+    """
 
     models: dict[str, TargetItemModel] = {}
-    by_facet: dict[str, list[TargetItemModel]] = {facet_id: [] for facet_id in facet_ids}
+    strata: dict[str, tuple[str, str]] = {}
+    by_facet_all: dict[str, list[TargetItemModel]] = {facet_id: [] for facet_id in facet_ids}
     for item in sorted(vault.practice_items.values(), key=lambda entry: entry.id):
         if item.learning_object_id != learning_object_id or item.id in exclude_item_ids:
             continue
@@ -87,10 +94,37 @@ def build_target_models(
                 item_a=item_a,
                 item_b=item_b,
             )
+            strata[item.id] = (
+                str(getattr(item, "surface_family", None) or ""),
+                str(getattr(item, "practice_mode", None) or ""),
+            )
         for facet_id in sorted(relevant):
-            if len(by_facet[facet_id]) < cap:
-                by_facet[facet_id].append(models[item.id])
-    return by_facet
+            by_facet_all[facet_id].append(models[item.id])
+    return {
+        facet_id: _stratified_cap(candidates, strata, cap)
+        for facet_id, candidates in by_facet_all.items()
+    }
+
+
+def _stratified_cap(
+    candidates: list[TargetItemModel],
+    strata: dict[str, tuple[str, str]],
+    cap: int,
+) -> list[TargetItemModel]:
+    """Round-robin the cap across strata (deterministic: strata and members id-sorted)."""
+
+    if len(candidates) <= cap:
+        return list(candidates)
+    grouped: dict[tuple[str, str], list[TargetItemModel]] = {}
+    for model in candidates:
+        grouped.setdefault(strata[model.item_id], []).append(model)
+    queues = [grouped[key] for key in sorted(grouped)]
+    picked: list[TargetItemModel] = []
+    while len(picked) < cap and any(queues):
+        for queue in queues:
+            if queue and len(picked) < cap:
+                picked.append(queue.pop(0))
+    return picked
 
 
 def predictive_facet_eig(

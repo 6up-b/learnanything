@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import AuthoringContext
+from learnloop.codex.client import AuthoringContext, CodexTurnTimeout
 from learnloop.codex.schemas import AuthoringProposal
 from learnloop.db.repositories import Repository
 from learnloop.services.patches import PatchApplicationError
@@ -14,6 +14,7 @@ from learnloop.services.proposals import (
     persist_authoring_proposal,
 )
 from learnloop.vault.loader import add_note, load_vault
+from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, create_basic_vault
 
@@ -404,6 +405,37 @@ def test_generated_practice_missing_evidence_facets_is_invalid(tmp_path):
     assert item["decision"] == "pending"
     assert item["validation_status"] == "invalid"
     assert "missing_evidence_facets" in item["validation_errors"]
+
+
+def test_registry_backed_vault_rejects_unknown_evidence_facet(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    write_yaml(
+        paths.facets_path,
+        {
+            "schema_version": 1,
+            "facets": [{"id": "recall", "title": "Recall"}],
+        },
+    )
+    proposal = AuthoringProposal.model_validate(
+        _generated_practice_proposal_payload(
+            {
+                "evidence_facets": ["invented_application_facet"],
+                "evidence_weights": {"invented_application_facet": 1.0},
+                "criterion_facet_weights": {
+                    "correctness": {"invented_application_facet": 1.0}
+                },
+                "repair_targets": ["invented_application_facet"],
+            }
+        )
+    )
+
+    patch_id = persist_authoring_proposal(
+        paths.root, proposal, provider="codex", clock=FrozenClock(NOW)
+    )
+    item = Repository(paths.sqlite_path).proposal_items(patch_id)[0]
+
+    assert item["validation_status"] == "invalid"
+    assert "unknown_evidence_facet:invented_application_facet" in item["validation_errors"]
 
 
 def test_generated_practice_missing_reward_metadata_is_invalid(tmp_path):
@@ -1116,3 +1148,34 @@ def test_failed_repair_call_keeps_original_invalid_item(tmp_path):
     assert len(items) == 1
     assert items[0]["validation_status"] == "invalid"
     assert items[0]["validation_errors"] == ["missing_generated_audit_trace"]
+
+
+def test_timed_out_repair_fails_without_persisting_first_pass(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    broken_payload = _generated_practice_proposal_payload(
+        {"evidence_facets": ["application"], "evidence_weights": {"application": 1.0}}
+    )
+    broken_payload["items"][0]["audit"] = {
+        "audit_type": "deterministic_validator",
+        "status": "not_applicable_with_trace",
+        "summary": "Conceptual item; no numeric validation.",
+    }
+
+    class TimeoutOnRepairClient:
+        def __init__(self):
+            self.calls = 0
+
+        def run_authoring_proposal(self, _context):
+            self.calls += 1
+            if self.calls == 1:
+                return AuthoringProposal.model_validate(broken_payload)
+            raise CodexTurnTimeout("repair deadline expired")
+
+    client = TimeoutOnRepairClient()
+
+    with pytest.raises(CodexTurnTimeout, match="repair deadline expired"):
+        generate_authoring_proposal(vault_root, client, clock=FrozenClock(NOW))
+
+    assert client.calls == 2
+    assert Repository(vault_root / "state.sqlite").proposal_batches() == []

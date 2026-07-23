@@ -17,6 +17,7 @@ from learnloop.services.teach_back import (
     TeachBackState,
     asked_criterion_ids,
     begin_teach_back,
+    ensure_teach_back_item,
     finish_teach_back,
     next_question,
     plan_followups,
@@ -26,7 +27,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault
+from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault, seed_due_item
 
 LO_ID = "lo_svd_definition"
 TEACH_ITEM_ID = "pi_svd_teach_001"
@@ -217,8 +218,9 @@ def test_plan_orders_uncertain_core_first_then_escalates(tmp_path):
         "core_geometry",  # uncertain facet first
         "core_uniqueness",  # unexamined next
         "transfer_rotation",  # solid 'definition' core skipped: escalate to transfer on the most uncertain facet
+        "transfer_rank_deficient",
     ]
-    assert [entry["tier"] for entry in plan] == ["core", "core", "transfer"]
+    assert [entry["tier"] for entry in plan] == ["core", "core", "transfer", "transfer"]
     assert plan[0]["facet_targets"] == ["geometry"]
 
 
@@ -255,7 +257,61 @@ def test_plan_is_deterministic_and_capped(tmp_path):
     first = plan_followups(vault, repository, item, clock=clock)
     second = plan_followups(vault, repository, item, clock=clock)
     assert first == second
-    assert len(first) == vault.config.teach_back.max_followups == 3
+    assert len(first) == vault.config.teach_back.max_followups == 4
+
+
+def test_plan_reserves_final_slot_for_transfer_when_core_would_crowd_it_out(tmp_path):
+    _root, vault, repository = _setup(
+        tmp_path, extra_items=[_helper_item_payload("pi_helper_def", "definition")]
+    )
+    clock = FrozenClock(NOW)
+    attempt_id = _make_facet_solid(vault, repository, "pi_helper_def")  # definition -> solid
+    _mark_facet_uncertain(repository, "geometry", opened_by_attempt_id=attempt_id)
+    # Two slots, two uncertain-core criteria (geometry, uniqueness): without
+    # the reserved slot the plan would be all core.
+    config = vault.config.model_copy(deep=True)
+    config.teach_back.max_followups = 2
+
+    plan = plan_followups(
+        vault, repository, vault.practice_items[TEACH_ITEM_ID], config=config, clock=clock
+    )
+
+    # The last slot went to the transfer criterion targeting the most SOLID
+    # facet (definition) — clean attribution — not to core_uniqueness.
+    assert [entry["criterion_id"] for entry in plan] == [
+        "core_geometry",
+        "transfer_rank_deficient",
+    ]
+    assert [entry["tier"] for entry in plan] == ["core", "transfer"]
+
+
+def test_ensure_teach_back_item_mints_transfer_criterion(tmp_path):
+    # Vault WITHOUT a teach_back card so the mint path runs.
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+
+    item_id, created = ensure_teach_back_item(vault_root, vault, repository, LO_ID, clock=clock)
+    assert created is True
+
+    reloaded = load_vault(vault_root)
+    minted = reloaded.practice_items[item_id]
+    rubric = minted.grading_rubric
+    tiers = [criterion.tier for criterion in rubric.criteria]
+    assert tiers.count("transfer") == 1
+    transfer = next(c for c in rubric.criteria if c.tier == "transfer")
+    assert transfer.id == "criterion_teach_transfer"
+    # Points stay within the rubric scale despite the extra criterion.
+    assert sum(criterion.points for criterion in rubric.criteria) <= rubric.max_points
+    # The transfer criterion is facet-mapped, so the guaranteed transfer slot
+    # has real facet targets, and the plan always ends on it.
+    assert minted.criterion_facet_weights["criterion_teach_transfer"]
+    plan = plan_followups(reloaded, repository, minted, clock=clock)
+    assert plan[-1]["criterion_id"] == "criterion_teach_transfer"
+    assert plan[-1]["tier"] == "transfer"
 
 
 # ── conversation state ────────────────────────────────────────────────────────
@@ -285,21 +341,26 @@ def test_next_question_conditions_on_transcript_and_exhausts(tmp_path):
     client = FakeTeachBackClient()
     item = vault.practice_items[TEACH_ITEM_ID]
     state = _run_conversation(
-        vault, repository, item, client, answers=["answer one", "answer two", "answer three"], clock=clock
+        vault,
+        repository,
+        item,
+        client,
+        answers=["answer one", "answer two", "answer three", "answer four"],
+        clock=clock,
     )
 
-    # All three planned questions were generated against the planned criteria.
+    # All four planned questions were generated against the planned criteria.
     assert [context.criterion_id for context in client.question_contexts] == [
         entry["criterion_id"] for entry in state.planned
     ]
     # Each context carries the transcript so far (opening + prior turns).
     assert len(client.question_contexts[0].transcript) == 1
-    assert len(client.question_contexts[2].transcript) == 5
+    assert len(client.question_contexts[3].transcript) == 7
     assert client.question_contexts[0].transcript[0]["role"] == "learner"
     # The plan is exhausted afterwards.
     state, question = next_question(vault, state, client)
     assert question is None
-    assert state.asked_count == 3
+    assert state.asked_count == 4
 
 
 # ── grading ───────────────────────────────────────────────────────────────────
@@ -310,8 +371,9 @@ def test_finish_partial_grading_only_asked_criteria_produce_evidence(tmp_path):
     clock = FrozenClock(NOW)
     client = FakeTeachBackClient()
     item = vault.practice_items[TEACH_ITEM_ID]
-    # Fresh vault: plan = core_definition, core_geometry, core_uniqueness.
-    # Ask and answer only the first two (provider "fails" before question 3).
+    # Fresh vault: plan = core_definition, core_geometry, core_uniqueness,
+    # transfer_rank_deficient. Ask and answer only the first two (provider
+    # "fails" before question 3).
     state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
     assert asked_criterion_ids(state) == ["core_definition", "core_geometry"]
 

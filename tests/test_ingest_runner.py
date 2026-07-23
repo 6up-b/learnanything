@@ -7,6 +7,7 @@ import time
 import pytest
 
 from learnloop.clock import FrozenClock
+from learnloop.codex.client import CodexTurnTimeout
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth, PageHealth
 from learnloop.services.ingest_runner import (
@@ -18,6 +19,7 @@ from learnloop.services.ingest_runner import (
     WaitingForInput,
     derive_batch_status,
 )
+from learnloop_sidecar.ingest_jobs import DurableIngestJobs
 
 
 def _clock(seconds: int = 0) -> FrozenClock:
@@ -190,6 +192,31 @@ def test_actionable_failure_details_are_persisted_for_activity_ui(tmp_path):
     assert error["details"]["diagnostics"][0]["gate"] == "criterion_target"
 
 
+def test_codex_timeout_releases_lease_and_continues_draining(tmp_path):
+    calls: dict[str, int] = {}
+
+    def timed_out(_ctx: JobContext) -> dict:
+        raise CodexTurnTimeout("Codex SDK turn exceeded its deadline.")
+
+    runner = _runner(
+        tmp_path,
+        handlers={"timed_out": timed_out, "fake": _ok_handler(calls)},
+    )
+    batch_id = runner.enqueue_batch(
+        "practice_expansion", [JobSpec("timed_out"), JobSpec("fake")]
+    )
+
+    assert runner.drain() == 2
+
+    failed, completed = runner.repo.ingest_jobs_for_batch(batch_id)
+    assert failed["status"] == "failed"
+    assert failed["error"]["code"] == "timeout"
+    assert failed["worker_id"] is None
+    assert failed["heartbeat_at"] is None
+    assert completed["status"] == "completed"
+    assert calls == {completed["id"]: 1}
+
+
 def test_waiting_for_input_holds_no_lease(tmp_path):
     def waiter(ctx: JobContext) -> dict:
         raise WaitingForInput({"kind": "unit_selection"}, message="Choose units")
@@ -224,6 +251,98 @@ def test_sidecar_and_cli_never_drain_concurrently(tmp_path):
     cli = _runner(tmp_path, worker_id="cli", handlers={"fake": _ok_handler(calls)})
     assert cli.run_next() is False
     assert cli.drain() == 0
+
+
+def test_same_vault_rebind_preserves_kill_codex_interrupt_handle(tmp_path):
+    jobs = DurableIngestJobs()
+    jobs.bind(_repo(tmp_path), tmp_path, background=False)
+    original_runner = jobs._require_runner()
+    batch_id = original_runner.enqueue_batch("practice_expansion", [JobSpec("practice_expansion")])
+    claimed = original_runner.repo.claim_next_ingest_job(
+        worker_id=original_runner.worker_id,
+        now_iso="2026-07-13T12:00:00Z",
+        lease_cutoff_iso="2026-07-13T11:58:00Z",
+    )
+    assert claimed is not None
+
+    class InterruptibleClient:
+        def __init__(self):
+            self.interrupted = False
+
+        def interrupt(self):
+            self.interrupted = True
+
+    client = InterruptibleClient()
+    original_runner._bind_job_interruptible(claimed["id"], client)
+
+    # Applying-job polling reloads SidecarContext while the next writer job can
+    # already be in its model call. A same-vault bind must not orphan its handle.
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+
+    assert jobs._require_runner() is original_runner
+    result = jobs.interrupt_codex()
+    assert result["job_id"] == claimed["id"]
+    assert result["batch_id"] == batch_id
+    assert client.interrupted is True
+    assert original_runner.repo.get_ingest_job(claimed["id"])["cancel_requested"] is True
+
+
+def test_quick_check_lane_runs_beside_single_vault_writer_with_bound(tmp_path):
+    runner = _runner(tmp_path)
+    writer_batch = runner.enqueue_batch(
+        "practice_expansion", [JobSpec("practice_expansion")]
+    )
+    quick_batches = [
+        runner.enqueue_batch("reader_quick_check", [JobSpec("reader_quick_check")])
+        for _ in range(4)
+    ]
+    claim_kwargs = {
+        "now_iso": "2026-07-13T12:00:00Z",
+        "lease_cutoff_iso": "2026-07-13T11:58:00Z",
+    }
+
+    first_quick = runner.repo.claim_next_ingest_job(
+        worker_id="quick-1",
+        eligible_job_types=("reader_quick_check",),
+        allow_parallel=True,
+        max_parallel=3,
+        **claim_kwargs,
+    )
+    writer = runner.repo.claim_next_ingest_job(
+        worker_id="writer",
+        eligible_job_types=("practice_expansion",),
+        compatible_running_job_types=("reader_quick_check",),
+        **claim_kwargs,
+    )
+    second_quick = runner.repo.claim_next_ingest_job(
+        worker_id="quick-2",
+        eligible_job_types=("reader_quick_check",),
+        allow_parallel=True,
+        max_parallel=3,
+        **claim_kwargs,
+    )
+    third_quick = runner.repo.claim_next_ingest_job(
+        worker_id="quick-3",
+        eligible_job_types=("reader_quick_check",),
+        allow_parallel=True,
+        max_parallel=3,
+        **claim_kwargs,
+    )
+    fourth_quick = runner.repo.claim_next_ingest_job(
+        worker_id="quick-4",
+        eligible_job_types=("reader_quick_check",),
+        allow_parallel=True,
+        max_parallel=3,
+        **claim_kwargs,
+    )
+
+    assert writer is not None and writer["batch_id"] == writer_batch
+    assert {
+        first_quick["batch_id"],
+        second_quick["batch_id"],
+        third_quick["batch_id"],
+    } <= set(quick_batches)
+    assert fourth_quick is None
 
 
 def test_cancel_resume_runs_only_unfinished_jobs(tmp_path):

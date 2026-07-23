@@ -1,2 +1,690 @@
 schema_version: 1
-edges: []
+edges:
+  - id: 
+      edge_confusable_with__concept_complex_multiplication__concept_complex_addition
+    relation_type: confusable_with
+    source: concept_complex_multiplication
+    target: concept_complex_addition
+    strength: 1.0
+    rationale: derived from learning object lo_compute_with_complex_numbers 
+      confusables
+    created_at: '2026-07-22T03:49:15Z'
+    updated_at: '2026-07-22T03:49:15Z'
+  - id: 
+      edge_confusable_with__concept_coordinate_vector_operations__concept_scalar_fields
+    relation_type: confusable_with
+    source: concept_coordinate_vector_operations
+    target: concept_scalar_fields
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_compute_and_interpret_coordinate_vector_operatio confusables
+    created_at: '2026-07-22T03:49:17Z'
+    updated_at: '2026-07-22T03:49:17Z'
+  - id: 
+      edge_confusable_with__concept_vector_space__concept_geometric_interpretation_of_vect
+    relation_type: confusable_with
+    source: concept_vector_space
+    target: concept_geometric_interpretation_of_vectors
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_read_and_apply_the_vector_space_definition confusables
+    created_at: '2026-07-22T03:49:20Z'
+    updated_at: '2026-07-22T03:49:20Z'
+  - id: edge_confusable_with__concept_zero_vector__concept_scalars_over_r_or_c
+    relation_type: confusable_with
+    source: concept_zero_vector
+    target: concept_scalars_over_r_or_c
+    strength: 0.88
+    rationale: The glyph 0 can denote either the zero vector or scalar zero, so 
+      learners must discriminate them by type context.
+    created_at: '2026-07-22T03:49:22Z'
+    updated_at: '2026-07-22T03:49:22Z'
+  - id: 
+      edge_part_of__concept_basis_relative_coordinates__concept_linear_independence_and_basis
+    relation_type: part_of
+    source: concept_basis_relative_coordinates
+    target: concept_linear_independence_and_basis
+    strength: 0.95
+    rationale: Basis-relative coordinates are coefficients determined by an 
+      ordered basis.
+    created_at: '2026-07-22T03:49:24Z'
+    updated_at: '2026-07-22T03:49:24Z'
+  - id: edge_part_of__concept_complex_addition__concept_complex_numbers
+    relation_type: part_of
+    source: concept_complex_addition
+    target: concept_complex_numbers
+    strength: 1.0
+    rationale: Complex addition is a basic operation on complex numbers.
+    created_at: '2026-07-22T03:49:26Z'
+    updated_at: '2026-07-22T03:49:26Z'
+  - id: edge_part_of__concept_complex_arithmetic_laws__concept_complex_numbers
+    relation_type: part_of
+    source: concept_complex_arithmetic_laws
+    target: concept_complex_numbers
+    strength: 1.0
+    rationale: These laws describe the algebraic behavior of complex-number 
+      operations.
+    created_at: '2026-07-22T03:49:28Z'
+    updated_at: '2026-07-22T03:49:28Z'
+  - id: edge_part_of__concept_complex_multiplication__concept_complex_numbers
+    relation_type: part_of
+    source: concept_complex_multiplication
+    target: concept_complex_numbers
+    strength: 1.0
+    rationale: Complex multiplication is a basic operation on complex numbers.
+    created_at: '2026-07-22T03:49:31Z'
+    updated_at: '2026-07-22T03:49:31Z'
+  - id: edge_part_of__concept_complex_numbers__concept_scalars_over_r_or_c
+    relation_type: part_of
+    source: concept_complex_numbers
+    target: concept_scalars_over_r_or_c
+    strength: 0.9
+    rationale: Complex numbers are one of the two scalar systems covered by the 
+      R-or-C convention.
+    created_at: '2026-07-22T03:49:33Z'
+    updated_at: '2026-07-22T03:49:33Z'
+  - id: 
+      edge_part_of__concept_coordinate_proofs_in_f_n__concept_coordinate_space_f_n
+    relation_type: part_of
+    source: concept_coordinate_proofs_in_f_n
+    target: concept_coordinate_space_f_n
+    strength: 0.9
+    rationale: This proof method establishes identities in F^n through 
+      coordinate calculations.
+    created_at: '2026-07-22T03:49:36Z'
+    updated_at: '2026-07-22T03:49:36Z'
+  - id: edge_part_of__concept_coordinate_space_f_n__concept_vector_space
+    relation_type: part_of
+    source: concept_coordinate_space_f_n
+    target: concept_vector_space
+    strength: 1.0
+    rationale: F^n is a canonical family of vector spaces.
+    created_at: '2026-07-22T03:49:38Z'
+    updated_at: '2026-07-22T03:49:38Z'
+  - id: 
+      edge_part_of__concept_coordinate_vector_operations__concept_coordinate_space_f_n
+    relation_type: part_of
+    source: concept_coordinate_vector_operations
+    target: concept_coordinate_space_f_n
+    strength: 1.0
+    rationale: These are the operations that give coordinate space its 
+      vector-space structure.
+    created_at: '2026-07-22T03:49:40Z'
+    updated_at: '2026-07-22T03:49:40Z'
+  - id: 
+      edge_part_of__concept_coordinatewise_addition__concept_coordinate_vector_operations
+    relation_type: part_of
+    source: concept_coordinatewise_addition
+    target: concept_coordinate_vector_operations
+    strength: 1.0
+    rationale: Coordinatewise addition is one of the coordinate-vector 
+      operations.
+    created_at: '2026-07-22T03:49:42Z'
+    updated_at: '2026-07-22T03:49:42Z'
+  - id: 
+      edge_part_of__concept_definition_based_proof_in_comple__concept_complex_numbers
+    relation_type: part_of
+    source: concept_definition_based_proof_in_complex_arithmetic
+    target: concept_complex_numbers
+    strength: 0.9
+    rationale: This proof technique is specifically applied to identities in 
+      complex arithmetic.
+    created_at: '2026-07-22T03:49:44Z'
+    updated_at: '2026-07-22T03:49:44Z'
+  - id: edge_part_of__concept_function_space__concept_vector_space
+    relation_type: part_of
+    source: concept_function_space
+    target: concept_vector_space
+    strength: 0.95
+    rationale: Function spaces are an important family of vector-space examples.
+    created_at: '2026-07-22T03:49:46Z'
+    updated_at: '2026-07-22T03:49:46Z'
+  - id: 
+      edge_part_of__concept_geometric_interpretation_of_vect__concept_coordinate_space_f_n
+    relation_type: part_of
+    source: concept_geometric_interpretation_of_vectors
+    target: concept_coordinate_space_f_n
+    strength: 0.85
+    rationale: The point-and-arrow model interprets low-dimensional coordinate 
+      spaces geometrically.
+    created_at: '2026-07-22T03:49:49Z'
+    updated_at: '2026-07-22T03:49:49Z'
+  - id: edge_part_of__concept_linear_combinations_and_span__concept_vector_space
+    relation_type: part_of
+    source: concept_linear_combinations_and_span
+    target: concept_vector_space
+    strength: 1.0
+    rationale: Linear combinations and span are core constructions within vector
+      spaces.
+    created_at: '2026-07-22T03:49:52Z'
+    updated_at: '2026-07-22T03:49:52Z'
+  - id: 
+      edge_part_of__concept_linear_independence_and_basis__concept_vector_space
+    relation_type: part_of
+    source: concept_linear_independence_and_basis
+    target: concept_vector_space
+    strength: 1.0
+    rationale: Linear independence and bases describe generating structure 
+      within vector spaces.
+    created_at: '2026-07-22T03:49:54Z'
+    updated_at: '2026-07-22T03:49:54Z'
+  - id: 
+      edge_part_of__concept_real_and_complex_vector_spaces__concept_vector_space
+    relation_type: part_of
+    source: concept_real_and_complex_vector_spaces
+    target: concept_vector_space
+    strength: 0.95
+    rationale: Real-versus-complex classification is a classification of vector 
+      spaces by their scalar field.
+    created_at: '2026-07-22T03:49:57Z'
+    updated_at: '2026-07-22T03:49:57Z'
+  - id: edge_part_of__concept_scalars_over_r_or_c__concept_scalar_fields
+    relation_type: part_of
+    source: concept_scalars_over_r_or_c
+    target: concept_scalar_fields
+    strength: 0.95
+    rationale: The real and complex scalar systems are principal examples of 
+      scalar fields.
+    created_at: '2026-07-22T03:49:59Z'
+    updated_at: '2026-07-22T03:49:59Z'
+  - id: edge_part_of__concept_sequence_space__concept_vector_space
+    relation_type: part_of
+    source: concept_sequence_space
+    target: concept_vector_space
+    strength: 0.95
+    rationale: Sequence spaces are an important family of vector-space examples.
+    created_at: '2026-07-22T03:50:02Z'
+    updated_at: '2026-07-22T03:50:02Z'
+  - id: edge_part_of__concept_vector_space_axioms__concept_vector_space
+    relation_type: part_of
+    source: concept_vector_space_axioms
+    target: concept_vector_space
+    strength: 1.0
+    rationale: The vector-space axioms constitute the defining algebraic 
+      requirements of vector-space structure.
+    created_at: '2026-07-22T03:50:05Z'
+    updated_at: '2026-07-22T03:50:05Z'
+  - id: edge_part_of__concept_vector_space_operations__concept_vector_space
+    relation_type: part_of
+    source: concept_vector_space_operations
+    target: concept_vector_space
+    strength: 1.0
+    rationale: Addition and scalar multiplication constitute the operations of a
+      vector space.
+    created_at: '2026-07-22T03:50:08Z'
+    updated_at: '2026-07-22T03:50:08Z'
+  - id: edge_part_of__concept_zero_vector__concept_coordinate_vector_operations
+    relation_type: part_of
+    source: concept_zero_vector
+    target: concept_coordinate_vector_operations
+    strength: 0.95
+    rationale: The coordinate zero vector is the additive identity used by these
+      operations.
+    created_at: '2026-07-22T03:50:10Z'
+    updated_at: '2026-07-22T03:50:10Z'
+  - id: 
+      edge_prerequisite__concept_complex_addition__concept_complex_arithmetic_laws
+    relation_type: prerequisite
+    source: concept_complex_addition
+    target: concept_complex_arithmetic_laws
+    strength: 0.9
+    rationale: Several stated laws concern complex addition and require its 
+      definition.
+    created_at: '2026-07-22T03:50:13Z'
+    updated_at: '2026-07-22T03:50:13Z'
+  - id: 
+      edge_prerequisite__concept_complex_addition__concept_definition_based_proof_in_comple
+    relation_type: prerequisite
+    source: concept_complex_addition
+    target: concept_definition_based_proof_in_complex_arithmetic
+    strength: 0.9
+    rationale: Componentwise proofs of complex identities require the definition
+      of complex addition.
+    created_at: '2026-07-22T03:50:15Z'
+    updated_at: '2026-07-22T03:50:15Z'
+  - id: 
+      edge_prerequisite__concept_complex_multiplication__concept_complex_arithmetic_laws
+    relation_type: prerequisite
+    source: concept_complex_multiplication
+    target: concept_complex_arithmetic_laws
+    strength: 0.9
+    rationale: Several stated laws concern complex multiplication and require 
+      its definition.
+    created_at: '2026-07-22T03:50:17Z'
+    updated_at: '2026-07-22T03:50:17Z'
+  - id: 
+      edge_prerequisite__concept_complex_multiplication__concept_definition_based_proof_in_comple
+    relation_type: prerequisite
+    source: concept_complex_multiplication
+    target: concept_definition_based_proof_in_complex_arithmetic
+    strength: 1.0
+    rationale: The worked componentwise proof expands both product orders using 
+      the complex multiplication definition.
+    created_at: '2026-07-22T03:50:20Z'
+    updated_at: '2026-07-22T03:50:20Z'
+  - id: edge_prerequisite__concept_complex_numbers__concept_complex_addition
+    relation_type: prerequisite
+    source: concept_complex_numbers
+    target: concept_complex_addition
+    strength: 1.0
+    rationale: The componentwise addition rule presupposes the a + bi 
+      representation of complex numbers.
+    created_at: '2026-07-22T03:50:22Z'
+    updated_at: '2026-07-22T03:50:22Z'
+  - id: 
+      edge_prerequisite__concept_complex_numbers__concept_complex_multiplication
+    relation_type: prerequisite
+    source: concept_complex_numbers
+    target: concept_complex_multiplication
+    strength: 1.0
+    rationale: Complex multiplication presupposes the a + bi representation and 
+      the imaginary unit.
+    created_at: '2026-07-22T03:50:24Z'
+    updated_at: '2026-07-22T03:50:24Z'
+  - id: edge_prerequisite__concept_complex_numbers__concept_scalars_over_r_or_c
+    relation_type: prerequisite
+    source: concept_complex_numbers
+    target: concept_scalars_over_r_or_c
+    strength: 0.85
+    rationale: Understanding C supports treating real or complex numbers 
+      uniformly as scalars.
+    created_at: '2026-07-22T03:50:27Z'
+    updated_at: '2026-07-22T03:50:27Z'
+  - id: 
+      edge_prerequisite__concept_coordinate_space_f_n__concept_coordinate_proofs_in_f_n
+    relation_type: prerequisite
+    source: concept_coordinate_space_f_n
+    target: concept_coordinate_proofs_in_f_n
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_prove_vector_identities_from_scalar_laws prerequisites
+    created_at: '2026-07-22T03:50:29Z'
+    updated_at: '2026-07-22T03:50:29Z'
+  - id: 
+      edge_prerequisite__concept_coordinate_space_f_n__concept_coordinatewise_addition
+    relation_type: prerequisite
+    source: concept_coordinate_space_f_n
+    target: concept_coordinatewise_addition
+    strength: 0.98
+    rationale: Coordinatewise addition is an operation on pairs of elements of 
+      the same F^n.
+    created_at: '2026-07-22T03:50:32Z'
+    updated_at: '2026-07-22T03:50:32Z'
+  - id: edge_prerequisite__concept_coordinate_space_f_n__concept_zero_vector
+    relation_type: prerequisite
+    source: concept_coordinate_space_f_n
+    target: concept_zero_vector
+    strength: 0.9
+    rationale: The zero vector is the all-zero element of a particular F^n.
+    created_at: '2026-07-22T03:50:34Z'
+    updated_at: '2026-07-22T03:50:34Z'
+  - id: 
+      edge_prerequisite__concept_coordinate_vector_operations__concept_coordinate_proofs_in_f_n
+    relation_type: prerequisite
+    source: concept_coordinate_vector_operations
+    target: concept_coordinate_proofs_in_f_n
+    strength: 1.0
+    rationale: Coordinate proofs require expanding and manipulating the relevant
+      vector operations coordinate by coordinate.
+    created_at: '2026-07-22T03:50:36Z'
+    updated_at: '2026-07-22T03:50:36Z'
+  - id: 
+      edge_prerequisite__concept_coordinate_vector_operations__concept_geometric_interpretation_of_vect
+    relation_type: prerequisite
+    source: concept_coordinate_vector_operations
+    target: concept_geometric_interpretation_of_vectors
+    strength: 0.8
+    rationale: The geometric constructions interpret the coordinate-space 
+      addition and scalar-multiplication operations introduced algebraically.
+    created_at: '2026-07-22T03:50:39Z'
+    updated_at: '2026-07-22T03:50:39Z'
+  - id: 
+      edge_prerequisite__concept_coordinate_vector_operations__concept_vector_space
+    relation_type: prerequisite
+    source: concept_coordinate_vector_operations
+    target: concept_vector_space
+    strength: 0.75
+    rationale: Concrete coordinate operations provide the beginner's working 
+      model for the operations and laws abstracted by the vector-space 
+      definition.
+    created_at: '2026-07-22T03:50:41Z'
+    updated_at: '2026-07-22T03:50:41Z'
+  - id: 
+      edge_prerequisite__concept_coordinate_vector_operations__concept_vector_space_operations
+    relation_type: prerequisite
+    source: concept_coordinate_vector_operations
+    target: concept_vector_space_operations
+    strength: 0.85
+    rationale: Concrete coordinate operations motivate and support the abstract 
+      operations used in vector spaces.
+    created_at: '2026-07-22T03:50:43Z'
+    updated_at: '2026-07-22T03:50:43Z'
+  - id: 
+      edge_prerequisite__concept_coordinatewise_addition__concept_coordinate_proofs_in_f_n
+    relation_type: prerequisite
+    source: concept_coordinatewise_addition
+    target: concept_coordinate_proofs_in_f_n
+    strength: 0.98
+    rationale: The coordinate proof expands vector addition using its 
+      coordinatewise definition.
+    created_at: '2026-07-22T03:50:46Z'
+    updated_at: '2026-07-22T03:50:46Z'
+  - id: 
+      edge_prerequisite__concept_coordinatewise_addition__concept_coordinate_vector_operations
+    relation_type: prerequisite
+    source: concept_coordinatewise_addition
+    target: concept_coordinate_vector_operations
+    strength: 0.95
+    rationale: Addition is introduced before the broader collection of 
+      coordinate-vector operations.
+    created_at: '2026-07-22T03:50:48Z'
+    updated_at: '2026-07-22T03:50:48Z'
+  - id: edge_prerequisite__concept_coordinatewise_addition__concept_zero_vector
+    relation_type: prerequisite
+    source: concept_coordinatewise_addition
+    target: concept_zero_vector
+    strength: 0.9
+    rationale: The zero vector is characterized and used as the additive 
+      identity for coordinatewise addition.
+    created_at: '2026-07-22T03:50:51Z'
+    updated_at: '2026-07-22T03:50:51Z'
+  - id: 
+      edge_prerequisite__concept_finite_ordered_lists__concept_coordinate_space_f_n
+    relation_type: prerequisite
+    source: concept_finite_ordered_lists
+    target: concept_coordinate_space_f_n
+    strength: 0.98
+    rationale: F^n is defined as a set of ordered lists of fixed length.
+    created_at: '2026-07-22T03:50:53Z'
+    updated_at: '2026-07-22T03:50:53Z'
+  - id: 
+      edge_prerequisite__concept_linear_combinations_and_span__concept_basis_relative_coordinates
+    relation_type: prerequisite
+    source: concept_linear_combinations_and_span
+    target: concept_basis_relative_coordinates
+    strength: 0.9
+    rationale: Coordinates are coefficients in a linear combination of ordered 
+      basis vectors.
+    created_at: '2026-07-22T03:50:55Z'
+    updated_at: '2026-07-22T03:50:55Z'
+  - id: 
+      edge_prerequisite__concept_linear_combinations_and_span__concept_linear_independence_and_basis
+    relation_type: prerequisite
+    source: concept_linear_combinations_and_span
+    target: concept_linear_independence_and_basis
+    strength: 1.0
+    rationale: Dependence, independence, and basis are characterized using span 
+      and redundancy.
+    created_at: '2026-07-22T03:50:57Z'
+    updated_at: '2026-07-22T03:50:57Z'
+  - id: 
+      edge_prerequisite__concept_linear_independence_and_basis__concept_basis_relative_coordinates
+    relation_type: prerequisite
+    source: concept_linear_independence_and_basis
+    target: concept_basis_relative_coordinates
+    strength: 1.0
+    rationale: Coordinates relative to a basis require first understanding what 
+      a basis is.
+    created_at: '2026-07-22T03:51:00Z'
+    updated_at: '2026-07-22T03:51:00Z'
+  - id: edge_prerequisite__concept_scalar_fields__concept_vector_space
+    relation_type: prerequisite
+    source: concept_scalar_fields
+    target: concept_vector_space
+    strength: 0.9
+    rationale: The abstract definition uses scalars and scalar multiplication, 
+      so learners need the role of a scalar field before organizing the 
+      vector-space axioms.
+    created_at: '2026-07-22T03:51:03Z'
+    updated_at: '2026-07-22T03:51:03Z'
+  - id: 
+      edge_prerequisite__concept_scalar_fields__concept_vector_space_operations
+    relation_type: prerequisite
+    source: concept_scalar_fields
+    target: concept_vector_space_operations
+    strength: 1.0
+    rationale: Scalar multiplication in a vector space is defined relative to a 
+      scalar field.
+    created_at: '2026-07-22T03:51:06Z'
+    updated_at: '2026-07-22T03:51:06Z'
+  - id: 
+      edge_prerequisite__concept_scalars_over_r_or_c__concept_coordinate_proofs_in_f_n
+    relation_type: prerequisite
+    source: concept_scalars_over_r_or_c
+    target: concept_coordinate_proofs_in_f_n
+    strength: 0.95
+    rationale: Coordinate proofs justify vector identities by applying scalar 
+      laws at each coordinate.
+    created_at: '2026-07-22T03:51:08Z'
+    updated_at: '2026-07-22T03:51:08Z'
+  - id: 
+      edge_prerequisite__concept_scalars_over_r_or_c__concept_coordinate_space_f_n
+    relation_type: prerequisite
+    source: concept_scalars_over_r_or_c
+    target: concept_coordinate_space_f_n
+    strength: 0.95
+    rationale: The entries of F^n must be understood as scalars drawn from the 
+      chosen F.
+    created_at: '2026-07-22T03:51:11Z'
+    updated_at: '2026-07-22T03:51:11Z'
+  - id: 
+      edge_prerequisite__concept_scalars_over_r_or_c__concept_coordinatewise_addition
+    relation_type: prerequisite
+    source: concept_scalars_over_r_or_c
+    target: concept_coordinatewise_addition
+    strength: 0.92
+    rationale: Each coordinate sum uses addition in the scalar system F.
+    created_at: '2026-07-22T03:51:13Z'
+    updated_at: '2026-07-22T03:51:13Z'
+  - id: edge_prerequisite__concept_scalars_over_r_or_c__concept_scalar_fields
+    relation_type: prerequisite
+    source: concept_scalars_over_r_or_c
+    target: concept_scalar_fields
+    strength: 0.8
+    rationale: The familiar scalar systems R and C motivate the later 
+      abstraction to fields.
+    created_at: '2026-07-22T03:51:16Z'
+    updated_at: '2026-07-22T03:51:16Z'
+  - id: edge_prerequisite__concept_scalars_over_r_or_c__concept_zero_vector
+    relation_type: prerequisite
+    source: concept_scalars_over_r_or_c
+    target: concept_zero_vector
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_distinguish_the_zero_vector_from_scalar_zero prerequisites
+    created_at: '2026-07-22T03:51:18Z'
+    updated_at: '2026-07-22T03:51:18Z'
+  - id: edge_prerequisite__concept_vector_space__concept_function_space
+    relation_type: prerequisite
+    source: concept_vector_space
+    target: concept_function_space
+    strength: 0.9
+    rationale: Function space is studied as a concrete realization of the 
+      abstract vector-space definition.
+    created_at: '2026-07-22T03:51:21Z'
+    updated_at: '2026-07-22T03:51:21Z'
+  - id: 
+      edge_prerequisite__concept_vector_space__concept_linear_combinations_and_span
+    relation_type: prerequisite
+    source: concept_vector_space
+    target: concept_linear_combinations_and_span
+    strength: 1.0
+    rationale: Linear combinations use vector addition and scalar multiplication
+      in a vector space.
+    created_at: '2026-07-22T03:51:23Z'
+    updated_at: '2026-07-22T03:51:23Z'
+  - id: 
+      edge_prerequisite__concept_vector_space__concept_real_and_complex_vector_spaces
+    relation_type: prerequisite
+    source: concept_vector_space
+    target: concept_real_and_complex_vector_spaces
+    strength: 0.9
+    rationale: Real-versus-complex classification applies after vector-space 
+      structure and its scalar field are identified.
+    created_at: '2026-07-22T03:51:25Z'
+    updated_at: '2026-07-22T03:51:25Z'
+  - id: edge_prerequisite__concept_vector_space__concept_sequence_space
+    relation_type: prerequisite
+    source: concept_vector_space
+    target: concept_sequence_space
+    strength: 0.9
+    rationale: Sequence space is studied as a concrete realization of the 
+      abstract vector-space definition.
+    created_at: '2026-07-22T03:51:28Z'
+    updated_at: '2026-07-22T03:51:28Z'
+  - id: edge_prerequisite__concept_vector_space_axioms__concept_function_space
+    relation_type: prerequisite
+    source: concept_vector_space_axioms
+    target: concept_function_space
+    strength: 1.0
+    rationale: derived from learning object lo_functions_as_vectors 
+      prerequisites
+    created_at: '2026-07-22T03:51:31Z'
+    updated_at: '2026-07-22T03:51:31Z'
+  - id: edge_prerequisite__concept_vector_space_axioms__concept_sequence_space
+    relation_type: prerequisite
+    source: concept_vector_space_axioms
+    target: concept_sequence_space
+    strength: 1.0
+    rationale: derived from learning object lo_infinite_sequences_as_vectors 
+      prerequisites
+    created_at: '2026-07-22T03:51:33Z'
+    updated_at: '2026-07-22T03:51:33Z'
+  - id: edge_prerequisite__concept_vector_space_axioms__concept_vector_space
+    relation_type: prerequisite
+    source: concept_vector_space_axioms
+    target: concept_vector_space
+    strength: 1.0
+    rationale: A vector space is identified by requiring its operations to 
+      satisfy the vector-space axioms.
+    created_at: '2026-07-22T03:51:36Z'
+    updated_at: '2026-07-22T03:51:36Z'
+  - id: 
+      edge_prerequisite__concept_vector_space_operations__concept_basis_relative_coordinates
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_basis_relative_coordinates
+    strength: 1.0
+    rationale: derived from learning object lo_coordinates_require_a_basis 
+      prerequisites
+    created_at: '2026-07-22T03:51:39Z'
+    updated_at: '2026-07-22T03:51:39Z'
+  - id: 
+      edge_prerequisite__concept_vector_space_operations__concept_function_space
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_function_space
+    strength: 1.0
+    rationale: derived from learning object lo_functions_as_vectors 
+      prerequisites
+    created_at: '2026-07-22T03:51:41Z'
+    updated_at: '2026-07-22T03:51:41Z'
+  - id: 
+      edge_prerequisite__concept_vector_space_operations__concept_linear_combinations_and_span
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_linear_combinations_and_span
+    strength: 1.0
+    rationale: Linear combinations are formed using scalar multiplication and 
+      vector addition.
+    created_at: '2026-07-22T03:51:44Z'
+    updated_at: '2026-07-22T03:51:44Z'
+  - id: 
+      edge_prerequisite__concept_vector_space_operations__concept_linear_independence_and_basis
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_linear_independence_and_basis
+    strength: 1.0
+    rationale: derived from learning object 
+      lo_from_linear_combinations_to_a_basis prerequisites
+    created_at: '2026-07-22T03:51:47Z'
+    updated_at: '2026-07-22T03:51:47Z'
+  - id: 
+      edge_prerequisite__concept_vector_space_operations__concept_sequence_space
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_sequence_space
+    strength: 1.0
+    rationale: derived from learning object lo_infinite_sequences_as_vectors 
+      prerequisites
+    created_at: '2026-07-22T03:51:50Z'
+    updated_at: '2026-07-22T03:51:50Z'
+  - id: edge_prerequisite__concept_vector_space_operations__concept_vector_space
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_vector_space
+    strength: 1.0
+    rationale: The definition of vector space presupposes specified addition and
+      scalar multiplication operations.
+    created_at: '2026-07-22T03:51:53Z'
+    updated_at: '2026-07-22T03:51:53Z'
+  - id: 
+      edge_prerequisite__concept_vector_space_operations__concept_vector_space_axioms
+    relation_type: prerequisite
+    source: concept_vector_space_operations
+    target: concept_vector_space_axioms
+    strength: 1.0
+    rationale: The addition and scalar-multiplication operations must be 
+      specified before laws governing them can be stated.
+    created_at: '2026-07-22T03:51:56Z'
+    updated_at: '2026-07-22T03:51:56Z'
+  - id: 
+      edge_related__concept_basis_relative_coordinates__concept_linear_independence_and_basis
+    relation_type: related
+    source: concept_basis_relative_coordinates
+    target: concept_linear_independence_and_basis
+    strength: 0.8
+    rationale: A basis enables coordinate representation, while independence and
+      spanning explain why the chosen vectors serve as a basis.
+    created_at: '2026-07-22T03:51:59Z'
+    updated_at: '2026-07-22T03:51:59Z'
+  - id: edge_related__concept_complex_addition__concept_coordinatewise_addition
+    relation_type: related
+    source: concept_complex_addition
+    target: concept_coordinatewise_addition
+    strength: 0.75
+    rationale: Both operations add corresponding components, with complex 
+      addition acting on real-imaginary components and F^n addition on 
+      coordinates.
+    created_at: '2026-07-22T03:52:01Z'
+    updated_at: '2026-07-22T03:52:01Z'
+  - id: 
+      edge_related__concept_complex_arithmetic_laws__concept_definition_based_proof_in_comple
+    relation_type: related
+    source: concept_complex_arithmetic_laws
+    target: concept_definition_based_proof_in_complex_arithmetic
+    strength: 0.8
+    rationale: The proof skill establishes and justifies representative 
+      complex-arithmetic laws from definitions.
+    created_at: '2026-07-22T03:52:04Z'
+    updated_at: '2026-07-22T03:52:04Z'
+  - id: edge_related__concept_complex_numbers__concept_vector_space
+    relation_type: related
+    source: concept_complex_numbers
+    target: concept_vector_space
+    strength: 0.6
+    rationale: The chapter introduces complex numbers before vector spaces 
+      because real and complex numbers serve as foundational scalar systems for 
+      the ensuing study.
+    created_at: '2026-07-22T03:52:07Z'
+    updated_at: '2026-07-22T03:52:07Z'
+  - id: 
+      edge_related__concept_definition_based_proof_in_comple__concept_coordinate_proofs_in_f_n
+    relation_type: related
+    source: concept_definition_based_proof_in_complex_arithmetic
+    target: concept_coordinate_proofs_in_f_n
+    strength: 0.8
+    rationale: Both skills prove algebraic identities by expanding objects into 
+      components and applying scalar laws componentwise.
+    created_at: '2026-07-22T03:52:10Z'
+    updated_at: '2026-07-22T03:52:10Z'
+  - id: 
+      edge_related__concept_geometric_interpretation_of_vect__concept_vector_space
+    relation_type: related
+    source: concept_geometric_interpretation_of_vectors
+    target: concept_vector_space
+    strength: 0.65
+    rationale: Geometric vectors motivate the terminology, while the abstract 
+      definition applies beyond spaces that can be pictured.
+    created_at: '2026-07-22T03:52:13Z'
+    updated_at: '2026-07-22T03:52:13Z'

@@ -1,0 +1,65 @@
+schema_version: 1
+id: lo_read_and_use_scalar_notation
+title: Read and Use Scalar Notation
+subjects:
+  - vector-spaces
+concept: concept_scalars_over_r_or_c
+knowledge_type: conceptual and propositional
+status: active
+contradicts:
+summary: Interpret F as R or C and recall the scalar arithmetic laws that 
+  justify later coordinate calculations.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_5
+    weight: 0.14
+    recipes:
+      - id: recipe_scalars_foundation
+        composition: conjunctive
+        all_of:
+          - facet: facet_throughout_this_setting_f_denotes_either_r_or_c_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+            capability: retrieval
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s69
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s43
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:08Z'
+updated_at: '2026-07-22T03:48:48Z'

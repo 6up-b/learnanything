@@ -1,0 +1,81 @@
+schema_version: 1
+id: lo_from_linear_combinations_to_a_basis
+title: From Linear Combinations to a Basis
+subjects:
+  - vector-spaces
+concept: concept_linear_independence_and_basis
+knowledge_type: conceptual and procedural
+status: active
+contradicts:
+summary: Build span from all linear combinations, identify redundant vectors 
+  through dependence, and understand a basis as an independent spanning 
+  collection.
+prerequisites:
+  - concept_vector_space_operations
+  - concept_linear_combinations_and_span
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_21
+    weight: 1.1
+    recipes:
+      - id: recipe_reason_from_span_to_basis
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_linear_combination_is_a_sum_of_scalar_multiple
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_a_collection_is_linearly_dependent_when_a_vector
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_a_collection_is_linearly_dependent_when_a_vector
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      path:
+      locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s62
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+      role: lecture
+      source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      path:
+      locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s129
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+      role: lecture
+      source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      path:
+      locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s141
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+      role: lecture
+      source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+      span_hash:
+created_at: '2026-07-22T03:48:28Z'
+updated_at: '2026-07-22T03:49:11Z'

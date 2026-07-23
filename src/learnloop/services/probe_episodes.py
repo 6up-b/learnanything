@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import log
+import json
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
@@ -235,7 +236,16 @@ def enter_episode(
         origin=origin,
         algorithm_version=algorithm_version,
         required_facets=sorted(required_facets(vault, learning_object_id, repository)),
-        minimum_independent_observations=episode_config.minimum_independent_observations,
+        # Purpose-specific minimum: initial/goal placement is a routing
+        # conclusion, so one qualifying observation may complete it; the
+        # 2-observation breadth contract stays for diagnostic re-entries
+        # (misconception / stale-uncertainty triggers), whose conclusions feed
+        # stronger claims.
+        minimum_independent_observations=(
+            episode_config.placement_minimum_observations
+            if trigger in ("initial", "goal_diagnostic")
+            else episode_config.minimum_independent_observations
+        ),
         maximum_observations=episode_config.maximum_observations,
         entered_at=now,
         target_contract_version_id=target_contract_version_id,
@@ -1849,7 +1859,22 @@ def _evaluate_completion(
     qualifying = [row for row in rows if row["observation"].eligible_for_completion]
 
     if len(qualifying) >= episode.maximum_observations:
-        return _complete(repository, episode, "observation_budget_exhausted", clock=clock)
+        return _complete(repository, episode, "observation_budget_exhausted", posterior=posterior, clock=clock)
+
+    # Decision-equivalence early stop (evsi.shared_optimal_action semantics on
+    # the episode posterior): once every plausible hypothesis routes to the
+    # same first intervention, remaining posterior spread has no action value.
+    # One qualifying observation suffices — a routing conclusion, not a
+    # demonstration claim, so the breadth contract does not apply. Checked
+    # only where the episode would otherwise CONTINUE: a posterior that also
+    # reaches full decision stability with breadth keeps the stronger
+    # 'decision_stable' outcome.
+    def _action_equivalent() -> bool:
+        return (
+            episode_config.action_equivalence_enabled
+            and bool(qualifying)
+            and _plausible_actions_agree(repository, posterior, episode_config)
+        )
 
     top_label, top_probability = posterior.top
     sorted_probabilities = sorted(posterior.posterior.values(), reverse=True)
@@ -1865,9 +1890,13 @@ def _evaluate_completion(
         # the winner is fragile (10th-pct advantage <= 0 or the <90% agreement gate
         # fails) the episode completes with the explicit abstention outcome instead
         # of grinding through non-discriminating instruments (U-021).
+        # An unstable posterior whose plausible hypotheses all imply the same
+        # repair needs no further probing — stop before spending instruments.
+        if _action_equivalent():
+            return _complete(repository, episode, "action_equivalent", posterior=posterior, clock=clock)
         abstain_reason = _robust_completion_override(vault, repository, episode, posterior)
         if abstain_reason is not None:
-            return _complete(repository, episode, abstain_reason, clock=clock)
+            return _complete(repository, episode, abstain_reason, posterior=posterior, clock=clock)
         # §10: an unstable episode with no unconsumed instrument left (§5.4
         # forbids surface repeats) parks in pending_items with one deduplicated
         # generation need — never blocking ordinary practice on the LO.
@@ -1897,7 +1926,7 @@ def _evaluate_completion(
         and required <= covered
     )
     if breadth_ok:
-        return _complete(repository, episode, "decision_stable", clock=clock)
+        return _complete(repository, episode, "decision_stable", posterior=posterior, clock=clock)
 
     # §11 fast path: an explicit strong prior claim plus one highly
     # discriminating cross-facet instrument may complete early. This replaces
@@ -1907,8 +1936,50 @@ def _evaluate_completion(
         and strong_prior_claim(vault, repository, episode.learning_object_id)
         and any(len(row.get("target_facets") or []) >= 2 for row in qualifying)
     ):
-        return _complete(repository, episode, "fast_path_strong_claim", clock=clock)
+        return _complete(repository, episode, "fast_path_strong_claim", posterior=posterior, clock=clock)
+    # Stable but breadth-short: if the plausible hypotheses already agree on
+    # the repair, the missing breadth buys nothing for routing — stop.
+    if _action_equivalent():
+        return _complete(repository, episode, "action_equivalent", posterior=posterior, clock=clock)
     return None
+
+
+def _plausible_actions_agree(
+    repository: Repository,
+    posterior: EpisodePosterior,
+    episode_config,
+) -> bool:
+    """True when every plausible hypothesis routes to one first intervention.
+
+    Reads the authored failure_triage_routes rows through the hypothesis-label
+    -> triage-reason bridge. Fails closed (False) when routes are missing or a
+    plausible hypothesis maps to a reason without an active route: an unroutable
+    hypothesis means measurement can still change the action.
+    """
+
+    from learnloop.services.probe_hypotheses import triage_reason_for_label
+
+    threshold = float(episode_config.action_equivalence_plausible_threshold)
+    plausible = [
+        label
+        for label, probability in posterior.posterior.items()
+        if float(probability) >= threshold
+    ]
+    if not plausible:
+        return False
+    interventions: set[str] = set()
+    for label in plausible:
+        reason = triage_reason_for_label(label)
+        route = repository.failure_triage_route_for_reason(reason)
+        if route is None or not route.get("active", True):
+            return False
+        first = route.get("first_intervention")
+        if not first:
+            return False
+        interventions.add(str(first))
+        if len(interventions) > 1:
+            return False
+    return len(interventions) == 1
 
 
 def _robust_completion_override(
@@ -1976,6 +2047,7 @@ def _complete(
     episode: ProbeEpisodeRecord,
     reason: str,
     *,
+    posterior: EpisodePosterior | None = None,
     clock: Clock | None = None,
 ) -> str:
     active = repository.active_probe_presentation(episode.id)
@@ -1986,6 +2058,9 @@ def _complete(
         status="complete",
         completion_reason=reason,
         completed_at=utc_now_iso(clock),
+        completion_posterior_json=(
+            json.dumps(posterior.posterior, sort_keys=True) if posterior is not None else None
+        ),
         clock=clock,
     )
     return reason

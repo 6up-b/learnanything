@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { BlueprintVersionDto, CommandError, DepthEdgeDto } from "../api/dto";
-import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader } from "./term";
+import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader, TermCheckbox } from "./term";
 import { DepthEnvelopeCard, PrimaryButton, SecondaryButton } from "./goldenpath/shared";
 import { goldenPathFixtures } from "../fixtures/goldenpath";
 
@@ -147,10 +147,12 @@ export function ExemplarConfirmDialog({
         </Faint>
 
         {/* consent / token checkpoint */}
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim, cursor: "pointer" }}>
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 2 }} />
-          <span>I confirm this reserves a fresh cold assessment and starts a certifying run.</span>
-        </label>
+        <TermCheckbox
+          checked={consent}
+          onChange={setConsent}
+          label="I confirm this reserves a fresh cold assessment and starts a certifying run."
+          style={{ alignItems: "flex-start", justifyContent: "flex-start", textAlign: "left" }}
+        />
 
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           <PrimaryButton onClick={confirm} disabled={!canConfirm}>

@@ -12,7 +12,9 @@ Flow (design decisions, agreed spec):
   path (which folds in the tutor-question uncertainty bump), core-tier rubric
   criteria are picked for the most uncertain facets first, and when nothing
   uncertain remains the plan ESCALATES to transfer-tier criteria that
-  stress-test solid knowledge.
+  stress-test solid knowledge. When the rubric has transfer-tier criteria at
+  all, one question is GUARANTEED to be one (the last slot is reserved), so
+  edge-case/what-if probing can't be crowded out by uncertain core facets.
 - Grading: only ASKED criteria produce evidence. The grading context rubric is
   restricted to the asked criteria, the rubric score is normalized over the
   asked criteria's points (unasked criteria are never zero-score failures),
@@ -71,6 +73,10 @@ _STATE_RANK = {"uncertain": 0, "unexamined": 1, "known_gap": 2, "solid": 3}
 
 class TeachBackError(ValueError):
     pass
+
+
+def _criterion_tier(criterion: RubricCriterion) -> str:
+    return getattr(criterion, "tier", "core") or "core"
 
 
 @dataclass
@@ -169,7 +175,12 @@ def plan_followups(
     still uncertain/unexamined/known-gap come first (most uncertain facet
     first); when nothing uncertain remains the plan escalates to transfer-tier
     criteria; any leftover slots are filled with the remaining (solid-facet)
-    core criteria. Capped at ``config.teach_back.max_followups``.
+    core criteria. Capped at ``config.teach_back.max_followups``. When the
+    rubric has transfer-tier criteria (and the cap allows at least two
+    questions), the plan is guaranteed to contain one: uncertain core criteria
+    can otherwise crowd out escalation entirely, so the last slot is swapped
+    for the transfer criterion whose target facets are most solid — a transfer
+    failure on a facet whose core is still uncertain is ambiguous evidence.
     """
 
     config = config or vault.config
@@ -196,7 +207,7 @@ def plan_followups(
     core: list[tuple[tuple, RubricCriterion]] = []
     transfer: list[tuple[tuple, RubricCriterion]] = []
     for index, criterion in enumerate(rubric.criteria):
-        tier = getattr(criterion, "tier", "core") or "core"
+        tier = _criterion_tier(criterion)
         entry = (criterion_key(criterion, index), criterion)
         (transfer if tier == "transfer" else core).append(entry)
     core.sort(key=lambda entry: entry[0])
@@ -212,12 +223,24 @@ def plan_followups(
     solid_core = [entry for entry in core if not is_uncertain(entry[1])]
     ordered = [*uncertain_core, *transfer, *solid_core]
 
+    max_slots = config.teach_back.max_followups
+    selected = [criterion for _key, criterion in ordered[:max_slots]]
+    if (
+        transfer
+        and max_slots >= 2
+        and not any(_criterion_tier(criterion) == "transfer" for criterion in selected)
+    ):
+        # Guaranteed transfer slot: transfer[-1] is the transfer criterion
+        # whose target facets are most solid (the sort puts uncertain targets
+        # first), keeping core/transfer attribution as clean as possible.
+        selected[-1] = transfer[-1][1]
+
     plan: list[dict[str, Any]] = []
-    for _key, criterion in ordered[: config.teach_back.max_followups]:
+    for criterion in selected:
         plan.append(
             {
                 "criterion_id": criterion.id,
-                "tier": getattr(criterion, "tier", "core") or "core",
+                "tier": _criterion_tier(criterion),
                 "facet_targets": criterion_targets(criterion),
             }
         )
@@ -491,11 +514,7 @@ def finish_teach_back(
 def core_criteria(rubric: Rubric) -> list[RubricCriterion]:
     """Core-tier criteria of a rubric (the fallback graded set)."""
 
-    return [
-        criterion
-        for criterion in rubric.criteria
-        if (getattr(criterion, "tier", "core") or "core") == "core"
-    ]
+    return [criterion for criterion in rubric.criteria if _criterion_tier(criterion) == "core"]
 
 
 def restrict_grading_context_to_criteria(
@@ -560,6 +579,121 @@ def _teach_back_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
         return resolved_rubric(vault, item)
     except GradingValidationError as exc:
         raise TeachBackError(str(exc)) from exc
+
+
+def ensure_teach_back_item(
+    root,
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    clock: Clock | None = None,
+) -> tuple[str, bool]:
+    """Find or mint the LO's teach-back card (learner opt-in path).
+
+    Teach-back is the highest-mass conversational evidence in the system
+    (evidence_mass 0.8), but a learner could only reach it if generation
+    happened to author a teach_back item. This makes it an explicit learner
+    choice: reuse the LO's active teach_back card if one exists, else mint one
+    deterministically — prompt from the LO title, one core criterion per
+    required facet (uncertainty-ranked, capped at 4) so ``plan_followups`` has
+    real facet targets to interrogate, plus one transfer criterion on the top
+    facet so the plan's guaranteed transfer slot has something to escalate to.
+    Returns (practice_item_id, created).
+    """
+
+    from learnloop.services.facet_diagnostics import required_facets
+    from learnloop.vault.writer import upsert_practice_item
+
+    learning_object = vault.learning_objects.get(learning_object_id)
+    if learning_object is None:
+        raise TeachBackError(f"Learning object {learning_object_id} was not found.")
+    for item in vault.practice_items.values():
+        if (
+            item.learning_object_id == learning_object_id
+            and item.practice_mode == TEACH_BACK_PRACTICE_MODE
+            and item.status != "retired"
+        ):
+            return item.id, False
+
+    facet_ids = sorted(required_facets(vault, learning_object_id, repository))
+    if not facet_ids:
+        raise TeachBackError(
+            f"Learning object {learning_object_id} has no assessable facets to teach back."
+        )
+    view = mastery_diagnostic_view(vault, repository, learning_object_id, clock=clock)
+    uncertainty = {
+        str(entry["facet_id"]): float(entry.get("uncertainty") or 0.0)
+        for entry in view["facets"]
+    }
+    chosen = sorted(facet_ids, key=lambda f: (-uncertainty.get(f, 0.0), f))[:4]
+
+    def _facet_line(facet_id: str) -> str:
+        facet = vault.evidence_facets.get(facet_id)
+        label = (facet.title or facet.description) if facet is not None else None
+        return label or facet_id.removeprefix("facet_").replace("_", " ")
+
+    # Core criteria split 3 of the 4 rubric points; the transfer criterion
+    # takes the last one so total points stay within max_points.
+    points = round(3.0 / len(chosen), 2)
+    criteria = [
+        {
+            "id": f"criterion_teach_{index}",
+            "points": points,
+            "tier": "core",
+            "description": f"Explains: {_facet_line(facet_id)}.",
+        }
+        for index, facet_id in enumerate(chosen, start=1)
+    ]
+    transfer_facet = chosen[0]
+    criteria.append(
+        {
+            "id": "criterion_teach_transfer",
+            "points": 1.0,
+            "tier": "transfer",
+            "description": (
+                "Handles an edge case, changed assumption, or transfer scenario for: "
+                f"{_facet_line(transfer_facet)}."
+            ),
+        }
+    )
+    item_id = f"pi_{learning_object_id.removeprefix('lo_')}_teach_back_{new_ulid().lower()[-6:]}"
+    now = utc_now_iso(clock)
+    upsert_practice_item(
+        root,
+        {
+            "id": item_id,
+            "learning_object_id": learning_object_id,
+            "subjects": list(learning_object.subjects) or None,
+            "practice_mode": TEACH_BACK_PRACTICE_MODE,
+            "attempt_types_allowed": [TEACH_BACK_ATTEMPT_TYPE],
+            "evidence_facets": chosen,
+            "evidence_weights": {facet_id: 1.0 for facet_id in chosen},
+            "criterion_facet_weights": {
+                **{
+                    f"criterion_teach_{index}": {facet_id: 1.0}
+                    for index, facet_id in enumerate(chosen, start=1)
+                },
+                "criterion_teach_transfer": {transfer_facet: 1.0},
+            },
+            "prompt": (
+                f"Teach this to a curious student: {learning_object.title}. "
+                "Explain it in your own words — the student will ask follow-up questions."
+            ),
+            "expected_answer": "A full explanation covering: "
+            + "; ".join(_facet_line(facet_id) for facet_id in chosen)
+            + ".",
+            "difficulty": 0.6,
+            "difficulty_source": "author",
+            "tags": ["teach_back", "learner_requested"],
+            "grading_rubric": {"max_points": 4, "criteria": criteria, "fatal_errors": []},
+            "provenance": {"origin": "human"},  # learner-requested; no agent involved
+            "created_at": now,
+            "updated_at": now,
+        },
+        clock=clock,
+    )
+    return item_id, True
 
 
 def _facet_ranks(

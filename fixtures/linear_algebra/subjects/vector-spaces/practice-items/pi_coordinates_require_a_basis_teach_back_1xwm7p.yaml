@@ -1,0 +1,76 @@
+schema_version: 1
+id: pi_coordinates_require_a_basis_teach_back_1xwm7p
+learning_object_id: lo_coordinates_require_a_basis
+subjects:
+  - vector-spaces
+practice_mode: teach_back
+attempt_types_allowed:
+  - teach_back
+evidence_facets:
+  - facet_a_linear_combination_is_a_sum_of_scalar_multiple
+  - facet_coordinates_are_scalar_coefficients_relative_to_
+evidence_weights:
+  facet_a_linear_combination_is_a_sum_of_scalar_multiple: 1.0
+  facet_coordinates_are_scalar_coefficients_relative_to_: 1.0
+criterion_facet_weights:
+  criterion_teach_1:
+    facet_a_linear_combination_is_a_sum_of_scalar_multiple: 1.0
+  criterion_teach_2:
+    facet_coordinates_are_scalar_coefficients_relative_to_: 1.0
+prompt: 'Teach this to a curious student: Coordinates Require a Basis. Explain it
+  in your own words — the student will ask follow-up questions.'
+expected_answer: 'A full explanation covering: a linear combination is a sum of scalar
+  multiple; coordinates are scalar coefficients relative to .'
+difficulty: 0.6
+difficulty_source: author
+tags:
+  - teach_back
+  - learner_requested
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance:
+scaffold_level:
+capability:
+task_features:
+task_feature_schema:
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_teach_1
+      points: 2.0
+      description: 'Explains: a linear combination is a sum of scalar multiple.'
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+    - id: criterion_teach_2
+      points: 2.0
+      description: 'Explains: coordinates are scalar coefficients relative to .'
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-22T17:43:34Z'
+updated_at: '2026-07-22T17:43:36Z'

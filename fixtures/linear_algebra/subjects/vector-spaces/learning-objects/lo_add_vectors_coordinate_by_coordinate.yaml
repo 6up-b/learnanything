@@ -1,0 +1,64 @@
+schema_version: 1
+id: lo_add_vectors_coordinate_by_coordinate
+title: Add Vectors Coordinate by Coordinate
+subjects:
+  - vector-spaces
+concept: concept_coordinatewise_addition
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Execute addition in F^n by pairing equal coordinate indices and 
+  preserving list length and order.
+prerequisites:
+  - concept_scalars_over_r_or_c
+  - concept_coordinate_space_f_n
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_8
+    weight: 0.2
+    recipes:
+      - id: recipe_execute_coordinatewise_addition
+        composition: conjunctive
+        all_of:
+          - facet: facet_to_add_two_elements_of_f_n_align_equal_coordinat
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_to_add_two_elements_of_f_n_align_equal_coordinat
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s117
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s118
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:05Z'
+updated_at: '2026-07-22T03:48:45Z'

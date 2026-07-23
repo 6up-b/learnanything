@@ -366,7 +366,7 @@ requested_items_per_session = 1
 # transfer-tier criterion evidence; session_cap bounds teach_back items per
 # built queue.
 [teach_back]
-max_followups = 3
+max_followups = 4
 transfer_evidence_multiplier = 0.5
 session_cap = 1
 

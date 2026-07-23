@@ -1,0 +1,80 @@
+schema_version: 1
+id: lo_operations_and_the_vector_space_axiom_checklist
+title: Operations and the Vector-Space Axiom Checklist
+subjects:
+  - vector-spaces
+concept: concept_vector_space_axioms
+knowledge_type: declarative and procedural
+status: active
+contradicts:
+summary: Specify addition and scalar multiplication with their correct 
+  input-output contracts, then organize the complete set of laws required for 
+  vector-space structure.
+prerequisites:
+  - concept_vector_space_operations
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_16
+    weight: 1.2
+    recipes:
+      - id: recipe_specify_and_check_operations
+        composition: conjunctive
+        all_of:
+          - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_vector_addition_must_be_commutative_and_associat
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_vector_addition_must_be_commutative_and_associat
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s198
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s203
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s213
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:23Z'
+updated_at: '2026-07-22T03:49:05Z'

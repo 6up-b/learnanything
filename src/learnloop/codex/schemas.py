@@ -18,6 +18,16 @@ class SourceRef(BaseModel):
     locator: str | None = None
     quote: str | None = None
     quote_hash: str | None = None
+    # Reader/source-library citations carry immutable source-layer identity in
+    # addition to the proposal-local ``ref_id``.  Older note-backed authoring
+    # refs omit these fields and retain their existing behavior.
+    source_id: str | None = None
+    revision_id: str | None = None
+    extraction_id: str | None = None
+    span_ids: list[str] = Field(default_factory=list)
+    span_hash: str | None = None
+    section_id: str | None = None
+    learning_object_ids: list[str] = Field(default_factory=list)
 
 
 class TargetEntity(BaseModel):
@@ -376,6 +386,67 @@ class RungBackfillItem(BaseModel):
 
 class RungBackfillClassification(BaseModel):
     items: list[RungBackfillItem] = Field(default_factory=list)
+
+
+class FacetWeightPayload(BaseModel):
+    """One facet-weight pair. Strict structured-output schemas cannot express
+    free-form maps (``additionalProperties`` is stripped, which degrades a
+    ``dict`` field into an object no key can satisfy — and the API rejects the
+    schema), so weights ride as explicit pairs."""
+
+    facet_id: str = ""
+    weight: float = 0.0
+
+
+class CriterionFacetWeightsPayload(BaseModel):
+    """Facet weights for one rubric criterion (strict-schema-safe map entry)."""
+
+    criterion_id: str = ""
+    weights: list[FacetWeightPayload] = Field(default_factory=list)
+
+
+class ExerciseAuthoredItem(BaseModel):
+    """One selected textbook exercise completed into a full PracticeItem
+    contract (reader exercise import).
+
+    Candidate-only: ``statement_md`` must echo one exercise statement verbatim
+    from the learner's selection — the service re-anchors it against the
+    selection text and stores the source-owned slice, so the practice surface
+    is never model-rewritten. Every other field is the AI-authored
+    interpretation around that fixed surface, admitted or repaired by
+    deterministic validators (facet registry, rubric arithmetic, capability
+    vocabulary, p1_launch task-feature schema).
+    """
+
+    statement_md: str = ""
+    title: str = ""
+    learning_object_id: str = ""
+    practice_mode: str = "short_answer"
+    expected_answer_md: str = ""
+    grading_rubric: RubricPatchPayload | None = None
+    evidence_facets: list[str] = Field(default_factory=list)
+    evidence_weights: list[FacetWeightPayload] = Field(default_factory=list)
+    criterion_facet_weights: list[CriterionFacetWeightsPayload] = Field(default_factory=list)
+    hints: list[str] = Field(
+        default_factory=list,
+        description="2-4 progressive hints: orient first, near-give-away last.",
+    )
+    capability: str = ""
+    task_features: TaskFeaturesPayload | None = None
+    difficulty: float | None = Field(default=None, ge=0.0, le=1.0)
+    retrieval_demand: float | None = Field(default=None, ge=0.0, le=1.0)
+    transfer_distance: float | None = Field(default=None, ge=0.0, le=1.0)
+    scaffold_level: float | None = Field(default=None, ge=0.0, le=1.0)
+    classification_reason: str = ""
+
+
+class ExerciseAuthoring(BaseModel):
+    """The full exercise-import response: one entry per distinct exercise
+    found in the learner's selection (a selection sweeping exercises 3-5
+    yields three items)."""
+
+    items: list[ExerciseAuthoredItem] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class DepthEdgeInstancePayload(BaseModel):

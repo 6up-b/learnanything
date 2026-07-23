@@ -1,0 +1,78 @@
+schema_version: 1
+id: lo_read_and_interpret_complex_numbers
+title: Read and Interpret Complex Numbers
+subjects:
+  - vector-spaces
+concept: concept_complex_numbers
+knowledge_type: definition and interpretation
+status: active
+contradicts:
+summary: Interpret a + bi, embed real numbers using zero imaginary component, 
+  and use i^2 = -1.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_2
+    weight: 0.2
+    recipes:
+      - id: recipe_complex_number_representation
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_complex_number_has_the_form_a_bi_with_a_b_real
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_a_real_number_a_is_identified_with_a_0i_while_i_
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_a_real_number_a_is_identified_with_a_0i_while_i_
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s15
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s19
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s23
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:47:57Z'
+updated_at: '2026-07-22T03:48:36Z'

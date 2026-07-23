@@ -1,0 +1,83 @@
+schema_version: 1
+id: lo_compute_with_complex_numbers
+title: Compute with Complex Numbers
+subjects:
+  - vector-spaces
+concept: concept_complex_multiplication
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Add complex numbers componentwise and multiply them by distributive 
+  expansion with i^2 = -1.
+prerequisites:
+  - concept_complex_numbers
+confusables:
+  - concept_complex_addition
+blueprints:
+  - id: bp_01KY3YXS_3
+    weight: 0.3
+    recipes:
+      - id: recipe_complex_arithmetic_operations
+        composition: conjunctive
+        all_of:
+          - facet: facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_multiply_complex_numbers_by_distributing_replaci
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_a_real_number_a_is_identified_with_a_0i_while_i_
+            capability: retrieval
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_multiply_complex_numbers_by_distributing_replaci
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s17
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s24
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s27
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:47:54Z'
+updated_at: '2026-07-22T03:48:32Z'

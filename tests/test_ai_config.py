@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from learnloop.ai.client import make_ai_provider_client
 from learnloop.ai.codex_sdk import codex_config_from_ai_profile
 from learnloop.config import (
     CODEX_CHECKOUT_ENV,
@@ -39,6 +40,20 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.routing.authoring == "codex_medium"
     assert config.ai.routing.canonical_ingest == "codex_medium"
     assert config.ai.routing.canonical_ingest_retry == "codex_medium"
+
+
+def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):
+    config = LearnLoopConfig()
+    config.ai.timeout_seconds = 17
+    config.ai.providers["codex_medium"].timeout_seconds = None
+
+    client = make_ai_provider_client(
+        config,
+        tmp_path,
+        provider_name="codex_medium",
+    )
+
+    assert client.config.timeout_seconds == 17
 
 
 def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path):

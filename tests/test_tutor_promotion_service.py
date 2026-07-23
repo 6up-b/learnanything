@@ -245,6 +245,36 @@ def test_dedup_short_circuit_practice(tmp_path):
     assert features["context"]["outcome"] == "existing_item"
 
 
+def test_reader_promotion_uses_subject_facet_vocabulary_without_origin_item(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    _insert_event(
+        repository,
+        "ev_reader",
+        context="reader",
+        practice_item_id=None,
+        note_id="span:section-1",
+    )
+    client = _AnalysisClient(
+        PromotionAnalysis(
+            attributed_facets=["recall"],
+            covered_by_practice_item_id="pi_svd_define_001",
+        )
+    )
+
+    result = promote_tutor_question(
+        root,
+        client,
+        event_id="ev_reader",
+        intent="practice",
+        subject_id="linear-algebra",
+    )
+
+    assert result["route"] == "existing_item"
+    assert client.analysis_contexts[0].facet_vocabulary == ["recall"]
+    assert client.analysis_contexts[0].existing_items[0]["id"] == "pi_svd_define_001"
+
+
 def test_dedup_short_circuit_gap_writes_claim_no_need(tmp_path):
     root = create_basic_vault(tmp_path / "vault").root
     repository = Repository(root / "state.sqlite")

@@ -11,7 +11,7 @@ import type {
   SourceOutline,
   StartExtractionRepairInput
 } from "../api/dto";
-import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "./term";
+import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermCheckbox, TermSelect } from "./term";
 import { AddToCollectionPanel } from "./AddToCollection";
 
 // The canonical source-role vocabulary (role_authority.KNOWN_ROLES / §4.2), in
@@ -1091,13 +1091,17 @@ function RepairDialog({
           <OptionChip label="external VLM" on={useLlm} onToggle={() => setUseLlm((v) => !v)} danger />
         </div>
 
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: useLlm ? COLOR.amber : COLOR.textDim, cursor: "pointer" }}>
-          <input type="checkbox" checked={consented} onChange={(e) => setConsented(e.target.checked)} />
-          <span>
-            I consent to {useLlm ? "sending these pages to an external VLM service" : "re-running local extraction"} for repair.
-            {useLlm && " This leaves the device."}
-          </span>
-        </label>
+        <TermCheckbox
+          checked={consented}
+          onChange={setConsented}
+          label={
+            <span>
+              I consent to {useLlm ? "sending these pages to an external VLM service" : "re-running local extraction"} for repair.
+              {useLlm && " This leaves the device."}
+            </span>
+          }
+          style={{ alignItems: "flex-start", justifyContent: "flex-start", textAlign: "left", color: useLlm ? COLOR.amber : undefined }}
+        />
 
         {error && <div style={{ color: COLOR.red, fontSize: 12 }}>{error}</div>}
 

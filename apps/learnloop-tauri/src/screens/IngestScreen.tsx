@@ -1148,7 +1148,7 @@ function IngestHome({
                 {pdfEngine !== "auto" && (
                   <Faint style={{ fontSize: 10 }}>
                     {pdfEngine === "marker"
-                      ? "slow (model inference); fails if marker-pdf is not installed"
+                      ? "structured extraction via local Marker, or hosted Datalab in the debug runtime"
                       : "no OCR, tables, or math — scanned PDFs will fail"}
                   </Faint>
                 )}

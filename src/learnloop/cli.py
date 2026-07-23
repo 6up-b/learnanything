@@ -628,6 +628,36 @@ calibration_app = typer.Typer(
 app.add_typer(calibration_app, name="calibration")
 
 
+@calibration_app.command("import-bundle")
+def calibration_import_bundle(
+    bundle_path: Annotated[Path, typer.Argument(help="Path to a calibration bundle YAML/JSON file.")],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Import shipped grader-calibration priors so this vault does not relearn a
+    known grader from scratch. Models import as simulation_validated; promotion
+    to live_calibrated still requires this vault's own adjudicated anchors."""
+
+    import json as _json_module
+
+    from learnloop.services.grader_calibration import import_calibration_bundle
+    from learnloop.vault.yaml_io import read_yaml
+
+    if bundle_path.suffix.lower() in (".yaml", ".yml"):
+        bundle = read_yaml(bundle_path)
+    else:
+        bundle = _json_module.loads(bundle_path.read_text())
+    repository = _repository(_root(vault))
+    imported = import_calibration_bundle(repository, bundle)
+    if json_output:
+        typer.echo(_dump({"version": 1, "imported_model_ids": imported}))
+        return
+    if imported:
+        typer.echo(f"Imported {len(imported)} calibration model(s): {', '.join(imported)}")
+    else:
+        typer.echo("Bundle already imported (content-hash match); nothing to do.")
+
+
 @calibration_app.command("bootstrap-sample")
 def calibration_bootstrap_sample(
     frame_id: Annotated[str | None, typer.Option("--frame-id", help="Reuse an existing sampling-frame id.")] = None,
@@ -4354,7 +4384,7 @@ def today(
 def eval_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     section: Annotated[
-        str, typer.Option("--section", help="predictions|gates|retention|propensity|all")
+        str, typer.Option("--section", help="predictions|coverage|gates|retention|propensity|all")
     ] = "all",
     bins: Annotated[int, typer.Option("--bins", help="Calibration bin count.")] = 10,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
@@ -4363,7 +4393,7 @@ def eval_command(
 
     from learnloop.services.evaluation import build_eval_report
 
-    valid = {"predictions", "gates", "retention", "propensity"}
+    valid = {"predictions", "coverage", "gates", "retention", "propensity"}
     sections = valid if section == "all" else {part.strip() for part in section.split(",") if part.strip()}
     unknown = sections - valid
     if unknown:

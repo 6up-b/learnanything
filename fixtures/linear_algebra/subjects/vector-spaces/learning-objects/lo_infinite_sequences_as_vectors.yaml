@@ -1,0 +1,82 @@
+schema_version: 1
+id: lo_infinite_sequences_as_vectors
+title: Infinite Sequences as Vectors
+subjects:
+  - vector-spaces
+concept: concept_sequence_space
+knowledge_type: conceptual and procedural
+status: active
+contradicts:
+summary: Interpret infinite scalar sequences as vectors, perform their 
+  operations componentwise, and connect coordinatewise laws to the vector-space 
+  axioms.
+prerequisites:
+  - concept_vector_space
+  - concept_vector_space_operations
+  - concept_vector_space_axioms
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_18
+    weight: 0.9
+    recipes:
+      - id: recipe_verify_sequence_space
+        composition: conjunctive
+        all_of:
+          - facet: facet_the_set_of_infinite_scalar_sequences_becomes_a_v
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_vector_addition_must_be_commutative_and_associat
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_the_set_of_infinite_scalar_sequences_becomes_a_v
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s228
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s231
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s233
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: exercise
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:27Z'
+updated_at: '2026-07-22T03:49:09Z'

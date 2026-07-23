@@ -527,6 +527,7 @@ export function PracticeScreen({
                 api.getPracticeItem(item.id).then(setItem).catch(() => {});
               }}
               onRetired={onBack}
+              onTeachBack={isTeachBack ? undefined : onContinueDiagnostic}
             />
           ) : null}
           {item.sourceRefs.length > 0 ? (

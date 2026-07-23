@@ -21,6 +21,13 @@ class SourceRef(VaultModel):
     locator: str | None = None
     quote: str | None = None
     quote_hash: str | None = None
+    source_id: str | None = None
+    revision_id: str | None = None
+    extraction_id: str | None = None
+    span_ids: list[str] = Field(default_factory=list)
+    span_hash: str | None = None
+    section_id: str | None = None
+    learning_object_ids: list[str] = Field(default_factory=list)
 
 
 class Provenance(VaultModel):

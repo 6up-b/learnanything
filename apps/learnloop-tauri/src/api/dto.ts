@@ -3852,6 +3852,22 @@ export interface ReaderAnswerDto {
   remaining: number | null;
 }
 
+/** A completed Reader Ask restored from the durable interaction-event log. */
+export interface ReaderAskHistoryExchangeDto {
+  eventId: string;
+  extractionId: string;
+  spanId: string;
+  questionMd: string;
+  answerMd: string;
+  answerMode: ReaderAnswerMode;
+  citations: unknown[];
+  createdAt: string | null;
+}
+export interface ReaderAskHistoryDto {
+  version?: number;
+  exchanges: ReaderAskHistoryExchangeDto[];
+}
+
 /** reader.choose_disposition — the four reading-question dispositions (U-033). */
 export type ReaderDisposition =
   | "comprehension_only"
@@ -4060,6 +4076,9 @@ export interface ReaderPdfBlockDto {
   page: number;
   bbox: number[];
   blockType: string | null;
+  /** Extraction text for the block — the source-owned quote a block-snapped
+   *  selection sends, so anchoring is exact by construction. */
+  text?: string | null;
 }
 
 /** reader.pdf_view — Tier-2 embedded PDF manifest: originals-store file served
@@ -4081,9 +4100,19 @@ export interface ReaderRawSelectionNode {
   start?: number;
   end?: number;
   quote?: string;
+  /** Rendered-surface text around the capture (atomic-unit ctrl+click sends
+   *  it) — lets the backend disambiguate repeated quotes without guessing. */
+  prefix?: string;
+  suffix?: string;
+  /** The learner edited this quote in the capture editor (OCR fix): the edited
+   *  text overrides the extraction slice as the exercise surface. */
+  edited?: boolean;
 }
 export interface ReaderRawSelection {
   nodes: ReaderRawSelectionNode[];
+  /** Learner-edited combined passage (capture editor): overrides the whole
+   *  exercise surface while `nodes` keep anchoring the original blocks. */
+  editedText?: string;
 }
 
 export interface ReaderTranslateSelectionInput {
@@ -4185,6 +4214,55 @@ export interface ReaderPresetReceiptDto extends ReaderCaptureReceiptDto {
 }
 
 // P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration.
+export interface ReaderImportExerciseInput {
+  extractionId: string;
+  rawSelection: ReaderRawSelection;
+  renderViewId?: string | null;
+  sourceId?: string | null;
+  revisionId?: string | null;
+  learningObjectId?: string | null;
+  clientIdempotencyKey?: string | null;
+}
+export interface ReaderExerciseImportReceiptDto {
+  version?: number;
+  status: string;
+  batchId: string;
+}
+export interface ReaderExerciseImportedItem {
+  practiceItemId: string;
+  title: string;
+  prompt: string;
+  learningObjectId: string;
+  learningObjectTitle: string;
+  practiceMode: string;
+  capability: string;
+  taskFeatures: Record<string, unknown>;
+  evidenceFacets: string[];
+  difficulty: number | null;
+  hintCount: number;
+  classificationReason: string;
+}
+export interface ReaderExerciseImportSkip {
+  title: string;
+  reason: string;
+  practiceItemId?: string;
+  deduplicated?: boolean;
+}
+export interface ReaderExerciseImportResult {
+  extractionId: string;
+  items: ReaderExerciseImportedItem[];
+  skipped: ReaderExerciseImportSkip[];
+  warnings: string[];
+  anchorStatus: string;
+}
+export interface ReaderExerciseImportStatusDto {
+  version?: number;
+  status: string;
+  phase?: string | null;
+  message?: string | null;
+  result?: ReaderExerciseImportResult | null;
+  error?: { code?: string; message?: string } | null;
+}
 export interface ReaderAuthorQAInput {
   question: string;
   answer: string;

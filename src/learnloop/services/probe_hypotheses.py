@@ -39,6 +39,27 @@ H_OTHER = "other_or_unknown"
 CONFUSES_PREFIX = "confuses_with:"
 MISCONCEPTION_PREFIX = "misconception:"
 
+# Hypothesis label -> failure-triage reason (the routes table's taxonomy).
+# This is the bridge that lets episode completion ask evsi's question — "do all
+# plausible hypotheses imply the same first intervention?" — against the
+# authored failure_triage_routes rows. Each template maps to the reason whose
+# seeded route best repairs it; the two dynamic prefixes are belief faults.
+TRIAGE_REASON_BY_HYPOTHESIS = {
+    H_UNFAMILIAR: "unfamiliar_or_missing_knowledge",
+    H_SURFACE_ONLY: "schema_or_conceptual_hole",
+    H_RECALL_WITHOUT_MECHANISM: "schema_or_conceptual_hole",
+    H_PROCEDURE_WITHOUT_SELECTION: "method_selection",
+    H_SCHEMA_WITHOUT_TRANSFER: "coordination_or_integration",
+    H_ROBUST: "memory_lapse",
+    H_OTHER: "unknown_or_ambiguous",
+}
+
+
+def triage_reason_for_label(label: str) -> str:
+    if label.startswith(CONFUSES_PREFIX) or label.startswith(MISCONCEPTION_PREFIX):
+        return "false_belief_or_confusion"
+    return TRIAGE_REASON_BY_HYPOTHESIS.get(label, "unknown_or_ambiguous")
+
 
 def confused_concept(label: str) -> str | None:
     if not label.startswith(CONFUSES_PREFIX):

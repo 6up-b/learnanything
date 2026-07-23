@@ -1,0 +1,60 @@
+# TEMPLATE ONLY — illustrative numbers, not fitted evidence. Do not import
+# into a real vault; see README.md for how to produce a real bundle.
+name: example-grader-bundle
+version: 0.1.0
+models:
+  - grader_provider: codex
+    grader_model_revision: null            # null pools across revisions
+    outcome_schema_slug: coarse_response_v1
+    scope_level: grader_identity
+    domain: null
+    length_bucket: null
+    prior_concentration: 40.0
+    # alphas: {true_class: {"<observed_class>|<confidence_bucket>": alpha}}
+    # Joint cells over observed emission x confidence bucket; fitted from
+    # adjudicated (true_class, emission) counts. Values below are placeholders.
+    alphas:
+      success:
+        "success|high": 20.0
+        "success|medium": 6.0
+        "success|low": 1.0
+        "success|unknown": 0.3
+        "partial_success|high": 1.0
+        "partial_success|medium": 1.0
+        "partial_success|low": 0.5
+        "partial_success|unknown": 0.15
+        "other|high": 0.25
+        "other|medium": 0.25
+        "other|low": 0.25
+        "other|unknown": 0.075
+      partial_success:
+        "success|high": 2.0
+        "success|medium": 1.5
+        "success|low": 0.5
+        "success|unknown": 0.15
+        "partial_success|high": 10.0
+        "partial_success|medium": 5.0
+        "partial_success|low": 1.5
+        "partial_success|unknown": 0.45
+        "other|high": 1.0
+        "other|medium": 1.0
+        "other|low": 0.5
+        "other|unknown": 0.15
+      other:
+        "success|high": 0.5
+        "success|medium": 0.5
+        "success|low": 0.25
+        "success|unknown": 0.075
+        "partial_success|high": 1.5
+        "partial_success|medium": 1.0
+        "partial_success|low": 0.75
+        "partial_success|unknown": 0.225
+        "other|high": 12.0
+        "other|medium": 5.0
+        "other|low": 2.0
+        "other|unknown": 0.6
+    evidence_manifest:
+      adjudicated_anchors: 0     # fill from the exporting vault
+      held_out_responses: 0
+      brier_score: null
+      log_loss: null

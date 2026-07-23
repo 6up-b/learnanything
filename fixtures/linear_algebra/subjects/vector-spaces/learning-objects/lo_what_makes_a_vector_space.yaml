@@ -1,0 +1,68 @@
+schema_version: 1
+id: lo_what_makes_a_vector_space
+title: What Makes a Vector Space?
+subjects:
+  - vector-spaces
+concept: concept_vector_space
+knowledge_type: conceptual and declarative
+status: active
+contradicts:
+summary: Recognize a vector space as an abstract set whose specified operations 
+  satisfy a complete algebraic interface, without restricting vectors to 
+  geometric arrows.
+prerequisites:
+  - concept_vector_space_operations
+  - concept_vector_space_axioms
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_15
+    weight: 1.0
+    recipes:
+      - id: recipe_recognize_vector_space_structure
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_vector_space_is_a_set_equipped_with_addition_a
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_vector_addition_must_be_commutative_and_associat
+            capability: retrieval
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_a_vector_space_is_a_set_equipped_with_addition_a
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s201
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+      path:
+      locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s155
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+      role: lecture
+      source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+      span_hash:
+created_at: '2026-07-22T03:48:30Z'
+updated_at: '2026-07-22T03:49:13Z'

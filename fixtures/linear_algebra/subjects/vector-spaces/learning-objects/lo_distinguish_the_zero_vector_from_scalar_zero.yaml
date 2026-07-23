@@ -1,0 +1,69 @@
+schema_version: 1
+id: lo_distinguish_the_zero_vector_from_scalar_zero
+title: Distinguish the Zero Vector from Scalar Zero
+subjects:
+  - vector-spaces
+concept: concept_zero_vector
+knowledge_type: definition and interpretation
+status: active
+contradicts:
+summary: Identify the zero vector as an all-zero coordinate list and use type 
+  context to interpret overloaded zero notation.
+prerequisites:
+  - concept_scalars_over_r_or_c
+  - concept_coordinate_space_f_n
+  - concept_coordinatewise_addition
+confusables:
+  - concept_scalars_over_r_or_c
+blueprints:
+  - id: bp_01KY3YXS_9
+    weight: 0.14
+    recipes:
+      - id: recipe_zero_definition_and_typing
+        composition: conjunctive
+        all_of:
+          - facet: facet_the_zero_vector_in_f_n_is_the_length_n_list_0_0_
+            capability: retrieval
+            modality: hard
+          - facet: facet_when_the_symbol_0_is_overloaded_its_surrounding_
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_when_the_symbol_0_is_overloaded_its_surrounding_
+          capability: method_selection
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s131
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s137
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:10Z'
+updated_at: '2026-07-22T03:48:50Z'

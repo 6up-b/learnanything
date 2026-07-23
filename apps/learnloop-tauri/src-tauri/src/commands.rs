@@ -941,6 +941,14 @@ pub async fn resolve_question_event(
 }
 
 #[tauri::command]
+pub async fn request_teach_back(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "request_teach_back", input).await
+}
+
+#[tauri::command]
 pub async fn start_teach_back(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -1351,6 +1359,8 @@ p2_passthrough!(reader_authored_question_action, "reader.authored_question_actio
 p2_passthrough!(reader_get_progress, "reader.get_progress");
 p2_passthrough!(reader_mark_section_progress, "reader.mark_section_progress");
 p2_passthrough!(reader_escalate_authored_question, "reader.escalate_authored_question");
+p2_passthrough!(reader_import_exercise, "reader.import_exercise");
+p2_passthrough!(reader_exercise_import_status, "reader.exercise_import_status");
 p2_passthrough!(reader_search_sources, "reader.search_sources");
 p2_passthrough!(reader_manual_anchor, "reader.manual_anchor");
 p2_passthrough!(reader_block_health, "reader.block_health");

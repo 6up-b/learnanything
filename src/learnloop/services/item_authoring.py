@@ -222,7 +222,59 @@ def retire_item(
         clock=clock,
     )
     _mirror_surface_retirement(vault, repository, item, reason=reason, clock=clock)
+    _apply_difficulty_report(vault, repository, item, reason=reason, clock=clock)
     return {"id": practice_item_id, "status": "retired"}
+
+
+def _apply_difficulty_report(
+    vault,
+    repository: Repository,
+    item,
+    *,
+    reason: str,
+    clock: Clock | None = None,
+) -> None:
+    """A too_easy/too_hard retirement is a learner report about THEMSELVES, not
+    only about the card. Write the same LO-scoped claim a rung-variant request
+    writes (harder/easier level at the standard pseudo-count) and re-anchor the
+    LO's mastery so the scheduler and the generation rung selector see it now —
+    otherwise the learner keeps receiving items at the rung they just rejected.
+    """
+
+    if reason not in ("too_easy", "too_hard") or not item.learning_object_id:
+        return
+    from learnloop.services.capability_mapping import default_capability_for
+    from learnloop.services.mastery import reanchor_mastery_from_claim
+
+    config = vault.config.rung_variants
+    claim_level = (
+        config.harder_claim_level if reason == "too_easy" else config.easier_claim_level
+    )
+    repository.delete_learner_claims(
+        source="learner_report",
+        scope_type="learning_object",
+        scope_id=item.learning_object_id,
+    )
+    repository.insert_learner_claim(
+        {
+            "claim_type": "self_rating",
+            "scope_type": "learning_object",
+            "scope_id": item.learning_object_id,
+            "evidence_family": default_capability_for(item.practice_mode),
+            "claimed_level": claim_level,
+            "prior_pseudo_count": config.claim_pseudo_count,
+            "source": "learner_report",
+        },
+        clock=clock,
+    )
+    reanchor_mastery_from_claim(
+        vault,
+        repository,
+        item.learning_object_id,
+        claimed_level=claim_level,
+        prior_pseudo_count=config.claim_pseudo_count,
+        now_iso=utc_now_iso(clock),
+    )
 
 
 def split_item(

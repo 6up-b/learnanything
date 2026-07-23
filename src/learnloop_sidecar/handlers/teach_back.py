@@ -46,6 +46,47 @@ from learnloop_sidecar.handlers.sessions import (
 from learnloop_sidecar.registry import method
 
 
+class RequestTeachBackInput(ParamsModel):
+    # Either directly, or via a sibling practice item on the same LO.
+    learning_object_id: str | None = None
+    practice_item_id: str | None = None
+
+
+@method("request_teach_back", RequestTeachBackInput)
+def request_teach_back(ctx: SidecarContext, params: RequestTeachBackInput) -> dict[str, Any]:
+    """Learner opt-in to a teach-back on an LO: find or mint the card.
+
+    Returns the teach_back practice item id (existing active card, else a
+    deterministically minted one — see ``ensure_teach_back_item``). The client
+    then drives the normal ``start_teach_back`` flow with it.
+    """
+
+    from learnloop.services.teach_back import ensure_teach_back_item
+
+    vault, repository = ctx.require_vault()
+    learning_object_id = params.learning_object_id
+    if learning_object_id is None:
+        if params.practice_item_id is None:
+            raise SidecarError(
+                "validation_error", "learning_object_id or practice_item_id is required."
+            )
+        item = vault.practice_items.get(params.practice_item_id)
+        if item is None:
+            raise SidecarError(
+                "not_found", f"Practice Item {params.practice_item_id} was not found."
+            )
+        learning_object_id = item.learning_object_id
+    try:
+        item_id, created = ensure_teach_back_item(
+            vault.root, vault, repository, learning_object_id
+        )
+    except TeachBackError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    if created:
+        ctx.reload(maintenance=False)
+    return versioned({"practice_item_id": item_id, "created": created})
+
+
 class StartTeachBackInput(ParamsModel):
     session_id: str
     practice_item_id: str

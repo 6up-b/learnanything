@@ -144,6 +144,21 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     )
 
 
+class ReaderAskHistoryInput(ParamsModel):
+    extraction_id: str
+
+
+@method("reader.ask_history", ReaderAskHistoryInput)
+def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> dict[str, Any]:
+    """List the durable, completed Ask exchanges for the open source."""
+
+    _vault, repository = _require_reader(ctx)
+    source_id = _source_id_for_extraction(repository, params.extraction_id)
+    if source_id is not None:
+        _require_source_reader(repository, source_id)
+    return versioned({"exchanges": RD.ask_history(repository, extraction_id=params.extraction_id)})
+
+
 class ReaderSetAnswerModeInput(ParamsModel):
     extraction_id: str
     span_id: str
@@ -472,6 +487,11 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
                     "page": block.page,
                     "bbox": list(block.bbox),
                     "block_type": block.block_type,
+                    # Extraction text rides along so block-snapped selections can
+                    # send the source-owned text as the quote — glyph text off the
+                    # pdf.js layer diverges from extraction text (dropped/LaTeX
+                    # math) and can never anchor exactly.
+                    "text": block.text,
                 }
             )
     return versioned(
@@ -1338,7 +1358,10 @@ def reader_mark_section_progress(
     'none_needed' = mapped to zero targets, else the enqueued batch id) — a
     re-completed section never enqueues twice."""
 
-    from learnloop.services.reader_progression import section_generation_candidates
+    from learnloop.services.reader_progression import (
+        section_generation_candidates,
+        source_refs_for_section,
+    )
     from learnloop.services.source_outline import resolve_extraction_id as _resolve
 
     vault, repository = _require_reader(ctx)
@@ -1368,9 +1391,17 @@ def reader_mark_section_progress(
             if repository.mark_section_generation(
                 extraction_id=resolved, section_id=params.section_id, batch_id="enqueuing"
             ):
+                source_refs = source_refs_for_section(
+                    vault,
+                    repository,
+                    extraction_id=resolved,
+                    section_id=params.section_id,
+                    learning_object_ids=lo_ids,
+                )
                 batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
                     learning_object_ids=lo_ids,
                     reason=f"reader_section_completed:{params.section_id}",
+                    source_refs=source_refs,
                 )
                 repository.set_section_generation_batch(
                     extraction_id=resolved, section_id=params.section_id, batch_id=batch_id
@@ -1415,6 +1446,87 @@ def reader_authored_question_action(
 class ReaderEscalateAuthoredQuestionInput(ParamsModel):
     question_id: str
     learning_object_id: str
+
+
+class ReaderImportExerciseInput(ParamsModel):
+    extraction_id: str
+    raw_selection: dict[str, Any]
+    render_view_id: str | None = None
+    source_id: str | None = None
+    revision_id: str | None = None
+    learning_object_id: str | None = None
+    client_idempotency_key: str | None = None
+
+
+@method("reader.import_exercise", ReaderImportExerciseInput)
+def reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInput) -> dict[str, Any]:
+    """Queue the exact-exercise slice: the learner's selection (ordered
+    per-block nodes) becomes one background authoring job that writes complete,
+    schedulable PracticeItems around the verbatim exercise text."""
+
+    from learnloop.codex.runtime import check_codex_runtime
+    from learnloop.services.source_outline import resolve_extraction_id as _resolve
+
+    vault, repository = _require_reader(ctx)
+    resolved = _resolve(repository, params.extraction_id)
+    if resolved is None:
+        raise SidecarError(
+            "extraction_not_found", f"No extraction resolves for {params.extraction_id!r}."
+        )
+    nodes = list((params.raw_selection or {}).get("nodes") or [])
+    if not nodes:
+        raise SidecarError("validation_error", "The selection has no anchorable nodes.")
+    source_id = params.source_id or _source_id_for_extraction(repository, resolved)
+    if source_id is not None:
+        _require_source_reader(repository, source_id)
+
+    runtime = check_codex_runtime(vault.root, vault.config.codex)
+    if not runtime.ready:
+        raise SidecarError(
+            "provider_unavailable",
+            runtime.message or "The AI provider is unavailable for exercise authoring.",
+            retryable=True,
+        )
+    batch_id = ctx.ingest_jobs.enqueue_reader_exercise_import(
+        extraction_id=resolved,
+        raw_selection=dict(params.raw_selection),
+        render_view_id=params.render_view_id,
+        source_id=source_id,
+        revision_id=params.revision_id,
+        learning_object_hint=params.learning_object_id,
+    )
+    return versioned({"status": "queued", "batch_id": batch_id})
+
+
+class ReaderExerciseImportStatusInput(ParamsModel):
+    batch_id: str
+
+
+@method("reader.exercise_import_status", ReaderExerciseImportStatusInput)
+def reader_exercise_import_status(
+    ctx: SidecarContext, params: ReaderExerciseImportStatusInput
+) -> dict[str, Any]:
+    """Poll one exercise-import batch. On completion the vault is reloaded
+    (once) so the authored cards schedule immediately, then the job's result
+    payload — written-card summaries, skips, warnings — rides back to the UI."""
+
+    _vault, repository = _require_reader(ctx)
+    jobs = repository.ingest_jobs_for_batch(params.batch_id)
+    if not jobs:
+        raise SidecarError("batch_not_found", f"No jobs found for batch {params.batch_id!r}.")
+    job = jobs[0]
+    if job.get("status") == "completed" and ctx.ingest_jobs.needs_reload(job["id"]):
+        ctx.reload(maintenance=False)
+        ctx.ingest_jobs.mark_reloaded(job["id"])
+    return versioned(
+        {
+            "status": job.get("status"),
+            "phase": job.get("phase"),
+            "message": job.get("message"),
+            "result": job.get("result"),
+            "error": job.get("error"),
+        }
+    )
 
 
 @method("reader.escalate_authored_question", ReaderEscalateAuthoredQuestionInput)

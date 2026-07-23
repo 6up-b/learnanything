@@ -169,6 +169,7 @@ import type {
   ReaderPromptContractDto,
   ReaderAskInput,
   ReaderAnswerDto,
+  ReaderAskHistoryDto,
   ReaderGuidePlanDto,
   ReaderMarkProgressResultDto,
   ReaderProgressListDto,
@@ -197,6 +198,9 @@ import type {
   ReaderRequestRow,
   ReaderAuthorQAInput,
   ReaderAuthoredCardDto,
+  ReaderImportExerciseInput,
+  ReaderExerciseImportReceiptDto,
+  ReaderExerciseImportStatusDto,
   ReaderCoachLintDto,
   ReaderMaintainInput,
   ReaderArcDto,
@@ -490,6 +494,8 @@ export const api = {
     call<{ practiceItemId: string; created: string[] }>("split_practice_item", { input }),
   resolveQuestionEvent: (eventId: string, resolution: QuestionResolution) =>
     call<ResolveQuestionEventResult>("resolve_question_event", { input: { eventId, resolution } }),
+  requestTeachBack: (input: { learningObjectId?: string; practiceItemId?: string }) =>
+    call<{ version: number; practiceItemId: string; created: boolean }>("request_teach_back", { input }),
   startTeachBack: (input: StartTeachBackInput) =>
     call<StartTeachBackResult>("start_teach_back", { input }),
   submitTeachBackTurn: (input: SubmitTeachBackTurnInput) =>
@@ -667,6 +673,8 @@ export const api = {
   // reader.* (U-033)
   readerPromptContract: () => call<ReaderPromptContractDto>("reader_prompt_contract", { input: {} }),
   readerAsk: (input: ReaderAskInput) => call<ReaderAnswerDto>("reader_ask", { input }),
+  readerAskHistory: (extractionId: string) =>
+    call<ReaderAskHistoryDto>("reader_ask_history", { input: { extractionId } }),
   readerSetAnswerMode: (input: { extractionId: string; spanId: string; answerMode: ReaderAnswerMode }) =>
     call<{ eventId: string; answerMode: ReaderAnswerMode }>("reader_set_answer_mode", { input }),
   readerPresentQuestion: (input: { practiceItemId: string; readingPhase: string; goalId?: string | null; targetContractVersionId?: string | null }) =>
@@ -777,6 +785,10 @@ export const api = {
   // reader.* (P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration)
   readerAuthorQA: (input: ReaderAuthorQAInput) =>
     call<ReaderAuthoredCardDto>("reader_author_qa", { input }),
+  readerImportExercise: (input: ReaderImportExerciseInput) =>
+    call<ReaderExerciseImportReceiptDto>("reader_import_exercise", { input }),
+  readerExerciseImportStatus: (input: { batchId: string }) =>
+    call<ReaderExerciseImportStatusDto>("reader_exercise_import_status", { input }),
   readerCoachLint: (input: { question: string; answer: string; level?: string }) =>
     call<ReaderCoachLintDto>("reader_coach_lint", { input }),
   readerMaintain: (input: ReaderMaintainInput) =>

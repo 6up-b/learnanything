@@ -55,6 +55,15 @@ fn debug_zoom_enabled() -> bool {
 }
 
 fn main() {
+    // WebKitGTK's DMA-BUF renderer intermittently drops composited tiles on
+    // Linux (Intel/Mesa): toggling display on the reader rail's tab panels
+    // rebuilds a compositing layer whose tile is never repainted, leaving the
+    // Guide/Ask/Notes rail blank until a full relayout. Fall back to the
+    // non-DMA-BUF path; honor an explicit override from the environment.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -199,6 +208,7 @@ fn main() {
             edit_practice_item,
             retire_practice_item,
             split_practice_item,
+            request_teach_back,
             start_teach_back,
             submit_teach_back_turn,
             goals_list,
@@ -291,6 +301,8 @@ fn main() {
             reader_mark_section_progress,
             reader_authored_question_action,
             reader_escalate_authored_question,
+            reader_import_exercise,
+            reader_exercise_import_status,
             reader_search_sources,
             reader_manual_anchor,
             reader_block_health,

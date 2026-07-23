@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { CommandError, RetirementReason } from "../api/dto";
 import { RETIREMENT_REASONS } from "../api/dto";
-import { COLOR, Faint, FONT_MONO } from "./term";
+import { COLOR, Faint, FONT_MONO, TermSelect } from "./term";
 
 // Learner card controls (Andy: "readers control the prompts they collect"):
 // reword, split ("this wants to be two questions"), retire — immediately, in
@@ -122,13 +122,62 @@ export function RungVariantActions({
   );
 }
 
+// Learner opt-in to teach-back: the highest-mass conversational evidence.
+// Finds the LO's existing teach_back card or mints one server-side, then hands
+// the item id to the caller to open in practice.
+export function TeachBackAction({
+  practiceItemId,
+  disabled = false,
+  onError,
+  onOpen
+}: {
+  practiceItemId: string;
+  disabled?: boolean;
+  onError: (message: string) => void;
+  /** Navigate into practice on the teach-back card. */
+  onOpen: (teachBackItemId: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const request = async () => {
+    if (busy || disabled) return;
+    setBusy(true);
+    try {
+      const result = await api.requestTeachBack({ practiceItemId });
+      onOpen(result.practiceItemId);
+    } catch (error) {
+      onError((error as CommandError).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const inactive = disabled || busy;
+  return (
+    <span
+      onClick={() => void request()}
+      title="teach this concept back to a curious AI student — a conversation, graded as one high-evidence attempt"
+      style={{
+        fontFamily: FONT_MONO,
+        fontSize: 11,
+        color: inactive ? COLOR.textFaint : COLOR.amberLink,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+        cursor: inactive ? "default" : "pointer",
+        whiteSpace: "nowrap"
+      }}
+    >
+      {busy ? "…" : "◊ teach it"}
+    </span>
+  );
+}
+
 export function CardControls({
   practiceItemId,
   prompt,
   expectedAnswer,
   onError,
   onChanged,
-  onRetired
+  onRetired,
+  onTeachBack
 }: {
   practiceItemId: string;
   prompt: string;
@@ -140,6 +189,9 @@ export function CardControls({
   onChanged?: () => void;
   /** Called after a successful retire or split (caller navigates/refreshes). */
   onRetired?: (createdIds?: string[]) => void;
+  /** When provided, shows the teach-back opt-in; called with the teach-back
+   *  card id to open in practice. */
+  onTeachBack?: (teachBackItemId: string) => void;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
@@ -268,6 +320,14 @@ export function CardControls({
           onError={onError}
           onApplied={() => onChanged?.()}
         />
+        {onTeachBack ? (
+          <TeachBackAction
+            practiceItemId={practiceItemId}
+            disabled={busy}
+            onError={onError}
+            onOpen={onTeachBack}
+          />
+        ) : null}
         {notice ? <Faint style={{ fontSize: 11 }}>{notice}</Faint> : null}
       </div>
 
@@ -307,15 +367,13 @@ export function CardControls({
       {panel === "retire" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, border: `1px solid ${COLOR.border}`, padding: 8 }}>
           <Faint style={{ fontSize: 11 }}>nothing is deleted — attempts and evidence stay; it is just never served again.</Faint>
-          <select
+          <TermSelect
             value={reason}
-            onChange={(e) => setReason(e.target.value as RetirementReason)}
-            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, color: COLOR.text, border: `1px solid ${COLOR.border}`, padding: 4 }}
-          >
-            {RETIREMENT_REASONS.map((r) => (
-              <option key={r} value={r}>{REASON_LABEL[r]}</option>
-            ))}
-          </select>
+            onChange={(value) => setReason(value as RetirementReason)}
+            options={RETIREMENT_REASONS.map((value) => ({ value, label: REASON_LABEL[value] }))}
+            ariaLabel="Reason for retiring this practice item"
+            width="100%"
+          />
           {textarea(note, setNote, "optional note…", 2)}
           <div style={{ display: "flex", gap: 12 }}>{action("retire this card", () => void retire())}</div>
         </div>

@@ -1,2 +1,272 @@
 schema_version: 1
-concepts: {}
+concepts:
+  concept_complex_addition:
+    title: Complex Addition
+    type: procedure
+    aliases:
+      - addition of complex numbers
+    description: Componentwise addition of complex numbers in standard form.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_complex_addition
+  concept_complex_arithmetic_laws:
+    title: Complex Arithmetic Laws
+    type: concept
+    aliases:
+      - properties of complex arithmetic
+    description: The commutative, associative, identity, inverse, and 
+      distributive properties of complex arithmetic.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_complex_arithmetic_laws
+  concept_complex_multiplication:
+    title: Complex Multiplication
+    type: procedure
+    aliases:
+      - multiplication of complex numbers
+      - product of complex numbers
+    description: Multiplication of complex numbers by distribution and the 
+      identity i^2 = -1.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_complex_multiplication
+  concept_complex_numbers:
+    title: Complex Numbers
+    type: concept
+    aliases:
+      - complex number
+      - complex-number system
+    description: Numbers represented by real and imaginary components in the 
+      form a + bi.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_complex_numbers
+  concept_definition_based_proof_in_complex_arithmetic:
+    title: Definition-Based Proof in Complex Arithmetic
+    type: skill
+    aliases:
+      - componentwise proof for complex numbers
+    description: Proving a universal complex-number identity by expanding 
+      arbitrary numbers into real and imaginary components and applying 
+      real-number laws.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_definition_based_proof_in_complex_arithmetic
+  concept_vector_space:
+    title: Vector Space
+    type: concept
+    aliases:
+      - vector spaces
+      - linear space
+      - Vector spaces
+      - abstract vector spaces
+    description: A set equipped with vector addition and scalar multiplication 
+      satisfying specified algebraic properties.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_vector_space
+  concept_coordinate_proofs_in_f_n:
+    title: Coordinate Proofs in F^n
+    type: skill
+    aliases:
+      - componentwise proof
+      - coordinate calculation
+    description: Proving vector identities by expanding vectors into 
+      coordinates, applying scalar facts coordinate by coordinate, and 
+      reassembling the result.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_coordinate_proofs_in_f_n
+  concept_coordinate_space_f_n:
+    title: Coordinate Space F^n
+    type: concept
+    aliases:
+      - n-dimensional coordinate space over F
+    description: The set of length-n coordinate lists with entries in the scalar
+      system F.
+    tags: []
+    created_at: '2026-07-22T03:46:56Z'
+    updated_at: '2026-07-22T03:46:56Z'
+    id: concept_coordinate_space_f_n
+  concept_coordinatewise_addition:
+    title: Coordinatewise Addition
+    type: procedure
+    aliases:
+      - addition in F^n
+      - addition of coordinate lists
+    description: Addition of two elements of F^n by adding entries in matching 
+      coordinate positions.
+    tags: []
+    created_at: '2026-07-22T03:46:57Z'
+    updated_at: '2026-07-22T03:46:57Z'
+    id: concept_coordinatewise_addition
+  concept_finite_ordered_lists:
+    title: Finite Ordered Lists
+    type: concept
+    aliases:
+      - lists
+      - tuples
+      - n-tuples
+    description: Finite ordered collections whose length, positions, order, and 
+      repetitions determine their identity.
+    tags: []
+    created_at: '2026-07-22T03:46:57Z'
+    updated_at: '2026-07-22T03:46:57Z'
+    id: concept_finite_ordered_lists
+  concept_scalars_over_r_or_c:
+    title: Scalars over R or C
+    type: concept
+    aliases:
+      - scalar field F
+      - scalar arithmetic
+    description: Real or complex numbers used as scalars, together with the 
+      arithmetic operations and identities needed for coordinate calculations.
+    tags: []
+    created_at: '2026-07-22T03:46:57Z'
+    updated_at: '2026-07-22T03:46:57Z'
+    id: concept_scalars_over_r_or_c
+  concept_zero_vector:
+    title: Zero Vector
+    type: concept
+    aliases:
+      - zero element of F^n
+      - zero list
+    description: The element of F^n whose coordinates are all scalar zero, with 
+      its meaning determined by type context.
+    tags: []
+    created_at: '2026-07-22T03:46:57Z'
+    updated_at: '2026-07-22T03:46:57Z'
+    id: concept_zero_vector
+  concept_coordinate_vector_operations:
+    title: Coordinate vector operations
+    type: concept
+    aliases:
+      - operations on coordinate vectors
+      - coordinate-space arithmetic
+    description: Addition, zero, additive inverses, and scalar multiplication 
+      for coordinate vectors, including type-aware interpretation of notation.
+    tags: []
+    created_at: '2026-07-22T03:46:57Z'
+    updated_at: '2026-07-22T03:46:57Z'
+    id: concept_coordinate_vector_operations
+  concept_geometric_interpretation_of_vectors:
+    title: Geometric interpretation of vectors
+    type: concept
+    aliases:
+      - arrow interpretation of vectors
+      - geometric vectors
+    description: The point-and-arrow model of two-dimensional vectors and the 
+      geometric effects of vector addition and scalar multiplication.
+    tags: []
+    created_at: '2026-07-22T03:46:58Z'
+    updated_at: '2026-07-22T03:46:58Z'
+    id: concept_geometric_interpretation_of_vectors
+  concept_scalar_fields:
+    title: Scalar fields
+    type: concept
+    aliases:
+      - fields
+      - scalar field
+    description: Fields as scalar systems with addition, multiplication, 
+      identities, and inverses, including examples and limits on generalization.
+    tags: []
+    created_at: '2026-07-22T03:46:58Z'
+    updated_at: '2026-07-22T03:46:58Z'
+    id: concept_scalar_fields
+  concept_basis_relative_coordinates:
+    title: Basis-Relative Coordinates
+    type: concept
+    aliases:
+      - coordinate representation
+      - basis coordinates
+    description: The representation of a vector by scalar coefficients relative 
+      to an ordered basis.
+    tags: []
+    created_at: '2026-07-22T03:46:58Z'
+    updated_at: '2026-07-22T03:46:58Z'
+    id: concept_basis_relative_coordinates
+  concept_function_space:
+    title: Function Space
+    type: concept
+    aliases:
+      - space of functions
+    description: A vector space whose elements are functions and whose addition 
+      and scalar multiplication are defined pointwise.
+    tags: []
+    created_at: '2026-07-22T03:46:58Z'
+    updated_at: '2026-07-22T03:46:58Z'
+    id: concept_function_space
+  concept_linear_combinations_and_span:
+    title: Linear Combinations and Span
+    type: concept
+    aliases:
+      - span
+    description: Scaled sums of vectors and the set of all vectors obtainable 
+      from them.
+    tags: []
+    created_at: '2026-07-22T03:46:59Z'
+    updated_at: '2026-07-22T03:46:59Z'
+    id: concept_linear_combinations_and_span
+  concept_linear_independence_and_basis:
+    title: Linear Independence and Basis
+    type: concept
+    aliases:
+      - basis of a vector space
+    description: Nonredundancy of vectors and its combination with spanning to 
+      form a basis.
+    tags: []
+    created_at: '2026-07-22T03:46:59Z'
+    updated_at: '2026-07-22T03:46:59Z'
+    id: concept_linear_independence_and_basis
+  concept_real_and_complex_vector_spaces:
+    title: Real and Complex Vector Spaces
+    type: concept
+    aliases:
+      - vector space over a scalar field
+    description: Classification of a vector space according to whether its 
+      scalars are real or complex.
+    tags: []
+    created_at: '2026-07-22T03:46:59Z'
+    updated_at: '2026-07-22T03:46:59Z'
+    id: concept_real_and_complex_vector_spaces
+  concept_sequence_space:
+    title: Sequence Space
+    type: concept
+    aliases:
+      - space of infinite scalar sequences
+      - F-infinity
+    description: A vector space whose elements are scalar sequences and whose 
+      operations are performed componentwise.
+    tags: []
+    created_at: '2026-07-22T03:46:59Z'
+    updated_at: '2026-07-22T03:46:59Z'
+    id: concept_sequence_space
+  concept_vector_space_axioms:
+    title: Vector-Space Axioms
+    type: concept
+    aliases:
+      - vector space properties
+    description: The algebraic laws required of vector addition and scalar 
+      multiplication.
+    tags: []
+    created_at: '2026-07-22T03:47:00Z'
+    updated_at: '2026-07-22T03:47:00Z'
+    id: concept_vector_space_axioms
+  concept_vector_space_operations:
+    title: Vector-Space Operations
+    type: concept
+    aliases:
+      - vector addition and scalar multiplication
+    description: The addition and scalar multiplication operations that provide 
+      the basic algebraic structure of a candidate vector space.
+    tags: []
+    created_at: '2026-07-22T03:47:00Z'
+    updated_at: '2026-07-22T03:47:00Z'
+    id: concept_vector_space_operations

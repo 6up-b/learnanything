@@ -3,6 +3,7 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.services.proposals import authoring_context_hash, authoring_context_stats, build_authoring_context
 from learnloop.vault.loader import add_note, add_subject, load_vault
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW, create_basic_vault
 
@@ -87,3 +88,31 @@ def test_authoring_context_carries_focus_concepts_and_facets(tmp_path):
     assert unfocused.focus_concepts == []
     assert unfocused.focus_facets == []
     assert authoring_context_hash(context) != authoring_context_hash(unfocused)
+
+
+def test_authoring_context_includes_blueprint_facets_before_items_exist(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    lo_path = paths.learning_object_path("linear-algebra", "lo_svd_definition")
+    payload = read_yaml(lo_path)
+    payload["blueprints"] = [
+        {
+            "id": "bp_svd",
+            "recipes": [
+                {
+                    "id": "recipe_svd",
+                    "all_of": [
+                        {
+                            "facet": "facet_svd_structure",
+                            "capability": "schema_interpretation",
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+    write_yaml(lo_path, payload)
+
+    context = build_authoring_context(load_vault(paths.root), subjects=["linear-algebra"])
+    lo = next(entry for entry in context.learning_objects if entry["id"] == "lo_svd_definition")
+
+    assert lo["existing_evidence_facets"] == ["facet_svd_structure", "recall"]

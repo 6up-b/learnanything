@@ -12,7 +12,13 @@ from pydantic import ValidationError
 from learnloop.attempt_types import unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.codex.client import AuthoringContext, CodexClient, CodexUnavailable
+from learnloop.codex.client import (
+    AuthoringContext,
+    CodexClient,
+    CodexInterrupted,
+    CodexTurnTimeout,
+    CodexUnavailable,
+)
 from learnloop.codex.client import _authoring_prompt, _codex_output_schema
 from learnloop.codex.prompts import (
     AUTHORING_PROMPT_VERSION,
@@ -25,7 +31,7 @@ from learnloop.services.diagnostic_gate import GateResult, run_discrimination_ga
 from learnloop.ids import new_ulid
 from learnloop.services.patches import PatchApplyResult, apply_accepted_items, reject_applied_items
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
 from learnloop.vault.paths import VaultPaths
 
 
@@ -134,15 +140,19 @@ def build_authoring_context(
 
 
 def _vault_evidence_facet_unions(vault: LoadedVault) -> dict[str, list[str]]:
-    """Per-LO union of canonical evidence facet ids across the vault's items.
+    """Per-LO union of canonical evidence facet ids across blueprints and items.
 
-    Unlike ``_active_evidence_facet_unions`` in practice_generation this is
-    Repository-free (``build_authoring_context`` is pure over the vault), so
-    deactivated items' facets are included — for vocabulary reuse that is the
-    right call: a facet id stays canonical even when its item is retired.
+    Blueprints are the authoritative LO -> facet mapping. Including practice
+    items as a legacy fallback preserves useful vocabulary for pre-blueprint
+    vaults and includes retired items: a registered facet stays canonical even
+    when its last item is retired.
     """
 
     unions: dict[str, set[str]] = {}
+    for lo in vault.learning_objects.values():
+        unions.setdefault(lo.id, set()).update(
+            vault.canonical_facet_id(facet) for facet in learning_object_facet_union(lo)
+        )
     for item in vault.practice_items.values():
         unions.setdefault(item.learning_object_id, set()).update(
             vault.canonical_facet_id(facet) for facet in item.evidence_facets
@@ -1372,6 +1382,11 @@ def _repair_invalid_proposal_items(
     )
     try:
         repaired = codex_client.run_authoring_proposal(replace(context, instructions=instructions))
+    except (CodexInterrupted, CodexTurnTimeout):
+        # Stops and deadlines are terminal control flow, not best-effort repair
+        # failures. Let the durable runner finish the job before any first-pass
+        # proposal can be persisted or auto-applied.
+        raise
     except Exception:
         return proposal, rows
     failing_ids = {entry["client_item_id"] for entry in failing}
@@ -1661,6 +1676,17 @@ def _practice_item_metadata_errors(
     criterion_facet_weights = _nested_float_map(payload.get("criterion_facet_weights"))
     if generated and not evidence_facets:
         errors.append("missing_evidence_facets")
+    # A registry-backed vault has a closed canonical facet vocabulary. General
+    # authoring proposals cannot create facet entities, so accepting an unknown
+    # id here would leave the practice item pointing at belief state that does
+    # not exist in facets.yaml. Legacy vaults without a registry retain their
+    # historical ad-hoc facet behavior.
+    if vault.evidence_facets:
+        registry = set(vault.evidence_facets)
+        for facet in evidence_facets:
+            canonical = vault.canonical_facet_id(facet)
+            if canonical not in registry:
+                errors.append(f"unknown_evidence_facet:{facet}")
     unknown_weight_facets = sorted(set(evidence_weights) - set(evidence_facets))
     errors.extend(f"unknown_evidence_weight_facet:{facet}" for facet in unknown_weight_facets)
     if generated:

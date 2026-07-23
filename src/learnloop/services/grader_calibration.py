@@ -159,8 +159,16 @@ def seed_heuristic_priors(
     seeded: dict[str, str] = {}
 
     response_schemas = [s for s in BUILTIN_SCHEMAS if s.kind == "response"]
-    # Global schema prior: use the longform (0.80) mean as the widest default.
-    global_reliability = GRADER_CHANNEL_RELIABILITY["diagnostic_longform_v1"]
+    # Global schema prior: the per-policy channel means, floored by the fitted
+    # grader-channel prior knob (P4). The old bare 0.80 longform default implied
+    # the grader mislabels 1 in 5 responses on the coarse 3-class schema — very
+    # pessimistic, and permanent while nothing feeds calibration counts.
+    from learnloop.services.fitted_params import resolve_grader_channel_prior
+
+    reliability_floor = resolve_grader_channel_prior(repository).reliability_floor
+    global_reliability = max(
+        GRADER_CHANNEL_RELIABILITY["diagnostic_longform_v1"], reliability_floor
+    )
 
     for schema in response_schemas:
         version_row = repository.fetch_outcome_schema_version(slug=schema.slug)
@@ -221,7 +229,8 @@ def seed_heuristic_priors(
 
         # Grader-identity priors for the two known policies (mapped onto this
         # response schema), pooling toward the global prior.
-        for policy, reliability in GRADER_CHANNEL_RELIABILITY.items():
+        for policy, policy_reliability in GRADER_CHANNEL_RELIABILITY.items():
+            reliability = max(policy_reliability, reliability_floor)
             provider, revision = _HEURISTIC_POLICY_PROVIDERS[policy]
             gih = grader_identity_hash(
                 provider=provider,
@@ -278,6 +287,86 @@ def seed_heuristic_priors(
             )
             seeded[f"identity::{policy}::{schema.slug}"] = gi_model_id
     return seeded
+
+
+def import_calibration_bundle(
+    repository: Repository,
+    bundle: Mapping[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> list[str]:
+    """Import a shipped grader-calibration bundle (warm priors, §grader cold start).
+
+    Grader reliability is a property of provider + model revision + prompt +
+    schema — not of the vault — so a new vault should not relearn it from a
+    concentration-2 heuristic prior. A bundle carries pre-fitted Dirichlet
+    alphas per grader identity/scope with their evidence manifest; models
+    import as ``simulation_validated`` (never ``live_calibrated`` — that
+    promotion still requires this vault's adjudicated anchors). Idempotent via
+    the same content-hash used by the heuristic seeds.
+    """
+
+    imported: list[str] = []
+    for entry in bundle.get("models", []):
+        schema_slug = str(entry.get("outcome_schema_slug") or "")
+        version_row = repository.fetch_outcome_schema_version(slug=schema_slug)
+        if version_row is None:
+            raise ValueError(f"bundle references unknown outcome schema {schema_slug!r}")
+        alphas = {str(k): dict(v) for k, v in (entry.get("alphas") or {}).items()}
+        if not alphas:
+            raise ValueError("bundle model entry has no alphas")
+        identity = {
+            "grader_provider": entry.get("grader_provider"),
+            "grader_model_revision": entry.get("grader_model_revision"),
+            "grading_prompt_version": entry.get("grading_prompt_version") or GRADING_PROMPT_VERSION,
+            "grader_output_schema_version": (
+                entry.get("grader_output_schema_version") or GRADER_OUTPUT_SCHEMA_VERSION
+            ),
+        }
+        identity["grader_identity_hash"] = grader_identity_hash(
+            provider=identity["grader_provider"],
+            model_revision=identity["grader_model_revision"],
+            prompt_version=identity["grading_prompt_version"],
+            output_schema_version=identity["grader_output_schema_version"],
+        )
+        scope = {
+            "scope_level": str(entry.get("scope_level") or "grader_identity"),
+            "outcome_schema_id": version_row["schema_id"],
+            "outcome_schema_version": int(version_row["version"]),
+            "domain": entry.get("domain"),
+            "length_bucket": entry.get("length_bucket"),
+        }
+        status = "simulation_validated"
+        content_hash = _model_content_hash(
+            identity=identity, scope=scope, alphas=alphas, status=status
+        )
+        if repository.find_calibration_model_by_hash(content_hash) is not None:
+            continue
+        model_id = repository.insert_calibration_model(
+            model={
+                **identity,
+                **scope,
+                "semver": str(entry.get("semver") or "0.1.0"),
+                "parent_model_id": None,
+                "content_hash": content_hash,
+                "backoff_chain_json": _json([]),
+                "status": status,
+                "count_heuristic_prior": 0,
+                "prior_concentration": float(entry.get("prior_concentration") or 0.0),
+                "provenance_json": _json(
+                    {
+                        "source": "calibration_bundle",
+                        "bundle_name": bundle.get("name"),
+                        "bundle_version": bundle.get("version"),
+                        "evidence_manifest": entry.get("evidence_manifest") or {},
+                    }
+                ),
+            },
+            alphas=alphas,
+            clock=clock,
+        )
+        imported.append(model_id)
+    return imported
 
 
 # ---------------------------------------------------------------------------
@@ -338,26 +427,28 @@ def resolve_calibration_model(
     """Resolve the partial-pooling mixture for a context (§3.2). Walks the fixed
     parent order and sums the present descendants' alphas onto the global prior."""
 
-    # The global schema prior is the mandatory root.
+    # The global schema prior is the mandatory root. Seeding is content-addressed
+    # and idempotent, so run it unconditionally: a retuned fitted channel knob
+    # (P4) mints a NEW prior row that latest-wins resolution below picks up even
+    # in vaults that were seeded under the old constants.
+    seed_heuristic_priors(repository, clock=clock)
     globals_ = repository.find_calibration_models(
         scope_level="global",
         outcome_schema_id=outcome_schema_id,
         outcome_schema_version=outcome_schema_version,
     )
-    if not globals_:
-        seed_heuristic_priors(repository, clock=clock)
-        globals_ = repository.find_calibration_models(
-            scope_level="global",
-            outcome_schema_id=outcome_schema_id,
-            outcome_schema_version=outcome_schema_version,
-        )
 
     if not globals_:
         # No scoped model at all -- synthesize a wide uniform heuristic prior and
         # record the fallback (§4.1). Never crash, never restore the point channel.
         return _uniform_fallback(repository, outcome_schema_id, outcome_schema_version)
 
-    global_model = globals_[0]
+    # Latest seeded global wins (rows are ordered created_at ASC): a retuned
+    # heuristic prior re-seeds a NEW content-addressed row, and picking the
+    # oldest would silently pin existing vaults to the superseded prior forever.
+    # Matches the descendants' ``matches[-1]`` convention below. Pinned
+    # interpretations are untouched — they persist their model hash + LCB.
+    global_model = globals_[-1]
     global_alpha = repository.fetch_calibration_alphas(global_model["id"])
     contributing: list[dict[str, Any]] = [global_model]
     alpha_stack: list[Mapping[str, Mapping[str, float]]] = [global_alpha]

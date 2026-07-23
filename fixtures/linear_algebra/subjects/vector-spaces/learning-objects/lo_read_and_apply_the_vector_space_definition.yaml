@@ -1,0 +1,95 @@
+schema_version: 1
+id: lo_read_and_apply_the_vector_space_definition
+title: Read and apply the vector-space definition
+subjects:
+  - vector-spaces
+concept: concept_vector_space
+knowledge_type: conceptual-structural
+status: active
+contradicts:
+summary: Identify the two required operations, organize the vector-space axioms,
+  and interpret vectors as abstract elements rather than only geometric arrows.
+prerequisites:
+  - concept_scalar_fields
+  - concept_coordinate_vector_operations
+confusables:
+  - concept_geometric_interpretation_of_vectors
+blueprints:
+  - id: bp_01KY3YXS_14
+    weight: 1.0
+    recipes:
+      - id: recipe_vector_space_definition_core
+        composition: conjunctive
+        all_of:
+          - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+            capability: retrieval
+            modality: hard
+          - facet: facet_an_element_of_a_vector_space_may_be_called_a_vec
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+          capability: coordination
+          modality: hard
+      - id: recipe_vector_space_recognition
+        composition: conjunctive
+        all_of:
+          - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+            capability: method_selection
+            modality: hard
+          - facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s201
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s202
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s216
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:17Z'
+updated_at: '2026-07-22T03:48:59Z'

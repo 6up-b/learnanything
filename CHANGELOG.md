@@ -1,5 +1,31 @@
 # Changelog
 
+## Grade-channel discount revision (P1/P2/P4)
+
+Fixes two cold-channel artifacts: a perfect score could *lower* displayed
+mastery on easy items, and Demonstrated in the knowledge field stayed at 0
+because certification credit was double-discounted. No new migrations; pinned
+interpretations keep their persisted LCBs.
+
+- **P1 — mean-preserving prediction lane.** The mastery EKF keeps the raw
+  rubric fraction as its observation; the calibrated grade channel contributes
+  only `Var[s|emission]` to measurement noise. Channel doubt now widens R
+  instead of shrinking y toward the prior (which capped a perfect AI-graded
+  answer at E[s|success] and inverted the update direction whenever predicted
+  correctness exceeded that ceiling).
+- **P2 — epistemic-only certification discount.** `EffectiveObservation`
+  multiplies mass by `certainty_lcb / certainty` instead of the raw LCB. The
+  posterior split (`E[s|emission]`) already prices the aleatoric hedge once;
+  the mass factor now carries only ensemble (model) doubt, tends to 1 as
+  calibration data accumulates, and stays 1 for deterministic/adjudicated
+  grades. Uniform/quarantined/missing interpretations still bank zero.
+- **P4 — channel knobs are fitted parameters.** Heuristic prior reliability
+  floor (default 0.92, was a bare 0.80) and the certainty-LCB ensemble
+  quantile (default 0.25, was 0.10) resolve from the `fitted_parameters`
+  store (scope `grader_channel_prior`). Heuristic seeding is re-run
+  content-addressed on every model resolution and global-prior resolution is
+  latest-wins, so a retuned prior reaches already-seeded vaults.
+
 ## ING M3.5 — Source ingestion v2-lite
 
 The first shippable slice of the source-ingestion v2 redesign. It wires the new

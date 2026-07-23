@@ -1,0 +1,104 @@
+schema_version: 1
+id: pi_coordinates_basis_recall_01
+learning_object_id: lo_coordinates_require_a_basis
+subjects:
+  - vector-spaces
+practice_mode: recall
+attempt_types_allowed:
+  - independent_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - facet_coordinates_are_scalar_coefficients_relative_to_
+evidence_weights:
+  facet_coordinates_are_scalar_coefficients_relative_to_: 1.0
+criterion_facet_weights:
+  criterion_basis_relative_meaning:
+    facet_coordinates_are_scalar_coefficients_relative_to_: 1.0
+prompt: An ordered basis (b1, b2) is fixed. In one sentence, state what it means
+  for a vector v to have coordinates (3, -2) in this basis.
+expected_answer: It means v = 3b1 - 2b2, so 3 and -2 are the scalar coefficients
+  of v relative to the ordered basis (b1, b2).
+difficulty: 0.0
+difficulty_source: llm_estimate
+tags:
+  - basis-relative-coordinates
+  - recall
+  - rung_variant
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.75
+transfer_distance: 0.05
+scaffold_level: 0.05
+capability: retrieval
+task_features:
+  complexity: 1
+  representation:
+    - symbolic
+    - verbal
+  response: short_constructed
+  scaffolding: none
+  span: atomic
+  tools:
+    - closed_book
+  transfer: same_context
+task_feature_schema: p1_launch@1
+surface_family: verbal_symbolic_short_recall
+evidence_fingerprint:
+  source_family: verbal_option_recognition
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: The coordinates (3, -2) identify the same 
+  vector regardless of which basis is used.
+repair_targets:
+  - facet_coordinates_are_scalar_coefficients_relative_to_
+  - fatal_coordinates_without_basis
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_basis_relative_meaning
+      points: 4.0
+      description: States that the coordinates are scalar coefficients relative 
+        to the fixed ordered basis, equivalently writing v = 3b1 - 2b2.
+      tier: core
+      targets:
+        - facet: facet_coordinates_are_scalar_coefficients_relative_to_
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+  fatal_errors:
+    - id: fatal_coordinates_without_basis
+      description: Treats (3, -2) as identifying the vector independently of the
+        chosen basis.
+      max_grade: 1
+      misconception_id:
+status: retired
+status_reason: too_easy
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: existing_entity
+      ref_id: pi_coordinates_basis_recognize_01
+      path:
+      locator: source practice item
+      quote: A vector is labeled with coordinates (3, -2). What must be known to
+        interpret those numbers as a vector?
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids:
+        - lo_coordinates_require_a_basis
+created_at: '2026-07-22T13:41:40Z'
+updated_at: '2026-07-22T17:43:30Z'

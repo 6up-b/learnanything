@@ -1,0 +1,60 @@
+schema_version: 1
+id: lo_orient_to_the_vector_space_idea
+title: Orient to the Vector-Space Idea
+subjects:
+  - vector-spaces
+concept: concept_vector_space
+knowledge_type: conceptual orientation
+status: active
+contradicts:
+summary: Recognize the operations named in the introductory vector-space 
+  characterization and the coordinate-plane motivation without prematurely 
+  treating the characterization as the full axiom list.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS
+    weight: 0.15
+    recipes:
+      - id: recipe_vector_space_orientation
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_vector_space_is_a_set_with_operations_of_addit
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s4
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s6
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:47:59Z'
+updated_at: '2026-07-22T03:48:39Z'

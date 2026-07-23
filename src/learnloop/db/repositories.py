@@ -1086,6 +1086,11 @@ class Repository:
                     AND e2.grader_tier = 3
                     AND e2.superseded_at IS NULL
                 )
+                -- self_report rows are learner statements (rung-variant belief
+                -- writes, deliberate self-ratings), not gradable responses: an
+                -- AI regrade of their placeholder text can only produce
+                -- nonsense grades and phantom assessment_ambiguity errors.
+                AND a.attempt_type != 'self_report'
                 ORDER BY a.created_at ASC, a.id ASC{limit_clause}
                 """,
                 parameters,
@@ -4178,6 +4183,35 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def prediction_interval_rows(self) -> list[dict[str, Any]]:
+        """Per-attempt predicted score distribution joined to the realized
+        outcome (`learnloop eval` coverage input), oldest first per LO."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT s.attempt_id, s.predicted_score_dist_json,
+                       a.learning_object_id, a.correctness, a.rubric_score,
+                       a.attempt_type, a.created_at
+                FROM attempt_surprise s
+                JOIN practice_attempts a ON a.id = s.attempt_id
+                WHERE s.predicted_score_dist_json IS NOT NULL
+                  AND a.correctness IS NOT NULL
+                ORDER BY a.learning_object_id ASC, a.created_at ASC, a.id ASC
+                """
+            ).fetchall()
+        return [
+            {
+                "attempt_id": row["attempt_id"],
+                "learning_object_id": row["learning_object_id"],
+                "predicted_score_dist": _loads(row["predicted_score_dist_json"], None),
+                "correctness": row["correctness"],
+                "attempt_type": row["attempt_type"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
     def retention_label_rows(self) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -4805,6 +4839,7 @@ class Repository:
         completion_reason: str | None = None,
         completed_at: str | None = None,
         active_state_segment_id: str | None = None,
+        completion_posterior_json: str | None = None,
         clock: Clock | None = None,
     ) -> None:
         now = utc_now_iso(clock)
@@ -4819,6 +4854,9 @@ class Repository:
         if active_state_segment_id is not None:
             assignments.append("active_state_segment_id = ?")
             parameters.append(active_state_segment_id)
+        if completion_posterior_json is not None:
+            assignments.append("completion_posterior_json = ?")
+            parameters.append(completion_posterior_json)
         parameters.append(episode_id)
         with self.connection() as connection:
             connection.execute(
@@ -4826,6 +4864,32 @@ class Repository:
                 parameters,
             )
             connection.commit()
+
+    def latest_completed_probe_episode(self, learning_object_id: str) -> dict[str, Any] | None:
+        """Latest complete episode's conclusion for entry-rung selection:
+        completion_reason plus the argmax of the persisted completion posterior."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT completion_reason, completion_posterior_json
+                FROM probe_episodes
+                WHERE learning_object_id = ? AND status = 'complete'
+                ORDER BY completed_at DESC, id DESC LIMIT 1
+                """,
+                (learning_object_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        posterior = _loads(row["completion_posterior_json"], None)
+        top_hypothesis = None
+        if isinstance(posterior, dict) and posterior:
+            top_hypothesis = max(posterior, key=lambda k: float(posterior[k]))
+        return {
+            "completion_reason": row["completion_reason"],
+            "top_hypothesis": top_hypothesis,
+            "posterior": posterior if isinstance(posterior, dict) else None,
+        }
 
     # --- State segments (§5.1) -------------------------------------------------
 
@@ -13243,40 +13307,81 @@ class Repository:
         return [row["job_id"] for row in rows]
 
     def claim_next_ingest_job(
-        self, *, worker_id: str, now_iso: str, lease_cutoff_iso: str
+        self,
+        *,
+        worker_id: str,
+        now_iso: str,
+        lease_cutoff_iso: str,
+        eligible_job_types: Sequence[str] | None = None,
+        compatible_running_job_types: Sequence[str] = (),
+        allow_parallel: bool = False,
+        max_parallel: int | None = None,
     ) -> dict[str, Any] | None:
         """Atomically claim the next eligible queued job for ``worker_id``.
 
-        Returns None when another worker already holds a live running lease
-        (exactly one worker drains at a time — no competing vault writes) or when
-        no queued job has all of its dependencies completed. A ``running`` job
-        whose heartbeat predates ``lease_cutoff_iso`` is treated as dead and does
-        not block the claim; startup recovery converts it to failed(interrupted).
+        The default preserves the single-writer ingest lease. Callers may opt a
+        read/DB-only job lane into bounded parallelism and identify job types
+        that are safe to coexist with the single vault-writing lane. A
+        ``running`` job whose heartbeat predates ``lease_cutoff_iso`` is treated
+        as dead; startup recovery converts it to failed(interrupted).
         """
 
+        eligible = tuple(dict.fromkeys(str(job_type) for job_type in (eligible_job_types or ())))
+        compatible = tuple(
+            dict.fromkeys(str(job_type) for job_type in compatible_running_job_types)
+        )
         connection = self.connection()
         connection.isolation_level = None
         try:
             connection.execute("BEGIN IMMEDIATE")
-            live = connection.execute(
-                """
-                SELECT 1 FROM ingest_jobs
-                 WHERE status = 'running'
-                   AND heartbeat_at IS NOT NULL
-                   AND heartbeat_at >= ?
-                 LIMIT 1
-                """,
-                (lease_cutoff_iso,),
-            ).fetchone()
-            if live is not None:
-                connection.execute("ROLLBACK")
-                return None
+            if not allow_parallel:
+                compatible_clause = ""
+                live_params: list[Any] = [lease_cutoff_iso]
+                if compatible:
+                    placeholders = ",".join("?" for _ in compatible)
+                    compatible_clause = f" AND job_type NOT IN ({placeholders})"
+                    live_params.extend(compatible)
+                live = connection.execute(
+                    f"""
+                    SELECT 1 FROM ingest_jobs
+                     WHERE status = 'running'
+                       AND heartbeat_at IS NOT NULL
+                       AND heartbeat_at >= ?{compatible_clause}
+                     LIMIT 1
+                    """,
+                    live_params,
+                ).fetchone()
+                if live is not None:
+                    connection.execute("ROLLBACK")
+                    return None
+            if max_parallel is not None and eligible:
+                placeholders = ",".join("?" for _ in eligible)
+                live_count = connection.execute(
+                    f"""
+                    SELECT COUNT(*) AS count FROM ingest_jobs
+                     WHERE status = 'running'
+                       AND heartbeat_at IS NOT NULL
+                       AND heartbeat_at >= ?
+                       AND job_type IN ({placeholders})
+                    """,
+                    (lease_cutoff_iso, *eligible),
+                ).fetchone()["count"]
+                if int(live_count) >= max(1, int(max_parallel)):
+                    connection.execute("ROLLBACK")
+                    return None
+            eligible_clause = ""
+            candidate_params: list[Any] = []
+            if eligible:
+                placeholders = ",".join("?" for _ in eligible)
+                eligible_clause = f" AND j.job_type IN ({placeholders})"
+                candidate_params.extend(eligible)
             candidate = connection.execute(
-                """
+                f"""
                 SELECT j.* FROM ingest_jobs j
                  JOIN ingest_batches b ON b.id = j.batch_id
                  WHERE j.status = 'queued'
                    AND b.cancel_requested = 0
+                   {eligible_clause}
                    AND NOT EXISTS (
                      SELECT 1 FROM ingest_job_dependencies d
                       JOIN ingest_jobs dep ON dep.id = d.depends_on_job_id
@@ -13284,7 +13389,8 @@ class Repository:
                    )
                  ORDER BY b.priority DESC, b.created_at, j.ordinal, j.id
                  LIMIT 1
-                """
+                """,
+                candidate_params,
             ).fetchone()
             if candidate is None:
                 connection.execute("ROLLBACK")

@@ -199,25 +199,64 @@ def select_rung(
         # _milestone_rung returning None means "malformed/missing" — the default
         # path below is the fail-closed landing zone; reason recorded there.
 
+    # Diagnosed path: a completed probe episode's top hypothesis names the
+    # learner's actual gap, which locates the entry rung far better than the
+    # scalar mastery band (a "procedure_without_selection" learner belongs at
+    # select_method practice even while scalar mastery is still climbing).
+    hypothesis_slug = _rung_from_episode_hypothesis(repository, learning_object_id)
+    if hypothesis_slug is not None:
+        return _waypoint_target(_WAYPOINT_BY_SLUG[hypothesis_slug], schema_version_id)
+
     ability = mastery_mean if (mastery_mean is not None and evidence_count > 0) else (
         mastery_mean if mastery_mean is not None else claimed_level
     )
     developing = float(vault.config.mastery.display_developing_threshold)
     strong = float(vault.config.mastery.display_strong_threshold)
 
+    # Band-keyed entry with NO evidence-count gates: counts measured exposure,
+    # not capability, and pinned claim-seeded learners at the bottom rungs
+    # regardless of how their evidence looked (the verified too-easy trap).
     if ability is None or ability < developing:
         slug = "recognize"
     elif ability < strong:
         slug = "recall"
-    elif evidence_count >= 10 and ability >= 0.75:
+    elif ability >= 0.75:
         slug = "select_method"
-    elif evidence_count >= 5:
-        slug = "execute"
     else:
         slug = "interpret"
 
     reason = "commitment_projection_failed" if commitment_id is not None else None
     return _waypoint_target(_WAYPOINT_BY_SLUG[slug], schema_version_id, fallback_reason=reason)
+
+
+# Hypothesis label -> the rung whose practice repairs that gap. Labels missing
+# here (open-set, dynamic confuses_with:/misconception: labels) fall back to
+# the mastery band — a belief fault needs contrast work, not a rung change.
+_RUNG_BY_HYPOTHESIS = {
+    "unfamiliar": "recognize",
+    "surface_only": "recall",
+    "recall_without_mechanism": "interpret",
+    "procedure_without_selection": "select_method",
+    "schema_without_transfer": "execute",
+    "robust_initial_grasp": "select_method",
+}
+
+_HYPOTHESIS_COMPLETION_REASONS = ("decision_stable", "action_equivalent", "fast_path_strong_claim")
+
+
+def _rung_from_episode_hypothesis(repository: Repository, learning_object_id: str) -> str | None:
+    """Entry slug from the LO's latest trusted completed probe episode, or None."""
+
+    try:
+        episode = repository.latest_completed_probe_episode(learning_object_id)
+    except AttributeError:
+        return None
+    if episode is None or episode.get("completion_reason") not in _HYPOTHESIS_COMPLETION_REASONS:
+        return None
+    top_label = episode.get("top_hypothesis")
+    if not top_label:
+        return None
+    return _RUNG_BY_HYPOTHESIS.get(str(top_label))
 
 
 def _milestone_rung(

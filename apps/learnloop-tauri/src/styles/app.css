@@ -266,6 +266,36 @@ button { color: inherit; }
 .number-input, .text-input { padding: 8px 10px; width: 110px; }
 .self-grade-notes { width: 100%; min-height: 70px; resize: vertical; padding: 10px; }
 
+/* Shared terminal-form controls. TermSelect and TermCheckbox own interaction
+   semantics; these stable classes keep their hover/focus language uniform in
+   every Tauri screen that consumes the primitives. */
+.term-select-control,
+.term-checkbox {
+  transition: border-color 80ms linear, color 80ms linear, background 80ms linear;
+}
+
+.term-select-control:hover,
+.term-select-control:focus-visible,
+.term-checkbox:hover:not(:disabled) {
+  border-color: var(--amber) !important;
+  color: var(--text) !important;
+}
+
+.term-select-control:focus-visible,
+.term-checkbox:focus-visible {
+  box-shadow: 0 0 0 1px var(--bg), 0 0 0 2px var(--amber) !important;
+}
+
+.term-select-option:hover,
+.term-select-option.highlighted {
+  background: var(--input) !important;
+}
+
+.term-select-option.selected {
+  background: #241d12 !important;
+  color: var(--amber) !important;
+}
+
 /* ── live WYSIWYG answer editor ── */
 .answer-editor-slot { margin-top: 12px; }
 
@@ -1041,4 +1071,79 @@ button { color: inherit; }
 .textLayer span.ll-find-hit {
   background: rgba(255, 213, 79, 0.45);
   border-radius: 2px;
+}
+
+/* Block-snapped sweep in flight: the drag paints whole extraction blocks, so
+   the native glyph selection must stay fully out of the way — no text cursor,
+   no accidental blue selection under the sweep. */
+.ll-block-sweeping,
+.ll-block-sweeping .textLayer,
+.ll-block-sweeping .textLayer span {
+  cursor: crosshair !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A quick check can arrive while the learner is in Ask or Notes, or with
+   their eyes on the page and the rail in peripheral vision. The signal
+   borrows the check card's own construction — probe-pink edge over the
+   purple wash (#1a162a) — so tab, strip, and card read as one object.
+   All motion is stepped, terminal-cursor cadence: no smooth fades, no
+   flashing. */
+.ll-reader-guide-alert {
+  background: #1a162a;
+  animation: ll-reader-quick-check-signal 2.4s steps(6, end) infinite;
+}
+
+@keyframes ll-reader-quick-check-signal {
+  0%, 100% { box-shadow: inset 0 0 6px rgba(90, 77, 138, 0.20); }
+  50% { box-shadow: inset 0 0 13px rgba(220, 127, 184, 0.30); }
+}
+
+/* Blinking probe marker (◆) — half-duty cursor blink, shared by the Guide
+   tab count and the cross-tab strip. */
+.ll-qc-blink {
+  color: var(--pink);
+  animation: ll-qc-blink 1.4s steps(2, jump-none) infinite;
+}
+
+@keyframes ll-qc-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.3; }
+}
+
+/* One-line call-to-action pinned under the tab row while Ask or Notes is
+   active: a miniature of the quick-check card (3px pink left edge, purple
+   wash). Clicking it returns to Guide. */
+.ll-reader-qc-strip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid rgba(220, 127, 184, 0.4);
+  border-left: 3px solid var(--pink);
+  border-radius: 2px;
+  background: #1a162a;
+  color: #dccdf2;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ll-reader-qc-strip:hover {
+  border-color: var(--pink);
+  background: #221b36;
+}
+
+.ll-reader-qc-strip .ll-qc-strip-go {
+  margin-left: auto;
+  color: var(--pink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ll-reader-guide-alert,
+  .ll-qc-blink { animation: none; }
 }

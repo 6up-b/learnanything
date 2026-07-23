@@ -51,6 +51,7 @@ from learnloop.services.canonical_projection import (
     FAILURE_THRESHOLD,
     _attribution_weights,
     _repeat_discount,
+    observed_unresolved_failure,
     surface_group_id,
 )
 from learnloop.services.evidence import attempt_evidence_mass
@@ -339,7 +340,10 @@ def _epoch_certification_credit(
             row.get("attribution") if row is not None else None, targets
         )
         negative_fraction = 1.0 - fraction
-        unresolved_negative = negative_fraction > 0 and len(targets) > 1 and not attribution
+        # `fraction` here is the raw criterion fraction (the timeline never
+        # substitutes the calibrated p0 fraction), so it is the observed outcome
+        # the shared unresolved-failure gate expects.
+        unresolved_negative = observed_unresolved_failure(fraction, targets, attribution)
         criterion_discounts: dict[tuple[str, str], tuple[float, bool]] = {}
         for alloc in allocate_success_mass(targets, pmass):
             cell = (resolve(alloc.facet), alloc.capability)

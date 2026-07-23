@@ -1,0 +1,67 @@
+schema_version: 1
+id: lo_build_the_coordinate_space_f_n
+title: Build the Coordinate Space F^n
+subjects:
+  - vector-spaces
+concept: concept_coordinate_space_f_n
+knowledge_type: definition and schema interpretation
+status: active
+contradicts:
+summary: Interpret F^n as the set of length-n scalar lists and read individual 
+  coordinates by their indices.
+prerequisites:
+  - concept_scalars_over_r_or_c
+  - concept_finite_ordered_lists
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_7
+    weight: 0.2
+    recipes:
+      - id: recipe_fn_membership_and_coordinates
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_fixed_positive_integer_n_f_n_is_the_set_of
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_if_x_x_1_x_n_belongs_to_f_n_then_x_k_is_the_kth_
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_for_a_fixed_positive_integer_n_f_n_is_the_set_of
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s108
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s109
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:02Z'
+updated_at: '2026-07-22T03:48:43Z'

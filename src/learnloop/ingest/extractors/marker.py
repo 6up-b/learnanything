@@ -116,7 +116,8 @@ def _section_path(section_hierarchy: dict | None) -> list[str]:
     if not section_hierarchy:
         return []
     ordered_levels = sorted(int(level) for level in section_hierarchy)
-    return [str(section_hierarchy[level]).strip() for level in ordered_levels if str(section_hierarchy[level]).strip()]
+    values = [section_hierarchy.get(level, section_hierarchy.get(str(level))) for level in ordered_levels]
+    return [str(value).strip() for value in values if value is not None and str(value).strip()]
 
 
 _MATH_TAG_RE = re.compile(r"<math\b([^>]*)>(.*?)</math>", re.IGNORECASE | re.DOTALL)

@@ -103,6 +103,7 @@ export function TermCheckbox({
   const [focused, setFocused] = useState(false);
   return (
     <button
+      className={`term-checkbox${checked ? " checked" : ""}${compact ? " compact" : ""}`}
       type="button"
       role="checkbox"
       aria-checked={checked}
@@ -182,6 +183,7 @@ export function TermSelect({
   options,
   onChange,
   placeholder,
+  ariaLabel,
   disabled = false,
   width,
   style = {}
@@ -190,6 +192,7 @@ export function TermSelect({
   options: Array<TermSelectOption> | Array<string>;
   onChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
   disabled?: boolean;
   width?: number | string;
   style?: CSSProperties;
@@ -203,6 +206,7 @@ export function TermSelect({
   );
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const listboxId = useId();
   const [fixedRect, setFixedRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const controlRef = useRef<HTMLDivElement | null>(null);
@@ -320,13 +324,15 @@ export function TermSelect({
   };
 
   const list = open ? (
-    <div ref={listRef} className="ll-scroll" style={listStyle} role="listbox">
+    <div id={listboxId} ref={listRef} className="term-select-list ll-scroll" style={listStyle} role="listbox">
       {opts.map((o, i) => {
         const isSel = o.value === value;
         const isHi = i === highlight;
         return (
           <div
             key={o.value}
+            id={`${listboxId}-option-${i}`}
+            className={`term-select-option${isSel ? " selected" : ""}${isHi ? " highlighted" : ""}`}
             role="option"
             aria-selected={isSel}
             onMouseEnter={() => setHighlight(i)}
@@ -356,12 +362,17 @@ export function TermSelect({
   ) : null;
 
   return (
-    <div ref={wrapRef} style={{ position: "relative", display: "inline-block", width, ...style }}>
+    <div ref={wrapRef} className="term-select" style={{ position: "relative", display: "inline-block", width, ...style }}>
       <div
         ref={controlRef}
+        className={`term-select-control${open ? " open" : ""}${disabled ? " disabled" : ""}`}
         tabIndex={disabled ? -1 : 0}
         role="combobox"
+        aria-label={ariaLabel}
+        aria-controls={listboxId}
         aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-activedescendant={open && highlight >= 0 ? `${listboxId}-option-${highlight}` : undefined}
         onKeyDown={onKeyDown}
         onClick={() => {
           if (disabled) return;

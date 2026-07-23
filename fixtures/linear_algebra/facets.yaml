@@ -1,2 +1,3343 @@
-schema_version: 1
-facets: []
+schema_version: 2
+facets:
+  - id: facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_
+    title:
+    aliases:
+      - componentwise complex addition
+    description:
+    tags: []
+    concept_id: concept_complex_addition
+    kind: procedure_contract
+    claim: 'Add complex numbers componentwise: (a + bi) + (c + di) = (a + c) + (b
+      + d)i.'
+    preconditions:
+      - Both addends are written in a + bi form.
+      - Their coefficients are real numbers.
+    postconditions:
+      - The real coefficients have been added together.
+      - The imaginary coefficients have been added together.
+      - The result is in standard complex-number form.
+    applicability:
+      - Adding two complex numbers in standard form.
+    positive_examples:
+      - (2 + 3i) + (4 + 5i) = 6 + 8i
+    negative_examples:
+      - (a + bi) + (c + di) = (a + b) + (c + d)i
+    non_goals:
+      - This rule does not define complex multiplication.
+    error_signatures:
+      - Combining a real component with an imaginary coefficient.
+      - Dropping the imaginary unit from the result.
+    instructional_repairs:
+      - Align the real components and the coefficients of i as two separate 
+        columns before adding.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_7b10767796280c71
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s16
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s17
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_complex_addition_and_multiplication_obey_commuta
+    title:
+    aliases:
+      - field-like laws of complex arithmetic
+    description:
+    tags: []
+    concept_id: concept_complex_arithmetic_laws
+    kind: proposition
+    claim: Complex addition and multiplication obey commutativity and 
+      associativity; 0 and 1 are their respective identities; every complex 
+      number has a unique additive inverse; every nonzero complex number has a 
+      unique multiplicative inverse; and multiplication distributes over 
+      addition.
+    preconditions:
+      - Complex addition and multiplication have been defined.
+    postconditions:
+      - The learner can state the principal algebraic laws and preserve the 
+        nonzero condition on multiplicative inverses.
+    applicability:
+      - Simplifying complex expressions.
+      - Justifying algebraic transformations over complex numbers.
+      - Preparing to interpret complex numbers as scalars in vector spaces.
+    positive_examples:
+      - α + β = β + α
+      - (αβ)λ = α(βλ)
+      - λ(α + β) = λα + λβ
+    negative_examples:
+      - Claiming that zero has a multiplicative inverse.
+    non_goals:
+      - The proposition does not claim that arbitrary operations in arbitrary 
+        systems are commutative.
+    error_signatures:
+      - Omitting the nonzero restriction for multiplicative inverses.
+      - Confusing a change of order with a change of grouping.
+    instructional_repairs:
+      - Name the law used at each transformation and check its hypotheses, 
+        especially the nonzero condition for inversion.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_bfcf9417dac30e7c
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s34
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s36
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s38
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s40
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s42
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s44
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_multiply_complex_numbers_by_distributing_replaci
+    title:
+    aliases:
+      - distributive complex multiplication
+    description:
+    tags: []
+    concept_id: concept_complex_multiplication
+    kind: procedure_contract
+    claim: Multiply complex numbers by distributing, replacing i^2 with -1, 
+      combining real and imaginary terms separately, and writing the result in a
+      + bi form; equivalently, (a + bi)(c + di) = (ac - bd) + (ad + bc)i.
+    preconditions:
+      - Both factors are written in a + bi form.
+      - The distributive property and i^2 = -1 are available.
+    postconditions:
+      - Every term has been distributed.
+      - Occurrences of i^2 have been replaced by -1.
+      - Real and imaginary terms have been combined separately.
+      - The result is in standard complex-number form.
+    applicability:
+      - Multiplying two complex numbers in standard form.
+    positive_examples:
+      - (2 + 3i)(4 + 5i) = -7 + 22i
+    negative_examples:
+      - Treating i^2 as 1.
+      - Combining real and imaginary terms as like terms.
+    non_goals:
+      - The closed formula need not be memorized independently of its 
+        derivation.
+    error_signatures:
+      - Leaving i^2 unreduced.
+      - Using ac + bd for the real component.
+      - Failing to distribute one term across the opposite factor.
+    instructional_repairs:
+      - Expand as an ordinary binomial product, mark the i^2 term, replace it 
+        with -1, and then collect the two component types.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_cd23664b26a4dff9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s20
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s22
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s24
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s27
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: exercise
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_complex_number_has_the_form_a_bi_with_a_b_real
+    title:
+    aliases:
+      - standard form of a complex number
+      - real-imaginary representation
+    description:
+    tags: []
+    concept_id: concept_complex_numbers
+    kind: definition
+    claim: A complex number has the form a + bi with a,b real, and the set of 
+      all such numbers is denoted C.
+    preconditions:
+      - The learner can recognize real numbers and ordered pairs of real values.
+    postconditions:
+      - The learner can interpret a and b as the real coefficients in a complex 
+        number.
+      - The learner can recognize a + bi as standard complex-number form.
+    applicability:
+      - Representing and interpreting complex numbers.
+    positive_examples:
+      - 2 + 3i
+      - -4 + 0i
+      - 0 + 5i
+    negative_examples: []
+    non_goals:
+      - This definition alone does not specify complex addition or 
+        multiplication.
+    error_signatures:
+      - Treating a and b as non-real coefficients without changing the number 
+        system.
+      - Omitting the imaginary unit from the second component.
+    instructional_repairs:
+      - Rewrite the number explicitly as a + bi and identify both real 
+        coefficients.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_5433bab42b2206c9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s13
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s14
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s15
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_to_prove_a_universal_identity_about_complex_mult
+    title:
+    aliases:
+      - componentwise proof procedure
+    description:
+    tags: []
+    concept_id: concept_definition_based_proof_in_complex_arithmetic
+    kind: procedure_contract
+    claim: To prove a universal identity about complex multiplication from its 
+      definition, represent arbitrary operands as a + bi and c + di, expand both
+      sides, use real-number laws to match their real and imaginary components, 
+      and conclude equality.
+    preconditions:
+      - The operands are arbitrary complex numbers.
+      - The complex multiplication rule is available.
+      - The relevant real-number laws are available.
+    postconditions:
+      - Both sides have been reduced to matching real and imaginary components.
+      - The target complex identity has been justified for arbitrary operands.
+    applicability:
+      - Definition-based proofs of foundational complex-arithmetic identities.
+      - The worked case of commutativity of complex multiplication.
+    positive_examples:
+      - Expanding αβ and βα and matching components to prove αβ = βα.
+    negative_examples:
+      - Checking a single numerical example and claiming a universal proof.
+    non_goals:
+      - This procedure does not make every complex-arithmetic proof a component 
+        expansion.
+      - The worked argument directly proves commutativity, not all listed laws 
+        at once.
+    error_signatures:
+      - Using particular numbers when the claim is universal.
+      - Asserting equality without matching both the real and imaginary 
+        components.
+      - Invoking complex commutativity inside a proof intended to establish that
+        same property.
+    instructional_repairs:
+      - Begin with arbitrary real coefficients, expand each side independently 
+        from the definition, and cite only previously available real-number 
+        laws.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_ca56402a12d5577c
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s46
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s48
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s50
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s52
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s53
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_real_number_a_is_identified_with_a_0i_while_i_
+    title:
+    aliases:
+      - real numbers inside the complex numbers
+      - imaginary-unit identity
+    description:
+    tags: []
+    concept_id: concept_complex_numbers
+    kind: interpretation
+    claim: A real number a is identified with a + 0i, while i denotes 0 + 1i and
+      satisfies i^2 = -1.
+    preconditions:
+      - The learner can read a complex number in a + bi form.
+    postconditions:
+      - The learner can regard real numbers as complex numbers with zero 
+        imaginary coefficient.
+      - The learner can simplify occurrences of i^2 to -1.
+    applicability:
+      - Embedding real numbers into the complex numbers.
+      - Interpreting and simplifying expressions involving i.
+    positive_examples:
+      - 7 = 7 + 0i
+      - i = 0 + 1i
+      - i^2 = -1
+    negative_examples:
+      - Every complex number is real.
+      - i^2 = 1.
+    non_goals:
+      - The identification of real numbers inside the complex numbers does not 
+        make every complex number real.
+    error_signatures:
+      - Concluding that all complex numbers are real.
+      - Replacing i^2 with 1 or leaving it unreduced during basic arithmetic.
+    instructional_repairs:
+      - 'Check the imaginary coefficient: a complex number is real exactly when that
+        coefficient is zero.'
+      - Replace i·i with -1 before combining real terms.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_bda02fad38155d12
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s19
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s23
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_vector_space_is_a_set_with_operations_of_addit
+    title:
+    aliases:
+      - informal characterization of a vector space
+    description:
+    tags: []
+    concept_id: concept_vector_space
+    kind: definition
+    claim: A vector space is a set with operations of addition and scalar 
+      multiplication that satisfy algebraic properties; coordinate descriptions 
+      of the plane motivate this abstraction.
+    preconditions:
+      - A set and two proposed operations are under consideration.
+      - The learner is familiar with sets and elementary arithmetic operations.
+    postconditions:
+      - The learner can identify addition and scalar multiplication as the two 
+        operations named in the introductory characterization.
+    applicability:
+      - Introductory orientation before studying the formal vector-space axioms.
+    positive_examples:
+      - A coordinate description of a plane as motivation for a vector space.
+    negative_examples: []
+    non_goals:
+      - This introductory facet does not enumerate the formal vector-space 
+        axioms.
+      - It does not establish that an arbitrary set with two operations is a 
+        vector space.
+    error_signatures:
+      - Calling any set a vector space without checking required algebraic 
+        properties.
+    instructional_repairs:
+      - Treat the statement as an introductory characterization and defer 
+        membership judgments until the formal axioms are available.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_c091ea6d0627aa53
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s4
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s6
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_if_x_x_1_x_n_belongs_to_f_n_then_x_k_is_the_kth_
+    title:
+    aliases:
+      - kth coordinate
+      - coordinate notation
+    description:
+    tags: []
+    concept_id: concept_coordinate_space_f_n
+    kind: interpretation
+    claim: If x=(x_1,...,x_n) belongs to F^n, then x_k is the kth coordinate of 
+      x for each index k from 1 through n.
+    preconditions:
+      - x belongs to F^n.
+      - 1≤k≤n.
+    postconditions:
+      - A coordinate is identified by its position and index.
+    applicability:
+      - Reading indexed vector notation.
+      - Aligning coordinates for componentwise operations.
+    positive_examples:
+      - In (x_1,x_2,x_3), x_2 is the second coordinate.
+    negative_examples:
+      - Calling x_k a coordinate when k lies outside 1,...,n.
+    non_goals:
+      - Explicit coordinates need not be introduced when a coordinate-free 
+        argument is available.
+    error_signatures:
+      - Changing coordinate order.
+      - Confusing the vector x with one scalar coordinate x_k.
+    instructional_repairs:
+      - Track both the ambient vector and the coordinate index.
+      - Use subscripted notation only when coordinates are needed.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_b3e38302fde537c9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s108
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s109
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s129
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+    title:
+    aliases:
+      - componentwise proof procedure
+    description:
+    tags: []
+    concept_id: concept_coordinate_proofs_in_f_n
+    kind: procedure_contract
+    claim: To prove a vector identity in F^n by coordinates, represent the 
+      vectors as coordinate lists, expand the vector operations by definition, 
+      apply the appropriate scalar fact at every coordinate, and recognize the 
+      resulting list as the target vector expression.
+    preconditions:
+      - The vectors belong to F^n.
+      - The relevant vector operations have coordinate definitions.
+      - The required scalar property is available.
+    postconditions:
+      - The target vector identity is established by equality of corresponding 
+        coordinates.
+    applicability:
+      - Proving commutativity of addition in F^n.
+      - Other vector identities whose operations are defined coordinatewise.
+    positive_examples:
+      - Expand x+y, commute every scalar sum, and reassemble the result as y+x.
+    negative_examples:
+      - Citing the vector theorem being proved to justify the scalar-coordinate 
+        step.
+    non_goals:
+      - Coordinates need not be introduced when a simpler coordinate-free proof 
+        is available.
+    error_signatures:
+      - Skipping the definition-expansion step.
+      - Applying a scalar law to whole vectors without justification.
+      - Failing to reassemble the coordinate list as the target vector 
+        expression.
+    instructional_repairs:
+      - Label each equality by either a vector-operation definition or a scalar 
+        property.
+      - Verify that every coordinate undergoes the same justified 
+        transformation.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_a294745aa17240d4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s125
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s126
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s127
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s129
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_to_add_two_elements_of_f_n_align_equal_coordinat
+    title:
+    aliases:
+      - coordinatewise vector addition
+    description:
+    tags: []
+    concept_id: concept_coordinatewise_addition
+    kind: procedure_contract
+    claim: To add two elements of F^n, align equal coordinate indices, add each 
+      scalar pair x_k and y_k in F, and return the length-n list 
+      (x_1+y_1,...,x_n+y_n).
+    preconditions:
+      - Both operands belong to the same F^n.
+      - Scalar addition is defined in F.
+    postconditions:
+      - The result has length n.
+      - The kth coordinate of the result is x_k+y_k.
+    applicability:
+      - Computing sums of coordinate vectors.
+      - Expanding vector addition in a coordinate proof.
+    positive_examples:
+      - (x_1,x_2)+(y_1,y_2)=(x_1+y_1,x_2+y_2).
+    negative_examples:
+      - Pairing x_1 with y_2.
+      - Returning a list of a different length.
+    non_goals:
+      - This procedure does not define scalar multiplication.
+    error_signatures:
+      - Adding coordinates with different indices.
+      - Omitting, reordering, or duplicating a coordinate.
+    instructional_repairs:
+      - Label corresponding positions before adding.
+      - Check that the output retains exactly n entries in the original order.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_8cf5b969522cd04f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s116
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s117
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s118
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_list_of_length_n_is_a_finite_ordered_collectio
+    title:
+    aliases:
+      - list
+      - n-tuple
+    description:
+    tags: []
+    concept_id: concept_finite_ordered_lists
+    kind: definition
+    claim: A list of length n is a finite ordered collection of elements, where 
+      n is a nonnegative integer; the length-zero case is the empty list.
+    preconditions:
+      - n is a nonnegative integer.
+    postconditions:
+      - Every list has a finite length.
+      - Each entry has a position.
+      - The empty list is included as the case n=0.
+    applicability:
+      - Interpreting tuples and coordinate lists.
+      - Determining whether an ordered object qualifies as a list.
+    positive_examples:
+      - (x,y) is a list of length two.
+      - () is a list of length zero.
+    negative_examples:
+      - An infinitely long sequence-like object is not a list under this 
+        definition.
+    non_goals:
+      - This definition does not include infinite sequences.
+    error_signatures:
+      - Treating an infinite sequence as a finite list.
+      - Assuming every list contains at least one entry.
+    instructional_repairs:
+      - Verify that the proposed length is a finite nonnegative integer.
+      - Include the empty list when considering the n=0 boundary case.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_320133ba05a07f0b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s90
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s95
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s96
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_for_a_fixed_positive_integer_n_f_n_is_the_set_of
+    title:
+    aliases:
+      - coordinate space
+      - n-dimensional coordinate space
+    description:
+    tags: []
+    concept_id: concept_coordinate_space_f_n
+    kind: definition
+    claim: For a fixed positive integer n, F^n is the set of all length-n lists 
+      (x_1,...,x_n) whose entries belong to F.
+    preconditions:
+      - n is a positive integer.
+      - F denotes R or C.
+    postconditions:
+      - Every element of F^n has exactly n ordered scalar entries.
+      - Each entry belongs to the chosen scalar system F.
+    applicability:
+      - Recognizing or constructing elements of a coordinate space.
+      - Specializing the notation to examples such as C^4.
+    positive_examples:
+      - C^4 consists of four-entry lists of complex numbers.
+    negative_examples:
+      - A list with a number of entries different from n is not an element of 
+        F^n.
+    non_goals:
+      - The definition does not require a physical visualization of the space.
+    error_signatures:
+      - Constructing an element with fewer or more than n coordinates.
+      - Mixing coordinate entries from incompatible scalar systems.
+    instructional_repairs:
+      - Count the entries and verify that every entry belongs to the same chosen
+        F.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_33fd7c5d973ffcfc
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s105
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s107
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s108
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s113
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_two_lists_are_equal_exactly_when_they_have_the_s
+    title:
+    aliases:
+      - equality of lists
+      - tuple equality
+    description:
+    tags: []
+    concept_id: concept_finite_ordered_lists
+    kind: applicability_condition
+    claim: Two lists are equal exactly when they have the same length and equal 
+      entries in the same positions; unlike sets, lists preserve order and 
+      repetitions.
+    preconditions:
+      - Both compared objects are lists.
+    postconditions:
+      - List equality is decided by length and position-by-position comparison.
+    applicability:
+      - Comparing tuples or coordinate lists.
+      - Distinguishing list equality from set equality.
+    positive_examples:
+      - (3,5) equals (3,5).
+    negative_examples:
+      - (3,5) does not equal (5,3).
+      - (4,4) does not equal (4,4,4).
+    non_goals:
+      - This is not a criterion for equality of sets.
+    error_signatures:
+      - Ignoring order when comparing lists.
+      - Discarding repeated entries.
+      - Failing to compare list lengths.
+    instructional_repairs:
+      - Compare lengths first, then compare entries at each matching position.
+      - Do not apply set-style equality rules to parenthesized lists.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_166f95c90318c11a
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s90
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s97
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s99
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_scalar_calculations_over_r_or_c_use_commutative_
+    title:
+    aliases:
+      - scalar laws
+      - field arithmetic
+    description:
+    tags: []
+    concept_id: concept_scalars_over_r_or_c
+    kind: proposition
+    claim: Scalar calculations over R or C use commutative and associative 
+      addition and multiplication, additive and multiplicative identities, 
+      additive inverses, nonzero multiplicative inverses, and distributivity of 
+      multiplication over addition.
+    preconditions:
+      - The operands are scalars in the same choice of F.
+      - A multiplicative inverse or division is used only for a nonzero scalar.
+    postconditions:
+      - Scalar expressions may be regrouped and reordered according to the 
+        stated laws.
+      - Subtraction and division can be interpreted through additive and 
+        multiplicative inverses.
+    applicability:
+      - Justifying coordinatewise vector calculations.
+      - Rewriting scalar expressions within a coordinate proof.
+    positive_examples:
+      - a+b=b+a for scalars a,b.
+      - A nonzero complex scalar has a unique multiplicative inverse.
+    negative_examples:
+      - Dividing by the scalar zero.
+    non_goals:
+      - This facet does not assert these laws for arbitrary operations or 
+        arbitrary algebraic systems.
+    error_signatures:
+      - Using a multiplicative inverse without checking that the scalar is 
+        nonzero.
+      - Invoking a vector property to justify a scalar-coordinate equality.
+    instructional_repairs:
+      - State the relevant scalar law at the coordinate where it is applied.
+      - Check the nonzero condition before using division or a multiplicative 
+        inverse.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_9c036dd26455993c
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s33
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s35
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s37
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s39
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s41
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s43
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_throughout_this_setting_f_denotes_either_r_or_c_
+    title:
+    aliases:
+      - F notation
+      - scalar
+    description:
+    tags: []
+    concept_id: concept_scalars_over_r_or_c
+    kind: definition
+    claim: Throughout this setting, F denotes either R or C, and an element of F
+      is called a scalar.
+    preconditions: []
+    postconditions:
+      - Statements expressed over F can be interpreted over R and over C.
+      - Elements used as coordinates in F^n are scalars.
+    applicability:
+      - Reading field-independent notation in the chapter.
+      - Identifying the type of coordinate entries.
+    positive_examples:
+      - A complex number is a scalar when F=C.
+      - A real number is a scalar when F=R.
+    negative_examples: []
+    non_goals:
+      - This notation does not make F an arbitrary field in the cited source.
+    error_signatures:
+      - Treating F as a single unspecified numerical set unrelated to R or C.
+    instructional_repairs:
+      - Substitute R or C for F and check that every scalar belongs to the 
+        chosen set.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_95fec1631f5050c4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s67
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s69
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s72
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+    title:
+    aliases:
+      - commutativity of vector addition
+    description:
+    tags: []
+    concept_id: concept_coordinate_proofs_in_f_n
+    kind: proposition
+    claim: 'For all x,y in F^n, coordinatewise addition is commutative: x+y=y+x.'
+    preconditions:
+      - x and y belong to the same F^n.
+      - Addition in F^n is coordinatewise.
+      - Scalar addition in F is commutative.
+    postconditions:
+      - The order of two vector addends may be exchanged without changing their 
+        sum.
+    applicability:
+      - Reordering two addends in F^n.
+      - Understanding how scalar laws induce coordinate-space laws.
+    positive_examples:
+      - x+y=y+x for x,y in F^n.
+    negative_examples: []
+    non_goals:
+      - This does not establish commutativity for arbitrary operations.
+    error_signatures:
+      - Using vector commutativity as its own justification during the proof.
+    instructional_repairs:
+      - At the coordinate-reversal step, cite commutativity of scalar addition 
+        in F.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_385bfb2b6c7a8dd5
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s123
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s124
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s126
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_when_the_symbol_0_is_overloaded_its_surrounding_
+    title:
+    aliases:
+      - typed zero notation
+      - context-dependent zero
+    description:
+    tags: []
+    concept_id: concept_zero_vector
+    kind: interpretation
+    claim: When the symbol 0 is overloaded, its surrounding operation and 
+      ambient types determine whether it denotes scalar zero or the zero vector;
+      in x+0 with x in F^n, it denotes the zero vector because vector addition 
+      takes two elements of F^n.
+    preconditions:
+      - The symbol 0 occurs in a typed mathematical expression.
+      - The domains of the surrounding operations are known.
+    postconditions:
+      - The intended zero is selected consistently with the expression’s types.
+    applicability:
+      - Reading 0=(0,...,0).
+      - Interpreting x+0=x in F^n.
+    positive_examples:
+      - The left side of 0=(0,...,0) is a vector, while each right-side entry is
+        a scalar.
+    negative_examples:
+      - Interpreting x+0 as vector-plus-scalar addition when no such operation 
+        has been defined.
+    non_goals:
+      - This facet does not define a new operation between vectors and scalars.
+    error_signatures:
+      - Assuming every occurrence of 0 has the same mathematical type.
+      - Ignoring the domain of vector addition.
+    instructional_repairs:
+      - Identify the type of every surrounding term before interpreting 0.
+      - Choose the meaning that makes the defined operation well-typed.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_a47d7981141dbdb4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s132
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s133
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s136
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s137
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_the_zero_vector_in_f_n_is_the_length_n_list_0_0_
+    title:
+    aliases:
+      - zero element
+      - zero list
+    description:
+    tags: []
+    concept_id: concept_zero_vector
+    kind: definition
+    claim: The zero vector in F^n is the length-n list 0=(0,...,0), whose 
+      entries are scalar zeros; it is the additive identity for coordinatewise 
+      addition.
+    preconditions:
+      - The ambient space is F^n.
+    postconditions:
+      - The zero vector belongs to F^n.
+      - For x in F^n, x+0=x.
+    applicability:
+      - Identifying the additive identity in a coordinate space.
+      - Writing the zero vector in coordinates.
+    positive_examples:
+      - In F^3, the zero vector is (0,0,0).
+    negative_examples:
+      - A list containing a nonzero coordinate is not the zero vector.
+    non_goals:
+      - The vector zero and scalar zero are not the same type of object.
+    error_signatures:
+      - Using a zero list of the wrong length.
+      - Treating the vector zero as a scalar.
+    instructional_repairs:
+      - Match the number of zero coordinates to n.
+      - Distinguish the whole list from each scalar entry.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_40bb3727f4677ace
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s130
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s131
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s135
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s137
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_in_two_dimensions_a_coordinate_space_element_can
+    title:
+    aliases:
+      - free-vector viewpoint
+      - point and arrow interpretation
+    description:
+    tags: []
+    concept_id: concept_geometric_interpretation_of_vectors
+    kind: interpretation
+    claim: In two dimensions, a coordinate-space element can be viewed as a 
+      point or as an arrow from the origin; translating an arrow parallel to 
+      itself without changing its length or direction preserves the vector 
+      represented.
+    preconditions:
+      - A two-dimensional geometric interpretation is being used.
+    postconditions:
+      - Different arrow placements with the same length and direction can 
+        represent the same vector.
+    applicability:
+      - Building geometric intuition for two-dimensional vectors.
+    positive_examples:
+      - Move an arrow parallel to itself before using it in a tip-to-tail 
+        construction.
+    negative_examples:
+      - Treating the moved arrow as a different vector solely because its 
+        initial point changed.
+    non_goals:
+      - The picture is not the formal definition of vectors in every dimension.
+    error_signatures:
+      - Equating a vector with one fixed arrow location.
+      - Replacing algebraic definitions with physical geometry.
+    instructional_repairs:
+      - Separate the abstract vector from a particular arrow used to depict it.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_f135fb6dca6534a2
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s141
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s142
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s146
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co
+    title:
+    aliases:
+      - coordinate proof of commutativity
+    description:
+    tags: []
+    concept_id: concept_coordinate_vector_operations
+    kind: proposition
+    claim: 'For x and y in F^n, coordinatewise addition is commutative: x + y = y
+      + x; a coordinate proof applies scalar commutativity separately in every coordinate.'
+    preconditions:
+      - x and y belong to F^n.
+      - Vector addition in F^n is defined coordinatewise.
+      - Addition in F is commutative.
+    postconditions:
+      - The coordinate calculation ends with y + x.
+    applicability:
+      - Proving commutativity of addition in a coordinate space.
+    positive_examples:
+      - Expand x and y into coordinate lists, reverse the scalar addends in each
+        coordinate, and recognize y + x.
+    negative_examples: []
+    non_goals:
+      - This does not prove commutativity for arbitrary operations called 
+        addition.
+    error_signatures:
+      - Treating vector commutativity as already established instead of invoking
+        scalar commutativity.
+      - Reordering coordinates rather than reversing the two addends within each
+        coordinate.
+    instructional_repairs:
+      - Label the coordinatewise-definition step and the scalar-commutativity 
+        step separately.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_24d7151e09d10ab1
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s125
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s126
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_for_x_x_1_x_n_compute_the_additive_inverse_by_ne
+    title:
+    aliases:
+      - coordinate negation
+      - negative of a coordinate vector
+    description:
+    tags: []
+    concept_id: concept_coordinate_vector_operations
+    kind: procedure_contract
+    claim: 'For x = (x_1, ..., x_n), compute the additive inverse by negating every
+      coordinate: -x = (-x_1, ..., -x_n), which satisfies x + (-x) = 0.'
+    preconditions:
+      - x is given as a coordinate vector.
+    postconditions:
+      - Every coordinate is negated.
+      - Adding the result to x gives the zero vector.
+    applicability:
+      - Computing additive inverses in coordinate spaces.
+    positive_examples:
+      - Negate each coordinate without changing coordinate order or vector 
+        length.
+    negative_examples: []
+    non_goals:
+      - This procedure does not define scalar multiplication or a dot product.
+    error_signatures:
+      - Negating only some coordinates.
+      - Changing the number or order of coordinates.
+    instructional_repairs:
+      - Match each output coordinate -x_i to the corresponding input coordinate 
+        x_i.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_f8b32ab43e712523
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s157
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s158
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s159
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo
+    title:
+    aliases:
+      - scaling a coordinate vector
+    description:
+    tags: []
+    concept_id: concept_coordinate_vector_operations
+    kind: procedure_contract
+    claim: 'Scalar multiplication takes a scalar λ and a coordinate vector and returns
+      the vector obtained by multiplying every coordinate by λ: λ(x_1, ..., x_n) =
+      (λx_1, ..., λx_n).'
+    preconditions:
+      - λ is a scalar.
+      - The vector is given in coordinate form.
+    postconditions:
+      - Every vector coordinate is multiplied by the same scalar.
+      - The output is a vector with the same number and order of coordinates.
+    applicability:
+      - Computing scalar multiples of coordinate vectors.
+    positive_examples:
+      - Apply λ to every coordinate, including zero and negative coordinates.
+    negative_examples:
+      - Multiplying corresponding coordinates of two vectors.
+      - Returning a scalar as though the operation were a dot product.
+    non_goals:
+      - This is not coordinatewise multiplication of two vectors and is not the 
+        dot product.
+    error_signatures:
+      - Using two vector operands.
+      - Multiplying only one coordinate.
+      - Returning a scalar instead of a vector.
+    instructional_repairs:
+      - 'Track the input-output types: scalar and vector in, vector out.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_3365c2f813ae18d1
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s164
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s165
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s166
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s169
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_field_is_a_set_containing_distinct_elements_0_
+    title:
+    aliases:
+      - field of scalars
+    description:
+    tags: []
+    concept_id: concept_scalar_fields
+    kind: definition
+    claim: A field is a set containing distinct elements 0 and 1 with addition 
+      and multiplication satisfying the field properties; examples include the 
+      rational numbers with their usual operations and the two-element field {0,
+      1} in which 1 + 1 = 0.
+    preconditions: []
+    postconditions:
+      - Scalars have a system of addition and multiplication governed by field 
+        laws.
+    applicability:
+      - Identifying the scalar systems allowed in abstract linear algebra.
+    positive_examples:
+      - The rational numbers with usual arithmetic.
+      - The two-element field with 1 + 1 = 0.
+    negative_examples:
+      - Rejecting a structure merely because its addition differs from familiar 
+        real-number arithmetic.
+    non_goals:
+      - This facet does not reconstruct field axioms omitted from the extracted 
+        unit.
+    error_signatures:
+      - Assuming every field must satisfy 1 + 1 ≠ 0.
+    instructional_repairs:
+      - Judge a candidate field by its stated operations and field properties, 
+        not by familiarity alone.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_6d743d7a0dec7884
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s175
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_many_linear_algebra_definitions_and_proofs_exten
+    title:
+    aliases:
+      - field-sensitive generalization
+    description:
+    tags: []
+    concept_id: concept_scalar_fields
+    kind: applicability_condition
+    claim: "Many linear-algebra definitions and proofs extend to arbitrary fields,
+      but generalization requires checking the hypotheses: inner-product results and
+      results requiring conditions such as 1 + 1 ≠ 0 are explicit exceptions in the
+      source's discussion."
+    preconditions:
+      - A theorem or definition is being transferred from a standard scalar 
+        field to another field.
+    postconditions:
+      - Field-sensitive assumptions are checked before the result is 
+        generalized.
+    applicability:
+      - Assessing whether a linear-algebra result remains valid over a different
+        field.
+    positive_examples:
+      - Check whether a result uses inner-product structure or excludes fields 
+        with 1 + 1 = 0.
+    negative_examples:
+      - Assuming every result automatically holds over every field.
+    non_goals:
+      - This is not an unconditional theorem-transfer rule.
+    error_signatures:
+      - Dropping a field-characteristic condition.
+      - Ignoring the stated inner-product exception.
+    instructional_repairs:
+      - List the theorem's field-dependent hypotheses before changing its scalar
+        field.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_f5575498baf3f667
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s176
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_in_two_dimensions_multiplication_by_a_positive_s
+    title:
+    aliases:
+      - geometric scaling of vectors
+    description:
+    tags: []
+    concept_id: concept_geometric_interpretation_of_vectors
+    kind: proposition
+    claim: In two dimensions, multiplication by a positive scalar preserves 
+      direction and scales length by that scalar, while multiplication by a 
+      negative scalar reverses direction and scales length by the scalar's 
+      absolute value.
+    preconditions:
+      - The vector is interpreted geometrically in two dimensions.
+      - The sign of the scalar is known.
+    postconditions:
+      - The direction and length of the scalar multiple are determined from the 
+        scalar's sign and absolute value.
+    applicability:
+      - Interpreting scalar multiplication geometrically.
+    positive_examples:
+      - A positive factor stretches or shrinks without reversing direction.
+      - A negative factor reverses direction and scales length by its magnitude.
+    negative_examples:
+      - Applying the positive-scalar direction rule to a negative scalar.
+    non_goals:
+      - This geometric rule is not a replacement for the coordinate definition.
+    error_signatures:
+      - Using a negative length.
+      - Failing to reverse direction for a negative scalar.
+    instructional_repairs:
+      - 'Handle sign and magnitude separately: sign determines direction; absolute
+        value determines length scale.'
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_07f64f8beec49c81
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s167
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s168
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+    title:
+    aliases:
+      - addition and scalar multiplication contracts
+    description:
+    tags: []
+    concept_id: concept_vector_space
+    kind: definition
+    claim: An addition on a set assigns an element of the set to each ordered 
+      pair of its elements, while scalar multiplication assigns an element of 
+      the set to each scalar-vector pair.
+    preconditions:
+      - A candidate set of vectors and a scalar domain are given.
+    postconditions:
+      - Addition and scalar multiplication are recognized as operations with 
+        different input types.
+    applicability:
+      - Reading the data required before vector-space axioms can be tested.
+    positive_examples:
+      - Addition takes two vectors; scalar multiplication takes one scalar and 
+        one vector.
+    negative_examples:
+      - Treating scalar multiplication as an operation on two vectors.
+    non_goals:
+      - These operation contracts alone do not imply the vector-space axioms.
+    error_signatures:
+      - Ignoring closure in the set.
+      - Confusing a scalar-vector input with a vector-vector input.
+    instructional_repairs:
+      - Write the type of each input and output before applying an operation.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_e073ec41b5c65f4f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s198
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s199
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_to_construct_a_vector_sum_geometrically_in_two_d
+    title:
+    aliases:
+      - tip-to-tail vector addition
+    description:
+    tags: []
+    concept_id: concept_geometric_interpretation_of_vectors
+    kind: procedure_contract
+    claim: To construct a vector sum geometrically in two dimensions, translate 
+      the second arrow so its initial point meets the first arrow's endpoint, 
+      then draw the sum from the first arrow's initial point to the translated 
+      arrow's endpoint.
+    preconditions:
+      - Both vectors are represented as arrows in two dimensions.
+      - Parallel translation preserves the represented vector.
+    postconditions:
+      - The resultant arrow represents the vector sum.
+    applicability:
+      - Geometric interpretation of two-dimensional vector addition.
+    positive_examples:
+      - Use an unchanged translated copy of the second vector in a tip-to-tail 
+        construction.
+    negative_examples:
+      - Changing the second arrow's length or direction during translation.
+      - Drawing the resultant between the wrong endpoints.
+    non_goals:
+      - This is not the general computational method for spaces that cannot be 
+        visualized.
+    error_signatures:
+      - Joining the wrong endpoints.
+      - Rotating or rescaling the translated arrow.
+    instructional_repairs:
+      - Mark the first tail, shared tip-tail junction, and final endpoint before
+        drawing the resultant.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_db107f13faf02b97
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s149
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s150
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s151
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_vector_space_is_a_set_with_addition_and_scalar
+    title:
+    aliases:
+      - vector-space definition
+      - vector-space laws
+    description:
+    tags: []
+    concept_id: concept_vector_space
+    kind: definition
+    claim: A vector space is a set with addition and scalar multiplication 
+      satisfying commutativity of addition, associativity of vector addition and
+      scalar multiplication, existence of an additive identity and additive 
+      inverses, the scalar identity law, and distributivity over vector and 
+      scalar addition.
+    preconditions:
+      - A set has specified addition and scalar multiplication operations.
+      - The scalars belong to the relevant scalar system.
+    postconditions:
+      - The structure is a vector space exactly when all listed axioms hold.
+    applicability:
+      - Recognizing or verifying abstract vector-space structure.
+    positive_examples:
+      - Check each axiom for all relevant vectors and scalars.
+    negative_examples:
+      - Concluding that a set is a vector space after checking only closure or 
+        commutativity.
+    non_goals:
+      - The definition does not require a norm, inner product, basis, dimension,
+        or geometric realization.
+    error_signatures:
+      - Omitting one distributive law.
+      - Confusing the scalar identity 1 with the additive identity 0.
+      - Checking the axioms only for selected examples rather than universally.
+    instructional_repairs:
+      - Group the checks into addition laws, scalar-action laws, identity and 
+        inverse laws, and the two distributive laws.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_3bcfc7adc55e3e14
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s201
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s202
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s203
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s205
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s207
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s209
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s211
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s213
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_an_element_of_a_vector_space_may_be_called_a_vec
+    title:
+    aliases:
+      - vectors as vector-space elements
+    description:
+    tags: []
+    concept_id: concept_vector_space
+    kind: interpretation
+    claim: An element of a vector space may be called a vector or a point; this 
+      terminology does not require the space to have a physical geometric 
+      realization.
+    preconditions:
+      - An element belongs to a vector space.
+    postconditions:
+      - The terms vector and point are interpreted as names for vector-space 
+        elements.
+    applicability:
+      - Reading abstract vector-space language.
+    positive_examples:
+      - Call a function, polynomial, or coordinate tuple a vector when it is an 
+        element of a vector space.
+    negative_examples:
+      - Assuming every vector must be a visible arrow in two or three 
+        dimensions.
+    non_goals:
+      - This does not supply a geometric model for every vector space.
+    error_signatures:
+      - Restricting the word vector to arrows.
+      - Inferring physical coordinates from the word point.
+    instructional_repairs:
+      - Use membership in the vector space, rather than visual appearance, to 
+        identify vectors.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_9ca1786c780022d4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s215
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s216
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s217
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_in_f_n_the_zero_vector_is_the_length_n_list_0_0_
+    title:
+    aliases:
+      - type-aware zero notation
+      - zero vector in F^n
+    description:
+    tags: []
+    concept_id: concept_coordinate_vector_operations
+    kind: interpretation
+    claim: In F^n, the zero vector is the length-n list (0, ..., 0). Because the
+      symbol 0 is overloaded, its type must be inferred from the surrounding 
+      expression; in x + 0 = x with x in F^n, it denotes the zero vector.
+    preconditions:
+      - The ambient coordinate space and the operand types are known.
+    postconditions:
+      - Zero notation is interpreted as the object that makes the expression 
+        type-consistent.
+    applicability:
+      - Expressions using 0 in both a scalar field and a coordinate space.
+    positive_examples:
+      - Interpret 0 in x + 0 = x as the zero vector when x belongs to F^n.
+    negative_examples:
+      - Interpreting the second operand of x + 0 as scalar zero when 
+        vector-scalar addition has not been defined.
+    non_goals:
+      - This does not identify scalar zero and the zero vector as the same kind 
+        of object.
+    error_signatures:
+      - Assuming every occurrence of 0 is a scalar.
+      - Ignoring the domain of the addition operation.
+    instructional_repairs:
+      - Identify the type of each neighboring term and select the zero object 
+        belonging to the required domain.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_95166b6fb7a6c66b
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s130
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s133
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s136
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s137
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_coordinates_are_scalar_coefficients_relative_to_
+    title:
+    aliases:
+      - basis dependence of coordinates
+    description:
+    tags: []
+    concept_id: concept_basis_relative_coordinates
+    kind: interpretation
+    claim: Coordinates are scalar coefficients relative to an ordered basis, so 
+      changing the basis can change a vector's coordinate list without changing 
+      the underlying vector or vector space.
+    preconditions:
+      - An ordered basis has been chosen.
+      - A vector is expressed as a linear combination of the basis vectors.
+    postconditions:
+      - Each coordinate is interpreted as the coefficient of its corresponding 
+        basis vector.
+      - Different bases may assign different coordinate lists to the same 
+        vector.
+    applicability:
+      - Interpreting numerical vector coordinates and comparing coordinate 
+        systems.
+    positive_examples:
+      - In the standard plane basis, (3,-2) means three times the first basis 
+        vector plus negative two times the second.
+    negative_examples:
+      - Treating a coordinate pair as having an absolute geometric meaning 
+        without a basis.
+    non_goals:
+      - This facet does not supply a change-of-basis algorithm.
+    error_signatures:
+      - Identifying a vector with one particular coordinate list.
+      - Using coordinates without specifying or assuming their ordered basis.
+    instructional_repairs:
+      - State the ordered basis before interpreting coordinates.
+      - Separate the underlying vector from its basis-dependent description.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_71eed31760588e38
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s14
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s42
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s44
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          path:
+          locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s16
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+          role: lecture
+          source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          path:
+          locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s20
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+          locator_scheme: block_span_v1
+          relation: alternate
+          revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+          role: lecture
+          source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          span_hash:
+  - id: facet_for_functions_with_a_common_domain_and_scalar_va
+    title:
+    aliases:
+      - pointwise function-space operations
+    description:
+    tags: []
+    concept_id: concept_function_space
+    kind: procedure_contract
+    claim: For functions with a common domain and scalar-valued outputs, vector 
+      addition and scalar multiplication are defined pointwise by adding 
+      function values or scaling each function value at every input.
+    preconditions:
+      - The functions share a domain.
+      - Their outputs lie in the relevant scalar field.
+    postconditions:
+      - The resulting rule defines another function on the same domain.
+      - Vector-space properties can be checked input by input.
+    applicability:
+      - Treating collections of scalar-valued functions as candidate vector 
+        spaces.
+    positive_examples:
+      - (f+g)(x)=f(x)+g(x).
+      - A scalar multiple evaluated at x equals the scalar times f(x).
+    negative_examples:
+      - Function composition used in place of vector addition.
+      - Multiplication of two functions used in place of scalar multiplication.
+    non_goals:
+      - Pointwise vector-space operations do not define function composition.
+    error_signatures:
+      - Adding functions by adding their inputs.
+      - Scaling only selected outputs.
+      - Rejecting functions as vectors because they lack a finite 
+        coordinate-list appearance.
+    instructional_repairs:
+      - Choose an arbitrary input x and define the new function through its 
+        value at x.
+      - Check closure and each axiom pointwise.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_5c5badc18878c512
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s236
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s237
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s239
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          path:
+          locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s36
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+          role: lecture
+          source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          path:
+          locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s49
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+          role: lecture
+          source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          span_hash:
+  - id: facet_a_collection_is_linearly_dependent_when_a_vector
+    title:
+    aliases:
+      - basis criterion
+      - nonredundant spanning set
+    description:
+    tags: []
+    concept_id: concept_linear_independence_and_basis
+    kind: definition
+    claim: A collection is linearly dependent when a vector is redundant because
+      it lies in the span of the others; a basis is a linearly independent 
+      collection that spans the entire vector space.
+    preconditions:
+      - A collection of vectors in a vector space is specified.
+      - Span is understood.
+    postconditions:
+      - Redundancy can be tested by removing a vector and comparing spans.
+      - A basis supplies enough vectors to reach the space without redundant 
+        directions.
+    applicability:
+      - Determining whether a collection qualifies as a basis.
+    positive_examples:
+      - A spanning collection in which no vector lies in the span of the others.
+    negative_examples:
+      - A spanning collection containing a vector already generated by the 
+        remaining vectors.
+      - An independent collection that does not span the whole space.
+    non_goals:
+      - Spanning alone and independence alone are each insufficient for being a 
+        basis.
+    error_signatures:
+      - Assuming every added vector contributes a new direction.
+      - Calling any spanning collection a basis without checking independence.
+    instructional_repairs:
+      - Test whether removing any vector leaves the span unchanged.
+      - Check spanning and linear independence as separate requirements.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_b586d38d97b594c9
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s129
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s136
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s137
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s141
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s142
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+  - id: facet_a_linear_combination_is_a_sum_of_scalar_multiple
+    title:
+    aliases:
+      - generated span
+    description:
+    tags: []
+    concept_id: concept_linear_combinations_and_span
+    kind: definition
+    claim: A linear combination is a sum of scalar multiples of given vectors, 
+      and the span of a collection is the set of all linear combinations 
+      obtainable as every coefficient varies over the scalar field.
+    preconditions:
+      - A collection of vectors and its scalar field are specified.
+    postconditions:
+      - Each choice of coefficients yields one vector.
+      - Allowing every coefficient identifies the entire span.
+    applicability:
+      - Describing reachable vectors and testing whether a collection spans a 
+        space.
+    positive_examples:
+      - Two non-collinear vectors in three-dimensional space span a plane 
+        through the origin.
+      - Two non-aligned vectors in the plane span the plane.
+    negative_examples:
+      - A finite sample of linear combinations mistaken for the full span.
+    non_goals:
+      - A single displayed linear combination is not itself the span.
+    error_signatures:
+      - Restricting coefficients to only positive or sampled values.
+      - Claiming that two non-collinear vectors span all of three-dimensional 
+        space.
+    instructional_repairs:
+      - Let every coefficient vary over the full scalar field.
+      - Distinguish one generated vector from the set of all generated vectors.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_1368e483cc6f1fca
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s45
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s62
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s94
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          path:
+          locator: span:ext_01KY3VMAQ2JGYG900ZH3HTET4R/s104
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VMAQ2JGYG900ZH3HTET4R
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY3VMAGD7PP0MHW74WB6721Q
+          role: lecture
+          source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
+          span_hash:
+  - id: facet_a_vector_space_is_called_real_or_complex_accordi
+    title:
+    aliases:
+      - classification by scalar field
+    description:
+    tags: []
+    concept_id: concept_real_and_complex_vector_spaces
+    kind: definition
+    claim: A vector space is called real or complex according to whether its 
+      scalar field is the real numbers or the complex numbers.
+    preconditions:
+      - The scalar field of the vector space is specified.
+    postconditions:
+      - The vector space can be classified by its allowed scalars.
+    applicability:
+      - Distinguishing real and complex vector spaces.
+    positive_examples:
+      - A space over real scalars is a real vector space.
+      - A space over complex scalars is a complex vector space.
+    negative_examples: []
+    non_goals:
+      - The classification does not change the underlying vector-space axiom 
+        pattern.
+    error_signatures:
+      - Classifying a vector space without identifying its scalar field.
+    instructional_repairs:
+      - Name the scalar field explicitly whenever the distinction matters.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_7771bb888f0eb9f3
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s221
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s222
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s223
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_the_set_of_infinite_scalar_sequences_becomes_a_v
+    title:
+    aliases:
+      - componentwise sequence vector space
+    description:
+    tags: []
+    concept_id: concept_sequence_space
+    kind: interpretation
+    claim: The set of infinite scalar sequences becomes a vector space when 
+      addition and scalar multiplication are defined componentwise; its additive
+      identity is the all-zero sequence.
+    preconditions:
+      - All sequence entries belong to the same scalar field.
+      - Corresponding coordinates are added and every coordinate is scaled by 
+        the given scalar.
+    postconditions:
+      - The operations produce scalar sequences and the vector-space laws can be
+        checked coordinate by coordinate.
+    applicability:
+      - Understanding and verifying sequence spaces as vector spaces.
+    positive_examples:
+      - Adding corresponding entries of two sequences.
+      - Multiplying every entry of a sequence by one scalar.
+    negative_examples:
+      - Combining coordinates by inconsistent position-dependent rules without 
+        verifying the axioms.
+    non_goals:
+      - This facet does not assert that every subset of the sequence space is a 
+        vector space.
+    error_signatures:
+      - Using a single scalar operation on only one coordinate.
+      - Identifying the additive identity as scalar 0 rather than the all-zero 
+        sequence.
+    instructional_repairs:
+      - Write the operation at an arbitrary coordinate and verify each axiom 
+        there.
+      - Identify vector-space elements and scalars as different kinds of 
+        objects.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_86a51fc1a075b01e
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s228
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s231
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s233
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: exercise
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_vector_addition_must_be_commutative_and_associat
+    title:
+    aliases:
+      - vector-space axiom checklist
+    description:
+    tags: []
+    concept_id: concept_vector_space_axioms
+    kind: proposition
+    claim: Vector addition must be commutative and associative, possess an 
+      additive identity and additive inverses, while scalar multiplication must 
+      be associative, respect scalar 1, and satisfy both distributive laws.
+    preconditions:
+      - Addition and scalar multiplication are defined on the candidate set.
+    postconditions:
+      - A structure satisfying every listed law meets the algebraic requirements
+        in the vector-space definition.
+    applicability:
+      - Verifying whether specified operations make a set into a vector space.
+    positive_examples:
+      - Checking componentwise sequence operations coordinate by coordinate.
+    negative_examples:
+      - Verifying only closure or only some of the listed laws.
+    non_goals:
+      - The checklist does not prescribe what the vectors must look like.
+    error_signatures:
+      - Omitting one distributive law.
+      - Confusing the scalar identity 1 with the additive identity vector 0.
+      - Assuming commutativity of scalar multiplication with vectors is an 
+        axiom.
+    instructional_repairs:
+      - 'Organize verification by the complete axiom families: addition, identity
+        and inverse, scalar identity and associativity, and distributivity.'
+      - Keep scalar operations distinct from vector operations.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_7e5cdfed05408d69
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s203
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s205
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s207
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s209
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s211
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s213
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+  - id: facet_a_vector_space_is_a_set_equipped_with_addition_a
+    title:
+    aliases:
+      - abstract vector-space definition
+    description:
+    tags: []
+    concept_id: concept_vector_space
+    kind: definition
+    claim: A vector space is a set equipped with addition and scalar 
+      multiplication whose operations satisfy the vector-space axioms; its 
+      elements are called vectors or points and need not be geometric arrows.
+    preconditions:
+      - A set and candidate addition and scalar multiplication operations are 
+        specified.
+    postconditions:
+      - The objects may be treated as vectors when the required axioms hold.
+      - Results derived from the vector-space axioms apply independently of the 
+        concrete form of the objects.
+    applicability:
+      - Recognizing abstract and concrete vector spaces.
+    positive_examples:
+      - The one-element space {0}.
+      - Spaces of scalar sequences.
+      - Spaces of scalar-valued functions with pointwise operations.
+    negative_examples:
+      - A set with operations that fail one or more vector-space axioms.
+    non_goals:
+      - This claim does not assert that every set or every pair of operations 
+        forms a vector space.
+      - Vectors are not restricted to arrows or finite coordinate lists.
+    error_signatures:
+      - Rejecting functions as vectors solely because they are not geometric 
+        arrows.
+      - Calling a set a vector space without specifying and checking its 
+        operations.
+    instructional_repairs:
+      - Identify the elements, addition, and scalar multiplication before 
+        applying the axiom checklist.
+      - Separate the abstract vector-space structure from any particular 
+        representation of its elements.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_16d72cf7d067874f
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s201
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s202
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          path:
+          locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s155
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+          role: lecture
+          source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          path:
+          locator: span:ext_01KY3VM96VRTJGCXFCTH1KHSX6/s185
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY3VM96VRTJGCXFCTH1KHSX6
+          locator_scheme: block_span_v1
+          relation: support
+          revision_id: rev_01KY3VM8ZWN0WHWJ0V43A6Q6D7
+          role: lecture
+          source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
+          span_hash:
+  - id: facet_addition_assigns_an_element_of_the_set_to_each_o
+    title:
+    aliases:
+      - addition and scalar multiplication contracts
+    description:
+    tags: []
+    concept_id: concept_vector_space_operations
+    kind: procedure_contract
+    claim: Addition assigns an element of the set to each ordered pair of its 
+      elements, while scalar multiplication assigns an element of the set to 
+      each scalar-element pair.
+    preconditions:
+      - A set of prospective vectors is specified.
+      - A scalar domain is specified for scalar multiplication.
+    postconditions:
+      - Both operations return elements of the prospective vector set.
+    applicability:
+      - Specifying the operations of a candidate vector space.
+    positive_examples:
+      - Componentwise operations on scalar sequences.
+      - Pointwise operations on scalar-valued functions.
+    negative_examples:
+      - An operation whose output can leave the proposed vector set.
+    non_goals:
+      - Closure of the operations alone does not establish all vector-space 
+        axioms.
+    error_signatures:
+      - Treating vector addition as an operation that may return an object 
+        outside the set.
+      - Confusing scalar multiplication with multiplication of two vectors.
+    instructional_repairs:
+      - State each operation's input types and output set explicitly.
+      - Check the axioms only after the operations are well-defined.
+    status: reviewed
+    version: 1
+    semantic_fingerprint: sf_c105d09fe24edde4
+    provenance:
+      origin: sourceset_synthesis
+      source_refs:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s198
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:
+        - ref_type: canonical_source
+          ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          path:
+          locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s199
+          quote:
+          quote_hash:
+          extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+          locator_scheme: block_span_v1
+          relation: primary
+          revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+          role: primary_textbook
+          source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+          span_hash:

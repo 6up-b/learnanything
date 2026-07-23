@@ -1,8 +1,9 @@
 """Durable ingest runner (spec_source_ingestion_v2 §6.2).
 
-A repository-backed, leased, sequential drain that replaces the old in-memory job
-manager. Work survives restarts: batches/jobs/dependencies live in SQLite, exactly
-one worker drains at a time under a lease, and every stage is independently
+A repository-backed, leased drain that replaces the old in-memory job manager.
+Work survives restarts: batches/jobs/dependencies live in SQLite, exactly one
+vault-writing worker drains at a time under a lease, and explicitly compatible
+DB-only work may use a bounded parallel lane. Every stage is independently
 resumable along the checkpoint ladder::
 
     acquired -> registered -> extracted -> inventoried -> synthesized -> proposed -> applied
@@ -135,6 +136,7 @@ class RunnerServices:
     synthesis_client_factory: Callable[["JobContext"], Any] | None = None
     quick_check_client_factory: Callable[["JobContext"], Any] | None = None
     rung_variant_client_factory: Callable[["JobContext"], Any] | None = None
+    exercise_import_client_factory: Callable[["JobContext"], Any] | None = None
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
         return (self.fetch or default_fetch)(source, category, ctx)
@@ -151,18 +153,33 @@ class RunnerServices:
         return (self.run_legacy_ingest or default_run_legacy_ingest)(**kwargs)
 
     def inventory_client(self, ctx: "JobContext") -> Any:
-        return (self.inventory_client_factory or default_inventory_client)(ctx)
+        client = (self.inventory_client_factory or default_inventory_client)(ctx)
+        ctx.bind_interruptible(client)
+        return client
 
     def synthesis_client(self, ctx: "JobContext") -> Any:
-        return (self.synthesis_client_factory or default_synthesis_client)(ctx)
+        client = (self.synthesis_client_factory or default_synthesis_client)(ctx)
+        ctx.bind_interruptible(client)
+        return client
 
     def quick_check_client(self, ctx: "JobContext") -> Any:
         # Reader quick checks ride the codex-only resolver: the task method is
         # getattr-discovered on the SDK client, exactly like unit inventory.
-        return (self.quick_check_client_factory or default_inventory_client)(ctx)
+        client = (self.quick_check_client_factory or default_inventory_client)(ctx)
+        ctx.bind_interruptible(client)
+        return client
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
-        return (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
+        client = (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
+        ctx.bind_interruptible(client)
+        return client
+
+    def exercise_import_client(self, ctx: "JobContext") -> Any:
+        # Reader exercise imports ride the codex-only resolver: the task method
+        # is getattr-discovered on the SDK client, like reader quick checks.
+        client = (self.exercise_import_client_factory or default_inventory_client)(ctx)
+        ctx.bind_interruptible(client)
+        return client
 
 
 @dataclass
@@ -178,6 +195,7 @@ class JobContext:
     services: RunnerServices = field(default_factory=RunnerServices)
     _usage: dict[str, Any] = field(default_factory=dict)
     _phase: str | None = None
+    _bind_interruptible: Callable[[Any], None] | None = None
 
     @property
     def payload(self) -> dict[str, Any]:
@@ -224,6 +242,12 @@ class JobContext:
 
     def cancelled(self) -> bool:
         return self._cancel_requested()
+
+    def bind_interruptible(self, client: Any) -> None:
+        """Expose a job-scoped provider's interrupt hook to the worker host."""
+
+        if self._bind_interruptible is not None:
+            self._bind_interruptible(client)
 
     def _cancel_requested(self) -> bool:
         fresh = self.repo.get_ingest_job(self.job_id)
@@ -1382,6 +1406,42 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     return {"question_id": row["id"], "deduplicated": False}
 
 
+def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
+    """reader_exercise_import: author the learner's selected textbook
+    exercise(s) into complete, schedulable PracticeItems.
+
+    Interactive-priority but on the MAIN single-writer lane — unlike
+    reader_quick_check this job writes vault YAML, so it must never run
+    concurrently with another vault-writing job. Idempotent through the
+    service's prompt-level dedupe: a retry after a crash mid-batch skips
+    already-written exercises as duplicates instead of double-authoring."""
+
+    from learnloop.services import exercise_authoring as EX
+
+    payload = ctx.payload
+    extraction_id = str(payload.get("extraction_id") or "")
+    raw_selection = payload.get("raw_selection") or {}
+    if not extraction_id or not raw_selection.get("nodes"):
+        raise IngestRunnerError("reader_exercise_import needs extraction_id and raw_selection nodes.")
+    ctx.report("authoring", message="Authoring the selected exercise(s) into practice items")
+    client = ctx.services.exercise_import_client(ctx)
+    try:
+        return EX.import_exercises(
+            ctx.vault_root,
+            ctx.repo,
+            client,
+            extraction_id=extraction_id,
+            raw_selection=raw_selection,
+            render_view_id=str(payload.get("render_view_id") or "") or None,
+            source_id=str(payload.get("source_id") or "") or None,
+            revision_id=str(payload.get("revision_id") or "") or None,
+            learning_object_hint=str(payload.get("learning_object_hint") or "") or None,
+            clock=ctx.clock,
+        )
+    except EX.ExerciseAuthoringError as exc:
+        raise IngestRunnerError(str(exc)) from exc
+
+
 def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     """practice_expansion: per-LO item generation (reader-first seeding).
 
@@ -1398,6 +1458,7 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
 
     payload = ctx.payload
     lo_ids = [str(lo) for lo in (payload.get("learning_object_ids") or []) if str(lo).strip()]
+    source_refs = [ref for ref in (payload.get("source_refs") or []) if isinstance(ref, dict)]
     if not lo_ids:
         raise IngestRunnerError("practice_expansion job requires 'learning_object_ids'.")
     ctx.report("generation", message=f"Generating practice for {len(lo_ids)} learning object(s)")
@@ -1410,10 +1471,13 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             require_completed_probe=False,
             target_items_per_lo=3,
             max_new_per_lo=3,
+            source_refs=source_refs,
             extra_instructions=(
                 "These items seed practice for material the learner just finished reading "
                 f"({payload.get('reason') or 'reader_section_completed'}). Ground every item in the "
-                "cited source spans."
+                "cited source spans. For each item, copy the exact proposal-local ref_id values from "
+                "context.source_refs whose learning_object_ids contain that item's learning_object_id "
+                "into item.source_ref_ids; do not cite bundles assigned to another Learning Object."
             ),
         )
     except PracticeExpansionError as exc:
@@ -1455,6 +1519,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "append_synthesis": handle_append_synthesis,
     "extraction_repair": handle_extraction_repair,
     "reader_quick_check": handle_reader_quick_check,
+    "reader_exercise_import": handle_reader_exercise_import,
     "practice_expansion": handle_practice_expansion,
     "rung_variant": handle_rung_variant,
 }
@@ -1486,6 +1551,47 @@ class IngestRunner:
         self.services = services or RunnerServices()
         self.lease_ttl_seconds = lease_ttl_seconds
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._interrupt_lock = threading.RLock()
+        self._active_interrupts: dict[str, Callable[[], Any]] = {}
+
+    def active_interruptible_jobs(self) -> list[dict[str, Any]]:
+        """Return running jobs that currently own an interruptible AI client."""
+
+        with self._interrupt_lock:
+            job_ids = list(self._active_interrupts)
+        jobs: list[dict[str, Any]] = []
+        for job_id in job_ids:
+            job = self.repo.get_ingest_job(job_id)
+            if job is not None and job.get("status") == "running":
+                jobs.append(job)
+        return jobs
+
+    def interrupt_job(self, job_id: str) -> bool:
+        """Cancel a batch and interrupt the selected job's active provider call."""
+
+        with self._interrupt_lock:
+            interrupt = self._active_interrupts.get(job_id)
+        if interrupt is None:
+            return False
+        job = self.repo.get_ingest_job(job_id)
+        if job is None or job.get("status") != "running":
+            return False
+        # Cancel queued siblings too, matching the existing batch-cancel contract
+        # and preventing dependants of the interrupted job from remaining queued.
+        self.cancel_batch(job["batch_id"])
+        interrupt()
+        return True
+
+    def _bind_job_interruptible(self, job_id: str, client: Any) -> None:
+        interrupt = getattr(client, "interrupt", None)
+        if not callable(interrupt):
+            return
+        with self._interrupt_lock:
+            self._active_interrupts[job_id] = interrupt
+
+    def _clear_job_interruptible(self, job_id: str) -> None:
+        with self._interrupt_lock:
+            self._active_interrupts.pop(job_id, None)
 
     # -- enqueue -----------------------------------------------------------
 
@@ -1566,7 +1672,14 @@ class IngestRunner:
             self.repo.finalize_stale_synthesis_runs(before_iso=cutoff, clock=self.clock)
         return recovered
 
-    def run_next(self) -> bool:
+    def run_next(
+        self,
+        *,
+        eligible_job_types: Sequence[str] | None = None,
+        compatible_running_job_types: Sequence[str] = (),
+        allow_parallel: bool = False,
+        max_parallel: int | None = None,
+    ) -> bool:
         """Claim and run one eligible job. Returns False when nothing was run
         (no eligible job, or another worker holds the drain lease)."""
 
@@ -1574,18 +1687,35 @@ class IngestRunner:
             worker_id=self.worker_id,
             now_iso=utc_now_iso(self.clock),
             lease_cutoff_iso=self._lease_cutoff_iso(),
+            eligible_job_types=eligible_job_types,
+            compatible_running_job_types=compatible_running_job_types,
+            allow_parallel=allow_parallel,
+            max_parallel=max_parallel,
         )
         if job is None:
             return False
         self._run_claimed(job)
         return True
 
-    def drain(self, *, max_jobs: int | None = None) -> int:
-        """Drain eligible jobs sequentially until none remain (or ``max_jobs``)."""
+    def drain(
+        self,
+        *,
+        max_jobs: int | None = None,
+        eligible_job_types: Sequence[str] | None = None,
+        compatible_running_job_types: Sequence[str] = (),
+        allow_parallel: bool = False,
+        max_parallel: int | None = None,
+    ) -> int:
+        """Drain matching jobs until none remain (or ``max_jobs``)."""
 
         ran = 0
         while max_jobs is None or ran < max_jobs:
-            if not self.run_next():
+            if not self.run_next(
+                eligible_job_types=eligible_job_types,
+                compatible_running_job_types=compatible_running_job_types,
+                allow_parallel=allow_parallel,
+                max_parallel=max_parallel,
+            ):
                 break
             ran += 1
         return ran
@@ -1641,6 +1771,7 @@ class IngestRunner:
             worker_id=self.worker_id,
             services=self.services,
             _usage=dict(job.get("usage") or {}),
+            _bind_interruptible=lambda client: self._bind_job_interruptible(job["id"], client),
         )
         if ctx.cancelled():
             self.repo.finish_ingest_job(
@@ -1705,30 +1836,53 @@ class IngestRunner:
             )
             self._propagate_blocks(batch_id)
         except Exception as exc:  # noqa: BLE001 — a failed job must never crash the drain
-            error = {"code": _error_code(exc), "message": str(exc) or exc.__class__.__name__}
-            if isinstance(exc, IngestRunnerError):
-                error["details"] = exc.details
-                error["retryable"] = exc.retryable
-            self.repo.finish_ingest_job(
-                job["id"],
-                status="failed",
-                phase="failed",
-                message=str(exc) or exc.__class__.__name__,
-                error=error,
-                usage=ctx._usage or None,
-                clock=self.clock,
-            )
-            self._propagate_blocks(batch_id)
+            if ctx.cancelled():
+                self.repo.finish_ingest_job(
+                    job["id"],
+                    status="cancelled",
+                    phase="cancelled",
+                    message="Codex call interrupted",
+                    error={"code": "cancelled", "message": "The Codex call was interrupted."},
+                    usage=ctx._usage or None,
+                    clock=self.clock,
+                )
+            else:
+                error = {"code": _error_code(exc), "message": str(exc) or exc.__class__.__name__}
+                if isinstance(exc, IngestRunnerError):
+                    error["details"] = exc.details
+                    error["retryable"] = exc.retryable
+                self.repo.finish_ingest_job(
+                    job["id"],
+                    status="failed",
+                    phase="failed",
+                    message=str(exc) or exc.__class__.__name__,
+                    error=error,
+                    usage=ctx._usage or None,
+                    clock=self.clock,
+                )
+                self._propagate_blocks(batch_id)
         else:
-            self.repo.finish_ingest_job(
-                job["id"],
-                status="completed",
-                phase=ctx._phase or "applied",
-                message="Completed",
-                result=result if result is not None else {},
-                usage=ctx._usage or None,
-                clock=self.clock,
-            )
+            if ctx.cancelled():
+                self.repo.finish_ingest_job(
+                    job["id"],
+                    status="cancelled",
+                    phase="cancelled",
+                    message="Codex call interrupted",
+                    error={"code": "cancelled", "message": "The Codex call was interrupted."},
+                    usage=ctx._usage or None,
+                    clock=self.clock,
+                )
+            else:
+                self.repo.finish_ingest_job(
+                    job["id"],
+                    status="completed",
+                    phase=ctx._phase or "applied",
+                    message="Completed",
+                    result=result if result is not None else {},
+                    usage=ctx._usage or None,
+                    clock=self.clock,
+                )
+        self._clear_job_interruptible(job["id"])
         self._refresh_batch(batch_id)
 
     def _heartbeat_while_running(self, job_id: str, stop: threading.Event) -> None:
@@ -1862,4 +2016,6 @@ def _as_number(value: Any) -> float | int:
 def _error_code(exc: Exception) -> str:
     if isinstance(exc, IngestRunnerError):
         return exc.code
+    if isinstance(exc, TimeoutError):
+        return "timeout"
     return exc.__class__.__name__

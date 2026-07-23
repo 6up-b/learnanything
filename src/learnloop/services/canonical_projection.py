@@ -17,9 +17,10 @@ mastery": it is a fold over attempts + grading, exactly like every other
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -195,6 +196,58 @@ def _attribution_weights(
     return {key: weight / total for key, weight in weights.items()}
 
 
+def observed_unresolved_failure(
+    observed_fraction: float,
+    targets: Sequence[CriterionTarget],
+    attribution: Mapping[tuple[str, str], float],
+) -> bool:
+    """True when an OBSERVED failure has multiple candidate causes and no
+    resolving attribution (§5.3) — the condition that opens an
+    unresolved-cause factor.
+
+    The gate reads the observed/authoritative outcome, never the calibrated
+    negative fraction: shrinkage under a cold grader-calibration model is
+    epistemic uncertainty about the measurement, not evidence that a failure
+    occurred. It may discount credit and belief mass, but it cannot fabricate
+    a failure-to-diagnose event on a correct answer.
+    """
+
+    return observed_fraction < 1.0 and len(targets) > 1 and not attribution
+
+
+def _adjudicated_score_fraction(
+    adjudication: Mapping[str, Any] | None,
+    interpretation: Mapping[str, Any] | None,
+    score_fraction: Mapping[str, float],
+) -> float | None:
+    """Observed-outcome override when an adjudication heads the interpretation
+    chain.
+
+    Adjudication rewrites the authoritative outcome without touching the raw
+    per-criterion points (append-only, §3.3/§4.4), so the observed-failure gate
+    must read the adjudicated class: the argmax of the head posterior, so a
+    bounded-trust blend that fails to flip the leading class also leaves the
+    observed outcome unchanged. Returns None when no adjudication heads the
+    active chain — the raw criterion fraction stands.
+    """
+
+    if not adjudication or not interpretation:
+        return None
+    if adjudication.get("resulting_interpretation_id") != interpretation.get("id"):
+        return None
+    try:
+        posterior = json.loads(interpretation.get("response_posterior_json") or "{}")
+    except (TypeError, ValueError):
+        posterior = {}
+    resolved = (
+        max(posterior, key=posterior.get) if posterior else adjudication.get("resolved_class")
+    )
+    if resolved is None:
+        return None
+    fraction = score_fraction.get(str(resolved))
+    return float(fraction) if fraction is not None else None
+
+
 def _repeat_discount(vault: LoadedVault) -> float:
     extra = getattr(vault.config.evidence.correlation, "__pydantic_extra__", None) or {}
     value = extra.get("repeat_surface_discount")
@@ -310,6 +363,18 @@ def project_canonical_facet_state(
             )
             emass = effective_obs.effective_mass
             p0_fraction = effective_obs.expected_true_score_fraction
+        # Observed-outcome override for the unresolved-cause gate: adjudication
+        # is observation-scoped (one activity observation per attempt), so it
+        # applies to every criterion of this attempt.
+        adjudicated_fraction = (
+            _adjudicated_score_fraction(
+                attempt.get("active_adjudication"),
+                attempt.get("active_interpretation"),
+                p0_score_fraction,
+            )
+            if use_p0
+            else None
+        )
         assisted = (
             attempt["attempt_type"] in ASSISTED_ATTEMPT_TYPES
             or int(attempt["hints_used"]) > 0
@@ -347,11 +412,12 @@ def project_canonical_facet_state(
                 continue  # descendant of a first error: evidence share 0 (§5.3)
             criterion = criteria_by_id[outcome.criterion_id]
             row = evidence_by_criterion.get(criterion.id)
-            fraction = 0.0
-            if p0_fraction is not None:
-                fraction = p0_fraction
-            elif row is not None and criterion.points > 0:
-                fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
+            raw_fraction = 0.0
+            if row is not None and criterion.points > 0:
+                raw_fraction = max(
+                    0.0, min(1.0, float(row["points_awarded"]) / criterion.points)
+                )
+            fraction = p0_fraction if p0_fraction is not None else raw_fraction
             targets = list(criterion.targets)
             if not targets:
                 continue
@@ -361,8 +427,17 @@ def project_canonical_facet_state(
             attribution = _attribution_weights(
                 row.get("attribution_json") if row is not None else None, targets
             )
+            # `negative_fraction` is calibrated (E[true-score] residual) and only
+            # shapes probabilistic mass below; the unresolved-cause gate reads the
+            # OBSERVED outcome — adjudicated class when one heads the chain, else
+            # the raw criterion fraction.
             negative_fraction = 1.0 - fraction
-            unresolved_negative = negative_fraction > 0 and len(targets) > 1 and not attribution
+            observed_fraction = (
+                adjudicated_fraction if adjudicated_fraction is not None else raw_fraction
+            )
+            unresolved_negative = observed_unresolved_failure(
+                observed_fraction, targets, attribution
+            )
             if unresolved_negative:
                 unresolved.append(
                     {

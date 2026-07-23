@@ -1,0 +1,94 @@
+schema_version: 1
+id: lo_compute_and_interpret_coordinate_vector_operatio
+title: Compute and interpret coordinate vector operations
+subjects:
+  - vector-spaces
+concept: concept_coordinate_vector_operations
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Use coordinates to add, negate, and scale vectors; justify 
+  commutativity coordinatewise; and distinguish vector zero from scalar zero by 
+  type.
+prerequisites: []
+confusables:
+  - concept_scalar_fields
+blueprints:
+  - id: bp_01KY3YXS_11
+    weight: 1.0
+    recipes:
+      - id: recipe_coordinate_operations_core
+        composition: conjunctive
+        all_of:
+          - facet: facet_in_f_n_the_zero_vector_is_the_length_n_list_0_0_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_for_x_x_1_x_n_compute_the_additive_inverse_by_ne
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co
+          capability: coordination
+          modality: hard
+      - id: recipe_coordinate_operation_discrimination
+        composition: conjunctive
+        all_of:
+          - facet: facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_in_f_n_the_zero_vector_is_the_length_n_list_0_0_
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s125
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s159
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s165
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:12Z'
+updated_at: '2026-07-22T03:48:52Z'

@@ -11,6 +11,7 @@ selection + ``needs_reanchor`` and never discards learner text (§3.2, §13.3).
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import json
 import re
@@ -48,17 +49,124 @@ def _neighbor_hashes(ir: Any, span_id: str) -> list[str]:
     return ["", ""]
 
 
-def _locate_quote(text: str, quote: str | None) -> tuple[int, int] | None:
+# Fuzzy tier acceptance: at least half the quote's word tokens must align
+# inside one window of the block, and the window must not balloon far past the
+# quote's own length (a degenerate alignment scattered across the block).
+FUZZY_COVERAGE_MIN = 0.5
+FUZZY_WINDOW_SLACK = 8
+
+
+def _fuzzy_locate(text: str, quote: str) -> tuple[int, int] | None:
+    """Tolerant alignment for quotes captured off a *rendered* surface (pdf.js
+    text layer, rendered MathML): rendered glyphs and extraction text disagree
+    wherever the extractor dropped math or stored it as LaTeX, so exact and
+    whitespace-normalized matching both fail. Align word tokens with difflib and
+    accept the covering window when enough of the quote lands in it; the offsets
+    are approximate but stay inside the learner-chosen block."""
+
+    text_tokens = [(m.group(0).casefold(), m.start(), m.end()) for m in re.finditer(r"\w+", text)]
+    quote_tokens = [m.group(0).casefold() for m in re.finditer(r"\w+", quote)]
+    if not text_tokens or not quote_tokens:
+        return None
+    matcher = difflib.SequenceMatcher(
+        None, [token for token, _, _ in text_tokens], quote_tokens, autojunk=False
+    )
+    matching = [b for b in matcher.get_matching_blocks() if b.size > 0]
+    if not matching:
+        return None
+    matched = sum(b.size for b in matching)
+    if matched / len(quote_tokens) < FUZZY_COVERAGE_MIN:
+        return None
+    first, last = matching[0], matching[-1]
+    window = (last.a + last.size) - first.a
+    if window > 2 * len(quote_tokens) + FUZZY_WINDOW_SLACK:
+        return None
+    start = text_tokens[first.a][1]
+    end = text_tokens[last.a + last.size - 1][2]
+    # Snap outward to whitespace so a window ending inside a LaTeX run (e.g.
+    # ``\mathbb{C}$.``) keeps the whole token in the exact quote.
+    while start > 0 and not text[start - 1].isspace():
+        start -= 1
+    while end < len(text) and not text[end].isspace():
+        end += 1
+    return start, end
+
+
+# Context disambiguation: with client-supplied glyph context (the text around
+# an atomic-unit capture), an occurrence may be chosen among several — but only
+# when it wins clearly; a murky contest stays needs_reanchor (§3.2).
+CONTEXT_SCORE_MIN = 0.4
+CONTEXT_MARGIN_MIN = 0.1
+
+
+def _context_score(
+    text: str, start: int, end: int, prefix: str | None, suffix: str | None
+) -> float:
+    """Similarity between the extraction text around an occurrence and the
+    rendered-surface context the capture arrived with (0..1)."""
+
+    def normalize(value: str) -> str:
+        return " ".join(value.split()).casefold()
+
+    scores: list[float] = []
+    if prefix:
+        around = normalize(text[max(0, start - _context_chars) : start])
+        scores.append(difflib.SequenceMatcher(None, around, normalize(prefix)[-_context_chars:]).ratio())
+    if suffix:
+        around = normalize(text[end : end + _context_chars])
+        scores.append(difflib.SequenceMatcher(None, around, normalize(suffix)[:_context_chars]).ratio())
+    return sum(scores) / len(scores) if scores else 0.0
+
+
+def _disambiguate(
+    text: str,
+    candidates: list[tuple[int, int]],
+    prefix: str | None,
+    suffix: str | None,
+) -> tuple[int, int] | None:
+    """Pick among several occurrences of the same quote using surrounding
+    context — only on a clear win; otherwise refuse (§3.2)."""
+
+    if not (prefix or suffix):
+        return None
+    scored = sorted(
+        ((_context_score(text, start, end, prefix, suffix), start, end) for start, end in candidates),
+        reverse=True,
+    )
+    best, runner_up = scored[0], scored[1]
+    if best[0] < CONTEXT_SCORE_MIN or best[0] - runner_up[0] < CONTEXT_MARGIN_MIN:
+        return None
+    return best[1], best[2]
+
+
+def _locate_quote(
+    text: str,
+    quote: str | None,
+    *,
+    prefix: str | None = None,
+    suffix: str | None = None,
+) -> tuple[int, int] | None:
     """Locate a quote in source-block text: exact unique match first, else a
-    unique whitespace-normalized match. The fallback matters for selections made
-    over a PDF text layer, whose spacing/line breaks legitimately differ from the
-    extraction text; anything still ambiguous stays ``needs_reanchor``."""
+    unique whitespace-normalized match, else a fuzzy token alignment. The
+    fallbacks matter for selections made over a PDF text layer or rendered
+    math, whose glyphs legitimately differ from the extraction text. Repeated
+    occurrences are disambiguated by the capture's surrounding glyph context
+    when that context picks a clear winner; anything still unmatched or
+    ambiguous stays ``needs_reanchor``."""
 
     if not quote:
         return None
-    if text.count(quote) == 1:
+    exact_count = text.count(quote)
+    if exact_count == 1:
         start = text.index(quote)
         return start, start + len(quote)
+    if exact_count > 1:
+        candidates = []
+        at = text.find(quote)
+        while at != -1:
+            candidates.append((at, at + len(quote)))
+            at = text.find(quote, at + 1)
+        return _disambiguate(text, candidates, prefix, suffix)
     tokens = quote.split()
     if not tokens:
         return None
@@ -66,7 +174,11 @@ def _locate_quote(text: str, quote: str | None) -> tuple[int, int] | None:
     matches = list(re.finditer(pattern, text))
     if len(matches) == 1:
         return matches[0].start(), matches[0].end()
-    return None
+    if matches:
+        return _disambiguate(text, [(m.start(), m.end()) for m in matches], prefix, suffix)
+    # Zero verbatim occurrences means the surfaces genuinely diverge (rendered
+    # glyphs vs extraction text) — only then is fuzzy alignment in play.
+    return _fuzzy_locate(text, quote)
 
 
 def _segment_from_block(block: Any, ir: Any, start: int, end: int) -> dict[str, Any]:
@@ -130,6 +242,10 @@ def translate_selection(
             "start": raw_node.get("start"),
             "end": raw_node.get("end"),
             "quote": raw_node.get("quote"),
+            # Optional rendered-surface context around the capture (atomic-unit
+            # ctrl+click sends it) — used only to disambiguate repeated quotes.
+            "prefix": raw_node.get("prefix"),
+            "suffix": raw_node.get("suffix"),
         }
         span_id = node.get("span_id")
         if span_id is None:
@@ -142,8 +258,9 @@ def translate_selection(
         start = node.get("start")
         end = node.get("end")
         quote = node.get("quote")
+        context = {"prefix": node.get("prefix"), "suffix": node.get("suffix")}
         if start is None or end is None:
-            located = _locate_quote(block.text, quote)
+            located = _locate_quote(block.text, quote, **context)
             if located is None:
                 status = "needs_reanchor"
                 continue
@@ -153,7 +270,7 @@ def translate_selection(
             end = int(end)
             if quote is not None and block.text[max(0, min(start, len(block.text))) : max(0, min(end, len(block.text)))] != quote:
                 # display offsets drifted from the quote -> relocate uniquely or fail visibly.
-                located = _locate_quote(block.text, quote)
+                located = _locate_quote(block.text, quote, **context)
                 if located is None:
                     status = "needs_reanchor"
                     continue

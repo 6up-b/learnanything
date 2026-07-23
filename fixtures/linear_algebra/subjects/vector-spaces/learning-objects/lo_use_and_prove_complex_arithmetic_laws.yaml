@@ -1,0 +1,96 @@
+schema_version: 1
+id: lo_use_and_prove_complex_arithmetic_laws
+title: Use and Prove Complex Arithmetic Laws
+subjects:
+  - vector-spaces
+concept: concept_definition_based_proof_in_complex_arithmetic
+knowledge_type: proposition and proof procedure
+status: active
+contradicts:
+summary: State the principal algebraic laws of complex arithmetic and prove a 
+  representative universal law by reducing it to real-component calculations.
+prerequisites:
+  - concept_complex_addition
+  - concept_complex_multiplication
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_4
+    weight: 0.35
+    recipes:
+      - id: recipe_complex_laws_and_proof
+        composition: conjunctive
+        all_of:
+          - facet: facet_complex_addition_and_multiplication_obey_commuta
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_to_prove_a_universal_identity_about_complex_mult
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_multiply_complex_numbers_by_distributing_replaci
+            capability: retrieval
+            modality: facilitating
+        any_of: []
+        integration:
+          facet: facet_to_prove_a_universal_identity_about_complex_mult
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s34
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s45
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s46
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s53
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:47:56Z'
+updated_at: '2026-07-22T03:48:34Z'

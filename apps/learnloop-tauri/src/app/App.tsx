@@ -518,6 +518,7 @@ export function App() {
             onBack={() => setTodayStage("queue")}
             onOpenNotes={() => gotoTab("library")}
             onPrimedRetry={openPrimedRetry}
+            onOpenPractice={openPractice}
             onOpenLibraryFile={openLibraryFile}
             onInspect={setInspectorId}
             onPaletteEntities={onPaletteEntities}

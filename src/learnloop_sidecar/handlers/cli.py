@@ -27,6 +27,25 @@ def run_cli_command(ctx: SidecarContext, params: RunCliCommandInput) -> dict[str
     if not normalized:
         raise SidecarError("validation_error", "CLI command is empty.")
 
+    # This command must execute inside the long-lived sidecar process: a spawned
+    # CLI process cannot reach the SDK turn handle owned by an ingest worker.
+    if normalized[0] == "kill-codex":
+        if len(normalized) > 2:
+            return _cli_result(normalized, 2, "", "usage: kill-codex [job_id]\n")
+        try:
+            result = ctx.ingest_jobs.interrupt_codex(normalized[1] if len(normalized) == 2 else None)
+        except ValueError as exc:
+            return _cli_result(normalized, 1, "", f"{exc}\n")
+        return _cli_result(
+            normalized,
+            0,
+            (
+                f"Interrupted Codex call for {result['job_type']} job {result['job_id']} "
+                f"(batch {result['batch_id']}). The batch can be resumed from Ingest.\n"
+            ),
+            "",
+        )
+
     cli_argv = [*normalized]
     if _should_inject_vault(cli_argv):
         cli_argv.extend(["--vault", str(vault.root)])
@@ -63,6 +82,17 @@ def run_cli_command(ctx: SidecarContext, params: RunCliCommandInput) -> dict[str
             "exit_code": completed.returncode,
             "stdout": completed.stdout,
             "stderr": completed.stderr,
+        }
+    )
+
+
+def _cli_result(argv: list[str], exit_code: int, stdout: str, stderr: str) -> dict[str, Any]:
+    return versioned(
+        {
+            "argv": ["learnloop", *argv],
+            "exit_code": exit_code,
+            "stdout": stdout,
+            "stderr": stderr,
         }
     )
 

@@ -14,6 +14,9 @@ from datetime import UTC, datetime
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+from learnloop.services.activities import log_interaction_event
+from learnloop.vault.loader import load_vault
+from learnloop.vault.paths import VaultPaths
 from learnloop_sidecar.server import serve
 
 from tests.helpers import NOW, create_basic_vault
@@ -85,6 +88,38 @@ def test_reader_set_answer_mode_rpc(tmp_path):
     ])
     assert resp[1]["result"]["answerMode"] == "help_me_reason"
     assert resp[1]["result"]["eventId"]
+
+
+def test_reader_ask_history_rpc_returns_durable_exchanges(tmp_path):
+    root = _setup(tmp_path)
+    loaded = load_vault(root)
+    repo = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    log_interaction_event(
+        repo,
+        kind="reader_answer_submitted",
+        origin="system",
+        subject_type="reader_span",
+        subject_id="span:ext1/s1",
+        payload={
+            "extraction_id": "ext1",
+            "span_id": "s1",
+            "answer_mode": "help_me_reason",
+            "answer_md": "Because transposition leaves the matrix unchanged.",
+            "citations": [],
+            "manifest": {"question_md": "Why is this symmetric?"},
+        },
+    )
+
+    resp = _rpc([
+        _init(root),
+        {"jsonrpc": "2.0", "id": 2, "method": "reader.ask_history",
+         "params": {"extractionId": "ext1"}},
+    ])
+    exchanges = resp[1]["result"]["exchanges"]
+    assert len(exchanges) == 1
+    assert exchanges[0]["spanId"] == "s1"
+    assert exchanges[0]["questionMd"] == "Why is this symmetric?"
+    assert exchanges[0]["answerMode"] == "help_me_reason"
 
 
 def test_reader_guide_plan_rpc_returns_real_section_boundaries(tmp_path):
@@ -245,3 +280,26 @@ def test_watch_plan_returns_video_id_for_youtube_source(tmp_path):
         {"jsonrpc": "2.0", "id": 2, "method": "reader.watch_plan", "params": {"sourceId": "src1"}},
     ])[1]
     assert not_video["error"]["data"]["code"] == "not_a_video"
+
+
+def test_reader_import_exercise_rpc_rejects_empty_selection(tmp_path):
+    root = _setup(tmp_path)
+    resp = _rpc([
+        _init(root),
+        {"jsonrpc": "2.0", "id": 2, "method": "reader.import_exercise",
+         "params": {"extractionId": "ext1", "rawSelection": {"nodes": []}}},
+    ])
+    error = resp[1]["error"]
+    assert error["data"]["code"] == "validation_error"
+    assert "anchorable" in error["message"]
+
+
+def test_reader_exercise_import_status_rpc_unknown_batch(tmp_path):
+    root = _setup(tmp_path)
+    resp = _rpc([
+        _init(root),
+        {"jsonrpc": "2.0", "id": 2, "method": "reader.exercise_import_status",
+         "params": {"batchId": "no_such_batch"}},
+    ])
+    error = resp[1]["error"]
+    assert error["data"]["code"] == "batch_not_found"

@@ -548,6 +548,7 @@ def generate_post_probe_practice_proposal(
     learning_object_ids: list[str] | None = None,
     mode_mix: dict[str, int] | None = None,
     require_completed_probe: bool = True,
+    source_refs: list[dict[str, Any]] | None = None,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -579,7 +580,9 @@ def generate_post_probe_practice_proposal(
         ),
         focus_concepts=focus_concepts,
         focus_facets=focus_facets,
+        source_refs=source_refs,
         codex_revision=codex_revision,
+        merge_context_source_refs=bool(source_refs),
         row_transform=rung_gate,
     )
     violations: list[str] = []
@@ -1072,9 +1075,23 @@ def _active_practice_item_counts(
 
 
 def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) -> dict[str, list[str]]:
-    """Union of evidence facet ids across each Learning Object's active items."""
+    """Canonical facet vocabulary available to each Learning Object.
+
+    Blueprints remain authoritative even before the first Practice Item exists;
+    active item facets supplement them for legacy/ad-hoc vaults.  Reader-first
+    bootstrapping otherwise hands an empty vocabulary to the authoring target at
+    precisely the moment it must create the first items.
+    """
+    from learnloop.vault.models import learning_object_facet_union
+
     states = repository.practice_item_states()
-    unions: dict[str, set[str]] = {}
+    unions: dict[str, set[str]] = {
+        learning_object.id: {
+            vault.canonical_facet_id(str(facet))
+            for facet in learning_object_facet_union(learning_object)
+        }
+        for learning_object in vault.learning_objects.values()
+    }
     for item in vault.practice_items.values():
         state = states.get(item.id)
         if state is not None and not state.active:

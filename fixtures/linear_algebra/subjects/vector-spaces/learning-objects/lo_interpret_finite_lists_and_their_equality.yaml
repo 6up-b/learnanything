@@ -1,0 +1,65 @@
+schema_version: 1
+id: lo_interpret_finite_lists_and_their_equality
+title: Interpret Finite Lists and Their Equality
+subjects:
+  - vector-spaces
+concept: concept_finite_ordered_lists
+knowledge_type: conceptual and interpretive
+status: active
+contradicts:
+summary: Recognize finite lists and tuples, including the empty list, and 
+  compare them using length and position rather than set equality.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_6
+    weight: 0.14
+    recipes:
+      - id: recipe_list_schema_and_equality
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_list_of_length_n_is_a_finite_ordered_collectio
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_two_lists_are_equal_exactly_when_they_have_the_s
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+          facet: facet_two_lists_are_equal_exactly_when_they_have_the_s
+          capability: coordination
+          modality: hard
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s90
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s99
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: support
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:06Z'
+updated_at: '2026-07-22T03:48:46Z'

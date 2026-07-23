@@ -1,0 +1,60 @@
+schema_version: 1
+id: lo_real_and_complex_vector_spaces
+title: Real and Complex Vector Spaces
+subjects:
+  - vector-spaces
+concept: concept_real_and_complex_vector_spaces
+knowledge_type: declarative
+status: active
+contradicts:
+summary: Classify a vector space by identifying whether its allowed scalars are 
+  real or complex.
+prerequisites:
+  - concept_vector_space
+confusables: []
+blueprints:
+  - id: bp_01KY3YXS_17
+    weight: 0.5
+    recipes:
+      - id: recipe_classify_scalar_field
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_vector_space_is_called_real_or_complex_accordi
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s221
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s223
+      quote:
+      quote_hash:
+      extraction_id: ext_01KY2ZX9193YPC73DT6HXFFNDC
+      locator_scheme: block_span_v1
+      relation: primary
+      revision_id: rev_01KY2YG293VG4F68VDGRD7GDF4
+      role: primary_textbook
+      source_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      span_hash:
+created_at: '2026-07-22T03:48:25Z'
+updated_at: '2026-07-22T03:49:07Z'

@@ -6,9 +6,15 @@
 // extraction actually covers are shown (a whole textbook may back a chapter-scoped
 // ingest), with honest gap markers between non-adjacent pages. Block geometry from
 // reader.pdf_view (PDF points, origin top-left — marker's bbox space) is overlaid
-// per page; a native text selection is hit-tested against that geometry so
-// captures land on the same span ids the markdown reader uses, and a click
-// selects the containing span for the Ask panel.
+// per page.
+//
+// Selection is block-snapped: dragging sweeps whole extraction blocks (page
+// furniture excluded), painted as crisp rectangles while the drag is live, and
+// the captured quote per block is the block's own extraction text — so anchoring
+// downstream is exact by construction (pdf.js glyph text diverges from the
+// extraction wherever math was dropped or stored as LaTeX, and can never anchor
+// reliably). Alt+drag falls back to native glyph selection for free-form copy
+// and sub-block quotes; a click selects the containing span for the Ask panel.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
@@ -33,6 +39,80 @@ const TRAIL_COLORS: Record<string, { wash: string; edge: string }> = {
   other: { wash: "rgba(147, 112, 219, 0.18)", edge: "rgba(120, 85, 200, 0.75)" },
 };
 
+// Page furniture never joins a sweep: running heads/footers repeat every page
+// and would pollute a selection crossing a page boundary.
+const FURNITURE_TYPES = new Set(["PageHeader", "PageFooter", "TableOfContents"]);
+
+function isSelectable(block: ReaderPdfBlockDto): boolean {
+  return !FURNITURE_TYPES.has(block.blockType ?? "") && (block.text ?? "").trim().length > 0;
+}
+
+// ---- atomic-unit fine capture (ctrl+click) helpers ------------------------
+
+/** One ctrl+click capture: a word off the text layer, or a whole Equation
+ *  block. Geometry is PDF points (stable across zoom); `order` sorts units in
+ *  reading order; units sharing a `runId` were captured as one contiguous
+ *  range and merge into one wire quote. */
+export interface FineUnit {
+  key: string;
+  spanId: string;
+  page: number;
+  rects: number[][];
+  text: string;
+  prefix: string;
+  suffix: string;
+  runId: number;
+  order: number;
+}
+
+/** How much rendered glyph context rides with a unit for backend occurrence
+ *  disambiguation. */
+const GLYPH_CONTEXT_CHARS = 48;
+
+function caretFromPoint(x: number, y: number): { node: Text; offset: number } | null {
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  if (typeof doc.caretRangeFromPoint === "function") {
+    const range = doc.caretRangeFromPoint(x, y);
+    if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+      return { node: range.startContainer as Text, offset: range.startOffset };
+    }
+    return null;
+  }
+  if (typeof doc.caretPositionFromPoint === "function") {
+    const pos = doc.caretPositionFromPoint(x, y);
+    if (pos && pos.offsetNode.nodeType === Node.TEXT_NODE) {
+      return { node: pos.offsetNode as Text, offset: pos.offset };
+    }
+  }
+  return null;
+}
+
+/** Expand a caret to the word around it within its text node — the atomic
+ *  unit for prose. Null when the caret sits in whitespace. */
+function wordRangeFromCaret(node: Text, offset: number): Range | null {
+  const data = node.data;
+  let at = Math.min(offset, data.length - 1);
+  if (at < 0) return null;
+  if (/\s/.test(data[at] ?? "")) {
+    if (at > 0 && !/\s/.test(data[at - 1])) at -= 1;
+    else return null;
+  }
+  let start = at;
+  let end = at + 1;
+  while (start > 0 && !/\s/.test(data[start - 1])) start -= 1;
+  while (end < data.length && !/\s/.test(data[end])) end += 1;
+  if (!data.slice(start, end).trim()) return null;
+  const range = document.createRange();
+  range.setStart(node, start);
+  range.setEnd(node, end);
+  return range;
+}
+
+const EMPTY_SPANS = new Set<string>();
+
 /** A right-click tag request: where to show the menu and what it would tag —
  *  a selection's quote, or the whole block when quote is null. */
 export interface TagMenuRequest {
@@ -53,9 +133,17 @@ interface PdfReaderPaneProps {
   trails: AnnotationTrail[];
   /** Personalized second-pass passages revealed by the learner at a section break. */
   guidanceSpans: Set<string>;
+  /** Blocks of the committed selection — stay painted until the capture is cleared. */
+  selectedSpans: Set<string>;
   activeSpan: string | null;
   onSelectSpan: (spanId: string) => void;
-  onTextSelection: (selection: { spanId: string; quote: string }) => void;
+  onTextSelection: (selection: {
+    spanId: string;
+    quote: string;
+    nodes: Array<{ spanId: string; quote: string; prefix?: string; suffix?: string }>;
+  }) => void;
+  /** The last atomic unit was toggled off — the capture is empty again. */
+  onSelectionCleared: () => void;
   onTagMenu: (request: TagMenuRequest) => void;
   onError: (message: string) => void;
 }
@@ -66,7 +154,7 @@ interface FindMatch {
 }
 
 export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(
-  { fileUrl, blocks, trails, guidanceSpans, activeSpan, onSelectSpan, onTextSelection, onTagMenu, onError }: PdfReaderPaneProps,
+  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onSelectSpan, onTextSelection, onSelectionCleared, onTagMenu, onError }: PdfReaderPaneProps,
   handleRef,
 ) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -310,37 +398,594 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     return null;
   };
 
-  // Native text selection → {spanId, quote} via geometry overlap on the
-  // selection's bounding rects. Shared by mouse-up capture and the tag menu.
-  const resolveSelection = useCallback((): { spanId: string; quote: string } | null => {
+  // ---- block-snapped sweep selection -------------------------------------
+  // `blocks` arrives in reading order (sidecar sorts by ordinal), so a sweep is
+  // just an index range; page boundaries need no special casing.
+  const indexBySpan = useMemo(() => new Map(blocks.map((b, i) => [b.spanId, i] as const)), [blocks]);
+
+  // Forgiving hit target while sweeping: the containing selectable block, else
+  // the nearest selectable block on the page (margins/gutters keep tracking).
+  const blockNearPoint = useCallback(
+    (pageEl: HTMLElement, clientX: number, clientY: number): ReaderPdfBlockDto | null => {
+      const direct = blockAtPoint(pageEl, clientX, clientY);
+      if (direct && isSelectable(direct)) return direct;
+      const page = Number(pageEl.dataset.pdfPage);
+      const widthPoints = Number(pageEl.dataset.widthPoints);
+      const rect = pageEl.getBoundingClientRect();
+      if (!rect.width || !widthPoints) return null;
+      const scale = rect.width / widthPoints;
+      const x = (clientX - rect.left) / scale;
+      const y = (clientY - rect.top) / scale;
+      let best: ReaderPdfBlockDto | null = null;
+      let bestDistance = Infinity;
+      for (const block of blocksByPage.get(page) ?? []) {
+        if (block.bbox.length !== 4 || !isSelectable(block)) continue;
+        const dx = x < block.bbox[0] ? block.bbox[0] - x : x > block.bbox[2] ? x - block.bbox[2] : 0;
+        const dy = y < block.bbox[1] ? block.bbox[1] - y : y > block.bbox[3] ? y - block.bbox[3] : 0;
+        const distance = dy * 4 + dx; // reading flows vertically: track lines, not columns
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = block;
+        }
+      }
+      return best;
+    },
+    [blockAtPoint, blocksByPage],
+  );
+
+  const [sweep, setSweep] = useState<{ anchor: number; head: number } | null>(null);
+  const [hoverSpan, setHoverSpan] = useState<string | null>(null);
+  const sweepRef = useRef<{ anchor: number; head: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  // A committed sweep must not double as a click (the click would move the
+  // active span to whatever block sat under the release point).
+  const justSweptRef = useRef(false);
+  const sweeping = sweep !== null;
+
+  const sweepSpans = useMemo(() => {
+    if (!sweep) return null;
+    const lo = Math.min(sweep.anchor, sweep.head);
+    const hi = Math.max(sweep.anchor, sweep.head);
+    return new Set(blocks.slice(lo, hi + 1).filter(isSelectable).map((b) => b.spanId));
+  }, [sweep, blocks]);
+
+  const onSweepMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      // Alt reserves the drag for native glyph selection (free-form copy).
+      if (event.button !== 0 || event.altKey) return;
+      // Ctrl/meta is fine capture: no sweep, and no native drag either.
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        return;
+      }
+      const target = event.target as Node;
+      if (target instanceof HTMLElement && target.closest("button, input")) return;
+      const pageEl = pageElFor(target);
+      if (!pageEl) return;
+      const block = blockNearPoint(pageEl, event.clientX, event.clientY);
+      const idx = block ? indexBySpan.get(block.spanId) : undefined;
+      if (idx === undefined) return;
+      // The sweep owns this drag: suppress the native glyph selection, which is
+      // what made captures feel clunky and overselect across the text layer.
+      event.preventDefault();
+      window.getSelection()?.removeAllRanges();
+      sweepRef.current = { anchor: idx, head: idx, startX: event.clientX, startY: event.clientY, moved: false };
+      lastPointRef.current = { x: event.clientX, y: event.clientY };
+      setSweep({ anchor: idx, head: idx });
+    },
+    [blockNearPoint, indexBySpan],
+  );
+
+  // While a sweep is live: track the head block under the pointer (window-level,
+  // so leaving the pane doesn't drop the drag) and commit on mouseup.
+  useEffect(() => {
+    if (!sweeping) return;
+    const updateHead = (clientX: number, clientY: number) => {
+      const state = sweepRef.current;
+      if (!state) return;
+      const pageEl = pageElFor(document.elementFromPoint(clientX, clientY));
+      if (!pageEl) return; // between pages / outside: head keeps its last block
+      const block = blockNearPoint(pageEl, clientX, clientY);
+      const idx = block ? indexBySpan.get(block.spanId) : undefined;
+      if (idx !== undefined && idx !== state.head) {
+        state.head = idx;
+        setSweep({ anchor: state.anchor, head: idx });
+      }
+    };
+    const onMove = (event: MouseEvent) => {
+      const state = sweepRef.current;
+      if (!state) return;
+      lastPointRef.current = { x: event.clientX, y: event.clientY };
+      if (Math.abs(event.clientX - state.startX) + Math.abs(event.clientY - state.startY) > 5) state.moved = true;
+      updateHead(event.clientX, event.clientY);
+    };
+    const onUp = () => {
+      const state = sweepRef.current;
+      sweepRef.current = null;
+      setSweep(null);
+      if (!state || !(state.moved || state.anchor !== state.head)) return; // plain click: onClick selects the span
+      const lo = Math.min(state.anchor, state.head);
+      const hi = Math.max(state.anchor, state.head);
+      const covered = blocks.slice(lo, hi + 1).filter(isSelectable);
+      if (!covered.length) return;
+      justSweptRef.current = true;
+      // A block sweep replaces any fine capture in progress.
+      setFineUnits([]);
+      lastFineRef.current = null;
+      // The quote per block is the extraction text verbatim — downstream
+      // anchoring matches it exactly, and exercise text keeps its LaTeX.
+      const nodes = covered.map((b) => ({ spanId: b.spanId, quote: b.text ?? "" }));
+      const display = nodes.map((n) => n.quote.replace(/\s+/g, " ").trim()).join(" ");
+      onTextSelection({ spanId: nodes[0].spanId, quote: display, nodes });
+    };
+    // Auto-scroll when the pointer parks near the scroll container's edge; the
+    // head re-resolves at the parked pointer as content slides underneath.
+    const scroller = (() => {
+      let node: HTMLElement | null = containerRef.current?.parentElement ?? null;
+      while (node) {
+        const style = window.getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    })();
+    const timer = window.setInterval(() => {
+      const point = lastPointRef.current;
+      if (!point || !scroller) return;
+      const rect = scroller.getBoundingClientRect();
+      const zone = 48;
+      const delta =
+        point.y < rect.top + zone
+          ? -Math.ceil((rect.top + zone - point.y) / 3)
+          : point.y > rect.bottom - zone
+            ? Math.ceil((point.y - (rect.bottom - zone)) / 3)
+            : 0;
+      if (delta !== 0) {
+        scroller.scrollTop += delta;
+        updateHead(point.x, point.y);
+      }
+    }, 40);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [sweeping, blocks, blockNearPoint, indexBySpan, onTextSelection]);
+
+  // ---- atomic-unit fine capture (ctrl+click) ------------------------------
+  // Ctrl+click captures the word under the cursor (or the whole block for
+  // equations) as a tight bounding box; ctrl+shift+click range-fills from the
+  // last unit; clicking a captured unit toggles it off. Units carry their
+  // surrounding glyph text so the backend can disambiguate repeated words.
+  const [fineUnits, setFineUnits] = useState<FineUnit[]>([]);
+  const [finePreview, setFinePreview] = useState<{ page: number; rects: number[][] } | null>(null);
+  const fineRunRef = useRef(0);
+  const lastFineRef = useRef<{ page: number; x: number; y: number } | null>(null);
+
+  const pdfRectsFor = (pageEl: HTMLElement, clientRects: DOMRectList | DOMRect[]): number[][] => {
+    const widthPoints = Number(pageEl.dataset.widthPoints);
+    const pageRect = pageEl.getBoundingClientRect();
+    if (!pageRect.width || !widthPoints) return [];
+    const scale = pageRect.width / widthPoints;
+    return Array.from(clientRects)
+      .filter((r) => r.width > 0.5 && r.height > 0.5)
+      .map((r) => [
+        (r.left - pageRect.left) / scale,
+        (r.top - pageRect.top) / scale,
+        (r.right - pageRect.left) / scale,
+        (r.bottom - pageRect.top) / scale,
+      ]);
+  };
+
+  const blockForRect = useCallback(
+    (page: number, rect: number[]): ReaderPdfBlockDto | null => {
+      let best: ReaderPdfBlockDto | null = null;
+      let bestArea = 0;
+      for (const block of blocksByPage.get(page) ?? []) {
+        if (block.bbox.length !== 4 || !isSelectable(block)) continue;
+        const w = Math.min(rect[2], block.bbox[2]) - Math.max(rect[0], block.bbox[0]);
+        const h = Math.min(rect[3], block.bbox[3]) - Math.max(rect[1], block.bbox[1]);
+        if (w > 0 && h > 0 && w * h > bestArea) {
+          bestArea = w * h;
+          best = block;
+        }
+      }
+      return best;
+    },
+    [blocksByPage],
+  );
+
+  // Rendered glyph text around a unit — the backend normalizes whitespace
+  // before scoring, so joining text-layer nodes with spaces is fine.
+  const glyphContext = (pageEl: HTMLElement, range: Range): { prefix: string; suffix: string } => {
+    const layer = pageEl.querySelector(".textLayer");
+    if (!layer) return { prefix: "", suffix: "" };
+    const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+    let full = "";
+    let absStart = -1;
+    let absEnd = -1;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node as Text;
+      if (full) full += " ";
+      if (text === range.startContainer) absStart = full.length + range.startOffset;
+      if (text === range.endContainer) absEnd = full.length + range.endOffset;
+      full += text.data;
+    }
+    if (absStart < 0 || absEnd < 0) return { prefix: "", suffix: "" };
+    return {
+      prefix: full.slice(Math.max(0, absStart - GLYPH_CONTEXT_CHARS), absStart),
+      suffix: full.slice(absEnd, absEnd + GLYPH_CONTEXT_CHARS),
+    };
+  };
+
+  const equationUnit = useCallback(
+    (block: ReaderPdfBlockDto, page: number, runId: number): FineUnit => ({
+      key: `eq:${block.spanId}`,
+      spanId: block.spanId,
+      page,
+      rects: [[...block.bbox]],
+      text: block.text ?? "",
+      prefix: "",
+      suffix: "",
+      runId,
+      order: (indexBySpan.get(block.spanId) ?? 0) * 1e7,
+    }),
+    [indexBySpan],
+  );
+
+  const unitFromWordRange = useCallback(
+    (pageEl: HTMLElement, range: Range, runId: number): FineUnit | null => {
+      const page = Number(pageEl.dataset.pdfPage);
+      const rects = pdfRectsFor(pageEl, range.getClientRects());
+      if (!rects.length) return null;
+      const union = rects.reduce((acc, r) => [
+        Math.min(acc[0], r[0]),
+        Math.min(acc[1], r[1]),
+        Math.max(acc[2], r[2]),
+        Math.max(acc[3], r[3]),
+      ]);
+      const block = blockForRect(page, union);
+      if (!block) return null;
+      // Equations are atomic: a click anywhere inside captures the whole block
+      // with its extraction text (LaTeX), which anchors exactly.
+      if ((block.blockType ?? "") === "Equation") return equationUnit(block, page, runId);
+      const text = range.toString().replace(/\s+/g, " ").trim();
+      if (!text) return null;
+      const context = glyphContext(pageEl, range);
+      const blockIdx = indexBySpan.get(block.spanId) ?? 0;
+      return {
+        key: `${page}:${block.spanId}:${text}:${union[0].toFixed(1)},${union[1].toFixed(1)}`,
+        spanId: block.spanId,
+        page,
+        rects,
+        text,
+        prefix: context.prefix,
+        suffix: context.suffix,
+        runId,
+        order: blockIdx * 1e7 + union[1] * 10 + union[0] * 0.01,
+      };
+    },
+    [blockForRect, equationUnit, indexBySpan],
+  );
+
+  const unitAtPoint = useCallback(
+    (clientX: number, clientY: number, runId: number): FineUnit | null => {
+      const pageEl = pageElFor(document.elementFromPoint(clientX, clientY));
+      if (!pageEl) return null;
+      const caret = caretFromPoint(clientX, clientY);
+      if (caret && pageEl.querySelector(".textLayer")?.contains(caret.node)) {
+        const word = wordRangeFromCaret(caret.node, caret.offset);
+        if (word) return unitFromWordRange(pageEl, word, runId);
+      }
+      // No caret under the cursor (equation art without glyphs): the Equation
+      // block itself is still an atomic unit.
+      const block = blockAtPoint(pageEl, clientX, clientY);
+      if (block && (block.blockType ?? "") === "Equation" && isSelectable(block)) {
+        return equationUnit(block, Number(pageEl.dataset.pdfPage), runId);
+      }
+      return null;
+    },
+    [blockAtPoint, unitFromWordRange, equationUnit],
+  );
+
+  // Ctrl+shift+click: every word between the last captured unit and the click,
+  // as one contiguous run (so the wire quote stays one anchorable passage).
+  const fillUnits = useCallback(
+    (ax: number, ay: number, bx: number, by: number, runId: number): FineUnit[] => {
+      const caretA = caretFromPoint(ax, ay);
+      const caretB = caretFromPoint(bx, by);
+      if (!caretA || !caretB) return [];
+      const wordA = wordRangeFromCaret(caretA.node, caretA.offset);
+      const wordB = wordRangeFromCaret(caretB.node, caretB.offset);
+      if (!wordA || !wordB) return [];
+      const span = document.createRange();
+      if (wordA.compareBoundaryPoints(Range.START_TO_START, wordB) <= 0) {
+        span.setStart(wordA.startContainer, wordA.startOffset);
+        span.setEnd(wordB.endContainer, wordB.endOffset);
+      } else {
+        span.setStart(wordB.startContainer, wordB.startOffset);
+        span.setEnd(wordA.endContainer, wordA.endOffset);
+      }
+      const root = span.commonAncestorContainer;
+      const textNodes: Text[] = [];
+      if (root.nodeType === Node.TEXT_NODE) {
+        textNodes.push(root as Text);
+      } else {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (span.intersectsNode(node)) textNodes.push(node as Text);
+        }
+      }
+      const units: FineUnit[] = [];
+      const seen = new Set<string>();
+      for (const node of textNodes) {
+        const pageEl = pageElFor(node);
+        if (!pageEl || !pageEl.querySelector(".textLayer")?.contains(node)) continue;
+        const from = node === span.startContainer ? span.startOffset : 0;
+        const to = node === span.endContainer ? span.endOffset : node.data.length;
+        const wordPattern = /\S+/g;
+        let match: RegExpExecArray | null;
+        while ((match = wordPattern.exec(node.data))) {
+          const start = match.index;
+          const end = match.index + match[0].length;
+          if (end <= from || start >= to) continue;
+          const wordRange = document.createRange();
+          wordRange.setStart(node, Math.max(start, from));
+          wordRange.setEnd(node, Math.min(end, to));
+          const unit = unitFromWordRange(pageEl, wordRange, runId);
+          if (unit && !seen.has(unit.key)) {
+            seen.add(unit.key);
+            units.push(unit);
+          }
+        }
+      }
+      return units;
+    },
+    [unitFromWordRange],
+  );
+
+  // Units → wire nodes: consecutive units of one run in one block merge into a
+  // single contiguous quote; the run's edges contribute the glyph context.
+  const commitFine = useCallback(
+    (units: FineUnit[]) => {
+      if (!units.length) {
+        onSelectionCleared();
+        return;
+      }
+      const sorted = [...units].sort((a, b) => a.order - b.order);
+      const groups: Array<{ spanId: string; members: FineUnit[] }> = [];
+      for (const unit of sorted) {
+        const group = groups[groups.length - 1];
+        const prev = group?.members[group.members.length - 1];
+        if (group && prev && prev.runId === unit.runId && group.spanId === unit.spanId) {
+          group.members.push(unit);
+        } else {
+          groups.push({ spanId: unit.spanId, members: [unit] });
+        }
+      }
+      const nodes = groups.map((group) => ({
+        spanId: group.spanId,
+        quote: group.members.map((u) => u.text).join(" "),
+        prefix: group.members[0].prefix || undefined,
+        suffix: group.members[group.members.length - 1].suffix || undefined,
+      }));
+      onTextSelection({
+        spanId: nodes[0].spanId,
+        quote: nodes.map((n) => n.quote).join(" "),
+        nodes,
+      });
+    },
+    [onTextSelection, onSelectionCleared],
+  );
+
+  const handleFineClick = useCallback(
+    (event: React.MouseEvent) => {
+      const runId = ++fineRunRef.current;
+      let next: FineUnit[] | null = null;
+      if (event.shiftKey && lastFineRef.current) {
+        const anchor = lastFineRef.current;
+        const anchorPage = containerRef.current?.querySelector(`[data-pdf-page="${anchor.page}"]`);
+        if (anchorPage instanceof HTMLElement) {
+          const widthPoints = Number(anchorPage.dataset.widthPoints);
+          const pageRect = anchorPage.getBoundingClientRect();
+          const scale = widthPoints ? pageRect.width / widthPoints : 0;
+          const filled = scale
+            ? fillUnits(pageRect.left + anchor.x * scale, pageRect.top + anchor.y * scale, event.clientX, event.clientY, runId)
+            : [];
+          if (filled.length) {
+            const seen = new Set(fineUnits.map((u) => u.key));
+            next = [...fineUnits, ...filled.filter((u) => !seen.has(u.key))];
+          }
+        }
+      }
+      if (!next) {
+        const unit = unitAtPoint(event.clientX, event.clientY, runId);
+        if (!unit) return;
+        const existing = fineUnits.find((u) => u.key === unit.key);
+        if (existing) {
+          // Toggling a middle unit off splits its run so both remaining halves
+          // stay contiguous quotes.
+          let splitId = 0;
+          next = fineUnits
+            .filter((u) => u.key !== unit.key)
+            .map((u) => {
+              if (u.runId === existing.runId && u.order > existing.order) {
+                if (!splitId) splitId = ++fineRunRef.current;
+                return { ...u, runId: splitId };
+              }
+              return u;
+            });
+        } else {
+          next = [...fineUnits, unit];
+        }
+      }
+      const last = next[next.length - 1];
+      const lastRect = last?.rects[last.rects.length - 1];
+      lastFineRef.current = last && lastRect ? { page: last.page, x: lastRect[2], y: (lastRect[1] + lastRect[3]) / 2 } : null;
+      setFineUnits(next);
+      commitFine(next);
+    },
+    [fineUnits, fillUnits, unitAtPoint, commitFine],
+  );
+
+  // The parent cleared the capture (clear button) — drop the unit boxes. A
+  // fresh commit in the same batch keeps selectedSpans non-empty, so this only
+  // fires on a true clear.
+  useEffect(() => {
+    if (selectedSpans.size === 0 && fineUnits.length > 0) {
+      setFineUnits([]);
+      lastFineRef.current = null;
+    }
+  }, [selectedSpans, fineUnits.length]);
+
+  const fineByPage = useMemo(() => {
+    const map = new Map<number, FineUnit[]>();
+    for (const unit of fineUnits) {
+      const list = map.get(unit.page) ?? [];
+      list.push(unit);
+      map.set(unit.page, list);
+    }
+    return map;
+  }, [fineUnits]);
+
+  // Hover affordance when idle: with ctrl held, the atomic unit a click would
+  // capture; otherwise the block a drag would start from.
+  const onHoverMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (sweepRef.current) return;
+      const pageEl = pageElFor(event.target as Node);
+      if (event.ctrlKey || event.metaKey) {
+        setHoverSpan(null);
+        if (!pageEl) {
+          setFinePreview(null);
+          return;
+        }
+        const caret = caretFromPoint(event.clientX, event.clientY);
+        const word =
+          caret && pageEl.querySelector(".textLayer")?.contains(caret.node)
+            ? wordRangeFromCaret(caret.node, caret.offset)
+            : null;
+        if (word) {
+          setFinePreview({ page: Number(pageEl.dataset.pdfPage), rects: pdfRectsFor(pageEl, word.getClientRects()) });
+          return;
+        }
+        const block = blockAtPoint(pageEl, event.clientX, event.clientY);
+        if (block && (block.blockType ?? "") === "Equation" && isSelectable(block)) {
+          setFinePreview({ page: Number(pageEl.dataset.pdfPage), rects: [[...block.bbox]] });
+          return;
+        }
+        setFinePreview(null);
+        return;
+      }
+      setFinePreview(null);
+      const block = pageEl ? blockAtPoint(pageEl, event.clientX, event.clientY) : null;
+      setHoverSpan(block && isSelectable(block) ? block.spanId : null);
+    },
+    [blockAtPoint],
+  );
+
+  // Releasing ctrl with the pointer parked would strand the preview box.
+  const hasFinePreview = finePreview !== null;
+  useEffect(() => {
+    if (!hasFinePreview) return;
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control" || event.key === "Meta") setFinePreview(null);
+    };
+    window.addEventListener("keyup", onKeyUp);
+    return () => window.removeEventListener("keyup", onKeyUp);
+  }, [hasFinePreview]);
+
+  // Native text selection → ordered per-block {spanId, quote} segments via
+  // geometry: each selected text-layer node is clipped to the selection, its
+  // rects are hit-tested against block bboxes, and its text accrues to the
+  // best-covered block. One selection sweeping several extraction blocks (e.g.
+  // consecutive textbook exercises) yields one node per block, in reading
+  // order, so downstream anchoring stays exercise-precise instead of
+  // collapsing to a single oversized block. Shared by mouse-up capture and
+  // the tag menu.
+  const resolveSelection = useCallback((): {
+    spanId: string;
+    quote: string;
+    nodes: Array<{ spanId: string; quote: string }>;
+  } | null => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
     const quote = selection.toString().replace(/\s+/g, " ").trim();
     if (!quote) return null;
     const range = selection.getRangeAt(0);
-    const pageEl = pageElFor(range.startContainer);
-    if (!pageEl) return null;
-    const page = Number(pageEl.dataset.pdfPage);
-    const widthPoints = Number(pageEl.dataset.widthPoints);
-    const pageRect = pageEl.getBoundingClientRect();
-    if (!pageRect.width || !widthPoints) return null;
-    const scale = pageRect.width / widthPoints;
-    // Overlap area per block across all selection rects → best-covered span.
-    const overlaps = new Map<string, number>();
-    for (const rect of Array.from(range.getClientRects())) {
-      const x0 = (rect.left - pageRect.left) / scale;
-      const x1 = (rect.right - pageRect.left) / scale;
-      const y0 = (rect.top - pageRect.top) / scale;
-      const y1 = (rect.bottom - pageRect.top) / scale;
-      for (const block of blocksByPage.get(page) ?? []) {
-        if (block.bbox.length !== 4) continue;
-        const w = Math.min(x1, block.bbox[2]) - Math.max(x0, block.bbox[0]);
-        const h = Math.min(y1, block.bbox[3]) - Math.max(y0, block.bbox[1]);
-        if (w > 0 && h > 0) overlaps.set(block.spanId, (overlaps.get(block.spanId) ?? 0) + w * h);
+
+    // Selected text nodes in document order (pdf.js text layer reading order).
+    const root = range.commonAncestorContainer;
+    const textNodes: Node[] = [];
+    if (root.nodeType === Node.TEXT_NODE) {
+      textNodes.push(root);
+    } else {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (range.intersectsNode(node)) textNodes.push(node);
       }
     }
-    const best = [...overlaps.entries()].sort((a, b) => b[1] - a[1])[0];
-    return best ? { spanId: best[0], quote } : null;
+
+    // Accumulate each node's clipped text onto its best-overlap block; nodes
+    // whose rects miss every bbox (inter-block glue) continue the previous
+    // segment rather than dropping learner-selected text.
+    const segments: Array<{ spanId: string; pieces: string[] }> = [];
+    const bySpan = new Map<string, { spanId: string; pieces: string[] }>();
+    const append = (spanId: string, text: string) => {
+      let segment = bySpan.get(spanId);
+      if (!segment) {
+        segment = { spanId, pieces: [] };
+        bySpan.set(spanId, segment);
+        segments.push(segment);
+      }
+      segment.pieces.push(text);
+    };
+    for (const node of textNodes) {
+      const sub = document.createRange();
+      sub.selectNodeContents(node);
+      if (node === range.startContainer) sub.setStart(node, range.startOffset);
+      if (node === range.endContainer) sub.setEnd(node, range.endOffset);
+      const text = sub.toString().replace(/\s+/g, " ");
+      if (!text.trim()) continue;
+      const pageEl = pageElFor(node);
+      if (!pageEl) continue;
+      const page = Number(pageEl.dataset.pdfPage);
+      const widthPoints = Number(pageEl.dataset.widthPoints);
+      const pageRect = pageEl.getBoundingClientRect();
+      if (!pageRect.width || !widthPoints) continue;
+      const scale = pageRect.width / widthPoints;
+      const overlaps = new Map<string, number>();
+      for (const rect of Array.from(sub.getClientRects())) {
+        const x0 = (rect.left - pageRect.left) / scale;
+        const x1 = (rect.right - pageRect.left) / scale;
+        const y0 = (rect.top - pageRect.top) / scale;
+        const y1 = (rect.bottom - pageRect.top) / scale;
+        for (const block of blocksByPage.get(page) ?? []) {
+          // Furniture (running heads, footers) is real geometry but never part
+          // of a capture — swept-past glyphs must not pollute the quote.
+          if (block.bbox.length !== 4 || FURNITURE_TYPES.has(block.blockType ?? "")) continue;
+          const w = Math.min(x1, block.bbox[2]) - Math.max(x0, block.bbox[0]);
+          const h = Math.min(y1, block.bbox[3]) - Math.max(y0, block.bbox[1]);
+          if (w > 0 && h > 0) overlaps.set(block.spanId, (overlaps.get(block.spanId) ?? 0) + w * h);
+        }
+      }
+      const best = [...overlaps.entries()].sort((a, b) => b[1] - a[1])[0];
+      // Glyphs hitting no block (page numbers, margin decorations) are dropped
+      // rather than glued onto the previous segment — glue was a steady source
+      // of overselected quotes.
+      if (best) append(best[0], text);
+    }
+
+    const nodes = segments
+      .map((segment) => ({ spanId: segment.spanId, quote: segment.pieces.join(" ").replace(/\s+/g, " ").trim() }))
+      .filter((segment) => segment.quote.length > 0);
+    if (nodes.length === 0) return null;
+    // Primary span = the block carrying most of the selected text, so a stray
+    // sliver from an adjacent block never claims the active highlight.
+    const primary = [...nodes].sort((a, b) => b.quote.length - a.quote.length)[0];
+    return { spanId: primary.spanId, quote, nodes };
   }, [blocksByPage]);
 
   const onMouseUp = useCallback(() => {
@@ -370,6 +1015,13 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
 
   const onClick = useCallback(
     (event: React.MouseEvent) => {
+      const finishedSweep = justSweptRef.current;
+      justSweptRef.current = false;
+      if (event.ctrlKey || event.metaKey) {
+        handleFineClick(event);
+        return;
+      }
+      if (finishedSweep) return; // finishing a block sweep, not a click
       const pageEl = pageElFor(event.target as Node);
       if (!pageEl) return;
       const selection = window.getSelection();
@@ -377,7 +1029,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       const block = blockAtPoint(pageEl, event.clientX, event.clientY);
       if (block) onSelectSpan(block.spanId);
     },
-    [blockAtPoint, onSelectSpan],
+    [blockAtPoint, onSelectSpan, handleFineClick],
   );
 
   if (!doc) {
@@ -390,7 +1042,17 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
 
   const pageWidth = Math.max(320, containerWidth - 2) * zoom;
   return (
-    <div ref={containerRef} onMouseUp={onMouseUp} onClick={onClick} onContextMenu={onContextMenu} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+    <div
+      ref={containerRef}
+      className={sweeping ? "ll-block-sweeping" : undefined}
+      onMouseDown={onSweepMouseDown}
+      onMouseMove={onHoverMove}
+      onMouseLeave={() => setHoverSpan(null)}
+      onMouseUp={onMouseUp}
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      style={{ display: "flex", flexDirection: "column", gap: 0 }}
+    >
       <div
         style={{
           display: "flex",
@@ -463,6 +1125,11 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
               blocks={blocksByPage.get(page) ?? []}
               trails={trailsByPage.get(page) ?? []}
               guidanceSpans={guidanceSpans}
+              selectedSpans={fineUnits.length ? EMPTY_SPANS : selectedSpans}
+              sweepSpans={sweepSpans}
+              hoverSpan={sweeping ? null : hoverSpan}
+              fineUnits={fineByPage.get(page) ?? []}
+              finePreviewRects={finePreview && finePreview.page === page ? finePreview.rects : null}
               activeSpan={activeSpan}
               findQuery={findOpen ? findQuery.trim() : ""}
             />
@@ -505,6 +1172,11 @@ function PdfPage({
   blocks,
   trails,
   guidanceSpans,
+  selectedSpans,
+  sweepSpans,
+  hoverSpan,
+  fineUnits,
+  finePreviewRects,
   activeSpan,
   findQuery,
 }: {
@@ -514,6 +1186,11 @@ function PdfPage({
   blocks: ReaderPdfBlockDto[];
   trails: AnnotationTrail[];
   guidanceSpans: Set<string>;
+  selectedSpans: Set<string>;
+  sweepSpans: Set<string> | null;
+  hoverSpan: string | null;
+  fineUnits: FineUnit[];
+  finePreviewRects: number[][] | null;
   activeSpan: string | null;
   findQuery: string;
 }) {
@@ -640,8 +1317,35 @@ function PdfPage({
         ? blocks
             .filter((b) => b.bbox.length === 4)
             .map((b) => {
+              // Paint precedence: live sweep > committed selection > active
+              // span > guidance > hover affordance.
+              const swept = sweepSpans?.has(b.spanId) ?? false;
+              const selected = selectedSpans.has(b.spanId);
               const active = activeSpan === b.spanId;
               const guided = guidanceSpans.has(b.spanId);
+              const hovered = hoverSpan === b.spanId && !swept && !selected;
+              const border = swept
+                ? `2px solid ${COLOR.amber}`
+                : selected
+                  ? "2px solid rgba(215, 135, 15, 0.75)"
+                  : active
+                    ? `2px solid ${COLOR.amber}`
+                    : guided
+                      ? `2px dashed ${COLOR.purplePill}`
+                      : hovered
+                        ? "2px dashed rgba(215, 135, 15, 0.5)"
+                        : "2px solid transparent";
+              const background = swept
+                ? "rgba(245, 166, 35, 0.20)"
+                : selected
+                  ? "rgba(245, 166, 35, 0.13)"
+                  : active
+                    ? "rgba(245, 166, 35, 0.08)"
+                    : guided
+                      ? "rgba(90, 77, 138, 0.10)"
+                      : hovered
+                        ? "rgba(245, 166, 35, 0.05)"
+                        : "transparent";
               return (
                 <div
                   key={b.spanId}
@@ -654,12 +1358,54 @@ function PdfPage({
                     width: (b.bbox[2] - b.bbox[0]) * scale,
                     height: (b.bbox[3] - b.bbox[1]) * scale,
                     pointerEvents: "none",
-                    border: active ? `2px solid ${COLOR.amber}` : guided ? `2px dashed ${COLOR.purplePill}` : "2px solid transparent",
-                    background: active ? "rgba(245, 166, 35, 0.08)" : guided ? "rgba(90, 77, 138, 0.10)" : "transparent",
+                    border,
+                    background,
+                    mixBlendMode: swept || selected ? "multiply" : undefined,
+                    transition: swept ? "none" : "background 120ms ease, border-color 120ms ease",
                   }}
                 />
               );
             })
+        : null}
+      {geometry
+        ? fineUnits.flatMap((unit) =>
+            unit.rects.map((r, i) => (
+              <div
+                key={`${unit.key}-${i}`}
+                style={{
+                  position: "absolute",
+                  left: r[0] * scale - 2,
+                  top: r[1] * scale - 1.5,
+                  width: (r[2] - r[0]) * scale + 4,
+                  height: (r[3] - r[1]) * scale + 3,
+                  pointerEvents: "none",
+                  background: "rgba(245, 166, 35, 0.30)",
+                  border: "1.5px solid rgba(215, 135, 15, 0.9)",
+                  borderRadius: 3,
+                  mixBlendMode: "multiply",
+                }}
+              />
+            )),
+          )
+        : null}
+      {geometry && finePreviewRects
+        ? finePreviewRects.map((r, i) => (
+            <div
+              key={`fine-preview-${i}`}
+              style={{
+                position: "absolute",
+                left: r[0] * scale - 2,
+                top: r[1] * scale - 1.5,
+                width: (r[2] - r[0]) * scale + 4,
+                height: (r[3] - r[1]) * scale + 3,
+                pointerEvents: "none",
+                background: "rgba(245, 166, 35, 0.10)",
+                border: "1.5px dashed rgba(215, 135, 15, 0.8)",
+                borderRadius: 3,
+                mixBlendMode: "multiply",
+              }}
+            />
+          ))
         : null}
       <span
         style={{

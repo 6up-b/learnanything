@@ -33,6 +33,7 @@ from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.tutor_qa import _thread, build_tutor_qa_note
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LearningObject, LoadedVault
+from learnloop.vault.models import learning_object_facet_union
 from learnloop.vault.paths import VaultPaths
 
 _TUTOR_PROMOTED_TAG = "tutor_promoted"
@@ -106,7 +107,14 @@ def promote_tutor_question(
         session_id=event.get("session_id"),
     )
 
-    analysis = _run_promotion_analysis(client, vault, origin_lo, thread, intent)
+    analysis = _run_promotion_analysis(
+        client,
+        vault,
+        origin_lo,
+        thread,
+        intent,
+        subject_id=subject_id,
+    )
     attributed = [vault.canonical_facet_id(str(facet)) for facet in analysis.attributed_facets]
     attributed = list(dict.fromkeys(attributed))
 
@@ -165,6 +173,8 @@ def _run_promotion_analysis(
     origin_lo: LearningObject | None,
     thread: list[dict[str, Any]],
     intent: str,
+    *,
+    subject_id: str | None = None,
 ) -> PromotionAnalysis:
     """Step-0 structured extraction; degrades to an empty analysis when unavailable."""
 
@@ -175,6 +185,22 @@ def _run_promotion_analysis(
         facet_vocabulary = _origin_facet_vocabulary(vault, origin_lo)
         existing_items = _origin_existing_items(vault, origin_lo)
         concept_neighbors = _concept_neighbors(vault, origin_lo)
+    elif subject_id is not None:
+        subject_los = [
+            lo for lo in vault.learning_objects.values() if subject_id in lo.subjects
+        ]
+        facet_vocabulary = sorted(
+            {
+                facet
+                for lo in subject_los
+                for facet in _origin_facet_vocabulary(vault, lo)
+            }
+        )
+        existing_items = [
+            item
+            for lo in subject_los
+            for item in _origin_existing_items(vault, lo)
+        ]
 
     runner = getattr(client, "run_promotion_analysis", None)
     if not callable(runner):
@@ -642,7 +668,10 @@ def _created_entities(
 
 
 def _origin_facet_vocabulary(vault: LoadedVault, origin_lo: LearningObject) -> list[str]:
-    facets: set[str] = set()
+    facets = {
+        vault.canonical_facet_id(facet)
+        for facet in learning_object_facet_union(origin_lo)
+    }
     for item in vault.practice_items.values():
         if item.learning_object_id == origin_lo.id:
             facets.update(vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets)

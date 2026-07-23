@@ -60,6 +60,12 @@ MECHANISM_TAXONOMY: tuple[str, ...] = (
 
 MECHANISM_TAXONOMY_SET: frozenset[str] = frozenset(MECHANISM_TAXONOMY)
 
+# Assessment-side causes: the fault lies with the item or the grading, not the
+# learner. These must never feed learner-repair signals (the scheduler's
+# recent-error boost, repair targeting) — they belong to the item-quality /
+# bad-item-suspicion path.
+ASSESSMENT_SIDE_ERROR_TYPES: frozenset[str] = frozenset({"assessment_ambiguity"})
+
 # Mechanism-level ``is_misconception`` defaults (a durable wrong belief vs a slip
 # / retrieval lapse / item-or-grader issue). Used for severity fallbacks and the
 # signature matcher's misconception fatal set under mvp-0.7.

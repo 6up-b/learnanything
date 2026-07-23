@@ -118,6 +118,19 @@ To open a particular vault immediately:
 LEARNLOOP_VAULT=/absolute/path/to/my-vault npm run dev
 ```
 
+On a development machine without the GPU capacity for local Marker, start the
+Tauri app with the hosted Datalab Marker route explicitly enabled:
+
+```bash
+cd apps/learnloop-tauri
+DATALAB_API_KEY='your-key' npm run dev:datalab
+```
+
+The API key is inherited by the Python sidecar for that process only; it is not
+sent to the frontend or stored in the vault. `npm run dev` keeps the normal
+local Marker/pypdf behavior. An explicit pypdf selection in the ingest screen
+also continues to bypass Marker in either runtime.
+
 PowerShell:
 
 ```powershell

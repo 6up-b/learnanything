@@ -633,6 +633,7 @@ def build_quality_state_update_from_prior(
     grader_confidence: float,
     now_iso: str,
     algorithm_version: str,
+    assessment_side_error: bool = False,
 ) -> dict[str, Any]:
     suspicion = prior.bad_item_suspicion if prior is not None else 0.0
     evidence_count = prior.evidence_count if prior is not None else 0
@@ -642,6 +643,12 @@ def build_quality_state_update_from_prior(
     if grader_confidence < 0.5:
         delta += 0.08
         reasons.append("low_grader_confidence")
+    if assessment_side_error:
+        # The grader attributed the outcome to the item/assessment (e.g.
+        # assessment_ambiguity), not the learner. Scheduler repair boosts
+        # exclude these events; the item pays instead.
+        delta += 0.08
+        reasons.append("assessment_side_error")
     if correctness <= 0.40 and recent_failures >= 1:
         delta += 0.06
         reasons.append("repeated_failure_on_same_item")

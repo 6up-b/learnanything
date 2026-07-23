@@ -81,6 +81,13 @@ def build_due_queue(
     # the exam stays an honest, uncontaminated test (fetched once per build).
     reserved_item_ids = reserved_exam_pool_item_ids(repository)
     rung_variant_hold_ids = repository.rung_variant_pending_source_ids()
+    # Learner-requested items (tutor promotions + applied rung variants, never
+    # attempted). Fetched once: the in-loop eligibility floor and the §4a
+    # requested-items reorder floor must see the same set — a fresh sibling has
+    # no attempts, stability, or due_at, so without the eligibility floor it
+    # zeroes out at the priority filter and the reorder floor never sees it.
+    requested_item_ids = repository.requested_practice_item_ids()
+    requested_id_set = set(requested_item_ids)
     # P4 §14.2 step 3 (design §A.2 rule 3): during the dual-controller cutover the
     # staged policy owns P2 golden-path commitments. Their practice items are EXCLUDED
     # from the legacy queue so no commitment is scheduled by both controllers. Empty
@@ -301,6 +308,13 @@ def build_due_queue(
             # a pending_items one — keeps its never-attempted LO practicable for
             # belief-only ordinary practice instead of blocking on instruments.
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
+        if item.id in requested_id_set:
+            # Requested-items eligibility floor: the learner explicitly asked
+            # for this card (promotion or easier/harder variant) and it has no
+            # attempt/state/due signal yet — zero scheduler priority by
+            # construction. It must survive this filter for the §4a requested
+            # reorder floor below to be able to pull it forward.
+            priority = max(priority, _REQUESTED_PRIORITY_FLOOR)
         if priority <= 0:
             continue
         plain_english = _plain_english(item, components)
@@ -349,7 +363,7 @@ def build_due_queue(
     # because it only touches items already in the built (eligible) queue.
     queue = _apply_requested_floor(
         queue,
-        repository.requested_practice_item_ids(),
+        requested_item_ids,
         config.tutor_promotion.requested_items_per_session,
     )
     queue = _rotate_same_day_frontier_repeats(queue, item_states, now)
@@ -548,6 +562,10 @@ def _insert_pending_followups(
 # escalation on solid items). A constant, not a config weight: the scheduler
 # priority-weight sweep showed those knobs are decision-inert.
 _TEACH_BACK_PRIORITY_FLOOR = 0.05
+# Eligibility floor for learner-requested items (promotions, rung variants):
+# just enough to survive the zero-priority filter; the requested reorder floor
+# and the selection reward decide actual placement.
+_REQUESTED_PRIORITY_FLOOR = 0.05
 
 
 def _rotate_same_day_frontier_repeats(
@@ -1041,8 +1059,22 @@ def _recent_error(errors: list[ActiveErrorEvent], now: datetime) -> float:
 
 
 def _errors_by_learning_object(errors: list[ActiveErrorEvent]) -> dict[str, list[ActiveErrorEvent]]:
+    """Active LEARNER errors per LO. Assessment-side events (the item or the
+    grading was at fault — e.g. assessment_ambiguity from regrading a
+    rung-variant placeholder answer) are excluded: they must not boost repair
+    practice on an LO the learner never got wrong. They still influence the
+    item-quality path (bad_item_suspicion) independently."""
+
+    from learnloop.services.error_taxonomy_map import (
+        ASSESSMENT_SIDE_ERROR_TYPES,
+        map_legacy_error_type,
+    )
+
     grouped: dict[str, list[ActiveErrorEvent]] = {}
     for error in errors:
+        canonical = map_legacy_error_type(error.error_type) or error.error_type
+        if canonical in ASSESSMENT_SIDE_ERROR_TYPES:
+            continue
         grouped.setdefault(error.learning_object_id, []).append(error)
     return grouped
 

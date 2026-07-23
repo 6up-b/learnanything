@@ -209,7 +209,7 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
         )["result"]
         assert started["practiceItemId"] == TEACH_ITEM_ID
         assert started["prompt"].startswith("Teach the singular value decomposition")
-        assert started["budget"] == 3  # config max_followups
+        assert started["budget"] == 4  # config max_followups
         assert started["state"]["turns"] == []
 
         def turn(answer_md: str, finish: bool = False) -> dict:
@@ -231,7 +231,7 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
         assert opening["tier"] == "core"
         assert opening["questionNumber"] == 1
         assert opening["asked"] == 1
-        assert opening["budget"] == 3
+        assert opening["budget"] == 4
 
         # The conversation state is checkpointed (resume shape): opening + Q1.
         snapshot = _call(vault_root, "get_session", {"sessionId": session_id})["result"]
@@ -246,6 +246,7 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
             "core_definition",
             "core_geometry",
             "core_uniqueness",
+            "transfer_rank_deficient",
         ]
 
         second = turn("U and V are orthogonal, Sigma is diagonal.")
@@ -256,13 +257,20 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
         assert third["done"] is False
         assert third["questionNumber"] == 3
 
+        # The guaranteed transfer slot is the last question.
+        fourth = turn("Only the singular values are unique, not the factors.")
+        assert fourth["done"] is False
+        assert fourth["questionNumber"] == 4
+        assert fourth["criterionId"] == "transfer_rank_deficient"
+        assert fourth["tier"] == "transfer"
+
         # The AI question calls carried the transcript so far.
         teach_calls = [request for request in server.requests if request["path"] == "/teach-back"]
-        assert len(teach_calls) == 3
-        assert teach_calls[2]["body"]["context"]["question_number"] == 3
-        assert len(teach_calls[2]["body"]["context"]["transcript"]) == 5
+        assert len(teach_calls) == 4
+        assert teach_calls[3]["body"]["context"]["question_number"] == 4
+        assert len(teach_calls[3]["body"]["context"]["transcript"]) == 7
 
-        final = turn("Only the singular values are unique, not the factors.")
+        final = turn("Zero singular values appear and the factorization loses uniqueness.")
         assert final["done"] is True
         attempt_id = final["attemptId"]
         assert final["rubricScore"] == 4
@@ -270,6 +278,7 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
             "core_definition",
             "core_geometry",
             "core_uniqueness",
+            "transfer_rank_deficient",
         ]
         assert "# Teach-back transcript" in final["transcriptMd"]
 
@@ -287,6 +296,7 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
             "core_definition": "core",
             "core_geometry": "core",
             "core_uniqueness": "core",
+            "transfer_rank_deficient": "transfer",
         }
     finally:
         server.stop()
@@ -631,3 +641,40 @@ def test_sidecar_teach_back_resume_merges_pending_learner_answer(tmp_path):
         assert turns[2]["contentMd"] == "first half of the answer\n\nsecond half typed on resume"
     finally:
         server.stop()
+
+
+def test_sidecar_request_teach_back_finds_existing_card(tmp_path):
+    server = _TeachBackServer()
+    server.start()
+    try:
+        vault_root, _paths = _teach_vault(tmp_path, server.base_url)
+        # The LO already has an active teach_back card: reuse, never mint.
+        response = _call(
+            vault_root, "request_teach_back", {"learningObjectId": LO_ID}
+        )["result"]
+        assert response["practiceItemId"] == TEACH_ITEM_ID
+        assert response["created"] is False
+    finally:
+        server.stop()
+
+
+def test_sidecar_request_teach_back_mints_and_is_idempotent(tmp_path):
+    # No provider needed: find-or-mint touches only the vault. This vault has
+    # NO teach_back card, so routing via a sibling item id mints one.
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    first, second = (
+        call["result"]
+        for call in _calls(
+            vault_root,
+            [
+                ("request_teach_back", {"practiceItemId": "pi_svd_define_001"}),
+                ("request_teach_back", {"practiceItemId": "pi_svd_define_001"}),
+            ],
+        )
+    )
+    assert first["created"] is True
+    assert first["practiceItemId"].startswith("pi_")
+    assert second["created"] is False
+    assert second["practiceItemId"] == first["practiceItemId"]
