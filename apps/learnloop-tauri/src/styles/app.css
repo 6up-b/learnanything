@@ -148,34 +148,14 @@ button { color: inherit; }
 .health.ok { color: var(--green); }
 .health.bad { color: var(--red); }
 
-/* ai provider dropdown (nav bar) */
-.ai-menu-wrap { position: relative; display: inline-block; }
-.ai-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 60;
-  min-width: 180px;
-  background: var(--elev);
-  border: 1px solid var(--border-strong);
-  padding: 4px 0;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
-}
-.ai-menu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  padding: 5px 12px;
+.nav-settings {
+  background: transparent;
+  border: 0;
   cursor: pointer;
-  white-space: pre;
+  font: inherit;
+  padding: 0;
 }
-.ai-menu button:hover { background: var(--input); color: var(--amber); }
-.ai-menu button.active { color: var(--amber); }
+.nav-settings.open { text-decoration: underline; text-underline-offset: 3px; }
 
 .frame-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 

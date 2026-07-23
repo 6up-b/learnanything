@@ -829,6 +829,32 @@ pub async fn set_grading_provider(
 }
 
 #[tauri::command]
+pub async fn get_settings(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_settings", json!({})).await
+}
+
+#[tauri::command]
+pub async fn update_ai_settings(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "update_ai_settings", input).await
+}
+
+#[tauri::command]
+pub async fn set_openrouter_api_key(
+    api_key: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "set_openrouter_api_key",
+        json!({ "apiKey": api_key }),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn ask_tutor_question(
     input: Value,
     sidecar: State<'_, SidecarManager>,

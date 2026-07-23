@@ -30,6 +30,9 @@ import type {
   FeedbackBundle,
   PrimedRetryResultDto,
   GradingProviderResult,
+  OpenrouterKeyResult,
+  SettingsDto,
+  UpdateAiSettingsInput,
   InspectorEntity,
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
@@ -462,6 +465,11 @@ export const api = {
   getKnowledgeMapHistory: () => call<KnowledgeMapHistory>("get_knowledge_map_history"),
   setGradingProvider: (provider: string) =>
     call<GradingProviderResult>("set_grading_provider", { provider }),
+  getSettings: () => call<SettingsDto>("get_settings"),
+  updateAiSettings: (input: UpdateAiSettingsInput) =>
+    call<SettingsDto>("update_ai_settings", { input }),
+  setOpenrouterApiKey: (apiKey: string) =>
+    call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey }),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
   previewTutorOpening: (input: { practiceItemId: string; sessionId?: string }) =>

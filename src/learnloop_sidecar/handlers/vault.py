@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ids import kebab_case
+from learnloop.services.settings_store import SettingsStoreError, copy_ai_settings
 from learnloop.vault.loader import add_subject, init_vault
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
@@ -45,11 +46,11 @@ def create_vault(ctx: SidecarContext, params: CreateVaultInput) -> dict[str, Any
         raise SidecarError("invalid_path", "A vault directory path is required.")
 
     target = Path(raw).expanduser()
+    was_vault = (target / "learnloop.toml").exists()
     if target.exists():
         if not target.is_dir():
             raise SidecarError("invalid_path", f"{target} exists and is not a directory.")
-        already_vault = (target / "learnloop.toml").exists()
-        if not already_vault and any(target.iterdir()):
+        if not was_vault and any(target.iterdir()):
             raise SidecarError(
                 "vault_dir_not_empty",
                 (
@@ -59,6 +60,17 @@ def create_vault(ctx: SidecarContext, params: CreateVaultInput) -> dict[str, Any
             )
 
     created = init_vault(target)
+
+    if not was_vault and ctx.vault is not None and ctx.vault.root.resolve() != created:
+        try:
+            copy_ai_settings(
+                ctx.vault.root / "learnloop.toml",
+                created / "learnloop.toml",
+            )
+        except SettingsStoreError:
+            # Settings inheritance is best-effort. Vault creation still
+            # succeeds with the normal template defaults.
+            pass
 
     subject_id: str | None = None
     subject_title = (params.subject or "").strip()
