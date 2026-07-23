@@ -168,9 +168,7 @@ class RunnerServices:
         # Reader quick checks ride the inventory resolver (low-effort on codex
         # vaults, routed elsewhere): the task method is getattr-discovered on
         # the client, exactly like unit inventory.
-        client = (self.quick_check_client_factory or default_inventory_client)(ctx)
-        ctx.bind_interruptible(client)
-        return client
+        return (self.quick_check_client_factory or default_inventory_client)(ctx)
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
         client = (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
@@ -179,9 +177,8 @@ class RunnerServices:
 
     def exercise_import_client(self, ctx: "JobContext") -> Any:
         # Reader exercise imports ride the inventory resolver (routed via
-        # canonical_ingest, codex-family pinned low-effort): the task method is
-        # getattr-discovered on the client, like reader quick checks. Matches
-        # the reader RPC's ready_canonical_ingest_provider readiness gate.
+        # canonical_ingest): the task method is getattr-discovered on the
+        # client, like reader quick checks.
         client = (self.exercise_import_client_factory or default_inventory_client)(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -976,7 +973,42 @@ def default_inventory_client(ctx: JobContext) -> Any:
     getattr-discovered on the client, so a provider lacking them degrades to
     an explicit unavailable error rather than fabricating rows."""
 
-    return _routed_task_client(ctx, "canonical_ingest", pin_codex_low=True)
+    from learnloop.ai.client import make_ai_provider_client
+    from learnloop.ai.routing import fallback_provider_for, provider_for_task
+    from learnloop.ai.runtime import check_ai_runtime
+    from learnloop.codex.client import make_codex_client
+    from learnloop.codex.runtime import check_codex_runtime
+    from learnloop.config import CODEX_LOW_PROVIDER, CODEX_PROVIDER_NAMES
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(ctx.vault_root)
+    config = vault.config
+
+    def _runtime(name: str):
+        if name == "codex":
+            return check_codex_runtime(ctx.vault_root, config.codex)
+        return check_ai_runtime(ctx.vault_root, config, provider_name=name)
+
+    def _client(name: str):
+        if name == "codex":
+            return make_codex_client(config.codex, ctx.vault_root)
+        return make_ai_provider_client(config, ctx.vault_root, provider_name=name)
+
+    selection = provider_for_task(config, "canonical_ingest")
+    provider_name = selection.provider_name
+    if provider_name in CODEX_PROVIDER_NAMES:
+        provider_name = CODEX_LOW_PROVIDER
+    runtime = _runtime(provider_name)
+    if runtime.ready:
+        return _client(provider_name)
+    fallback = fallback_provider_for(config, selection)
+    if fallback:
+        fallback_runtime = _runtime(fallback)
+        if fallback_runtime.ready:
+            return _client(fallback)
+    raise IngestRunnerError(
+        runtime.message or f"AI provider {provider_name!r} is {runtime.status}."
+    )
 
 
 def default_synthesis_client(ctx: JobContext) -> Any:
@@ -1006,20 +1038,16 @@ def default_rung_variant_client(ctx: JobContext) -> Any:
     return _routed_task_client(ctx, "rung_variant")
 
 
-def _routed_task_client(ctx: JobContext, task: str, *, pin_codex_low: bool = False) -> Any:
+def _routed_task_client(ctx: JobContext, task: str) -> Any:
     from learnloop.ai.client import make_ai_provider_client
     from learnloop.ai.routing import fallback_provider_for, provider_for_task
     from learnloop.ai.runtime import check_ai_runtime
     from learnloop.codex.client import make_codex_client
     from learnloop.codex.runtime import check_codex_runtime
-    from learnloop.config import CODEX_LOW_PROVIDER, CODEX_PROVIDER_NAMES
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
     selection = provider_for_task(vault.config, task)
-    selected_name = selection.provider_name
-    if pin_codex_low and selected_name in CODEX_PROVIDER_NAMES:
-        selected_name = CODEX_LOW_PROVIDER
 
     def ready_client(provider_name: str):
         if provider_name == "codex":
@@ -1042,7 +1070,7 @@ def _routed_task_client(ctx: JobContext, task: str, *, pin_codex_low: bool = Fal
             )
         return runtime, client
 
-    runtime, client = ready_client(selected_name)
+    runtime, client = ready_client(selection.provider_name)
     if client is None:
         fallback = fallback_provider_for(vault.config, selection)
         if fallback:

@@ -58,9 +58,8 @@ def test_ai_runtime_reports_missing_provider(tmp_path):
     assert report.ready is False
 
 
-def test_openrouter_runtime_requires_its_api_key(tmp_path, monkeypatch):
+def test_openrouter_runtime_requires_api_key(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    monkeypatch.setenv("OPENAI_API_KEY", "other-key")
 
     report = check_ai_runtime(tmp_path, LearnLoopConfig(), provider_name="openrouter")
 

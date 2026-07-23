@@ -5,7 +5,11 @@
    Each palette hand-sets the base tokens; every derived token (washes, pills,
    amber tiers, chrome backgrounds) is computed from those bases with color-mix
    in the shared block below, so a palette stays ~18 lines. The default :root
-   keeps its original literals in app.css and is untouched by this file. */
+   keeps its original literals in app.css and is untouched by this file.
+
+   NOTE: the start-screen canvas backdrops (screens/startBackdrops/shared.ts)
+   read the BASE tokens via getComputedStyle and parse them as plain hex —
+   keep base tokens literal hex (no color-mix) in every palette block. */
 
 :root[data-palette="dracula"],
 :root[data-palette="gruvbox"],

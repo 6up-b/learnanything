@@ -32,6 +32,7 @@ import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
+import { recordRecentVault, removeRecentVault } from "./recentVaults";
 
 type OpenSourceTarget = {
   extractionId: string;
@@ -159,6 +160,14 @@ export function App() {
   useEffect(() => {
     localStorage.setItem("learnloop.tab", tab);
   }, [tab]);
+
+  // Record every activated vault (startup load, chip switches, NewVaultWizard —
+  // all update snapshot.vault.root) into the nav chip's recents dropdown. Uses
+  // the canonical root the backend returned, not the raw picked string.
+  useEffect(() => {
+    const root = snapshot?.vault?.root;
+    if (root) recordRecentVault(root);
+  }, [snapshot?.vault?.root]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -428,6 +437,9 @@ export function App() {
         setTodayStage("queue");
         setTab("start");
       } catch (error) {
+        // A vault that fails to open (deleted/renamed dir, backend error) drops
+        // out of the recents dropdown rather than lingering as a dead entry.
+        removeRecentVault(path);
         onError((error as Error).message);
       }
     },

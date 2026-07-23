@@ -43,33 +43,6 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.routing.canonical_ingest_retry == "codex_medium"
 
 
-def test_default_config_seeds_openrouter_profile(tmp_path):
-    init_vault(tmp_path)
-
-    for config in (load_config(tmp_path / "learnloop.toml"), LearnLoopConfig()):
-        profile = config.ai.providers["openrouter"]
-        assert profile.type == "openrouter"
-        assert profile.model == "deepseek/deepseek-chat"
-        assert profile.api_key_env == "OPENROUTER_API_KEY"
-        assert profile.response_format == "json_object"
-        assert profile.timeout_seconds == 180
-        assert profile.base_url is None
-
-
-def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):
-    config = LearnLoopConfig()
-    config.ai.timeout_seconds = 17
-    config.ai.providers["codex_medium"].timeout_seconds = None
-
-    client = make_ai_provider_client(
-        config,
-        tmp_path,
-        provider_name="codex_medium",
-    )
-
-    assert client.config.timeout_seconds == 17
-
-
 def test_default_config_contains_audio_and_native_ingest(tmp_path):
     init_vault(tmp_path)
 
@@ -171,6 +144,20 @@ def test_default_config_seeds_openrouter_profile(tmp_path):
         # synthesis-sized outputs are never truncated.
         assert profile.base_url is None
         assert profile.max_tokens is None
+
+
+def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):
+    config = LearnLoopConfig()
+    config.ai.timeout_seconds = 17
+    config.ai.providers["codex_medium"].timeout_seconds = None
+
+    client = make_ai_provider_client(
+        config,
+        tmp_path,
+        provider_name="codex_medium",
+    )
+
+    assert client.config.timeout_seconds == 17
 
 
 def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path):

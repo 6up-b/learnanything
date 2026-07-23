@@ -174,7 +174,12 @@ button { color: inherit; }
 .top-nav button.active { background: var(--elev); border-bottom-color: var(--amber); color: var(--text); }
 .top-nav button.active span { color: var(--amber); }
 .nav-status { margin-left: auto; display: flex; gap: 16px; align-items: center; padding: 0 16px; font-size: 12px; color: var(--dim); min-width: 0; }
-.vault-path { color: var(--green); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 480px; cursor: pointer; }
+/* display:inline-block is load-bearing: the chip now sits inside
+   .vault-menu-wrap (inline-block) rather than being a direct flex child of
+   .nav-status, and overflow/max-width/text-overflow do not apply to a plain
+   inline span. It also keeps the wrap's height tight to the chip so the
+   dropdown's top: calc(100% + 6px) lands just under it. */
+.vault-path { display: inline-block; vertical-align: middle; color: var(--green); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; cursor: pointer; }
 .vault-path:hover, .vault-path:focus-visible { text-decoration: underline; text-underline-offset: 3px; outline: none; }
 .vault-path-input {
   background: var(--input);
@@ -189,14 +194,41 @@ button { color: inherit; }
 .health.ok { color: var(--green); }
 .health.bad { color: var(--red); }
 
-.nav-settings {
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
+/* vault recents dropdown (nav bar) */
+/* Stretches to the full nav row so the menu's top: calc(100% + 6px) anchors to
+   the row's bottom edge instead of the chip's short line box (which would drop
+   the panel over the nav's bottom border). */
+.vault-menu-wrap { position: relative; display: flex; align-items: center; align-self: stretch; min-width: 0; }
+.vault-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  min-width: 180px;
+  background: var(--elev);
+  border: 1px solid var(--border-strong);
+  padding: 4px 0;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
 }
-.nav-settings.open { text-decoration: underline; text-underline-offset: 3px; }
+.vault-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vault-menu button:hover { background: var(--input); color: var(--amber); }
+.vault-menu button.active { color: var(--amber); }
+.vault-menu .vault-menu-add { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; color: var(--dim); }
 
 .frame-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
@@ -1055,6 +1087,20 @@ button { color: inherit; }
 .sfin-c-green { color: var(--green); }
 .sfin-c-dim { color: var(--dim); }
 .sfin-c-faint { color: var(--faint); }
+
+/* Start-screen backdrop spans (palette-aware ASCII, mirrors sfin-c-*).
+   Emitted as <span class> runs by the StartScreen backdrops so a palette
+   switch retints every backdrop through the CSS-variable cascade. */
+.bd-c-amber { color: var(--amber); }
+.bd-c-amber-hi { color: var(--amber-hi); }
+.bd-c-amber-mid { color: var(--amber-mid); }
+.bd-c-amber-low { color: var(--amber-low); }
+.bd-c-green { color: var(--green); }
+.bd-c-cyan { color: var(--cyan); }
+.bd-c-red { color: var(--red); }
+.bd-c-pink { color: var(--pink); }
+.bd-c-dim { color: var(--dim); }
+.bd-c-faint { color: var(--faint); }
 
 /* faint scanlines */
 .sfin-scan {

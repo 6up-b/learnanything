@@ -9,25 +9,15 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { api } from "../api/client";
 import type { QueueSnapshot, ScheduledItemDto, SessionSnapshot, StreakSummary, VaultSummary } from "../api/dto";
 import { EmptyPlaceholder, KeyBar, SectionHeader } from "../components/ui";
-
-const COLOR = {
-  bg: "#0e0e0e",
-  bgElev: "#181818",
-  border: "#2a2a2a",
-  borderStrong: "#3a3a3a",
-  text: "#d8d8e0",
-  textDim: "#9090a0",
-  textItalic: "#8088a0",
-  textFaint: "#666778",
-  amber: "#e3a063",
-  amberLink: "#f0b878",
-  green: "#7fd28f",
-  cyan: "#6ad0e0",
-  red: "#e07e7e",
-  pink: "#dc7fb8"
-};
-
-const FONT_MONO = '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace';
+// Palette-aware colors: every token is a var(--…) string that retints with the
+// selected palette (styles/palettes.css) — replaces the old hardcoded hex map.
+import { COLOR, FONT_MONO } from "../components/term";
+import { JuliaBackdrop } from "./startBackdrops/JuliaBackdrop";
+import { LifeBackdrop } from "./startBackdrops/LifeBackdrop";
+import { CliffordBackdrop } from "./startBackdrops/CliffordBackdrop";
+import { PendulumBackdrop } from "./startBackdrops/PendulumBackdrop";
+import { ThreeBodyBackdrop } from "./startBackdrops/ThreeBodyBackdrop";
+import { BLACK, mixRgb, prefersReducedMotion, readPaletteColors, rgba } from "./startBackdrops/shared";
 
 const LOW_MASTERY_WORDS = [
   "better", "oriented", "motivated", "prepared", "improve", "develop",
@@ -77,11 +67,11 @@ function CyclingTypewriterText({ prefix, words, wordColor, speed = 50, untypeSpe
     return () => clearTimeout(id);
   }, [phase, displayed, word, speed, untypeSpeed, holdMs]);
 
-  const cursorColor = wordColor ?? "#ffffff";
+  const cursorColor = wordColor ?? "var(--text)";
   return (
     <span>
       {prefix ? <span style={{ opacity: 0.82 }}>{prefix}</span> : null}
-      <span style={{ color: wordColor ?? "#ffffff" }}>{displayed}</span>
+      <span style={{ color: wordColor ?? "var(--text)" }}>{displayed}</span>
       <span
         style={{
           display: "inline-block",
@@ -97,11 +87,17 @@ function CyclingTypewriterText({ prefix, words, wordColor, speed = 50, untypeSpe
   );
 }
 
-type BackdropName = "lorenz" | "waves" | "fluid" | "torus" | "axes" | "tesseract";
-const BACKDROP_ORDER: BackdropName[] = ["lorenz", "waves", "fluid", "torus", "axes", "tesseract"];
+type BackdropName =
+  | "lorenz" | "waves" | "fluid" | "torus" | "axes" | "tesseract"
+  | "julia" | "life" | "clifford" | "pendulum" | "threebody";
+const BACKDROP_ORDER: BackdropName[] = [
+  "lorenz", "waves", "fluid", "torus", "axes", "tesseract",
+  "julia", "life", "clifford", "pendulum", "threebody"
+];
 
 // ── Fluid gradient backdrop ──────────────────────────────────────────────
 // Soft radial-gradient "blobs" drift around the canvas with additive blending.
+// Blob hues derive from the mounted palette's accents (canvas can't use var()).
 function FluidBackdrop() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -109,13 +105,17 @@ function FluidBackdrop() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const P = readPaletteColors();
+    const bgDeep = rgba(mixRgb(P.bg, BLACK, 0.55), 1);
+    // Deep-shaded palette accents; alpha applied per stop below.
     const blobs = [
-      { x: 0.3, y: 0.3, color: "rgba(118, 57, 7, 0.85)", speed: 0.00018, phase: 0.0, radius: 0.65 },
-      { x: 0.72, y: 0.38, color: "rgba(71, 58, 41, 0.75)", speed: 0.00022, phase: 1.2, radius: 0.55 },
-      { x: 0.55, y: 0.72, color: "rgba(84, 55, 43, 0.55)", speed: 0.0002, phase: 2.4, radius: 0.6 },
-      { x: 0.22, y: 0.68, color: "rgba(116, 42, 89, 0.55)", speed: 0.00025, phase: 3.6, radius: 0.5 },
-      { x: 0.85, y: 0.85, color: "rgba(59, 100, 12, 0.6)", speed: 0.00017, phase: 4.8, radius: 0.55 }
+      { x: 0.3, y: 0.3, rgb: mixRgb(P.amber, BLACK, 0.48), a: 0.85, speed: 0.00018, phase: 0.0, radius: 0.65 },
+      { x: 0.72, y: 0.38, rgb: mixRgb(P.amber, BLACK, 0.62), a: 0.75, speed: 0.00022, phase: 1.2, radius: 0.55 },
+      { x: 0.55, y: 0.72, rgb: mixRgb(P.amber, BLACK, 0.58), a: 0.55, speed: 0.0002, phase: 2.4, radius: 0.6 },
+      { x: 0.22, y: 0.68, rgb: mixRgb(P.pink, BLACK, 0.5), a: 0.55, speed: 0.00025, phase: 3.6, radius: 0.5 },
+      { x: 0.85, y: 0.85, rgb: mixRgb(P.green, BLACK, 0.55), a: 0.6, speed: 0.00017, phase: 4.8, radius: 0.55 }
     ];
+    const reduce = prefersReducedMotion();
 
     let raf = 0;
     let dpr = window.devicePixelRatio || 1;
@@ -125,16 +125,14 @@ function FluidBackdrop() {
       canvas!.width = Math.max(1, Math.floor(rect.width * dpr));
       canvas!.height = Math.max(1, Math.floor(rect.height * dpr));
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (reduce) drawFrame(0);
     }
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
 
-    function frame(ts: number) {
+    function drawFrame(ts: number) {
       const w = canvas!.width / dpr;
       const h = canvas!.height / dpr;
       ctx!.globalCompositeOperation = "source-over";
-      ctx!.fillStyle = "#0a0a14";
+      ctx!.fillStyle = bgDeep;
       ctx!.fillRect(0, 0, w, h);
       ctx!.globalCompositeOperation = "lighter";
       const R = Math.max(w, h);
@@ -143,15 +141,26 @@ function FluidBackdrop() {
         const cy = (b.y + 0.22 * Math.sin(ts * b.speed * 1.3 + b.phase)) * h;
         const r = R * b.radius;
         const g = ctx!.createRadialGradient(cx, cy, 0, cx, cy, r);
-        g.addColorStop(0, b.color);
-        g.addColorStop(0.6, b.color.replace(/[\d.]+\)$/, "0.18)"));
+        g.addColorStop(0, rgba(b.rgb, b.a));
+        g.addColorStop(0.6, rgba(b.rgb, 0.18));
         g.addColorStop(1, "rgba(0,0,0,0)");
         ctx!.fillStyle = g;
         ctx!.fillRect(0, 0, w, h);
       }
+    }
+
+    function frame(ts: number) {
+      drawFrame(ts);
       raf = requestAnimationFrame(frame);
     }
-    raf = requestAnimationFrame(frame);
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    if (reduce) {
+      drawFrame(0);
+    } else {
+      raf = requestAnimationFrame(frame);
+    }
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
@@ -191,7 +200,7 @@ const CRT_SCANLINES: CSSProperties = {
   inset: 0,
   pointerEvents: "none",
   backgroundImage:
-    "repeating-linear-gradient(to bottom, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 2px, transparent 4px)"
+    "repeating-linear-gradient(to bottom, color-mix(in srgb, var(--text) 4%, transparent) 0px, color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 2px, transparent 4px)"
 };
 
 // ── Lorenz / chaos attractor backdrop ─────────────────────────────────────
@@ -264,18 +273,9 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
       }
     }
 
-    function resize() {
-      const rect = container!.getBoundingClientRect();
-      cols = Math.max(20, Math.floor(rect.width / CHAR_W));
-      rows = Math.max(20, Math.floor(rect.height / CHAR_H));
-      makeTrajectories();
-    }
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(container);
+    const reduce = prefersReducedMotion();
 
-    let raf = 0;
-    function draw() {
+    function renderFrame() {
       if (needsRebuildRef.current) {
         makeTrajectories();
         needsRebuildRef.current = false;
@@ -312,9 +312,29 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
 
       dimPre!.textContent = dimGrid.map((r) => r.join("")).join("\n");
       hotPre!.textContent = hotGrid.map((r) => r.join("")).join("\n");
+    }
+
+    function resize() {
+      const rect = container!.getBoundingClientRect();
+      cols = Math.max(20, Math.floor(rect.width / CHAR_W));
+      rows = Math.max(20, Math.floor(rect.height / CHAR_H));
+      makeTrajectories();
+      if (reduce) renderFrame();
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+
+    let raf = 0;
+    function draw() {
+      renderFrame();
       raf = requestAnimationFrame(draw);
     }
-    raf = requestAnimationFrame(draw);
+    if (reduce) {
+      renderFrame();
+    } else {
+      raf = requestAnimationFrame(draw);
+    }
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
@@ -322,7 +342,7 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
   }, []);
 
   return (
-    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#000" }}>
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
       <pre
         ref={dimPreRef}
         style={{
@@ -334,7 +354,7 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
           fontSize: 12,
           lineHeight: "12px",
           letterSpacing: 0,
-          color: "rgba(150, 155, 168, 0.55)",
+          color: "color-mix(in srgb, var(--dim) 55%, transparent)",
           whiteSpace: "pre",
           userSelect: "none"
         }}
@@ -351,7 +371,8 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
           lineHeight: "12px",
           letterSpacing: 0,
           color: COLOR.amber,
-          textShadow: "0 0 6px rgba(227, 160, 99, 0.55), 0 0 14px rgba(227, 160, 99, 0.20)",
+          textShadow:
+            "0 0 6px color-mix(in srgb, var(--amber) 55%, transparent), 0 0 14px color-mix(in srgb, var(--amber) 20%, transparent)",
           whiteSpace: "pre",
           userSelect: "none"
         }}
@@ -450,12 +471,15 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
       }
     }
 
+    const reduce = prefersReducedMotion();
+
     function resize() {
       const rect = container!.getBoundingClientRect();
       cols = Math.max(10, Math.floor(rect.width / CHAR_W));
       rows = Math.max(10, Math.floor(rect.height / CHAR_H));
       mouse = { x: cols / 2, y: rows / 2 };
       createStrings();
+      if (reduce) renderFrame(0);
     }
     resize();
     const ro = new ResizeObserver(resize);
@@ -468,9 +492,7 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
     }
     container.addEventListener("mousemove", onMove);
 
-    let raf = 0;
-    let lastMutation = 0;
-    function draw(time: number) {
+    function renderFrame(time: number) {
       if (needsRebuildRef.current) {
         createStrings();
         needsRebuildRef.current = false;
@@ -490,13 +512,23 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
         }
       });
       pre!.textContent = grid.map((r) => r.join("")).join("\n");
+    }
+
+    let raf = 0;
+    let lastMutation = 0;
+    function draw(time: number) {
+      renderFrame(time);
       if (time - lastMutation > 2500) {
         mutateString();
         lastMutation = time;
       }
       raf = requestAnimationFrame(draw);
     }
-    raf = requestAnimationFrame(draw);
+    if (reduce) {
+      renderFrame(0);
+    } else {
+      raf = requestAnimationFrame(draw);
+    }
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
@@ -505,7 +537,7 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
   }, []);
 
   return (
-    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#000" }}>
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
       <pre
         ref={preRef}
         style={{
@@ -518,7 +550,8 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
           lineHeight: "12px",
           letterSpacing: 0,
           color: COLOR.amber,
-          textShadow: "0 0 6px rgba(227, 160, 99, 0.45), 0 0 14px rgba(227, 160, 99, 0.15)",
+          textShadow:
+            "0 0 6px color-mix(in srgb, var(--amber) 45%, transparent), 0 0 14px color-mix(in srgb, var(--amber) 15%, transparent)",
           whiteSpace: "pre",
           userSelect: "none"
         }}
@@ -532,19 +565,22 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
 const TORUS_W = 60;
 const TORUS_H = 26;
 const RAMP = ".,-~:;=!*#$@";
-const RAMP_COLORS = [
-  "#523a3a",
-  "#664545",
-  "#927164",
-  "#9a7c5a",
-  "#b08b6d",
-  "#ac845f",
-  "#b29473",
-  "#be9c60",
-  "#bfa183",
-  "#ac8a56",
-  "#eeb86e",
-  "#d5b585"
+// Luminance → palette-aware span class (resolved in app.css to the amber
+// tiers), replacing the old 12 hardcoded hex browns so palettes retint the
+// donut. Monotonic dark→bright across the ramp.
+const RAMP_CLASSES = [
+  "bd-c-amber-low",
+  "bd-c-amber-low",
+  "bd-c-amber-mid",
+  "bd-c-amber-mid",
+  "bd-c-amber-mid",
+  "bd-c-amber",
+  "bd-c-amber",
+  "bd-c-amber",
+  "bd-c-amber",
+  "bd-c-amber-hi",
+  "bd-c-amber-hi",
+  "bd-c-amber-hi"
 ];
 function Torus() {
   const ref = useRef<HTMLPreElement>(null);
@@ -553,14 +589,10 @@ function Torus() {
   useEffect(() => {
     if (!ref.current) return;
     const node = ref.current;
+    const reduce = prefersReducedMotion();
     let raf = 0;
     let last = 0;
-    function frame(ts: number) {
-      if (ts - last < 33) {
-        raf = requestAnimationFrame(frame);
-        return;
-      }
-      last = ts;
+    function renderFrame() {
       const W = TORUS_W;
       const H = TORUS_H;
       const buf = new Array(W * H).fill(-1);
@@ -597,11 +629,11 @@ function Torus() {
       }
 
       let html = "";
-      let curColor: string | null = null;
+      let curClass: string | null = null;
       let run = "";
       const flush = () => {
         if (run.length === 0) return;
-        html += curColor === null ? run : `<span style="color:${curColor}">${run}</span>`;
+        html += curClass === null ? run : `<span class="${curClass}">${run}</span>`;
         run = "";
       };
       for (let i = 0; i < H; i++) {
@@ -609,23 +641,37 @@ function Torus() {
           const k = i * W + j;
           const lum = buf[k];
           const ch = lum < 0 ? " " : RAMP[lum];
-          const color = lum < 0 ? null : RAMP_COLORS[lum];
-          if (color !== curColor) {
+          const cls = lum < 0 ? null : RAMP_CLASSES[lum];
+          if (cls !== curClass) {
             flush();
-            curColor = color;
+            curClass = cls;
           }
           run += ch === " " ? " " : ch;
         }
         flush();
         html += "\n";
-        curColor = null;
+        curClass = null;
       }
       node.innerHTML = html;
       aRef.current += 0.045;
       bRef.current += 0.025;
+    }
+    function frame(ts: number) {
+      if (ts - last < 33) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      last = ts;
+      renderFrame();
       raf = requestAnimationFrame(frame);
     }
-    raf = requestAnimationFrame(frame);
+    if (reduce) {
+      aRef.current = 1.0;
+      bRef.current = 0.6;
+      renderFrame();
+    } else {
+      raf = requestAnimationFrame(frame);
+    }
     return () => cancelAnimationFrame(raf);
   }, []);
 
@@ -641,7 +687,7 @@ function Torus() {
         color: COLOR.amber,
         whiteSpace: "pre",
         userSelect: "none",
-        textShadow: "0 0 6px rgba(227, 160, 99, 0.18)"
+        textShadow: "0 0 6px color-mix(in srgb, var(--amber) 18%, transparent)"
       }}
     />
   );
@@ -674,7 +720,13 @@ function AxesBackdrop() {
       rows = Math.max(20, Math.floor(rect.height / CHAR_H));
     }
     resize();
-    const ro = new ResizeObserver(resize);
+    // Under reduced motion there is no rAF loop, so a resize must repaint the
+    // single static frame itself. (Safe here: the observer fires after the
+    // effect body, once `reduce`/`draw` are initialized.)
+    const ro = new ResizeObserver(() => {
+      resize();
+      if (reduce) draw();
+    });
     ro.observe(container);
 
     function rotate(p: number[], yaw: number, pitch: number) {
@@ -690,6 +742,7 @@ function AxesBackdrop() {
       return [x1, y2, z2];
     }
 
+    const reduce = prefersReducedMotion();
     let raf = 0;
     let yaw = 0.7;
     const pitch = -0.5;
@@ -772,9 +825,13 @@ function AxesBackdrop() {
         html += "\n";
       }
       pre!.innerHTML = html;
+      if (!reduce) raf = requestAnimationFrame(draw);
+    }
+    if (reduce) {
+      draw();
+    } else {
       raf = requestAnimationFrame(draw);
     }
-    raf = requestAnimationFrame(draw);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
@@ -782,7 +839,7 @@ function AxesBackdrop() {
   }, []);
 
   return (
-    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#000" }}>
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
       <pre
         ref={preRef}
         style={{
@@ -795,7 +852,7 @@ function AxesBackdrop() {
           lineHeight: "12px",
           letterSpacing: 0,
           color: COLOR.amber,
-          textShadow: "0 0 6px rgba(227, 160, 99, 0.25)",
+          textShadow: "0 0 6px color-mix(in srgb, var(--amber) 25%, transparent)",
           whiteSpace: "pre",
           userSelect: "none"
         }}
@@ -818,7 +875,17 @@ function TesseractBackdrop() {
     const CHAR_W = 7;
     const CHAR_H = 12;
     const CHARS = ".:-=+*#";
-    const AMBER = ["#5a4326", "#7c5a30", "#9a6f3a", "#c08a4a", "#e3a063", "#f0c890"];
+    // Depth → palette-aware span class (dark→bright); replaces the hardcoded
+    // amber hex ramp so palettes retint the hypercube. On the default palette
+    // the top three tiers match the old #9a6f3a/#e3a063/#f0c890 literals.
+    const AMBER = [
+      "bd-c-amber-low",
+      "bd-c-amber-low",
+      "bd-c-amber-mid",
+      "bd-c-amber-mid",
+      "bd-c-amber",
+      "bd-c-amber-hi"
+    ];
 
     type Edge = { i: number; j: number; axis: number };
 
@@ -850,7 +917,13 @@ function TesseractBackdrop() {
     }
 
     resize();
-    const ro = new ResizeObserver(resize);
+    // Under reduced motion there is no rAF loop, so a resize must repaint the
+    // single static frame itself. (Safe here: the observer fires after the
+    // effect body, once `reduce`/`aspect`/`draw` are initialized.)
+    const ro = new ResizeObserver(() => {
+      resize();
+      if (reduce) draw();
+    });
     ro.observe(container);
 
     function rotatePlane(p: number[], a: number, i: number, j: number) {
@@ -876,6 +949,7 @@ function TesseractBackdrop() {
       return q;
     }
 
+    const reduce = prefersReducedMotion();
     let raf = 0;
     let t = 0;
     const aspect = CHAR_W / CHAR_H;
@@ -1005,7 +1079,7 @@ function TesseractBackdrop() {
 
         const flush = () => {
           if (!run) return;
-          html += cur ? `<span style="color:${cur}">${run}</span>` : run;
+          html += cur ? `<span class="${cur}">${run}</span>` : run;
           run = "";
         };
 
@@ -1025,10 +1099,15 @@ function TesseractBackdrop() {
       }
 
       pre!.innerHTML = html;
-      raf = requestAnimationFrame(draw);
+      if (!reduce) raf = requestAnimationFrame(draw);
     }
 
-    raf = requestAnimationFrame(draw);
+    if (reduce) {
+      t = 0.6;
+      draw();
+    } else {
+      raf = requestAnimationFrame(draw);
+    }
 
     return () => {
       cancelAnimationFrame(raf);
@@ -1043,7 +1122,7 @@ function TesseractBackdrop() {
         position: "absolute",
         inset: 0,
         overflow: "hidden",
-        background: "#000"
+        background: "var(--shell-bg)"
       }}
     >
       <pre
@@ -1059,7 +1138,7 @@ function TesseractBackdrop() {
           letterSpacing: 0,
           color: COLOR.amber,
           textShadow:
-            "0 0 6px rgba(227, 160, 99, 0.45), 0 0 14px rgba(227, 160, 99, 0.18)",
+            "0 0 6px color-mix(in srgb, var(--amber) 45%, transparent), 0 0 14px color-mix(in srgb, var(--amber) 18%, transparent)",
           whiteSpace: "pre",
           userSelect: "none"
         }}
@@ -1088,11 +1167,11 @@ function BackdropHeroText({ dateLine, vaultAlias, masteryWords, goalMeta }: {
         justifyContent: "space-between",
         padding: "32px 36px",
         height: "100%",
-        color: "#ffffff"
+        color: "var(--text)"
       }}
     >
-      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", letterSpacing: "0.02em" }}>
-        <span style={{ color: "#ffffff", textDecoration: "underline", textUnderlineOffset: 3 }}>session warm-up</span>
+      <div style={{ fontSize: 12, color: "color-mix(in srgb, var(--text) 65%, transparent)", letterSpacing: "0.02em" }}>
+        <span style={{ color: "var(--text)", textDecoration: "underline", textUnderlineOffset: 3 }}>session warm-up</span>
         {"  ·  "}
         {dateLine}
       </div>
@@ -1100,7 +1179,7 @@ function BackdropHeroText({ dateLine, vaultAlias, masteryWords, goalMeta }: {
         <div
           style={{
             fontSize: 12,
-            color: "rgba(255,255,255,0.55)",
+            color: "color-mix(in srgb, var(--text) 55%, transparent)",
             textTransform: "uppercase",
             letterSpacing: "0.18em",
             marginBottom: 14
@@ -1113,7 +1192,7 @@ function BackdropHeroText({ dateLine, vaultAlias, masteryWords, goalMeta }: {
             fontSize: 38,
             lineHeight: 1.05,
             fontWeight: 600,
-            color: "#ffffff",
+            color: "var(--text)",
             textShadow: "0 2px 24px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.5)",
             letterSpacing: "-0.01em"
           }}
@@ -1130,7 +1209,7 @@ function BackdropHeroText({ dateLine, vaultAlias, masteryWords, goalMeta }: {
           style={{
             marginTop: 18,
             fontSize: 13,
-            color: "rgba(255,255,255,0.75)",
+            color: "color-mix(in srgb, var(--text) 75%, transparent)",
             lineHeight: 1.65,
             textShadow: "0 1px 6px rgba(0,0,0,0.6)"
           }}
@@ -1142,7 +1221,7 @@ function BackdropHeroText({ dateLine, vaultAlias, masteryWords, goalMeta }: {
         style={{
           fontFamily: FONT_MONO,
           fontSize: 11,
-          color: "rgba(255,255,255,0.6)",
+          color: "color-mix(in srgb, var(--text) 60%, transparent)",
           letterSpacing: "0.04em",
           textShadow: "0 1px 4px rgba(0,0,0,0.6)"
         }}
@@ -1179,9 +1258,9 @@ function StartDebugCycler({ backdrop, onSetBackdrop }: { backdrop: BackdropName;
         letterSpacing: "0.02em",
         padding: "3px 9px",
         borderRadius: 4,
-        border: `1px solid ${hover ? COLOR.amber : "rgba(255,255,255,0.18)"}`,
-        background: hover ? "rgba(36,29,18,0.85)" : "rgba(0,0,0,0.35)",
-        color: hover ? COLOR.amber : "rgba(255,255,255,0.6)",
+        border: `1px solid ${hover ? COLOR.amber : "color-mix(in srgb, var(--text) 18%, transparent)"}`,
+        background: hover ? "color-mix(in srgb, var(--wash-amber) 85%, transparent)" : "rgba(0,0,0,0.35)",
+        color: hover ? COLOR.amber : "color-mix(in srgb, var(--text) 60%, transparent)",
         opacity: hover ? 1 : 0.55,
         transition: "opacity 140ms ease, color 140ms ease, border-color 140ms ease",
         display: "inline-flex",
@@ -1191,7 +1270,7 @@ function StartDebugCycler({ backdrop, onSetBackdrop }: { backdrop: BackdropName;
     >
       <span style={{ opacity: 0.8 }}>⟳</span>
       <span>backdrop:</span>
-      <span style={{ color: hover ? COLOR.amber : "rgba(255,255,255,0.85)" }}>{backdrop}</span>
+      <span style={{ color: hover ? COLOR.amber : "color-mix(in srgb, var(--text) 85%, transparent)" }}>{backdrop}</span>
       <span style={{ opacity: 0.6 }}>›</span>
     </div>
   );
@@ -1229,6 +1308,11 @@ function BackdropPanel({
     );
   else if (backdrop === "axes") inner = <AxesBackdrop />;
   else if (backdrop === "tesseract") inner = <TesseractBackdrop />;
+  else if (backdrop === "julia") inner = <JuliaBackdrop scanlines={CRT_SCANLINES} />;
+  else if (backdrop === "life") inner = <LifeBackdrop scanlines={CRT_SCANLINES} />;
+  else if (backdrop === "clifford") inner = <CliffordBackdrop />;
+  else if (backdrop === "pendulum") inner = <PendulumBackdrop />;
+  else if (backdrop === "threebody") inner = <ThreeBodyBackdrop />;
 
   if (backdrop === "torus") {
     return (
@@ -1244,7 +1328,8 @@ function BackdropPanel({
           minHeight: 0,
           overflow: "hidden",
           borderRight: `1px solid ${COLOR.border}`,
-          background: "radial-gradient(ellipse at center, #18120f 0%, #040404 70%)"
+          background:
+            "radial-gradient(ellipse at center, color-mix(in srgb, var(--amber) 8%, var(--shell-bg)) 0%, var(--shell-bg) 70%)"
         }}
       >
         <StartDebugCycler backdrop={backdrop} onSetBackdrop={onSetBackdrop} />
@@ -1254,7 +1339,7 @@ function BackdropPanel({
           </div>
           <div style={{ color: COLOR.textDim, fontSize: 12, fontStyle: "italic" }}>{dateLine}</div>
         </div>
-        <div style={{ padding: 14, border: `1px solid ${COLOR.borderStrong}`, background: "#000", boxShadow: "0 0 60px rgba(255, 162, 75, 0.06)" }}>
+        <div style={{ padding: 14, border: `1px solid ${COLOR.borderStrong}`, background: "var(--shell-bg)", boxShadow: "0 0 60px color-mix(in srgb, var(--amber) 6%, transparent)" }}>
           <Torus />
         </div>
         <div style={{ textAlign: "center", maxWidth: 460, lineHeight: 1.6 }}>
@@ -1275,7 +1360,8 @@ function BackdropPanel({
         overflow: "hidden",
         height: "100%",
         minHeight: 0,
-        background: backdrop === "fluid" ? "#0a0a14" : "#000"
+        background:
+          backdrop === "fluid" ? "color-mix(in srgb, var(--bg) 45%, black)" : "var(--shell-bg)"
       }}
     >
       {inner}
@@ -1329,7 +1415,7 @@ function MinutesPicker({ value, onChange }: { value: number; onChange: (v: numbe
             style={{
               padding: "4px 12px",
               border: `1px solid ${sel ? COLOR.amber : COLOR.border}`,
-              background: sel ? "#241d12" : "transparent",
+              background: sel ? "var(--wash-amber)" : "transparent",
               color: sel ? COLOR.amber : COLOR.text,
               cursor: "pointer",
               fontSize: 12,
@@ -1424,7 +1510,7 @@ function NewVaultAffordance({ fresh, onClick }: { fresh: boolean; onClick: () =>
         cursor: "pointer",
         whiteSpace: "nowrap",
         border: `1px solid ${fresh ? COLOR.amber : COLOR.border}`,
-        background: fresh ? "#241d12" : "transparent",
+        background: fresh ? "var(--wash-amber)" : "transparent",
         color: fresh ? COLOR.amber : COLOR.textDim
       }}
     >
@@ -1446,9 +1532,10 @@ export function StartScreen({
   streak: StreakSummary;
   onNewVault: () => void;
 }) {
-  const [backdrop, setBackdrop] = useState<BackdropName>(
-    () => (localStorage.getItem("learnloop.startBackdrop") as BackdropName | null) ?? "axes"
-  );
+  const [backdrop, setBackdrop] = useState<BackdropName>(() => {
+    const stored = localStorage.getItem("learnloop.startBackdrop");
+    return BACKDROP_ORDER.includes(stored as BackdropName) ? (stored as BackdropName) : "axes";
+  });
   const [energy, setEnergy] = useState(0.7);
   const [sleep, setSleep] = useState(0.5);
   const [minutes, setMinutes] = useState(30);
@@ -1594,7 +1681,7 @@ export function StartScreen({
             <MinutesPicker value={minutes} onChange={setMinutes} />
           </div>
 
-          <div style={{ marginTop: 6, padding: "10px 12px", borderLeft: `3px solid ${COLOR.cyan}`, background: "#10212a", fontSize: 12 }}>
+          <div style={{ marginTop: 6, padding: "10px 12px", borderLeft: `3px solid ${COLOR.cyan}`, background: "var(--wash-cyan)", fontSize: 12 }}>
             <span style={{ color: COLOR.cyan, fontWeight: 600 }}>scheduler mode</span>{"  "}
             <span style={{ color: COLOR.textDim }}>{recommendedBudget}</span>{"  "}
             <span style={{ color: COLOR.textFaint }}>·</span>{"  "}
@@ -1635,7 +1722,7 @@ export function StartScreen({
               style={{
                 padding: "8px 18px",
                 border: `1px solid ${COLOR.amber}`,
-                background: "#241d12",
+                background: "var(--wash-amber)",
                 color: COLOR.amber,
                 fontSize: 13,
                 fontWeight: 600,

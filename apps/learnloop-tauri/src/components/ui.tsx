@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../app/recentVaults";
 
 export const navTabs = [
   { id: "start", key: "1", label: "Start" },
@@ -64,40 +65,116 @@ export function Titlebar() {
   );
 }
 
-// Show only the trailing folders of a vault path so the long
-// "C:\Users\…\OneDrive\…" prefix doesn't dominate the nav bar. A leading "…"
-// marks that the path was shortened; the full path stays in the title tooltip.
-export function truncateVaultPath(path: string, segments = 3): string {
-  const sep = path.includes("\\") ? "\\" : "/";
-  const parts = path.split(/[\\/]+/).filter(Boolean);
-  if (parts.length <= segments) return path;
-  return `…${sep}${parts.slice(-segments).join(sep)}`;
-}
-
-// The green vault path in the nav bar. Clicking it opens the OS folder picker.
+// The green vault chip in the nav bar: shows the vault's folder name; clicking
+// opens a dropdown of recently opened vaults (switch on click) plus an
+// "add a new vault…" row that opens the OS folder picker — the flow that used
+// to live directly on the chip click.
 function VaultPath({ root, onSelect }: { root: string; onSelect: (path: string) => void }) {
-  const pick = async () => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement | null>(null);
+  const chipRef = useRef<HTMLSpanElement | null>(null);
+
+  // Fresh read each open; ensure the current vault is always listed even if
+  // storage was cleared, so the menu is never empty.
+  const recents = useMemo(() => {
+    if (!open) return [];
+    const list = listRecentVaults();
+    return list.some((p) => samePath(p, root)) ? list : [root, ...list];
+  }, [open, root]);
+
+  // Duplicate basenames (two vaults both named "notes") disambiguate with the
+  // parent directory; the full path is always in the row tooltip.
+  const labelFor = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of recents) {
+      const name = vaultName(p);
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return (p: string) => ((counts.get(vaultName(p)) ?? 0) > 1 ? vaultNameWithParent(p) : vaultName(p));
+  }, [recents]);
+
+  // Click-away: document mousedown in capture phase (TermSelect pattern).
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (event: MouseEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocMouseDown, true);
+    return () => document.removeEventListener("mousedown", onDocMouseDown, true);
+  }, [open]);
+
+  const switchTo = (path: string) => {
+    setOpen(false);
+    if (!samePath(path, root)) onSelect(path);
+  };
+
+  const addNew = async () => {
+    setOpen(false);
     const selected = await openDialog({ directory: true, multiple: false, defaultPath: root });
-    if (typeof selected === "string" && selected !== root) {
+    // samePath (not !==) so re-picking the current vault with different casing
+    // or a trailing separator doesn't trigger a pointless full reload.
+    if (typeof selected === "string" && !samePath(selected, root)) {
       onSelect(selected);
     }
   };
 
   return (
     <span
-      className="vault-path"
-      role="button"
-      tabIndex={0}
-      title={`${root} · click to change vault`}
-      onClick={() => void pick()}
+      className="vault-menu-wrap"
+      ref={wrapRef}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          void pick();
+        if (event.key === "Escape" && open) {
+          // Don't let screen-level Escape handlers fire while the menu is open.
+          event.stopPropagation();
+          setOpen(false);
+          chipRef.current?.focus();
+        } else if (event.key === "Enter" || event.key === " ") {
+          // Screens register window-level keydown handlers that treat Enter as
+          // their primary action and call preventDefault() (StartScreen -> begin(),
+          // FeedbackScreen -> onNext()). Those listeners sit above React's root,
+          // so without this the keypress that activates a focused chip/menu row is
+          // swallowed and a session starts instead of the vault switching.
+          event.stopPropagation();
         }
       }}
     >
-      {truncateVaultPath(root)}
+      <span
+        ref={chipRef}
+        className="vault-path"
+        role="button"
+        tabIndex={0}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={`${root} · click to switch vault`}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+      >
+        {vaultName(root)}
+      </span>
+      {open ? (
+        <div className="vault-menu" role="menu">
+          {recents.map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="menuitem"
+              title={p}
+              className={samePath(p, root) ? "active" : ""}
+              onClick={() => switchTo(p)}
+            >
+              {labelFor(p)}
+            </button>
+          ))}
+          <button type="button" role="menuitem" className="vault-menu-add" onClick={() => void addNew()}>
+            + add a new vault…
+          </button>
+        </div>
+      ) : null}
     </span>
   );
 }
