@@ -34,12 +34,26 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.providers["deepseek_flash"].thinking == "disabled"
     assert config.ai.providers["deepseek_pro"].model == "deepseek-v4-pro"
     assert config.ai.providers["deepseek_pro"].thinking == "enabled"
+    assert config.ai.providers["openrouter"].type == "openrouter"
     assert config.ai.routing.grading == "codex_low"
     assert config.ai.routing.tutor_qa == "codex_low"
     assert config.ai.routing.teach_back == "codex_low"
     assert config.ai.routing.authoring == "codex_medium"
     assert config.ai.routing.canonical_ingest == "codex_medium"
     assert config.ai.routing.canonical_ingest_retry == "codex_medium"
+
+
+def test_default_config_seeds_openrouter_profile(tmp_path):
+    init_vault(tmp_path)
+
+    for config in (load_config(tmp_path / "learnloop.toml"), LearnLoopConfig()):
+        profile = config.ai.providers["openrouter"]
+        assert profile.type == "openrouter"
+        assert profile.model == "deepseek/deepseek-chat"
+        assert profile.api_key_env == "OPENROUTER_API_KEY"
+        assert profile.response_format == "json_object"
+        assert profile.timeout_seconds == 180
+        assert profile.base_url is None
 
 
 def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):

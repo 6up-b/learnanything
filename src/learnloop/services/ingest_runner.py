@@ -163,8 +163,8 @@ class RunnerServices:
         return client
 
     def quick_check_client(self, ctx: "JobContext") -> Any:
-        # Reader quick checks ride the codex-only resolver: the task method is
-        # getattr-discovered on the SDK client, exactly like unit inventory.
+        # Reader quick checks follow the same canonical-ingest provider route
+        # as unit inventory.
         client = (self.quick_check_client_factory or default_inventory_client)(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -175,9 +175,9 @@ class RunnerServices:
         return client
 
     def exercise_import_client(self, ctx: "JobContext") -> Any:
-        # Reader exercise imports ride the codex-only resolver: the task method
-        # is getattr-discovered on the SDK client, like reader quick checks.
-        client = (self.exercise_import_client_factory or default_inventory_client)(ctx)
+        # Exercise completion follows the authoring route. The task method is
+        # getattr-discovered so unsupported providers still fail explicitly.
+        client = (self.exercise_import_client_factory or default_exercise_import_client)(ctx)
         ctx.bind_interruptible(client)
         return client
 
@@ -587,19 +587,9 @@ def default_run_legacy_ingest(
 
 
 def default_inventory_client(ctx: JobContext) -> Any:
-    """Resolve a codex client for unit inventory (§7). Codex-only: the inventory
-    method is getattr-discovered on the SDK client, so a provider lacking it
-    degrades to an explicit unavailable error rather than fabricating rows."""
+    """Resolve unit inventory through the canonical-ingest provider route."""
 
-    from learnloop.codex.client import make_codex_client
-    from learnloop.codex.runtime import check_codex_runtime
-    from learnloop.vault.loader import load_vault
-
-    vault = load_vault(ctx.vault_root)
-    runtime = check_codex_runtime(ctx.vault_root, vault.config.codex)
-    if not runtime.ready:
-        raise IngestRunnerError(runtime.message or f"Codex runtime is {runtime.status}.")
-    return make_codex_client(vault.config.codex, ctx.vault_root)
+    return _routed_task_client(ctx, "canonical_ingest")
 
 
 def default_synthesis_client(ctx: JobContext) -> Any:
@@ -620,6 +610,12 @@ def default_rung_variant_client(ctx: JobContext) -> Any:
     judgment-heavy synthesis profile, and the learner is actively waiting."""
 
     return _routed_task_client(ctx, "rung_variant")
+
+
+def default_exercise_import_client(ctx: JobContext) -> Any:
+    """Resolve reader exercise completion through the authoring route."""
+
+    return _routed_task_client(ctx, "authoring")
 
 
 def _routed_task_client(ctx: JobContext, task: str) -> Any:

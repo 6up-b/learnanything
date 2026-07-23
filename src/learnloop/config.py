@@ -503,6 +503,17 @@ reasoning_effort = "high"
 max_tokens = 16384
 timeout_seconds = 180
 
+[ai.providers.openrouter]
+type = "openrouter"
+model = "deepseek/deepseek-chat"
+api_key_env = "OPENROUTER_API_KEY"
+response_format = "json_object"
+timeout_seconds = 180
+# base_url = "https://openrouter.ai/api/v1"  # default; override for proxies
+# reasoning_effort = "medium"
+# http_referer = ""  # optional OpenRouter attribution header
+# x_title = "LearnLoop"
+
 [codex]
 provider = "sdk"
 # Per-machine; set LEARNLOOP_CODEX_CHECKOUT_PATH in ~/.config/learnloop/settings.env.
@@ -1367,6 +1378,8 @@ class AIProviderConfig(BaseModel):
     reasoning_summary: str | None = None
     max_tokens: int | None = None
     timeout_seconds: int | None = None
+    http_referer: str | None = None
+    x_title: str | None = None
 
     checkout_path: str | None = None
     revision: str | None = None
@@ -1714,6 +1727,7 @@ class LearnLoopConfig(BaseModel):
         )
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
+        self.ai.providers.setdefault("openrouter", openrouter_provider())
         for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
             routed = getattr(self.ai.routing, task)
             if not routed:
@@ -1799,6 +1813,16 @@ def deepseek_pro_provider() -> AIProviderConfig:
         thinking="enabled",
         reasoning_effort="high",
         max_tokens=16384,
+        timeout_seconds=180,
+    )
+
+
+def openrouter_provider() -> AIProviderConfig:
+    return AIProviderConfig(
+        type="openrouter",
+        model="deepseek/deepseek-chat",
+        api_key_env="OPENROUTER_API_KEY",
+        response_format="json_object",
         timeout_seconds=180,
     )
 

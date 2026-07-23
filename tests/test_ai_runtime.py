@@ -58,6 +58,27 @@ def test_ai_runtime_reports_missing_provider(tmp_path):
     assert report.ready is False
 
 
+def test_openrouter_runtime_requires_its_api_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "other-key")
+
+    report = check_ai_runtime(tmp_path, LearnLoopConfig(), provider_name="openrouter")
+
+    assert report.status == "provider_auth_required"
+    assert report.provider_type == "openrouter"
+    assert "OPENROUTER_API_KEY" in (report.message or "")
+
+
+def test_openrouter_runtime_ready_with_api_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    report = check_ai_runtime(tmp_path, LearnLoopConfig(), provider_name="openrouter")
+
+    assert report.status == "ready"
+    assert report.provider_type == "openrouter"
+    assert report.model == "deepseek/deepseek-chat"
+
+
 def _deepseek_config() -> LearnLoopConfig:
     return LearnLoopConfig.model_validate(
         {
