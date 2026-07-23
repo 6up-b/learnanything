@@ -23,27 +23,21 @@ const shortFacet = (facetId: string): string => facetId.replace(/^facet_/, "");
 const ATTEMPT_OUTCOME_HUES_ENABLED = true;
 const ATTEMPT_OUTCOME_HUE_MIX = 0.6;
 
-function blendHex(from: string, to: string, amount: number): string {
-  const parse = (color: string) => [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
-  const start = parse(from);
-  const end = parse(to);
-  const channel = (index: number) => Math.round(start[index] + (end[index] - start[index]) * amount)
-    .toString(16)
-    .padStart(2, "0");
-  return `#${channel(0)}${channel(1)}${channel(2)}`;
-}
-
+// COLOR tokens are var() references now, so hue blending happens in CSS via
+// color-mix instead of hex arithmetic.
 function attemptOutcomeTone(attempt: KnowledgeHistoryAttempt): string {
   if (!ATTEMPT_OUTCOME_HUES_ENABLED) return COLOR.amberLink;
+  const mix = (to: string) =>
+    `color-mix(in srgb, ${to} ${ATTEMPT_OUTCOME_HUE_MIX * 100}%, ${COLOR.amberLink})`;
   if (attempt.correctness != null && attempt.correctness >= 1) {
-    return blendHex(COLOR.amberLink, COLOR.green, ATTEMPT_OUTCOME_HUE_MIX);
+    return mix(COLOR.green);
   }
   if (attempt.correctness != null && attempt.correctness <= 0) {
-    return blendHex(COLOR.amberLink, COLOR.red, ATTEMPT_OUTCOME_HUE_MIX);
+    return mix(COLOR.red);
   }
   // Older history rows may omit normalized correctness while retaining a zero score.
   if (attempt.correctness == null && attempt.rubricScore === 0) {
-    return blendHex(COLOR.amberLink, COLOR.red, ATTEMPT_OUTCOME_HUE_MIX);
+    return mix(COLOR.red);
   }
   return COLOR.amberLink;
 }

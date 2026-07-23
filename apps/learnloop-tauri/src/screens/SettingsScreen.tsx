@@ -1,31 +1,47 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { RuntimeHealth, SettingsDto, UseCaseChoiceInput } from "../api/dto";
-import { COLOR, FONT_MONO, TermSelect } from "../components/term";
+import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
 
-const USE_CASES = [
-  {
-    id: "grading",
-    label: "grading",
-    hint: "attempt grading and misconception matching",
-    primaryRoute: "grading"
-  },
-  {
-    id: "ingest",
-    label: "ingest / synthesis",
-    hint: "canonical ingest, study-map synthesis, and authoring",
-    primaryRoute: "canonicalIngest"
-  },
-  {
-    id: "tutor",
-    label: "tutor",
-    hint: "tutor Q&A, teach-back, and rung variants",
-    primaryRoute: "tutorQa"
-  }
-] as const;
+// UI metadata for the backend's use-case -> [ai.routing] expansion
+// (services/settings_store.USE_CASE_ROUTES). primaryRoute is the camelized
+// routing key the current selection is derived from.
+const USE_CASES: Array<{ id: string; label: string; hint: string; primaryRoute: string }> = [
+  { id: "grading", label: "grading", hint: "attempt grading + misconception match", primaryRoute: "grading" },
+  { id: "ingest", label: "ingest / synthesis", hint: "canonical ingest, study-map synthesis, authoring", primaryRoute: "canonicalIngest" },
+  { id: "tutor", label: "tutor", hint: "tutor Q&A, teach-back, rung variants", primaryRoute: "tutorQa" },
+  { id: "animation", label: "animation", hint: "manim explainer-scene authoring", primaryRoute: "animation" }
+];
 
-type UseCase = (typeof USE_CASES)[number];
+// [ingest.audio] provider: the endpoint path takes any OpenAI-compatible
+// /audio/transcriptions server + its own key; openrouter sends audio as chat
+// input_audio (audio-capable model slug, reuses the OpenRouter key).
+const TRANSCRIPTION_PROVIDERS = [
+  { value: "openai_compatible", label: "openai-compatible" },
+  { value: "openrouter", label: "openrouter" }
+];
+const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash";
+
+export const PALETTE_STORAGE_KEY = "learnloop.palette";
+const PALETTES = [
+  { value: "", label: "terminal (default)" },
+  { value: "dracula", label: "dracula" },
+  { value: "gruvbox", label: "gruvbox" },
+  { value: "nord", label: "nord" },
+  { value: "catppuccin-mocha", label: "catppuccin mocha" }
+];
+
+function applyPalette(palette: string) {
+  if (palette) {
+    document.documentElement.dataset.palette = palette;
+    localStorage.setItem(PALETTE_STORAGE_KEY, palette);
+  } else {
+    delete document.documentElement.dataset.palette;
+    localStorage.removeItem(PALETTE_STORAGE_KEY);
+  }
+}
+
 type UseCaseDraft = { provider: string; model: string };
 
 export function SettingsScreen({
@@ -36,7 +52,7 @@ export function SettingsScreen({
   onError
 }: {
   manualGrading: boolean;
-  onSelectGradingProvider: (provider: string) => Promise<void>;
+  onSelectGradingProvider: (provider: string) => void;
   onHealthChanged: (health: RuntimeHealth) => void;
   onToast: (message: string) => void;
   onError: (message: string) => void;
@@ -45,14 +61,16 @@ export function SettingsScreen({
   const [drafts, setDrafts] = useState<Record<string, UseCaseDraft>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState("");
+  const [transcriptionKeyDraft, setTranscriptionKeyDraft] = useState("");
+  const [transcriptionProviderDraft, setTranscriptionProviderDraft] = useState<string | null>(null);
+  const [transcriptionModelDraft, setTranscriptionModelDraft] = useState<string | null>(null);
+  const [transcriptionUrlDraft, setTranscriptionUrlDraft] = useState<string | null>(null);
+  const [palette, setPalette] = useState(() => localStorage.getItem(PALETTE_STORAGE_KEY) ?? "");
 
-  const acceptSettings = useCallback(
-    (next: SettingsDto) => {
-      setSettings(next);
-      if (next.health) onHealthChanged(next.health);
-    },
-    [onHealthChanged]
-  );
+  const acceptSettings = useCallback((next: SettingsDto) => {
+    setSettings(next);
+    if (next.health) onHealthChanged(next.health);
+  }, [onHealthChanged]);
 
   useEffect(() => {
     api
@@ -63,14 +81,12 @@ export function SettingsScreen({
 
   const providerByName = useMemo(() => {
     const map = new Map<string, { model: string | null }>();
-    for (const provider of settings?.ai.providers ?? []) {
-      map.set(provider.name, provider);
-    }
+    for (const provider of settings?.ai.providers ?? []) map.set(provider.name, provider);
     return map;
   }, [settings]);
 
-  // Per-use-case OpenRouter profiles are an implementation detail. The user
-  // selects "openrouter" plus a model slug and the backend materializes them.
+  // Selectable backends: configured providers minus the materialized
+  // per-use-case openrouter_<usecase> profiles (implementation detail).
   const providerOptions = useMemo(
     () =>
       (settings?.ai.providers ?? [])
@@ -80,56 +96,39 @@ export function SettingsScreen({
   );
 
   const currentForUseCase = useCallback(
-    (useCase: UseCase): UseCaseDraft => {
-      const routed =
-        settings?.ai.routing[useCase.primaryRoute] ??
-        settings?.ai.activeProvider ??
-        "codex";
-      if (routed.startsWith("openrouter")) {
-        return {
-          provider: "openrouter",
-          model:
-            providerByName.get(routed)?.model ??
-            providerByName.get("openrouter")?.model ??
-            ""
-        };
+    (useCase: (typeof USE_CASES)[number]): UseCaseDraft => {
+      const routed = settings?.ai.routing[useCase.primaryRoute] ?? settings?.ai.activeProvider ?? "codex";
+      if (routed && routed.startsWith("openrouter")) {
+        const model = providerByName.get(routed)?.model ?? providerByName.get("openrouter")?.model ?? "";
+        return { provider: "openrouter", model: model ?? "" };
       }
-      return { provider: routed, model: "" };
+      return { provider: routed ?? "codex", model: "" };
     },
-    [providerByName, settings]
+    [settings, providerByName]
   );
 
-  const draftFor = (useCase: UseCase): UseCaseDraft =>
+  const draftFor = (useCase: (typeof USE_CASES)[number]): UseCaseDraft =>
     drafts[useCase.id] ?? currentForUseCase(useCase);
 
-  const applyUseCase = async (useCase: UseCase) => {
+  const applyUseCase = async (useCase: (typeof USE_CASES)[number]) => {
     const draft = draftFor(useCase);
+    if (useCase.id === "grading" && draft.provider === "manual") {
+      onSelectGradingProvider("manual");
+      setDrafts((d) => ({ ...d, [useCase.id]: draft }));
+      return;
+    }
+    const choice: UseCaseChoiceInput = { provider: draft.provider };
+    if (draft.provider === "openrouter") choice.openrouterModel = draft.model;
     setBusy(useCase.id);
     try {
-      if (useCase.id === "grading" && draft.provider === "manual") {
-        await onSelectGradingProvider("manual");
-      } else {
-        const choice: UseCaseChoiceInput = { provider: draft.provider };
-        if (draft.provider === "openrouter") {
-          choice.openrouterModel = draft.model.trim();
-        }
-        const result = await api.updateAiSettings({
-          useCases: { [useCase.id]: choice }
-        });
-        acceptSettings(result);
-        onToast(
-          `${useCase.label} → ${
-            draft.provider === "openrouter"
-              ? `openrouter (${draft.model.trim()})`
-              : draft.provider
-          }`
-        );
-      }
-      setDrafts((current) => {
-        const next = { ...current };
+      const result = await api.updateAiSettings({ useCases: { [useCase.id]: choice } });
+      acceptSettings(result);
+      setDrafts((d) => {
+        const next = { ...d };
         delete next[useCase.id];
         return next;
       });
+      onToast(`${useCase.label} → ${draft.provider === "openrouter" ? `openrouter (${draft.model})` : draft.provider}`);
     } catch (error) {
       onError((error as Error).message);
     } finally {
@@ -138,7 +137,7 @@ export function SettingsScreen({
   };
 
   const saveKey = async (value: string) => {
-    setBusy("api-key");
+    setBusy("apikey");
     try {
       const result = await api.setOpenrouterApiKey(value);
       setSettings((current) =>
@@ -156,8 +155,8 @@ export function SettingsScreen({
       setKeyDraft("");
       onToast(
         value
-          ? `OpenRouter key saved (${result.ready ? "ready" : result.status})`
-          : "OpenRouter key removed"
+          ? `openrouter key saved (${result.ready ? "ready" : result.status})`
+          : "openrouter key removed"
       );
     } catch (error) {
       onError((error as Error).message);
@@ -170,13 +169,13 @@ export function SettingsScreen({
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "9px 0",
+    padding: "7px 0",
     borderBottom: `1px solid ${COLOR.border}`,
     fontFamily: FONT_MONO,
     fontSize: 12
   } as const;
-  const labelStyle = { width: 180, flex: "0 0 180px", color: COLOR.text } as const;
-  const hintStyle = { color: COLOR.textFaint, fontSize: 10, marginTop: 2 } as const;
+  const labelStyle = { width: 170, color: COLOR.text } as const;
+  const hintStyle = { color: COLOR.textFaint, fontSize: 10 } as const;
   const inputStyle = {
     background: COLOR.bgInput,
     border: `1px solid ${COLOR.border}`,
@@ -184,7 +183,7 @@ export function SettingsScreen({
     color: COLOR.text,
     fontFamily: FONT_MONO,
     fontSize: 12,
-    padding: "5px 8px"
+    padding: "4px 8px"
   } as const;
   const buttonStyle = (enabled: boolean) =>
     ({
@@ -194,66 +193,52 @@ export function SettingsScreen({
       color: enabled ? COLOR.amber : COLOR.textFaint,
       fontFamily: FONT_MONO,
       fontSize: 11,
-      padding: "4px 10px",
+      padding: "3px 10px",
       cursor: enabled ? "pointer" : "default"
     }) as const;
 
   if (!settings) {
     return (
-      <div style={{ padding: 24, fontFamily: FONT_MONO, color: COLOR.textDim }}>
-        loading settings…
-      </div>
+      <div style={{ padding: 24, fontFamily: FONT_MONO, color: COLOR.textDim }}>loading settings…</div>
     );
   }
 
+  const envOverride = settings.ai.envProviderOverride;
+  const transcriptionProvider = transcriptionProviderDraft ?? settings.ingest.transcriptionProvider;
+  const transcriptionDirty =
+    (transcriptionProviderDraft !== null && transcriptionProviderDraft !== settings.ingest.transcriptionProvider) ||
+    (transcriptionModelDraft !== null && transcriptionModelDraft !== settings.ingest.transcriptionModel) ||
+    (transcriptionUrlDraft !== null && transcriptionUrlDraft !== settings.ingest.transcriptionBaseUrl);
+
   return (
-    <div
-      style={{
-        padding: "18px 26px 32px",
-        overflowY: "auto",
-        height: "100%",
-        maxWidth: 820
-      }}
-    >
+    <div style={{ padding: "18px 26px", overflowY: "auto", height: "100%", maxWidth: 760 }}>
       <SectionHeader>AI models</SectionHeader>
-      {settings.ai.envProviderOverride ? (
+      {envOverride ? (
         <div
           style={{
             ...rowStyle,
-            border: `1px solid ${COLOR.red}`,
+            borderBottom: "none",
             background: COLOR.washRed,
+            border: `1px solid ${COLOR.red}`,
             borderRadius: 2,
+            padding: "6px 10px",
             color: COLOR.red,
-            padding: "7px 10px",
             marginBottom: 8
           }}
         >
-          LEARNLOOP_AI_PROVIDER={settings.ai.envProviderOverride} overrides the
-          persisted routes below.
+          LEARNLOOP_AI_PROVIDER={envOverride} is set in the environment and overrides every route below.
         </div>
       ) : null}
-
       {USE_CASES.map((useCase) => {
         const draft = draftFor(useCase);
         const current = currentForUseCase(useCase);
-        const isManual =
-          useCase.id === "grading" &&
-          manualGrading &&
-          drafts[useCase.id] === undefined;
+        const isManual = useCase.id === "grading" && manualGrading && !drafts[useCase.id];
         const dirty =
-          isManual
-            ? false
-            : draft.provider !== current.provider ||
-              (draft.provider === "openrouter" &&
-                draft.model.trim() !== current.model);
+          !isManual && (draft.provider !== current.provider || (draft.provider === "openrouter" && draft.model !== current.model));
         const canApply =
-          dirty &&
-          busy === null &&
-          (draft.provider !== "openrouter" || draft.model.trim().length > 0);
+          dirty && busy === null && (draft.provider !== "openrouter" || draft.model.trim().length > 0);
         const options =
-          useCase.id === "grading"
-            ? [...providerOptions, "manual"]
-            : providerOptions;
+          useCase.id === "grading" ? [...providerOptions, "manual"] : providerOptions;
         return (
           <div key={useCase.id} style={rowStyle}>
             <span style={labelStyle}>
@@ -263,50 +248,26 @@ export function SettingsScreen({
             <TermSelect
               value={isManual ? "manual" : draft.provider}
               options={options}
-              width={175}
-              ariaLabel={`${useCase.label} provider`}
-              onChange={(provider) => {
-                const defaultModel =
-                  provider === "openrouter"
-                    ? draft.model ||
-                      providerByName.get("openrouter")?.model ||
-                      ""
-                    : draft.model;
-                setDrafts((currentDrafts) => ({
-                  ...currentDrafts,
-                  [useCase.id]: { provider, model: defaultModel }
-                }));
-              }}
+              width={170}
+              onChange={(provider) =>
+                setDrafts((d) => ({ ...d, [useCase.id]: { provider, model: draft.model } }))
+              }
             />
             {draft.provider === "openrouter" ? (
               <input
-                style={{ ...inputStyle, flex: 1, minWidth: 210 }}
-                aria-label={`${useCase.label} OpenRouter model`}
-                placeholder="vendor/model"
+                style={{ ...inputStyle, flex: 1, minWidth: 180 }}
+                placeholder="model slug, e.g. anthropic/claude-sonnet-4.5"
                 value={draft.model}
                 onChange={(event) =>
-                  setDrafts((currentDrafts) => ({
-                    ...currentDrafts,
-                    [useCase.id]: {
-                      provider: "openrouter",
-                      model: event.target.value
-                    }
+                  setDrafts((d) => ({
+                    ...d,
+                    [useCase.id]: { provider: "openrouter", model: event.target.value }
                   }))
                 }
               />
             ) : (
-              <span
-                style={{
-                  flex: 1,
-                  color: COLOR.textFaint,
-                  fontSize: 11,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis"
-                }}
-              >
-                {draft.provider === "manual"
-                  ? "self grading"
-                  : providerByName.get(draft.provider)?.model ?? ""}
+              <span style={{ flex: 1, color: COLOR.textFaint, fontSize: 11 }}>
+                {providerByName.get(draft.provider)?.model ?? ""}
               </span>
             )}
             <button
@@ -320,11 +281,12 @@ export function SettingsScreen({
           </div>
         );
       })}
-
-      <p style={{ ...hintStyle, margin: "8px 0 22px" }}>
-        Provider choices are stored in this vault. OpenRouter selections can
-        use a different model for each workload.
-      </p>
+      <div style={{ ...rowStyle, borderBottom: "none" }}>
+        <span style={{ ...hintStyle, fontSize: 10 }}>
+          Choices persist to learnloop.toml; an OpenRouter pick materializes a per-use-case provider
+          profile so different tasks can run different models.
+        </span>
+      </div>
 
       <SectionHeader>OpenRouter API key</SectionHeader>
       <div style={rowStyle}>
@@ -332,20 +294,9 @@ export function SettingsScreen({
           status
           <div style={hintStyle}>{settings.openrouter.settingsEnvPath}</div>
         </span>
-        <span
-          style={{
-            color: settings.openrouter.keyPresent
-              ? COLOR.green
-              : COLOR.textDim,
-            fontSize: 11
-          }}
-        >
+        <span style={{ color: settings.openrouter.keyPresent ? COLOR.green : COLOR.textDim, fontSize: 11 }}>
           {settings.openrouter.keyPresent
-            ? `saved${
-                settings.openrouter.keyHint
-                  ? ` · ends in ····${settings.openrouter.keyHint}`
-                  : ""
-              }`
+            ? `saved${settings.openrouter.keyHint ? ` · ends in ····${settings.openrouter.keyHint}` : ""}`
             : "not set"}
         </span>
       </div>
@@ -353,8 +304,6 @@ export function SettingsScreen({
         <span style={labelStyle}>set key</span>
         <input
           type="password"
-          aria-label="OpenRouter API key"
-          autoComplete="off"
           style={{ ...inputStyle, flex: 1 }}
           placeholder="sk-or-…"
           value={keyDraft}
@@ -366,7 +315,7 @@ export function SettingsScreen({
           disabled={keyDraft.trim().length === 0 || busy !== null}
           onClick={() => void saveKey(keyDraft.trim())}
         >
-          {busy === "api-key" ? "…" : "save"}
+          {busy === "apikey" ? "…" : "save"}
         </button>
         {settings.openrouter.keyPresent ? (
           <button
@@ -378,6 +327,187 @@ export function SettingsScreen({
             clear
           </button>
         ) : null}
+      </div>
+
+      <SectionHeader>Ingestion</SectionHeader>
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          native multimodal
+          <div style={hintStyle}>
+            send audio/PDF media to the routed chat model when it declares the modality
+          </div>
+        </span>
+        <TermCheckbox
+          checked={settings.ingest.nativeMultimodal}
+          label={settings.ingest.nativeMultimodal ? "enabled" : "disabled"}
+          disabled={busy !== null}
+          onChange={(next) => {
+            setBusy("ingest");
+            api
+              .updateIngestSettings({ nativeMultimodal: next })
+              .then((result) => {
+                acceptSettings(result);
+                onToast(`native multimodal → ${next ? "on" : "off"}`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        />
+      </div>
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          transcription
+          <div style={hintStyle}>
+            {transcriptionProvider === "openrouter"
+              ? "chat input_audio via the OpenRouter key · model must accept audio · mp3/wav only"
+              : "OpenAI-compatible /audio/transcriptions endpoint"}
+          </div>
+        </span>
+        <TermSelect
+          value={transcriptionProvider}
+          options={TRANSCRIPTION_PROVIDERS}
+          width={150}
+          disabled={busy !== null}
+          onChange={(provider) => {
+            setTranscriptionProviderDraft(provider);
+            if (provider === "openrouter") {
+              const model = transcriptionModelDraft ?? settings.ingest.transcriptionModel;
+              if (!model.includes("/")) setTranscriptionModelDraft(OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION);
+            }
+          }}
+        />
+        <input
+          style={{
+            ...inputStyle,
+            ...(transcriptionProvider === "openrouter" ? { flex: 1, minWidth: 180 } : { width: 170 })
+          }}
+          placeholder={
+            transcriptionProvider === "openrouter"
+              ? `audio-capable slug, e.g. ${OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION}`
+              : "model, e.g. whisper-1"
+          }
+          value={transcriptionModelDraft ?? settings.ingest.transcriptionModel}
+          onChange={(event) => setTranscriptionModelDraft(event.target.value)}
+        />
+        {transcriptionProvider === "openrouter" ? null : (
+          <input
+            style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+            placeholder="base URL"
+            value={transcriptionUrlDraft ?? settings.ingest.transcriptionBaseUrl}
+            onChange={(event) => setTranscriptionUrlDraft(event.target.value)}
+          />
+        )}
+        <button
+          type="button"
+          style={buttonStyle(busy === null && transcriptionDirty)}
+          disabled={busy !== null || !transcriptionDirty}
+          onClick={() => {
+            setBusy("transcription");
+            api
+              .updateIngestSettings({
+                ...(transcriptionProviderDraft !== null ? { transcriptionProvider: transcriptionProviderDraft } : {}),
+                ...(transcriptionModelDraft !== null ? { transcriptionModel: transcriptionModelDraft } : {}),
+                ...(transcriptionUrlDraft !== null ? { transcriptionBaseUrl: transcriptionUrlDraft } : {})
+              })
+              .then((result) => {
+                acceptSettings(result);
+                setTranscriptionProviderDraft(null);
+                setTranscriptionModelDraft(null);
+                setTranscriptionUrlDraft(null);
+                onToast("transcription settings saved");
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        >
+          {busy === "transcription" ? "…" : "apply"}
+        </button>
+      </div>
+      {transcriptionProvider === "openrouter" ? (
+        <div style={{ ...rowStyle, borderBottom: "none" }}>
+          <span style={labelStyle}>transcription key</span>
+          <span
+            style={{
+              flex: 1,
+              fontSize: 11,
+              color: settings.openrouter.keyPresent ? COLOR.textFaint : COLOR.red
+            }}
+          >
+            {settings.openrouter.keyPresent
+              ? "uses the OpenRouter API key above"
+              : "uses the OpenRouter API key above — set it first"}
+          </span>
+        </div>
+      ) : (
+        <div style={{ ...rowStyle, borderBottom: "none" }}>
+          <span style={labelStyle}>
+            transcription key
+            <div style={hintStyle}>
+              {settings.ingest.transcriptionKey.keyPresent
+                ? `saved${settings.ingest.transcriptionKey.keyHint ? ` · ends in ····${settings.ingest.transcriptionKey.keyHint}` : ""}`
+                : "not set"}
+            </div>
+          </span>
+          <input
+            type="password"
+            style={{ ...inputStyle, flex: 1 }}
+            placeholder="endpoint API key"
+            value={transcriptionKeyDraft}
+            onChange={(event) => setTranscriptionKeyDraft(event.target.value)}
+          />
+          <button
+            type="button"
+            style={buttonStyle(transcriptionKeyDraft.trim().length > 0 && busy === null)}
+            disabled={transcriptionKeyDraft.trim().length === 0 || busy !== null}
+            onClick={() => {
+              setBusy("transcription-key");
+              api
+                .setTranscriptionApiKey(transcriptionKeyDraft.trim())
+                .then((result) => {
+                  setSettings((current) =>
+                    current
+                      ? {
+                          ...current,
+                          ingest: {
+                            ...current.ingest,
+                            transcriptionKey: { keyPresent: result.keyPresent, keyHint: result.keyHint }
+                          }
+                        }
+                      : current
+                  );
+                  setTranscriptionKeyDraft("");
+                  onToast("transcription key saved");
+                })
+                .catch((error) => onError((error as Error).message))
+                .finally(() => setBusy(null));
+            }}
+          >
+            {busy === "transcription-key" ? "…" : "save"}
+          </button>
+        </div>
+      )}
+
+      <SectionHeader>Appearance</SectionHeader>
+      <div style={{ ...rowStyle, borderBottom: "none" }}>
+        <span style={labelStyle}>color palette</span>
+        <TermSelect
+          value={palette}
+          options={PALETTES}
+          width={200}
+          onChange={(next) => {
+            setPalette(next);
+            applyPalette(next);
+            onToast(`palette → ${PALETTES.find((p) => p.value === next)?.label ?? next}`);
+          }}
+        />
+        <span style={{ display: "inline-flex", gap: 4 }} aria-hidden="true">
+          {[COLOR.amber, COLOR.green, COLOR.cyan, COLOR.red, COLOR.pink].map((tone, index) => (
+            <span
+              key={index}
+              style={{ width: 14, height: 14, borderRadius: 2, background: tone, border: `1px solid ${COLOR.border}` }}
+            />
+          ))}
+        </span>
       </div>
     </div>
   );

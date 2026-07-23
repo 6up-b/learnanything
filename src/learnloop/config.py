@@ -414,6 +414,38 @@ llm_base_url = ""
 llm_model = ""
 llm_api_key_env = "LEARNLOOP_PDF_LLM_API_KEY"
 
+# Audio ingestion (.mp3/.wav/.m4a/.flac/.ogg/.oga/.opus/.aac). With provider =
+# "openai_compatible" the file is sent to an OpenAI-style POST
+# {base_url}/audio/transcriptions endpoint (OpenAI whisper, Groq, a local
+# faster-whisper server, ...) with the API key read from the env var named by
+# transcription_api_key_env; models that reject verbose_json (e.g.
+# gpt-4o-transcribe) degrade to a single untimestamped transcript unit. With
+# provider = "openrouter" the audio is sent as chat input_audio parts to the
+# openrouter profile with transcription_model as the slug (must accept audio
+# input; mp3/wav only), reusing OPENROUTER_API_KEY.
+[ingest.audio]
+provider = "openai_compatible"
+transcription_base_url = "https://api.openai.com/v1"
+transcription_model = "whisper-1"
+transcription_api_key_env = "LEARNLOOP_TRANSCRIPTION_API_KEY"
+# BCP-47 hint forwarded to the endpoint; "" lets the model auto-detect.
+language = ""
+timeout_seconds = 600
+# Rejected before any upload (OpenAI's transcription limit is 25 MB).
+max_file_mb = 25
+
+# Native multimodal ingestion: when enabled AND the routed canonical_ingest
+# provider is an OpenAI-compatible chat provider whose profile lists the
+# modality under input_modalities, media is ingested via chat content parts
+# instead of the local pipeline: audio as input_audio (yielding a timestamped
+# transcript), PDFs as file parts (set engine = "native" under [ingest.pdf]).
+# Off by default: media bytes leave the machine to the chat provider.
+[ingest.native]
+enabled = false
+audio = true
+pdf = true
+max_audio_mb = 20
+
 # Per-stage token budgets for ingestion v2 (source-ingestion spec §3.1).
 # Preflight/build-plan estimates read these; a stage exceeding its ceiling
 # shards or pauses for narrower scope — it never silently truncates.
@@ -436,6 +468,10 @@ quick_add_scope_input_tokens = 40000
 # Per-provider context/output limits consulted by preflight, keyed by the
 # [ai.providers.<name>] entries (source-ingestion spec §3.1), e.g.
 # [ingest.providers.codex] context_tokens / max_output_tokens.
+# For openrouter, set these to the chosen model's real limits, e.g.
+# [ingest.providers.openrouter]
+# context_tokens = 128000
+# max_output_tokens = 32768
 
 # Durable ingest-queue worker settings (source-ingestion spec §6.2). One worker
 # (sidecar background loop or foreground CLI) drains queued jobs at a time under
@@ -445,6 +481,19 @@ quick_add_scope_input_tokens = 40000
 lease_ttl_seconds = 120
 heartbeat_interval_seconds = 15
 poll_interval_seconds = 1.0
+
+# AI-generated Manim explainer animations (concept inspector -> "generate
+# animation"). enabled is a hard kill-switch; every run ALSO requires a
+# per-generation consent click — the LLM-written scene code is AST-validated
+# and rendered by a local manim subprocess (install with: pip install
+# learnloop[animation]). The authoring model follows [ai.routing] animation.
+[animation]
+enabled = true
+quality = "ql"
+timeout_seconds = 300
+max_duration_seconds = 45
+latex_enabled = false
+auto_repair = true
 
 [ai]
 active_provider = "codex"
@@ -459,6 +508,7 @@ authoring = "codex_medium"
 tutor_qa = "codex_low"
 teach_back = "codex_low"
 rung_variant = "codex_low"
+animation = "codex_medium"
 
 [ai.providers.codex]
 type = "codex_sdk"
@@ -503,6 +553,9 @@ reasoning_effort = "high"
 max_tokens = 16384
 timeout_seconds = 180
 
+# Any OpenRouter model slug works here: "anthropic/claude-sonnet-4.5",
+# "openai/gpt-5-mini", "deepseek/deepseek-chat", ... Set OPENROUTER_API_KEY in
+# the vault .env or ~/.config/learnloop/settings.env.
 [ai.providers.openrouter]
 type = "openrouter"
 model = "deepseek/deepseek-chat"
@@ -510,9 +563,11 @@ api_key_env = "OPENROUTER_API_KEY"
 response_format = "json_object"
 timeout_seconds = 180
 # base_url = "https://openrouter.ai/api/v1"  # default; override for proxies
-# reasoning_effort = "medium"
-# http_referer = ""  # optional OpenRouter attribution header
-# x_title = "LearnLoop"
+# response_format = "json_schema"            # strict per-request schema on supporting models
+# reasoning_effort = "medium"                # OpenRouter unified reasoning effort
+# http_referer = ""                          # optional attribution header
+# x_title = "LearnLoop"                      # optional attribution header
+# input_modalities = ["audio", "pdf"]        # native media this model accepts ([ingest.native])
 
 [codex]
 provider = "sdk"
@@ -1241,7 +1296,9 @@ class TeachBackConfig(BaseModel):
 
 
 class PdfIngestConfig(BaseModel):
-    engine: Literal["auto", "marker", "pypdf"] = "auto"
+    # "native" sends the PDF to the routed OpenAI-compatible chat provider as a
+    # file content part instead of extracting locally (see [ingest.native]).
+    engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
     # Device for marker model inference: "" lets marker/surya auto-detect
     # (cuda when available), or pin e.g. "cuda", "cuda:1", "cpu", "mps".
     torch_device: str = ""
@@ -1254,6 +1311,67 @@ class PdfIngestConfig(BaseModel):
     # Escape hatch: raw marker settings merged over the derived config
     # (e.g. {"paginate_output" = true} under [ingest.pdf.marker_options]).
     marker_options: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnimationConfig(BaseModel):
+    """AI-generated Manim explainer animations (spec_fork_features §2).
+
+    ``enabled`` is a hard kill-switch; every generation additionally requires a
+    per-run learner consent click (server-side re-checked) — that consent is
+    the security boundary for executing LLM-written scene code. The AST
+    allowlist and constrained subprocess are best-effort hardening around it."""
+
+    enabled: bool = True
+    # manim render quality: "ql" (low, fast) | "qm" | "qh".
+    quality: str = "ql"
+    timeout_seconds: int = 300
+    max_duration_seconds: int = 45
+    # Tex/MathTex requires a LaTeX toolchain; off by default.
+    latex_enabled: bool = False
+    # One stderr round-trip back to the model when a render fails.
+    auto_repair: bool = True
+    # Override the renderer executable; default: sys.executable -m manim.
+    manim_executable: str | None = None
+
+
+class AudioIngestConfig(BaseModel):
+    """Audio-source ingestion (.mp3/.wav/...): transcription settings.
+
+    provider "openai_compatible" (default) sends the file to an OpenAI-style
+    POST {base_url}/audio/transcriptions endpoint (OpenAI whisper, Groq, a
+    local faster-whisper server, ...) with the key from the env var named by
+    ``transcription_api_key_env``. provider "openrouter" instead sends the
+    audio as chat ``input_audio`` parts to the base openrouter profile with
+    ``transcription_model`` as the slug (must accept audio input; mp3/wav
+    only), reusing OPENROUTER_API_KEY — OpenRouter has no transcriptions
+    endpoint. Keys are never stored in this file."""
+
+    provider: str = "openai_compatible"
+    transcription_base_url: str = "https://api.openai.com/v1"
+    transcription_model: str = "whisper-1"
+    transcription_api_key_env: str = "LEARNLOOP_TRANSCRIPTION_API_KEY"
+    # BCP-47 hint forwarded to the endpoint; "" lets the model auto-detect.
+    language: str = ""
+    timeout_seconds: int = 600
+    # Rejected before any upload (OpenAI's transcription limit is 25 MB).
+    max_file_mb: int = 25
+
+
+class NativeIngestConfig(BaseModel):
+    """Native multimodal ingestion: media as chat content parts (§spec 1a).
+
+    When enabled AND the routed canonical_ingest provider is an
+    OpenAI-compatible chat provider whose profile lists the modality under
+    ``input_modalities``, media is ingested natively instead of via the local
+    pipeline: audio as input_audio parts (yielding a timestamped transcript),
+    PDFs as file parts (set engine = "native" under [ingest.pdf]). Off by
+    default: media bytes leave the machine to the chat provider."""
+
+    enabled: bool = False
+    audio: bool = True
+    pdf: bool = True
+    # Base64 inflates ~33% inside a chat body; rejected before any upload.
+    max_audio_mb: int = 20
 
 
 class IngestBudgetsConfig(BaseModel):
@@ -1315,6 +1433,8 @@ class IngestConfig(BaseModel):
     # briefless callers.
     bootstrap_practice_items: str = "upfront"
     pdf: PdfIngestConfig = Field(default_factory=PdfIngestConfig)
+    audio: AudioIngestConfig = Field(default_factory=AudioIngestConfig)
+    native: NativeIngestConfig = Field(default_factory=NativeIngestConfig)
     budgets: IngestBudgetsConfig = Field(default_factory=IngestBudgetsConfig)
     providers: dict[str, IngestProviderLimits] = Field(default_factory=dict)
     runner: IngestRunnerConfig = Field(default_factory=IngestRunnerConfig)
@@ -1378,8 +1498,14 @@ class AIProviderConfig(BaseModel):
     reasoning_summary: str | None = None
     max_tokens: int | None = None
     timeout_seconds: int | None = None
+    # OpenRouter attribution headers (type = "openrouter" only).
     http_referer: str | None = None
     x_title: str | None = None
+    # Chat content-part modalities this model accepts natively (e.g. "audio",
+    # "pdf"); consulted by [ingest.native]. Declared, not runtime-probed —
+    # OpenRouter's /api/v1/models architecture.input_modalities can autofill
+    # this in a future settings UI.
+    input_modalities: list[str] = Field(default_factory=list)
 
     checkout_path: str | None = None
     revision: str | None = None
@@ -1411,6 +1537,9 @@ class AIRoutingConfig(BaseModel):
     # Learner-requested easier/harder variant authoring (services/rung_variants):
     # a small, gate-checked task — defaults to the low-effort profile.
     rung_variant: str | None = None
+    # Manim explainer-scene authoring (services/concept_animation): code
+    # generation, defaults to the medium-effort profile.
+    animation: str | None = None
 
 
 class AIConfig(BaseModel):
@@ -1436,6 +1565,7 @@ DEFAULT_CODEX_TASK_ROUTES = {
     "tutor_qa": CODEX_LOW_PROVIDER,
     "teach_back": CODEX_LOW_PROVIDER,
     "rung_variant": CODEX_LOW_PROVIDER,
+    "animation": CODEX_MEDIUM_PROVIDER,
 }
 
 
@@ -1676,6 +1806,7 @@ class LearnLoopConfig(BaseModel):
     tutor_promotion: TutorPromotionConfig = Field(default_factory=TutorPromotionConfig)
     teach_back: TeachBackConfig = Field(default_factory=TeachBackConfig)
     rung_variants: RungVariantsConfig = Field(default_factory=RungVariantsConfig)
+    animation: AnimationConfig = Field(default_factory=AnimationConfig)
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     codex: CodexConfig = Field(default_factory=CodexConfig)
@@ -1818,6 +1949,8 @@ def deepseek_pro_provider() -> AIProviderConfig:
 
 
 def openrouter_provider() -> AIProviderConfig:
+    # base_url defaults inside the client; max_tokens stays unset so
+    # synthesis-sized outputs are never truncated by a blanket cap.
     return AIProviderConfig(
         type="openrouter",
         model="deepseek/deepseek-chat",

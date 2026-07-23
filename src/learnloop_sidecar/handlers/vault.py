@@ -37,6 +37,13 @@ def create_vault(ctx: SidecarContext, params: CreateVaultInput) -> dict[str, Any
     caller re-selects it (Rust ``select_vault`` respawns against the new path)
     and then ``load_vault``, mirroring how the vault switcher works elsewhere.
 
+    A brand-new vault inherits the currently-loaded vault's persisted ``[ai]``
+    provider selection (routing + non-codex profiles): the Settings tab writes
+    those per-vault, so without this the fresh vault would fall back to the
+    template's codex routing even though the user configured e.g. OpenRouter.
+    Existing vaults are never touched; with no vault loaded, template defaults
+    stand.
+
     Guard: refuse a directory that already has unrelated content and is not a
     vault, so we never scatter vault scaffolding into someone's populated folder.
     """
@@ -63,14 +70,9 @@ def create_vault(ctx: SidecarContext, params: CreateVaultInput) -> dict[str, Any
 
     if not was_vault and ctx.vault is not None and ctx.vault.root.resolve() != created:
         try:
-            copy_ai_settings(
-                ctx.vault.root / "learnloop.toml",
-                created / "learnloop.toml",
-            )
+            copy_ai_settings(ctx.vault.root / "learnloop.toml", created / "learnloop.toml")
         except SettingsStoreError:
-            # Settings inheritance is best-effort. Vault creation still
-            # succeeds with the normal template defaults.
-            pass
+            pass  # inheritance is best-effort; the vault keeps template defaults
 
     subject_id: str | None = None
     subject_title = (params.subject or "").strip()

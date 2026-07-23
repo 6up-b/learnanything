@@ -19,7 +19,7 @@ import { AsciiLoadingBar } from "../components/AsciiLoadingBar";
 // exists. Left column is the source library; batch progress renders inline as
 // Activity cards — there are no sub-tabs.
 
-type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local";
+type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio";
 
 // ── Source-kind detection (mirrors src/learnloop/services/source_ingestion.py) ──
 function detectKind(source: string): Kind | null {
@@ -31,6 +31,7 @@ function detectKind(source: string): Kind | null {
   if (/^https?:\/\/([\w-]+\.)?(youtube\.com|youtu\.be)\//i.test(s)) return "youtube";
   if (/\.pdf(\?|$)/i.test(s)) return "pdf";
   if (/^https?:\/\//i.test(s)) return "web";
+  if (/\.(mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i.test(s)) return "audio";
   if (/\.(md|markdown|txt|vtt|srt)$/i.test(s)) return "local";
   return null;
 }
@@ -42,7 +43,8 @@ const KIND_META: Record<Kind, KindMeta> = {
   arxiv: { color: "green", label: "arXiv paper", icon: "📄" },
   pdf: { color: "amber", label: "PDF", icon: "📕" },
   youtube: { color: "red", label: "YouTube transcript", icon: "▶" },
-  local: { color: "purple", label: "local file", icon: "📁" }
+  local: { color: "purple", label: "local file", icon: "📁" },
+  audio: { color: "pink", label: "audio file", icon: "🎙" }
 };
 
 type Mode = IngestMode;
@@ -74,7 +76,7 @@ function Card({ children, style = {} }: { children: ReactNode; style?: CSSProper
 
 // ── Kind chips above input ──────────────────────────────────────────────
 function KindChips({ active }: { active: Kind | null }) {
-  const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local"];
+  const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local", "audio"];
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
       {order.map((k) => {
@@ -672,7 +674,8 @@ function IngestHome({
             arxiv: "arxiv",
             pdf: "pdf",
             youtube: "youtube",
-            textfile: "local"
+            textfile: "local",
+            audio: "audio"
           };
           setAuthoritativeKind(mapped[classification.kind] ?? null);
         })
@@ -898,7 +901,7 @@ function IngestHome({
       const selected = await openDialog({
         multiple: false,
         directory: false,
-        filters: [{ name: "Ingest sources", extensions: ["pdf", "md", "markdown", "txt", "html", "htm", "vtt", "srt"] }]
+        filters: [{ name: "Ingest sources", extensions: ["pdf", "md", "markdown", "txt", "html", "htm", "vtt", "srt", "mp3", "wav", "m4a", "flac", "ogg", "oga", "opus", "aac"] }]
       });
       if (typeof selected !== "string") return;
       clearFinishedJob();
@@ -1064,7 +1067,7 @@ function IngestHome({
               placeholder={
                 mode === "exam"
                   ? "paste a past exam: URL, PDF path, or local .md / .txt path"
-                  : "paste a URL, arXiv id, PDF path, YouTube link, or local .md / .txt / .vtt / .srt path"
+                  : "paste a URL, arXiv id, PDF path, YouTube link, or local .md / .txt / .vtt / .srt / .mp3 / .wav path"
               }
               style={{
                 flex: 1,

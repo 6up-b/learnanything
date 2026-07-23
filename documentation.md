@@ -237,7 +237,42 @@ The desktop app can now also create a vault: the Start screen's New Vault entry 
 
 The AI menu in the top bar reports and switches the configured grading provider. Manual mode is a supported fallback for ordinary practice. It is not sufficient for a qualifying diagnostic observation because a learner cannot independently validate a test whose purpose is to distinguish hidden hypotheses about that learner.
 
-The command palette opens with Ctrl/Cmd+P or `:`. Useful commands include `today`, `ask`, `review` (print the due queue), `diff` (open the learner-model ledger), `why <practice-item-id>`, `show <id>`, `attempt <practice-item-id>`, `calibrate [goal-id]`, and `doctor`. There are ten navigation tabs — Start, Today, Graph, Ingest, Proposals, Registry, Library, Golden Path, Reader, Maintain — switched with Alt+1 through Alt+9 and Alt+0.
+### AI providers
+
+AI backends are configured per vault under `[ai.providers.<name>]` in `learnloop.toml`; the entries in that table are exactly the options the AI menu offers. Besides the Codex profile, two provider types speak to any OpenAI-compatible endpoint: `openai_chat` (explicit `base_url`, e.g. the bundled DeepSeek profiles) and `openrouter`, which defaults to `https://openrouter.ai/api/v1` and accepts **any OpenRouter model slug**:
+
+~~~toml
+[ai.providers.openrouter]
+type = "openrouter"
+model = "anthropic/claude-sonnet-4.5"   # any OpenRouter slug
+api_key_env = "OPENROUTER_API_KEY"
+response_format = "json_object"          # or "json_schema" on supporting models
+~~~
+
+API keys are never written to `learnloop.toml`; the profile names an environment variable, and the key is read from the shell environment, the vault-local `.env`, or `~/.config/learnloop/settings.env` (in that precedence order). Switch every AI task to a provider with `LEARNLOOP_AI_PROVIDER=openrouter`, set `active_provider = "openrouter"` in `[ai]`, or mix providers per task via `[ai.routing]` — `canonical_ingest` also covers unit inventory, study-map synthesis, and append reconciliation, so a vault can, for example, keep Codex for synthesis while OpenRouter grades practice. Most CLI commands accept `--ai-provider <name>` for a one-off override.
+
+### The Settings tab
+
+The gear chip (`⚙ [Alt+S]`) at the far right of the tab bar — green/red for AI ready/unready — opens the Settings screen, which persists everything above without hand-editing TOML:
+
+- **AI models** — the active provider plus per-use-case rows (grading, ingest/synthesis, tutor, animation). Picking OpenRouter for a use case takes any model slug and materializes a dedicated `[ai.providers.openrouter_<usecase>]` profile, so different tasks can run different OpenRouter models. Grading also offers manual (self-grade) mode.
+- **OpenRouter API key** — saved (masked) to the machine-global `settings.env`, never the committed vault config, and applied to the running process immediately.
+- **Ingestion** — the native-multimodal toggle and the transcription provider: `openai-compatible` (any `/audio/transcriptions` endpoint — model, base URL, and its own API key) or `openrouter` (an audio-capable model slug transcribes via chat `input_audio`, mp3/wav only, reusing the OpenRouter key above).
+- **Appearance** — color palettes: the default terminal look, dracula, gruvbox, nord, and catppuccin-mocha. The choice is per-machine (localStorage) and applies instantly.
+
+### Audio sources
+
+Local audio files (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.opus`, `.aac`) ingest like any other source (Ingest tab, Quick add, or drag-drop). By default the file is transcribed by the OpenAI-compatible `/audio/transcriptions` endpoint configured under `[ingest.audio]` (OpenAI whisper, Groq, or a local faster-whisper server; the key comes from the env var it names). Setting `provider = "openrouter"` under `[ingest.audio]` (or picking openrouter in the Settings tab's transcription row) instead sends the audio as chat `input_audio` parts to the configured `transcription_model` slug — the model must accept audio input, only mp3/wav apply, and the machine-global OpenRouter key is reused, since OpenRouter has no transcriptions endpoint. Either way the transcript keeps per-segment timestamps, so outline units, reader locators, and provenance work exactly as they do for YouTube captions. Audio always leaves the machine, so the import consent card lists it before anything uploads.
+
+### Native multimodal ingestion
+
+With `[ingest.native] enabled = true` and the routed provider's profile declaring `input_modalities` (e.g. `["audio", "pdf"]` on an OpenRouter profile), media is ingested by the chat model itself instead of the local pipeline: audio is sent as `input_audio` content parts and returns a timestamped transcript; PDFs (set `engine = "native"` under `[ingest.pdf]`) are sent as file parts and return Markdown. Off by default; when the native route can't run, audio falls back to the transcription endpoint and native PDFs fail with a typed error rather than silently switching providers.
+
+### Explainer animations
+
+Each concept's inspector has an "Explainer animation" section. Generating one sends the concept description to the `[ai.routing] animation` model, which writes a Manim Community Edition scene; the code is validated against an import/builtin allowlist and rendered locally by manim (`pip install "learnloop[animation]"`), then plays inline. Every generation requires an explicit consent click because AI-written code executes on your machine — the validation and the sandboxed subprocess (temp directory, timeout, minimal environment) are hardening, not a guarantee. Failed generations keep the scene code and renderer output for debugging, and one automatic repair round-trip is attempted. Configuration lives under `[animation]` (quality, timeout, LaTeX availability, kill-switch).
+
+The command palette opens with Ctrl/Cmd+P or `:`. Useful commands include `today`, `ask`, `review`, `why <practice-item-id>`, `show <id>`, `attempt <practice-item-id>`, `calibrate [goal-id]`, and `doctor`. Alt+1 through Alt+8 switches the first eight navigation tabs.
 
 ## 4. The mental model
 

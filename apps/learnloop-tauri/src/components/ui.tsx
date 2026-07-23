@@ -15,8 +15,8 @@ export const navTabs = [
   { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 
-// `errors` is an overlay-only route used by `learnloop diff`; settings is
-// opened from the nav health chip or Alt+S.
+// `errors` is an overlay-only route used by `learnloop diff`, not a visible
+// tab; `settings` is reached via the nav-status chip (or Alt+S), not navTabs.
 export type TopTab = (typeof navTabs)[number]["id"] | "errors" | "settings";
 
 function getAppWindow(): ReturnType<typeof getCurrentWindow> | null {
@@ -102,15 +102,16 @@ function VaultPath({ root, onSelect }: { root: string; onSelect: (path: string) 
   );
 }
 
+// The nav-bar settings chip: a gear plus the Alt+S shortcut. It keeps the
+// at-a-glance AI ready/unready color and opens the Settings screen, which
+// replaced the old inline provider dropdown.
 function SettingsChip({
   ready,
-  label,
   manual,
   active,
   onOpen
 }: {
   ready: boolean;
-  label: string;
   manual: boolean;
   active: boolean;
   onOpen: () => void;
@@ -119,10 +120,11 @@ function SettingsChip({
     <button
       type="button"
       className={`nav-settings ${ready || manual ? "health ok" : "health bad"}${active ? " open" : ""}`}
-      title={`AI provider: ${label} · open settings (Alt+S)`}
+      title="open settings (Alt+S)"
       onClick={onOpen}
     >
-      ai:{label} ⚙
+      <span className="nav-settings-gear">⚙</span>
+      <span className="nav-settings-key">[Alt+S]</span>
     </button>
   );
 }
@@ -132,7 +134,6 @@ export function TerminalFrame({
   onTab,
   children,
   aiReady,
-  aiLabel,
   aiManual = false,
   vaultRoot,
   onSelectVault
@@ -141,7 +142,6 @@ export function TerminalFrame({
   onTab: (tab: TopTab) => void;
   children: ReactNode;
   aiReady: boolean;
-  aiLabel: string;
   aiManual?: boolean;
   vaultRoot?: string | null;
   onSelectVault: (path: string) => void;
@@ -165,7 +165,6 @@ export function TerminalFrame({
             {vaultRoot ? <VaultPath root={vaultRoot} onSelect={onSelectVault} /> : null}
             <SettingsChip
               ready={aiReady}
-              label={aiLabel}
               manual={aiManual}
               active={active === "settings"}
               onOpen={() => onTab("settings")}

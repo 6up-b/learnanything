@@ -72,11 +72,76 @@ export interface OpenrouterKeyStateDto {
   settingsEnvPath: string;
 }
 
+export interface KeyStateDto {
+  keyPresent: boolean;
+  keyHint: string | null;
+}
+
+export interface SettingsIngestDto {
+  nativeMultimodal: boolean;
+  transcriptionProvider: string;
+  transcriptionModel: string;
+  transcriptionBaseUrl: string;
+  transcriptionKey: KeyStateDto;
+}
+
 export interface SettingsDto {
   version: number;
   ai: SettingsAiDto;
   openrouter: OpenrouterKeyStateDto;
+  ingest: SettingsIngestDto;
   health?: RuntimeHealth;
+}
+
+export interface UpdateIngestSettingsInput {
+  nativeMultimodal?: boolean;
+  transcriptionProvider?: string;
+  transcriptionModel?: string;
+  transcriptionBaseUrl?: string;
+}
+
+export interface TranscriptionKeyResult {
+  keyPresent: boolean;
+  keyHint: string | null;
+  envName: string;
+  settingsEnvPath: string;
+}
+
+export interface AnimationRuntimeDto {
+  enabled: boolean;
+  manimAvailable: boolean;
+  manimVersion: string | null;
+  manimReason: string | null;
+  provider: string;
+  model: string | null;
+  timeoutSeconds: number;
+}
+
+export interface ConceptAnimationDto {
+  animationId: string;
+  conceptId: string;
+  learningObjectId: string | null;
+  status: string;
+  title: string | null;
+  narrationMd: string | null;
+  videoFileName: string | null;
+  durationSeconds: number | null;
+  provider: string | null;
+  model: string | null;
+  failureStage: string | null;
+  failureReason: string | null;
+  createdAt?: string;
+  completedAt?: string | null;
+  // Failure-only debug payload.
+  sceneCode?: string | null;
+  renderStderr?: string | null;
+}
+
+export interface RequestConceptAnimationResult {
+  animationId: string;
+  conceptId: string;
+  status: string;
+  batchId: string;
 }
 
 export interface UseCaseChoiceInput {
@@ -1341,7 +1406,7 @@ export interface IngestJobsSnapshot {
   jobs: IngestJobDto[];
 }
 
-export type PdfEngine = "auto" | "marker" | "pypdf";
+export type PdfEngine = "auto" | "marker" | "pypdf" | "native";
 
 export interface StartIngestInput {
   source: string;

@@ -7,36 +7,40 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 
+// Every token resolves through the CSS variables declared in styles/app.css
+// (:root) so a palette in styles/palettes.css can retheme inline-styled screen
+// bodies and the CSS-classed shell together. Inline styles and SVG presentation
+// attributes both accept var() references.
 export const COLOR = {
-  bg: "#0e0e0e",
-  bgElev: "#181818",
-  bgInput: "#080808",
-  border: "#2a2a2a",
-  borderStrong: "#3a3a3a",
-  borderFocus: "#e3a063",
-  text: "#d8d8e0",
-  textDim: "#9090a0",
-  textItalic: "#8088a0",
-  textFaint: "#666778",
-  amber: "#e3a063",
-  amberLink: "#f0b878",
-  purplePill: "#5a4d8a",
-  purpleText: "#dccdf2",
-  green: "#7fd28f",
-  greenSoft: "#5fa672",
-  cyan: "#6ad0e0",
-  red: "#e07e7e",
-  pink: "#dc7fb8",
-  yellow: "#dccd5a",
-  scrollbar: "#5a4d8a",
-  scrollbarTrack: "#181818",
+  bg: "var(--bg)",
+  bgElev: "var(--elev)",
+  bgInput: "var(--input)",
+  border: "var(--border)",
+  borderStrong: "var(--border-strong)",
+  borderFocus: "var(--border-focus)",
+  text: "var(--text)",
+  textDim: "var(--dim)",
+  textItalic: "var(--text-italic)",
+  textFaint: "var(--faint)",
+  amber: "var(--amber)",
+  amberLink: "var(--amber-link)",
+  purplePill: "var(--purple-pill)",
+  purpleText: "var(--purple-text)",
+  green: "var(--green)",
+  greenSoft: "var(--green-soft)",
+  cyan: "var(--cyan)",
+  red: "var(--red)",
+  pink: "var(--pink)",
+  yellow: "var(--yellow)",
+  scrollbar: "var(--purple-pill)",
+  scrollbarTrack: "var(--elev)",
   // Wash backgrounds — promoted from the raw hex copied across screens (§1.4).
-  washAmber: "#241d12",
-  washCyan: "#10212a",
-  washCyanBanner: "#101d22",
-  washRed: "#241315",
-  washGreen: "#122117",
-  washPurple: "#1a162a"
+  washAmber: "var(--wash-amber)",
+  washCyan: "var(--wash-cyan)",
+  washCyanBanner: "var(--wash-cyan-banner)",
+  washRed: "var(--wash-red)",
+  washGreen: "var(--wash-green)",
+  washPurple: "var(--wash-purple)"
 } as const;
 
 export const FONT_MONO =
@@ -45,13 +49,13 @@ export const FONT_MONO =
 export type PillColor = "purple" | "green" | "cyan" | "amber" | "red" | "pink" | "slate";
 
 const PILL_PALETTE: Record<PillColor, { bg: string; fg: string }> = {
-  purple: { bg: COLOR.purplePill, fg: COLOR.purpleText },
-  green: { bg: "#3a6b4d", fg: "#b8e8c8" },
-  cyan: { bg: "#2e5d6a", fg: "#a8e0ed" },
-  amber: { bg: "#6e5025", fg: "#f0c890" },
-  red: { bg: "#6b3838", fg: "#f0b8b8" },
-  pink: { bg: "#5d3252", fg: "#f0c0e0" },
-  slate: { bg: "#363850", fg: "#b0b0c8" }
+  purple: { bg: "var(--pill-purple-bg)", fg: "var(--pill-purple-fg)" },
+  green: { bg: "var(--pill-green-bg)", fg: "var(--pill-green-fg)" },
+  cyan: { bg: "var(--pill-cyan-bg)", fg: "var(--pill-cyan-fg)" },
+  amber: { bg: "var(--pill-amber-bg)", fg: "var(--pill-amber-fg)" },
+  red: { bg: "var(--pill-red-bg)", fg: "var(--pill-red-fg)" },
+  pink: { bg: "var(--pill-pink-bg)", fg: "var(--pill-pink-fg)" },
+  slate: { bg: "var(--pill-slate-bg)", fg: "var(--pill-slate-fg)" }
 };
 
 export function Pill({

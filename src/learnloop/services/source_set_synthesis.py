@@ -530,11 +530,64 @@ def _normalize(
             if dependency is not None and dependency not in dependencies:
                 dependencies.append(dependency)
         if unresolved:
-            raise StudyMapError(
-                "unresolved_concept_reference",
-                f"Learning Object {learning_object_id} has unresolved {field_name}: {', '.join(unresolved)}",
+            # Drop the unresolved links (a weaker model referencing concepts it
+            # never declared) with a review diagnostic rather than failing the
+            # whole paid synthesis — mirrors the concept-edge handling below.
+            dropped_diagnostics.append(
+                {
+                    "gate": "learning_object_concept",
+                    "severity": "review",
+                    "entity_refs": [learning_object_id, *unresolved],
+                    "message": (
+                        f"learning object {learning_object_id!r} dropped "
+                        f"{len(unresolved)} unresolved {field_name}: {', '.join(unresolved)}"
+                    ),
+                    "suggested_action": (
+                        f"declare the referenced concept(s) or remove them from {field_name}"
+                    ),
+                }
             )
         return resolved, dependencies
+
+    def mint_concept(
+        *, title: str, description: str, learning_object_id: str, detail: str
+    ) -> tuple[str, str]:
+        """Synthesize a concept so a learning object with no resolvable concept
+        still lands (degraded fallback, §8.5). Registers it in every concept
+        index so later references resolve, emits a review diagnostic, and returns
+        ``(concept_id, client_key)`` — the client key is the LO row's dependency
+        so the concept is created before it. Same-title mints fold into one
+        concept downstream via the consolidation pass."""
+
+        cid = unique(_slug("concept", title, new_ulid()[:8]))
+        concept_ids[cid] = cid
+        concept_client_for_id[cid] = cid
+        register_concept_reference(cid, title)
+        payload = {
+            "id": cid,
+            "title": title or cid,
+            "type": "concept",
+            "description": description,
+            "aliases": [],
+        }
+        rows.append(_row("concept", cid, payload, [], client_id=cid, now=now))
+        gate_items.append(
+            GateItem(client_item_id=cid, item_type="concept", entity_id=cid,
+                     payload=payload, establishes_semantic=False)
+        )
+        dropped_diagnostics.append(
+            {
+                "gate": "learning_object_concept",
+                "severity": "review",
+                "entity_refs": [learning_object_id, cid],
+                "message": (
+                    f"learning object {learning_object_id!r} had {detail}; "
+                    f"synthesized concept {cid!r} from its title"
+                ),
+                "suggested_action": "review the synthesized concept or merge it into an existing concept",
+            }
+        )
+        return cid, cid
 
     # facets
     for facet in getattr(synth, "facets", []) or []:
@@ -591,9 +644,21 @@ def _normalize(
         concept_reference = concept_client or str(obj.get("concept_id") or "")
         concept_id, concept_dependency = resolve_concept_reference(concept_reference)
         if concept_id is None:
-            raise StudyMapError(
-                "unresolved_concept_reference",
-                f"Learning Object {oid} has unresolved concept: {concept_reference or '(missing)'}",
+            # Tolerate a model that authored the learning object but left its
+            # concept anchor empty or dangling (common on weaker providers):
+            # mint a concept from the LO's title and continue rather than failing
+            # the whole build. The reported failure mode was an empty anchor
+            # ("(missing)"); a non-empty-but-unresolvable reference is minted the
+            # same way, both flagged for review.
+            concept_id, concept_dependency = mint_concept(
+                title=obj.get("title") or "",
+                description=obj.get("summary") or "",
+                learning_object_id=oid,
+                detail=(
+                    f"an unresolvable concept reference {concept_reference!r}"
+                    if concept_reference
+                    else "no concept anchor"
+                ),
             )
         prerequisites, prerequisite_dependencies = resolve_concept_references(
             learning_object_id=oid,

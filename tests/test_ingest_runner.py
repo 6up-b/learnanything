@@ -835,280 +835,592 @@ def test_youtube_import_without_metadata_falls_back_to_url(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# Robustness: PDF fallback, page validation, batch timestamp hygiene,
-# stale synthesis-run finalization
+# default_inventory_client provider routing
 # --------------------------------------------------------------------------
 
 
-def _fetched_pdf(raw: bytes = b"%PDF-1.4 fake"):
+def test_default_inventory_client_routes_via_canonical_ingest(tmp_path, monkeypatch):
+    """[ai.routing].canonical_ingest picks the inventory/synthesis provider, so
+    an openrouter-routed vault resolves an OpenRouter client instead of codex."""
+
+    import types
+
+    from learnloop.services.ingest_runner import default_inventory_client
+
+    from tests.helpers import create_basic_vault
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    toml_path = vault_root / "learnloop.toml"
+    text = toml_path.read_text(encoding="utf-8")
+    assert 'canonical_ingest = "codex_medium"' in text
+    toml_path.write_text(
+        text.replace('canonical_ingest = "codex_medium"', 'canonical_ingest = "openrouter"'),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    install_fake_openai(monkeypatch)
+
+    client = default_inventory_client(types.SimpleNamespace(vault_root=vault_root))
+
+    assert client.provider_type == "openrouter"
+    assert client.model == "deepseek/deepseek-chat"
+
+
+def test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable(tmp_path, monkeypatch):
+    """Default routing still resolves codex, which is unavailable in tests — the
+    runner raises a typed error instead of silently switching providers."""
+
+    import types
+
+    from learnloop.services.ingest_runner import IngestRunnerError, default_inventory_client
+
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+
+    with pytest.raises(IngestRunnerError):
+        default_inventory_client(types.SimpleNamespace(vault_root=vault_root))
+
+
+def test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault(tmp_path, monkeypatch):
+    """The new-vault bug scenario: a vault created while an OpenRouter-routed
+    vault is active inherits that routing, so bootstrap synthesis resolves the
+    OpenRouter client instead of demanding the codex checkout."""
+
+    import types
+
+    from learnloop.config import load_config
+    from learnloop.services.ingest_runner import default_synthesis_client
+    from learnloop.services.settings_store import (
+        apply_config_updates,
+        copy_ai_settings,
+        openrouter_profile_name,
+        openrouter_task_profile_values,
+    )
+    from learnloop.vault.loader import init_vault
+
+    from tests.helpers import create_basic_vault
+    from tests.openai_fakes import install_fake_openai
+
+    source_root = tmp_path / "old-vault"
+    create_basic_vault(source_root)
+    base = load_config(source_root / "learnloop.toml").ai.providers["openrouter"]
+    name = openrouter_profile_name("ingest")
+    updates = {
+        ("ai", "providers", name, key): value
+        for key, value in openrouter_task_profile_values(base, "anthropic/claude-sonnet-4.5").items()
+    }
+    updates.update(
+        {
+            ("ai", "routing", task): name
+            for task in ("canonical_ingest", "canonical_ingest_retry", "authoring")
+        }
+    )
+    apply_config_updates(source_root / "learnloop.toml", updates)
+
+    new_root = init_vault(tmp_path / "new-vault")
+    assert copy_ai_settings(source_root / "learnloop.toml", new_root / "learnloop.toml") is True
+
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    install_fake_openai(monkeypatch)
+
+    client = default_synthesis_client(types.SimpleNamespace(vault_root=new_root))
+
+    assert client.provider_type == "openrouter"
+    assert client.model == "anthropic/claude-sonnet-4.5"
+
+
+# --------------------------------------------------------------------------
+# Audio ingestion (transcription path)
+# --------------------------------------------------------------------------
+
+
+def test_audio_extract_routes_transcription_to_time_range_ir(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extract
+    from tests.openai_fakes import fake_verbose_transcription, install_fake_openai
+
+    install_fake_openai(
+        monkeypatch,
+        transcriptions=(
+            fake_verbose_transcription((0.0, 4.0, "hello from the lecture"), (4.0, 9.0, "second cue")),
+        ),
+    )
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "tr-secret")
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00fake-mp3-bytes",
+        content_type="audio/mpeg",
+        original_uri=str(tmp_path / "lecture.mp3"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    ir = default_extract(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert ir.extractor == "audio_transcript"
+    assert "hello from the lecture" in " ".join(block.text for block in ir.blocks)
+    assert ir.units
+    assert ir.units[0].locator.get("scheme") == "time_range"
+
+
+def test_audio_extraction_identity_tracks_model_and_endpoint(tmp_path):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extraction_identity
+
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="lecture.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert identity["extractor"] == "audio_transcript"
+    assert identity["extractor_version"] == "1"
+    assert identity["model_versions"] == {"transcription_model": "whisper-1"}
+    assert identity["config"] == {"base_url": "https://api.openai.com/v1"}
+
+
+def test_audio_oversize_rejected_before_any_upload(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    fake = install_fake_openai(monkeypatch)
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "tr-secret")
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00" * (26 * 1024 * 1024),
+        content_type="audio/mpeg",
+        original_uri="big.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert excinfo.value.code == "audio_too_large"
+    assert excinfo.value.retryable is True
+    assert not fake.instances  # size gate fires before the client is built
+
+
+def test_audio_transcription_unavailable_is_typed_retryable(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    install_fake_openai(monkeypatch)
+    monkeypatch.delenv("LEARNLOOP_TRANSCRIPTION_API_KEY", raising=False)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(tmp_path))
+
+    assert excinfo.value.code == "transcription_unavailable"
+    assert excinfo.value.retryable is True
+
+
+def _audio_import_services():
+    from learnloop.services.ingest_runner import FetchedBytes
+
+    def fetch(source, category, ctx):
+        return FetchedBytes(
+            raw_bytes=b"\x00fake-mp3-bytes",
+            content_type="audio/mpeg",
+            original_uri=source,
+            retrieved_at="2026-07-22T00:00:00Z",
+        )
+
+    # No extract override -> the real default_extract transcribes via the fake
+    # openai module.
+    return RunnerServices(fetch=fetch)
+
+
+def test_audio_import_end_to_end_and_cache_reuse(tmp_path, monkeypatch):
+    from tests.openai_fakes import fake_verbose_transcription, install_fake_openai
+
+    install_fake_openai(
+        monkeypatch,
+        transcriptions=(fake_verbose_transcription((0.0, 3.0, "audio ingest works")),),
+    )
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "tr-secret")
+    source = str(tmp_path / "lecture.mp3")
+    runner = _runner(tmp_path, services=_audio_import_services())
+
+    batch_id = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed"
+    ir = runner.repo.load_document_ir(job["result"]["extraction_id"])
+    assert ir.extractor == "audio_transcript"
+    assert "audio ingest works" in " ".join(block.text for block in ir.blocks)
+
+    # Second import of the same file: extraction cache hit — the model is never
+    # called again (the fake has no second transcription queued).
+    second = runner.enqueue_batch("import", [JobSpec("import", {"source": source})])
+    runner.drain()
+    assert runner.repo.ingest_jobs_for_batch(second)[0]["result"]["reused_extraction"] is True
+
+
+# --------------------------------------------------------------------------
+# Native-multimodal audio route ([ingest.native])
+# --------------------------------------------------------------------------
+
+
+def _native_audio_vault(tmp_path, monkeypatch, *, input_modalities=("audio",)):
+    from learnloop.services.settings_store import apply_config_updates
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "native", "enabled"): True,
+            ("ai", "routing", "canonical_ingest"): "openrouter",
+            ("ai", "providers", "openrouter", "input_modalities"): list(input_modalities),
+        },
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    return vault_root
+
+
+def _media_transcript_json():
+    import json as _json
+
+    return _json.dumps(
+        {
+            "segments": [
+                {"start_seconds": 0.0, "end_seconds": 5.0, "speaker": None, "text": "native transcript"}
+            ],
+            "language": "en",
+        }
+    )
+
+
+def test_native_audio_route_transcribes_via_chat_provider(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import (
+        FetchedBytes,
+        default_extract,
+        default_extraction_identity,
+    )
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch, _media_transcript_json())
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00chat-audio",
+        content_type="audio/mpeg",
+        original_uri=str(tmp_path / "lecture.mp3"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    ir = default_extract(fetched, "audio", _extract_ctx(vault_root))
+
+    # Lock-step: identity and extraction agree on the native route.
+    assert identity["extractor"] == "audio_native"
+    assert identity["model_versions"] == {"chat_model": "deepseek/deepseek-chat"}
+    assert identity["config"] == {"provider": "openrouter"}
+    assert ir.extractor == "audio_native"
+    assert "native transcript" in ir.blocks[0].text
+    parts = fake.instances[0].requests[0]["messages"][1]["content"]
+    assert parts[1]["type"] == "input_audio"
+    assert parts[1]["input_audio"]["format"] == "mp3"
+
+
+def test_native_audio_disabled_or_modality_absent_uses_endpoint(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extraction_identity
+
+    # Modality not declared on the routed profile -> endpoint route.
+    vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    assert identity["extractor"] == "audio_transcript"
+
+
+def test_native_audio_unsupported_container_falls_back_to_endpoint(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extraction_identity
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/flac",
+        original_uri="talk.flac",  # not a chat input_audio format
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    assert identity["extractor"] == "audio_transcript"
+
+
+def test_native_audio_failure_is_typed_and_never_switches_routes(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch, RuntimeError("model refused the audio"))
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(vault_root))
+
+    assert excinfo.value.code == "native_audio_failed"
+    assert excinfo.value.retryable is True
+    # Exactly one chat call — no silent fallback to the transcription endpoint.
+    assert len(fake.instances[0].requests) == 1
+    assert not fake.instances[0].transcription_requests
+
+
+# --------------------------------------------------------------------------
+# OpenRouter transcription setting ([ingest.audio] provider = "openrouter")
+# --------------------------------------------------------------------------
+
+
+def _openrouter_transcription_vault(tmp_path, monkeypatch):
+    from learnloop.services.settings_store import apply_config_updates
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "audio", "provider"): "openrouter",
+            ("ingest", "audio", "transcription_model"): "google/gemini-2.5-flash",
+        },
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    return vault_root
+
+
+def test_openrouter_transcription_setting_routes_audio_via_chat(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import (
+        FetchedBytes,
+        default_extract,
+        default_extraction_identity,
+    )
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch, _media_transcript_json())
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00chat-audio",
+        content_type="audio/mpeg",
+        original_uri=str(tmp_path / "lecture.mp3"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    ir = default_extract(fetched, "audio", _extract_ctx(vault_root))
+
+    # Lock-step: identity and extraction agree on the openrouter chat route,
+    # stamped with the transcription model (not the canonical_ingest route's).
+    assert identity["extractor"] == "audio_native"
+    assert identity["model_versions"] == {"chat_model": "google/gemini-2.5-flash"}
+    assert identity["config"] == {"provider": "openrouter"}
+    assert ir.extractor == "audio_native"
+    assert "native transcript" in ir.blocks[0].text
+    client = fake.instances[0]
+    assert client.kwargs["base_url"] == "https://openrouter.ai/api/v1"
+    # [ingest.audio] timeout applies, not the chat profile's default.
+    assert client.kwargs["timeout"] == 600
+    request = client.requests[0]
+    assert request["model"] == "google/gemini-2.5-flash"
+    parts = request["messages"][1]["content"]
+    assert parts[1]["type"] == "input_audio"
+    assert parts[1]["input_audio"]["format"] == "mp3"
+    # The transcription endpoint is never called.
+    assert not client.transcription_requests
+
+
+def test_openrouter_transcription_missing_key_is_typed(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, IngestRunnerError, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    fake = install_fake_openai(monkeypatch)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(fetched, "audio", _extract_ctx(vault_root))
+
+    assert excinfo.value.code == "transcription_unavailable"
+    assert excinfo.value.retryable is True
+    assert "OPENROUTER_API_KEY" in str(excinfo.value)
+    # The key gate fires before any client is built.
+    assert not fake.instances
+
+
+def test_openrouter_transcription_unsupported_container_errors(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import (
+        FetchedBytes,
+        IngestRunnerError,
+        default_extract,
+        default_extraction_identity,
+    )
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch)
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/flac",
+        original_uri="talk.flac",  # not a chat input_audio format
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    # Identity AND extraction raise the same typed error — no silent fallback
+    # to the endpoint the user never configured.
+    for call in (default_extraction_identity, default_extract):
+        with pytest.raises(IngestRunnerError) as excinfo:
+            call(fetched, "audio", _extract_ctx(vault_root))
+        assert excinfo.value.code == "audio_format_unsupported"
+        assert excinfo.value.retryable is True
+    assert not fake.instances
+
+
+def test_native_route_takes_precedence_over_openrouter_transcription_setting(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import FetchedBytes, default_extraction_identity
+    from learnloop.services.settings_store import apply_config_updates
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "audio", "provider"): "openrouter",
+            ("ingest", "audio", "transcription_model"): "google/gemini-2.5-flash",
+        },
+    )
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+
+    # The [ingest.native] canonical_ingest route wins (unchanged precedence):
+    # its provider/model stamp the identity, not the transcription setting.
+    assert identity["extractor"] == "audio_native"
+    assert identity["model_versions"] == {"chat_model": "deepseek/deepseek-chat"}
+    assert identity["config"] == {"provider": "openrouter"}
+
+
+# --------------------------------------------------------------------------
+# Native PDF engine ([ingest.pdf] engine = "native")
+# --------------------------------------------------------------------------
+
+
+def _native_pdf_vault(tmp_path, monkeypatch, *, input_modalities=("pdf",)):
+    from learnloop.services.settings_store import apply_config_updates
+    from tests.helpers import create_basic_vault
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "pdf", "engine"): "native",
+            ("ingest", "native", "enabled"): True,
+            ("ai", "routing", "canonical_ingest"): "openrouter",
+            ("ai", "providers", "openrouter", "input_modalities"): list(input_modalities),
+        },
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    return vault_root
+
+
+def _pdf_fetched(tmp_path):
     from learnloop.services.ingest_runner import FetchedBytes
 
     return FetchedBytes(
-        raw_bytes=raw, content_type="application/pdf",
-        original_uri="file:///book.pdf", retrieved_at="2026-07-13T12:00:00Z",
+        raw_bytes=b"%PDF-1.4 fake",
+        content_type="application/pdf",
+        original_uri=str(tmp_path / "chapter.pdf"),
+        retrieved_at="2026-07-22T00:00:00Z",
     )
 
 
-def _bare_ctx(tmp_path: Path, payload: dict | None = None) -> JobContext:
-    return JobContext(
-        repo=_repo(tmp_path), vault_root=tmp_path,
-        job={"id": "j1", "batch_id": "b1", "payload": payload or {}},
-        clock=_clock(), worker_id="w1",
+def test_native_pdf_engine_extracts_markdown_via_chat_provider(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import default_extract, default_extraction_identity
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch)
+    fake = install_fake_openai(monkeypatch, "# Chapter 1\n\nNative extraction body.")
+
+    identity = default_extraction_identity(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
+    ir = default_extract(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
+
+    assert identity["extractor"] == "pdf_native"
+    assert identity["model_versions"] == {"chat_model": "deepseek/deepseek-chat"}
+    assert ir.extractor == "pdf_native"
+    assert "Native extraction body" in " ".join(block.text for block in ir.blocks)
+    request = fake.instances[0].requests[0]
+    assert "response_format" not in request
+    parts = request["messages"][1]["content"]
+    assert parts[1]["type"] == "file"
+    assert parts[1]["file"]["filename"] == "chapter.pdf"
+
+
+def test_native_pdf_engine_rejects_page_selection(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import IngestRunnerError, JobContext, default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch)
+    install_fake_openai(monkeypatch)
+    ctx = JobContext(
+        repo=None,
+        vault_root=vault_root,
+        job={"payload": {"page_selection": [0, 1]}},
+        clock=_clock(),
+        worker_id="w1",
     )
 
-
-def test_marker_runtime_failure_falls_back_to_pypdf(tmp_path, monkeypatch):
-    """Marker dying mid-conversion degrades to native-text extraction with a
-    health flag instead of failing the whole import (§2.9)."""
-
-    import learnloop.ingest.extractors as extractors
-    from learnloop.services.ingest_runner import default_extract
-
-    class FailingMarker:
-        name = "marker"
-
-        def extract(self, raw_bytes, context):
-            raise RuntimeError("CUDA device lost")
-
-    class FakePyPdf:
-        name = "pypdf"
-
-        def extract(self, raw_bytes, context):
-            block = DocumentBlock.build(span_id="s1", block_type="Text", text="Native text.", ordinal=1)
-            unit = DocumentUnit(unit_id="u1", label="Doc", ordinal=1, semantic_hash="sha256:x", span_ids=["s1"])
-            return DocumentIR(extractor="pypdf", extractor_version="1", blocks=[block], units=[unit])
-
-    monkeypatch.setattr(extractors, "pdf_extractor_for", lambda config=None: FailingMarker())
-    monkeypatch.setattr(extractors, "PyPdfDocumentExtractor", FakePyPdf)
-
-    ir = default_extract(_fetched_pdf(), "pdf", _bare_ctx(tmp_path))
-    assert ir.extractor == "pypdf"
-    assert "marker_failed_pypdf_fallback" in ir.health.flags
-
-
-def test_forced_marker_engine_does_not_fall_back(tmp_path, monkeypatch):
-    import learnloop.ingest.extractors as extractors
-    from learnloop.services.ingest_runner import default_extract
-
-    class FailingMarker:
-        name = "marker"
-
-        def extract(self, raw_bytes, context):
-            raise RuntimeError("CUDA device lost")
-
-    monkeypatch.setattr(extractors, "pdf_extractor_for", lambda config=None: FailingMarker())
-    with pytest.raises(RuntimeError, match="CUDA device lost"):
-        default_extract(_fetched_pdf(), "pdf", _bare_ctx(tmp_path, {"pdf_config": {"engine": "marker"}}))
-
-
-def test_pdf_extractor_for_honors_engine_choice(monkeypatch):
-    """engine="pypdf" forces the fallback even with marker installed; "marker"
-    raises typed when unavailable; the engine key never leaks into marker
-    options; auto keeps the availability-based default."""
-
-    import learnloop.ingest.extractors as extractors
-
-    monkeypatch.setattr(extractors, "marker_available", lambda: True)
-    assert extractors.pdf_extractor_for({"engine": "pypdf"}).name == "pypdf"
-    marker = extractors.pdf_extractor_for({"engine": "marker", "force_ocr": True})
-    assert marker.name == "marker"
-    assert "engine" not in marker._config and marker._config["force_ocr"] is True
-    assert extractors.pdf_extractor_for().name == "marker"
-
-    monkeypatch.setattr(extractors, "marker_available", lambda: False)
-    assert extractors.pdf_extractor_for().name == "pypdf"
-    with pytest.raises(extractors.MarkerUnavailableError):
-        extractors.pdf_extractor_for({"engine": "marker"})
-
-
-def test_forced_pypdf_engine_skips_marker(tmp_path, monkeypatch):
-    """A payload engine="pypdf" never routes through marker, even when marker
-    is available (the canonical-ingest fallback choice)."""
-
-    import learnloop.ingest.extractors as extractors
-    from learnloop.services.ingest_runner import default_extract
-
-    class ExplodingMarker:
-        name = "marker"
-
-        def __init__(self, *, config=None):
-            raise AssertionError("marker must not be constructed for engine=pypdf")
-
-    class FakePyPdf:
-        name = "pypdf"
-
-        def extract(self, raw_bytes, context):
-            block = DocumentBlock.build(span_id="s1", block_type="Text", text="Native text.", ordinal=1)
-            unit = DocumentUnit(unit_id="u1", label="Doc", ordinal=1, semantic_hash="sha256:x", span_ids=["s1"])
-            return DocumentIR(extractor="pypdf", extractor_version="1", blocks=[block], units=[unit])
-
-    monkeypatch.setattr(extractors, "marker_available", lambda: True)
-    monkeypatch.setattr(extractors, "MarkerDocumentExtractor", ExplodingMarker)
-    monkeypatch.setattr(extractors, "PyPdfDocumentExtractor", FakePyPdf)
-
-    ir = default_extract(_fetched_pdf(), "pdf", _bare_ctx(tmp_path, {"pdf_config": {"engine": "pypdf"}}))
-    assert ir.extractor == "pypdf"
-    assert not ir.health.flags  # a chosen fallback is not a degraded extraction
-
-
-def test_forced_marker_unavailable_is_a_typed_error(tmp_path, monkeypatch):
-    import learnloop.ingest.extractors as extractors
-    from learnloop.services.ingest_runner import default_extract
-
-    monkeypatch.setattr(extractors, "marker_available", lambda: False)
     with pytest.raises(IngestRunnerError) as excinfo:
-        default_extract(_fetched_pdf(), "pdf", _bare_ctx(tmp_path, {"pdf_config": {"engine": "marker"}}))
-    assert excinfo.value.code == "pdf_extractor_unavailable"
+        default_extract(_pdf_fetched(tmp_path), "pdf", ctx)
+
+    assert excinfo.value.code == "native_pdf_unavailable"
 
 
-def test_vault_pdf_engine_governs_import_when_payload_is_silent(tmp_path, monkeypatch):
-    """[ingest.pdf] engine="pypdf" in vault config finally reaches the durable
-    import path; an explicit payload engine still wins."""
+def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch):
+    from learnloop.services.ingest_runner import IngestRunnerError, default_extraction_identity
+    from tests.openai_fakes import install_fake_openai
 
-    import types
+    # pdf modality not declared -> engine "native" cannot run; fails closed.
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch, input_modalities=())
+    install_fake_openai(monkeypatch)
 
-    import learnloop.ingest.extractors as extractors
-    import learnloop.vault.loader as vault_loader
-    from learnloop.services.ingest_runner import default_extraction_identity
-
-    fake_vault = types.SimpleNamespace(
-        config=types.SimpleNamespace(
-            ingest=types.SimpleNamespace(pdf=types.SimpleNamespace(engine="pypdf"))
-        )
-    )
-    monkeypatch.setattr(vault_loader, "load_vault", lambda root: fake_vault)
-    monkeypatch.setattr(extractors, "marker_available", lambda: True)
-
-    identity = default_extraction_identity(_fetched_pdf(), "pdf", _bare_ctx(tmp_path))
-    assert identity["extractor"] == "pypdf"
-    assert identity["config"]["engine"] == "pypdf"
-
-    identity = default_extraction_identity(
-        _fetched_pdf(), "pdf", _bare_ctx(tmp_path, {"pdf_config": {"engine": "marker"}})
-    )
-    assert identity["extractor"] == "marker"
-
-
-def test_auto_engine_stays_out_of_extraction_identity(tmp_path, monkeypatch):
-    """A vault-configured "auto" must not enter the identity config: writing it
-    would change every extraction request hash and re-extract unchanged PDFs."""
-
-    import types
-
-    import learnloop.vault.loader as vault_loader
-    from learnloop.services.ingest_runner import default_extraction_identity
-
-    fake_vault = types.SimpleNamespace(
-        config=types.SimpleNamespace(
-            ingest=types.SimpleNamespace(pdf=types.SimpleNamespace(engine="auto"))
-        )
-    )
-    monkeypatch.setattr(vault_loader, "load_vault", lambda root: fake_vault)
-    identity = default_extraction_identity(_fetched_pdf(), "pdf", _bare_ctx(tmp_path))
-    assert "engine" not in identity["config"]
-
-
-def test_marker_and_pypdf_both_failing_is_a_typed_error(tmp_path, monkeypatch):
-    import learnloop.ingest.extractors as extractors
-    from learnloop.services.ingest_runner import default_extract
-
-    class FailingMarker:
-        name = "marker"
-
-        def extract(self, raw_bytes, context):
-            raise RuntimeError("CUDA device lost")
-
-    class FailingPyPdf:
-        name = "pypdf"
-
-        def extract(self, raw_bytes, context):
-            raise ValueError("no extractable text")
-
-    monkeypatch.setattr(extractors, "pdf_extractor_for", lambda config=None: FailingMarker())
-    monkeypatch.setattr(extractors, "PyPdfDocumentExtractor", FailingPyPdf)
     with pytest.raises(IngestRunnerError) as excinfo:
-        default_extract(_fetched_pdf(), "pdf", _bare_ctx(tmp_path))
-    assert excinfo.value.code == "pdf_extraction_failed"
-    assert "CUDA device lost" in str(excinfo.value)
-    assert "no extractable text" in str(excinfo.value)
+        default_extraction_identity(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
 
-
-def _two_page_pdf_bytes() -> bytes:
-    import io
-
-    import pypdf
-
-    writer = pypdf.PdfWriter()
-    writer.add_blank_page(width=72, height=72)
-    writer.add_blank_page(width=72, height=72)
-    buffer = io.BytesIO()
-    writer.write(buffer)
-    return buffer.getvalue()
-
-
-def test_out_of_range_page_selection_is_refused_with_page_count(tmp_path):
-    from learnloop.services.ingest_runner import _validate_page_selection
-
-    raw = _two_page_pdf_bytes()
-    _validate_page_selection(raw, [0, 1])  # in range: no error
-    with pytest.raises(IngestRunnerError) as excinfo:
-        _validate_page_selection(raw, [0, 41])
-    assert excinfo.value.code == "invalid_page_range"
-    assert excinfo.value.details["page_count"] == 2
-    assert excinfo.value.details["requested_max"] == 42
-    assert "2 page(s)" in str(excinfo.value)
-
-
-def test_page_validation_is_best_effort_on_unreadable_pdfs(tmp_path):
-    from learnloop.services.ingest_runner import _validate_page_selection
-
-    _validate_page_selection(b"%PDF-not really", [999])  # silently proceeds
-
-
-def test_resume_clears_stale_batch_finished_at(tmp_path):
-    def fail(ctx: JobContext) -> dict:
-        raise IngestRunnerError("boom", code="synthetic")
-
-    runner = _runner(tmp_path, handlers={"import": fail})
-    batch_id = runner.enqueue_batch("import", [JobSpec("import", {"source": "x.pdf"})])
-    runner.drain()
-    failed = runner.repo.get_ingest_batch(batch_id)
-    assert failed["status"] == "failed"
-    assert failed["finished_at"] is not None
-
-    runner.resume_batch(batch_id)
-    resumed = runner.repo.get_ingest_batch(batch_id)
-    assert resumed["status"] == "queued"
-    assert resumed["finished_at"] is None
-
-
-def test_startup_finalizes_abandoned_synthesis_runs(tmp_path):
-    """Recovery marks stale created/running synthesis rows failed — but never
-    while a synthesis job holds a live lease."""
-
-    from learnloop.services.synthesis_manifests import build_manifest, persist_manifest
-
-    from tests.helpers import create_basic_vault
-    from learnloop.vault.loader import load_vault
-
-    paths = create_basic_vault(tmp_path / "vault")
-    repo = Repository(paths.sqlite_path)
-    vault = load_vault(paths.root)
-    manifest_id = persist_manifest(repo, build_manifest(vault, source_set_id="ss1"))
-    stale = repo.insert_synthesis_run(manifest_id=manifest_id, mode="bootstrap", clock=_clock(-100_000))
-
-    runner = IngestRunner(repo, vault_root=paths.root, worker_id="w1", clock=_clock())
-    runner.recover_stale_leases()
-    assert repo.synthesis_run(stale)["status"] == "failed"
-
-    # With a live-leased synthesis job, finalization is skipped entirely.
-    fresh_stale = repo.insert_synthesis_run(manifest_id=manifest_id, mode="bootstrap", clock=_clock(-100_000))
-    batch_id = runner.enqueue_batch(
-        "bootstrap_synthesis", [JobSpec("bootstrap_synthesis", {"source_set_id": "ss1"})]
-    )
-    job = repo.claim_next_ingest_job(
-        worker_id="w2", now_iso="2026-07-13T12:00:00Z", lease_cutoff_iso="2026-07-13T11:58:00Z"
-    )
-    assert job is not None and job["batch_id"] == batch_id
-    runner.recover_stale_leases()
-    assert repo.synthesis_run(fresh_stale)["status"] == "created"
+    assert excinfo.value.code == "native_pdf_unavailable"
+    assert excinfo.value.retryable is True

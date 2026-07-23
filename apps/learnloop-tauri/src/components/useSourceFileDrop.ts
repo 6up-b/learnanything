@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
-const SOURCE_EXTENSIONS = [".pdf", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt"];
+const SOURCE_EXTENSIONS = [
+  ".pdf", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt",
+  ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac"
+];
 
 type Subscriber = {
   enabled: boolean;

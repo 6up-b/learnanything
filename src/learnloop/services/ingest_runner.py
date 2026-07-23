@@ -137,6 +137,8 @@ class RunnerServices:
     quick_check_client_factory: Callable[["JobContext"], Any] | None = None
     rung_variant_client_factory: Callable[["JobContext"], Any] | None = None
     exercise_import_client_factory: Callable[["JobContext"], Any] | None = None
+    animation_client_factory: Callable[["JobContext"], Any] | None = None
+    animation_renderer: Callable[..., Any] | None = None
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
         return (self.fetch or default_fetch)(source, category, ctx)
@@ -163,8 +165,9 @@ class RunnerServices:
         return client
 
     def quick_check_client(self, ctx: "JobContext") -> Any:
-        # Reader quick checks follow the same canonical-ingest provider route
-        # as unit inventory.
+        # Reader quick checks ride the inventory resolver (low-effort on codex
+        # vaults, routed elsewhere): the task method is getattr-discovered on
+        # the client, exactly like unit inventory.
         client = (self.quick_check_client_factory or default_inventory_client)(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -180,6 +183,9 @@ class RunnerServices:
         client = (self.exercise_import_client_factory or default_exercise_import_client)(ctx)
         ctx.bind_interruptible(client)
         return client
+
+    def animation_client(self, ctx: "JobContext") -> Any:
+        return (self.animation_client_factory or default_animation_client)(ctx)
 
 
 @dataclass
@@ -355,11 +361,15 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     """Produce Document IR from fetched bytes using the M1 extractor providers.
 
     PDFs go through the engine the payload/vault config selects (marker, the
-    pypdf fallback, or auto); everything else gets honest trivial IR from its
-    decoded text (§2.3)."""
+    pypdf fallback, or auto); audio is transcribed via the [ingest.audio]
+    endpoint; everything else gets honest trivial IR from its decoded text
+    (§2.3)."""
 
     from learnloop.ingest.extractors import MarkerUnavailableError, markdown_to_ir, pdf_extractor_for
     from learnloop.ingest.extractors.base import ExtractionContext
+
+    if category == "audio":
+        return _extract_audio(fetched, ctx)
 
     is_pdf = (
         category == "pdf"
@@ -368,6 +378,8 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     )
     if is_pdf:
         pdf_config = _pdf_payload_config(ctx)
+        if pdf_config.get("engine") == "native":
+            return _extract_pdf_native(fetched, ctx)
         try:
             extractor = pdf_extractor_for(pdf_config)
         except MarkerUnavailableError as exc:
@@ -442,6 +454,43 @@ def default_extraction_identity(
 
     from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
 
+    if category == "audio":
+        # Lock-step with _extract_audio: the same pure route decision picks
+        # native vs openrouter vs endpoint transcription, and the identity
+        # carries the model + provider/endpoint so re-pointing either forces a
+        # fresh transcription. Keys named api_key* are stripped by
+        # hashing._sanitized_config.
+        from learnloop.ai.multimodal import chat_audio_format
+
+        route = _native_media_route(ctx, "audio")
+        if route is not None and chat_audio_format(_audio_filename(fetched)) is not None:
+            return {
+                "extractor": "audio_native",
+                "extractor_version": "1",
+                "model_versions": {"chat_model": route.model or ""},
+                "config": {"provider": route.provider_name},
+            }
+        audio_config = _audio_ingest_config(ctx)
+        if audio_config.provider.strip().lower() == "openrouter":
+            if chat_audio_format(_audio_filename(fetched)) is None:
+                raise IngestRunnerError(
+                    _OPENROUTER_AUDIO_FORMAT_MESSAGE,
+                    code="audio_format_unsupported",
+                    retryable=True,
+                )
+            return {
+                "extractor": "audio_native",
+                "extractor_version": "1",
+                "model_versions": {"chat_model": audio_config.transcription_model},
+                "config": {"provider": "openrouter"},
+            }
+        return {
+            "extractor": "audio_transcript",
+            "extractor_version": "1",
+            "model_versions": {"transcription_model": audio_config.transcription_model},
+            "config": {"base_url": audio_config.transcription_base_url},
+        }
+
     is_pdf = (
         category == "pdf"
         or (fetched.content_type or "").lower().startswith("application/pdf")
@@ -449,6 +498,14 @@ def default_extraction_identity(
     )
     config = _pdf_payload_config(ctx)
     if is_pdf:
+        if config.get("engine") == "native":
+            route = _require_native_pdf_route(ctx)
+            return {
+                "extractor": "pdf_native",
+                "extractor_version": "1",
+                "model_versions": {"chat_model": route.model or ""},
+                "config": {"provider": route.provider_name},
+            }
         try:
             extractor = pdf_extractor_for(config)
         except MarkerUnavailableError as exc:
@@ -480,6 +537,326 @@ def default_extraction_identity(
     # Markdown normalizer (markdown_to_ir) is at version "2" (level-2 unit fallback);
     # must match markdown_to_ir's default so preflight cache keys line up.
     return {"extractor": "text", "extractor_version": "2", "model_versions": {}, "config": {}}
+
+
+def _audio_ingest_config(ctx: JobContext):
+    """The vault's [ingest.audio] settings (defaults when the vault is gone)."""
+
+    from learnloop.config import AudioIngestConfig
+    from learnloop.vault.loader import load_vault
+
+    try:
+        return load_vault(ctx.vault_root).config.ingest.audio
+    except FileNotFoundError:
+        return AudioIngestConfig()
+
+
+@dataclass(frozen=True)
+class NativeMediaRoute:
+    """A resolved native-multimodal route: which chat provider ingests media."""
+
+    provider_name: str
+    model: str | None
+    max_audio_mb: int
+
+
+def _native_media_route(ctx: JobContext, modality: str) -> NativeMediaRoute | None:
+    """PURE config decision: is native multimodal active for this modality?
+
+    Shared by default_extract and default_extraction_identity so the cache
+    identity and the actual extraction can never disagree. Requires
+    [ingest.native] enabled + the per-modality flag, a canonical_ingest route
+    resolving to an OpenAI-compatible chat provider, and the modality declared
+    in that profile's input_modalities."""
+
+    from learnloop.ai.multimodal import supports_input_modality
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.vault.loader import load_vault
+
+    try:
+        config = load_vault(ctx.vault_root).config
+    except FileNotFoundError:
+        return None
+    native = config.ingest.native
+    if not native.enabled or not bool(getattr(native, modality, False)):
+        return None
+    selection = provider_for_task(config, "canonical_ingest")
+    profile = config.ai.providers.get(selection.provider_name)
+    if profile is None or profile.type.lower() not in {"openai_chat", "openrouter"}:
+        return None
+    if not supports_input_modality(profile, modality):
+        return None
+    return NativeMediaRoute(
+        provider_name=selection.provider_name,
+        model=profile.model,
+        max_audio_mb=native.max_audio_mb,
+    )
+
+
+def _native_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any:
+    from learnloop.ai.client import make_ai_provider_client
+    from learnloop.ai.runtime import check_ai_runtime
+    from learnloop.vault.loader import load_vault
+
+    config = load_vault(ctx.vault_root).config
+    runtime = check_ai_runtime(ctx.vault_root, config, provider_name=route.provider_name)
+    if not runtime.ready:
+        raise IngestRunnerError(
+            runtime.message or f"AI provider {route.provider_name!r} is {runtime.status}.",
+            code="native_media_unavailable",
+            retryable=True,
+        )
+    return make_ai_provider_client(config, ctx.vault_root, provider_name=route.provider_name)
+
+
+def _audio_filename(fetched: FetchedBytes) -> str:
+    from urllib.parse import urlparse
+
+    raw = fetched.original_uri or ""
+    if raw.lower().startswith(("http://", "https://")):
+        raw = urlparse(raw).path
+    name = Path(raw).name
+    return name or "audio"
+
+
+# Shared by identity and extraction so both raise the same actionable message.
+_OPENROUTER_AUDIO_FORMAT_MESSAGE = (
+    "OpenRouter transcription sends audio as chat input_audio and supports "
+    "mp3/wav only; convert the file or switch the transcription provider to "
+    "an OpenAI-compatible endpoint."
+)
+
+
+def _extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any:
+    """Audio → timestamped transcript → the same time_range IR captions use.
+
+    Native-multimodal route first (when configured and the container is a chat
+    input_audio format); then [ingest.audio] provider = "openrouter" (chat
+    input_audio against the openrouter profile); otherwise the [ingest.audio]
+    transcription endpoint. All failure modes are retryable typed errors: audio
+    is always an external call, so the durable queue owns retry semantics — no
+    partial IR ever persists, and a mid-run provider failure never silently
+    switches routes (different cost/consent surface)."""
+
+    from learnloop.ai.multimodal import chat_audio_format
+    from learnloop.ingest.extractors import transcript_to_ir
+    from learnloop.ingest.transcription import (
+        TranscriptionFailed,
+        TranscriptionUnavailable,
+        transcribe_audio,
+    )
+
+    route = _native_media_route(ctx, "audio")
+    chat_format = chat_audio_format(_audio_filename(fetched))
+    if route is not None and chat_format is not None:
+        return _extract_audio_native(fetched, ctx, route, chat_format)
+
+    config = _audio_ingest_config(ctx)
+    if config.provider.strip().lower() == "openrouter":
+        return _extract_audio_openrouter(fetched, ctx, config, chat_format)
+
+    size_mb = len(fetched.raw_bytes) / (1024 * 1024)
+    if size_mb > config.max_file_mb:
+        raise IngestRunnerError(
+            f"Audio file is {size_mb:.1f} MB; [ingest.audio] max_file_mb is {config.max_file_mb}.",
+            code="audio_too_large",
+            retryable=True,
+        )
+    try:
+        result = transcribe_audio(
+            fetched.raw_bytes, filename=_audio_filename(fetched), config=config
+        )
+    except TranscriptionUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="transcription_unavailable", retryable=True) from exc
+    except TranscriptionFailed as exc:
+        raise IngestRunnerError(str(exc), code="transcription_failed", retryable=True) from exc
+    return transcript_to_ir(
+        result.cues,
+        title=ctx.payload.get("title"),
+        extractor_name="audio_transcript",
+        extractor_version="1",
+    )
+
+
+def _extract_audio_native(
+    fetched: FetchedBytes, ctx: JobContext, route: NativeMediaRoute, chat_format: str
+) -> Any:
+    from learnloop.ai.multimodal import MediaTranscriptionContext
+    from learnloop.codex.client import CodexUnavailable
+
+    size_mb = len(fetched.raw_bytes) / (1024 * 1024)
+    if size_mb > route.max_audio_mb:
+        raise IngestRunnerError(
+            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {route.max_audio_mb}.",
+            code="audio_too_large",
+            retryable=True,
+        )
+    client = _native_media_client(ctx, route)
+    try:
+        transcript = client.run_media_transcription(
+            MediaTranscriptionContext(
+                media_bytes=fetched.raw_bytes,
+                media_format=chat_format,
+                title=ctx.payload.get("title") or fetched.title,
+            )
+        )
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="native_audio_failed", retryable=True) from exc
+    return _chat_transcript_to_ir(
+        transcript, ctx, provider_label=route.provider_name, empty_code="native_audio_failed"
+    )
+
+
+def _extract_audio_openrouter(
+    fetched: FetchedBytes, ctx: JobContext, config: Any, chat_format: str | None
+) -> Any:
+    """[ingest.audio] provider = "openrouter": transcribe via chat input_audio.
+
+    Builds an OpenRouter chat client from the base openrouter profile with
+    transcription_model as the slug — independent of [ingest.native] and the
+    canonical_ingest route, so the transcription model never has to match the
+    synthesis model. No silent fallback to the endpoint path (different
+    cost/consent surface)."""
+
+    import os
+
+    from learnloop.ai.client import make_ai_provider_client_from_profile
+    from learnloop.ai.multimodal import MediaTranscriptionContext
+    from learnloop.codex.client import CodexUnavailable
+    from learnloop.vault.loader import load_vault
+
+    if chat_format is None:
+        raise IngestRunnerError(
+            _OPENROUTER_AUDIO_FORMAT_MESSAGE, code="audio_format_unsupported", retryable=True
+        )
+    config_full = load_vault(ctx.vault_root).config
+    base = config_full.ai.providers.get("openrouter")
+    if base is None:
+        raise IngestRunnerError(
+            "No openrouter provider profile is configured.",
+            code="transcription_unavailable",
+            retryable=True,
+        )
+    api_key_env = base.api_key_env or "OPENROUTER_API_KEY"
+    if not os.environ.get(api_key_env):
+        raise IngestRunnerError(
+            f"Environment variable {api_key_env} is required for OpenRouter "
+            "transcription. Save the OpenRouter API key in Settings.",
+            code="transcription_unavailable",
+            retryable=True,
+        )
+    max_audio_mb = config_full.ingest.native.max_audio_mb
+    size_mb = len(fetched.raw_bytes) / (1024 * 1024)
+    if size_mb > max_audio_mb:
+        # Base64 inflates ~33% inside a chat body, so the chat-path cap
+        # applies, not the endpoint's max_file_mb.
+        raise IngestRunnerError(
+            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {max_audio_mb}.",
+            code="audio_too_large",
+            retryable=True,
+        )
+    profile = base.model_copy(
+        update={"model": config.transcription_model, "timeout_seconds": config.timeout_seconds}
+    )
+    try:
+        client = make_ai_provider_client_from_profile("openrouter", profile, ctx.vault_root)
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="transcription_unavailable", retryable=True) from exc
+    try:
+        transcript = client.run_media_transcription(
+            MediaTranscriptionContext(
+                media_bytes=fetched.raw_bytes,
+                media_format=chat_format,
+                title=ctx.payload.get("title") or fetched.title,
+                language=config.language or None,
+            )
+        )
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(
+            f"OpenRouter transcription failed: {exc}. Check that the model accepts audio input.",
+            code="transcription_failed",
+            retryable=True,
+        ) from exc
+    return _chat_transcript_to_ir(
+        transcript, ctx, provider_label="openrouter", empty_code="transcription_failed"
+    )
+
+
+def _chat_transcript_to_ir(
+    transcript: Any, ctx: JobContext, *, provider_label: str, empty_code: str
+) -> Any:
+    """Chat-model MediaTranscript segments → the same time_range IR the
+    endpoint transcription path produces (shared native/openrouter tail)."""
+
+    from learnloop.ingest.extractors import transcript_to_ir
+    from learnloop.ingest.transcripts import TranscriptCue
+
+    cues = [
+        TranscriptCue(
+            start=segment.start_seconds,
+            end=segment.end_seconds,
+            text=segment.text.strip(),
+            speaker=segment.speaker,
+        )
+        for segment in transcript.segments
+        if segment.text.strip()
+    ]
+    if not cues:
+        raise IngestRunnerError(
+            f"{provider_label} returned no transcript segments",
+            code=empty_code,
+            retryable=True,
+        )
+    return transcript_to_ir(
+        cues,
+        title=ctx.payload.get("title"),
+        extractor_name="audio_native",
+        extractor_version="1",
+    )
+
+
+def _require_native_pdf_route(ctx: JobContext) -> NativeMediaRoute:
+    route = _native_media_route(ctx, "pdf")
+    if route is None:
+        raise IngestRunnerError(
+            'PDF engine "native" requires [ingest.native] enabled with pdf = true and a '
+            'canonical_ingest route to an OpenAI-compatible provider declaring "pdf" in '
+            "input_modalities.",
+            code="native_pdf_unavailable",
+            retryable=True,
+        )
+    return route
+
+
+def _extract_pdf_native(fetched: FetchedBytes, ctx: JobContext) -> Any:
+    """PDF → chat file part → Markdown → IR ([ingest.pdf] engine "native")."""
+
+    from learnloop.ai.multimodal import PdfExtractionContextNative
+    from learnloop.codex.client import CodexUnavailable
+    from learnloop.ingest.extractors import markdown_to_ir
+
+    route = _require_native_pdf_route(ctx)
+    if ctx.payload.get("page_selection"):
+        raise IngestRunnerError(
+            "Native PDF ingestion does not support page selection; use the marker or "
+            "pypdf engine for page ranges.",
+            code="native_pdf_unavailable",
+        )
+    filename = _audio_filename(fetched)
+    if "." not in filename:
+        filename = f"{filename}.pdf"
+    client = _native_media_client(ctx, route)
+    try:
+        markdown = client.run_media_markdown(
+            PdfExtractionContextNative(
+                media_bytes=fetched.raw_bytes,
+                filename=filename,
+                title=ctx.payload.get("title") or fetched.title,
+            )
+        )
+    except CodexUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="native_pdf_failed", retryable=True) from exc
+    return markdown_to_ir(markdown, title=ctx.payload.get("title"), extractor_name="pdf_native")
 
 
 def _caption_cues(text: str) -> list[dict[str, Any]] | None:
@@ -587,9 +964,17 @@ def default_run_legacy_ingest(
 
 
 def default_inventory_client(ctx: JobContext) -> Any:
-    """Resolve unit inventory through the canonical-ingest provider route."""
+    """Resolve the unit-inventory/quick-check client through ai routing (§7).
 
-    return _routed_task_client(ctx, "canonical_ingest")
+    Routed via the ``canonical_ingest`` task (empty routing follows
+    ai.active_provider), except codex-family routes are pinned to the
+    LOW-effort codex profile: unit inventories deliberately stay cheap while
+    synthesis follows the routed medium-effort profile
+    (``default_synthesis_client``). The inventory/quick-check methods are
+    getattr-discovered on the client, so a provider lacking them degrades to
+    an explicit unavailable error rather than fabricating rows."""
+
+    return _routed_task_client(ctx, "canonical_ingest", pin_codex_low=True)
 
 
 def default_synthesis_client(ctx: JobContext) -> Any:
@@ -600,6 +985,13 @@ def default_synthesis_client(ctx: JobContext) -> Any:
     """
 
     return _routed_task_client(ctx, "canonical_ingest")
+
+
+def default_animation_client(ctx: JobContext) -> Any:
+    """Resolve the animation route (default: the medium-effort profile) — any
+    configured provider works; run_concept_animation is getattr-discovered."""
+
+    return _routed_task_client(ctx, "animation")
 
 
 def default_rung_variant_client(ctx: JobContext) -> Any:
@@ -613,21 +1005,28 @@ def default_rung_variant_client(ctx: JobContext) -> Any:
 
 
 def default_exercise_import_client(ctx: JobContext) -> Any:
-    """Resolve reader exercise completion through the authoring route."""
+    """Resolve reader exercise completion through the authoring route.
 
-    return _routed_task_client(ctx, "authoring")
+    Codex-family routes are pinned low-effort like unit inventory: imported
+    exercises arrive verbatim, so completion is transcription-shaped work."""
+
+    return _routed_task_client(ctx, "authoring", pin_codex_low=True)
 
 
-def _routed_task_client(ctx: JobContext, task: str) -> Any:
+def _routed_task_client(ctx: JobContext, task: str, *, pin_codex_low: bool = False) -> Any:
     from learnloop.ai.client import make_ai_provider_client
     from learnloop.ai.routing import fallback_provider_for, provider_for_task
     from learnloop.ai.runtime import check_ai_runtime
     from learnloop.codex.client import make_codex_client
     from learnloop.codex.runtime import check_codex_runtime
+    from learnloop.config import CODEX_LOW_PROVIDER, CODEX_PROVIDER_NAMES
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
     selection = provider_for_task(vault.config, task)
+    selected_name = selection.provider_name
+    if pin_codex_low and selected_name in CODEX_PROVIDER_NAMES:
+        selected_name = CODEX_LOW_PROVIDER
 
     def ready_client(provider_name: str):
         if provider_name == "codex":
@@ -650,7 +1049,7 @@ def _routed_task_client(ctx: JobContext, task: str) -> Any:
             )
         return runtime, client
 
-    runtime, client = ready_client(selection.provider_name)
+    runtime, client = ready_client(selected_name)
     if client is None:
         fallback = fallback_provider_for(vault.config, selection)
         if fallback:
@@ -1506,6 +1905,43 @@ def handle_rung_variant(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError(str(exc)) from exc
 
 
+def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
+    """concept_animation: author + validate + render one explainer scene.
+
+    Payload: ``animation_id``. The service owns the row's status machine
+    (completed / failed with stage + stderr); consent was checked at request
+    time before the row existed."""
+
+    from learnloop.services.concept_animation import (
+        ConceptAnimationError,
+        generate_concept_animation,
+    )
+
+    animation_id = str(ctx.payload.get("animation_id") or "")
+    if not animation_id:
+        raise IngestRunnerError("concept_animation job requires an 'animation_id'.")
+    ctx.report("generation", message="Authoring the explainer scene")
+    client = ctx.services.animation_client(ctx)
+    try:
+        row = generate_concept_animation(
+            ctx.vault_root,
+            client,
+            animation_id=animation_id,
+            renderer=ctx.services.animation_renderer,
+            clock=ctx.clock,
+        )
+    except ConceptAnimationError as exc:
+        raise IngestRunnerError(str(exc), code=exc.code) from exc
+    # Compact job result: the status RPC serves the full row (code, stderr).
+    return {
+        "animation_id": row["id"],
+        "concept_id": row["concept_id"],
+        "status": row["status"],
+        "video_file_name": row.get("video_file_name"),
+        "failure_stage": row.get("failure_stage"),
+    }
+
+
 DEFAULT_HANDLERS: dict[str, Handler] = {
     "import": handle_import,
     "legacy_ingest": handle_legacy_ingest,
@@ -1518,6 +1954,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "reader_exercise_import": handle_reader_exercise_import,
     "practice_expansion": handle_practice_expansion,
     "rung_variant": handle_rung_variant,
+    "concept_animation": handle_concept_animation,
 }
 
 

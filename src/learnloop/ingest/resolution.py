@@ -8,12 +8,13 @@ from urllib.parse import urlparse
 
 from learnloop.ingest.models import UnsupportedSourceError
 
-SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile"]
+SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile", "audio"]
 
 _ARXIV_NEW = re.compile(r"^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$", re.IGNORECASE)
 _ARXIV_OLD = re.compile(r"^(arxiv:)?[a-z\-]+(\.[a-z]{2})?/\d{7}(v\d+)?$", re.IGNORECASE)
 _YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"}
 _TEXT_SUFFIXES = {".md", ".markdown", ".mdown", ".txt", ".text", ".rst", ".vtt", ".srt"}
+_AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac"}
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,10 @@ def resolve_source(source: str) -> ResolvedSource:
         return ResolvedSource("web", str(path))
     if suffix in _TEXT_SUFFIXES:
         return ResolvedSource("textfile", str(path))
+    # Audio before the null-byte sniff: audio is binary and would otherwise
+    # fall through to the unsupported-source error.
+    if suffix in _AUDIO_SUFFIXES:
+        return ResolvedSource("audio", str(path))
     if path.exists() and path.is_file():
         sample = path.read_bytes()[:4096]
         if b"\x00" not in sample:
@@ -64,7 +69,7 @@ def resolve_source(source: str) -> ResolvedSource:
 
     raise UnsupportedSourceError(
         f"Could not classify source {source!r}. Pass a URL (web/arXiv/YouTube), "
-        "an arXiv id, or a local .pdf/.md/.txt/.vtt/.srt file path."
+        "an arXiv id, or a local .pdf/.md/.txt/.vtt/.srt/.mp3/.wav/.m4a file path."
     )
 
 

@@ -1,9 +1,9 @@
 """ING M6 — create_study_map sidecar contract wiring.
 
 The heavy synthesis path is covered by tests/test_source_set_synthesis.py; here
-we assert the RPC is registered and its error envelope is typed. Codex is
-unavailable in tests, so the happy path degrades to a typed ``codex_unavailable``
-rather than fabricating a study map.
+we assert the RPC is registered and its error envelope is typed. No AI provider
+is available in tests, so the happy path degrades to a typed
+``provider_unavailable`` rather than fabricating a study map.
 """
 
 from __future__ import annotations

@@ -51,3 +51,21 @@ def test_detect_rejects_unknown_sources():
         detect_source_kind("")
     with pytest.raises(UnsupportedSourceError):
         detect_source_kind("not-a-url-or-file.xyz")
+
+
+def test_detect_local_audio_files(tmp_path):
+    for suffix in (".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac"):
+        audio = tmp_path / f"lecture{suffix}"
+        audio.write_bytes(b"\x00\x01binary-audio")
+        assert detect_source_kind(str(audio)) == "audio"
+
+
+def test_detect_audio_by_suffix_without_existing_file(tmp_path):
+    # Suffix classification is authoritative — no filesystem sniff needed, and
+    # uppercase extensions normalize.
+    assert detect_source_kind(str(tmp_path / "TALK.MP3")) == "audio"
+
+
+def test_unclassifiable_error_mentions_audio(tmp_path):
+    with pytest.raises(UnsupportedSourceError, match=r"\.mp3"):
+        detect_source_kind(str(tmp_path / "mystery.xyz"))

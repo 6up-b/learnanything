@@ -9,7 +9,15 @@ OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY"
 
 
 class OpenRouterProviderClient(OpenAIChatProviderClient):
-    """OpenAI-compatible provider client configured for OpenRouter."""
+    """OpenAI-compatible chat client pointed at OpenRouter.
+
+    Any OpenRouter model slug works as ``profile.model`` (e.g.
+    ``anthropic/claude-sonnet-4.5``, ``deepseek/deepseek-chat``). Differences
+    from the generic openai_chat type: the endpoint and key env var have
+    defaults, requests carry OpenRouter's attribution headers, and reasoning is
+    requested via OpenRouter's unified ``reasoning`` body instead of the
+    DeepSeek-dialect ``thinking`` body (which 400s on strict providers).
+    """
 
     provider_type = "openrouter"
     default_base_url = OPENROUTER_BASE_URL

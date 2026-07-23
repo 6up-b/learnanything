@@ -233,7 +233,7 @@ export function QuickAddDialog({
                     setRangeImported(false);
                   }}
                   onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="paste a URL, arXiv id, PDF path, or .md/.txt/.vtt/.srt"
+                  placeholder="paste a URL, arXiv id, PDF path, or .md/.txt/.vtt/.srt/.mp3/.wav"
                   style={{ width: "100%", background: "transparent", color: COLOR.text, border: "none", outline: "none", fontFamily: FONT_MONO, fontSize: 13 }}
                 />
               </div>
@@ -246,7 +246,7 @@ export function QuickAddDialog({
                 color: fileDragging ? COLOR.amber : COLOR.textFaint,
                 fontSize: 11
               }}>
-                {fileDragging ? "drop to use this source" : "or drop a PDF, Markdown, text, HTML, or transcript (.vtt/.srt) file"}
+                {fileDragging ? "drop to use this source" : "or drop a PDF, Markdown, text, HTML, transcript (.vtt/.srt), or audio file"}
               </div>
 
               <div style={{ marginTop: 14 }}>

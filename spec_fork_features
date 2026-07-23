@@ -1,0 +1,16 @@
+New features and avenues I want to explore
+0. [DONE] Create a settings tab that can control model selection, color palette, and certain parameter weights. The settings tab should replace the ai tab which is on the far right of the tab bar.
+   (Shipped: Settings screen behind the ai:<provider> chip / Alt+S — model selection per use case, OpenRouter API key, native-multimodal toggle, transcription endpoint, color palette. Parameter-weight editing deliberately skipped.)
+1. [DONE] Add support for Openrouter
+a. [DONE] For some of the multimodal aspects (ingesting videos, pdfs, audio etc), if the openrouter supports native multimodal, it should use that. This should be a setting
+   ([ingest.native] + per-profile input_modalities: audio via input_audio parts, PDFs via engine = "native" file parts. Video stays captions-based — no media download pipeline exists.)
+b. [DONE] The openrouter api key should be set in the settings menu and saved
+   (Saved to the machine-global settings.env, never the committed vault config.)
+c. [DONE] Add support for multiple openrouter model for different use cases in the app (grading, transcription, generation, etc.)
+   (Per-use-case openrouter_<usecase> profiles + [ai.routing]; transcription is its own [ingest.audio] endpoint setting.)
+2. [DONE] If there is a video model available, add support for generating a short animation to explain a concept. For mathematical concepts, the model should also be able to use 3b1b/manim to create a high quality animation via code.
+   (Shipped manim-only by decision: any routed model authors a Manim CE scene, AST-validated and rendered locally under consent + timeout, played in the concept inspector. Text-to-video model APIs deliberately skipped — OpenRouter is chat-completions only.)
+3. [DONE] Ingest should support audio as a source. Either the audio is processed natively by a multimodal model or it is transcribed by another model (maybe whisper or some other transcription model)
+   (Both: OpenAI-compatible /audio/transcriptions endpoint by default; native input_audio route when [ingest.native] authorizes it.)
+4. [DONE] Add the option for different color palletes (dracula, gruvbox, etc.)
+   (dracula, gruvbox, nord, catppuccin-mocha in Settings → Appearance.)

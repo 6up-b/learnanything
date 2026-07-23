@@ -9,11 +9,22 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from learnloop.config import AIProviderConfig
+from learnloop.ai.multimodal import (
+    MediaTranscript,
+    MediaTranscriptionContext,
+    PdfExtractionContextNative,
+    audio_content_parts,
+    media_transcription_prompt,
+    pdf_content_parts,
+    pdf_markdown_prompt,
+    strip_markdown_fences,
+)
 from learnloop.codex.client import (
     AppendReconciliationContext,
     AuthoringContext,
     CanonicalIngestContext,
     CodexUnavailable,
+    ConceptAnimationContext,
     ConceptGraphContext,
     DepthEdgeInstanceContext,
     ExerciseAuthoringContext,
@@ -32,6 +43,7 @@ from learnloop.codex.client import (
     _authoring_prompt,
     _canonical_ingest_prompt,
     _codex_output_schema,
+    _concept_animation_prompt,
     _concept_graph_structuring_prompt,
     _depth_edge_instance_prompt,
     _diagnostic_trials_prompt,
@@ -54,6 +66,7 @@ from learnloop.codex.schemas import (
     AppendReconciliation,
     AuthoringProposal,
     ConceptGraphStructuring,
+    ManimAnimation,
     DepthEdgeInstanceBatch,
     DiagnosticTrials,
     ExerciseAuthoring,
@@ -81,6 +94,8 @@ _RETRY_DELAYS_SECONDS = (1.0, 4.0)
 
 class OpenAIChatProviderClient:
     provider_type = "openai_chat"
+    # Subclass hooks: a provider type with a fixed endpoint (e.g. openrouter)
+    # overrides these so profiles only need a model slug.
     default_base_url: str | None = None
     default_api_key_env = "OPENAI_API_KEY"
 
@@ -144,6 +159,15 @@ class OpenAIChatProviderClient:
     def run_probe_family_trials(self, context: ProbeFamilyTrialsContext) -> ProbeFamilyTrials:
         return self._run_json_model(_probe_family_trials_prompt(context), ProbeFamilyTrials)
 
+    def run_source_unit_inventory(self, context: SourceUnitInventoryContext) -> SourceUnitInventory:
+        return self._run_json_model(_source_unit_inventory_prompt(context), SourceUnitInventory)
+
+    def run_source_set_synthesis(self, context: SourceSetSynthesisContext) -> SourceSetSynthesis:
+        return self._run_json_model(_source_set_synthesis_prompt(context), SourceSetSynthesis)
+
+    def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
+        return self._run_json_model(_append_reconciliation_prompt(context), AppendReconciliation)
+
     def run_reader_preset_synthesis(self, context: ReaderPresetSynthesisContext) -> ReaderPresetSynthesis:
         return self._run_json_model(_reader_preset_synthesis_prompt(context), ReaderPresetSynthesis)
 
@@ -159,23 +183,66 @@ class OpenAIChatProviderClient:
     def run_depth_edge_instances(self, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch:
         return self._run_json_model(_depth_edge_instance_prompt(context), DepthEdgeInstanceBatch)
 
-    def run_source_unit_inventory(self, context: SourceUnitInventoryContext) -> SourceUnitInventory:
-        return self._run_json_model(_source_unit_inventory_prompt(context), SourceUnitInventory)
-
-    def run_source_set_synthesis(self, context: SourceSetSynthesisContext) -> SourceSetSynthesis:
-        return self._run_json_model(_source_set_synthesis_prompt(context), SourceSetSynthesis)
-
     def run_concept_graph_structuring(self, context: ConceptGraphContext) -> ConceptGraphStructuring:
-        return self._run_json_model(
-            _concept_graph_structuring_prompt(context),
-            ConceptGraphStructuring,
+        return self._run_json_model(_concept_graph_structuring_prompt(context), ConceptGraphStructuring)
+
+    def run_concept_animation(self, context: ConceptAnimationContext) -> ManimAnimation:
+        return self._run_json_model(_concept_animation_prompt(context), ManimAnimation)
+
+    def run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript:
+        """Native-multimodal audio → timestamped transcript ([ingest.native]).
+
+        The user content carries an ``input_audio`` part; the output contract is
+        a transcript, never a study map, so downstream IR matches the endpoint
+        transcription path exactly. The JSON-repair round is text-only — the
+        audio is never re-uploaded."""
+
+        parts = audio_content_parts(
+            media_transcription_prompt(context), context.media_bytes, context.media_format
+        )
+        return self._run_json_messages(
+            [
+                {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
+                {"role": "user", "content": parts},
+            ],
+            MediaTranscript,
         )
 
-    def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
-        return self._run_json_model(_append_reconciliation_prompt(context), AppendReconciliation)
+    def run_media_markdown(self, context: PdfExtractionContextNative) -> str:
+        """Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine
+        "native"). Suppresses the profile's JSON response_format — the output is
+        a document, not JSON."""
+
+        parts = pdf_content_parts(
+            pdf_markdown_prompt(context), context.media_bytes, context.filename
+        )
+        text = self._chat_messages(
+            [
+                {
+                    "role": "system",
+                    "content": "Convert documents to complete GitHub-flavored Markdown. Do not wrap the whole output in code fences.",
+                },
+                {"role": "user", "content": parts},
+            ],
+            None,
+            use_response_format=False,
+        )
+        markdown = strip_markdown_fences(text)
+        if not markdown:
+            raise CodexUnavailable(f"{self.provider_name} returned an empty document")
+        return markdown
 
     def _run_json_model(self, prompt: str, model_type: type[BaseModel]) -> Any:
-        text = self._chat(prompt, model_type)
+        return self._run_json_messages(
+            [
+                {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
+                {"role": "user", "content": prompt},
+            ],
+            model_type,
+        )
+
+    def _run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any:
+        text = self._chat_messages(messages, model_type)
         try:
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError, json.JSONDecodeError):
@@ -183,21 +250,32 @@ class OpenAIChatProviderClient:
             try:
                 return model_type.model_validate_json(repaired)
             except (ValidationError, ValueError, json.JSONDecodeError) as second_exc:
-                raise CodexUnavailable(
-                    f"{self.provider_name} returned invalid {model_type.__name__} JSON"
-                ) from second_exc
+                raise CodexUnavailable(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from second_exc
 
     def _chat(self, prompt: str, model_type: type[BaseModel] | None = None) -> str:
-        kwargs: dict[str, Any] = {
-            "model": self.model,
-            "messages": [
+        return self._chat_messages(
+            [
                 {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
                 {"role": "user", "content": prompt},
             ],
+            model_type,
+        )
+
+    def _chat_messages(
+        self,
+        messages: list[dict[str, Any]],
+        model_type: type[BaseModel] | None = None,
+        *,
+        use_response_format: bool = True,
+    ) -> str:
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
         }
-        response_format = self._response_format(model_type)
-        if response_format:
-            kwargs["response_format"] = response_format
+        if use_response_format:
+            response_format = self._response_format(model_type)
+            if response_format:
+                kwargs["response_format"] = response_format
         if self.profile.max_tokens is not None:
             kwargs["max_tokens"] = self.profile.max_tokens
         kwargs.update(self._reasoning_kwargs())
@@ -222,10 +300,7 @@ class OpenAIChatProviderClient:
                     _sleep(_RETRY_DELAYS_SECONDS[attempt])
                     continue
                 logger.warning(
-                    "AI provider %s (%s) request failed: %s",
-                    self.provider_name,
-                    self.model,
-                    exc,
+                    "AI provider %s (%s) request failed: %s", self.provider_name, self.model, exc
                 )
                 raise CodexUnavailable(str(exc)) from exc
         raise CodexUnavailable(f"{self.provider_name} request retries exhausted")

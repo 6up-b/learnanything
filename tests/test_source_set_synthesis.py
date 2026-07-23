@@ -353,7 +353,10 @@ def test_bootstrap_canonicalizes_prerequisite_and_confusable_concepts(tmp_path):
     assert learning_object.confusables == ["concept_general_diagonalization"]
 
 
-def test_bootstrap_rejects_unresolved_concept_relationships(tmp_path):
+def test_bootstrap_tolerates_unresolved_concept_relationships(tmp_path):
+    """An unresolved prerequisite/confusable is dropped with a review diagnostic
+    rather than hard-failing the paid synthesis (weaker models emit these)."""
+
     root, repo = _setup(tmp_path)
 
     def builder(context, _call_count):
@@ -361,16 +364,54 @@ def test_bootstrap_rejects_unresolved_concept_relationships(tmp_path):
         payload.learning_objects[0].prerequisites = ["free text that is not a concept"]
         return payload
 
-    with pytest.raises(StudyMapError) as exc:
-        create_study_map(
-            root,
-            "set_la",
-            client=FakeSynthesisClient(builder=builder),
-            repository=repo,
-            clock=_CLOCK,
-        )
+    result = create_study_map(
+        root,
+        "set_la",
+        client=FakeSynthesisClient(builder=builder),
+        repository=repo,
+        clock=_CLOCK,
+    )
 
-    assert exc.value.code == "unresolved_concept_reference"
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    assert any(
+        d.get("gate") == "learning_object_concept"
+        and "free text that is not a concept" in d.get("message", "")
+        for d in result.gate_diagnostics
+    )
+
+
+def test_bootstrap_mints_concept_for_unanchored_learning_object(tmp_path):
+    """A learning object emitted with no concept anchor (empty concept_client_id
+    AND concept_id — the reported OpenRouter/weak-model failure) gets a concept
+    synthesized from its title instead of aborting the whole build."""
+
+    root, repo = _setup(tmp_path)
+
+    def builder(context, _call_count):
+        payload = _default_payload(context)
+        lo = payload.learning_objects[0]
+        lo.concept_client_id = ""
+        lo.concept_id = ""
+        return payload
+
+    result = create_study_map(
+        root,
+        "set_la",
+        client=FakeSynthesisClient(builder=builder),
+        repository=repo,
+        clock=_CLOCK,
+        apply=True,
+    )
+
+    assert result.applied is True
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    assert any(
+        d.get("gate") == "learning_object_concept" and "no concept anchor" in d.get("message", "")
+        for d in result.gate_diagnostics
+    )
+    vault = load_vault(root)
+    lo = vault.learning_objects["lo_diagonalize_symmetric"]
+    assert lo.concept in vault.concepts
 
 
 def test_facets_cite_textbook_not_exam_and_held_out_wording_absent(tmp_path):

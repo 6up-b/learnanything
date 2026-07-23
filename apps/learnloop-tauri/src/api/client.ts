@@ -30,9 +30,14 @@ import type {
   FeedbackBundle,
   PrimedRetryResultDto,
   GradingProviderResult,
+  AnimationRuntimeDto,
+  ConceptAnimationDto,
   OpenrouterKeyResult,
+  RequestConceptAnimationResult,
   SettingsDto,
+  TranscriptionKeyResult,
   UpdateAiSettingsInput,
+  UpdateIngestSettingsInput,
   InspectorEntity,
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
@@ -470,6 +475,17 @@ export const api = {
     call<SettingsDto>("update_ai_settings", { input }),
   setOpenrouterApiKey: (apiKey: string) =>
     call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey }),
+  updateIngestSettings: (input: UpdateIngestSettingsInput) =>
+    call<SettingsDto>("update_ingest_settings", { input }),
+  setTranscriptionApiKey: (apiKey: string) =>
+    call<TranscriptionKeyResult>("set_transcription_api_key", { apiKey }),
+  getAnimationRuntime: () => call<AnimationRuntimeDto>("get_animation_runtime"),
+  requestConceptAnimation: (input: { conceptId: string; learningObjectId?: string | null; consent: boolean }) =>
+    call<RequestConceptAnimationResult>("request_concept_animation", { input }),
+  getConceptAnimationStatus: (animationId: string) =>
+    call<ConceptAnimationDto>("get_concept_animation_status", { animationId }),
+  listConceptAnimations: (conceptId: string) =>
+    call<{ animations: ConceptAnimationDto[] }>("list_concept_animations", { conceptId }),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
   previewTutorOpening: (input: { practiceItemId: string; sessionId?: string }) =>

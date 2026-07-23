@@ -441,3 +441,36 @@ def test_kick_reader_drain_leaves_requests_queued_without_provider(tmp_path):
     # Provider unavailable -> the infrastructure never fails the request.
     row = repo.get_reader_request(res["request_id"])
     assert row["status"] == "queued"
+
+
+def test_reader_drain_client_routes_via_canonical_ingest(tmp_path, monkeypatch):
+    """The no-factory reader drain resolves through canonical_ingest routing, so
+    an openrouter-routed vault drains preset requests without a codex runtime."""
+
+    import types
+
+    from tests.helpers import create_basic_vault
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    toml_path = vault_root / "learnloop.toml"
+    text = toml_path.read_text(encoding="utf-8")
+    assert 'canonical_ingest = "codex_medium"' in text
+    toml_path.write_text(
+        text.replace('canonical_ingest = "codex_medium"', 'canonical_ingest = "openrouter"'),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    install_fake_openai(monkeypatch)
+
+    repo = Repository(paths.sqlite_path)
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, vault_root, background=False)
+
+    client = jobs._resolve_reader_client(types.SimpleNamespace(vault_root=vault_root))
+
+    assert client is not None
+    assert client.provider_type == "openrouter"
+    assert callable(getattr(client, "run_reader_preset_synthesis", None))

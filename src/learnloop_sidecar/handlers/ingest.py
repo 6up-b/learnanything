@@ -36,7 +36,7 @@ class StartIngestInput(ParamsModel):
     mode: Literal["canonical", "exam"] = "canonical"
     # PDF extraction engine: marker-pdf (structured Markdown, math, OCR) or the
     # pypdf native-text fallback. "auto" defers to the vault's [ingest.pdf].
-    pdf_engine: Literal["auto", "marker", "pypdf"] = "auto"
+    pdf_engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
 
 
 class IngestJobInput(ParamsModel):
@@ -70,7 +70,7 @@ class StartImportBatchInput(ParamsModel):
     reader_disabled_sources: list[str] = []
     # PDF extraction engine for this batch: marker-pdf or the pypdf fallback.
     # "auto" defers to the vault's [ingest.pdf] configuration.
-    pdf_engine: Literal["auto", "marker", "pypdf"] = "auto"
+    pdf_engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
 
 
 class IngestBatchInput(ParamsModel):
@@ -792,11 +792,11 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
 
     vault, repository = ctx.require_vault()
     _source_set_or_error(vault, params.source_set_id)
-    _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
+    _provider, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         raise SidecarError(
-            "codex_unavailable",
-            runtime.message or "Codex runtime is unavailable for synthesis.",
+            "provider_unavailable",
+            runtime.message or "AI provider is unavailable for synthesis.",
             retryable=True,
         )
     try:
@@ -937,8 +937,8 @@ def append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[st
     _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         raise SidecarError(
-            "codex_unavailable",
-            runtime.message or "Codex runtime is unavailable for append.",
+            "provider_unavailable",
+            runtime.message or "AI provider is unavailable for append.",
             retryable=True,
         )
     try:
@@ -978,8 +978,8 @@ def refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> d
         _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
         if client is None:
             raise SidecarError(
-                "codex_unavailable",
-                runtime.message or "Codex runtime is unavailable for revision refresh.",
+                "provider_unavailable",
+                runtime.message or "AI provider is unavailable for revision refresh.",
                 retryable=True,
             )
     result = refresh_revision(

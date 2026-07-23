@@ -678,6 +678,15 @@ class InventoryProcedureSignal(BaseModel):
     common_invalid_steps: list[str] = Field(default_factory=list)
     observable_step_span_ids: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_span_ids(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("observable_step_span_ids") and data.get("span_ids"):
+                data["observable_step_span_ids"] = list(data["span_ids"])
+        return data
+
+
 
 class InventoryPracticeSignal(BaseModel):
     signal_id: str = ""
@@ -1072,3 +1081,17 @@ class AppendReconciliation(BaseModel):
     conflict_candidates: list[str] = Field(default_factory=list)
     non_conflict_dispositions: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+class ManimAnimation(BaseModel):
+    """One LLM-authored Manim CE explainer scene (spec_fork_features §2).
+
+    Candidate-only: the animation service AST-validates ``scene_code`` against
+    an import/builtin allowlist and renders it in a constrained subprocess with
+    a timeout — nothing here is trusted or auto-executed, and per-run learner
+    consent is the actual security boundary."""
+
+    scene_code: str = ""
+    scene_class: str = ""
+    title: str = ""
+    narration_md: str = ""

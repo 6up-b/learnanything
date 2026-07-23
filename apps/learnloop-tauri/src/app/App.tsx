@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type {
-  AppSnapshot,
-  ProbeBlockEndDto,
-  RuntimeHealth,
-  SessionEndSummary,
-  SessionSnapshot
-} from "../api/dto";
+import type { AppSnapshot, ProbeBlockEndDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
@@ -678,7 +672,6 @@ export function App() {
         active={tab}
         onTab={gotoTab}
         aiReady={gradingReady}
-        aiLabel={gradingProvider}
         aiManual={manualGrading}
         vaultRoot={snapshot?.vault?.root}
         onSelectVault={changeVault}

@@ -392,4 +392,9 @@ def fetch_source(source: str) -> FetchedSource:
     """Detect the source kind and fetch it. Raises an :class:`IngestError` subclass on failure."""
 
     resolved = resolve_source(source)
+    if resolved.category == "audio":
+        raise UnsupportedSourceError(
+            "Audio sources are only supported by the durable import pipeline "
+            "(canonical mode); the legacy fetch path cannot transcribe audio."
+        )
     return _FETCHERS[resolved.category](resolved.source)

@@ -14,10 +14,51 @@
   --cyan: #6ad0e0;
   --red: #e07e7e;
   --pink: #dc7fb8;
+  /* Derived/secondary tokens — every literal the UI paints with lives here so
+     a palette (styles/palettes.css) can retheme the whole app by overriding
+     :root[data-palette=...]. Default values are the original literals. */
+  --border-focus: #e3a063;
+  --text-strong: #c6c6d0;
+  --text-italic: #8088a0;
+  --amber-link: #f0b878;
+  --amber-hi: #f0c890;
+  --amber-mid: #9a6f3a;
+  --amber-low: #4d3a23;
+  --faint-dot: #33281b;
+  --purple-pill: #5a4d8a;
+  --purple-text: #dccdf2;
+  --green-soft: #5fa672;
+  --yellow: #dccd5a;
+  --shell-bg: #000;
+  --titlebar-bg: #111;
+  --inspector-bg: #101010;
+  --border-amber-dim: #5a4a30;
+  --wash-amber: #241d12;
+  --wash-amber-strong: #2d2315;
+  --wash-amber-faint: #14110a;
+  --wash-cyan: #10212a;
+  --wash-cyan-banner: #101d22;
+  --wash-red: #241315;
+  --wash-green: #122117;
+  --wash-purple: #1a162a;
+  --pill-slate-bg: #363850;
+  --pill-slate-fg: #b0b0c8;
+  --pill-purple-bg: #5a4d8a;
+  --pill-purple-fg: #dccdf2;
+  --pill-amber-bg: #6e5025;
+  --pill-amber-fg: #f0c890;
+  --pill-green-bg: #3a6b4d;
+  --pill-green-fg: #b8e8c8;
+  --pill-cyan-bg: #2e5d6a;
+  --pill-cyan-fg: #a8e0ed;
+  --pill-pink-bg: #5d3252;
+  --pill-pink-fg: #f0c0e0;
+  --pill-red-bg: #6b3838;
+  --pill-red-fg: #f0b8b8;
   --scrollbar-thumb: rgba(144, 144, 160, 0.22);
   --scrollbar-thumb-hover: rgba(144, 144, 160, 0.42);
   --scrollbar-thumb-active: rgba(227, 160, 99, 0.5);
-  background: #000;
+  background: var(--shell-bg);
   color: var(--text);
 }
 
@@ -55,7 +96,7 @@
 .modal-underlay-obscured *::-webkit-scrollbar {
   display: none !important;
 }
-html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--shell-bg); }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 
@@ -203,19 +244,36 @@ button { color: inherit; }
   font-size: 12px;
   white-space: nowrap;
 }
-.pill.slate { background: #363850; color: #b0b0c8; }
-.pill.purple { background: #5a4d8a; color: #dccdf2; }
-.pill.amber { background: #6e5025; color: #f0c890; }
-.pill.green { background: #3a6b4d; color: #b8e8c8; }
-.pill.cyan { background: #2e5d6a; color: #a8e0ed; }
-.pill.pink { background: #5d3252; color: #f0c0e0; }
-.pill.red { background: #6b3838; color: #f0b8b8; }
+/* The nav-status settings chip keeps the ai health coloring but is a plain
+   button opening the Settings screen. */
+.nav-settings {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-settings.open { text-decoration: underline; }
+.nav-settings-gear { font-size: 18px; line-height: 1; }
+.nav-settings-key { color: var(--faint); font-size: 11px; }
+.nav-settings.open .nav-settings-key { color: var(--amber); }
+
+.pill.slate { background: var(--pill-slate-bg); color: var(--pill-slate-fg); }
+.pill.purple { background: var(--pill-purple-bg); color: var(--pill-purple-fg); }
+.pill.amber { background: var(--pill-amber-bg); color: var(--pill-amber-fg); }
+.pill.green { background: var(--pill-green-bg); color: var(--pill-green-fg); }
+.pill.cyan { background: var(--pill-cyan-bg); color: var(--pill-cyan-fg); }
+.pill.pink { background: var(--pill-pink-bg); color: var(--pill-pink-fg); }
+.pill.red { background: var(--pill-red-bg); color: var(--pill-red-fg); }
 
 .entity-link {
   background: transparent;
   border: 0;
   padding: 0;
-  color: #f0b878;
+  color: var(--amber-link);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -313,7 +371,7 @@ button { color: inherit; }
 /* Rendered KaTeX widgets sit inline in the text flow; a thin amber underline
    distinguishes "rendered" (click to edit) from the raw source being typed. */
 .mle-math {
-  border-bottom: 1px dotted #5a4a30;
+  border-bottom: 1px dotted var(--border-amber-dim);
   cursor: pointer;
 }
 .mle-math:hover { border-bottom-color: var(--amber); }
@@ -488,7 +546,7 @@ button { color: inherit; }
     color 120ms ease;
 }
 .queue-row:hover {background: rgba(255, 255, 255, 0.025);}
-.queue-row:not(.focused) .queue-title {color: #c6c6d0;}
+.queue-row:not(.focused) .queue-title {color: var(--text-strong);}
 .queue-row.focused {
   background: var(--elev);
   border-left-color: var(--amber);
@@ -510,7 +568,7 @@ button { color: inherit; }
 }
 .queue-row.focused .queue-hotkey {
   border-color: var(--amber);
-  background: #241d12;
+  background: var(--wash-amber);
   color: var(--amber);
   font-weight: 600;
 }
@@ -519,7 +577,7 @@ button { color: inherit; }
   min-width: 72px;
   gap: 8px;
   border-color: var(--amber);
-  background: #241d12;
+  background: var(--wash-amber);
   color: var(--amber);
   font-weight: 600;
 }
@@ -643,7 +701,7 @@ button { color: inherit; }
 .detail-practice-action {
   margin-top: 18px;
   border: 1px solid var(--amber);
-  background: #241d12;
+  background: var(--wash-amber);
   color: var(--amber);
   cursor: pointer;
   padding: 10px 14px;
@@ -654,7 +712,7 @@ button { color: inherit; }
 }
 
 .detail-practice-action:hover {
-  background: #2d2315;
+  background: var(--wash-amber-strong);
 }
 
 .detail-practice-action .return-symbol {
@@ -673,7 +731,7 @@ button { color: inherit; }
   margin-top: 14px;
   padding: 12px 14px;
   border-left: 3px solid var(--amber);
-  background: #241d12;
+  background: var(--wash-amber);
 }
 .grading-panel { border-left-color: var(--cyan); background: #10212a; }
 .self-grade-grid { display: grid; gap: 12px; margin-top: 12px; }
@@ -686,7 +744,7 @@ button { color: inherit; }
 .attribution-box {
   padding: 10px 12px;
   border-left: 2px solid var(--border-strong);
-  background: #14110a;
+  background: var(--wash-amber-faint);
 }
 .attribution-head {
   font-size: 10px;
@@ -711,7 +769,7 @@ button { color: inherit; }
 }
 .attribution-chip:hover { border-color: var(--amber); color: var(--text); }
 .attribution-chip.relevant { border-color: #5a4a30; color: var(--text); }
-.attribution-chip.on { border-color: var(--amber); background: #241d12; color: var(--amber); }
+.attribution-chip.on { border-color: var(--amber); background: var(--wash-amber); color: var(--amber); }
 .attribution-chip-mark { color: var(--red); font-size: 9px; line-height: 1; }
 .attribution-chip.on .attribution-chip-mark { color: var(--amber); }
 .attribution-divider {
@@ -729,7 +787,7 @@ button { color: inherit; }
   inset: 64px 28px 28px auto;
   z-index: 200;
   width: min(430px, calc(100vw - 56px));
-  background: #101010;
+  background: var(--inspector-bg);
   border: 1px solid var(--border-strong);
   box-shadow: 0 20px 70px rgba(0,0,0,.6);
   display: flex;
@@ -913,7 +971,7 @@ button { color: inherit; }
   cursor: pointer;
   border-left: 2px solid transparent;
 }
-.cli-completion.selected { background: #241d12; border-left-color: var(--amber); }
+.cli-completion.selected { background: var(--wash-amber); border-left-color: var(--amber); }
 .cli-completion.selected .cli-completion-text { color: var(--amber); }
 .cli-completion-text { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cli-completion-hint { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -951,7 +1009,7 @@ button { color: inherit; }
   z-index: 400;
   overflow: hidden;
   cursor: pointer;
-  background-color: #000;
+  background-color: var(--shell-bg);
   background-image: radial-gradient(58% 58% at 50% 50%, rgba(227, 160, 99, 0.06), transparent 72%);
   animation: sfin-overlay-in 280ms ease both;
 }
@@ -989,14 +1047,14 @@ button { color: inherit; }
   transform-origin: center;
 }
 
-.sfin-c-amber { color: #e3a063; }
-.sfin-c-amber-hi { color: #f0c890; }
-.sfin-c-amber-mid { color: #9a6f3a; }
-.sfin-c-amber-low { color: #4d3a23; }
-.sfin-c-faint-dot { color: #33281b; }
-.sfin-c-green { color: #7fd28f; }
-.sfin-c-dim { color: #9090a0; }
-.sfin-c-faint { color: #666778; }
+.sfin-c-amber { color: var(--amber); }
+.sfin-c-amber-hi { color: var(--amber-hi); }
+.sfin-c-amber-mid { color: var(--amber-mid); }
+.sfin-c-amber-low { color: var(--amber-low); }
+.sfin-c-faint-dot { color: var(--faint-dot); }
+.sfin-c-green { color: var(--green); }
+.sfin-c-dim { color: var(--dim); }
+.sfin-c-faint { color: var(--faint); }
 
 /* faint scanlines */
 .sfin-scan {

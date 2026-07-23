@@ -846,10 +846,60 @@ pub async fn set_openrouter_api_key(
     api_key: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "set_openrouter_api_key", json!({ "apiKey": api_key })).await
+}
+
+#[tauri::command]
+pub async fn update_ingest_settings(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "update_ingest_settings", input).await
+}
+
+#[tauri::command]
+pub async fn set_transcription_api_key(
+    api_key: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "set_transcription_api_key", json!({ "apiKey": api_key })).await
+}
+
+#[tauri::command]
+pub async fn get_animation_runtime(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_animation_runtime", json!({})).await
+}
+
+#[tauri::command]
+pub async fn request_concept_animation(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "request_concept_animation", input).await
+}
+
+#[tauri::command]
+pub async fn get_concept_animation_status(
+    animation_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
     blocking_sidecar_call(
         sidecar,
-        "set_openrouter_api_key",
-        json!({ "apiKey": api_key }),
+        "get_concept_animation_status",
+        json!({ "animationId": animation_id }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn list_concept_animations(
+    concept_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "list_concept_animations",
+        json!({ "conceptId": concept_id }),
     )
     .await
 }

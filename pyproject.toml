@@ -32,6 +32,11 @@ dev = [
 pdf = [
   "marker-pdf>=1.10",
 ]
+# AI-generated Manim explainer animations (concept inspector). The renderer is
+# runtime-detected; without this extra the feature reports "manim missing".
+animation = [
+  "manim>=0.18",
+]
 
 [project.scripts]
 learnloop = "learnloop.cli:app"

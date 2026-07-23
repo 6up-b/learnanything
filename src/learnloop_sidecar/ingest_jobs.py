@@ -402,6 +402,20 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch_id
 
+    def enqueue_concept_animation(self, *, animation_id: str, subject_id: str | None = None) -> str:
+        """Enqueue one explainer-animation generation (interactive band — the
+        learner clicked generate and is watching the status)."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "concept_animation",
+            [JobSpec("concept_animation", {"animation_id": animation_id})],
+            subject_id=subject_id,
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
     def enqueue_inventory(
         self,
         *,
@@ -889,16 +903,39 @@ class DurableIngestJobs:
             client = factory()
         else:
             try:
+                from learnloop.ai.client import make_ai_provider_client
+                from learnloop.ai.routing import fallback_provider_for, provider_for_task
+                from learnloop.ai.runtime import check_ai_runtime
                 from learnloop.codex.client import make_codex_client
                 from learnloop.codex.runtime import check_codex_runtime
                 from learnloop.vault.loader import load_vault
 
                 vault = load_vault(runner.vault_root)
-                runtime = check_codex_runtime(runner.vault_root, vault.config.codex)
+                config = vault.config
+
+                def _runtime(name: str):
+                    if name == "codex":
+                        return check_codex_runtime(runner.vault_root, config.codex)
+                    return check_ai_runtime(runner.vault_root, config, provider_name=name)
+
+                def _client(name: str):
+                    if name == "codex":
+                        return make_codex_client(config.codex, runner.vault_root)
+                    return make_ai_provider_client(config, runner.vault_root, provider_name=name)
+
+                # Same canonical_ingest route the runner's inventory/synthesis
+                # factories resolve, so non-codex vaults (e.g. openrouter) can
+                # drain reader preset requests too.
+                selection = provider_for_task(config, "canonical_ingest")
                 client = (
-                    make_codex_client(vault.config.codex, runner.vault_root)
-                    if runtime.ready else None
+                    _client(selection.provider_name)
+                    if _runtime(selection.provider_name).ready
+                    else None
                 )
+                if client is None:
+                    fallback = fallback_provider_for(config, selection)
+                    if fallback and _runtime(fallback).ready:
+                        client = _client(fallback)
             except Exception:  # noqa: BLE001 — an unresolvable provider leaves requests queued
                 client = None
         with self._lock:

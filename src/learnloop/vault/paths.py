@@ -94,6 +94,17 @@ class VaultPaths:
         # derived IR/assets/cache data
         return self.root / ".learnloop" / "source-cache" / "extractions" / extraction_id
 
+    @property
+    def animations_dir(self) -> Path:
+        # content-addressed rendered explainer mp4s (spec_fork_features §2)
+        return self.root / "media" / "animations"
+
+
+def animation_video_path(root: Path, video_hash: str) -> Path:
+    """Content-addressed animation mp4 path; config-free like the raw store."""
+
+    return root / "media" / "animations" / f"{_sanitize_hash(video_hash)}.mp4"
+
 
 def canonical_source_raw_path(root: Path, asset_hash: str) -> Path:
     """Content-addressed originals store path; config-free so byte-store code

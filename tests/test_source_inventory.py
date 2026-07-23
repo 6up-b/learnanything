@@ -541,3 +541,24 @@ def test_unknown_role_fails_closed_for_authority():
     # A grant missing audit metadata is refused.
     with pytest.raises(ValueError):
         role_authority("x", manual_grant={"semantic_contract": True})
+
+
+def test_procedure_signal_span_ids_coercion_and_validation():
+    # Model returns span_ids instead of observable_step_span_ids on procedure signals
+    raw = {
+        "procedure_id": "p1",
+        "contract": "solve linear system",
+        "ordered_steps": ["step 1"],
+        "span_ids": ["s01", "s02"],
+    }
+    proc = InventoryProcedureSignal.model_validate(raw)
+    assert proc.observable_step_span_ids == ["s01", "s02"]
+
+    # Validate inventory handles procedure_signals with span_ids correctly
+    inv = SourceUnitInventory(
+        unit_id="u1",
+        semantic_hash="hash1",
+        procedure_signals=[proc],
+    )
+    validate_inventory(inv, {"s01", "s02"})
+

@@ -127,8 +127,10 @@ def author_quick_check(
             "expected_answer_md": expected_answer_md,
             "span_ids": span_ids,
             "prompt_version": READING_QUICK_CHECK_PROMPT_VERSION,
-            "provider": getattr(getattr(client, "config", None), "provider", None),
-            "model": getattr(getattr(client, "config", None), "model", None),
+            "provider": getattr(getattr(client, "config", None), "provider", None)
+            or getattr(client, "provider_name", None),
+            "model": getattr(getattr(client, "config", None), "model", None)
+            or getattr(client, "model", None),
         },
         clock=clock,
     )

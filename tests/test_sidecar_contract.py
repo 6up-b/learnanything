@@ -51,6 +51,28 @@ def test_sidecar_loads_linear_algebra_fixture_vault(tmp_path):
     assert queue["totalItems"] >= 3
 
 
+def test_sidecar_config_reports_ai_routing(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    config = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "get_config", "params": {}},
+        ]
+    )[1]["result"]
+
+    routing = config["ai"]["routing"]
+    # Default vault: legacy codex routes upgraded to workload-specific profiles.
+    assert routing["grading"] == "codex_low"
+    assert routing["canonicalIngest"] == "codex_medium"
+    assert routing["canonicalIngestRetry"] == "codex_medium"
+    assert routing["authoring"] == "codex_medium"
+    assert routing["tutorQa"] == "codex_low"
+    assert routing["teachBack"] == "codex_low"
+    assert routing["rungVariant"] == "codex_low"
+
+
 def test_sidecar_initialize_start_session_and_queue(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -2396,3 +2418,346 @@ def test_sidecar_create_vault_refuses_populated_non_vault_dir(tmp_path):
     assert response["error"]["data"]["code"] == "vault_dir_not_empty"
     # The guard left the directory untouched — no vault scaffolding written.
     assert not (junk / "learnloop.toml").exists()
+
+
+def test_sidecar_create_vault_inherits_ai_settings_from_active_vault(tmp_path, monkeypatch):
+    # The NewVault wizard creates the vault while the sidecar is still bound to
+    # the old one — the fresh vault must inherit its persisted [ai] selection,
+    # or bootstrap synthesis regresses to the template's codex routing.
+    from learnloop.config import load_config
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    source_root = tmp_path / "vault-a"
+    create_basic_vault(source_root)
+    new_root = tmp_path / "vault-b"
+
+    responses = _settings_rpc(
+        source_root,
+        (
+            "update_ai_settings",
+            {"useCases": {"ingest": {"provider": "openrouter", "openrouterModel": "anthropic/claude-sonnet-4.5"}}},
+        ),
+        ("create_vault", {"path": str(new_root), "subject": "Calculus"}),
+    )
+    assert all("result" in response for response in responses)
+
+    config = load_config(new_root / "learnloop.toml")
+    assert config.ai.routing.canonical_ingest == "openrouter_ingest"
+    assert config.ai.routing.canonical_ingest_retry == "openrouter_ingest"
+    assert config.ai.routing.authoring == "openrouter_ingest"
+    assert config.ai.providers["openrouter_ingest"].model == "anthropic/claude-sonnet-4.5"
+    # Unconfigured use-cases keep the template default.
+    assert config.ai.routing.grading == "codex_low"
+
+
+def test_sidecar_create_vault_reopen_does_not_touch_existing_ai_settings(tmp_path, monkeypatch):
+    from learnloop.config import load_config
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    source_root = tmp_path / "vault-a"
+    create_basic_vault(source_root)
+    existing_root = tmp_path / "vault-b"
+    create_basic_vault(existing_root)
+
+    responses = _settings_rpc(
+        source_root,
+        (
+            "update_ai_settings",
+            {"useCases": {"ingest": {"provider": "openrouter", "openrouterModel": "anthropic/claude-sonnet-4.5"}}},
+        ),
+        ("create_vault", {"path": str(existing_root)}),
+    )
+    assert all("result" in response for response in responses)
+
+    config = load_config(existing_root / "learnloop.toml")
+    assert config.ai.routing.canonical_ingest == "codex_medium"
+    assert "openrouter_ingest" not in config.ai.providers
+
+
+# --------------------------------------------------------------------------
+# Settings RPCs (get_settings / update_ai_settings / set_openrouter_api_key)
+# --------------------------------------------------------------------------
+
+
+def _settings_rpc(vault_root, *messages):
+    payload = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}}]
+    payload.extend(
+        {"jsonrpc": "2.0", "id": index + 2, "method": name, "params": params}
+        for index, (name, params) in enumerate(messages)
+    )
+    return _rpc(payload)[1:]
+
+
+def test_get_settings_reports_routing_providers_and_key_presence(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    result = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]
+
+    assert result["ai"]["activeProvider"] == "codex"
+    assert result["ai"]["routing"]["grading"] == "codex_low"
+    assert result["ai"]["envProviderOverride"] is None
+    provider_names = [p["name"] for p in result["ai"]["providers"]]
+    # Provider names arrive verbatim (list form), never camel-mangled.
+    assert "openrouter" in provider_names
+    assert "deepseek_flash" in provider_names
+    assert result["openrouter"]["keyPresent"] is False
+    assert "settingsEnvPath" in result["openrouter"]
+    assert sorted(result["ai"]["useCases"]) == ["animation", "grading", "ingest", "tutor"]
+
+
+def test_update_ai_settings_persists_openrouter_grading_route(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    result = _settings_rpc(
+        vault_root,
+        (
+            "update_ai_settings",
+            {"useCases": {"grading": {"provider": "openrouter", "openrouterModel": "anthropic/claude-sonnet-4.5"}}},
+        ),
+    )[0]["result"]
+
+    assert result["ai"]["routing"]["grading"] == "openrouter_grading"
+    from learnloop.config import load_config
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ai.routing.grading == "openrouter_grading"
+    profile = config.ai.providers["openrouter_grading"]
+    assert profile.type == "openrouter"
+    assert profile.model == "anthropic/claude-sonnet-4.5"
+    assert profile.api_key_env == "OPENROUTER_API_KEY"
+    # Template comments survive the tomlkit round-trip.
+    text = (vault_root / "learnloop.toml").read_text(encoding="utf-8")
+    assert "# Any OpenRouter model slug works" in text
+
+
+def test_update_ai_settings_expands_ingest_use_case(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    result = _settings_rpc(
+        vault_root,
+        (
+            "update_ai_settings",
+            {"useCases": {"ingest": {"provider": "openrouter", "openrouterModel": "deepseek/deepseek-chat"}}},
+        ),
+    )[0]["result"]
+
+    routing = result["ai"]["routing"]
+    assert routing["canonicalIngest"] == "openrouter_ingest"
+    assert routing["canonicalIngestRetry"] == "openrouter_ingest"
+    assert routing["authoring"] == "openrouter_ingest"
+    # Untouched use-cases keep their defaults.
+    assert routing["grading"] == "codex_low"
+
+
+def test_update_ai_settings_clears_session_grading_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        ("set_grading_provider", {"provider": "manual"}),
+        (
+            "update_ai_settings",
+            {"useCases": {"grading": {"provider": "deepseek_flash"}}},
+        ),
+    )
+    assert responses[0]["result"]["manualGrading"] is True
+    health = responses[1]["result"]["health"]
+    assert health["ai"]["gradingProviderOverride"] is None
+    assert health["ai"]["manualGrading"] is not True
+
+
+def test_update_ai_settings_rejects_unknown_provider_use_case_and_slug(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    bad_provider = _settings_rpc(
+        vault_root, ("update_ai_settings", {"useCases": {"grading": {"provider": "nope"}}})
+    )[0]
+    assert bad_provider["error"]["data"]["code"] == "invalid_provider"
+
+    bad_use_case = _settings_rpc(
+        vault_root, ("update_ai_settings", {"useCases": {"dreaming": {"provider": "codex"}}})
+    )[0]
+    assert bad_use_case["error"]["data"]["code"] == "invalid_use_case"
+
+    bad_slug = _settings_rpc(
+        vault_root,
+        ("update_ai_settings", {"useCases": {"grading": {"provider": "openrouter", "openrouterModel": "has spaces"}}}),
+    )[0]
+    assert bad_slug["error"]["data"]["code"] == "invalid_model"
+
+    # Nothing persisted by the rejected calls.
+    from learnloop.config import load_config
+
+    assert load_config(vault_root / "learnloop.toml").ai.routing.grading == "codex_low"
+
+
+def test_set_openrouter_api_key_writes_global_settings_env_and_environ(tmp_path, monkeypatch):
+    global_dir = tmp_path / "global"
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(global_dir))
+    # A stale value pre-exists in the process env: load_dotenv would never
+    # overwrite it, so the handler must write os.environ directly.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "stale-key")
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    result = _settings_rpc(
+        vault_root, ("set_openrouter_api_key", {"apiKey": "or-fresh-key-1234"})
+    )[0]["result"]
+
+    assert result["keyPresent"] is True
+    assert result["keyHint"] == "1234"
+    assert result["ready"] is True
+    assert "or-fresh-key-1234" not in str(result.get("status", ""))
+    settings_env = global_dir / "settings.env"
+    assert settings_env.read_text(encoding="utf-8") == "OPENROUTER_API_KEY=or-fresh-key-1234\n"
+    import os as _os
+
+    assert _os.environ["OPENROUTER_API_KEY"] == "or-fresh-key-1234"
+
+
+def test_set_openrouter_api_key_empty_removes_and_rejects_control_chars(tmp_path, monkeypatch):
+    global_dir = tmp_path / "global"
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(global_dir))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "to-be-removed")
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    removed = _settings_rpc(vault_root, ("set_openrouter_api_key", {"apiKey": ""}))[0]["result"]
+    assert removed["keyPresent"] is False
+    assert removed["ready"] is False
+    import os as _os
+
+    assert "OPENROUTER_API_KEY" not in _os.environ
+
+    rejected = _settings_rpc(vault_root, ("set_openrouter_api_key", {"apiKey": "bad\x00key"}))[0]
+    assert rejected["error"]["data"]["code"] == "invalid_api_key"
+
+
+def test_update_ingest_settings_toggles_native_and_transcription(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    result = _settings_rpc(
+        vault_root,
+        (
+            "update_ingest_settings",
+            {
+                "nativeMultimodal": True,
+                "transcriptionModel": "gpt-4o-transcribe",
+                "transcriptionBaseUrl": "https://api.groq.com/openai/v1",
+            },
+        ),
+    )[0]["result"]
+
+    assert result["ingest"]["nativeMultimodal"] is True
+    assert result["ingest"]["transcriptionModel"] == "gpt-4o-transcribe"
+    from learnloop.config import load_config
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ingest.native.enabled is True
+    assert config.ingest.audio.transcription_model == "gpt-4o-transcribe"
+    assert config.ingest.audio.transcription_base_url == "https://api.groq.com/openai/v1"
+
+    bad = _settings_rpc(vault_root, ("update_ingest_settings", {"transcriptionBaseUrl": "ftp://x"}))[0]
+    assert bad["error"]["data"]["code"] == "invalid_base_url"
+
+
+def test_update_ingest_settings_transcription_provider_switch(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    # Switching to openrouter with an endpoint-style model is rejected: the
+    # openrouter path sends chat input_audio to a "vendor/model" slug.
+    bad = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"transcriptionProvider": "openrouter"}),
+    )[0]
+    assert bad["error"]["data"]["code"] == "invalid_model"
+
+    unknown = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"transcriptionProvider": "groq"}),
+    )[0]
+    assert unknown["error"]["data"]["code"] == "invalid_provider"
+
+    result = _settings_rpc(
+        vault_root,
+        (
+            "update_ingest_settings",
+            {
+                "transcriptionProvider": "openrouter",
+                "transcriptionModel": "google/gemini-2.5-flash",
+            },
+        ),
+    )[0]["result"]
+    assert result["ingest"]["transcriptionProvider"] == "openrouter"
+    assert result["ingest"]["transcriptionModel"] == "google/gemini-2.5-flash"
+
+    from learnloop.config import load_config
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ingest.audio.provider == "openrouter"
+    assert config.ingest.audio.transcription_model == "google/gemini-2.5-flash"
+
+    # An update that never touches provider/model (the native toggle) must not
+    # trip the slug check, even against a hand-edited non-slug model.
+    from learnloop.services.settings_store import apply_config_updates
+
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {("ingest", "audio", "transcription_model"): "whisper-1"},
+    )
+    toggled = _settings_rpc(
+        vault_root, ("update_ingest_settings", {"nativeMultimodal": True})
+    )[0]["result"]
+    assert toggled["ingest"]["nativeMultimodal"] is True
+
+    # Switching back to the endpoint provider accepts endpoint-style models.
+    back = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"transcriptionProvider": "openai_compatible"}),
+    )[0]["result"]
+    assert back["ingest"]["transcriptionProvider"] == "openai_compatible"
+
+
+def test_set_transcription_api_key_writes_env_and_get_settings_reflects_it(tmp_path, monkeypatch):
+    global_dir = tmp_path / "global"
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(global_dir))
+    monkeypatch.setenv("LEARNLOOP_TRANSCRIPTION_API_KEY", "stale-value")
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    result = _settings_rpc(vault_root, ("set_transcription_api_key", {"apiKey": "tr-key-9876"}))[0]["result"]
+
+    assert result["keyPresent"] is True
+    assert result["keyHint"] == "9876"
+    assert result["envName"] == "LEARNLOOP_TRANSCRIPTION_API_KEY"
+    assert (
+        (global_dir / "settings.env").read_text(encoding="utf-8")
+        == "LEARNLOOP_TRANSCRIPTION_API_KEY=tr-key-9876\n"
+    )
+    import os as _os
+
+    assert _os.environ["LEARNLOOP_TRANSCRIPTION_API_KEY"] == "tr-key-9876"
+
+    settings = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]
+    assert settings["ingest"]["transcriptionKey"]["keyPresent"] is True

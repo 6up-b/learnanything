@@ -279,7 +279,7 @@ def validate_inventory(inventory: SourceUnitInventory, valid_span_ids: set[str])
     data = inventory.model_dump()
     for list_name, span_field in _SPAN_CITING_FIELDS:
         for index, item in enumerate(data.get(list_name, [])):
-            span_ids = item.get(span_field) or []
+            span_ids = item.get(span_field) or item.get("span_ids") or []
             if not span_ids:
                 raise InventoryValidationError(
                     f"{list_name}[{index}] cites no span id (every assertion must cite provided spans)."

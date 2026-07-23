@@ -65,6 +65,7 @@ def test_openrouter_runtime_requires_its_api_key(tmp_path, monkeypatch):
     report = check_ai_runtime(tmp_path, LearnLoopConfig(), provider_name="openrouter")
 
     assert report.status == "provider_auth_required"
+    assert report.ready is False
     assert report.provider_type == "openrouter"
     assert "OPENROUTER_API_KEY" in (report.message or "")
 
@@ -75,8 +76,29 @@ def test_openrouter_runtime_ready_with_api_key(tmp_path, monkeypatch):
     report = check_ai_runtime(tmp_path, LearnLoopConfig(), provider_name="openrouter")
 
     assert report.status == "ready"
+    assert report.ready is True
     assert report.provider_type == "openrouter"
     assert report.model == "deepseek/deepseek-chat"
+
+
+def test_openrouter_runtime_defaults_to_openrouter_key_env(tmp_path, monkeypatch):
+    # A profile that omits api_key_env must resolve OPENROUTER_API_KEY, not the
+    # generic OPENAI_API_KEY fallback used by the openai_chat type.
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "other-key")
+    config = LearnLoopConfig.model_validate(
+        {
+            "ai": {
+                "active_provider": "openrouter",
+                "providers": {"openrouter": {"type": "openrouter", "model": "deepseek/deepseek-chat"}},
+            }
+        }
+    )
+
+    report = check_ai_runtime(tmp_path, config)
+
+    assert report.status == "provider_auth_required"
+    assert "OPENROUTER_API_KEY" in (report.message or "")
 
 
 def _deepseek_config() -> LearnLoopConfig:

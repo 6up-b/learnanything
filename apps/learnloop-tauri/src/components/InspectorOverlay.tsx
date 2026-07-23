@@ -30,6 +30,7 @@ import type {
 import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, HelpTooltip, Meta, modePillColor, Pill, SectionHeader, type PillColor } from "./term";
 import { CapabilityGridView } from "./KnowledgeModel";
 import { RungVariantActions } from "./CardControls";
+import { ConceptAnimationSection } from "./ConceptAnimationSection";
 import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { CommandOverlayFrame, commandOverlayActionStyle, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
@@ -653,6 +654,9 @@ function ConceptBody({ detail, onGo }: { detail: ConceptInspectorDetail; onGo: (
           })}
         </div>
       ) : <Faint>no concept-graph relations configured</Faint>}
+
+      <SectionHeader>Explainer animation</SectionHeader>
+      <ConceptAnimationSection conceptId={detail.id} />
     </div>
   );
 }

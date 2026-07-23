@@ -2848,6 +2848,126 @@ class Repository:
             return True
         return all(row["status"] in ("failed", "cancelled", "completed") for row in rows)
 
+    # ------------------------------------------------------------------
+    # Concept animations (spec_fork_features §2)
+    # ------------------------------------------------------------------
+
+    _CONCEPT_ANIMATION_FIELDS = {
+        "status", "scene_code", "scene_class", "title", "narration_md",
+        "video_hash", "video_file_name", "duration_seconds", "provider",
+        "model", "prompt_version", "quality", "repair_attempted",
+        "failure_stage", "failure_reason", "render_stderr", "batch_id",
+        "completed_at",
+    }
+
+    def insert_concept_animation(self, row: Mapping[str, Any], *, clock: Clock | None = None) -> str:
+        animation_id = str(row.get("id") or new_ulid())
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO concept_animations(
+                  id, concept_id, learning_object_id, status, scene_code,
+                  scene_class, title, narration_md, video_hash, video_file_name,
+                  duration_seconds, provider, model, prompt_version, quality,
+                  repair_attempted, failure_stage, failure_reason, render_stderr,
+                  batch_id, created_at, updated_at, completed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    animation_id,
+                    row["concept_id"],
+                    row.get("learning_object_id"),
+                    row.get("status") or "queued",
+                    row.get("scene_code"),
+                    row.get("scene_class"),
+                    row.get("title"),
+                    row.get("narration_md"),
+                    row.get("video_hash"),
+                    row.get("video_file_name"),
+                    row.get("duration_seconds"),
+                    row.get("provider"),
+                    row.get("model"),
+                    row.get("prompt_version"),
+                    row.get("quality"),
+                    int(row.get("repair_attempted") or 0),
+                    row.get("failure_stage"),
+                    row.get("failure_reason"),
+                    row.get("render_stderr"),
+                    row.get("batch_id"),
+                    now,
+                    now,
+                    row.get("completed_at"),
+                ),
+            )
+            connection.commit()
+        return animation_id
+
+    def concept_animation(self, animation_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM concept_animations WHERE id = ?", (animation_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def update_concept_animation(
+        self, animation_id: str, *, clock: Clock | None = None, **fields: Any
+    ) -> bool:
+        updates = {key: value for key, value in fields.items() if key in self._CONCEPT_ANIMATION_FIELDS}
+        if not updates:
+            return False
+        assignments = ", ".join(f"{key} = ?" for key in updates)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"UPDATE concept_animations SET {assignments}, updated_at = ? WHERE id = ?",
+                (*updates.values(), utc_now_iso(clock), animation_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def concept_animations_for_concept(self, concept_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM concept_animations
+                WHERE concept_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (concept_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def pending_concept_animations(self, concept_id: str) -> list[dict[str, Any]]:
+        """Non-terminal animations for one concept — the per-concept lock."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM concept_animations
+                WHERE concept_id = ? AND status IN ('queued', 'generating', 'validating', 'rendering')
+                ORDER BY created_at, id
+                """,
+                (concept_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def concept_animation_batch_dead(self, batch_id: str | None) -> bool:
+        """True when an animation's generation batch can no longer complete it
+        (unset/unknown batch, or every concept_animation job in it is terminal
+        without the service having updated the row)."""
+
+        if not batch_id:
+            return True
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT status FROM ingest_jobs WHERE batch_id = ? AND job_type = 'concept_animation'",
+                (batch_id,),
+            ).fetchall()
+        if not rows:
+            return True
+        return all(row["status"] in ("failed", "cancelled", "completed") for row in rows)
+
     def rung_variant_pending_source_ids(self) -> set[str]:
         """Source items with a LIVE non-terminal variant request — the
         scheduler's pending-variant hold: never re-serve the exact card the

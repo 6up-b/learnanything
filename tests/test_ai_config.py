@@ -70,6 +70,90 @@ def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):
     assert client.config.timeout_seconds == 17
 
 
+def test_default_config_contains_audio_and_native_ingest(tmp_path):
+    init_vault(tmp_path)
+
+    loaded = load_config(tmp_path / "learnloop.toml")
+    in_memory = LearnLoopConfig()
+
+    # Written template and in-memory defaults must agree so older vaults pick
+    # up identical behavior.
+    for config in (loaded, in_memory):
+        audio = config.ingest.audio
+        assert audio.transcription_base_url == "https://api.openai.com/v1"
+        assert audio.transcription_model == "whisper-1"
+        assert audio.transcription_api_key_env == "LEARNLOOP_TRANSCRIPTION_API_KEY"
+        assert audio.language == ""
+        assert audio.timeout_seconds == 600
+        assert audio.max_file_mb == 25
+        native = config.ingest.native
+        assert native.enabled is False
+        assert native.audio is True
+        assert native.pdf is True
+        assert native.max_audio_mb == 20
+        assert config.ingest.pdf.engine == "auto"
+        assert config.ai.providers["openrouter"].input_modalities == []
+
+
+def test_animation_config_and_routing_parity(tmp_path):
+    init_vault(tmp_path)
+
+    loaded = load_config(tmp_path / "learnloop.toml")
+    in_memory = LearnLoopConfig()
+
+    for config in (loaded, in_memory):
+        assert config.ai.routing.animation == "codex_medium"
+        animation = config.animation
+        assert animation.enabled is True
+        assert animation.quality == "ql"
+        assert animation.timeout_seconds == 300
+        assert animation.max_duration_seconds == 45
+        assert animation.latex_enabled is False
+        assert animation.auto_repair is True
+        assert animation.manim_executable is None
+
+
+def test_pdf_native_engine_and_input_modalities_parse():
+    config = LearnLoopConfig.model_validate(
+        {
+            "ingest": {"pdf": {"engine": "native"}},
+            "ai": {
+                "providers": {
+                    "openrouter": {
+                        "type": "openrouter",
+                        "model": "google/gemini-2.5-pro",
+                        "input_modalities": ["audio", "pdf"],
+                    }
+                }
+            },
+        }
+    )
+
+    assert config.ingest.pdf.engine == "native"
+    assert config.ai.providers["openrouter"].input_modalities == ["audio", "pdf"]
+
+
+def test_default_config_seeds_openrouter_profile(tmp_path):
+    init_vault(tmp_path)
+
+    loaded = load_config(tmp_path / "learnloop.toml")
+    in_memory = LearnLoopConfig()
+
+    # The written TOML template and the in-memory seeding must agree, so a vault
+    # created before the openrouter profile existed picks up the same defaults.
+    for config in (loaded, in_memory):
+        profile = config.ai.providers["openrouter"]
+        assert profile.type == "openrouter"
+        assert profile.model == "deepseek/deepseek-chat"
+        assert profile.api_key_env == "OPENROUTER_API_KEY"
+        assert profile.response_format == "json_object"
+        assert profile.timeout_seconds == 180
+        # base_url defaults inside the client; max_tokens stays unset so
+        # synthesis-sized outputs are never truncated.
+        assert profile.base_url is None
+        assert profile.max_tokens is None
+
+
 def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path):
     init_vault(tmp_path)
 

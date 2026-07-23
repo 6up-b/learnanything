@@ -504,6 +504,11 @@ def resolve_canonical_source(
         resolved = resolve_source(source)
     except UnsupportedSourceError as exc:
         raise SourceIngestionError(str(exc)) from exc
+    if resolved.category == "audio":
+        raise SourceIngestionError(
+            "Audio sources are only supported by the durable import pipeline "
+            "(canonical mode); exam seeding and the legacy one-shot path cannot read audio."
+        )
     if kind != "auto":
         _validate_explicit_kind(kind)
         return resolved, kind

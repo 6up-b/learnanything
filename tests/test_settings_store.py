@@ -14,12 +14,86 @@ from learnloop.services.settings_store import (
 from learnloop.vault.loader import init_vault
 
 
-def _config_path(root):
-    init_vault(root)
-    return root / "learnloop.toml"
+def _config_path(tmp_path):
+    init_vault(tmp_path)
+    return tmp_path / "learnloop.toml"
+
+
+def test_apply_config_updates_preserves_comments_and_unrelated_lines(tmp_path):
+    path = _config_path(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    assert 'active_provider = "codex"' in before
+
+    apply_config_updates(path, {("ai", "active_provider"): "openrouter"})
+
+    after = path.read_text(encoding="utf-8")
+    assert 'active_provider = "openrouter"' in after
+    # A known template comment survives, and the untouched neighbouring keys do too.
+    assert "# Any OpenRouter model slug works" in after
+    assert 'fallback_provider = ""' in after
+    config = load_config(path)
+    assert config.ai.active_provider == "openrouter"
+
+
+def test_apply_config_updates_creates_missing_tables(tmp_path):
+    path = _config_path(tmp_path)
+
+    apply_config_updates(
+        path,
+        {
+            ("ai", "providers", "openrouter_grading", "type"): "openrouter",
+            ("ai", "providers", "openrouter_grading", "model"): "anthropic/claude-sonnet-4.5",
+            ("ai", "routing", "grading"): "openrouter_grading",
+        },
+    )
+
+    config = load_config(path)
+    profile = config.ai.providers["openrouter_grading"]
+    assert profile.type == "openrouter"
+    assert profile.model == "anthropic/claude-sonnet-4.5"
+    assert config.ai.routing.grading == "openrouter_grading"
+
+
+def test_openrouter_task_profile_values_round_trip(tmp_path):
+    path = _config_path(tmp_path)
+    base = load_config(path).ai.providers["openrouter"]
+    name = openrouter_profile_name("grading")
+    values = openrouter_task_profile_values(base, "openai/gpt-5-mini")
+
+    apply_config_updates(
+        path, {("ai", "providers", name, key): value for key, value in values.items()}
+    )
+
+    profile = load_config(path).ai.providers[name]
+    assert profile.type == "openrouter"
+    assert profile.model == "openai/gpt-5-mini"
+    assert profile.api_key_env == "OPENROUTER_API_KEY"
+    assert profile.response_format == "json_object"
+    # Unset base keys are never dumped into the TOML.
+    assert "max_tokens" not in path.read_text(encoding="utf-8").split(f"[ai.providers.{name}]", 1)[1].split("[", 1)[0]
+
+
+def test_apply_config_updates_is_atomic_on_parse_failure(tmp_path):
+    path = tmp_path / "learnloop.toml"
+    path.write_text("[ai\nbroken", encoding="utf-8")
+
+    with pytest.raises(SettingsStoreError) as excinfo:
+        apply_config_updates(path, {("ai", "active_provider"): "openrouter"})
+
+    assert excinfo.value.code == "config_unreadable"
+    assert path.read_text(encoding="utf-8") == "[ai\nbroken"
+    assert not (tmp_path / "learnloop.toml.tmp").exists()
+
+
+def test_apply_config_updates_missing_file(tmp_path):
+    with pytest.raises(SettingsStoreError) as excinfo:
+        apply_config_updates(tmp_path / "absent.toml", {("ai", "active_provider"): "x"})
+    assert excinfo.value.code == "config_missing"
 
 
 def _configure_openrouter_ingest(config_path, model="anthropic/claude-sonnet-4.5"):
+    """Persist what update_ai_settings writes for the ingest use-case."""
+
     base = load_config(config_path).ai.providers["openrouter"]
     name = openrouter_profile_name("ingest")
     updates = {
@@ -36,119 +110,97 @@ def _configure_openrouter_ingest(config_path, model="anthropic/claude-sonnet-4.5
     return name
 
 
-def test_apply_config_updates_preserves_comments_and_unrelated_values(tmp_path):
-    path = _config_path(tmp_path)
-    before = path.read_text(encoding="utf-8")
-    assert 'active_provider = "codex"' in before
-    assert "# Per-machine" in before
+def test_copy_ai_settings_copies_routing_and_materialized_profiles(tmp_path):
+    source_path = _config_path(tmp_path / "source")
+    target_path = _config_path(tmp_path / "target")
+    name = _configure_openrouter_ingest(source_path)
 
-    apply_config_updates(path, {("ai", "active_provider"): "openrouter"})
+    assert copy_ai_settings(source_path, target_path) is True
 
-    after = path.read_text(encoding="utf-8")
-    assert 'active_provider = "openrouter"' in after
-    assert "# Per-machine" in after
-    assert 'fallback_provider = ""' in after
-    assert load_config(path).ai.active_provider == "openrouter"
-
-
-def test_apply_config_updates_creates_task_profile_and_route(tmp_path):
-    path = _config_path(tmp_path)
-
-    apply_config_updates(
-        path,
-        {
-            ("ai", "providers", "openrouter_grading", "type"): "openrouter",
-            ("ai", "providers", "openrouter_grading", "model"): "openai/gpt-5-mini",
-            ("ai", "routing", "grading"): "openrouter_grading",
-        },
-    )
-
-    config = load_config(path)
-    assert config.ai.routing.grading == "openrouter_grading"
-    assert config.ai.providers["openrouter_grading"].model == "openai/gpt-5-mini"
+    config = load_config(target_path)
+    assert config.ai.routing.canonical_ingest == name
+    assert config.ai.routing.canonical_ingest_retry == name
+    assert config.ai.routing.authoring == name
+    assert config.ai.providers[name].model == "anthropic/claude-sonnet-4.5"
+    assert config.ai.providers[name].api_key_env == "OPENROUTER_API_KEY"
+    # Unconfigured use-cases keep the template defaults, template comments
+    # survive, and the codex tables are untouched.
+    text = target_path.read_text(encoding="utf-8")
+    assert config.ai.routing.grading == "codex_low"
+    assert "# Any OpenRouter model slug works" in text
+    assert 'checkout_path = ""' in text
 
 
-def test_openrouter_profile_values_only_emit_configured_fields(tmp_path):
-    path = _config_path(tmp_path)
-    base = load_config(path).ai.providers["openrouter"]
+def test_copy_ai_settings_default_source_is_semantic_noop(tmp_path):
+    source_path = _config_path(tmp_path / "source")
+    target_path = _config_path(tmp_path / "target")
 
-    values = openrouter_task_profile_values(base, "anthropic/claude-sonnet-4.5")
+    copy_ai_settings(source_path, target_path)
 
-    assert values["type"] == "openrouter"
-    assert values["model"] == "anthropic/claude-sonnet-4.5"
-    assert values["api_key_env"] == "OPENROUTER_API_KEY"
-    assert "max_tokens" not in values
-
-
-def test_apply_config_updates_does_not_touch_invalid_toml(tmp_path):
-    path = tmp_path / "learnloop.toml"
-    path.write_text("[ai\nbroken", encoding="utf-8")
-
-    with pytest.raises(SettingsStoreError) as exc_info:
-        apply_config_updates(path, {("ai", "active_provider"): "openrouter"})
-
-    assert exc_info.value.code == "config_unreadable"
-    assert path.read_text(encoding="utf-8") == "[ai\nbroken"
-    assert not path.with_suffix(".toml.tmp").exists()
-
-
-def test_copy_ai_settings_copies_routes_and_materialized_profiles(tmp_path):
-    source = _config_path(tmp_path / "source")
-    target = _config_path(tmp_path / "target")
-    profile_name = _configure_openrouter_ingest(source)
-
-    assert copy_ai_settings(source, target) is True
-
-    config = load_config(target)
-    assert config.ai.routing.canonical_ingest == profile_name
-    assert config.ai.routing.canonical_ingest_retry == profile_name
-    assert config.ai.routing.authoring == profile_name
-    assert config.ai.providers[profile_name].model == "anthropic/claude-sonnet-4.5"
+    config = load_config(target_path)
+    assert config.ai.active_provider == "codex"
+    assert config.ai.routing.canonical_ingest == "codex_medium"
     assert config.ai.routing.grading == "codex_low"
 
 
-def test_copy_ai_settings_rejects_missing_or_invalid_source(tmp_path):
-    target = _config_path(tmp_path / "target")
+def test_copy_ai_settings_errors_on_missing_or_invalid_source(tmp_path):
+    target_path = _config_path(tmp_path / "target")
 
-    with pytest.raises(SettingsStoreError) as missing:
-        copy_ai_settings(tmp_path / "missing.toml", target)
-    assert missing.value.code == "config_missing"
+    with pytest.raises(SettingsStoreError) as excinfo:
+        copy_ai_settings(tmp_path / "absent.toml", target_path)
+    assert excinfo.value.code == "config_missing"
 
-    invalid = tmp_path / "invalid.toml"
-    invalid.write_text("[ai\nbroken", encoding="utf-8")
-    with pytest.raises(SettingsStoreError) as unreadable:
-        copy_ai_settings(invalid, target)
-    assert unreadable.value.code == "config_unreadable"
+    bad = tmp_path / "bad.toml"
+    bad.write_text("[ai\nbroken", encoding="utf-8")
+    with pytest.raises(SettingsStoreError) as excinfo:
+        copy_ai_settings(bad, target_path)
+    assert excinfo.value.code == "config_unreadable"
+    # The failed copies never touched the target.
+    assert load_config(target_path).ai.routing.canonical_ingest == "codex_medium"
 
 
-def test_upsert_env_var_preserves_other_lines_and_replaces_target(tmp_path):
+def test_upsert_env_var_appends_and_replaces_preserving_other_lines(tmp_path):
     path = tmp_path / "settings.env"
     path.write_text(
-        "# machine secrets\nexport DEEPSEEK_API_KEY=old\nUNRELATED=keep me\n",
+        "# machine secrets\nexport DEEPSEEK_API_KEY=old-deepseek\nUNRELATED=keep me\n",
         encoding="utf-8",
     )
 
     upsert_env_var(path, "OPENROUTER_API_KEY", "or-first")
-    upsert_env_var(path, "DEEPSEEK_API_KEY", "new")
-
     text = path.read_text(encoding="utf-8")
     assert "# machine secrets" in text
+    assert "export DEEPSEEK_API_KEY=old-deepseek" in text
     assert "UNRELATED=keep me" in text
     assert "OPENROUTER_API_KEY=or-first" in text
-    assert "DEEPSEEK_API_KEY=new" in text
-    assert "old" not in text
+
+    # Replacing an export-prefixed key rewrites just that line.
+    upsert_env_var(path, "DEEPSEEK_API_KEY", "new-deepseek")
+    text = path.read_text(encoding="utf-8")
+    assert "DEEPSEEK_API_KEY=new-deepseek" in text
+    assert "old-deepseek" not in text
+    assert "OPENROUTER_API_KEY=or-first" in text
 
 
-def test_upsert_env_var_removes_key_and_rejects_unsafe_input(tmp_path):
-    path = tmp_path / "global" / "settings.env"
+def test_upsert_env_var_removes_key_on_none_and_creates_parents(tmp_path):
+    path = tmp_path / "config" / "learnloop" / "settings.env"
+
     upsert_env_var(path, "OPENROUTER_API_KEY", "value")
+    assert path.read_text(encoding="utf-8") == "OPENROUTER_API_KEY=value\n"
+
     upsert_env_var(path, "OPENROUTER_API_KEY", None)
     assert "OPENROUTER_API_KEY" not in path.read_text(encoding="utf-8")
 
-    with pytest.raises(SettingsStoreError) as bad_name:
-        upsert_env_var(path, "BAD KEY", "x")
-    assert bad_name.value.code == "invalid_env_key"
+    # Removing from a file that never had the key is a no-op, not an error.
+    upsert_env_var(path, "NEVER_SET", None)
 
-    with pytest.raises(SettingsStoreError) as bad_value:
+
+def test_upsert_env_var_rejects_bad_names_and_newlines(tmp_path):
+    path = tmp_path / "settings.env"
+    with pytest.raises(SettingsStoreError) as excinfo:
+        upsert_env_var(path, "BAD KEY", "x")
+    assert excinfo.value.code == "invalid_env_key"
+
+    with pytest.raises(SettingsStoreError) as excinfo:
         upsert_env_var(path, "OPENROUTER_API_KEY", "a\nb")
-    assert bad_value.value.code == "invalid_env_value"
+    assert excinfo.value.code == "invalid_env_value"
+    assert not path.exists()

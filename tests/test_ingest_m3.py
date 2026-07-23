@@ -246,6 +246,23 @@ def test_acquisition_preview_flags_potential_external_consent(tmp_path):
     assert preview.needs_consent_count == 1
 
 
+def test_acquisition_preview_audio_is_always_external(tmp_path):
+    repo = _repo(tmp_path)
+    audio = tmp_path / "lecture.mp3"
+    audio.write_bytes(b"\x00fake-mp3")
+    config = LearnLoopConfig()
+
+    preview = build_acquisition_preview(repo, config, [str(audio)])
+    item = preview.items[0]
+    assert item.recognized and item.category == "audio"
+    assert item.configured_extractor == "audio_transcription"
+    assert item.is_local and item.file_size_bytes == len(b"\x00fake-mp3")
+    external = item.potential_external[0]
+    assert external["kind"] == "audio_transcription"
+    assert external["model"] == "whisper-1"
+    assert preview.needs_consent_count == 1
+
+
 # --------------------------------------------------------------------------
 # Build plan (§8.6.2) — §14 "Token budgets: preflight emits per-stage estimates"
 # --------------------------------------------------------------------------
@@ -550,3 +567,17 @@ def test_multi_source_import_assigns_page_selection_per_source(tmp_path):
     queued = repo.ingest_jobs_for_batch(batch_id)
     assert queued[0]["payload"]["page_selection"] == [9, 10, 11]
     assert queued[1]["payload"]["page_selection"] == [49, 50]
+
+
+def test_acquisition_preview_pdf_native_engine_is_external(tmp_path):
+    repo = _repo(tmp_path)
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    config = LearnLoopConfig()
+    config.ingest.pdf.engine = "native"
+
+    preview = build_acquisition_preview(repo, config, [str(pdf)])
+    item = preview.items[0]
+    assert item.configured_extractor == "pdf_native"
+    assert any(entry["kind"] == "pdf_native_extraction" for entry in item.potential_external)
+    assert preview.needs_consent_count == 1
