@@ -253,7 +253,7 @@ API keys are never written to `learnloop.toml`; the profile names an environment
 
 ### The Settings tab
 
-The `ai:<provider>` chip at the far right of the tab bar (or Alt+S) opens the Settings screen, which persists everything above without hand-editing TOML:
+The gear chip (`⚙ [Alt+S]`) at the far right of the tab bar — green/red for AI ready/unready — opens the Settings screen, which persists everything above without hand-editing TOML:
 
 - **AI models** — the active provider plus per-use-case rows (grading, ingest/synthesis, tutor, animation). Picking OpenRouter for a use case takes any model slug and materializes a dedicated `[ai.providers.openrouter_<usecase>]` profile, so different tasks can run different OpenRouter models. Grading also offers manual (self-grade) mode.
 - **OpenRouter API key** — saved (masked) to the machine-global `settings.env`, never the committed vault config, and applied to the running process immediately.

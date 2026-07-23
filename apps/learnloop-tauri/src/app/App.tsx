@@ -672,7 +672,6 @@ export function App() {
         active={tab}
         onTab={gotoTab}
         aiReady={gradingReady}
-        aiLabel={gradingProvider}
         aiManual={manualGrading}
         vaultRoot={snapshot?.vault?.root}
         onSelectVault={changeVault}

@@ -272,8 +272,14 @@ button { color: inherit; }
   padding: 0;
   cursor: pointer;
   font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .nav-settings.open { text-decoration: underline; }
+.nav-settings-gear { font-size: 18px; line-height: 1; }
+.nav-settings-key { color: var(--faint); font-size: 11px; }
+.nav-settings.open .nav-settings-key { color: var(--amber); }
 
 .pill.slate { background: var(--pill-slate-bg); color: var(--pill-slate-fg); }
 .pill.purple { background: var(--pill-purple-bg); color: var(--pill-purple-fg); }
