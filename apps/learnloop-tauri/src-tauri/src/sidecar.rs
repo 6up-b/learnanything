@@ -257,6 +257,13 @@ fn sidecar_command_specs(repo_root: &Path) -> Vec<SidecarCommandSpec> {
         specs.push(python_spec(python, "LEARNLOOP_PYTHON"));
     }
 
+    // Prefer the environment the app was launched from (an activated
+    // conda/virtualenv) over the repo-local .venv, so the sidecar — and thus
+    // sys.executable and manim — matches the user's active Python environment.
+    if let Some(active) = active_env_python() {
+        specs.push(python_spec(active.into_os_string(), "active env (VIRTUAL_ENV/CONDA_PREFIX)"));
+    }
+
     #[cfg(not(windows))]
     if repo_root.join("uv.lock").exists() {
         specs.push(uv_spec());
@@ -311,6 +318,31 @@ fn venv_python(repo_root: &Path) -> Option<PathBuf> {
         repo_root.join(".venv").join("bin").join("python")
     };
     candidate.exists().then_some(candidate)
+}
+
+/// The interpreter of the currently-activated virtualenv or conda environment,
+/// if one is active and its python exists. Checks `VIRTUAL_ENV` first, then
+/// `CONDA_PREFIX`. On Windows a venv keeps python under `Scripts/`, while a
+/// conda prefix keeps `python.exe` at the prefix root — both are probed.
+fn active_env_python() -> Option<PathBuf> {
+    for var in ["VIRTUAL_ENV", "CONDA_PREFIX"] {
+        if let Some(base) = std::env::var_os(var) {
+            let base = PathBuf::from(base);
+            let candidate = if cfg!(windows) {
+                let scripts = base.join("Scripts").join("python.exe");
+                if scripts.exists() {
+                    return Some(scripts);
+                }
+                base.join("python.exe")
+            } else {
+                base.join("bin").join("python")
+            };
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
 }
 
 fn repo_root() -> PathBuf {

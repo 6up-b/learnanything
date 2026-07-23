@@ -56,6 +56,19 @@ def test_synthesis_capabilities_use_closed_vocabulary():
         SynthRecipeComponent(capability="identify sample space")
 
 
+def test_blueprint_requires_at_least_one_recipe():
+    # A blueprint with no recipe is a hard-fail at the recipe_validity gate;
+    # rejecting it at parse time catches degenerate weak-model output (empty
+    # recipes) on both client paths instead of silently persisting it.
+    with pytest.raises(ValueError):
+        SynthBlueprint(client_item_id="bp_empty", recipes=[])
+    # A blueprint with a recipe still validates.
+    SynthBlueprint(
+        client_item_id="bp_ok",
+        recipes=[SynthRecipe(all_of=[SynthRecipeComponent(facet_client_id="f_x")])],
+    )
+
+
 def test_synthesis_shards_namespace_declarations_and_references():
     result = SourceSetSynthesis(
         concepts=[SynthConcept(client_item_id="concept_shared")],

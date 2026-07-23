@@ -14,19 +14,23 @@ Persistence rules:
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
 from learnloop.ai.runtime import check_ai_runtime
-from learnloop.config import CODEX_PROVIDER_NAMES, global_settings_path
+from learnloop.config import CODEX_PROVIDER_NAMES, global_ai_defaults_path, global_settings_path
 from learnloop.services.settings_store import (
     USE_CASE_ROUTES,
     SettingsStoreError,
     apply_config_updates,
     openrouter_profile_name,
     openrouter_task_profile_values,
+    save_ai_settings_to,
     upsert_env_var,
 )
+
+logger = logging.getLogger(__name__)
 from learnloop_sidecar.context import SidecarContext, runtime_health
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -173,6 +177,13 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
         except SettingsStoreError as exc:
             raise SidecarError(exc.code, str(exc))
         ctx.reload(maintenance=False)
+        # Mirror the persisted [ai] selection into the machine-global defaults so
+        # a later new vault (created with none open) inherits this backend
+        # instead of falling back to the codex template. Best-effort.
+        try:
+            save_ai_settings_to(config_path, global_ai_defaults_path())
+        except SettingsStoreError as exc:
+            logger.warning("could not persist global AI defaults: %s", exc)
         if grading_changed:
             # The session-only override survives reloads and would silently
             # shadow the freshly persisted grading route.

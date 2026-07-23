@@ -113,6 +113,25 @@ def test_animation_config_and_routing_parity(tmp_path):
         assert animation.manim_executable is None
 
 
+def test_canonical_ingest_retry_follows_ingest_for_non_codex():
+    # A non-codex backend with an unset retry route should mirror the primary
+    # canonical_ingest provider rather than being left empty (which silently
+    # disabled the ingest retry pass for OpenRouter/Grok).
+    config = LearnLoopConfig.model_validate(
+        {"ai": {"active_provider": "openrouter", "routing": {"canonical_ingest": "openrouter"}}}
+    )
+    assert config.ai.routing.canonical_ingest == "openrouter"
+    assert config.ai.routing.canonical_ingest_retry == "openrouter"
+
+
+def test_canonical_ingest_retry_defaults_codex_for_codex_vault():
+    # No regression for codex vaults: the retry route still resolves to the
+    # medium codex tier.
+    config = LearnLoopConfig()
+    assert config.ai.routing.canonical_ingest == "codex_medium"
+    assert config.ai.routing.canonical_ingest_retry == "codex_medium"
+
+
 def test_pdf_native_engine_and_input_modalities_parse():
     config = LearnLoopConfig.model_validate(
         {

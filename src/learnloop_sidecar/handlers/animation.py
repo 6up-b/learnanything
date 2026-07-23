@@ -17,6 +17,7 @@ from learnloop.services.concept_animation import (
     ConceptAnimationError,
     manim_runtime,
     request_concept_animation as run_request,
+    resolve_manim_command,
 )
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
@@ -53,7 +54,9 @@ def _animation_row_payload(row: dict[str, Any]) -> dict[str, Any]:
 def get_animation_runtime(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     config = vault.config
-    probe = manim_runtime(config.animation.manim_executable)
+    probe = manim_runtime(
+        manim_command=resolve_manim_command(config.animation, vault.root)
+    )
     selection = provider_for_task(config, "animation")
     profile = config.ai.providers.get(selection.provider_name)
     return versioned(
@@ -86,7 +89,9 @@ def request_concept_animation(ctx: SidecarContext, params: RequestConceptAnimati
         )
     if not config.animation.enabled:
         raise SidecarError("animation_disabled", "[animation] enabled is false in learnloop.toml.")
-    probe = manim_runtime(config.animation.manim_executable)
+    probe = manim_runtime(
+        manim_command=resolve_manim_command(config.animation, vault.root)
+    )
     if not probe["available"]:
         raise SidecarError(
             "manim_missing",

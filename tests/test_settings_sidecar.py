@@ -55,7 +55,7 @@ def test_config_and_settings_report_ai_routes(tmp_path, monkeypatch):
     assert config["ai"]["routing"]["authoring"] == "codex_medium"
     assert settings["ai"]["routing"]["grading"] == "codex_low"
     assert settings["ai"]["envProviderOverride"] is None
-    assert sorted(settings["ai"]["useCases"]) == ["grading", "ingest", "tutor"]
+    assert sorted(settings["ai"]["useCases"]) == ["animation", "grading", "ingest", "tutor"]
     assert "openrouter" in {
         provider["name"] for provider in settings["ai"]["providers"]
     }

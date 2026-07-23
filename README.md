@@ -302,8 +302,9 @@ Python learnloop_sidecar
 | `tests/` | Unit, integration, replay, calibration, and CLI tests |
 | `fixtures/linear_algebra/` | Development vault with real example content |
 
-The Rust shell finds the sidecar in this order: `LEARNLOOP_PYTHON`, `uv`, the
-repository `.venv`, then the platform Python executable. Use
+The Rust shell finds the sidecar in this order: `LEARNLOOP_PYTHON`, the active
+environment (`VIRTUAL_ENV`/`CONDA_PREFIX`, so an activated conda/venv is used),
+the repository `.venv`, then `uv`/the platform Python executable. Use
 `LEARNLOOP_SIDECAR_TIMEOUT_SECS` to override the default 240-second desktop RPC
 timeout when debugging unusually long model calls.
 

@@ -178,9 +178,11 @@ class RunnerServices:
         return client
 
     def exercise_import_client(self, ctx: "JobContext") -> Any:
-        # Exercise completion follows the authoring route. The task method is
-        # getattr-discovered so unsupported providers still fail explicitly.
-        client = (self.exercise_import_client_factory or default_exercise_import_client)(ctx)
+        # Reader exercise imports ride the inventory resolver (routed via
+        # canonical_ingest, codex-family pinned low-effort): the task method is
+        # getattr-discovered on the client, like reader quick checks. Matches
+        # the reader RPC's ready_canonical_ingest_provider readiness gate.
+        client = (self.exercise_import_client_factory or default_inventory_client)(ctx)
         ctx.bind_interruptible(client)
         return client
 
@@ -1002,15 +1004,6 @@ def default_rung_variant_client(ctx: JobContext) -> Any:
     judgment-heavy synthesis profile, and the learner is actively waiting."""
 
     return _routed_task_client(ctx, "rung_variant")
-
-
-def default_exercise_import_client(ctx: JobContext) -> Any:
-    """Resolve reader exercise completion through the authoring route.
-
-    Codex-family routes are pinned low-effort like unit inventory: imported
-    exercises arrive verbatim, so completion is transcription-shaped work."""
-
-    return _routed_task_client(ctx, "authoring", pin_codex_low=True)
 
 
 def _routed_task_client(ctx: JobContext, task: str, *, pin_codex_low: bool = False) -> Any:

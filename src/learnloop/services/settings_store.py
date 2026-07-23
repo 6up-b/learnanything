@@ -166,6 +166,20 @@ def copy_ai_settings(source_path: Path, target_path: Path) -> bool:
     return True
 
 
+def save_ai_settings_to(source_path: Path, target_path: Path) -> bool:
+    """Mirror a vault's ``[ai]`` selection into ``target_path``, creating the
+    target (and its parent dir) if absent.
+
+    Used to persist the machine-global provider defaults so newly created vaults
+    can inherit them even when no vault is open. Delegates the actual ``[ai]``
+    subset copy to :func:`copy_ai_settings`."""
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if not target_path.exists():
+        target_path.write_text("", encoding="utf-8")
+    return copy_ai_settings(source_path, target_path)
+
+
 def _flatten_into_updates(
     prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]
 ) -> None:

@@ -37,6 +37,10 @@ export interface RuntimeHealth {
     manualGrading?: boolean;
     gradingProviderOverride?: string | null;
     availableGradingProviders?: string[];
+    // True when every provider the app routes to is configured with no missing
+    // fields (keys/checkout). Drives the settings chip color independent of
+    // which provider is nominally active. Absent on older sidecars.
+    settingsReady?: boolean;
   };
   database: { ok: boolean; migrationsApplied: number; latestMigration: number };
   vaultLoaded: boolean;

@@ -1332,6 +1332,16 @@ class AnimationConfig(BaseModel):
     auto_repair: bool = True
     # Override the renderer executable; default: sys.executable -m manim.
     manim_executable: str | None = None
+    # Optional dedicated virtualenv whose python renders scenes, isolating
+    # model-authored code from the app's own packages. Relative paths resolve
+    # under the vault root. When unset, the ambient interpreter is used (the
+    # env the app was launched from). Takes effect only when manim_executable
+    # is unset.
+    venv_path: str | None = None
+    # When true and venv_path is missing, create it and pip-install manim on
+    # first use. Off by default (a heavy, network-bound install); on failure the
+    # renderer falls back to the ambient interpreter.
+    auto_provision_venv: bool = False
 
 
 class AudioIngestConfig(BaseModel):
@@ -1860,10 +1870,12 @@ class LearnLoopConfig(BaseModel):
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
         for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
+            if task == "canonical_ingest_retry":
+                # Resolved after the loop so it can mirror the (possibly
+                # non-codex) canonical_ingest route once that is settled.
+                continue
             routed = getattr(self.ai.routing, task)
             if not routed:
-                if task == "canonical_ingest_retry" and self.ai.active_provider != "codex":
-                    continue
                 setattr(
                     self.ai.routing,
                     task,
@@ -1877,6 +1889,17 @@ class LearnLoopConfig(BaseModel):
                 # Older vault templates persisted one shared Codex route. Map
                 # that legacy default to the workload-specific effort profile.
                 setattr(self.ai.routing, task, default_provider)
+        # canonical_ingest_retry follows the primary canonical_ingest provider
+        # when unset, so a non-codex ingest backend still gets a retry pass
+        # (previously the retry route was left empty for non-codex providers,
+        # silently disabling ingest retry).
+        retry_route = getattr(self.ai.routing, "canonical_ingest_retry", "")
+        if not retry_route:
+            self.ai.routing.canonical_ingest_retry = self.ai.routing.canonical_ingest
+        elif retry_route == "codex":
+            self.ai.routing.canonical_ingest_retry = DEFAULT_CODEX_TASK_ROUTES[
+                "canonical_ingest_retry"
+            ]
         self.error_impacts.setdefault(
             "recall_failure",
             ErrorImpact(families={"recall": -0.25}, lo_mastery_delta=-0.05, local_severity_gain=0.8),
@@ -1988,6 +2011,18 @@ def global_settings_path() -> Path:
         root = Path(xdg).expanduser() if xdg else Path.home() / ".config"
         base = root / "learnloop"
     return base / "settings.env"
+
+
+def global_ai_defaults_path() -> Path:
+    """Machine-global default ``[ai]`` provider selection, seeded into new vaults.
+
+    Mirrors the ``[ai]`` routing + non-codex provider profiles the user last
+    persisted via the Settings tab, so a freshly created vault adopts the
+    configured backend even when no other vault is open to inherit from.
+    Lives beside ``settings.env`` in the global config dir.
+    """
+
+    return global_settings_path().parent / "ai_defaults.toml"
 
 
 def _apply_global_overrides(config: LearnLoopConfig) -> LearnLoopConfig:

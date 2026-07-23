@@ -845,7 +845,13 @@ class SynthBlueprint(BaseModel):
     learning_object_client_id: str = ""
     learning_object_id: str = ""
     weight: float = 1.0
-    recipes: list[SynthRecipe] = Field(default_factory=list)
+    # A blueprint with no recipe is meaningless (nothing to build tasks from) and
+    # is a hard-fail at the recipe_validity gate. Requiring >=1 here rejects that
+    # degenerate output at parse time on both client paths; on the chat path it
+    # triggers the one-shot JSON repair round (whose schema now shows minItems:1).
+    # Note: minItems is stripped from the strict Codex/OpenAI output schema, so
+    # this does not change that structured-output API contract.
+    recipes: list[SynthRecipe] = Field(default_factory=list, min_length=1)
 
 
 class SynthLearningObject(BaseModel):

@@ -214,6 +214,16 @@ export function App() {
   // not an outage) — but practice screens must still start in self-grade mode.
   const gradingReady = (snapshot?.health.ai?.ready ?? snapshot?.health.codex.ready ?? false) && !manualGrading;
   const gradingProvider = snapshot?.health.ai?.activeProvider ?? "codex";
+  // The settings chip is green when the configured backend has no errors/missing
+  // fields — every routed provider is ready (settingsReady), or grading is
+  // intentionally manual — rather than tracking grading-only readiness. Falls
+  // back to active-provider readiness on older sidecars without settingsReady.
+  const settingsHealthy =
+    manualGrading ||
+    (snapshot?.health.ai?.settingsReady ??
+      snapshot?.health.ai?.ready ??
+      snapshot?.health.codex.ready ??
+      false);
 
   const applyHealth = useCallback((health: RuntimeHealth) => {
     setSnapshot((current) => (current ? { ...current, health } : current));
@@ -671,7 +681,7 @@ export function App() {
       <TerminalFrame
         active={tab}
         onTab={gotoTab}
-        aiReady={gradingReady}
+        aiReady={settingsHealthy}
         aiManual={manualGrading}
         vaultRoot={snapshot?.vault?.root}
         onSelectVault={changeVault}

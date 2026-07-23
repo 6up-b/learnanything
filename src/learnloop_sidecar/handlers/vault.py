@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
+from learnloop.config import global_ai_defaults_path
 from learnloop.ids import kebab_case
 from learnloop.services.settings_store import SettingsStoreError, copy_ai_settings
 from learnloop.vault.loader import add_subject, init_vault
@@ -10,6 +12,8 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+
+logger = logging.getLogger(__name__)
 
 
 class CreateVaultInput(ParamsModel):
@@ -68,11 +72,26 @@ def create_vault(ctx: SidecarContext, params: CreateVaultInput) -> dict[str, Any
 
     created = init_vault(target)
 
-    if not was_vault and ctx.vault is not None and ctx.vault.root.resolve() != created:
-        try:
-            copy_ai_settings(ctx.vault.root / "learnloop.toml", created / "learnloop.toml")
-        except SettingsStoreError:
-            pass  # inheritance is best-effort; the vault keeps template defaults
+    if not was_vault:
+        inherited = False
+        # First choice: inherit from the vault the user is creating this one from.
+        if ctx.vault is not None and ctx.vault.root.resolve() != created:
+            try:
+                inherited = copy_ai_settings(
+                    ctx.vault.root / "learnloop.toml", created / "learnloop.toml"
+                )
+            except SettingsStoreError as exc:
+                logger.warning("new-vault AI inheritance from open vault failed: %s", exc)
+        # Fallback: no open vault to inherit from (or it had nothing persisted) —
+        # seed from the machine-global provider selection so the new vault adopts
+        # the user's configured backend instead of the codex template.
+        if not inherited:
+            defaults = global_ai_defaults_path()
+            if defaults.exists():
+                try:
+                    copy_ai_settings(defaults, created / "learnloop.toml")
+                except SettingsStoreError as exc:
+                    logger.warning("new-vault AI inheritance from global defaults failed: %s", exc)
 
     subject_id: str | None = None
     subject_title = (params.subject or "").strip()

@@ -190,6 +190,10 @@ def runtime_health(
     report = check_codex_runtime(vault.root, vault.config.codex)
     versions = applied_versions(repository.sqlite_path)
     latest = max((migration.version for migration in discover_migrations()), default=0)
+    ai_block = _ai_health(vault, grading_override)
+    # Overall settings validity ('no errors / missing fields'), used by the
+    # settings chip color — broader than the active-provider readiness above.
+    ai_block["settings_ready"] = _settings_ready(vault)
     return versioned(
         {
             "codex": {
@@ -200,7 +204,7 @@ def runtime_health(
                 "base_url": vault.config.codex.base_url,
                 "checked_at": _nowish(),
             },
-            "ai": _ai_health(vault, grading_override),
+            "ai": ai_block,
             "database": {
                 "ok": latest in versions if latest else True,
                 "migrations_applied": len(versions),
@@ -208,6 +212,26 @@ def runtime_health(
             },
             "vault_loaded": True,
         }
+    )
+
+
+def _settings_ready(vault: LoadedVault) -> bool:
+    """Whether every distinct provider the app routes to is configured/ready.
+
+    Drives the settings chip color ('no errors / missing fields'): the app runs
+    work through the per-task routing providers, so a vault that routes to a
+    configured OpenRouter backend reads as healthy even when active_provider
+    still names an unconfigured codex. Checks are cheap (config/key presence, no
+    network) and independent of the grading override."""
+
+    config = vault.config
+    routing = config.ai.routing
+    names = {getattr(routing, field) for field in type(routing).model_fields}
+    names = {name for name in names if name}
+    if not names:
+        names = {config.ai.active_provider}
+    return all(
+        check_ai_runtime(vault.root, config, provider_name=name).ready for name in names
     )
 
 

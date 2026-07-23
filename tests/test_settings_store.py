@@ -9,6 +9,7 @@ from learnloop.services.settings_store import (
     copy_ai_settings,
     openrouter_profile_name,
     openrouter_task_profile_values,
+    save_ai_settings_to,
     upsert_env_var,
 )
 from learnloop.vault.loader import init_vault
@@ -141,6 +142,25 @@ def test_copy_ai_settings_default_source_is_semantic_noop(tmp_path):
     assert config.ai.active_provider == "codex"
     assert config.ai.routing.canonical_ingest == "codex_medium"
     assert config.ai.routing.grading == "codex_low"
+
+
+def test_save_ai_settings_to_creates_target_and_seeds_new_vault(tmp_path):
+    # Bug 1: a new vault created with no other vault open still adopts the
+    # configured backend via the machine-global defaults file. save_ai_settings_to
+    # mirrors the [ai] selection into a (possibly absent) global file, which a
+    # fresh vault then inherits.
+    source_path = _config_path(tmp_path / "source")
+    name = _configure_openrouter_ingest(source_path)
+
+    global_defaults = tmp_path / "config" / "ai_defaults.toml"  # does not exist yet
+    assert save_ai_settings_to(source_path, global_defaults) is True
+    assert global_defaults.exists()
+
+    fresh = _config_path(tmp_path / "fresh")
+    assert copy_ai_settings(global_defaults, fresh) is True
+    config = load_config(fresh)
+    assert config.ai.routing.canonical_ingest == name
+    assert config.ai.providers[name].api_key_env == "OPENROUTER_API_KEY"
 
 
 def test_copy_ai_settings_errors_on_missing_or_invalid_source(tmp_path):

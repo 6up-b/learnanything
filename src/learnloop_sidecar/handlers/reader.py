@@ -1467,8 +1467,8 @@ def reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInpu
     per-block nodes) becomes one background authoring job that writes complete,
     schedulable PracticeItems around the verbatim exercise text."""
 
-    from learnloop.codex.runtime import check_codex_runtime
     from learnloop.services.source_outline import resolve_extraction_id as _resolve
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id)
@@ -1483,11 +1483,14 @@ def reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInpu
     if source_id is not None:
         _require_source_reader(repository, source_id)
 
-    runtime = check_codex_runtime(vault.root, vault.config.codex)
-    if not runtime.ready:
+    # Gate on the same canonical_ingest route the exercise-import job resolves
+    # (RunnerServices.exercise_import_client), so readiness honors the configured
+    # provider instead of hardcoding Codex.
+    _provider, runtime, client = ready_canonical_ingest_provider(vault)
+    if client is None:
         raise SidecarError(
             "provider_unavailable",
-            runtime.message or "The AI provider is unavailable for exercise authoring.",
+            getattr(runtime, "message", None) or "The AI provider is unavailable for exercise authoring.",
             retryable=True,
         )
     batch_id = ctx.ingest_jobs.enqueue_reader_exercise_import(

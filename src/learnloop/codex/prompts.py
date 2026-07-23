@@ -25,7 +25,7 @@ READER_PRESET_SYNTHESIS_PROMPT_VERSION = "mvp-0.1-reader-preset-synthesis"
 DEPTH_EDGE_INSTANCE_PROMPT_VERSION = "mvp-0.1-depth-edge-instance"
 RUNG_BACKFILL_PROMPT_VERSION = "mvp-0.1-rung-backfill"
 EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.1-exercise-authoring"
-SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-0.8-source-set-synthesis-concept-anchor"
+SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-0.9-source-set-synthesis-required-recipes"
 CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1"
 APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.7-append-reconciliation"
 
@@ -503,6 +503,19 @@ source --prerequisite--> target means source must be learned first;
 source --part_of--> target means source is a sub-concept of target). Only
 within-shard relations — a later pass authors the cross-shard structure. Leave
 the list empty rather than guessing.
+13. REQUIRED RECIPES (NON-NEGOTIABLE): every `learning_object` MUST have at
+least one `blueprint`, and every blueprint MUST contain at least one recipe with
+at least one component — NEVER emit a blueprint with an empty `recipes` array or
+a recipe with no components. Recipe shape: `composition` is `"conjunctive"`;
+`all_of` is the list of components ALL jointly required to demonstrate the
+objective; `any_of` is substitutable components where any one suffices; the
+optional `integration` is the single component that coordinates them. Each
+component sets EITHER `facet_client_id` (a facet you propose in this response's
+`facets`) OR `facet` (a canonical id from `registry_index`), plus a `capability`
+from the closed vocabulary in constraint 10. A blueprint whose recipes are empty
+is invalid and will be rejected — author a real recipe or drop the blueprint (and
+its learning object). This holds in `as_you_read` mode too: recipes are authored
+now even though practice items are deferred.
 """
 
 
