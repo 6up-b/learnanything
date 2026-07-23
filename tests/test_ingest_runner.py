@@ -976,9 +976,9 @@ def test_vault_pdf_engine_governs_import_when_payload_is_silent(tmp_path, monkey
     create_basic_vault(vault_root)
     toml_path = vault_root / "learnloop.toml"
     text = toml_path.read_text(encoding="utf-8")
-    assert 'canonical_ingest = "codex"' in text
+    assert 'canonical_ingest = "codex_medium"' in text
     toml_path.write_text(
-        text.replace('canonical_ingest = "codex"', 'canonical_ingest = "openrouter"'),
+        text.replace('canonical_ingest = "codex_medium"', 'canonical_ingest = "openrouter"'),
         encoding="utf-8",
     )
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)

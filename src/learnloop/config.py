@@ -1737,12 +1737,24 @@ class LearnLoopConfig(BaseModel):
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
-        if not self.ai.routing.grading:
-            self.ai.routing.grading = self.ai.active_provider
-        if not self.ai.routing.canonical_ingest:
-            self.ai.routing.canonical_ingest = self.ai.active_provider
-        if not self.ai.routing.authoring:
-            self.ai.routing.authoring = self.ai.active_provider
+        for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
+            routed = getattr(self.ai.routing, task)
+            if not routed:
+                if task == "canonical_ingest_retry" and self.ai.active_provider != "codex":
+                    continue
+                setattr(
+                    self.ai.routing,
+                    task,
+                    (
+                        default_provider
+                        if self.ai.active_provider == "codex"
+                        else self.ai.active_provider
+                    ),
+                )
+            elif routed == "codex":
+                # Older vault templates persisted one shared Codex route. Map
+                # that legacy default to the workload-specific effort profile.
+                setattr(self.ai.routing, task, default_provider)
         self.error_impacts.setdefault(
             "recall_failure",
             ErrorImpact(families={"recall": -0.25}, lo_mastery_delta=-0.05, local_severity_gain=0.8),

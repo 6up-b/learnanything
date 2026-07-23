@@ -1278,8 +1278,8 @@ class ReaderAuthorSectionQuestionInput(ParamsModel):
 def reader_author_section_question(
     ctx: SidecarContext, params: ReaderAuthorSectionQuestionInput
 ) -> dict[str, Any]:
-    from learnloop.codex.runtime import check_codex_runtime
     from learnloop.services.source_outline import resolve_extraction_id as _resolve
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id)
@@ -1297,11 +1297,14 @@ def reader_author_section_question(
     if existing is not None:
         return versioned({"status": "exists", "question": _authored_question_payload(existing)})
 
-    runtime = check_codex_runtime(vault.root, vault.config.codex)
-    if not runtime.ready:
+    # Gate on the same canonical_ingest route the reader_quick_check job resolves
+    # (RunnerServices.quick_check_client), so readiness matches the provider that
+    # will actually author the question.
+    _provider, runtime, client = ready_canonical_ingest_provider(vault)
+    if client is None:
         raise SidecarError(
             "provider_unavailable",
-            runtime.message or "The AI provider is unavailable for quick-check authoring.",
+            getattr(runtime, "message", None) or "The AI provider is unavailable for quick-check authoring.",
             retryable=True,
         )
     batch_id = ctx.ingest_jobs.enqueue_reader_quick_check(

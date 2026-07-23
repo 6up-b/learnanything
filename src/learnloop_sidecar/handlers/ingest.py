@@ -788,11 +788,11 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
 
     from learnloop.services.source_set_synthesis import StudyMapError
     from learnloop.services.source_set_synthesis import create_study_map as run_create_study_map
-    from learnloop_sidecar.handlers.ai_providers import _ready_routed_provider
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = ctx.require_vault()
     _source_set_or_error(vault, params.source_set_id)
-    _provider, runtime, client = _ready_routed_provider(vault, "canonical_ingest")
+    _provider, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         raise SidecarError(
             "provider_unavailable",
@@ -930,11 +930,11 @@ def append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[st
 
     from learnloop.services.source_append import append_source as run_append
     from learnloop.services.source_set_synthesis import StudyMapError
-    from learnloop_sidecar.handlers.ai_providers import _ready_routed_provider
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = ctx.require_vault()
     _source_set_or_error(vault, params.source_set_id)
-    _provider, runtime, client = _ready_routed_provider(vault, "canonical_ingest")
+    _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         raise SidecarError(
             "provider_unavailable",
@@ -969,11 +969,19 @@ def refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> d
     """Adopt a new source revision (§10.4). Pinned membership advances only on confirm."""
 
     from learnloop.services.revision_refresh import refresh_revision
-    from learnloop_sidecar.handlers.ai_providers import _ready_routed_provider
+    from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = ctx.require_vault()
     _source_set_or_error(vault, params.source_set_id)
-    client = _ready_routed_provider(vault, "canonical_ingest")[2] if params.confirm else None
+    client = None
+    if params.confirm:
+        _provider_name, runtime, client = ready_canonical_ingest_provider(vault)
+        if client is None:
+            raise SidecarError(
+                "provider_unavailable",
+                runtime.message or "AI provider is unavailable for revision refresh.",
+                retryable=True,
+            )
     result = refresh_revision(
         vault.root, params.source_set_id, source_id=params.source_id,
         old_revision_id=params.old_revision_id, new_revision_id=params.new_revision_id,

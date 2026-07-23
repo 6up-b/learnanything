@@ -354,8 +354,10 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
             # placeholder ("stub") the request row may carry.
             model_provenance={
                 "provider": getattr(getattr(client, "config", None), "provider", None)
+                or getattr(client, "provider_name", None)
                 or request.get("provider"),
                 "model": getattr(getattr(client, "config", None), "model", None)
+                or getattr(client, "model", None)
                 or request.get("model"),
                 "prompt_version": PROMPT_VERSION,
             },

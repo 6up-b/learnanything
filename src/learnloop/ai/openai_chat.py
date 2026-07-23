@@ -14,10 +14,15 @@ from learnloop.codex.client import (
     AuthoringContext,
     CanonicalIngestContext,
     CodexUnavailable,
+    ConceptGraphContext,
+    DepthEdgeInstanceContext,
     GradingContext,
     ProbeDialogueTurnContext,
     ProbeFamilyTrialsContext,
     ProbeInstanceContext,
+    ReaderPresetSynthesisContext,
+    ReadingQuickCheckContext,
+    RungBackfillContext,
     SourceSetSynthesisContext,
     SourceUnitInventoryContext,
     TeachBackQuestionContext,
@@ -26,6 +31,8 @@ from learnloop.codex.client import (
     _authoring_prompt,
     _canonical_ingest_prompt,
     _codex_output_schema,
+    _concept_graph_structuring_prompt,
+    _depth_edge_instance_prompt,
     _diagnostic_trials_prompt,
     _grading_prompt,
     _misconception_match_prompt,
@@ -33,6 +40,9 @@ from learnloop.codex.client import (
     _probe_family_trials_prompt,
     _probe_instance_surfaces_prompt,
     _promotion_analysis_prompt,
+    _reader_preset_synthesis_prompt,
+    _reading_quick_check_prompt,
+    _rung_backfill_prompt,
     _source_set_synthesis_prompt,
     _source_unit_inventory_prompt,
     _teach_back_question_prompt,
@@ -41,6 +51,8 @@ from learnloop.codex.client import (
 from learnloop.codex.schemas import (
     AppendReconciliation,
     AuthoringProposal,
+    ConceptGraphStructuring,
+    DepthEdgeInstanceBatch,
     DiagnosticTrials,
     GradingProposal,
     MisconceptionMatch,
@@ -48,6 +60,9 @@ from learnloop.codex.schemas import (
     ProbeFamilyTrials,
     ProbeInstanceSurfaces,
     PromotionAnalysis,
+    ReaderPresetSynthesis,
+    ReadingQuickCheck,
+    RungBackfillClassification,
     SourceSetSynthesis,
     SourceUnitInventory,
     TeachBackQuestion,
@@ -136,6 +151,21 @@ class OpenAIChatProviderClient:
 
     def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
         return self._run_json_model(_append_reconciliation_prompt(context), AppendReconciliation)
+
+    def run_reader_preset_synthesis(self, context: ReaderPresetSynthesisContext) -> ReaderPresetSynthesis:
+        return self._run_json_model(_reader_preset_synthesis_prompt(context), ReaderPresetSynthesis)
+
+    def run_reading_quick_check(self, context: ReadingQuickCheckContext) -> ReadingQuickCheck:
+        return self._run_json_model(_reading_quick_check_prompt(context), ReadingQuickCheck)
+
+    def run_rung_backfill(self, context: RungBackfillContext) -> RungBackfillClassification:
+        return self._run_json_model(_rung_backfill_prompt(context), RungBackfillClassification)
+
+    def run_depth_edge_instances(self, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch:
+        return self._run_json_model(_depth_edge_instance_prompt(context), DepthEdgeInstanceBatch)
+
+    def run_concept_graph_structuring(self, context: ConceptGraphContext) -> ConceptGraphStructuring:
+        return self._run_json_model(_concept_graph_structuring_prompt(context), ConceptGraphStructuring)
 
     def _run_json_model(self, prompt: str, model_type: type[BaseModel]) -> Any:
         text = self._chat(prompt, model_type)

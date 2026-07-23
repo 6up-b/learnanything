@@ -163,11 +163,10 @@ class RunnerServices:
         return client
 
     def quick_check_client(self, ctx: "JobContext") -> Any:
-        # Reader quick checks ride the codex-only resolver: the task method is
-        # getattr-discovered on the SDK client, exactly like unit inventory.
-        client = (self.quick_check_client_factory or default_inventory_client)(ctx)
-        ctx.bind_interruptible(client)
-        return client
+        # Reader quick checks ride the inventory resolver (low-effort on codex
+        # vaults, routed elsewhere): the task method is getattr-discovered on
+        # the client, exactly like unit inventory.
+        return (self.quick_check_client_factory or default_inventory_client)(ctx)
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
         client = (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
@@ -587,18 +586,22 @@ def default_run_legacy_ingest(
 
 
 def default_inventory_client(ctx: JobContext) -> Any:
-    """Resolve the unit-inventory/synthesis client through ai routing (§7).
+    """Resolve the unit-inventory/quick-check client through ai routing (§7).
 
     Routed via the ``canonical_ingest`` task (empty routing follows
-    ai.active_provider, which defaults to codex). The inventory/synthesis
-    methods are getattr-discovered on the client, so a provider lacking them
-    degrades to an explicit unavailable error rather than fabricating rows."""
+    ai.active_provider), except codex-family routes are pinned to the
+    LOW-effort codex profile: unit inventories deliberately stay cheap while
+    synthesis follows the routed medium-effort profile
+    (``default_synthesis_client``). The inventory/quick-check methods are
+    getattr-discovered on the client, so a provider lacking them degrades to
+    an explicit unavailable error rather than fabricating rows."""
 
     from learnloop.ai.client import make_ai_provider_client
     from learnloop.ai.routing import fallback_provider_for, provider_for_task
     from learnloop.ai.runtime import check_ai_runtime
     from learnloop.codex.client import make_codex_client
     from learnloop.codex.runtime import check_codex_runtime
+    from learnloop.config import CODEX_LOW_PROVIDER, CODEX_PROVIDER_NAMES
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
@@ -615,16 +618,19 @@ def default_inventory_client(ctx: JobContext) -> Any:
         return make_ai_provider_client(config, ctx.vault_root, provider_name=name)
 
     selection = provider_for_task(config, "canonical_ingest")
-    runtime = _runtime(selection.provider_name)
+    provider_name = selection.provider_name
+    if provider_name in CODEX_PROVIDER_NAMES:
+        provider_name = CODEX_LOW_PROVIDER
+    runtime = _runtime(provider_name)
     if runtime.ready:
-        return _client(selection.provider_name)
+        return _client(provider_name)
     fallback = fallback_provider_for(config, selection)
     if fallback:
         fallback_runtime = _runtime(fallback)
         if fallback_runtime.ready:
             return _client(fallback)
     raise IngestRunnerError(
-        runtime.message or f"AI provider {selection.provider_name!r} is {runtime.status}."
+        runtime.message or f"AI provider {provider_name!r} is {runtime.status}."
     )
 
 

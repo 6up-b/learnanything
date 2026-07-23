@@ -35,7 +35,12 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.providers["deepseek_pro"].model == "deepseek-v4-pro"
     assert config.ai.providers["deepseek_pro"].thinking == "enabled"
     assert config.ai.providers["openrouter"].type == "openrouter"
-    assert config.ai.routing.grading == "codex"
+    assert config.ai.routing.grading == "codex_low"
+    assert config.ai.routing.tutor_qa == "codex_low"
+    assert config.ai.routing.teach_back == "codex_low"
+    assert config.ai.routing.authoring == "codex_medium"
+    assert config.ai.routing.canonical_ingest == "codex_medium"
+    assert config.ai.routing.canonical_ingest_retry == "codex_medium"
 
 
 def test_default_config_seeds_openrouter_profile(tmp_path):
