@@ -141,7 +141,7 @@ def _keywords(brief: dict[str, Any], vault, subject_id: str | None) -> set[str]:
             if len(word) >= 3 and word not in _STOPWORDS:
                 tokens.add(word)
 
-    for key in ("subject", "topic", "goal_title"):
+    for key in ("subject", "topic", "goal_title", "intent_sentence"):
         _add(brief.get(key))
     for topic in brief.get("include_topics") or []:
         _add(topic)

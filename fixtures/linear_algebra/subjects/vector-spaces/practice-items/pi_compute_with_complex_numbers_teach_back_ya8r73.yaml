@@ -1,0 +1,92 @@
+schema_version: 1
+id: pi_compute_with_complex_numbers_teach_back_ya8r73
+learning_object_id: lo_compute_with_complex_numbers
+subjects:
+  - vector-spaces
+practice_mode: teach_back
+attempt_types_allowed:
+  - teach_back
+evidence_facets:
+  - facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_
+  - facet_multiply_complex_numbers_by_distributing_replaci
+evidence_weights:
+  facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 1.0
+  facet_multiply_complex_numbers_by_distributing_replaci: 1.0
+criterion_facet_weights:
+  criterion_teach_1:
+    facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 1.0
+  criterion_teach_2:
+    facet_multiply_complex_numbers_by_distributing_replaci: 1.0
+  criterion_teach_transfer:
+    facet_add_complex_numbers_componentwise_a_bi_c_di_a_c_: 1.0
+trace_contract:
+variant_contract:
+prompt: 'Teach this to a curious student: Compute with Complex Numbers. Explain it
+  in your own words — the student will ask follow-up questions.'
+expected_answer: 'A full explanation covering: add complex numbers componentwise a
+  bi c di a c ; multiply complex numbers by distributing replaci.'
+difficulty: 0.6
+difficulty_source: author
+tags:
+  - teach_back
+  - learner_requested
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance:
+scaffold_level:
+capability:
+task_features:
+task_feature_schema:
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_teach_1
+      points: 1.5
+      description: 'Explains: add complex numbers componentwise a bi c di a c .'
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+    - id: criterion_teach_2
+      points: 1.5
+      description: 'Explains: multiply complex numbers by distributing replaci.'
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+    - id: criterion_teach_transfer
+      points: 1.0
+      description: 'Handles an edge case, changed assumption, or transfer scenario
+        for: add complex numbers componentwise a bi c di a c .'
+      tier: transfer
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-24T13:36:18Z'
+updated_at: '2026-07-24T13:36:20Z'

@@ -14,6 +14,7 @@ from typing import Any
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.services.forecast_ledger import active_forecasts
+from learnloop.services.goal_intent import resolve_goal_quest
 from learnloop.services.goal_pace import compute_goal_pace
 from learnloop.services.goal_projection import GoalReport, goal_report, resolve_goal_scope
 from learnloop.services.goal_series import goal_report_series
@@ -56,6 +57,7 @@ class OptionalGoalInput(ParamsModel):
 
 class CreateGoalInput(ParamsModel):
     title: str
+    intent_sentence: str | None = None
     target_recall: float = 0.8
     due_at: str | None = None
     concepts: list[str] = []
@@ -192,9 +194,14 @@ def _goal_dto(
     report: GoalReport | None,
     repository: Repository | None = None,
 ) -> dict[str, Any]:
+    quest = resolve_goal_quest(goal)
     return {
         "id": goal.id,
         "title": goal.title,
+        "intent_sentence": goal.intent_sentence,
+        "creation_source": goal.creation_source,
+        "resolved_quest_sentence": quest.sentence if quest is not None else None,
+        "quest_basis": quest.basis if quest is not None else None,
         "status": goal.status,
         "priority": goal.priority,
         "target_recall": goal.target_recall,
@@ -391,7 +398,9 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
     now = utc_now_iso()
     entry = {
         "id": goal_id,
-        "title": params.title,
+        "title": params.title.strip(),
+        "intent_sentence": (params.intent_sentence or "").strip() or None,
+        "creation_source": "learner",
         "status": "active",
         "priority": 0.5,
         "target_recall": params.target_recall,

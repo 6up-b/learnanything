@@ -1712,6 +1712,8 @@ def _establish_goal_linkage(
             target = {
                 "id": _unique_goal_id(goals, subject_id),
                 "title": title,
+                "intent_sentence": None,
+                "creation_source": "source_ingestion",
                 "status": "active",
                 "priority": default_priority,
                 "target_recall": 0.8,

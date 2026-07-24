@@ -5,7 +5,7 @@ import shutil
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import GradingProposal, TeachBackQuestion
+from learnloop.codex.schemas import GradingProposal, TeachBackAuthoring, TeachBackQuestion
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, discover_migrations
 from learnloop.db.repositories import MasteryState, Repository
@@ -26,6 +26,7 @@ from learnloop.services.teach_back import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric
 from learnloop.vault.writer import upsert_practice_item
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault, seed_due_item
 
@@ -81,6 +82,56 @@ class FakeTeachBackClient:
                 "fatal_errors": [],
                 "error_attributions": [],
                 "grader_confidence": 0.9,
+            }
+        )
+
+
+class FakeTeachBackAuthoringClient:
+    provider_name = "fake_author"
+    provider_type = "fake"
+    model = "fake-model"
+
+    def __init__(self):
+        self.contexts = []
+
+    def run_teach_back_authoring(self, context) -> TeachBackAuthoring:
+        self.contexts.append(context)
+        source_ids = [entry["id"] for entry in context.source_criteria]
+        return TeachBackAuthoring.model_validate(
+            {
+                "prompt_md": (
+                    f"Teach a student how to reason through `{context.source_prompt}`. "
+                    "Explain the choices, not just the final answer."
+                ),
+                "expected_answer_md": "Explains the complete source method and why it works.",
+                "core_criteria": [
+                    {
+                        "description": "Explains the source method and its decisive reasoning.",
+                        "source_criterion_ids": source_ids,
+                        "measurement_status": "item_local",
+                        "facet_ids": [],
+                    }
+                ],
+                "transfer_criterion": {
+                    "description": "Connects the same reasoning to the learner's quest.",
+                    "source_criterion_ids": source_ids,
+                    "measurement_status": "supporting",
+                    "facet_ids": [context.allowed_facets[0]["id"]],
+                },
+                "transfer_scenario": (
+                    f"Use the same decision in a small example related to: {context.quest_sentence}"
+                ),
+                "quest_connection": "connected",
+                "trace_contract": {
+                    "status": "available",
+                    "recipes": [
+                        {
+                            "id": "teach_source_method",
+                            "checkpoints": ["explain_method", "justify_result"],
+                            "dependencies": {"justify_result": ["explain_method"]},
+                        }
+                    ],
+                },
             }
         )
 
@@ -312,6 +363,115 @@ def test_ensure_teach_back_item_mints_transfer_criterion(tmp_path):
     plan = plan_followups(reloaded, repository, minted, clock=clock)
     assert plan[-1]["criterion_id"] == "criterion_teach_transfer"
     assert plan[-1]["tier"] == "transfer"
+
+
+def test_ensure_teach_back_item_authors_from_exact_source_and_active_quest(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    goals = read_yaml(paths.goals_path)
+    goals["goals"][0]["intent_sentence"] = (
+        "I want to use linear algebra in machine-learning systems."
+    )
+    goals["goals"][0]["creation_source"] = "learner"
+    write_yaml(paths.goals_path, goals)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    client = FakeTeachBackAuthoringClient()
+    clock = FrozenClock(NOW)
+
+    item_id, created = ensure_teach_back_item(
+        vault_root,
+        vault,
+        repository,
+        LO_ID,
+        source_practice_item_id="pi_svd_define_001",
+        authoring_client=client,
+        clock=clock,
+    )
+
+    assert created is True
+    assert len(client.contexts) == 1
+    context = client.contexts[0]
+    assert context.source_prompt == "Define SVD."
+    assert context.quest_sentence == "I want to use linear algebra in machine-learning systems."
+
+    reloaded = load_vault(vault_root)
+    minted = reloaded.practice_items[item_id]
+    assert "Define SVD." in minted.prompt
+    assert minted.teach_back_source.source_practice_item_id == "pi_svd_define_001"
+    assert minted.teach_back_source.quest_id == "goal_linear_algebra_ml"
+    assert minted.teach_back_source.quest_sentence == (
+        "I want to use linear algebra in machine-learning systems."
+    )
+    assert minted.teach_back_source.quest_basis == "explicit_intent"
+    assert minted.teach_back_source.quest_connection == "connected"
+    assert minted.teach_back_source.authoring_mode == "ai"
+    assert minted.trace_contract.recipes[0].checkpoints == [
+        "explain_method",
+        "justify_result",
+    ]
+    core = next(c for c in minted.grading_rubric.criteria if c.tier == "core")
+    transfer = next(c for c in minted.grading_rubric.criteria if c.tier == "transfer")
+    assert core.measurement_status == "item_local"
+    assert core.id not in minted.criterion_facet_weights
+    assert transfer.measurement_status == "supporting"
+    assert minted.criterion_facet_weights[transfer.id] == {"recall": 1.0}
+
+    same_id, created_again = ensure_teach_back_item(
+        vault_root,
+        reloaded,
+        repository,
+        LO_ID,
+        source_practice_item_id="pi_svd_define_001",
+        authoring_client=client,
+        clock=clock,
+    )
+    assert (same_id, created_again) == (item_id, False)
+    assert len(client.contexts) == 1
+
+
+def test_source_scoped_teach_back_does_not_reuse_lo_wide_card(tmp_path):
+    source_id = "pi_svd_source_geometry"
+    root, vault, repository = _setup(
+        tmp_path,
+        extra_items=[_helper_item_payload(source_id, "geometry")],
+    )
+
+    item_id, created = ensure_teach_back_item(
+        root,
+        vault,
+        repository,
+        LO_ID,
+        source_practice_item_id=source_id,
+        clock=FrozenClock(NOW),
+    )
+
+    assert created is True
+    assert item_id != TEACH_ITEM_ID
+    minted = load_vault(root).practice_items[item_id]
+    assert minted.teach_back_source.source_practice_item_id == source_id
+    assert "Recall geometry." in minted.prompt
+
+
+def test_plan_followups_keeps_declared_item_local_criteria_targetless(tmp_path):
+    item = _teach_item_payload("pi_svd_teach_item_local")
+    item["criterion_facet_weights"].pop("core_definition")
+    item["grading_rubric"]["criteria"][0]["measurement_status"] = "item_local"
+    _root, vault, repository = _setup(tmp_path, extra_items=[item])
+
+    plan = plan_followups(
+        vault,
+        repository,
+        vault.practice_items["pi_svd_teach_item_local"],
+        clock=FrozenClock(NOW),
+    )
+
+    entry = next(row for row in plan if row["criterion_id"] == "core_definition")
+    assert entry["facet_targets"] == []
+    assert plan.index(entry) < next(
+        index for index, row in enumerate(plan) if row["tier"] == "transfer"
+    )
 
 
 # ── conversation state ────────────────────────────────────────────────────────

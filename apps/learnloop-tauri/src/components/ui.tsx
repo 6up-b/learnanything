@@ -16,8 +16,7 @@ export const navTabs = [
   { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 
-// `errors` is an overlay-only route used by `learnloop diff`, not a visible
-// tab; `settings` is reached via the nav-status chip (or Alt+S), not navTabs.
+// `errors` and `settings` are overlay-only navigation targets, not visible tabs.
 export type TopTab = (typeof navTabs)[number]["id"] | "errors" | "settings";
 
 function getAppWindow(): ReturnType<typeof getCurrentWindow> | null {
@@ -180,7 +179,7 @@ function VaultPath({ root, onSelect }: { root: string; onSelect: (path: string) 
 }
 
 // The nav-bar settings chip: a gear plus the Alt+S shortcut. It keeps the
-// at-a-glance AI ready/unready color and opens the Settings screen, which
+// at-a-glance AI ready/unready color and opens the Settings overlay, which
 // replaced the old inline provider dropdown.
 function SettingsChip({
   ready,
@@ -213,7 +212,8 @@ export function TerminalFrame({
   aiReady,
   aiManual = false,
   vaultRoot,
-  onSelectVault
+  onSelectVault,
+  settingsOpen = false
 }: {
   active: TopTab;
   onTab: (tab: TopTab) => void;
@@ -222,6 +222,7 @@ export function TerminalFrame({
   aiManual?: boolean;
   vaultRoot?: string | null;
   onSelectVault: (path: string) => void;
+  settingsOpen?: boolean;
 }) {
   return (
     <div className="desktop-shell">
@@ -243,7 +244,7 @@ export function TerminalFrame({
             <SettingsChip
               ready={aiReady}
               manual={aiManual}
-              active={active === "settings"}
+              active={settingsOpen}
               onOpen={() => onTab("settings")}
             />
           </div>

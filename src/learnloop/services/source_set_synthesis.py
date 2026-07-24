@@ -2296,6 +2296,8 @@ def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[s
     entry = {
         "id": goal_id,
         "title": title,
+        "intent_sentence": str(brief.get("intent_sentence") or "").strip() or None,
+        "creation_source": "study_map",
         "status": "active",
         "priority": 0.5,
         "target_recall": float(brief.get("target_recall", 0.8)),

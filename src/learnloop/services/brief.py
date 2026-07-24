@@ -63,6 +63,7 @@ class Brief(BaseModel):
     exclude_topics: list[str] | None = None
     # Exam-prep goal fields (consumed by _create_goal_from_brief).
     goal_title: str | None = None
+    intent_sentence: str | None = None
     target_recall: float | None = None
     due_at: str | None = None
     exam_item_count: int | None = None

@@ -43,6 +43,8 @@ export function StudyMapBriefWizard({
   const [notation, setNotation] = useState(initialBrief?.notation ?? "");
   const [includeTopics, setIncludeTopics] = useState<string[]>(initialBrief?.includeTopics ?? []);
   const [excludeTopics, setExcludeTopics] = useState<string[]>(initialBrief?.excludeTopics ?? []);
+  const [goalTitle, setGoalTitle] = useState(initialBrief?.goalTitle ?? "");
+  const [intentSentence, setIntentSentence] = useState(initialBrief?.intentSentence ?? "");
   const [dueDate, setDueDate] = useState("");
   const [targetRecall, setTargetRecall] = useState(initialBrief?.targetRecall ?? 0.85);
   const [examItemCount, setExamItemCount] = useState(initialBrief?.examItemCount ?? 20);
@@ -64,6 +66,8 @@ export function StudyMapBriefWizard({
       excludeTopics
     };
     if (outcome === "exam_prep") {
+      brief.goalTitle = goalTitle.trim() || "Exam preparation";
+      brief.intentSentence = intentSentence.trim() || undefined;
       brief.dueAt = dueDate ? new Date(`${dueDate}T23:59:59`).toISOString() : undefined;
       brief.targetRecall = targetRecall;
       brief.examItemCount = examItemCount;
@@ -198,7 +202,27 @@ export function StudyMapBriefWizard({
 
           {current === "goal" ? (
             <div>
-              <Label>due date</Label>
+              <Label>goal title</Label>
+              <input
+                style={inputStyle}
+                value={goalTitle}
+                placeholder="e.g. Linear algebra final"
+                onChange={(e) => setGoalTitle(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <Label style={{ marginTop: 20 }}>quest / larger intent · optional</Label>
+              <textarea
+                style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+                rows={2}
+                value={intentSentence}
+                placeholder="e.g. I want to use complex numbers in signal processing."
+                onChange={(e) => setIntentSentence(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <Faint style={{ display: "block", marginTop: 6, fontSize: 11 }}>
+                If blank, transfer questions use the exam goal itself.
+              </Faint>
+              <Label style={{ marginTop: 20 }}>due date</Label>
               <input type="date" style={inputStyle} value={dueDate} onChange={(e) => setDueDate(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
               <Label style={{ marginTop: 20 }}>target recall</Label>
               <input

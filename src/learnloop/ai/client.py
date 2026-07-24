@@ -4,8 +4,14 @@ from pathlib import Path
 from typing import Protocol
 
 from learnloop.config import AIProviderConfig, LearnLoopConfig
-from learnloop.codex.client import AuthoringContext, CanonicalIngestContext, CodexUnavailable, GradingContext
-from learnloop.codex.schemas import AuthoringProposal, GradingProposal
+from learnloop.codex.client import (
+    AuthoringContext,
+    CanonicalIngestContext,
+    CodexUnavailable,
+    GradingContext,
+    TeachBackAuthoringContext,
+)
+from learnloop.codex.schemas import AuthoringProposal, GradingProposal, TeachBackAuthoring
 
 
 class AIProviderClient(Protocol):
@@ -20,6 +26,9 @@ class AIProviderClient(Protocol):
         ...
 
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
+        ...
+
+    def run_teach_back_authoring(self, context: TeachBackAuthoringContext) -> TeachBackAuthoring:
         ...
 
 

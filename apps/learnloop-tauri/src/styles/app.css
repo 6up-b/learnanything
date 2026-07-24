@@ -277,7 +277,7 @@ button { color: inherit; }
   white-space: nowrap;
 }
 /* The nav-status settings chip keeps the ai health coloring but is a plain
-   button opening the Settings screen. */
+   button opening the Settings overlay. */
 .nav-settings {
   background: transparent;
   border: none;

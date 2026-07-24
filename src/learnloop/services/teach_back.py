@@ -32,11 +32,13 @@ Flow (design decisions, agreed spec):
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass, field, replace as dataclass_replace
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.codex.client import TeachBackQuestionContext
+from learnloop.codex.client import TeachBackAuthoringContext, TeachBackQuestionContext
+from learnloop.codex.schemas import TeachBackAuthoring, TeachBackCriterionDraft
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
@@ -61,8 +63,10 @@ from learnloop.vault.models import LoadedVault, PracticeItem, Rubric, RubricCrit
 
 TEACH_BACK_ATTEMPT_TYPE = "teach_back"
 TEACH_BACK_PRACTICE_MODE = "teach_back"
+TEACH_BACK_COMPILER_VERSION = "source_item_v3"
 
 STATE_VERSION = 1
+LOG = logging.getLogger(__name__)
 
 # Diagnostic-state ranking for follow-up planning: uncertain and unexamined
 # facets are probed first; known gaps next (the gap is known but a probe still
@@ -197,6 +201,11 @@ def plan_followups(
         ]
         if targets:
             return sorted(targets, key=lambda facet: facet_rank[facet])
+        # P0b authoring honesty: a declared empty map is meaningful. In
+        # particular, item-local source-procedure criteria must not silently
+        # inherit every broad facet on the Learning Object.
+        if getattr(criterion, "measurement_status", None) is not None:
+            return []
         return [str(facet) for facet in item.evidence_facets]
 
     def criterion_key(criterion: RubricCriterion, index: int) -> tuple:
@@ -219,9 +228,21 @@ def plan_followups(
             for facet in criterion_targets(criterion)
         )
 
-    uncertain_core = [entry for entry in core if is_uncertain(entry[1])]
-    solid_core = [entry for entry in core if not is_uncertain(entry[1])]
-    ordered = [*uncertain_core, *transfer, *solid_core]
+    targetless_core = [entry for entry in core if not criterion_targets(entry[1])]
+    uncertain_core = [
+        entry
+        for entry in core
+        if criterion_targets(entry[1]) and is_uncertain(entry[1])
+    ]
+    solid_core = [
+        entry
+        for entry in core
+        if criterion_targets(entry[1]) and not is_uncertain(entry[1])
+    ]
+    # Targetless does not mean "solid": it means the criterion is deliberately
+    # item-local or outside the canonical facet vocabulary. Probe it before
+    # transfer, while retaining the reserved transfer slot below.
+    ordered = [*uncertain_core, *targetless_core, *transfer, *solid_core]
 
     max_slots = config.teach_back.max_followups
     selected = [criterion for _key, criterion in ordered[:max_slots]]
@@ -587,27 +608,445 @@ def ensure_teach_back_item(
     repository: Repository,
     learning_object_id: str,
     *,
+    source_practice_item_id: str | None = None,
+    authoring_client: Any | None = None,
+    quest_sentence: str | None = None,
     clock: Clock | None = None,
 ) -> tuple[str, bool]:
-    """Find or mint the LO's teach-back card (learner opt-in path).
+    """Find or mint a learner-requested teach-back card.
 
-    Teach-back is the highest-mass conversational evidence in the system
-    (evidence_mass 0.8), but a learner could only reach it if generation
-    happened to author a teach_back item. This makes it an explicit learner
-    choice: reuse the LO's active teach_back card if one exists, else mint one
-    deterministically — prompt from the LO title, one core criterion per
-    required facet (uncertainty-ranked, capped at 4) so ``plan_followups`` has
-    real facet targets to interrogate, plus one transfer criterion on the top
-    facet so the plan's guaranteed transfer slot has something to escalate to.
-    Returns (practice_item_id, created).
+    A request through ``source_practice_item_id`` is a transformation of that
+    exact item, not an LO-wide singleton. The configured model authors the
+    learner-facing prompt, criteria, honest facet links, and transfer scenario
+    from a bounded source contract. The highest-priority relevant active goal
+    supplies explicit learner intent or a narrower operational quest, which may
+    shape only the transfer criterion. Invalid or unavailable model output
+    falls back to a conservative source-specific contract whose criteria are
+    item-local.
+
+    Direct LO requests retain the legacy LO-wide behavior because they have no
+    source task to preserve. Returns ``(practice_item_id, created)``.
     """
 
-    from learnloop.services.facet_diagnostics import required_facets
     from learnloop.vault.writer import upsert_practice_item
 
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None:
         raise TeachBackError(f"Learning object {learning_object_id} was not found.")
+
+    if source_practice_item_id is None:
+        return _ensure_lo_wide_teach_back_item(
+            root,
+            vault,
+            repository,
+            learning_object_id,
+            clock=clock,
+        )
+
+    source_item = vault.practice_items.get(source_practice_item_id)
+    if source_item is None:
+        raise TeachBackError(f"Practice item {source_practice_item_id} was not found.")
+    if source_item.learning_object_id != learning_object_id:
+        raise TeachBackError(
+            f"Practice item {source_practice_item_id} does not belong to {learning_object_id}."
+        )
+    if source_item.practice_mode == TEACH_BACK_PRACTICE_MODE and source_item.status != "retired":
+        return source_item.id, False
+
+    quest_id = None
+    quest_basis = "provided" if quest_sentence is not None else None
+    if quest_sentence is None:
+        quest_id, quest_sentence, quest_basis = _active_quest_for_learning_object(
+            vault, repository, learning_object_id
+        )
+    for item in vault.practice_items.values():
+        source_contract = getattr(item, "teach_back_source", None)
+        if (
+            item.practice_mode == TEACH_BACK_PRACTICE_MODE
+            and item.status != "retired"
+            and source_contract is not None
+            and source_contract.source_practice_item_id == source_item.id
+            and source_contract.source_updated_at == source_item.updated_at
+            and source_contract.compiler_version == TEACH_BACK_COMPILER_VERSION
+            and source_contract.quest_id == quest_id
+            and source_contract.quest_sentence == quest_sentence
+            and source_contract.quest_basis == quest_basis
+        ):
+            return item.id, False
+
+    context, source_criteria = _teach_back_authoring_context(
+        vault,
+        source_item,
+        learning_object,
+        quest_sentence=quest_sentence,
+    )
+    authored = _run_teach_back_authoring(
+        authoring_client,
+        context,
+        source_criteria=source_criteria,
+        allowed_facet_ids=set(source_item.evidence_facets),
+        learning_object_title=learning_object.title,
+    )
+    authoring_mode = "ai"
+    if authored is None:
+        authoring_mode = "deterministic_fallback"
+        authored = _fallback_teach_back_authoring(
+            source_item,
+            source_criteria,
+            quest_sentence=quest_sentence,
+        )
+
+    criteria, criterion_facet_weights = _compiled_teach_back_criteria(authored)
+    trace_contract = source_item.trace_contract or authored.trace_contract
+    item_id = f"pi_{learning_object_id.removeprefix('lo_')}_teach_back_{new_ulid().lower()[-6:]}"
+    now = utc_now_iso(clock)
+    upsert_practice_item(
+        root,
+        {
+            "id": item_id,
+            "learning_object_id": learning_object_id,
+            "subjects": list(learning_object.subjects) or None,
+            "practice_mode": TEACH_BACK_PRACTICE_MODE,
+            "attempt_types_allowed": [TEACH_BACK_ATTEMPT_TYPE],
+            "evidence_facets": list(source_item.evidence_facets),
+            "evidence_weights": {
+                facet_id: float(source_item.evidence_weights.get(facet_id, 1.0))
+                for facet_id in source_item.evidence_facets
+            },
+            "criterion_facet_weights": criterion_facet_weights,
+            "trace_contract": (
+                trace_contract.model_dump(mode="json", exclude_none=True)
+                if trace_contract is not None
+                else None
+            ),
+            "teach_back_source": {
+                "source_practice_item_id": source_item.id,
+                "source_updated_at": source_item.updated_at,
+                "compiler_version": TEACH_BACK_COMPILER_VERSION,
+                "quest_id": quest_id,
+                "quest_sentence": quest_sentence,
+                "quest_basis": quest_basis,
+                "quest_connection": authored.quest_connection,
+                "authoring_mode": authoring_mode,
+            },
+            "prompt": authored.prompt_md.strip(),
+            "expected_answer": authored.expected_answer_md.strip(),
+            "difficulty": source_item.difficulty if source_item.difficulty is not None else 0.6,
+            "difficulty_source": source_item.difficulty_source or "author",
+            "tags": [
+                "teach_back",
+                "learner_requested",
+                f"teach_back_compiler:{TEACH_BACK_COMPILER_VERSION}",
+                f"quest_transfer:{authored.quest_connection}",
+            ],
+            "grading_rubric": {"max_points": 4, "criteria": criteria, "fatal_errors": []},
+            "provenance": {
+                "origin": "codex_proposal",
+                "source_refs": [{"ref_type": "existing_entity", "ref_id": source_item.id}],
+            },
+            "created_at": now,
+            "updated_at": now,
+        },
+        clock=clock,
+    )
+    return item_id, True
+
+
+def _active_quest_for_learning_object(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+) -> tuple[str | None, str | None, str | None]:
+    """Highest-priority relevant active goal with a resolvable learner quest."""
+
+    from learnloop.services.goal_intent import resolve_goal_quest
+    from learnloop.services.goal_projection import resolve_goal_scope
+
+    candidates = []
+    for goal in vault.goals:
+        if goal.status != "active":
+            continue
+        if learning_object_id in resolve_goal_scope(vault, goal, repository):
+            quest = resolve_goal_quest(goal)
+            if quest is not None:
+                candidates.append((goal, quest))
+    selected = max(
+        candidates,
+        key=lambda entry: (entry[0].priority, entry[0].id),
+        default=None,
+    )
+    if selected is None:
+        return None, None, None
+    goal, quest = selected
+    return goal.id, quest.sentence, quest.basis
+
+
+def _teach_back_authoring_context(
+    vault: LoadedVault,
+    source_item: PracticeItem,
+    learning_object,
+    *,
+    quest_sentence: str | None,
+) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]:
+    rubric = _teach_back_rubric(vault, source_item)
+    mapping = criterion_facet_weights_for_item(source_item, rubric)
+    source_criteria = [
+        {
+            "id": criterion.id,
+            "description": criterion.description,
+            "measurement_status": criterion.measurement_status,
+            "facet_ids": [
+                str(facet_id)
+                for facet_id, weight in (mapping.get(criterion.id) or {}).items()
+                if float(weight) > 0
+            ],
+        }
+        for criterion in rubric.criteria
+    ]
+    if not source_criteria:
+        source_criteria = [
+            {
+                "id": "source_task",
+                "description": "Explains the reasoning and method required by the source task.",
+                "measurement_status": "item_local",
+                "facet_ids": [],
+            }
+        ]
+
+    allowed_facets = []
+    for facet_id in source_item.evidence_facets:
+        facet = vault.evidence_facets.get(str(facet_id))
+        allowed_facets.append(
+            {
+                "id": str(facet_id),
+                "title": getattr(facet, "title", None),
+                "description": (
+                    getattr(facet, "description", None)
+                    or getattr(facet, "claim", None)
+                ),
+            }
+        )
+    context = TeachBackAuthoringContext(
+        source_practice_item_id=source_item.id,
+        source_prompt=source_item.prompt,
+        source_expected_answer=source_item.expected_answer,
+        source_criteria=source_criteria,
+        source_trace_contract=(
+            source_item.trace_contract.model_dump(mode="json", exclude_none=True)
+            if source_item.trace_contract is not None
+            else None
+        ),
+        allowed_facets=allowed_facets,
+        learning_object_title=learning_object.title,
+        learning_object_summary=learning_object.summary or "",
+        quest_sentence=quest_sentence,
+    )
+    return context, source_criteria
+
+
+def _run_teach_back_authoring(
+    client: Any | None,
+    context: TeachBackAuthoringContext,
+    *,
+    source_criteria: list[dict[str, Any]],
+    allowed_facet_ids: set[str],
+    learning_object_title: str,
+) -> TeachBackAuthoring | None:
+    run = getattr(client, "run_teach_back_authoring", None)
+    if not callable(run):
+        return None
+    try:
+        authored = TeachBackAuthoring.model_validate(run(context))
+        _validate_teach_back_authoring(
+            authored,
+            source_criteria=source_criteria,
+            allowed_facet_ids=allowed_facet_ids,
+            quest_sentence=context.quest_sentence,
+            learning_object_title=learning_object_title,
+        )
+        return authored
+    except Exception as exc:  # noqa: BLE001 - invalid provider output degrades safely
+        LOG.warning("teach-back authoring fell back for %s: %s", context.source_practice_item_id, exc)
+        return None
+
+
+def _validate_teach_back_authoring(
+    authored: TeachBackAuthoring,
+    *,
+    source_criteria: list[dict[str, Any]],
+    allowed_facet_ids: set[str],
+    quest_sentence: str | None,
+    learning_object_title: str,
+) -> None:
+    if not authored.prompt_md.strip() or not authored.expected_answer_md.strip():
+        raise TeachBackError("AI-authored teach-back prompt and expected answer must be non-empty.")
+    generic_prefix = f"teach this to a curious student: {learning_object_title}".casefold()
+    if authored.prompt_md.strip().casefold().startswith(generic_prefix):
+        raise TeachBackError("AI-authored teach-back collapsed to the broad Learning Object title.")
+    if not 1 <= len(authored.core_criteria) <= 3:
+        raise TeachBackError("AI-authored teach-back must contain one to three core criteria.")
+    if authored.transfer_criterion is None or not authored.transfer_scenario.strip():
+        raise TeachBackError("AI-authored teach-back must contain one concrete transfer scenario.")
+
+    required_ids = {str(entry["id"]) for entry in source_criteria}
+    core_ids = [
+        criterion_id
+        for criterion in authored.core_criteria
+        for criterion_id in criterion.source_criterion_ids
+    ]
+    if set(core_ids) != required_ids or len(core_ids) != len(set(core_ids)):
+        raise TeachBackError(
+            "AI-authored core criteria must cover every source criterion exactly once."
+        )
+    transfer_ids = set(authored.transfer_criterion.source_criterion_ids)
+    if not transfer_ids or not transfer_ids <= required_ids:
+        raise TeachBackError("AI-authored transfer criterion has invalid source criterion ids.")
+
+    for criterion in [*authored.core_criteria, authored.transfer_criterion]:
+        if not criterion.description.strip():
+            raise TeachBackError("AI-authored teach-back criterion description is empty.")
+        facets = set(criterion.facet_ids)
+        if not facets <= allowed_facet_ids:
+            raise TeachBackError("AI-authored teach-back criterion invented a facet id.")
+        if criterion.measurement_status in {"item_local", "no_canonical_facet"} and facets:
+            raise TeachBackError("Item-local teach-back criteria must have empty facet mappings.")
+        if criterion.measurement_status in {"direct", "supporting", "composite"} and not facets:
+            raise TeachBackError("Facet-measuring teach-back criteria must name at least one facet.")
+
+    if quest_sentence is None and authored.quest_connection != "no_quest":
+        raise TeachBackError("Teach-back declared a quest connection when no quest was supplied.")
+    if quest_sentence is not None and authored.quest_connection == "no_quest":
+        raise TeachBackError("Teach-back ignored the supplied quest without declaring it irrelevant.")
+    if quest_sentence is not None:
+        quest_text = quest_sentence.strip().casefold()
+        core_text = " ".join(
+            [authored.prompt_md, *(criterion.description for criterion in authored.core_criteria)]
+        ).casefold()
+        if quest_text and quest_text in core_text:
+            raise TeachBackError("The quest sentence may shape only the transfer criterion.")
+    if (
+        authored.transfer_criterion.facet_ids
+        and authored.transfer_criterion.measurement_status != "supporting"
+    ):
+        raise TeachBackError("Quest/transfer facet mappings must be supporting evidence.")
+
+
+def _fallback_teach_back_authoring(
+    source_item: PracticeItem,
+    source_criteria: list[dict[str, Any]],
+    *,
+    quest_sentence: str | None,
+) -> TeachBackAuthoring:
+    """Conservative source-specific fallback: useful wording, zero false facet links."""
+
+    group_count = min(3, len(source_criteria))
+    groups: list[list[dict[str, Any]]] = [[] for _ in range(group_count)]
+    for index, criterion in enumerate(source_criteria):
+        groups[min(index, group_count - 1)].append(criterion)
+    core = [
+        TeachBackCriterionDraft(
+            description="Explains how and why the source solution "
+            + " and ".join(str(entry["description"]).rstrip(".") for entry in group)
+            + ".",
+            source_criterion_ids=[str(entry["id"]) for entry in group],
+            measurement_status="item_local",
+            facet_ids=[],
+        )
+        for group in groups
+    ]
+    answer = (
+        source_item.expected_answer
+        if isinstance(source_item.expected_answer, str)
+        else json.dumps(source_item.expected_answer, sort_keys=True, ensure_ascii=False)
+    )
+    return TeachBackAuthoring(
+        prompt_md=(
+            "Teach a curious student how to reason through this completed task:\n\n"
+            f"{source_item.prompt}\n\n"
+            "Explain the method, the important decisions, and why the result follows. "
+            "The student will ask follow-up questions."
+        ),
+        expected_answer_md=(
+            "A clear explanation of the reasoning and method behind the source answer:\n\n"
+            + answer
+        ),
+        core_criteria=core,
+        transfer_criterion=TeachBackCriterionDraft(
+            description=(
+                "Explains how the same reasoning would adapt to a nearby edge case "
+                "or changed assumption in the source task."
+            ),
+            source_criterion_ids=[str(entry["id"]) for entry in source_criteria],
+            measurement_status="item_local",
+            facet_ids=[],
+        ),
+        transfer_scenario=(
+            "Change one assumption or boundary condition in the source task and explain "
+            "which parts of the method stay valid."
+        ),
+        quest_connection="not_relevant" if quest_sentence else "no_quest",
+        trace_contract=None,
+    )
+
+
+def _compiled_teach_back_criteria(
+    authored: TeachBackAuthoring,
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]:
+    core_points = 3.0 / len(authored.core_criteria)
+    criteria: list[dict[str, Any]] = []
+    mappings: dict[str, dict[str, float]] = {}
+    for index, draft in enumerate(authored.core_criteria, start=1):
+        criterion_id = f"criterion_teach_{index}"
+        criteria.append(
+            {
+                "id": criterion_id,
+                "points": core_points,
+                "tier": "core",
+                "description": draft.description.strip(),
+                "measurement_status": draft.measurement_status,
+            }
+        )
+        if draft.facet_ids:
+            mappings[criterion_id] = {
+                facet_id: 1.0 / len(draft.facet_ids) for facet_id in draft.facet_ids
+            }
+
+    transfer = authored.transfer_criterion
+    assert transfer is not None  # validated or constructed by the fallback
+    criteria.append(
+        {
+            "id": "criterion_teach_transfer",
+            "points": 1.0,
+            "tier": "transfer",
+            "description": (
+                transfer.description.strip()
+                + "\n\nTransfer scenario: "
+                + authored.transfer_scenario.strip()
+            ),
+            "measurement_status": transfer.measurement_status,
+        }
+    )
+    if transfer.facet_ids:
+        mappings["criterion_teach_transfer"] = {
+            facet_id: 1.0 / len(transfer.facet_ids) for facet_id in transfer.facet_ids
+        }
+    return criteria, mappings
+
+
+def _ensure_lo_wide_teach_back_item(
+    root,
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    clock: Clock | None,
+) -> tuple[str, bool]:
+    """Compatibility path for direct LO requests with no source item."""
+
+    from learnloop.services.facet_diagnostics import required_facets
+    from learnloop.vault.writer import upsert_practice_item
+
+    learning_object = vault.learning_objects[learning_object_id]
     for item in vault.practice_items.values():
         if (
             item.learning_object_id == learning_object_id
@@ -626,26 +1065,28 @@ def ensure_teach_back_item(
         str(entry["facet_id"]): float(entry.get("uncertainty") or 0.0)
         for entry in view["facets"]
     }
-    chosen = sorted(facet_ids, key=lambda f: (-uncertainty.get(f, 0.0), f))[:4]
+    chosen = sorted(facet_ids, key=lambda facet: (-uncertainty.get(facet, 0.0), facet))[:4]
 
-    def _facet_line(facet_id: str) -> str:
+    def facet_line(facet_id: str) -> str:
         facet = vault.evidence_facets.get(facet_id)
-        label = (facet.title or facet.description) if facet is not None else None
+        label = (
+            (getattr(facet, "title", None) or getattr(facet, "description", None))
+            if facet is not None
+            else None
+        )
         return label or facet_id.removeprefix("facet_").replace("_", " ")
 
-    # Core criteria split 3 of the 4 rubric points; the transfer criterion
-    # takes the last one so total points stay within max_points.
-    points = round(3.0 / len(chosen), 2)
+    points = 3.0 / len(chosen)
     criteria = [
         {
             "id": f"criterion_teach_{index}",
             "points": points,
             "tier": "core",
-            "description": f"Explains: {_facet_line(facet_id)}.",
+            "description": f"Explains: {facet_line(facet_id)}.",
+            "measurement_status": "direct",
         }
         for index, facet_id in enumerate(chosen, start=1)
     ]
-    transfer_facet = chosen[0]
     criteria.append(
         {
             "id": "criterion_teach_transfer",
@@ -653,8 +1094,9 @@ def ensure_teach_back_item(
             "tier": "transfer",
             "description": (
                 "Handles an edge case, changed assumption, or transfer scenario for: "
-                f"{_facet_line(transfer_facet)}."
+                f"{facet_line(chosen[0])}."
             ),
+            "measurement_status": "direct",
         }
     )
     item_id = f"pi_{learning_object_id.removeprefix('lo_')}_teach_back_{new_ulid().lower()[-6:]}"
@@ -674,20 +1116,20 @@ def ensure_teach_back_item(
                     f"criterion_teach_{index}": {facet_id: 1.0}
                     for index, facet_id in enumerate(chosen, start=1)
                 },
-                "criterion_teach_transfer": {transfer_facet: 1.0},
+                "criterion_teach_transfer": {chosen[0]: 1.0},
             },
             "prompt": (
                 f"Teach this to a curious student: {learning_object.title}. "
                 "Explain it in your own words — the student will ask follow-up questions."
             ),
             "expected_answer": "A full explanation covering: "
-            + "; ".join(_facet_line(facet_id) for facet_id in chosen)
+            + "; ".join(facet_line(facet_id) for facet_id in chosen)
             + ".",
             "difficulty": 0.6,
             "difficulty_source": "author",
             "tags": ["teach_back", "learner_requested"],
             "grading_rubric": {"max_points": 4, "criteria": criteria, "fatal_errors": []},
-            "provenance": {"origin": "human"},  # learner-requested; no agent involved
+            "provenance": {"origin": "human"},
             "created_at": now,
             "updated_at": now,
         },

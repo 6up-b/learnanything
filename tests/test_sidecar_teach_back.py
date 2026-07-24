@@ -15,6 +15,7 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.server import serve
 
@@ -71,6 +72,39 @@ class _TeachBackServer:
                                 f"Wait, I'm confused about {context['criterion_id']} — "
                                 "can you explain that part again?"
                             )
+                        }
+                    )
+                    return
+                if self.path == "/teach-back-authoring":
+                    source_ids = [
+                        entry["id"] for entry in context["source_criteria"]
+                    ]
+                    facet_id = context["allowed_facets"][0]["id"]
+                    quest = context.get("quest_sentence")
+                    self._json(
+                        {
+                            "prompt_md": (
+                                "Teach a student how to reason through this exact task: "
+                                + context["source_prompt"]
+                            ),
+                            "expected_answer_md": "Explain the source method and why it works.",
+                            "core_criteria": [
+                                {
+                                    "description": "Explains the source method.",
+                                    "source_criterion_ids": source_ids,
+                                    "measurement_status": "item_local",
+                                    "facet_ids": [],
+                                }
+                            ],
+                            "transfer_criterion": {
+                                "description": "Applies the method in the learner's quest.",
+                                "source_criterion_ids": source_ids,
+                                "measurement_status": "supporting",
+                                "facet_ids": [facet_id],
+                            },
+                            "transfer_scenario": f"A nearby application for: {quest}",
+                            "quest_connection": "connected" if quest else "no_quest",
+                            "trace_contract": None,
                         }
                     )
                     return
@@ -678,3 +712,50 @@ def test_sidecar_request_teach_back_mints_and_is_idempotent(tmp_path):
     assert first["practiceItemId"].startswith("pi_")
     assert second["created"] is False
     assert second["practiceItemId"] == first["practiceItemId"]
+    minted = load_vault(vault_root).practice_items[first["practiceItemId"]]
+    assert "Define SVD." in minted.prompt
+    assert minted.teach_back_source.source_practice_item_id == "pi_svd_define_001"
+    assert minted.teach_back_source.authoring_mode == "deterministic_fallback"
+    assert all(
+        criterion.measurement_status == "item_local"
+        for criterion in minted.grading_rubric.criteria
+    )
+
+
+def test_sidecar_request_teach_back_uses_llm_authoring_and_quest(tmp_path):
+    server = _TeachBackServer()
+    server.start()
+    try:
+        vault_root = tmp_path / "vault"
+        paths = create_basic_vault(vault_root)
+        seed_due_item(paths)
+        checkout = tmp_path / "codex"
+        checkout.mkdir()
+        (checkout / "HEAD").write_text("abc123", encoding="utf-8")
+        _configure_http_provider(vault_root, checkout, server.base_url)
+
+        response = _call(
+            vault_root,
+            "request_teach_back",
+            {"practiceItemId": "pi_svd_define_001"},
+        )["result"]
+
+        minted = load_vault(vault_root).practice_items[response["practiceItemId"]]
+        assert response["created"] is True
+        assert minted.prompt.endswith("Define SVD.")
+        assert minted.teach_back_source.authoring_mode == "ai"
+        assert minted.teach_back_source.quest_sentence == "Linear algebra for ML"
+        assert minted.teach_back_source.quest_basis == "legacy_title"
+        assert minted.teach_back_source.quest_connection == "connected"
+        authoring_calls = [
+            request
+            for request in server.requests
+            if request["path"] == "/teach-back-authoring"
+        ]
+        assert len(authoring_calls) == 1
+        assert (
+            authoring_calls[0]["body"]["context"]["quest_sentence"]
+            == "Linear algebra for ML"
+        )
+    finally:
+        server.stop()

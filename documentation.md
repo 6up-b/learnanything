@@ -251,9 +251,9 @@ response_format = "json_object"          # or "json_schema" on supporting models
 
 API keys are never written to `learnloop.toml`; the profile names an environment variable, and the key is read from the shell environment, the vault-local `.env`, or `~/.config/learnloop/settings.env` (in that precedence order). Switch every AI task to a provider with `LEARNLOOP_AI_PROVIDER=openrouter`, set `active_provider = "openrouter"` in `[ai]`, or mix providers per task via `[ai.routing]` — `canonical_ingest` also covers unit inventory, study-map synthesis, and append reconciliation, so a vault can, for example, keep Codex for synthesis while OpenRouter grades practice. Most CLI commands accept `--ai-provider <name>` for a one-off override.
 
-### The Settings tab
+### The Settings overlay
 
-The gear chip (`⚙ [Alt+S]`) at the far right of the tab bar — green/red for AI ready/unready — opens the Settings screen, which persists everything above without hand-editing TOML:
+The gear chip (`⚙ [Alt+S]`) at the far right of the tab bar — green/red for AI ready/unready — opens Settings as a floating overlay, preserving an in-progress Today problem or Reader session underneath. It persists everything above without hand-editing TOML:
 
 - **AI models** — the active provider plus per-use-case rows (grading, ingest/synthesis, tutor, animation). Picking OpenRouter for a use case takes any model slug and materializes a dedicated `[ai.providers.openrouter_<usecase>]` profile, so different tasks can run different OpenRouter models. Grading also offers manual (self-grade) mode.
 - **OpenRouter API key** — saved (masked) to the machine-global `settings.env`, never the committed vault config, and applied to the running process immediately.

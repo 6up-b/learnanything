@@ -2,7 +2,7 @@
 // one screen. Esc closes; Enter advances when the step is valid (except inside
 // text inputs / on the concept filter). Step 3 debounces goal_feasibility.
 //
-// Steps: 1 What (title + concept picker + advanced facet ids) · 2 How well
+// Steps: 1 What (title + optional larger intent + concept picker + advanced facet ids) · 2 How well
 // (target recall) · 3 By when (due date / open-ended, live feasibility) ·
 // 4 Exam (held-out toggle + summary + create).
 
@@ -18,6 +18,7 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
 
   // step 1
   const [title, setTitle] = useState("");
+  const [intentSentence, setIntentSentence] = useState("");
   const [concepts, setConcepts] = useState<ConceptGraphNode[] | null>(null);
   const [conceptError, setConceptError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
@@ -113,6 +114,7 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
     try {
       const created = await api.createGoal({
         title: title.trim(),
+        intentSentence: intentSentence.trim() || undefined,
         targetRecall,
         dueAt,
         concepts: conceptIds,
@@ -159,7 +161,7 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, stepValid, submitting, title, conceptIds, facetIds, targetRecall, dueAt, examEnabled, examItemCount]);
+  }, [step, stepValid, submitting, title, intentSentence, conceptIds, facetIds, targetRecall, dueAt, examEnabled, examItemCount]);
 
   const filteredConcepts = useMemo(() => {
     if (!concepts) return [];
@@ -204,6 +206,8 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
             <StepWhat
               title={title}
               onTitle={setTitle}
+              intentSentence={intentSentence}
+              onIntentSentence={setIntentSentence}
               concepts={filteredConcepts}
               conceptError={conceptError}
               loading={concepts == null}
@@ -243,6 +247,7 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
               populatePractice={populatePractice}
               onPopulatePractice={setPopulatePractice}
               title={title}
+              intentSentence={intentSentence}
               conceptCount={conceptIds.length}
               facetCount={facetIds.length}
               targetRecall={targetRecall}
@@ -282,6 +287,8 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
 function StepWhat({
   title,
   onTitle,
+  intentSentence,
+  onIntentSentence,
   concepts,
   conceptError,
   loading,
@@ -296,6 +303,8 @@ function StepWhat({
 }: {
   title: string;
   onTitle: (v: string) => void;
+  intentSentence: string;
+  onIntentSentence: (v: string) => void;
   concepts: ConceptGraphNode[];
   conceptError: string | null;
   loading: boolean;
@@ -312,6 +321,18 @@ function StepWhat({
     <div>
       <Label>goal title</Label>
       <input value={title} onChange={(e) => onTitle(e.target.value)} placeholder="e.g. Linear algebra midterm" style={inputStyle} autoFocus />
+
+      <Label style={{ marginTop: 20 }}>quest / larger intent · optional</Label>
+      <textarea
+        value={intentSentence}
+        onChange={(e) => onIntentSentence(e.target.value)}
+        placeholder="e.g. I want to use complex numbers in signal processing."
+        rows={2}
+        style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+      />
+      <Faint style={{ display: "block", marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>
+        Used to connect transfer questions to why this matters. If blank, LearnLoop uses the exam or problem goal above.
+      </Faint>
 
       <Label style={{ marginTop: 20 }}>concepts — {totalSelected} selected</Label>
       <input value={filter} onChange={(e) => onFilter(e.target.value)} placeholder="filter concepts…" style={inputStyle} />
@@ -429,6 +450,7 @@ function StepExam({
   populatePractice,
   onPopulatePractice,
   title,
+  intentSentence,
   conceptCount,
   facetCount,
   targetRecall,
@@ -443,6 +465,7 @@ function StepExam({
   populatePractice: boolean;
   onPopulatePractice: (v: boolean) => void;
   title: string;
+  intentSentence: string;
   conceptCount: number;
   facetCount: number;
   targetRecall: number;
@@ -495,6 +518,15 @@ function StepExam({
       <Label style={{ marginTop: 22 }}>summary</Label>
       <div style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bgInput, padding: "12px 14px", fontSize: 13, lineHeight: 1.8 }}>
         <SummaryRow k="title" v={title || "—"} />
+        <SummaryRow
+          k="quest"
+          v={
+            intentSentence.trim() ||
+            (examEnabled
+              ? `Do well on the exam goal “${title}”.`
+              : `Be good at problems covered by the goal “${title}”.`)
+          }
+        />
         <SummaryRow k="scope" v={`${conceptCount} concepts${facetCount ? ` + ${facetCount} facets` : ""}`} />
         <SummaryRow k="target" v={`${Math.round(targetRecall * 100)}% recall`} />
         <SummaryRow k="due" v={dueAt ? new Date(dueAt).toLocaleDateString() : "open-ended"} />

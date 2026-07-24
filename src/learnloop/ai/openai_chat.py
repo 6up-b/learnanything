@@ -37,6 +37,7 @@ from learnloop.codex.client import (
     RungBackfillContext,
     SourceSetSynthesisContext,
     SourceUnitInventoryContext,
+    TeachBackAuthoringContext,
     TeachBackQuestionContext,
     TutorQAContext,
     _append_reconciliation_prompt,
@@ -59,6 +60,7 @@ from learnloop.codex.client import (
     _rung_backfill_prompt,
     _source_set_synthesis_prompt,
     _source_unit_inventory_prompt,
+    _teach_back_authoring_prompt,
     _teach_back_question_prompt,
     _tutor_qa_prompt,
 )
@@ -81,6 +83,7 @@ from learnloop.codex.schemas import (
     RungBackfillClassification,
     SourceSetSynthesis,
     SourceUnitInventory,
+    TeachBackAuthoring,
     TeachBackQuestion,
     TutorAnswer,
 )
@@ -140,6 +143,9 @@ class OpenAIChatProviderClient:
 
     def run_teach_back_question(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         return self._run_json_model(_teach_back_question_prompt(context), TeachBackQuestion)
+
+    def run_teach_back_authoring(self, context: TeachBackAuthoringContext) -> TeachBackAuthoring:
+        return self._run_json_model(_teach_back_authoring_prompt(context), TeachBackAuthoring)
 
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
         return self._run_json_model(_misconception_match_prompt(context), MisconceptionMatch)

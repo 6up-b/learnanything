@@ -33,6 +33,7 @@ def codex_config_from_ai_profile(profile: AIProviderConfig) -> CodexConfig:
         grading_path=profile.grading_path or "/grading-proposal",
         tutor_qa_path=profile.tutor_qa_path or "/tutor-qa",
         teach_back_path=profile.teach_back_path or "/teach-back",
+        teach_back_authoring_path=profile.teach_back_authoring_path or "/teach-back-authoring",
     )
 
 

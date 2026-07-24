@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { RuntimeHealth, SettingsDto, UseCaseChoiceInput } from "../api/dto";
+import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
 import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
 
@@ -44,19 +45,64 @@ function applyPalette(palette: string) {
 
 type UseCaseDraft = { provider: string; model: string };
 
+type SettingsScreenProps = {
+  manualGrading: boolean;
+  onSelectGradingProvider: (provider: string) => void;
+  onHealthChanged: (health: RuntimeHealth) => void;
+  onToast: (message: string) => void;
+  onError: (message: string) => void;
+};
+
+export function SettingsOverlay({
+  onClose,
+  notification,
+  onDismissNotification,
+  ...settingsProps
+}: SettingsScreenProps & {
+  onClose: () => void;
+  notification: string | null;
+  onDismissNotification: () => void;
+}) {
+  return (
+    <CommandOverlayFrame
+      command="settings"
+      footerKeys={(
+        <span><span style={{ color: COLOR.text }}>esc</span> close</span>
+      )}
+      footerRight={<span>vault + machine preferences</span>}
+      onClose={onClose}
+      ariaLabel="Settings"
+      width="min(880px, 100%)"
+      focusOnMount
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || (event.altKey && event.key.toLowerCase() === "s")) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+    >
+      {notification ? (
+        <div
+          className="toast"
+          role="status"
+          style={{ margin: "10px 16px 0", cursor: "pointer", flexShrink: 0 }}
+          onClick={onDismissNotification}
+        >
+          {notification}
+        </div>
+      ) : null}
+      <SettingsScreen {...settingsProps} />
+    </CommandOverlayFrame>
+  );
+}
+
 export function SettingsScreen({
   manualGrading,
   onSelectGradingProvider,
   onHealthChanged,
   onToast,
   onError
-}: {
-  manualGrading: boolean;
-  onSelectGradingProvider: (provider: string) => void;
-  onHealthChanged: (health: RuntimeHealth) => void;
-  onToast: (message: string) => void;
-  onError: (message: string) => void;
-}) {
+}: SettingsScreenProps) {
   const [settings, setSettings] = useState<SettingsDto | null>(null);
   const [drafts, setDrafts] = useState<Record<string, UseCaseDraft>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -199,7 +245,9 @@ export function SettingsScreen({
 
   if (!settings) {
     return (
-      <div style={{ padding: 24, fontFamily: FONT_MONO, color: COLOR.textDim }}>loading settings…</div>
+      <div style={{ padding: 24, minHeight: 120, fontFamily: FONT_MONO, color: COLOR.textDim }}>
+        loading settings…
+      </div>
     );
   }
 
@@ -211,7 +259,17 @@ export function SettingsScreen({
     (transcriptionUrlDraft !== null && transcriptionUrlDraft !== settings.ingest.transcriptionBaseUrl);
 
   return (
-    <div style={{ padding: "18px 26px", overflowY: "auto", height: "100%", maxWidth: 760 }}>
+    <div
+      style={{
+        alignSelf: "center",
+        flex: 1,
+        minHeight: 0,
+        width: "100%",
+        maxWidth: 820,
+        padding: "18px 26px",
+        overflowY: "auto"
+      }}
+    >
       <SectionHeader>AI models</SectionHeader>
       {envOverride ? (
         <div

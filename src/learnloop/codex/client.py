@@ -52,6 +52,7 @@ from learnloop.codex.prompts import (
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     SOURCE_UNIT_INVENTORY_PROMPT,
     SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
+    TEACH_BACK_AUTHORING_PROMPT_VERSION,
     TEACH_BACK_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
 )
@@ -74,6 +75,7 @@ from learnloop.codex.schemas import (
     ManimAnimation,
     SourceSetSynthesis,
     SourceUnitInventory,
+    TeachBackAuthoring,
     TeachBackQuestion,
     TutorAnswer,
 )
@@ -239,6 +241,28 @@ class TeachBackQuestionContext:
     max_followups: int = 4
     learning_object_title: str | None = None
     learning_object_summary: str | None = None
+
+
+@dataclass(frozen=True)
+class TeachBackAuthoringContext:
+    """Bounded source contract for authoring one teach-back transformation.
+
+    ``quest_sentence`` is resolved from the highest-priority relevant active
+    goal: explicit learner intent first, then an operational exam/practice
+    fallback. It may shape only the transfer scenario; the original item and
+    criterion contract remain the authority for the core explanation.
+    """
+
+    source_practice_item_id: str
+    source_prompt: str
+    source_expected_answer: Any
+    source_criteria: list[dict] = field(default_factory=list)
+    source_trace_contract: dict | None = None
+    allowed_facets: list[dict] = field(default_factory=list)
+    learning_object_title: str = ""
+    learning_object_summary: str = ""
+    quest_sentence: str | None = None
+    max_core_criteria: int = 3
 
 
 @dataclass(frozen=True)
@@ -557,6 +581,9 @@ class CodexClient(Protocol):
     def run_teach_back_question(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         ...
 
+    def run_teach_back_authoring(self, context: TeachBackAuthoringContext) -> TeachBackAuthoring:
+        ...
+
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
         ...
 
@@ -622,6 +649,14 @@ class HttpCodexClient:
     def run_teach_back_question(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         payload = self._post(self.config.teach_back_path, {"context": asdict(context)}, purpose="teach_back")
         return TeachBackQuestion.model_validate(payload.get("proposal", payload))
+
+    def run_teach_back_authoring(self, context: TeachBackAuthoringContext) -> TeachBackAuthoring:
+        payload = self._post(
+            self.config.teach_back_authoring_path,
+            {"context": asdict(context)},
+            purpose="teach_back_authoring",
+        )
+        return TeachBackAuthoring.model_validate(payload.get("proposal", payload))
 
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
         context_payload = context if isinstance(context, dict) else asdict(context)
@@ -833,6 +868,13 @@ class SdkCodexClient:
     def run_teach_back_question(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         return self._run_validated(
             _teach_back_question_prompt(context), TeachBackQuestion, purpose="teach_back"
+        )
+
+    def run_teach_back_authoring(self, context: TeachBackAuthoringContext) -> TeachBackAuthoring:
+        return self._run_validated(
+            _teach_back_authoring_prompt(context),
+            TeachBackAuthoring,
+            purpose="teach_back_authoring",
         )
 
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
@@ -1471,8 +1513,10 @@ _TEACH_BACK_TASK = (
     "just explained the concept to you (see context.transcript, oldest first). "
     "Return a TeachBackQuestion as schema-valid JSON only. Ask exactly ONE "
     "short follow-up question, in character, that probes the rubric criterion "
-    "described by context.criterion_description and its target facets "
-    "(context.facet_targets). You do not know the answer: you may feign "
+    "described by context.criterion_description and, when present, its target "
+    "facets (context.facet_targets). An item-local criterion can honestly have "
+    "no facet target; in that case use the criterion description and practice "
+    "item prompt. You do not know the answer: you may feign "
     "confusion, ask for a simpler explanation, an example, an edge case, or a "
     "what-if — but you MUST NOT correct the learner, confirm or deny whether "
     "anything they said is right, reveal any part of the answer, or introduce "
@@ -1483,6 +1527,49 @@ _TEACH_BACK_TASK = (
     "cases, unusual applications, or transfer scenarios for the criterion. "
     "Write question_md as one concise Markdown question (LaTeX math allowed)."
 )
+
+
+_TEACH_BACK_AUTHORING_TASK = (
+    "Transform the ONE completed source Practice Item into a focused teach-back "
+    "conversation contract. Return TeachBackAuthoring as schema-valid JSON only. "
+    "The opening prompt must name the source problem or task specifically and ask "
+    "the learner to explain the reasoning or method; NEVER replace it with the "
+    "broad Learning Object title, and do not reveal the expected answer, solution "
+    "steps, or hints in that opening prompt. Author 1..context.max_core_criteria core criteria "
+    "that together cover EVERY id in context.source_criteria exactly as a teachable "
+    "explanation. List the covered ids in source_criterion_ids. You may combine "
+    "adjacent source criteria, but may not omit one or invent an id. For every "
+    "criterion, link only facet ids from context.allowed_facets that it genuinely "
+    "measures. Use item_local or no_canonical_facet with an empty facet_ids list "
+    "when the source procedure is more specific than the facet vocabulary; do not "
+    "copy a uniform whole-item facet smear. Author exactly one transfer criterion. "
+    "If context.quest_sentence is relevant, create a modest, concrete scenario "
+    "connected to that sentence which still exercises the SAME reasoning as the "
+    "source item, set quest_connection=connected, and place the scenario in "
+    "transfer_scenario. The quest may shape ONLY this transfer criterion, never "
+    "the core criteria or their facet mappings. If the quest is absent, set "
+    "quest_connection=no_quest and use a nearby edge case. If it is unrelated, "
+    "set quest_connection=not_relevant and use a nearby edge case rather than "
+    "forcing a superficial analogy. The transfer criterion must name what reasoning "
+    "the learner should transfer and include the relevant source_criterion_ids. "
+    "A transfer criterion that names facets must use measurement_status=supporting; "
+    "otherwise use item_local or no_canonical_facet with no facet ids. "
+    "Write expected_answer_md as an explanation standard, not merely the final "
+    "answer. Preserve context.source_trace_contract when it is reliable; otherwise "
+    "compile a small checkpoint trace from the expected reasoning, or return null "
+    "when no reliable decomposition exists."
+)
+
+
+def _teach_back_authoring_prompt(context: TeachBackAuthoringContext) -> str:
+    return _json_prompt(
+        "learnloop source-item teach-back authoring",
+        TEACH_BACK_AUTHORING_PROMPT_VERSION,
+        {
+            "task": _TEACH_BACK_AUTHORING_TASK,
+            "context": asdict(context),
+        },
+    )
 
 
 def _teach_back_question_prompt(context: TeachBackQuestionContext) -> str:

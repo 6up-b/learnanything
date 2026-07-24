@@ -18,6 +18,7 @@ from learnloop.codex.client import (
     CodexTurnTimeout,
     ReaderPresetSynthesisContext,
     SdkCodexClient,
+    TeachBackAuthoringContext,
     _codex_output_schema,
     _resolved_sdk_codex_bin,
 )
@@ -26,6 +27,7 @@ from learnloop.codex.schemas import (
     GradingProposal,
     PracticeItemPatchPayload,
     ReaderPresetSynthesis,
+    TeachBackAuthoring,
 )
 from learnloop.config import CodexConfig
 
@@ -48,6 +50,69 @@ def test_codex_grading_schema_is_strict_response_format_compatible():
     assert schema["additionalProperties"] is False
     assert "default" not in _schema_keys(schema)
     assert not _non_strict_objects(schema)
+
+
+def test_codex_teach_back_authoring_schema_is_strict_response_format_compatible():
+    schema = _codex_output_schema(TeachBackAuthoring)
+
+    assert schema["additionalProperties"] is False
+    assert "default" not in _schema_keys(schema)
+    assert not _non_strict_objects(schema)
+
+
+def test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt(tmp_path):
+    client = SdkCodexClient(
+        CodexConfig(checkout_path=str(tmp_path / "codex")),
+        tmp_path,
+    )
+    captured: dict[str, Any] = {}
+
+    def fake_run_structured(prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
+        captured.update(prompt=prompt, output_schema=output_schema, purpose=purpose)
+        return json.dumps(
+            {
+                "prompt_md": "Teach how to find both square roots of i.",
+                "expected_answer_md": "Explain the Cartesian method.",
+                "core_criteria": [
+                    {
+                        "description": "Explains the Cartesian method.",
+                        "source_criterion_ids": ["solve"],
+                        "measurement_status": "item_local",
+                        "facet_ids": [],
+                    }
+                ],
+                "transfer_criterion": {
+                    "description": "Uses the reasoning in signal processing.",
+                    "source_criterion_ids": ["solve"],
+                    "measurement_status": "supporting",
+                    "facet_ids": ["complex_multiplication"],
+                },
+                "transfer_scenario": "Interpret a phase rotation in signal processing.",
+                "quest_connection": "connected",
+                "trace_contract": None,
+            }
+        )
+
+    client._run_structured = fake_run_structured  # type: ignore[method-assign]
+    context = TeachBackAuthoringContext(
+        source_practice_item_id="pi_roots",
+        source_prompt="Find two distinct square roots of i.",
+        source_expected_answer="±(1+i)/sqrt(2)",
+        source_criteria=[{"id": "solve", "description": "Solves both sign branches."}],
+        allowed_facets=[{"id": "complex_multiplication"}],
+        learning_object_title="Compute with Complex Numbers",
+        quest_sentence="I want to learn complex numbers for signal processing.",
+    )
+
+    result = client.run_teach_back_authoring(context)
+
+    assert result.quest_connection == "connected"
+    assert captured["purpose"] == "teach_back_authoring"
+    payload = json.loads(captured["prompt"].rsplit("\n\n", 1)[1])
+    assert payload["context"]["source_prompt"] == context.source_prompt
+    assert payload["context"]["quest_sentence"] == context.quest_sentence
+    assert "quest may shape ONLY this transfer criterion" in payload["task"]
+    assert not _non_strict_objects(captured["output_schema"])
 
 
 def test_sdk_authoring_path_passes_strict_schema_to_codex(tmp_path):

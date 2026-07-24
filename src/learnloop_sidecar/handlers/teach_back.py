@@ -47,38 +47,55 @@ from learnloop_sidecar.registry import method
 
 
 class RequestTeachBackInput(ParamsModel):
-    # Either directly, or via a sibling practice item on the same LO.
+    # Direct LO requests are compatibility-only. A practice item request authors
+    # a source-scoped teach-back transformation of that exact completed task.
     learning_object_id: str | None = None
     practice_item_id: str | None = None
 
 
 @method("request_teach_back", RequestTeachBackInput)
 def request_teach_back(ctx: SidecarContext, params: RequestTeachBackInput) -> dict[str, Any]:
-    """Learner opt-in to a teach-back on an LO: find or mint the card.
+    """Learner opt-in to a source-item teach-back: find or author the card.
 
-    Returns the teach_back practice item id (existing active card, else a
-    deterministically minted one — see ``ensure_teach_back_item``). The client
-    then drives the normal ``start_teach_back`` flow with it.
+    When a source item is supplied, the routed teach-back provider authors the
+    prompt/rubric from that item's assessment contract and the relevant active
+    quest sentence. Invalid/unavailable authoring degrades to the service's
+    conservative source-specific fallback. The client then drives the normal
+    ``start_teach_back`` flow with the resulting item.
     """
 
     from learnloop.services.teach_back import ensure_teach_back_item
 
     vault, repository = ctx.require_vault()
     learning_object_id = params.learning_object_id
-    if learning_object_id is None:
-        if params.practice_item_id is None:
-            raise SidecarError(
-                "validation_error", "learning_object_id or practice_item_id is required."
-            )
-        item = vault.practice_items.get(params.practice_item_id)
+    source_practice_item_id = params.practice_item_id
+    if source_practice_item_id is not None:
+        item = vault.practice_items.get(source_practice_item_id)
         if item is None:
             raise SidecarError(
-                "not_found", f"Practice Item {params.practice_item_id} was not found."
+                "not_found", f"Practice Item {source_practice_item_id} was not found."
             )
-        learning_object_id = item.learning_object_id
+        if learning_object_id is None:
+            learning_object_id = item.learning_object_id
+    elif learning_object_id is None:
+        raise SidecarError(
+            "validation_error", "learning_object_id or practice_item_id is required."
+        )
+    assert learning_object_id is not None
+
+    authoring_client = None
+    if source_practice_item_id is not None:
+        _provider_name, runtime, routed_client = ready_teach_back_provider(vault)
+        if runtime.ready:
+            authoring_client = routed_client
     try:
         item_id, created = ensure_teach_back_item(
-            vault.root, vault, repository, learning_object_id
+            vault.root,
+            vault,
+            repository,
+            learning_object_id,
+            source_practice_item_id=source_practice_item_id,
+            authoring_client=authoring_client,
         )
     except TeachBackError as exc:
         raise SidecarError("validation_error", str(exc)) from exc

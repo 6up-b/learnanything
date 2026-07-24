@@ -11,6 +11,7 @@ PRACTICE_GENERATION_PROMPT_VERSION = "mvp-0.9-depth-waypoint-targeted"
 # for the citations contract (validated against provided spans, never invented).
 TUTOR_QA_PROMPT_VERSION = "mvp-0.7-tutor-qa-source-citations"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
+TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.1-source-item-quest-transfer"
 MISCONCEPTION_MATCH_PROMPT_VERSION = "mvp-0.5-misconception-match"
 DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.5-diagnostic-authoring"
 DIAGNOSTIC_TRIALS_PROMPT_VERSION = "mvp-0.5-diagnostic-trials"

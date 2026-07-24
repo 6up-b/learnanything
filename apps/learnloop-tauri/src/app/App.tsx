@@ -14,7 +14,7 @@ import { GraphScreen } from "../screens/GraphScreen";
 import { IngestScreen } from "../screens/IngestScreen";
 import { LibraryScreen } from "../screens/LibraryScreen";
 import { MaintenanceScreen } from "../screens/MaintenanceScreen";
-import { SettingsScreen } from "../screens/SettingsScreen";
+import { SettingsOverlay } from "../screens/SettingsScreen";
 import { PracticeScreen } from "../screens/PracticeScreen";
 import { ProposalsScreen } from "../screens/ProposalsScreen";
 import { RegistryReviewScreen } from "../screens/RegistryReviewScreen";
@@ -89,6 +89,9 @@ export function App() {
   // Review is a command overlay (`learnloop diff`), not a body-replacing tab.
   // Keep the current screen mounted beneath it just as `learnloop show` does.
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Settings is also a command-style overlay. In particular, opening it while
+  // practicing or reading must not unmount the active screen beneath it.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryFocus, setLibraryFocus] = useState<{ patchId: string; itemId: string } | null>(null);
   const [proposalFocusPatchId, setProposalFocusPatchId] = useState<string | null>(null);
   const [ingestJobId, setIngestJobId] = useState<string | null>(null);
@@ -178,6 +181,11 @@ export function App() {
         setPaletteOpen(true);
         return;
       }
+      if (event.altKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
       if (!textTarget && event.key === ":") {
         event.preventDefault();
         setPaletteOpen(true);
@@ -190,10 +198,6 @@ export function App() {
           gotoTab(next.id);
           event.preventDefault();
         }
-      }
-      if (event.altKey && event.key.toLowerCase() === "s") {
-        gotoTab("settings");
-        event.preventDefault();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -338,9 +342,16 @@ export function App() {
 
   function gotoTab(next: TopTab) {
     if (next === "errors") {
+      setSettingsOpen(false);
       setReviewOpen(true);
       return;
     }
+    if (next === "settings") {
+      setReviewOpen(false);
+      setSettingsOpen(true);
+      return;
+    }
+    setSettingsOpen(false);
     setReviewOpen(false);
     setTab(next);
     if (next !== "today") setTodayStage("queue");
@@ -430,6 +441,7 @@ export function App() {
         setAttemptId(null);
         setBlockReview(null);
         setInspectorId(null);
+        setSettingsOpen(false);
         setCalibrationSessionId(null);
         setRepairMisconceptionId(null);
         setIngestJobId(null);
@@ -674,17 +686,6 @@ export function App() {
         />
       );
     }
-    if (tab === "settings") {
-      return (
-        <SettingsScreen
-          manualGrading={manualGrading}
-          onSelectGradingProvider={changeGradingProvider}
-          onHealthChanged={applyHealth}
-          onToast={setToast}
-          onError={onError}
-        />
-      );
-    }
     return <EmptyPlaceholder title={tab} />;
   }
 
@@ -697,10 +698,26 @@ export function App() {
         aiManual={manualGrading}
         vaultRoot={snapshot?.vault?.root}
         onSelectVault={changeVault}
+        settingsOpen={settingsOpen}
       >
-        {toast ? <div className="toast" onClick={() => setToast(null)}>{toast}</div> : null}
+        {toast && !settingsOpen ? <div className="toast" onClick={() => setToast(null)}>{toast}</div> : null}
         {renderBody()}
       </TerminalFrame>
+      {settingsOpen ? (
+        <SettingsOverlay
+          manualGrading={manualGrading}
+          onSelectGradingProvider={changeGradingProvider}
+          onHealthChanged={applyHealth}
+          onToast={setToast}
+          onError={onError}
+          onClose={() => {
+            setSettingsOpen(false);
+            setToast(null);
+          }}
+          notification={toast}
+          onDismissNotification={() => setToast(null)}
+        />
+      ) : null}
       {reviewOpen ? (
         <ReviewScreen
           onClose={() => setReviewOpen(false)}

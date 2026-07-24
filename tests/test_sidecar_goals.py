@@ -84,6 +84,7 @@ def test_create_goal_writes_yaml_and_reloads(ctx):
         "create_goal",
         {
             "title": "Exam prep!",
+            "intentSentence": "I want to use linear algebra for signal processing.",
             "targetRecall": 0.9,
             "concepts": ["singular_value_decomposition"],
             "facets": [],
@@ -93,9 +94,17 @@ def test_create_goal_writes_yaml_and_reloads(ctx):
     )
     goal = created["goal"]
     assert goal["id"] == "goal_exam_prep"
+    assert goal["intentSentence"] == "I want to use linear algebra for signal processing."
+    assert goal["creationSource"] == "learner"
+    assert goal["resolvedQuestSentence"] == "I want to use linear algebra for signal processing."
+    assert goal["questBasis"] == "explicit_intent"
     assert goal["targetRecall"] == pytest.approx(0.9)
     assert goal["exam"]["enabled"] is True
     assert goal["report"]["total"] > 0
+
+    vault, _repository = ctx.require_vault()
+    persisted = next(entry for entry in vault.goals if entry.id == goal["id"])
+    assert persisted.intent_sentence == "I want to use linear algebra for signal processing."
 
     # Duplicate title gets a distinct id.
     again = _call(
@@ -110,6 +119,10 @@ def test_create_goal_writes_yaml_and_reloads(ctx):
         },
     )
     assert again["goal"]["id"] == "goal_exam_prep_2"
+    assert again["goal"]["resolvedQuestSentence"] == (
+        "Be good at problems covered by the goal “Exam prep!”."
+    )
+    assert again["goal"]["questBasis"] == "practice_goal"
 
 
 def test_create_goal_rejects_empty_scope(ctx):

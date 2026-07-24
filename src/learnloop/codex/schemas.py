@@ -553,6 +553,40 @@ class TeachBackQuestion(BaseModel):
     question_md: str
 
 
+class TeachBackCriterionDraft(BaseModel):
+    """One criterion in an AI-authored, source-item-scoped teach-back.
+
+    The model authors the learner-facing description and proposes an honest
+    measurement mapping. The service validates every source criterion and facet
+    id against the bounded authoring context before persisting anything.
+    """
+
+    description: str = ""
+    source_criterion_ids: list[str] = Field(default_factory=list)
+    measurement_status: Literal[
+        "direct", "supporting", "composite", "item_local", "no_canonical_facet"
+    ] = "item_local"
+    facet_ids: list[str] = Field(default_factory=list)
+
+
+class TeachBackAuthoring(BaseModel):
+    """AI-authored transformation of one completed Practice Item.
+
+    Core criteria remain anchored to the source assessment. The single transfer
+    criterion may use the active quest sentence for context, but may not change
+    the knowledge target. ``quest_connection`` is an inspectable declaration,
+    not evidence that the connection is pedagogically valid.
+    """
+
+    prompt_md: str = ""
+    expected_answer_md: str = ""
+    core_criteria: list[TeachBackCriterionDraft] = Field(default_factory=list)
+    transfer_criterion: TeachBackCriterionDraft | None = None
+    transfer_scenario: str = ""
+    quest_connection: Literal["connected", "not_relevant", "no_quest"] = "no_quest"
+    trace_contract: TraceContractPayload | None = None
+
+
 class ReaderPresetSynthesis(BaseModel):
     """One demand-paged reader preset result (spec §6, reader producer).
 

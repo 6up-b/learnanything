@@ -1838,6 +1838,7 @@ export interface StudyMapBriefDto {
   practiceItems?: "upfront" | "as_you_read";
   // exam-prep goal fields (createGoal path)
   goalTitle?: string;
+  intentSentence?: string;
   targetRecall?: number;
   dueAt?: string;
   examItemCount?: number;
@@ -2490,6 +2491,10 @@ export interface LoReadinessDto {
 export interface GoalDto {
   id: string;
   title: string;
+  intentSentence: string | null;
+  creationSource: "learner" | "source_ingestion" | "study_map" | "legacy";
+  resolvedQuestSentence: string | null;
+  questBasis: "explicit_intent" | "exam_goal" | "practice_goal" | "legacy_title" | null;
   status: "active" | "paused" | "completed" | "expired";
   priority: number;
   targetRecall: number;
@@ -2679,6 +2684,7 @@ export interface GoalFeasibilityResult {
 
 export interface CreateGoalInput {
   title: string;
+  intentSentence?: string | null;
   targetRecall: number;
   dueAt?: string | null;
   concepts: string[];

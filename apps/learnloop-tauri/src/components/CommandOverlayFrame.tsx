@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type KeyboardEventHandler, type ReactNode } from "react";
 import { COLOR, Faint, FONT_MONO } from "./term";
 
 export const learnloopShowOverlayWidth = "min(1120px, 100%)";
@@ -19,7 +19,9 @@ export function CommandOverlayFrame({
   children,
   ariaLabel,
   width = "min(960px, 100%)",
-  zIndex = 200
+  zIndex = 200,
+  focusOnMount = false,
+  onKeyDown
 }: {
   command: string;
   context?: ReactNode;
@@ -32,15 +34,54 @@ export function CommandOverlayFrame({
   ariaLabel?: string;
   width?: string;
   zIndex?: number;
+  focusOnMount?: boolean;
+  onKeyDown?: KeyboardEventHandler<HTMLElement>;
 }) {
+  const modalRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!focusOnMount) return;
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    modalRef.current?.focus();
+    return () => {
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [focusOnMount]);
+
   return (
     <div style={{ ...commandOverlayBackdropStyle, zIndex }} onClick={onClose}>
       <section
+        ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel ?? `learnloop ${command}`}
+        tabIndex={focusOnMount ? -1 : undefined}
         style={{ ...commandOverlayModalStyle, width }}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          // A command overlay is modal: keyboard shortcuts owned by the mounted
+          // screen beneath it must not also run.
+          event.stopPropagation();
+          if (focusOnMount && event.key === "Tab") {
+            const focusable = Array.from(
+              modalRef.current?.querySelectorAll<HTMLElement>(
+                'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+              ) ?? []
+            );
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === modalRef.current)) {
+              event.preventDefault();
+              last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first?.focus();
+            }
+          }
+          onKeyDown?.(event);
+        }}
       >
         <header style={commandOverlayHeaderStyle}>
           <span style={{ color: COLOR.amber, fontWeight: 700 }}>❯</span>

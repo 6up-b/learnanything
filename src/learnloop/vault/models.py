@@ -59,6 +59,13 @@ class Goal(VaultModel):
 
     id: str
     title: str
+    # Optional, learner-authored larger purpose for the goal. Operational goals
+    # remain useful without one: consumers may derive a narrower exam/practice
+    # quest from the rest of the goal contract.
+    intent_sentence: str | None = None
+    # Distinguishes a learner-authored operational goal from one created merely
+    # to link imported source material. Missing on existing vaults.
+    creation_source: Literal["learner", "source_ingestion", "study_map", "legacy"] = "legacy"
     status: Literal["active", "paused", "completed", "expired"] = "active"
     # Tiebreaker between overlapping goals, not a scheduling weight.
     priority: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -408,6 +415,21 @@ class VariantAuthoringContract(VaultModel):
     drops_checkpoints: list[str] = Field(default_factory=list)
 
 
+class TeachBackSourceContract(VaultModel):
+    """Provenance for a teach-back transformed from one completed item."""
+
+    source_practice_item_id: str
+    source_updated_at: str
+    compiler_version: str
+    quest_id: str | None = None
+    quest_sentence: str | None = None
+    quest_basis: Literal[
+        "explicit_intent", "exam_goal", "practice_goal", "legacy_title", "provided"
+    ] | None = None
+    quest_connection: Literal["connected", "not_relevant", "no_quest"] = "no_quest"
+    authoring_mode: Literal["ai", "deterministic_fallback"] = "deterministic_fallback"
+
+
 class PracticeItem(VaultModel):
     schema_version: int = 1
     id: str
@@ -420,6 +442,7 @@ class PracticeItem(VaultModel):
     criterion_facet_weights: dict[str, dict[str, float]] = Field(default_factory=dict)
     trace_contract: TraceContract | None = None
     variant_contract: VariantAuthoringContract | None = None
+    teach_back_source: TeachBackSourceContract | None = None
     prompt: str
     expected_answer: str | dict[str, Any]
     difficulty: float | None = Field(default=None, ge=0.0, le=1.0)

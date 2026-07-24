@@ -1492,6 +1492,7 @@ class CodexConfig(BaseModel):
     grading_path: str = "/grading-proposal"
     tutor_qa_path: str = "/tutor-qa"
     teach_back_path: str = "/teach-back"
+    teach_back_authoring_path: str = "/teach-back-authoring"
     misconception_match_path: str = "/misconception-match"
 
 
@@ -1532,6 +1533,7 @@ class AIProviderConfig(BaseModel):
     grading_path: str | None = None
     tutor_qa_path: str | None = None
     teach_back_path: str | None = None
+    teach_back_authoring_path: str | None = None
     misconception_match_path: str | None = None
 
 
@@ -1940,6 +1942,7 @@ def ai_provider_from_codex(config: CodexConfig) -> AIProviderConfig:
         grading_path=config.grading_path,
         tutor_qa_path=config.tutor_qa_path,
         teach_back_path=config.teach_back_path,
+        teach_back_authoring_path=config.teach_back_authoring_path,
         misconception_match_path=config.misconception_match_path,
     )
 
