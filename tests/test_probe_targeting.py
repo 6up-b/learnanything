@@ -56,8 +56,9 @@ def test_cause_set_diagnostic_selects_discriminating_instrument(tmp_path):
     _attempt(vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, FrozenClock(NOW))
     cause_sets = open_cause_sets_for_learning_object(vault, repository, "lo_svd_definition")
     assert cause_sets
-    facets = {c["facet"] for c in cause_sets[0]}
+    facets = {c["facet"] for c in cause_sets[0] if c.get("facet")}
     assert facets == {SHARED, SELECT}
+    assert any(cause.get("hypothesis_id") == "H_OTHER" for cause in cause_sets[0])
 
 
 def test_embedded_evidence_suppresses_redundant_probe(tmp_path):

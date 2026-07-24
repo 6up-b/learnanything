@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -138,6 +139,19 @@ def _tutor_vault(tmp_path, server: _TutorServer):
 
 def _init(vault_root) -> dict:
     return {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}}
+
+
+def _wait_for_promotion_request(
+    vault_root: Path, event_id: str, *, timeout: float = 5.0
+):
+    repository = Repository(vault_root / "state.sqlite")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        request = repository.question_promotion_request(event_id)
+        if request is not None and request["status"] in {"completed", "failed"}:
+            return request, repository.question_promotion(event_id)
+        time.sleep(0.02)
+    raise AssertionError(f"promotion request {event_id} did not finish")
 
 
 def test_sidecar_ask_rate_transcript_and_limit(tmp_path):
@@ -607,10 +621,12 @@ def test_sidecar_promote_tutor_question_dedup_route_is_idempotent(tmp_path):
             )[1]["result"]
 
         first = do_promote()
-        assert first["route"] == "existing_item"
-        assert first["existingPracticeItemId"] == "pi_svd_define_001"
-        assert first["questionEventId"] == event_id
-        assert first["intent"] == "practice"
+        assert first["request"]["questionEventId"] == event_id
+        assert first["request"]["intent"] == "practice"
+        request, promotion = _wait_for_promotion_request(vault_root, event_id)
+        assert request["status"] == "completed"
+        assert promotion["route"] == "existing_item"
+        assert promotion["existing_practice_item_id"] == "pi_svd_define_001"
         analysis_calls_after_first = len(
             [request for request in server.requests if request["path"] == "/promotion-analysis"]
         )
@@ -620,7 +636,9 @@ def test_sidecar_promote_tutor_question_dedup_route_is_idempotent(tmp_path):
         # service short-circuits on the existing question_promotions PK before
         # touching the provider at all).
         second = do_promote()
-        assert second == first
+        assert second["request"]["status"] == "completed"
+        assert second["promotion"]["route"] == "existing_item"
+        assert second["promotion"]["existingPracticeItemId"] == "pi_svd_define_001"
         analysis_calls_after_second = len(
             [request for request in server.requests if request["path"] == "/promotion-analysis"]
         )
@@ -698,9 +716,8 @@ def test_sidecar_promote_tutor_question_gap_rejected_in_library_context(tmp_path
 
 
 def test_sidecar_promote_tutor_question_requires_ready_provider(tmp_path):
-    # No mock server: the routed provider is unreachable, so the handler must
-    # fail fast with the same provider_unavailable shape ask_tutor_question uses,
-    # before ever touching the (nonexistent) question event.
+    # No mock server: enqueue succeeds durably, then the worker records the
+    # precise provider failure for retry instead of returning a generic Q&A error.
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     seed_due_item(paths)
@@ -708,6 +725,17 @@ def test_sidecar_promote_tutor_question_requires_ready_provider(tmp_path):
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")
     _configure_http_provider(vault_root, checkout, "http://127.0.0.1:1")
+    repository = Repository(paths.sqlite_path)
+    repository.insert_question_event(
+        {
+            "id": "evt_unavailable",
+            "context": "practice",
+            "practice_item_id": "pi_svd_define_001",
+            "question_md": "Why?",
+            "answer_md": "Because.",
+            "answer_status": "answered",
+        }
+    )
 
     response = _rpc(
         [
@@ -716,9 +744,14 @@ def test_sidecar_promote_tutor_question_requires_ready_provider(tmp_path):
                 "jsonrpc": "2.0",
                 "id": 2,
                 "method": "promote_tutor_question",
-                "params": {"eventId": "evt_nonexistent", "intent": "practice"},
+                "params": {"eventId": "evt_unavailable", "intent": "practice"},
             },
         ]
     )[1]
-    assert response["error"]["data"]["code"] == "provider_unavailable"
-    assert response["error"]["data"]["retryable"] is True
+    assert response["result"]["request"]["status"] in {"queued", "running", "failed"}
+    request, promotion = _wait_for_promotion_request(vault_root, "evt_unavailable")
+    assert promotion is None
+    assert request["status"] == "failed"
+    assert request["error_code"] == "provider_unavailable"
+    assert request["retryable"] is True
+    assert request["error_message"]

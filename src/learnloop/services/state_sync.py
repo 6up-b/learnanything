@@ -53,13 +53,18 @@ def sync_vault_state(
     from learnloop.services.probe_instance_generation import pending_review_instance_ids
 
     review_parked = pending_review_instance_ids(repository)
+    measurement_superseded = repository.superseded_measurement_item_ids()
 
     def _activatable(item_id: str, item) -> bool:
         # A learner-retired item stays in the vault (attempts/evidence intact)
         # but must never reactivate into any serving path.
         if getattr(item, "status", "active") != "active":
             return False
-        return item_id not in review_parked and item.practice_mode != "diagnostic_microprobe"
+        return (
+            item_id not in review_parked
+            and item_id not in measurement_superseded
+            and item.practice_mode != "diagnostic_microprobe"
+        )
 
     for item_id, item in vault.practice_items.items():
         content_hash = practice_item_hash(item)

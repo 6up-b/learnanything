@@ -22,7 +22,13 @@ from typing import Any, Literal
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
+from learnloop.services.ingest_runner import (
+    IngestRunner,
+    JobSpec,
+    RunnerServices,
+    derive_batch_status,
+    effective_ingest_job_status,
+)
 
 _LEGACY_JOB_TYPES = ("legacy_ingest", "exam_ingest")
 # Job types whose completion can change vault content (an applied study map or
@@ -38,6 +44,8 @@ _APPLYING_JOB_TYPES = (
     "practice_expansion",
     # Learner-requested easier/harder variants auto-apply when grounded.
     "rung_variant",
+    # Open-question promotions may materialize a note and auto-apply practice.
+    "question_promotion",
     # Reader-selected textbook exercises become vault practice items directly.
     "reader_exercise_import",
 )
@@ -212,7 +220,11 @@ class DurableIngestJobs:
     def needs_reload(self, job_id: str) -> bool:
         runner = self._require_runner()
         job = runner.repo.get_ingest_job(job_id)
-        return bool(job and job["status"] == "completed" and job_id not in self._reloaded)
+        return bool(
+            job
+            and effective_ingest_job_status(job) == "completed"
+            and job_id not in self._reloaded
+        )
 
     def mark_reloaded(self, job_id: str) -> None:
         self._reloaded.add(job_id)
@@ -396,6 +408,24 @@ class DurableIngestJobs:
         batch_id = runner.enqueue_batch(
             "rung_variant",
             [JobSpec("rung_variant", {"request_id": request_id})],
+            subject_id=subject_id,
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_question_promotion(
+        self,
+        *,
+        event_id: str,
+        subject_id: str | None = None,
+    ) -> str:
+        """Enqueue a durable Open-question analysis/authoring request."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "question_promotion",
+            [JobSpec("question_promotion", {"event_id": event_id})],
             subject_id=subject_id,
             priority=QUICK_ADD_PRIORITY,
         )
@@ -970,14 +1000,33 @@ def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
     result = job.get("result") or {}
     waiting_payload = result.get("waiting_for_input") if isinstance(result, dict) else None
     payload = job.get("payload") or {}
+    status = effective_ingest_job_status(job)
+    phase = job.get("phase")
+    message = job.get("message")
+    error = job.get("error")
+    if status == "failed" and job.get("status") == "completed":
+        request_id = str(payload.get("request_id") or "")
+        request = repo.rung_variant_request(request_id) if request_id else None
+        reason = str(
+            (request or {}).get("failure_reason")
+            or "Rung variant generation failed before producing a proposal."
+        )
+        phase = "failed"
+        message = reason
+        error = {
+            "code": "rung_variant_failed",
+            "message": reason,
+            "retryable": True,
+            "details": {"request_id": request_id, "result": result},
+        }
     return {
         "id": job["id"],
         "batch_id": job["batch_id"],
         "ordinal": job["ordinal"],
         "job_type": job["job_type"],
-        "status": job["status"],
-        "phase": job.get("phase"),
-        "message": job.get("message"),
+        "status": status,
+        "phase": phase,
+        "message": message,
         "current_window": job.get("current_window"),
         "total_windows": job.get("total_windows"),
         "attempt_count": job.get("attempt_count", 0),
@@ -986,7 +1035,7 @@ def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
         "estimate": payload.get("estimate") or {},
         "source": payload.get("source"),
         "result": None if waiting_payload is not None else (result or None),
-        "error": job.get("error"),
+        "error": error,
         "waiting_for_input": waiting_payload,
         "depends_on": repo.ingest_job_dependency_ids(job["id"]),
     }
@@ -998,7 +1047,7 @@ def _batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Reposit
         "workflow_type": batch["workflow_type"],
         "subject_id": batch.get("subject_id"),
         "source_set_id": batch.get("source_set_id"),
-        "status": batch["status"],
+        "status": derive_batch_status(jobs, batch),
         "cancel_requested": bool(batch.get("cancel_requested")),
         "created_at": batch.get("created_at"),
         "started_at": batch.get("started_at"),

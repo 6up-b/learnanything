@@ -29,6 +29,43 @@ class PracticeItemInput(ParamsModel):
     practice_item_id: str
 
 
+_QUEUE_RELOAD_JOB_TYPES = frozenset(
+    {
+        "legacy_ingest",
+        "exam_ingest",
+        "bootstrap_synthesis",
+        "append_synthesis",
+        "practice_expansion",
+        "rung_variant",
+        "question_promotion",
+        "reader_exercise_import",
+    }
+)
+
+
+@method("get_queue_revision", ParamsModel)
+def get_queue_revision(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]:
+    """Cheap durable high-water mark for asynchronous Today invalidation."""
+
+    # A promotion job can write vault YAML between UI ticks. Reload exactly
+    # once when its durable job completes so the subsequent Today refetch sees
+    # the new item, rather than the pre-authoring in-memory vault snapshot.
+    completed = [
+        job["id"]
+        for batch in ctx.ingest_jobs.list_batches(limit=8)
+        for job in batch.get("jobs") or []
+        if job.get("job_type") in _QUEUE_RELOAD_JOB_TYPES
+        and job.get("status") == "completed"
+        and ctx.ingest_jobs.needs_reload(job["id"])
+    ]
+    if completed:
+        ctx.reload(maintenance=False)
+        for job_id in completed:
+            ctx.ingest_jobs.mark_reloaded(job_id)
+    _vault, repository = ctx.require_vault()
+    return versioned(repository.queue_revision())
+
+
 @method("get_today_queue", QueueInput)
 def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()

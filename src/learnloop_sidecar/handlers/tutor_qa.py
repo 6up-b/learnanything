@@ -5,10 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.codex.client import CodexUnavailable
-from learnloop.services.promotions import PromotionError
-from learnloop.services.promotions import (
-    promote_tutor_question as promote_tutor_question_service,
-)
 from learnloop.services import question_queue as QQ
 from learnloop.services.question_queue import QuestionQueueError
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -70,6 +66,7 @@ class PromoteTutorQuestionInput(ParamsModel):
     event_id: str
     intent: str
     subject_id: str | None = None
+    learning_object_id: str | None = None
 
 
 class ListQuestionQueueInput(ParamsModel):
@@ -87,10 +84,13 @@ class ResolveQuestionEventInput(ParamsModel):
 def list_question_queue(ctx: SidecarContext, params: ListQuestionQueueInput) -> dict[str, Any]:
     """The outstanding-question queue (newest first) + the open count."""
 
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     try:
         questions = QQ.list_question_queue(
-            repository, resolution=params.resolution, limit=params.limit
+            repository,
+            vault=vault,
+            resolution=params.resolution,
+            limit=params.limit,
         )
     except QuestionQueueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
@@ -251,50 +251,103 @@ def save_tutor_answer_note(ctx: SidecarContext, params: SaveTutorAnswerNoteInput
 
 @method("promote_tutor_question", PromoteTutorQuestionInput)
 def promote_tutor_question(ctx: SidecarContext, params: PromoteTutorQuestionInput) -> dict[str, Any]:
-    """Promote an answered tutor turn to practice/gap (spec_tutor_promotion.md §2/§8 W4).
+    """Persist and enqueue an answered tutor turn for durable promotion."""
 
-    Reuses ``ask_tutor_question``'s provider-resolution path: the Step-0
-    analysis and (practice route) authoring generation both need a live
-    provider, so an unready provider fails fast here with the same
-    ``provider_unavailable`` shape the ask flow uses, instead of surfacing a
-    confusing error from deep inside the service.
-    """
     vault, repository = ctx.require_vault()
     if ctx.vault_root is None:
         raise SidecarError("vault_not_loaded", "No vault has been initialized.")
-    provider_name, runtime, client = ready_tutor_qa_provider(vault)
-    if not runtime.ready or client is None:
+    event = repository.question_event(params.event_id)
+    if event is None:
         raise SidecarError(
-            "provider_unavailable",
-            f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
-            retryable=True,
+            "validation_error", f"Question event {params.event_id} was not found."
         )
-    # Detect idempotent replay before calling the service so we don't reload the
-    # vault for a turn that was already promoted (mirrors save_tutor_answer_note's
-    # `reused` check) — nothing changed on disk on a replay.
-    already_promoted = repository.question_promotion(params.event_id) is not None
-    try:
-        result = promote_tutor_question_service(
-            ctx.vault_root,
-            client,
-            event_id=params.event_id,
+    if event.get("answer_status") != "answered":
+        raise SidecarError(
+            "validation_error", "Only answered tutor turns can be promoted."
+        )
+    if params.intent not in {"practice", "gap"}:
+        raise SidecarError(
+            "validation_error", f"Unknown promotion intent {params.intent!r}"
+        )
+    if params.intent == "gap" and event.get("context") not in {
+        "practice",
+        "feedback",
+    }:
+        raise SidecarError(
+            "validation_error",
+            "The gap route requires an origin learning object and is only "
+            "available in the practice/feedback contexts.",
+        )
+
+    promotion = repository.question_promotion(params.event_id)
+    request = repository.question_promotion_request(params.event_id)
+    if promotion is not None:
+        if request is None:
+            repository.insert_question_promotion_request(
+                question_event_id=params.event_id,
+                intent=params.intent,
+                subject_id=params.subject_id,
+                learning_object_id=params.learning_object_id,
+                status="completed",
+                stage="review" if promotion["route"] == "review_required" else "ready",
+            )
+            repository.update_question_promotion_request(
+                params.event_id,
+                promotion_route=promotion["route"],
+            )
+            request = repository.question_promotion_request(params.event_id)
+        return versioned({"request": request, "promotion": promotion})
+
+    if request is None:
+        repository.insert_question_promotion_request(
+            question_event_id=params.event_id,
             intent=params.intent,
             subject_id=params.subject_id,
+            learning_object_id=params.learning_object_id,
         )
-    except PromotionError as exc:
-        raise SidecarError("validation_error", str(exc)) from exc
-    except (CodexUnavailable, TimeoutError) as exc:
+        repository.bump_queue_revision()
+        request = repository.question_promotion_request(params.event_id)
+    elif request["status"] == "failed":
+        if request.get("batch_id"):
+            repository.update_question_promotion_request(
+                params.event_id,
+                subject_id=params.subject_id,
+                learning_object_id=params.learning_object_id,
+            )
+            ctx.ingest_jobs.resume_batch(str(request["batch_id"]))
+            repository.bump_queue_revision()
+            request = repository.question_promotion_request(params.event_id)
+            return versioned({"request": request, "promotion": None})
+        repository.retry_question_promotion_request(params.event_id)
+
+    if request is not None and request.get("batch_id"):
+        return versioned({"request": request, "promotion": None})
+
+    try:
+        batch_id = ctx.ingest_jobs.enqueue_question_promotion(
+            event_id=params.event_id,
+            subject_id=params.subject_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - preserve the durable request failure
+        repository.update_question_promotion_request(
+            params.event_id,
+            status="failed",
+            stage="failed",
+            error_code="enqueue_failed",
+            error_message=str(exc) or exc.__class__.__name__,
+            retryable=True,
+        )
+        repository.bump_queue_revision()
         raise SidecarError(
-            "provider_unavailable",
-            f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
+            "enqueue_failed",
+            f"Could not queue practice authoring: {exc}",
             retryable=True,
         ) from exc
-    # Reload when this call actually applied entities (auto_apply route) or
-    # materialized a grounding note (both write vault files), mirroring how
-    # save_tutor_answer_note reloads only on a fresh (non-reused) note.
-    if not already_promoted and (result.get("route") == "auto_apply" or result.get("saved_note_id")):
-        ctx.reload(maintenance=False)
-    return versioned(result)
+    repository.update_question_promotion_request(
+        params.event_id, batch_id=batch_id
+    )
+    request = repository.question_promotion_request(params.event_id)
+    return versioned({"request": request, "promotion": None})
 
 
 @method("get_tutor_transcript", GetTutorTranscriptInput)
@@ -333,6 +386,10 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
     promotions = repository.question_promotions_for_events(
         [event["id"] for event in events]
     )
+    promotion_requests = repository.question_promotion_requests_for_events(
+        [event["id"] for event in events]
+    )
     for event in events:
         event["promotion"] = promotions.get(event["id"])
+        event["promotion_request"] = promotion_requests.get(event["id"])
     return versioned({"events": events, "remaining": max(0, limit - used)})

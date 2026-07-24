@@ -91,6 +91,26 @@ class CaptureError(ValueError):
     """Domain error for the capture spine."""
 
 
+def _selection_surface(raw_selection: Mapping[str, Any] | None) -> tuple[str, bool]:
+    """Return the learner-visible selection while retaining source-owned anchors.
+
+    The capture editor stores a combined ``editedText`` correction alongside
+    the original per-block nodes. Presets need that corrected surface for
+    semantic focus, but anchoring must continue to use the original nodes.
+    """
+
+    selection = raw_selection or {}
+    edited = selection.get("editedText", selection.get("edited_text"))
+    if isinstance(edited, str) and edited.strip():
+        return edited.strip(), True
+    quotes = [
+        str(node.get("quote") or "").strip()
+        for node in (selection.get("nodes") or [])
+        if isinstance(node, Mapping) and str(node.get("quote") or "").strip()
+    ]
+    return "\n\n".join(quotes), False
+
+
 def _anchor_from_translation(
     *, source_id: str, revision_id: str, extraction_id: str, render_view_id: str | None,
     translation: Mapping[str, Any],
@@ -175,6 +195,7 @@ def capture(
         "session_id": session_id,
         "privacy_locality": privacy_locality,
     }
+    selected_text, selection_edited = _selection_surface(raw_selection)
     outbox = {
         "capture_kind": capture_kind,
         "payload": {
@@ -184,6 +205,8 @@ def capture(
             "enqueue_synth": bool(enqueue_synth),
             "extraction_id": extraction_id,
             "span_id": (translation.get("segments") or [{}])[0].get("span_id"),
+            "selected_text": selected_text,
+            "selection_edited": selection_edited,
         },
         "revision_id": revision_id,
         "render_view_id": render_view_id,
@@ -339,6 +362,8 @@ def _default_convert(repository: Repository, row: Mapping[str, Any]) -> str | No
             annotation_id=row.get("annotation_id"),
             commitment_id=row.get("commitment_id"),
             client_idempotency_key=row.get("client_idempotency_key"),
+            selected_text=str(payload.get("selected_text") or ""),
+            selection_edited=bool(payload.get("selection_edited")),
         )
         return result["request_id"]
     return row.get("annotation_id")

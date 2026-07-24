@@ -22,6 +22,7 @@ import { GoalWizard } from "../components/GoalWizard";
 import { GoalReviewCard, type ReviewReason } from "../components/GoalReviewCard";
 import { FacetEvidenceDrawer } from "../components/KnowledgeModel";
 import { QuestionQueuePanel } from "../components/QuestionQueue";
+import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -227,6 +228,43 @@ export function TodayScreen({
     void refreshQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.sessionId]);
+
+  // Foreground mutations (Open questions, Ask overlay, proposal acceptance)
+  // invalidate immediately without waiting for the durable watermark poll.
+  useEffect(
+    () => subscribeQueueChanged(() => void refreshQueue({ force: true })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session?.sessionId]
+  );
+
+  // Background authoring may complete without a React action. Poll only the
+  // cheap revision token, then rebuild the scheduler queue once on change.
+  const seenQueueRevisionRef = useRef<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const snapshot = await api.getQueueRevision();
+        if (cancelled) return;
+        const previous = seenQueueRevisionRef.current;
+        seenQueueRevisionRef.current = snapshot.revision;
+        // The first call may itself reload content written while Today was
+        // mounting. Refetch once on that initial snapshot as well as on later
+        // revision changes, so a just-completed item cannot miss the edge.
+        if (previous === null || previous !== snapshot.revision) {
+          notifyQueueChanged();
+        }
+      } catch {
+        /* transient poll failure — try again next tick */
+      }
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   // Background-applied content (rung variants, reader-driven practice
   // expansion, synthesis) lands via durable batches, not user actions on this

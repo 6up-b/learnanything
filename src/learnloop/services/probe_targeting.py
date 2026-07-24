@@ -81,6 +81,15 @@ def open_cause_sets_for_learning_object(
     for attempt_id in sorted(lo_attempts):
         for factor in repository.unresolved_cause_factors_for_attempt(attempt_id, status="open"):
             causes = list(factor.get("candidate_causes") or [])
+            # P0-era authored cause sets are not safe probe targets until they
+            # carry the explicit open-world arm. Otherwise learner effort would
+            # be spent discriminating between an accidentally closed pair.
+            if not any(
+                cause.get("hypothesis_id") == "H_OTHER" or cause.get("open_set") is True
+                for cause in causes
+                if isinstance(cause, dict)
+            ):
+                continue
             facets = {str(c.get("facet")) for c in causes if c.get("facet")}
             if len(facets) < 2:
                 continue

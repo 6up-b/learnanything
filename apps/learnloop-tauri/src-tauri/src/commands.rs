@@ -127,6 +127,13 @@ pub async fn get_today_queue(
 }
 
 #[tauri::command]
+pub async fn get_queue_revision(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_queue_revision", json!({})).await
+}
+
+#[tauri::command]
 pub async fn explain_practice_item(
     practice_item_id: String,
     sidecar: State<'_, SidecarManager>,
@@ -751,6 +758,14 @@ pub async fn rate_followup(
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "rate_followup", input).await
+}
+
+#[tauri::command]
+pub async fn report_unresolved_cause(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "report_unresolved_cause", input).await
 }
 
 #[tauri::command]

@@ -24,11 +24,30 @@ def start_remediation_episode(
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     misconception = repository.misconception(misconception_id)
-    if misconception is None or misconception.status not in {"active", "resolving"}:
-        raise RemediationError("repair requires an active durable misconception")
+    if misconception is not None and misconception.status in {"active", "resolving"}:
+        return repository.create_remediation_episode(
+            case_kind="misconception", case_ref=misconception_id, clock=clock
+        )
+    candidate = repository.misconception_candidate_by_id(misconception_id)
+    if candidate is None or candidate.get("status") != "candidate":
+        raise RemediationError(
+            "repair requires an active durable misconception or provisional belief"
+        )
     return repository.create_remediation_episode(
-        case_kind="misconception", case_ref=misconception_id, clock=clock
+        case_kind="diagnosis", case_ref=misconception_id, clock=clock
     )
+
+
+def _episode_case(repository: Repository, episode: dict[str, Any]) -> Any | None:
+    if episode.get("case_kind") == "misconception":
+        return repository.misconception(str(episode["case_ref"]))
+    return repository.misconception_candidate_by_id(str(episode["case_ref"]))
+
+
+def _case_value(case: Any, key: str, default: Any = None) -> Any:
+    if isinstance(case, dict):
+        return case.get(key, default)
+    return getattr(case, key, default)
 
 
 def prescribe_remediation(
@@ -41,14 +60,14 @@ def prescribe_remediation(
     episode = repository.remediation_episode(episode_id)
     if episode is None:
         raise RemediationError("remediation episode does not exist")
-    misconception = repository.misconception(episode["case_ref"])
+    misconception = _episode_case(repository, episode)
     if misconception is None:
         raise RemediationError("remediation case no longer exists")
 
     passages: list[dict[str, Any]] = []
     for role, facet_id in (
-        ("target", misconception.target_facet),
-        ("confused_with", misconception.confused_with_facet),
+        ("target", _case_value(misconception, "target_facet")),
+        ("confused_with", _case_value(misconception, "confused_with_facet")),
     ):
         if not facet_id:
             continue
@@ -66,7 +85,7 @@ def prescribe_remediation(
                     span_id,
                     context="remediation",
                     entity_type="misconception",
-                    entity_id=misconception.id,
+                    entity_id=str(_case_value(misconception, "id", episode["case_ref"])),
                     record=False,
                     clock=clock,
                 )
@@ -82,12 +101,15 @@ def prescribe_remediation(
 def _rank_items(vault: LoadedVault, repository: Repository, misconception) -> list[Any]:
     target_facets = {
         vault.canonical_facet_id(facet)
-        for facet in (misconception.target_facet, misconception.confused_with_facet)
+        for facet in (
+            _case_value(misconception, "target_facet"),
+            _case_value(misconception, "confused_with_facet"),
+        )
         if facet
     }
     ranked = []
     for item in vault.practice_items.values():
-        if item.learning_object_id != misconception.learning_object_id:
+        if item.learning_object_id != _case_value(misconception, "learning_object_id"):
             continue
         state = repository.practice_item_state(item.id)
         if state is not None and not state.active:
@@ -110,7 +132,7 @@ def start_remediation_treatment(
     episode = repository.remediation_episode(episode_id)
     if episode is None:
         raise RemediationError("remediation episode does not exist")
-    misconception = repository.misconception(episode["case_ref"])
+    misconception = _episode_case(repository, episode)
     if misconception is None:
         raise RemediationError("remediation case no longer exists")
     ranked = _rank_items(vault, repository, misconception)

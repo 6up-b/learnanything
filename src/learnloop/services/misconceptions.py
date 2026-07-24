@@ -19,10 +19,6 @@ from learnloop.services.error_taxonomy_map import map_legacy_error_type
 from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop.vault.models import LoadedVault
 
-# §10.3 promotion is high-confidence-gated when a single first-error trace is the
-# only evidence; below this a lone attribution stays a candidate.
-_FIRST_ERROR_TRACE_CONFIDENCE = 0.9
-
 _PUNCT_RE = re.compile(r"[^\w\s]")
 _WS_RE = re.compile(r"\s+")
 
@@ -132,18 +128,15 @@ def _match_misconception(
 def _event_facet_ids(vault: LoadedVault, event: dict, attempt: dict | None) -> list[str]:
     """Coarse facets a new registry row targets (spec §1.1 / §2.2.4).
 
-    The event's repair-plan ``target_evidence_families`` (canonicalized), falling
-    back to the attempt's evidence facets when the grader named none.
+    Only the event's explicitly asserted repair targets are eligible. An empty
+    target list is an attribution abstention, never permission to smear the
+    attempt's whole evidence-facet list onto the event.
     """
 
     repair_plan = event.get("repair_plan")
     families = repair_plan.get("target_evidence_families") if isinstance(repair_plan, dict) else None
     if isinstance(families, list) and families:
         return list(dict.fromkeys(vault.canonical_facet_id(str(f)) for f in families))
-    if attempt is not None:
-        evidence = attempt.get("evidence_facets")
-        if isinstance(evidence, list) and evidence:
-            return list(dict.fromkeys(vault.canonical_facet_id(str(f)) for f in evidence))
     return []
 
 
@@ -244,32 +237,71 @@ def _surface_family_for_attempt(vault: LoadedVault, attempt: dict | None) -> str
     if attempt is None:
         return None
     item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
-    return getattr(item, "surface_family", None) if item is not None else None
+    if item is None:
+        return None
+    from learnloop.services.canonical_projection import surface_group_id
+
+    return surface_group_id(item)
+
+
+def _probe_signature_reproduced(candidate: dict, attempt: dict | None) -> bool:
+    if str((attempt or {}).get("attempt_type") or "") != "diagnostic_probe":
+        return False
+    signature = _normalize_text(str(candidate.get("signature") or ""))
+    answer = _normalize_text(str((attempt or {}).get("learner_answer_md") or ""))
+    return bool(signature and answer and signature == answer)
+
+
+def _postdictive_trace_consistent(
+    vault: LoadedVault,
+    repository: Repository,
+    event: dict,
+    attempt: dict | None,
+) -> bool:
+    """Hard-veto only deterministic claims contradicted by elicited full credit."""
+
+    if attempt is None:
+        return True
+    plan = event.get("repair_plan")
+    if not isinstance(plan, dict):
+        return True
+    claims = plan.get("postdictive_claims") or []
+    if not claims:
+        return True
+    item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
+    rubric = vault.rubric_for_item(item) if item is not None else None
+    if rubric is None:
+        return True
+    maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
+    awarded = {
+        row.criterion_id: float(row.points_awarded)
+        for row in repository.fetch_grading_evidence(str(attempt["id"]))
+    }
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        criterion_id = str(claim.get("criterion_id") or "")
+        if criterion_id not in awarded or criterion_id not in maxima:
+            continue
+        if awarded[criterion_id] >= maxima[criterion_id] - 1e-9:
+            return False
+    return True
 
 
 def _promotion_reason(candidate: dict, attempt: dict | None) -> str | None:
     """Which §10.3 condition (if any) promotes ``candidate`` to a durable belief.
 
     A one-off ambiguous failure stays a candidate distribution. Promotion needs
-    an independent surface repeat, a targeted probe reproduction, or a
-    high-confidence first-error trace. (The fourth condition — maps to a
-    validated registry belief — is handled up-front by the durable-row match.)
+    an independent-surface repeat or a targeted probe that reproduces its
+    pre-registered signature. A validated-registry match is handled up-front by
+    the durable-row match; model-reported first-error confidence has no
+    promotion authority.
     """
 
     if len(set(candidate.get("surface_families") or [])) >= 2:
         return "independent_surface"
-    if len(set(candidate.get("item_ids") or [])) >= 2:
-        return "independent_surface"
-    attempt_type = str((attempt or {}).get("attempt_type") or "")
-    if attempt_type == "diagnostic_probe":
+    if _probe_signature_reproduced(candidate, attempt):
         return "probe_reproduction"
-    confidence = (attempt or {}).get("grader_confidence")
-    if (
-        confidence is not None
-        and float(confidence) >= _FIRST_ERROR_TRACE_CONFIDENCE
-        and candidate.get("target_facet")
-    ):
-        return "first_error_trace"
     return None
 
 
@@ -338,7 +370,10 @@ def _authored_correction(
     it never synthesizes a distinction from live content.
     """
 
-    if not target_facet_id:
+    # Permanent correction copy is only safe for an explicitly asserted
+    # contrast. A lone facet target does not establish what the learner
+    # confused it with.
+    if not target_facet_id or not confused_with_facet_id:
         return None, []
     target = vault.evidence_facets.get(vault.canonical_facet_id(target_facet_id))
     confused = (
@@ -377,8 +412,8 @@ def _normalize_compositional(
 
     * If it maps to an already-validated (active) registry belief, merge into it
       (promotion by validated belief).
-    * If the attempt's failure is an open unresolved cause set, it stays a
-      distribution over causes — no candidate, no mint.
+    * If the attempt's failure is an open unresolved cause set, it may create
+      a provisional candidate for routing, but cannot mint a durable belief.
     * Otherwise it accumulates in the candidate holding pen; it promotes to a
       durable compositional misconception only when a §10.3 condition fires.
 
@@ -427,19 +462,42 @@ def _normalize_compositional(
                 touched.append(match_id)
                 continue
 
-        # (b) an unresolved cause set stays a distribution — never mints.
-        if open_unresolved:
-            continue
-
-        # (c) accumulate in the candidate holding pen, then check promotion.
+        # (b) accumulate a provisional belief in the candidate holding pen.
+        # An open unresolved factor blocks durable promotion, but it does not
+        # silence the repair/routing lane.
         normalized = _normalize_text(statement)
         facets = _event_facet_ids(vault, event, attempt)
-        target_facet = facets[0] if facets else None
-        confused_with_facet = facets[1] if len(facets) > 1 else None
+        repair_plan = event.get("repair_plan")
+        repair_plan = repair_plan if isinstance(repair_plan, dict) else {}
+        contrast = repair_plan.get("facet_contrast")
+        contrast = contrast if isinstance(contrast, dict) else {}
+        target_ref = repair_plan.get("target_ref")
+        target_ref = target_ref if isinstance(target_ref, dict) else {}
+        target_facet = (
+            vault.canonical_facet_id(str(contrast.get("target_facet")))
+            if contrast.get("target_facet")
+            else (
+                vault.canonical_facet_id(str(target_ref.get("facet_id")))
+                if target_ref.get("kind") == "facet_capability" and target_ref.get("facet_id")
+                else None
+            )
+        )
+        confused_with_facet = (
+            vault.canonical_facet_id(str(contrast.get("confused_with_facet")))
+            if contrast.get("confused_with_facet")
+            else None
+        )
         mechanism = map_legacy_error_type(str(event.get("error_type") or "")) or None
         signature = event.get("misconception_consistent_answer")
         candidate = repository.misconception_candidate_by_normalized(
             learning_object_id, normalized
+        )
+        # A diagnostic response may only be checked against a signature that
+        # existed before this response. Never let the current grader output
+        # overwrite (or create) the value used to promote the same event.
+        diagnostic_probe = str((attempt or {}).get("attempt_type") or "") == "diagnostic_probe"
+        preregistered_signature = (
+            candidate.get("signature") if candidate is not None else None
         )
         if candidate is None:
             candidate_id = repository.insert_misconception_candidate(
@@ -447,7 +505,7 @@ def _normalize_compositional(
                 statement=statement,
                 statement_normalized=normalized,
                 concept_id=learning_object.concept,
-                signature=signature,
+                signature=None if diagnostic_probe else signature,
                 mechanism=mechanism,
                 target_facet=target_facet,
                 confused_with_facet=confused_with_facet,
@@ -468,7 +526,11 @@ def _normalize_compositional(
                 append_source_error_event_ids=[event["id"]],
                 add_surface_families=[surface_family] if surface_family else [],
                 add_item_ids=[item_id] if item_id else [],
-                signature=signature or candidate.get("signature"),
+                signature=(
+                    candidate.get("signature")
+                    if diagnostic_probe
+                    else signature or candidate.get("signature")
+                ),
                 mechanism=mechanism or candidate.get("mechanism"),
                 target_facet=target_facet or candidate.get("target_facet"),
                 confused_with_facet=confused_with_facet or candidate.get("confused_with_facet"),
@@ -477,7 +539,18 @@ def _normalize_compositional(
         candidate = repository.misconception_candidate_by_id(candidate_id)
         if candidate is None:
             continue
-        reason = _promotion_reason(candidate, attempt)
+        promotion_candidate = candidate
+        if diagnostic_probe:
+            promotion_candidate = {
+                **candidate,
+                "signature": preregistered_signature,
+            }
+        reason = (
+            None
+            if open_unresolved
+            or not _postdictive_trace_consistent(vault, repository, event, attempt)
+            else _promotion_reason(promotion_candidate, attempt)
+        )
         if reason is None:
             continue
         misconception_id = _promote_candidate(

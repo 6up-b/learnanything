@@ -190,6 +190,85 @@ def test_job_failure_is_recorded(tmp_path):
     assert finished["error"]["message"] == "network unavailable"
 
 
+def test_resume_false_completed_rung_variant_reopens_request(tmp_path):
+    jobs = DurableIngestJobs()
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+    runner = jobs._require_runner()
+    request_id = runner.repo.insert_rung_variant_request(
+        {
+            "source_practice_item_id": "pi_source",
+            "learning_object_id": "lo_source",
+            "direction": "harder",
+            "source_waypoint_slug": "execute",
+            "target_waypoint_slug": "select_method",
+            "target_rung_json": "{}",
+            "status": "pending",
+            "attempt_id": "attempt_original",
+            "learner_claim_id": "claim_original",
+        }
+    )
+    seen_requests: list[dict] = []
+
+    def legacy_then_success(ctx):
+        request = runner.repo.rung_variant_request(request_id)
+        seen_requests.append(request)
+        if len(seen_requests) == 1:
+            runner.repo.update_rung_variant_request(
+                request_id,
+                status="failed",
+                patch_id="patch_stale",
+                created_practice_item_id="pi_stale",
+                failure_reason="Codex timed out",
+            )
+            # This is the pre-fix handler contract that produced the false green
+            # Activity row now present in existing vaults.
+            return {"request_id": request_id, "status": "failed", "deduplicated": True}
+        runner.repo.update_rung_variant_request(
+            request_id,
+            status="applied",
+            patch_id="patch_fresh",
+            created_practice_item_id="pi_fresh",
+        )
+        return {"request_id": request_id, "status": "applied"}
+
+    runner.handlers["rung_variant"] = legacy_then_success
+    batch_id = runner.enqueue_batch(
+        "rung_variant",
+        [JobSpec("rung_variant", {"request_id": request_id})],
+    )
+    runner.repo.update_rung_variant_request(request_id, batch_id=batch_id)
+    runner.drain()
+
+    raw_job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert raw_job["status"] == "completed"
+    # Simulate the already-persisted false-success batch that prompted this fix.
+    runner.repo.update_ingest_batch_status(batch_id, "completed", mark_finished=True)
+    assert jobs.get_batch(batch_id)["status"] == "failed"
+    legacy_view = jobs.get_batch(batch_id)["jobs"][0]
+    assert legacy_view["status"] == "failed"
+    assert legacy_view["message"] == "Codex timed out"
+    assert legacy_view["error"]["code"] == "rung_variant_failed"
+    assert legacy_view["error"]["retryable"] is True
+    assert jobs.needs_reload(raw_job["id"]) is False
+
+    retried = jobs.resume_batch(batch_id)
+
+    assert retried["status"] == "completed"
+    request = runner.repo.rung_variant_request(request_id)
+    assert request["attempt_id"] == "attempt_original"
+    assert request["learner_claim_id"] == "claim_original"
+    assert request["patch_id"] == "patch_fresh"
+    assert request["created_practice_item_id"] == "pi_fresh"
+    assert request["failure_reason"] is None
+    assert [request["status"] for request in seen_requests] == ["pending", "pending"]
+    assert seen_requests[1]["patch_id"] is None
+    assert seen_requests[1]["created_practice_item_id"] is None
+    assert seen_requests[1]["failure_reason"] is None
+    final_job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert final_job["attempt_count"] == 2
+    assert final_job["result"]["status"] == "applied"
+
+
 def _enqueue_queued_job(jobs: DurableIngestJobs, source: str) -> str:
     """Enqueue a legacy job and leave it queued (no drain) for guard/cancel tests."""
 

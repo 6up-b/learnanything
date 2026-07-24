@@ -766,7 +766,45 @@ export interface MatchedMisconceptionDto {
 export interface UnresolvedCauseDto {
   id: string;
   observationId: string | null;
-  candidateCauses: { facet: string; capability: string }[];
+  candidateCauses: {
+    statement?: string | null;
+    causeScope?: string | null;
+    targetRef?: {
+      kind: string;
+      facetId?: string | null;
+      capability?: string | null;
+      criterionId?: string | null;
+    } | null;
+    facet?: string | null;
+    capability?: string | null;
+    hypothesisId?: string | null;
+    openSet?: boolean;
+  }[];
+  selfReportQuestion?: {
+    prompt: string;
+    options: { id: UnresolvedCauseSelfReportResponse; label: string }[];
+  } | null;
+  selfReport?: {
+    id: string;
+    response: UnresolvedCauseSelfReportResponse;
+    candidateIndex: number | null;
+    createdAt: IsoTimestamp;
+  } | null;
+}
+
+export type UnresolvedCauseSelfReportResponse =
+  | "slipped"
+  | "believed_candidate"
+  | "item_unclear"
+  | "other_valid_approach"
+  | "diagnosis_wrong";
+
+export interface UnresolvedCauseSelfReportResultDto {
+  factorId: string;
+  response: UnresolvedCauseSelfReportResponse;
+  resolved: boolean;
+  provisionalBeliefId: string | null;
+  observationId: string;
 }
 
 /** Result of start_primed_retry: a sibling item to retry with primed=true. */
@@ -842,6 +880,8 @@ export interface TutorQuestionEventDto {
   savedNoteId: string | null;
   /** Persisted promotion ledger row for this turn (spec_tutor_promotion.md §5), null if unpromoted. */
   promotion: QuestionPromotionDto | null;
+  /** Durable analysis/authoring request, including retryable failures. */
+  promotionRequest: QuestionPromotionRequestDto | null;
 }
 
 // ── Tutor question promotion (spec_tutor_promotion.md) ─────────────────────
@@ -874,10 +914,29 @@ export interface PromoteTutorQuestionInput {
   eventId: string;
   intent: PromotionIntent;
   subjectId?: string;
+  learningObjectId?: string;
 }
 
-export interface PromoteTutorQuestionResult extends QuestionPromotionDto {
+export interface QuestionPromotionRequestDto {
+  questionEventId: string;
+  intent: PromotionIntent;
+  subjectId: string | null;
+  learningObjectId: string | null;
+  status: "queued" | "running" | "completed" | "failed";
+  stage: "queued" | "analysis" | "authoring" | "diagnostic" | "review" | "ready" | "failed";
+  batchId: string | null;
+  promotionRoute: PromotionRoute | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  retryable: boolean;
+  createdAt: IsoTimestamp;
+  updatedAt: IsoTimestamp;
+}
+
+export interface PromoteTutorQuestionResult {
   version: number;
+  request: QuestionPromotionRequestDto;
+  promotion: QuestionPromotionDto | null;
 }
 
 // ── Outstanding-question queue (migration 102) ─────────────────────────────
@@ -899,6 +958,8 @@ export interface QuestionQueueRowDto {
   savedNoteId: string | null;
   createdAt: IsoTimestamp;
   promotion: QuestionPromotionDto | null;
+  promotionRequest: QuestionPromotionRequestDto | null;
+  promotionTargetIds: string[];
 }
 
 export interface QuestionQueueSnapshot {
@@ -912,6 +973,12 @@ export interface ResolveQuestionEventResult {
   eventId: string;
   resolution: QuestionResolution;
   openCount: number;
+}
+
+export interface QueueRevisionDto {
+  version: number;
+  revision: number;
+  updatedAt: IsoTimestamp | null;
 }
 
 // ── Learner item authoring (services.item_authoring) ───────────────────────
@@ -4516,6 +4583,8 @@ export interface ReaderRequestRow {
   id: string;
   status: string;
   preset: string;
+  resultJson?: string | null;
+  errorJson?: string | null;
   cacheHit?: number;
   estInputTokens?: number;
   estOutputTokens?: number;

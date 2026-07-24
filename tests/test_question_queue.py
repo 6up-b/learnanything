@@ -92,6 +92,7 @@ def test_sidecar_queue_roundtrip(tmp_path: Path) -> None:
         {"jsonrpc": "2.0", "id": 2, "method": "resolve_question_event", "params": {"eventId": "q2", "resolution": "resolved"}},
         {"jsonrpc": "2.0", "id": 3, "method": "list_question_queue", "params": {}},
         {"jsonrpc": "2.0", "id": 4, "method": "resolve_question_event", "params": {"eventId": "q2", "resolution": "nonsense"}},
+        {"jsonrpc": "2.0", "id": 5, "method": "get_queue_revision", "params": {}},
     ]
     stdin = io.StringIO("".join(json.dumps(m) + "\n" for m in messages))
     stdout = io.StringIO()
@@ -106,3 +107,4 @@ def test_sidecar_queue_roundtrip(tmp_path: Path) -> None:
     assert resolved == {"version": 1, "eventId": "q2", "resolution": "resolved", "openCount": 1}
     assert [q["id"] for q in out[3]["result"]["questions"]] == ["q1"]
     assert out[4]["error"]["data"]["code"] == "validation_error"
+    assert out[5]["result"]["revision"] == 0

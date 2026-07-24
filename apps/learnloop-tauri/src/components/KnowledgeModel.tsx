@@ -1,7 +1,7 @@
 // KM3b §9.6 provenance UI: attempt trace, unresolved-cause card, capability
 // grid, recipe tree, and the facet evidence drawer (Demonstrated timeline).
 // Terminal aesthetic — inline styles over term.tsx primitives.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import type {
   AttemptTraceDto,
@@ -14,6 +14,7 @@ import type {
   ReadyDerivationDto,
   TraceCriterionDto,
   UnresolvedCauseDto,
+  UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
 import { BlockBar, COLOR, Dim, Faint, FONT_MONO, Pill, SectionHeader, type PillColor } from "./term";
 import { CommandOverlayFrame, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
@@ -82,19 +83,37 @@ export function AttemptTraceView({ trace }: { trace: AttemptTraceDto }) {
 export function UnresolvedCauseCard({
   causes,
   onRunDiagnostic,
+  onSelfReport,
+  reportingFactorId,
 }: {
   causes: UnresolvedCauseDto[];
   onRunDiagnostic?: () => void;
+  onSelfReport?: (
+    factorId: string,
+    response: UnresolvedCauseSelfReportResponse,
+    candidateIndex?: number | null,
+  ) => void;
+  reportingFactorId?: string | null;
 }) {
   if (!causes.length) return null;
-  // The candidate set is the union across factors (each is one ambiguous failure).
-  const candidates = new Map<string, { facet: string; capability: string }>();
-  for (const factor of causes) {
-    for (const cause of factor.candidateCauses) {
-      candidates.set(`${cause.facet}:${cause.capability}`, cause);
-    }
-  }
-  const list = Array.from(candidates.values());
+  const candidateLabel = (cause: UnresolvedCauseDto["candidateCauses"][number]): string => {
+    if (cause.statement) return cause.statement;
+    const facet = cause.facet ?? cause.targetRef?.facetId;
+    const capability = cause.capability ?? cause.targetRef?.capability;
+    if (facet && capability) return `${shortFacet(facet)} · ${capability}`;
+    if (cause.hypothesisId === "H_OTHER" || cause.openSet) return "Something else";
+    return cause.causeScope?.replace(/_/g, " ") ?? "Unspecified cause";
+  };
+  const buttonStyle = (disabled: boolean): CSSProperties => ({
+    fontFamily: FONT_MONO,
+    fontSize: 11,
+    color: disabled ? COLOR.textFaint : COLOR.amber,
+    background: "transparent",
+    border: `1px solid ${disabled ? COLOR.borderStrong : COLOR.amber}`,
+    borderRadius: 3,
+    padding: "4px 8px",
+    cursor: disabled ? "default" : "pointer",
+  });
   return (
     <div
       style={{
@@ -105,17 +124,67 @@ export function UnresolvedCauseCard({
         background: COLOR.bgElev,
       }}
     >
-      <div style={{ color: COLOR.amber, marginBottom: 4 }}>
-        This failure is consistent with {list.length} cause{list.length === 1 ? "" : "s"}
-      </div>
-      <Dim>The evidence can't yet tell these apart — each implies a different repair.</Dim>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
-        {list.map((cause) => (
-          <Pill key={`${cause.facet}:${cause.capability}`} color="amber">
-            {shortFacet(cause.facet)} · {cause.capability}
-          </Pill>
-        ))}
-      </div>
+      <div style={{ color: COLOR.amber, marginBottom: 4 }}>The cause is still unresolved</div>
+      <Dim>The evidence can't yet tell the plausible explanations apart.</Dim>
+      {causes.map((factor) => {
+        const concreteCandidates = factor.candidateCauses
+          .map((candidate, index) => ({ candidate, index }))
+          .filter(({ candidate }) => candidate.hypothesisId !== "H_OTHER" && !candidate.openSet);
+        const pending = reportingFactorId === factor.id;
+        return (
+          <div
+            key={factor.id}
+            style={{ borderTop: `1px solid ${COLOR.borderStrong}`, marginTop: 9, paddingTop: 9 }}
+          >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {factor.candidateCauses.map((cause, index) => (
+                <Pill key={`${factor.id}:${index}`} color="amber">
+                  {candidateLabel(cause)}
+                </Pill>
+              ))}
+            </div>
+            {factor.selfReport ? (
+              <div style={{ color: COLOR.green, fontSize: 11 }}>✓ response recorded</div>
+            ) : factor.selfReportQuestion && onSelfReport ? (
+              <div>
+                <div style={{ color: COLOR.text, fontSize: 12, marginBottom: 6 }}>
+                  {factor.selfReportQuestion.prompt}
+                </div>
+                {concreteCandidates.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+                    {concreteCandidates.map(({ candidate, index }) => (
+                      <button
+                        key={`${factor.id}:believed:${index}`}
+                        type="button"
+                        disabled={pending}
+                        onClick={() => onSelfReport(factor.id, "believed_candidate", index)}
+                        style={buttonStyle(pending)}
+                      >
+                        I believed: {candidateLabel(candidate)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {factor.selfReportQuestion.options
+                    .filter((option) => option.id !== "believed_candidate")
+                    .map((option) => (
+                      <button
+                        key={`${factor.id}:${option.id}`}
+                        type="button"
+                        disabled={pending}
+                        onClick={() => onSelfReport(factor.id, option.id)}
+                        style={buttonStyle(pending)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
       {onRunDiagnostic && (
         <button
           type="button"
@@ -127,6 +196,7 @@ export function UnresolvedCauseCard({
             background: COLOR.amber,
             border: "none",
             borderRadius: 3,
+            marginTop: 10,
             padding: "4px 10px",
             cursor: "pointer",
           }}

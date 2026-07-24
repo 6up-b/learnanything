@@ -106,6 +106,7 @@ def compile_assessment_contract(
                 "max_points": criterion.points,
                 "description": criterion.description,
                 "tier": getattr(criterion, "tier", "core"),
+                "measurement_status": getattr(criterion, "measurement_status", None),
                 "depends_on": sorted(criterion.depends_on),
                 "correlation_group": criterion.correlation_group,
                 "recipe_ids": sorted(criterion.recipe_ids),
@@ -144,6 +145,16 @@ def compile_assessment_contract(
         "recipes": _blueprint_recipes(lo),
         "evidence_fingerprint": fingerprint if isinstance(fingerprint, dict) else None,
         "surface_family": item.surface_family,
+        "trace_contract": (
+            item.trace_contract.model_dump(mode="json", exclude_none=True)
+            if item.trace_contract is not None
+            else None
+        ),
+        "variant_contract": (
+            item.variant_contract.model_dump(mode="json", exclude_none=True)
+            if item.variant_contract is not None
+            else None
+        ),
         "assistance": {"max_useful_hints": item.hint_policy.max_useful_hints},
     }
     return contract
@@ -160,6 +171,7 @@ def rubric_from_contract(contract: dict[str, Any]) -> Rubric:
                 points=float(raw.get("max_points") or 0.0),
                 description=str(raw.get("description") or raw["id"]),
                 tier=str(raw.get("tier") or "core"),
+                measurement_status=raw.get("measurement_status"),
                 targets=list(raw.get("targets") or []),
                 depends_on=list(raw.get("depends_on") or []),
                 correlation_group=raw.get("correlation_group"),

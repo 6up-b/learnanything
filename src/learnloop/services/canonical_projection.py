@@ -109,13 +109,18 @@ class _HistoricalCriterion:
 
 
 def _historical_contract(
-    repository: Repository, evidence: list[dict[str, Any]]
+    repository: Repository,
+    evidence: list[dict[str, Any]],
+    *,
+    projection_version: str,
 ) -> Mapping[str, Any] | None:
     """Resolve the immutable assessment contract attached to this grading.
 
     A grading revision is expected to use one contract version across all of its
     criterion observations. Mixed/missing lineage is treated as legacy data and
     falls back to the live item below; new writes require lineage in attempts.py.
+    A later authoring correction is consumed only when it explicitly names this
+    projection version and authorizes historical measurement reinterpretation.
     """
 
     version_ids = {
@@ -125,7 +130,10 @@ def _historical_contract(
     }
     if len(version_ids) != 1:
         return None
-    stored = repository.fetch_assessment_contract_version(next(iter(version_ids)))
+    stored = repository.effective_assessment_contract_version(
+        next(iter(version_ids)),
+        projection_version=projection_version,
+    )
     return stored.get("contract") if stored is not None else None
 
 
@@ -213,6 +221,64 @@ def observed_unresolved_failure(
     """
 
     return observed_fraction < 1.0 and len(targets) > 1 and not attribution
+
+
+def _open_candidate_causes(
+    repository: Repository,
+    attempt_id: str,
+    targets: Sequence[CriterionTarget],
+) -> list[dict[str, Any]]:
+    """Thin candidate set for an unresolved factor, always open-world."""
+
+    candidates: list[dict[str, Any]] = []
+    for event in repository.error_events_for_attempt(attempt_id):
+        repair_plan = event.get("repair_plan")
+        if not isinstance(repair_plan, Mapping):
+            continue
+        if repair_plan.get("resolution_status") == "resolved":
+            continue
+        for raw in repair_plan.get("candidate_causes") or []:
+            if not isinstance(raw, Mapping):
+                continue
+            candidate = dict(raw)
+            target_ref = candidate.get("target_ref")
+            if isinstance(target_ref, Mapping) and target_ref.get("kind") == "facet_capability":
+                candidate.setdefault("facet", target_ref.get("facet_id"))
+                candidate.setdefault("capability", target_ref.get("capability"))
+            candidates.append(candidate)
+    if len(candidates) < 2:
+        candidates = [
+            {
+                "statement": f"Failure of {target.facet} at {target.capability}",
+                "cause_scope": "unknown",
+                "target_ref": {
+                    "kind": "facet_capability",
+                    "facet_id": target.facet,
+                    "capability": target.capability,
+                },
+                # Compatibility keys for existing cause-set selectors.
+                "facet": target.facet,
+                "capability": target.capability,
+            }
+            for target in targets
+        ]
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = json.dumps(candidate, sort_keys=True, default=str)
+        if key not in seen:
+            deduped.append(candidate)
+            seen.add(key)
+    deduped.append(
+        {
+            "hypothesis_id": "H_OTHER",
+            "statement": "Another cause not represented by the listed hypotheses",
+            "cause_scope": "unknown",
+            "target_ref": {"kind": "none"},
+            "open_set": True,
+        }
+    )
+    return deduped
 
 
 def _adjudicated_score_fraction(
@@ -315,7 +381,11 @@ def project_canonical_facet_state(
     )
     for attempt in ledger_rows:
         item = vault.practice_items.get(attempt["practice_item_id"])
-        contract = _historical_contract(repository, attempt["evidence"])
+        contract = _historical_contract(
+            repository,
+            attempt["evidence"],
+            projection_version=algorithm_version,
+        )
         if contract is not None:
             criteria = _contract_criteria(contract)
             rubric_total = float(contract.get("rubric_total") or 0.0)
@@ -349,10 +419,8 @@ def project_canonical_facet_state(
         }
         rubric_total = rubric_total or 1.0
         emass = attempt_evidence_mass(attempt["attempt_type"], vault.config.evidence)
-        # P0.3 (§4.3): the reliability discount. certainty_LCB multiplies the mass
-        # BEFORE the caps/localization below; a quarantined/uniform/missing
-        # interpretation contributes zero (never silent full credit). The calibrated
-        # E[true_score_fraction] replaces the raw points fraction for every criterion.
+        # The response-level calibrated channel scales evidence authority/mass
+        # only. Directional criterion outcomes always remain their raw fractions.
         p0_fraction: float | None = None
         if use_p0:
             effective_obs = build_effective_observation(
@@ -361,7 +429,11 @@ def project_canonical_facet_state(
                 score_fraction=p0_score_fraction,
                 attempt_type_mass=emass,
             )
-            emass = effective_obs.effective_mass
+            # Direction no longer comes from the response posterior, so its
+            # aleatoric certainty must move to the authority term. Combined
+            # with EffectiveObservation's epistemic factor this yields the
+            # shared certainty LCB as the total response-level mass discount.
+            emass = effective_obs.effective_mass * effective_obs.certainty
             p0_fraction = effective_obs.expected_true_score_fraction
         # Observed-outcome override for the unresolved-cause gate: adjudication
         # is observation-scoped (one activity observation per attempt), so it
@@ -386,9 +458,7 @@ def project_canonical_facet_state(
         for criterion in criteria:
             row = evidence_by_criterion.get(criterion.id)
             fraction = 0.0
-            if p0_fraction is not None:
-                fraction = p0_fraction
-            elif row is not None and criterion.points > 0:
+            if row is not None and criterion.points > 0:
                 fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
             outcomes.append(
                 CriterionOutcome(
@@ -417,20 +487,19 @@ def project_canonical_facet_state(
                 raw_fraction = max(
                     0.0, min(1.0, float(row["points_awarded"]) / criterion.points)
                 )
-            fraction = p0_fraction if p0_fraction is not None else raw_fraction
+            fraction = raw_fraction
             targets = list(criterion.targets)
             if not targets:
                 continue
             pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
             corr_group = criterion.correlation_group or group_key
 
-            attribution = _attribution_weights(
-                row.get("attribution_json") if row is not None else None, targets
+            raw_attribution = (
+                row.get("attribution_json") if row is not None else None
             )
-            # `negative_fraction` is calibrated (E[true-score] residual) and only
-            # shapes probabilistic mass below; the unresolved-cause gate reads the
-            # OBSERVED outcome — adjudicated class when one heads the chain, else
-            # the raw criterion fraction.
+            attribution = _attribution_weights(raw_attribution, targets)
+            # Direction comes from the raw criterion vector. The calibrated
+            # response channel has already scaled ``emass`` above.
             negative_fraction = 1.0 - fraction
             observed_fraction = (
                 adjudicated_fraction if adjudicated_fraction is not None else raw_fraction
@@ -447,10 +516,18 @@ def project_canonical_facet_state(
                             if row is not None and row.get("observation_id")
                             else f"{attempt['attempt_id']}:{criterion.id}:0"
                         ),
-                        "candidate_causes": [
-                            {"facet": resolve(t.facet), "capability": t.capability}
-                            for t in targets
-                        ],
+                        "candidate_causes": _open_candidate_causes(
+                            repository,
+                            str(attempt["attempt_id"]),
+                            [
+                                CriterionTarget(
+                                    facet=resolve(target.facet),
+                                    capability=target.capability,
+                                    role=target.role,
+                                )
+                                for target in targets
+                            ],
+                        ),
                     }
                 )
             # Success mass follows authored role weights. Failure mass is handled
@@ -491,7 +568,11 @@ def project_canonical_facet_state(
 
             if negative_fraction <= 0 or unresolved_negative:
                 continue
-            if not attribution and len(targets) == 1:
+            if (
+                not attribution
+                and len(targets) == 1
+                and raw_attribution is None
+            ):
                 attribution = {(targets[0].facet, targets[0].capability): 1.0}
             for target in targets:
                 share = attribution.get((target.facet, target.capability), 0.0)
@@ -720,7 +801,8 @@ def _sync_unresolved_cause_factors(
     duplicates nor loses an open cause set. Factors whose failure no longer
     appears are retired; new ambiguous failures are inserted (§5.3)."""
 
-    existing = repository.open_unresolved_cause_observation_ids()
+    existing = repository.unresolved_cause_observation_ids()
+    existing_open = repository.open_unresolved_cause_observation_ids()
     wanted = {str(u["observation_id"]): u for u in unresolved}
     for observation_id, record in wanted.items():
         if observation_id not in existing:
@@ -731,5 +813,5 @@ def _sync_unresolved_cause_factors(
                 observation_id=observation_id,
                 clock=clock,
             )
-    for observation_id in existing - set(wanted):
+    for observation_id in existing_open - set(wanted):
         repository.retire_unresolved_cause_factor(observation_id, clock=clock)

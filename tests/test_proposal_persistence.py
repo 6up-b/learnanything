@@ -407,6 +407,44 @@ def test_generated_practice_missing_evidence_facets_is_invalid(tmp_path):
     assert "missing_evidence_facets" in item["validation_errors"]
 
 
+def test_generated_item_local_criterion_may_honestly_omit_facets(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    proposal = AuthoringProposal.model_validate(
+        _generated_practice_proposal_payload(
+            {
+                "evidence_facets": [],
+                "evidence_weights": {},
+                "criterion_facet_weights": {},
+                "repair_targets": ["correctness"],
+                "grading_rubric": {
+                    "max_points": 4,
+                    "criteria": [
+                        {
+                            "id": "correctness",
+                            "points": 4,
+                            "description": "Checks this item only.",
+                            "measurement_status": "item_local",
+                        }
+                    ],
+                    "fatal_errors": [],
+                },
+            }
+        )
+    )
+
+    patch_id = persist_authoring_proposal(
+        vault_root,
+        proposal,
+        provider="codex",
+        clock=FrozenClock(NOW),
+    )
+    item = Repository(vault_root / "state.sqlite").proposal_items(patch_id)[0]
+
+    assert item["validation_status"] == "valid"
+    assert "missing_evidence_facets" not in item["validation_errors"]
+
+
 def test_registry_backed_vault_rejects_unknown_evidence_facet(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     write_yaml(
@@ -595,7 +633,7 @@ def test_generated_practice_single_facet_backfills_criterion_facet_weights(tmp_p
     assert "pi_svd_generated_metadata" not in load_vault(vault_root).practice_items
 
 
-def test_generated_practice_missing_evidence_weights_is_backfilled_uniform(tmp_path):
+def test_generated_practice_missing_evidence_weights_is_not_smeared(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
     proposal = AuthoringProposal.model_validate(
@@ -605,12 +643,14 @@ def test_generated_practice_missing_evidence_weights_is_backfilled_uniform(tmp_p
     patch_id = persist_authoring_proposal(vault_root, proposal, provider="codex", clock=FrozenClock(NOW))
     item = Repository(vault_root / "state.sqlite").proposal_items(patch_id)[0]
 
-    # evidence_weights is uniformly normalized over the facets...
-    assert item["payload"]["evidence_weights"] == {"application": 0.5, "recall": 0.5}
-    # ...but with >1 facet the criterion->facet assignment is not derivable, so that
-    # warning still surfaces for human review.
+    # Neither distribution is derivable from a multi-facet vocabulary. Keep the
+    # author's abstention intact and route both gaps to measurement review.
+    assert item["payload"].get("evidence_weights") in (None, {})
     assert item["validation_status"] == "warning"
-    assert item["validation_errors"] == ["metadata_review:missing_criterion_facet_weights"]
+    assert item["validation_errors"] == [
+        "metadata_review:missing_evidence_weights",
+        "metadata_review:missing_criterion_facet_weights",
+    ]
 
 
 def test_unresolved_source_ref_is_persisted_invalid(tmp_path):

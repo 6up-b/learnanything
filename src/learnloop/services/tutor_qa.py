@@ -252,6 +252,21 @@ def ask_question(
     # regardless of whether the tutor manages to answer, so a provider failure
     # must not erase it (classification arrives with the answer, or never).
     qc = dict(question_context or {})
+    source_context: dict[str, Any] | None = None
+    if context == "reader" and extraction_id and span_id:
+        from learnloop.services.reader_progression import learning_objects_for_span
+
+        source_context = {
+            "extraction_id": extraction_id,
+            "span_id": span_id,
+            "candidate_learning_object_ids": learning_objects_for_span(
+                vault,
+                repository,
+                extraction_id=extraction_id,
+                span_id=span_id,
+            ),
+            "source_spans": list(ai_context.source_spans),
+        }
     event_id = repository.insert_question_event(
         {
             "context": context,
@@ -273,6 +288,7 @@ def ask_question(
             "hints_used_before": qc.get("hints_used_before"),
             "direct_explanation_request": bool(qc.get("direct_explanation_request")),
             "attempt_progress": qc.get("attempt_progress"),
+            "source_context": source_context,
         },
         clock=clock,
     )
@@ -504,6 +520,7 @@ def build_tutor_qa_note(
     event: Mapping[str, Any],
     *,
     subject_id: str | None = None,
+    related_lo_ids: list[str] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Materialize a tutor Q&A turn as a vault note and persist the back-link.
@@ -527,7 +544,7 @@ def build_tutor_qa_note(
     if existing_note_id:
         return {"note_id": existing_note_id, "path": None, "reused": True}
 
-    related_los: list[str] = []
+    related_los: list[str] = list(related_lo_ids or [])
     subjects: list[str] = []
     item_id = event.get("practice_item_id")
     if item_id is not None:

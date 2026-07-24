@@ -40,7 +40,15 @@ def _mvp07(tmp_path):
     return load_vault(tmp_path / "vault"), Repository(paths.sqlite_path)
 
 
-def _insert_attempt(repository, *, attempt_id, item_id=ITEM_ID, attempt_type="independent_attempt", grader_confidence=None):
+def _insert_attempt(
+    repository,
+    *,
+    attempt_id,
+    item_id=ITEM_ID,
+    attempt_type="independent_attempt",
+    grader_confidence=None,
+    learner_answer_md=None,
+):
     row = {
         "id": attempt_id,
         "practice_item_id": item_id,
@@ -50,6 +58,7 @@ def _insert_attempt(repository, *, attempt_id, item_id=ITEM_ID, attempt_type="in
         "rubric_score": 1,
         "correctness": 0.0,
         "error_type": None,
+        "learner_answer_md": learner_answer_md,
         "created_at": NOW_ISO,
         "updated_at": NOW_ISO,
     }
@@ -112,7 +121,7 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
 
 
 def test_grader_prompt_version_bumped():
-    assert GRADING_PROMPT_VERSION == "mvp-0.7-mechanism-taxonomy"
+    assert GRADING_PROMPT_VERSION == "mvp-0.8-causal-attribution-prose-first"
     assert GRADING_PROMPT_VERSION != "mvp-0.5-misconception-statements"
 
 
@@ -262,8 +271,15 @@ def test_promotion_requires_independent_surface_or_probe_reproduction(tmp_path):
     statement = "believes SVD equals eigendecomposition"
 
     # A single ordinary attempt stays a candidate — no durable misconception.
+    signature = "SVD always equals eigendecomposition"
     _insert_attempt(repository, attempt_id="att1", item_id=ITEM_ID)
-    _insert_mc_event(repository, attempt_id="att1", event_id="ev1", statement=statement)
+    _insert_mc_event(
+        repository,
+        attempt_id="att1",
+        event_id="ev1",
+        statement=statement,
+        consistent=signature,
+    )
     touched = normalize_attempt_misconceptions(
         vault, repository, attempt_id="att1", learning_object_id=LO_ID, clock=FrozenClock(NOW)
     )
@@ -273,8 +289,20 @@ def test_promotion_requires_independent_surface_or_probe_reproduction(tmp_path):
     assert len(candidates) == 1 and candidates[0]["status"] == "candidate"
 
     # A targeted diagnostic probe reproducing the belief promotes it (§10.3).
-    _insert_attempt(repository, attempt_id="att2", item_id=ITEM_ID, attempt_type="diagnostic_probe")
-    _insert_mc_event(repository, attempt_id="att2", event_id="ev2", statement=statement)
+    _insert_attempt(
+        repository,
+        attempt_id="att2",
+        item_id=ITEM_ID,
+        attempt_type="diagnostic_probe",
+        learner_answer_md=signature,
+    )
+    _insert_mc_event(
+        repository,
+        attempt_id="att2",
+        event_id="ev2",
+        statement=statement,
+        consistent=signature,
+    )
     touched = normalize_attempt_misconceptions(
         vault, repository, attempt_id="att2", learning_object_id=LO_ID, clock=FrozenClock(NOW)
     )
@@ -283,6 +311,38 @@ def test_promotion_requires_independent_surface_or_probe_reproduction(tmp_path):
     assert len(durable) == 1
     assert durable[0].promotion_reason == "probe_reproduction"
     assert durable[0].mechanism == "conceptual_schema_error"
+
+
+def test_probe_cannot_preregister_its_signature_after_seeing_response(tmp_path):
+    vault, repository = _mvp07(tmp_path)
+    signature = "SVD always equals eigendecomposition"
+    _insert_attempt(
+        repository,
+        attempt_id="att_probe_only",
+        item_id=ITEM_ID,
+        attempt_type="diagnostic_probe",
+        learner_answer_md=signature,
+    )
+    _insert_mc_event(
+        repository,
+        attempt_id="att_probe_only",
+        event_id="ev_probe_only",
+        statement="believes SVD equals eigendecomposition",
+        consistent=signature,
+    )
+
+    touched = normalize_attempt_misconceptions(
+        vault,
+        repository,
+        attempt_id="att_probe_only",
+        learning_object_id=LO_ID,
+        clock=FrozenClock(NOW),
+    )
+
+    assert touched == []
+    assert repository.misconceptions_for_learning_object(LO_ID) == []
+    candidate = repository.misconception_candidates_for_learning_object(LO_ID)[0]
+    assert candidate["signature"] is None
 
 
 def test_promotion_on_independent_surface(tmp_path):

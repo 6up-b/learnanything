@@ -84,11 +84,18 @@ def compile_criterion_targets(
     if criterion.targets:
         return list(criterion.targets)
 
+    measurement_status = getattr(criterion, "measurement_status", None)
+    if measurement_status in {"item_local", "no_canonical_facet"}:
+        return []
     capability = default_capability_for(item.practice_mode, tier=getattr(criterion, "tier", "core"))
     mapped = item.criterion_facet_weights.get(criterion.id)
-    facets = list(mapped) if mapped else list(item.evidence_facets)
+    # Once an author explicitly declares measurement status, an empty mapping
+    # is an honest abstention. The whole-item fallback remains only for legacy
+    # criteria whose measurement status predates P0b.
+    facets = list(mapped) if mapped else ([] if measurement_status is not None else list(item.evidence_facets))
+    role = "supporting" if measurement_status == "supporting" else "primary"
     return [
-        CriterionTarget(facet=facet, capability=capability, role="primary")
+        CriterionTarget(facet=facet, capability=capability, role=role)
         for facet in facets
     ]
 

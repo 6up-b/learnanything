@@ -14,6 +14,7 @@ from learnloop.codex.schemas import (
     TaskFeaturesPayload,
 )
 from learnloop.services import exercise_authoring as EX
+from learnloop.services.proposals import _practice_item_metadata_warnings
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -136,7 +137,9 @@ def test_import_writes_verbatim_anchored_item_with_full_contract(tmp_path):
         "span": "multi_step",
     }
     assert item.evidence_weights == {"facet_svd_shape": 1.0}
-    assert item.criterion_facet_weights["factors"] == {"facet_svd_shape": 1.0}
+    assert item.criterion_facet_weights == {
+        "factorization": {"facet_svd_shape": 1.0}
+    }
     assert item.grading_rubric is not None and len(item.grading_rubric.criteria) == 2
     assert item.hints == ["Think factorization.", "Three factors."]
     assert item.difficulty == 0.6 and item.difficulty_source == "llm_estimate"
@@ -147,6 +150,49 @@ def test_import_writes_verbatim_anchored_item_with_full_contract(tmp_path):
     context = client.calls[0]
     assert "singular value decomposition writes A" in context.exercise_text
     assert any(lo["id"] == "lo_svd_definition" for lo in context.learning_objects)
+
+
+def test_missing_weights_are_not_uniformly_backfilled_and_smears_are_flagged(tmp_path):
+    _vault, repository = _setup(tmp_path)
+    _write_facet_registry(tmp_path)
+    item = _item(
+        evidence_facets=["facet_svd_shape", "facet_orthonormal_columns"],
+        # An omitted second facet must stay omitted after normalization.
+        evidence_weights=[
+            FacetWeightPayload(facet_id="facet_svd_shape", weight=1.0)
+        ],
+        criterion_facet_weights=[
+            CriterionFacetWeightsPayload(
+                criterion_id=criterion_id,
+                weights=[
+                    FacetWeightPayload(facet_id="facet_svd_shape", weight=0.5),
+                    FacetWeightPayload(
+                        facet_id="facet_orthonormal_columns", weight=0.5
+                    ),
+                ],
+            )
+            for criterion_id in ("factorization", "factors")
+        ],
+    )
+
+    result = _run(
+        tmp_path,
+        repository,
+        FakeClient(ExerciseAuthoring(items=[item])),
+    )
+    authored = load_vault(tmp_path / "vault").practice_items[
+        result["items"][0]["practice_item_id"]
+    ]
+    assert authored.evidence_weights == {"facet_svd_shape": 1.0}
+    assert any("measurement re-audit" in warning for warning in result["warnings"])
+
+    warnings = _practice_item_metadata_warnings(
+        authored.model_dump(mode="json", exclude_none=True),
+        load_vault(tmp_path / "vault"),
+        None,
+        generated=True,
+    )
+    assert "metadata_review:uniform_criterion_facet_smear" in warnings
 
 
 def test_import_dedupes_identical_prompt_on_second_run(tmp_path):

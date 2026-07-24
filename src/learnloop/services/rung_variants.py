@@ -16,12 +16,10 @@ depth trajectory. Two halves, deliberately split:
    request was real evidence regardless of what the authoring model does.
 
 2. ``generate_rung_variant`` — the async job body. Authors ONE grounded
-   sibling item at the target waypoint through the rung-gated generation path,
-   with deterministic stamping: inherited ``evidence_facets`` (goal-scope
-   continuity), a shared ``evidence_fingerprint.source_family`` (kinship
-   discounting — the variant's evidence is correlated with the source's, never
-   double-counted), and authored criterion targets carrying the rung's
-   capability. The source item is never mutated.
+   sibling item at the target waypoint through the rung-gated generation path.
+   Measurement targets are independently recompiled; only the shared
+   ``evidence_fingerprint.source_family`` is stamped so kinship discounting
+   treats sibling evidence as correlated. The source item is never mutated.
 """
 
 from __future__ import annotations
@@ -62,6 +60,196 @@ CLAIM_SOURCE = "rung_variant_request"
 # coordination/whole_task) sit BEYOND the trajectory: easier steps down to the
 # deepest default waypoint; harder requires a reviewed depth envelope.
 BEYOND_TRAJECTORY = "beyond_default_trajectory"
+
+_ORDERED_TASK_AXES: dict[str, dict[Any, int]] = {
+    "span": {
+        "atomic": 0,
+        "single_step": 1,
+        "multi_step": 2,
+        "whole_task": 3,
+    },
+    "response": {
+        "recognize": 0,
+        "short_constructed": 1,
+        "long_constructed": 2,
+        "structured_steps": 3,
+        "performance": 4,
+    },
+    "transfer": {
+        "same_context": 0,
+        "near": 1,
+        "far": 2,
+        "novel_combination": 3,
+    },
+    # More scaffolding makes an otherwise identical item easier.
+    "scaffolding": {"worked": 0, "partial": 1, "cue": 2, "none": 3},
+}
+
+
+def audit_variant_direction(
+    source_item: PracticeItem,
+    payload: dict[str, Any],
+    direction: str,
+) -> list[str]:
+    """Direction-symmetric structural audit for sibling variants."""
+
+    if direction not in DIRECTIONS:
+        return []
+    violations: list[str] = []
+    source_difficulty = source_item.difficulty
+    target_difficulty = payload.get("difficulty")
+    if source_difficulty is not None and target_difficulty is not None:
+        target_value = float(target_difficulty)
+        if direction == "harder" and target_value <= float(source_difficulty):
+            violations.append(
+                f"variant_direction:difficulty:{target_value:g} must exceed {float(source_difficulty):g}"
+            )
+        if direction == "easier" and target_value >= float(source_difficulty):
+            violations.append(
+                f"variant_direction:difficulty:{target_value:g} must be below {float(source_difficulty):g}"
+            )
+
+    source_features = source_item.task_features or {}
+    target_features = payload.get("task_features") or {}
+    contract = payload.get("variant_contract")
+    contract = contract if isinstance(contract, dict) else {}
+    incidental = set(str(value) for value in contract.get("incidental_changes") or [])
+    declarations = {
+        str(entry.get("axis")): str(entry.get("direction") or "")
+        for entry in contract.get("intended_manipulations") or []
+        if isinstance(entry, dict) and entry.get("axis")
+    }
+    declared_axes = set(declarations)
+    held_constant = set(str(value) for value in contract.get("held_constant") or [])
+    changed_axes: set[str] = set()
+    if (
+        source_difficulty is not None
+        and target_difficulty is not None
+        and float(source_difficulty) != float(target_difficulty)
+    ):
+        changed_axes.add("difficulty")
+        actual = (
+            "increase"
+            if float(target_difficulty) > float(source_difficulty)
+            else "decrease"
+        )
+        declared = declarations.get("difficulty")
+        if declared and declared != actual:
+            violations.append(
+                f"variant_contract:false_direction:difficulty:{declared}!={actual}"
+            )
+        if "difficulty" in held_constant:
+            violations.append("variant_contract:held_constant_changed:difficulty")
+        if "difficulty" not in declared_axes and "difficulty" not in incidental:
+            violations.append("variant_contract:undeclared_axis_change:difficulty")
+    for axis in ("complexity", *_ORDERED_TASK_AXES):
+        before = source_features.get(axis)
+        after = target_features.get(axis)
+        if before is None or after is None or before == after:
+            continue
+        if axis == "complexity":
+            delta = (float(after) > float(before)) - (float(after) < float(before))
+        else:
+            order = _ORDERED_TASK_AXES[axis]
+            if before not in order or after not in order:
+                continue
+            delta = (order[after] > order[before]) - (order[after] < order[before])
+        changed_axes.add(axis)
+        actual = "increase" if delta > 0 else "decrease"
+        declared = declarations.get(axis)
+        if declared and declared != actual:
+            violations.append(
+                f"variant_contract:false_direction:{axis}:{declared}!={actual}"
+            )
+        if axis in held_constant:
+            violations.append(f"variant_contract:held_constant_changed:{axis}")
+        against = (direction == "harder" and delta < 0) or (
+            direction == "easier" and delta > 0
+        )
+        if against:
+            if axis in incidental:
+                violations.append(
+                    f"variant_direction:declared_trade:{axis}:{before!s}->{after!s}"
+                )
+            else:
+                violations.append(
+                    f"variant_direction:{axis}:{before!s}->{after!s} moves against {direction}"
+                )
+        if axis not in declared_axes and axis not in incidental:
+            violations.append(f"variant_contract:undeclared_axis_change:{axis}")
+    for axis, declared in declarations.items():
+        if declared in {"increase", "decrease"} and axis not in changed_axes:
+            violations.append(
+                f"variant_contract:declared_axis_unchanged:{axis}:{declared}"
+            )
+
+    source_trace = source_item.trace_contract
+    target_trace = payload.get("trace_contract")
+    if source_trace is not None and source_trace.status == "available":
+        if not isinstance(target_trace, dict):
+            violations.append("variant_contract:missing_trace_comparison")
+            return violations
+        source_checkpoints = {
+            checkpoint
+            for recipe in source_trace.recipes
+            for checkpoint in recipe.checkpoints
+        }
+        target_checkpoints = (
+            {
+                str(checkpoint)
+                for recipe in target_trace.get("recipes") or []
+                if isinstance(recipe, dict)
+                for checkpoint in recipe.get("checkpoints") or []
+            }
+            if target_trace.get("status", "available") == "available"
+            else set()
+        )
+        dropped = source_checkpoints - target_checkpoints
+        added = target_checkpoints - source_checkpoints
+        declared_drops = set(str(value) for value in contract.get("drops_checkpoints") or [])
+        declared_preserved = set(
+            str(value) for value in contract.get("preserves_checkpoints") or []
+        )
+        declared_deepened = set(
+            str(value) for value in contract.get("deepens_checkpoints") or []
+        )
+        for checkpoint in sorted(dropped - declared_drops):
+            violations.append(f"variant_contract:undeclared_checkpoint_drop:{checkpoint}")
+        for checkpoint in sorted(added - declared_deepened):
+            violations.append(f"variant_contract:undeclared_checkpoint_add:{checkpoint}")
+        for checkpoint in sorted(declared_preserved - target_checkpoints):
+            violations.append(f"variant_contract:false_checkpoint_preservation:{checkpoint}")
+        if direction == "harder":
+            for checkpoint in sorted(dropped & declared_drops):
+                violations.append(
+                    f"variant_direction:declared_trade:dropped_checkpoint:{checkpoint}"
+                )
+        if direction == "easier":
+            for checkpoint in sorted(added & declared_deepened):
+                violations.append(
+                    f"variant_direction:declared_trade:added_checkpoint:{checkpoint}"
+                )
+    return violations
+
+
+def _variant_kind(source_item: PracticeItem, rung: RungTarget, direction: str) -> str:
+    """A rung whose demanded point moves against direction is a trajectory shift."""
+
+    probe_payload = {
+        "difficulty": source_item.difficulty,
+        "task_features": rung.task_features,
+        "variant_contract": {
+            "intended_manipulations": [
+                {"axis": axis, "direction": "hold"}
+                for axis in (source_item.task_features or {})
+            ],
+            "incidental_changes": [],
+        },
+    }
+    violations = audit_variant_direction(source_item, probe_payload, direction)
+    if any("moves against" in violation for violation in violations):
+        return "rung_shift"
+    return direction
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +364,7 @@ def request_rung_variant(
 
     source_slug = resolve_item_waypoint(vault, repository, item)
     target_rung = _target_rung(vault, repository, item, source_slug, direction)
+    variant_kind = _variant_kind(item, target_rung, direction)
 
     request_id = repository.insert_rung_variant_request(
         {
@@ -185,6 +374,7 @@ def request_rung_variant(
             "source_waypoint_slug": source_slug,
             "target_waypoint_slug": target_rung.waypoint_slug,
             "target_rung_json": json.dumps(target_rung.as_dict(), sort_keys=True),
+            "variant_kind": variant_kind,
             "status": "pending",
         },
         clock=clock,
@@ -273,6 +463,7 @@ def request_rung_variant(
     return {
         "request_id": request_id,
         "direction": direction,
+        "variant_kind": variant_kind,
         "source_waypoint": source_slug,
         "target_waypoint": target_rung.waypoint_slug,
         "attempt_id": attempt.attempt_id,
@@ -403,8 +594,6 @@ def generate_rung_variant(
         return {"request_id": request_id, "status": "failed"}
     plan = PracticeExpansionPlan(targets=targets)
 
-    source_facets = [vault.canonical_facet_id(f) for f in source_item.evidence_facets]
-
     def _stamp_variant(rows: list[dict[str, Any]]) -> None:
         for row in rows:
             if row.get("item_type") != "practice_item" or row.get("operation") != "create":
@@ -412,33 +601,13 @@ def generate_rung_variant(
             payload = row.get("payload")
             if not isinstance(payload, dict):
                 continue
-            # (a) Fail-closed facet inheritance: goal scope is facet-based, so
-            # the variant must carry the source's facets to keep counting.
-            payload_facets = [vault.canonical_facet_id(f) for f in payload.get("evidence_facets") or []]
-            if source_facets and (not payload_facets or not set(payload_facets) & set(source_facets)):
-                payload["evidence_facets"] = list(source_facets)
-                weight = round(1.0 / len(source_facets), 6)
-                payload["evidence_weights"] = {facet: weight for facet in source_facets}
-            # (b) Shared surface group: kinship discounting treats the variant's
+            # Shared surface group: kinship discounting treats the variant's
             # evidence as correlated with the source's, never independent.
             fingerprint = payload.get("evidence_fingerprint")
             if not isinstance(fingerprint, dict):
                 fingerprint = {}
             fingerprint["source_family"] = surface_group_id(source_item)
             payload["evidence_fingerprint"] = fingerprint
-            # (c) Authored criterion targets carrying the rung capability, so
-            # future attempts on the variant attribute to that capability slice
-            # (compile_criterion_targets prefers authored targets).
-            rubric = payload.get("grading_rubric")
-            if isinstance(rubric, dict):
-                facet_cycle = payload.get("evidence_facets") or source_facets
-                for index, criterion in enumerate(rubric.get("criteria") or []):
-                    if isinstance(criterion, dict) and not criterion.get("targets"):
-                        facet = facet_cycle[index % len(facet_cycle)] if facet_cycle else None
-                        if facet:
-                            criterion["targets"] = [
-                                {"facet": facet, "capability": target_rung.capability, "role": "primary"}
-                            ]
             payload["tags"] = sorted(set(payload.get("tags") or []) | {"rung_variant"})
 
     def _run(extra: str | None) -> tuple[str, "_RungGate"]:
@@ -447,6 +616,23 @@ def generate_rung_variant(
         def _composed(rows: list[dict[str, Any]]) -> None:
             rung_gate(rows)
             _stamp_variant(rows)
+            for row in rows:
+                payload = row.get("payload")
+                if row.get("item_type") != "practice_item" or not isinstance(payload, dict):
+                    continue
+                contract = payload.get("variant_contract")
+                if not isinstance(contract, dict):
+                    rung_gate.violations.append("variant_contract:missing")
+                    continue
+                expected_kind = str(request.get("variant_kind") or request["direction"])
+                if contract.get("variant_kind") != expected_kind:
+                    rung_gate.violations.append(
+                        f"variant_contract:kind:{contract.get('variant_kind')} != {expected_kind}"
+                    )
+                if expected_kind in DIRECTIONS:
+                    rung_gate.violations.extend(
+                        audit_variant_direction(source_item, payload, expected_kind)
+                    )
 
         patch_id = generate_authoring_proposal(
             root,
@@ -551,11 +737,9 @@ def _variant_instructions(
     request: dict[str, Any],
     extra: str | None,
 ) -> str:
-    prompt_excerpt = (source_item.prompt or "")[:600]
-    expected = source_item.expected_answer
-    expected_excerpt = (expected if isinstance(expected, str) else json.dumps(expected))[:400]
+    variant_kind = str(request.get("variant_kind") or request["direction"])
     lines = [
-        f"Author exactly ONE new LearnLoop Practice Item: an {request['direction']} sibling variant "
+        f"Author exactly ONE new LearnLoop Practice Item: a {variant_kind} variant "
         f"of an existing item, one depth waypoint {'down' if request['direction'] == 'easier' else 'up'} "
         f"({request['source_waypoint_slug']} → {rung.waypoint_slug}).",
         "Create only practice_item proposal items; do not create Learning Objects, concepts, or edges.",
@@ -565,16 +749,33 @@ def _variant_instructions(
             {
                 "id": source_item.id,
                 "practice_mode": source_item.practice_mode,
-                "prompt_excerpt": prompt_excerpt,
-                "expected_answer_excerpt": expected_excerpt,
+                "prompt": source_item.prompt,
+                "expected_answer": source_item.expected_answer,
                 "surface_family": source_item.surface_family,
                 "evidence_facets": list(source_item.evidence_facets),
+                "difficulty": source_item.difficulty,
+                "capability": source_item.capability,
+                "task_features": source_item.task_features,
+                "grading_rubric": (
+                    source_item.grading_rubric.model_dump(mode="json", exclude_none=True)
+                    if source_item.grading_rubric is not None
+                    else None
+                ),
+                "trace_contract": (
+                    source_item.trace_contract.model_dump(mode="json", exclude_none=True)
+                    if source_item.trace_contract is not None
+                    else None
+                ),
             },
             sort_keys=True,
         ),
-        "evidence_facets MUST be exactly the source item's facet ids (same knowledge, different depth); "
-        "set evidence_weights accordingly and provide the item's OWN grading_rubric plus "
-        "criterion_facet_weights over those facets.",
+        "Treat the source facets as a prior, not a mandate. Independently compile "
+        "the variant's genuine measurement targets; use a strict subset or abstain "
+        "with item_local/no_canonical_facet when appropriate. Never inherit a facet "
+        "merely to preserve list equality.",
+        f"Set variant_contract.variant_kind='{variant_kind}' and declare intended_manipulations "
+        "(axis plus direction), incidental_changes, held_constant, and checkpoint "
+        "preservation/deepening/drops. Silent demand-axis or checkpoint changes are rejected.",
         "Depth waypoint (a deterministic gate rejects overshoot): set `capability` to "
         f"'{rung.capability}' exactly and every task_features dimension to the target: "
         + json.dumps(rung.task_features, sort_keys=True)

@@ -43,8 +43,120 @@ def test_fresh_db_applies_all_migrations(tmp_path):
         "facet_recall_state",
         "facet_capability_evidence",
         "facet_merges",
+        "measurement_contract_corrections",
+        "misconception_disposition_events",
+        "question_promotion_requests",
+        "queue_state",
     }:
         assert required in tables
+
+
+def test_first_error_cleanup_is_semantically_demoted_not_learned(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    old_migrations = tmp_path / "old_migrations"
+    old_migrations.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 114:
+            shutil.copy2(migration.path, old_migrations / migration.path.name)
+    apply_migrations(sqlite_path, migrations_dir=old_migrations)
+    with connect(sqlite_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO misconceptions(
+              id, learning_object_id, statement, severity, status,
+              promotion_reason, created_at, updated_at
+            )
+            VALUES (
+              'mc_first_error', 'lo_svd', 'Invalid one-shot diagnosis', 0.8,
+              'active', 'first_error_trace', '2026-07-01T00:00:00Z',
+              '2026-07-01T00:00:00Z'
+            )
+            """
+        )
+        connection.commit()
+
+    apply_migrations(sqlite_path)
+    repository = Repository(sqlite_path)
+    record = repository.misconception("mc_first_error")
+    assert record is not None
+    assert record.status == "demoted"
+    assert record.lifecycle_disposition == "demoted"
+    assert repository.misconceptions_for_learning_object(
+        "lo_svd", statuses=("resolved",)
+    ) == []
+    assert [
+        row.id
+        for row in repository.misconceptions_for_learning_object(
+            "lo_svd", statuses=("demoted",)
+        )
+    ] == ["mc_first_error"]
+
+
+def test_question_promotion_request_migration_backfills_legacy_ledger(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    old_migrations = tmp_path / "old_migrations"
+    old_migrations.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 116:
+            shutil.copy2(migration.path, old_migrations / migration.path.name)
+    apply_migrations(sqlite_path, migrations_dir=old_migrations)
+
+    with connect(sqlite_path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO question_events(
+              id, context, question_md, answer_status, created_at
+            ) VALUES (?, 'library', ?, 'answered', ?)
+            """,
+            [
+                ("ev_empty_review", "Legacy empty review", "2026-07-01T00:00:00Z"),
+                ("ev_existing", "Legacy existing item", "2026-07-01T00:01:00Z"),
+            ],
+        )
+        connection.executemany(
+            """
+            INSERT INTO question_promotions(
+              question_event_id, intent, proposed_patch_id,
+              existing_practice_item_id, route, created_at, updated_at
+            ) VALUES (?, 'practice', ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    "ev_empty_review",
+                    "patch_without_item",
+                    None,
+                    "review_required",
+                    "2026-07-01T00:00:00Z",
+                    "2026-07-01T00:00:00Z",
+                ),
+                (
+                    "ev_existing",
+                    None,
+                    "pi_existing",
+                    "existing_item",
+                    "2026-07-01T00:01:00Z",
+                    "2026-07-01T00:01:00Z",
+                ),
+            ],
+        )
+        connection.commit()
+
+    applied = apply_migrations(sqlite_path)
+    assert 117 in [migration.version for migration in applied]
+    repository = Repository(sqlite_path)
+
+    failed = repository.question_promotion_request("ev_empty_review")
+    assert failed is not None
+    assert failed["status"] == "failed"
+    assert failed["stage"] == "failed"
+    assert failed["error_code"] == "no_practice_item"
+    assert failed["retryable"] is False
+
+    completed = repository.question_promotion_request("ev_existing")
+    assert completed is not None
+    assert completed["status"] == "completed"
+    assert completed["stage"] == "ready"
+    assert completed["promotion_route"] == "existing_item"
 
 
 def test_facet_diagnostic_schema_is_available(tmp_path):

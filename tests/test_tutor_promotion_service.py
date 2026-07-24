@@ -7,7 +7,15 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.codex.schemas import AuthoringProposal, PromotionAnalysis
 from learnloop.db.repositories import Repository
-from learnloop.services.promotions import PromotionError, promote_tutor_question
+from learnloop.services.promotions import (
+    PromotionError,
+    PromotionNoItemError,
+    promote_tutor_question,
+    reconcile_accepted_question_promotion_patch,
+    reconcile_rejected_question_promotion_patch,
+    reconcile_reset_question_promotion_patch,
+)
+from learnloop.services.proposals import accept_items, reject_items, reset_items
 from learnloop.vault.loader import add_note, load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -275,6 +283,39 @@ def test_reader_promotion_uses_subject_facet_vocabulary_without_origin_item(tmp_
     assert client.analysis_contexts[0].existing_items[0]["id"] == "pi_svd_define_001"
 
 
+def test_reader_promotion_honors_persisted_learning_object_target(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    _insert_event(
+        repository,
+        "ev_reader_target",
+        context="reader",
+        practice_item_id=None,
+        note_id="span:ext1/s1",
+        source_context={
+            "extraction_id": "ext1",
+            "span_id": "s1",
+            "candidate_learning_object_ids": ["lo_svd_definition"],
+        },
+    )
+    client = _FullClient(
+        PromotionAnalysis(attributed_facets=["recall"]), _attach_proposal()
+    )
+
+    result = promote_tutor_question(
+        root,
+        client,
+        event_id="ev_reader_target",
+        intent="practice",
+        learning_object_id="lo_svd_definition",
+    )
+
+    assert result["created_practice_item_id"] == "pi_svd_promoted_001"
+    assert client.analysis_contexts[0].learning_object_id == "lo_svd_definition"
+    saved = load_vault(root).notes[result["saved_note_id"]]
+    assert saved.related_los == ["lo_svd_definition"]
+
+
 def test_dedup_short_circuit_gap_writes_claim_no_need(tmp_path):
     root = create_basic_vault(tmp_path / "vault").root
     repository = Repository(root / "state.sqlite")
@@ -308,9 +349,85 @@ def test_grounding_fallback_forces_review(tmp_path):
     result = promote_tutor_question(root, client, event_id="ev_ground", intent="practice")
 
     assert result["route"] == "review_required"
-    assert result["created_practice_item_id"] is None
+    assert result["created_practice_item_id"] == "pi_svd_promoted_001"
     items = repository.proposal_items(result["proposed_patch_id"])
     assert all(item["decision"] == "pending" for item in items)
+
+
+def test_accepting_reviewed_promotion_makes_original_request_schedulable(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    _add_origin_source_note(root)
+    _insert_event(repository, "ev_review_accept")
+    repository.insert_question_promotion_request(
+        question_event_id="ev_review_accept", intent="practice"
+    )
+    client = _FullClient(
+        PromotionAnalysis(attributed_facets=["recall"]),
+        _attach_proposal(review_route="review_required"),
+    )
+    result = promote_tutor_question(
+        root, client, event_id="ev_review_accept", intent="practice"
+    )
+    practice_row = next(
+        item
+        for item in repository.proposal_items(result["proposed_patch_id"])
+        if item["item_type"] == "practice_item"
+    )
+
+    accept_items(root, result["proposed_patch_id"], [practice_row["id"]])
+    updated = reconcile_accepted_question_promotion_patch(
+        repository, result["proposed_patch_id"]
+    )
+
+    promotion = repository.question_promotion("ev_review_accept")
+    assert updated == ["ev_review_accept"]
+    assert promotion["route"] == "auto_apply"
+    assert promotion["created_practice_item_id"] == "pi_svd_promoted_001"
+    assert repository.question_promotion_request("ev_review_accept")["stage"] == "ready"
+    assert "pi_svd_promoted_001" in repository.requested_practice_item_ids()
+
+
+def test_rejecting_and_resetting_review_updates_promotion_request_state(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    _add_origin_source_note(root)
+    _insert_event(repository, "ev_review_reject")
+    repository.insert_question_promotion_request(
+        question_event_id="ev_review_reject", intent="practice"
+    )
+    result = promote_tutor_question(
+        root,
+        _FullClient(
+            PromotionAnalysis(attributed_facets=["recall"]),
+            _attach_proposal(review_route="review_required"),
+        ),
+        event_id="ev_review_reject",
+        intent="practice",
+    )
+    practice_row = next(
+        item
+        for item in repository.proposal_items(result["proposed_patch_id"])
+        if item["item_type"] == "practice_item"
+    )
+
+    reject_items(root, result["proposed_patch_id"], [practice_row["id"]])
+    reconcile_rejected_question_promotion_patch(
+        repository, result["proposed_patch_id"]
+    )
+    rejected = repository.question_promotion_request("ev_review_reject")
+    assert rejected["status"] == "failed"
+    assert rejected["error_code"] == "proposal_rejected"
+    assert rejected["retryable"] is False
+
+    reset_items(root, result["proposed_patch_id"], [practice_row["id"]])
+    reconcile_reset_question_promotion_patch(
+        repository, result["proposed_patch_id"]
+    )
+    reset = repository.question_promotion_request("ev_review_reject")
+    assert reset["status"] == "completed"
+    assert reset["stage"] == "review"
+    assert reset["error_code"] is None
 
 
 def test_new_lo_batch_forced_review(tmp_path):
@@ -323,11 +440,28 @@ def test_new_lo_batch_forced_review(tmp_path):
     result = promote_tutor_question(root, client, event_id="ev_newlo", intent="practice")
 
     assert result["route"] == "review_required"
-    assert result["created_practice_item_id"] is None
-    assert result["created_learning_object_id"] is None
+    assert result["created_practice_item_id"] == "pi_svd_promoted_new_001"
+    assert result["created_learning_object_id"] == "lo_svd_promoted"
     items = repository.proposal_items(result["proposed_patch_id"])
     assert len(items) == 2
     assert all(item["decision"] == "pending" for item in items)
+
+
+def test_practice_promotion_with_no_authored_item_fails_instead_of_claiming_review(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    _insert_event(repository, "ev_no_item")
+    empty = AuthoringProposal.model_validate(
+        {"summary": "No suitable item.", "source_refs": [], "items": []}
+    )
+    client = _FullClient(PromotionAnalysis(attributed_facets=["recall"]), empty)
+
+    with pytest.raises(PromotionNoItemError, match="did not contain"):
+        promote_tutor_question(
+            root, client, event_id="ev_no_item", intent="practice"
+        )
+
+    assert repository.question_promotion("ev_no_item") is None
 
 
 def test_attach_to_existing_with_grounding_auto_applies(tmp_path):

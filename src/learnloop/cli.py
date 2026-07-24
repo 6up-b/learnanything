@@ -5141,6 +5141,100 @@ def taxonomy_regrade_check_command(
         raise typer.Exit(code=1)
 
 
+@app.command("causal-attribution-audit")
+def causal_attribution_audit_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
+) -> None:
+    """Show P0 attribution fill, abstention, and firewall telemetry."""
+
+    from learnloop.services.grading import causal_attribution_audit_report
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = causal_attribution_audit_report(repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, "report": report}))
+        return
+    if not report["groups"]:
+        typer.echo("No causal-attribution telemetry has been recorded.")
+        return
+    for group in report["groups"]:
+        typer.echo(
+            f"{group['prompt_version']} · {group['model']}: "
+            f"{group['attributions']} attributions across {group['attempts']} attempts; "
+            f"resolved={group['resolution_counts']['resolved']}, "
+            f"unresolved={group['resolution_counts']['unresolved']}, "
+            f"abstained={group['resolution_counts']['abstained']}, "
+            f"firewall={group['firewall_trigger_count']}"
+        )
+
+
+@app.command("correct-measurement")
+def correct_measurement_command(
+    source_practice_item_id: Annotated[
+        str, typer.Argument(help="Attempted PracticeItem whose contract is being corrected.")
+    ],
+    corrected_item_path: Annotated[
+        Path,
+        typer.Argument(
+            help="YAML containing corrected PracticeItem fields (include a new id to choose it)."
+        ),
+    ],
+    reason: Annotated[
+        str, typer.Option("--reason", help="Required audit reason for the correction.")
+    ],
+    projection_version: Annotated[
+        str,
+        typer.Option(
+            "--projection-version",
+            help="Exact projection version authorized to consume this correction.",
+        ),
+    ],
+    reinterpret_history: Annotated[
+        bool,
+        typer.Option(
+            "--reinterpret-history/--preserve-history",
+            help="Let the named projection reinterpret old evidence when task invariants match.",
+        ),
+    ] = False,
+    vault: Annotated[
+        Path | None, typer.Option("--vault", help="Vault root.")
+    ] = None,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Emit the append-only correction receipt.")
+    ] = False,
+) -> None:
+    """Supersede an attempted item without rewriting its historical file."""
+
+    from learnloop.services.measurement_corrections import create_measurement_correction
+    from learnloop.vault.yaml_io import read_yaml
+
+    root = _root(vault)
+    payload = read_yaml(corrected_item_path)
+    corrected_id = str(payload.pop("id")) if payload.get("id") else None
+    result = create_measurement_correction(
+        root,
+        _repository(root),
+        source_practice_item_id=source_practice_item_id,
+        corrected_fields=payload,
+        corrected_practice_item_id=corrected_id,
+        reason=reason,
+        consuming_projection_version=projection_version,
+        reinterpret_historical_evidence=reinterpret_history,
+    )
+    receipt = asdict(result)
+    if json_output:
+        typer.echo(_dump({"version": 1, **receipt}))
+        return
+    typer.echo(
+        f"Created {result.corrected_practice_item_id}; "
+        f"recorded {len(result.correction_ids)} correction edge(s) "
+        f"for {result.consuming_projection_version}."
+    )
+
+
 @app.command("probe-families")
 def probe_families_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,

@@ -1435,15 +1435,14 @@ def _provenance_for_refs(source_refs: list[dict[str, Any]], provider: str) -> di
 
 
 def _backfill_practice_item_facet_weights(item: AuthoringProposalItem, vault: LoadedVault) -> None:
-    """Derive the facet-weight maps the authoring model commonly omits.
+    """Derive only facet-weight links that are logically unambiguous.
 
     ``evidence_weights`` / ``criterion_facet_weights`` are optional in the authoring
     schema, so generated diagnostic probes routinely arrive without them and trip the
-    ``metadata_review:missing_*`` review warnings on every diagnostic review. Both are
-    recoverable from data already on the payload, so we fill the unambiguous cases here
-    (mirroring the ``provenance`` backfill above) rather than relying on LLM compliance:
+    ``metadata_review:missing_*`` review warnings. A missing distribution over multiple
+    evidence facets cannot be recovered from the facet list, so it deliberately remains
+    missing and is routed to measurement review. The only safe backfill is:
 
-    - ``evidence_weights``: a uniform normalized distribution over ``evidence_facets``.
     - ``criterion_facet_weights``: when the item has a *single* evidence facet, every
       rubric criterion maps to it with weight ``1.0``. With multiple facets the
       criterion->facet assignment is not derivable, so it is left for human review.
@@ -1457,12 +1456,23 @@ def _backfill_practice_item_facet_weights(item: AuthoringProposalItem, vault: Lo
     evidence_facets = [str(facet) for facet in (getattr(payload, "evidence_facets", None) or []) if str(facet)]
     if not evidence_facets:
         return
-    if not (getattr(payload, "evidence_weights", None) or {}):
-        share = 1.0 / len(evidence_facets)
-        payload.evidence_weights = {facet: share for facet in evidence_facets}
     if not (getattr(payload, "criterion_facet_weights", None) or {}) and len(evidence_facets) == 1:
         facet = evidence_facets[0]
-        criterion_ids = _rubric_criterion_ids(payload.model_dump(mode="json", exclude_none=True), vault, None)
+        dumped = payload.model_dump(mode="json", exclude_none=True)
+        rubric = dumped.get("grading_rubric") or {}
+        criteria = rubric.get("criteria") if isinstance(rubric, dict) else []
+        criterion_ids = {
+            str(criterion.get("id"))
+            for criterion in criteria or []
+            if isinstance(criterion, dict)
+            and criterion.get("id")
+            and criterion.get("measurement_status") not in {
+                "item_local",
+                "no_canonical_facet",
+            }
+        }
+        if not criteria:
+            criterion_ids = _rubric_criterion_ids(dumped, vault, None)
         if criterion_ids:
             payload.criterion_facet_weights = {
                 criterion_id: {facet: 1.0} for criterion_id in sorted(criterion_ids)
@@ -1674,7 +1684,15 @@ def _practice_item_metadata_errors(
     evidence_facets = _string_list(payload.get("evidence_facets"))
     evidence_weights = _float_map(payload.get("evidence_weights"))
     criterion_facet_weights = _nested_float_map(payload.get("criterion_facet_weights"))
-    if generated and not evidence_facets:
+    rubric = payload.get("grading_rubric")
+    criteria = rubric.get("criteria") if isinstance(rubric, dict) else []
+    declared_noncanonical = bool(criteria) and all(
+        isinstance(criterion, dict)
+        and criterion.get("measurement_status")
+        in {"item_local", "no_canonical_facet"}
+        for criterion in criteria
+    )
+    if generated and not evidence_facets and not declared_noncanonical:
         errors.append("missing_evidence_facets")
     # A registry-backed vault has a closed canonical facet vocabulary. General
     # authoring proposals cannot create facet entities, so accepting an unknown
@@ -1701,6 +1719,16 @@ def _practice_item_metadata_errors(
             errors.append(f"unknown_criterion_facet_criterion:{criterion_id}")
         for facet in sorted(set(facet_weights) - set(evidence_facets)):
             errors.append(f"unknown_criterion_facet_facet:{facet}")
+    for criterion in criteria or []:
+        if not isinstance(criterion, dict) or not criterion.get("id"):
+            continue
+        criterion_id = str(criterion["id"])
+        status = criterion.get("measurement_status")
+        mapped = criterion_facet_weights.get(criterion_id) or {}
+        if status in {"item_local", "no_canonical_facet"} and mapped:
+            errors.append(f"noncanonical_criterion_has_facet_map:{criterion_id}")
+        elif status in {"direct", "supporting", "composite"} and not mapped:
+            errors.append(f"declared_measurement_missing_facet_map:{criterion_id}")
     if payload.get("practice_mode") == _TEACH_BACK_PRACTICE_MODE:
         errors.extend(_teach_back_rubric_errors(payload, evidence_facets, criterion_facet_weights))
     return errors
@@ -1809,8 +1837,39 @@ def _practice_item_metadata_warnings(
         warnings.append("metadata_review:missing_evidence_facets")
     if evidence_facets and not evidence_weights:
         warnings.append("metadata_review:missing_evidence_weights")
-    if generated and _rubric_criterion_ids(payload, vault, proposal) and not criterion_facet_weights:
+    rubric = payload.get("grading_rubric")
+    criteria = rubric.get("criteria") if isinstance(rubric, dict) else []
+    measurable_ids = {
+        str(criterion.get("id"))
+        for criterion in criteria or []
+        if isinstance(criterion, dict)
+        and criterion.get("id")
+        and criterion.get("measurement_status") not in {
+            "item_local",
+            "no_canonical_facet",
+        }
+    }
+    if generated and measurable_ids and not criterion_facet_weights:
         warnings.append("metadata_review:missing_criterion_facet_weights")
+    nonempty_maps = [
+        tuple(
+            sorted(
+                (facet, round(float(weight), 6))
+                for facet, weight in weights.items()
+                if weight > 0
+            )
+        )
+        for weights in criterion_facet_weights.values()
+        if weights
+    ]
+    if (
+        len(nonempty_maps) > 1
+        and len(nonempty_maps[0]) > 1
+        and len(set(nonempty_maps)) == 1
+    ):
+        # Review warning, not auto-repair: a validator cannot infer which
+        # criterion genuinely measures which facet.
+        warnings.append("metadata_review:uniform_criterion_facet_smear")
     return warnings
 
 
@@ -1835,10 +1894,15 @@ def _generated_practice_reward_metadata_errors(
     if _missing(payload.get("surface_family")):
         errors.append("missing_surface_family")
     repair_targets = _string_list(payload.get("repair_targets"))
-    if not repair_targets:
+    criterion_ids = _rubric_criterion_ids(payload, vault, proposal)
+    if not repair_targets and (evidence_facets or criterion_ids):
         errors.append("missing_repair_targets")
     else:
-        allowed = set(evidence_facets) | _rubric_fatal_error_ids(payload, vault, proposal)
+        allowed = (
+            set(evidence_facets)
+            | criterion_ids
+            | _rubric_fatal_error_ids(payload, vault, proposal)
+        )
         for target in sorted(set(repair_targets) - allowed):
             errors.append(f"unknown_repair_target:{target}")
     return errors

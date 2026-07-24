@@ -12,6 +12,7 @@ import type {
   MatchedMisconceptionDto,
   PracticeItemDetail,
   ResolvedSourceRefDto,
+  UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
 import { EntityLink, KeyBar, Pill } from "../components/ui";
 import { CardControls } from "../components/CardControls";
@@ -939,6 +940,7 @@ export function FeedbackScreen({
   // session id is threaded into this screen (present_claims needs one of them).
   const visitId = useRef(mintVisitId()).current;
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
+  const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
   const [addingError, setAddingError] = useState(false);
   const [errorTypeInput, setErrorTypeInput] = useState("");
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
@@ -1108,6 +1110,23 @@ export function FeedbackScreen({
   const handleAddError = () => {
     const sel = selectedSuggestionIdx >= 0 ? suggestions[selectedSuggestionIdx] : null;
     void doAddError(sel?.id ?? errorTypeInput, sel?.severityDefault);
+  };
+
+  const handleUnresolvedCauseReport = async (
+    factorId: string,
+    response: UnresolvedCauseSelfReportResponse,
+    candidateIndex?: number | null,
+  ) => {
+    if (!feedback || reportingFactorId) return;
+    setReportingFactorId(factorId);
+    try {
+      await api.reportUnresolvedCause({ factorId, response, candidateIndex });
+      setFeedback(await api.getFeedback(feedback.attemptId));
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setReportingFactorId(null);
+    }
   };
 
   const resetNote = () => {
@@ -1366,6 +1385,10 @@ export function FeedbackScreen({
             <UnresolvedCauseCard
               causes={f.unresolvedCauses ?? []}
               onRunDiagnostic={() => void handleTriggerFollowup()}
+              onSelfReport={(factorId, response, candidateIndex) => {
+                void handleUnresolvedCauseReport(factorId, response, candidateIndex);
+              }}
+              reportingFactorId={reportingFactorId}
             />
           </div>
         ) : null}

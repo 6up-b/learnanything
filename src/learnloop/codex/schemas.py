@@ -80,6 +80,11 @@ class RubricCriterionPayload(BaseModel):
     # Teach-back rubrics are two-tiered: "core" probes one evidence facet,
     # "transfer" stress-tests solid knowledge (discounted evidence mass).
     tier: Literal["core", "transfer"] = "core"
+    # Causal-attribution P0b: an empty facet map is honest only when the
+    # criterion declares what kind of measurement it actually is.
+    measurement_status: Literal[
+        "direct", "supporting", "composite", "item_local", "no_canonical_facet"
+    ] | None = None
 
 
 class RubricFatalErrorPayload(BaseModel):
@@ -113,6 +118,60 @@ class TaskFeaturesPayload(BaseModel):
     tools: list[Literal["closed_book", "open_book", "calculator", "code", "references", "collaboration"]] | None = None
 
 
+class TraceRecipePayload(BaseModel):
+    id: str
+    checkpoints: list[str] = Field(default_factory=list)
+    dependencies: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class TraceContractPayload(BaseModel):
+    status: Literal["available", "no_reliable_decomposition"] = "available"
+    recipes: list[TraceRecipePayload] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_trace_contract(self) -> "TraceContractPayload":
+        if self.status == "no_reliable_decomposition" and self.recipes:
+            raise ValueError("no_reliable_decomposition trace contract cannot contain recipes")
+        if self.status == "available" and not self.recipes:
+            raise ValueError("available trace contract requires at least one recipe")
+        recipe_ids = [recipe.id for recipe in self.recipes]
+        if len(set(recipe_ids)) != len(recipe_ids):
+            raise ValueError("trace contract has duplicate recipe ids")
+        for recipe in self.recipes:
+            checkpoints = set(recipe.checkpoints)
+            if len(checkpoints) != len(recipe.checkpoints):
+                raise ValueError(f"trace recipe {recipe.id} has duplicate checkpoints")
+            unknown = set(recipe.dependencies) - checkpoints
+            unknown.update(
+                dependency
+                for dependencies in recipe.dependencies.values()
+                for dependency in dependencies
+                if dependency not in checkpoints
+            )
+            if unknown:
+                raise ValueError(
+                    f"trace recipe {recipe.id} has unknown dependency checkpoints: "
+                    + ", ".join(sorted(unknown))
+                )
+        return self
+
+
+class VariantManipulationPayload(BaseModel):
+    axis: str
+    direction: Literal["increase", "decrease", "hold"]
+    rationale: str | None = None
+
+
+class VariantAuthoringContractPayload(BaseModel):
+    variant_kind: Literal["easier", "harder", "rung_shift"]
+    intended_manipulations: list[VariantManipulationPayload] = Field(default_factory=list)
+    incidental_changes: list[str] = Field(default_factory=list)
+    held_constant: list[str] = Field(default_factory=list)
+    preserves_checkpoints: list[str] = Field(default_factory=list)
+    deepens_checkpoints: list[str] = Field(default_factory=list)
+    drops_checkpoints: list[str] = Field(default_factory=list)
+
+
 class PracticeItemPatchPayload(BaseModel):
     id: str | None = None
     learning_object_id: str | None = None
@@ -133,11 +192,13 @@ class PracticeItemPatchPayload(BaseModel):
     criterion_facet_weights: dict[str, dict[str, float]] | None = Field(
         default=None,
         description=(
-            "REQUIRED whenever grading_rubric is present: map EVERY rubric criterion "
-            "id to {facet_id: weight}. An empty object is invalid — cover each "
-            "criterion, reusing ids from evidence_facets."
+            "Map only rubric criteria that genuinely measure a canonical facet. "
+            "An empty map is valid when the criterion declares item_local or "
+            "no_canonical_facet measurement_status."
         ),
     )
+    trace_contract: TraceContractPayload | None = None
+    variant_contract: VariantAuthoringContractPayload | None = None
     difficulty: float | None = None
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
     capability: Literal[
@@ -301,6 +362,120 @@ class CriterionEvidence(BaseModel):
     learner_confidence: Literal["confident", "hedged", "absent", "unknown"] | None = None
 
 
+class FacetCapabilityTargetRef(BaseModel):
+    kind: Literal["facet_capability"]
+    facet_id: str
+    capability: str | None = None
+
+
+class CriterionTargetRef(BaseModel):
+    kind: Literal["criterion"]
+    criterion_id: str
+
+
+class ItemStepTargetRef(BaseModel):
+    kind: Literal["item_step"]
+    checkpoint_id: str
+    recipe_id: str | None = None
+
+
+class AnswerSpanTargetRef(BaseModel):
+    kind: Literal["answer_span"]
+    quote: str
+    char_start: int | None = Field(default=None, ge=0)
+    char_end: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_offsets(self) -> "AnswerSpanTargetRef":
+        if (self.char_start is None) != (self.char_end is None):
+            raise ValueError("answer-span offsets must be supplied together")
+        if (
+            self.char_start is not None
+            and self.char_end is not None
+            and self.char_end < self.char_start
+        ):
+            raise ValueError("answer-span char_end must be >= char_start")
+        return self
+
+
+class NoTargetRef(BaseModel):
+    kind: Literal["none"]
+
+
+AttributionTargetRef = (
+    FacetCapabilityTargetRef
+    | CriterionTargetRef
+    | ItemStepTargetRef
+    | AnswerSpanTargetRef
+    | NoTargetRef
+)
+
+
+class FirstDivergence(BaseModel):
+    anchor_kind: Literal["span", "between_spans", "missing_required_step", "whole_answer"]
+    criterion_id: str
+    checkpoint_id: str | None = None
+    quote: str | None = None
+    quote_hash: str | None = None
+    char_start: int | None = Field(default=None, ge=0)
+    char_end: int | None = Field(default=None, ge=0)
+    normalized_quote: str | None = None
+
+    @model_validator(mode="after")
+    def validate_offsets(self) -> "FirstDivergence":
+        if self.anchor_kind == "missing_required_step" and not self.checkpoint_id:
+            raise ValueError(
+                "missing_required_step first divergence requires checkpoint_id"
+            )
+        if (self.char_start is None) != (self.char_end is None):
+            raise ValueError("first-divergence offsets must be supplied together")
+        if (
+            self.char_start is not None
+            and self.char_end is not None
+            and self.char_end < self.char_start
+        ):
+            raise ValueError("first-divergence char_end must be >= char_start")
+        return self
+
+
+class FacetContrast(BaseModel):
+    target_facet: str
+    confused_with_facet: str
+    justification: str
+
+    @model_validator(mode="after")
+    def validate_contrast(self) -> "FacetContrast":
+        if self.target_facet == self.confused_with_facet:
+            raise ValueError("facet contrast requires two distinct facets")
+        if not self.justification.strip():
+            raise ValueError("facet contrast justification must cite the trace")
+        return self
+
+
+class CandidateCause(BaseModel):
+    statement: str
+    cause_scope: Literal[
+        "learner_state",
+        "transient_execution",
+        "interaction_context",
+        "item_contract",
+        "grader_interpretation",
+        "unknown",
+    ]
+    target_ref: AttributionTargetRef | None = Field(default=None, discriminator="kind")
+
+    @model_validator(mode="after")
+    def validate_statement(self) -> "CandidateCause":
+        if not self.statement.strip():
+            raise ValueError("candidate cause statement cannot be empty")
+        return self
+
+
+class PostdictiveClaim(BaseModel):
+    criterion_id: str
+    must: Literal["fail", "not_full_credit"]
+
+
 class ErrorAttribution(BaseModel):
     error_type: str
     severity: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -313,6 +488,31 @@ class ErrorAttribution(BaseModel):
     misconception_consistent_answer: str | None = None
     target_evidence_families: list[str] = Field(default_factory=list)
     target_criterion_ids: list[str] = Field(default_factory=list)
+    resolution_status: Literal["resolved", "unresolved", "abstained"] | None = None
+    abstention_reason: str | None = None
+    cause_scope: Literal[
+        "learner_state",
+        "transient_execution",
+        "interaction_context",
+        "item_contract",
+        "grader_interpretation",
+        "unknown",
+    ] | None = None
+    target_ref: AttributionTargetRef | None = Field(default=None, discriminator="kind")
+    operation: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]*$")
+    first_divergence: FirstDivergence | None = None
+    localization_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    causal_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    facet_contrast: FacetContrast | None = None
+    candidate_causes: list[CandidateCause] = Field(default_factory=list)
+    postdictive_claims: list[PostdictiveClaim] = Field(default_factory=list)
+    soft_postdictive_claims: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_abstention(self) -> "ErrorAttribution":
+        if self.resolution_status == "abstained" and not (self.abstention_reason or "").strip():
+            raise ValueError("abstention_reason is required when resolution_status is abstained")
+        return self
 
 
 class RepairSuggestion(BaseModel):
@@ -320,9 +520,13 @@ class RepairSuggestion(BaseModel):
     learning_object_id: str | None = None
     rationale: str
     target_evidence_families: list[str] = Field(default_factory=list)
+    target_criterion_ids: list[str] = Field(default_factory=list)
 
 
 class GradingProposal(BaseModel):
+    # Intentionally first: autoregressive graders diagnose in prose before the
+    # structured attribution contract can pressure them into a nearby label.
+    diagnosis_md: str | None = None
     attempt_id: str
     practice_item_id: str
     rubric_score: int = Field(ge=0, le=4)
@@ -427,6 +631,7 @@ class ExerciseAuthoredItem(BaseModel):
     evidence_facets: list[str] = Field(default_factory=list)
     evidence_weights: list[FacetWeightPayload] = Field(default_factory=list)
     criterion_facet_weights: list[CriterionFacetWeightsPayload] = Field(default_factory=list)
+    trace_contract: TraceContractPayload | None = None
     hints: list[str] = Field(
         default_factory=list,
         description="2-4 progressive hints: orient first, near-give-away last.",

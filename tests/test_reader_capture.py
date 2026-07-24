@@ -8,6 +8,7 @@ with the drain worker down.
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -127,6 +128,32 @@ def test_commit_preset_captures_commitment_and_enqueues_one_synth_request(tmp_pa
     # convert seam (which enqueues on the canonical request key) never duplicates.
     RC.drain_outbox(repo)
     assert len(repo.reader_requests_for_source("src1")) == 1
+
+
+def test_worked_example_preserves_edited_latex_selection_through_outbox(tmp_path: Path) -> None:
+    repo = Repository(tmp_path / "state.sqlite")
+    _ingest(repo)
+    selected = r"Show that $(a+b)x = ax + bx$ for all $a,b \in F$ and all $x \in F^n$"
+    RC.invoke_preset(
+        repo,
+        preset="worked_example",
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+        client_idempotency_key="latex-selection",
+        raw_selection={
+            "nodes": [{"span_id": "s1", "quote": "Symmetric"}],
+            "editedText": selected,
+        },
+        subject_id="s1",
+    )
+
+    RC.drain_outbox(repo)
+
+    request = repo.reader_requests_for_source("src1")[0]
+    window = json.loads(request["window_json"])
+    assert window["selected_text"] == selected
+    assert window["selection_edited"] is True
 
 
 def test_ask_and_mark_presets_never_create_commitments(tmp_path: Path) -> None:

@@ -5,6 +5,7 @@ import type {
   CommandError,
   PromotionIntent,
   QuestionPromotionDto,
+  QuestionPromotionRequestDto,
   TutorCitationDto,
   TutorQuestionContext,
   TutorQuestionEventDto
@@ -12,6 +13,7 @@ import type {
 import { COLOR, Faint, FONT_MONO, Pill, type PillColor } from "./term";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { OpenInSource } from "./OpenInSource";
+import { notifyQueueChanged } from "../queueEvents";
 
 export interface AskTarget {
   context: TutorQuestionContext;
@@ -43,6 +45,7 @@ interface ThreadEntry {
   savedNoteId: string | null;
   /** Persisted promotion ledger row (question_promotions); survives remount (spec §2 idempotency). */
   promotion: QuestionPromotionDto | null;
+  promotionRequest: QuestionPromotionRequestDto | null;
   /** §12.1 proactive handoff: a tutor-initiated turn with no learner question.
    *  Ephemeral — never persisted, so it carries no eventId/rate/save/promote. */
   opening?: boolean;
@@ -68,10 +71,18 @@ function promotionChipLabel(promotion: QuestionPromotionDto): string {
     case "diagnostic_pending":
       return "gap filed";
     case "existing_item":
-      return `scheduled: ${promotion.existingPracticeItemId ?? "?"}`;
+      return `ready: ${promotion.existingPracticeItemId ?? "?"}`;
     default:
       return promotion.route;
   }
+}
+
+function promotionRequestLabel(request: QuestionPromotionRequestDto): string {
+  if (request.status === "failed") {
+    return `failed: ${request.errorMessage ?? request.errorCode ?? "unknown error"}`;
+  }
+  if (request.stage === "review") return "awaiting review";
+  return `authoring: ${request.stage}`;
 }
 
 function entityIdOf(target: AskTarget): string {
@@ -180,7 +191,8 @@ export function AskOverlay({
           hintEquivalent: event.hintEquivalent,
           rating: event.rating,
           savedNoteId: event.savedNoteId,
-          promotion: event.promotion
+          promotion: event.promotion,
+          promotionRequest: event.promotionRequest ?? null
         }));
         setThread(entries);
         setRemaining(snapshot.remaining);
@@ -205,6 +217,7 @@ export function AskOverlay({
                         rating: null,
                         savedNoteId: null,
                         promotion: null,
+                        promotionRequest: null,
                         opening: true
                       }
                     ]
@@ -275,7 +288,8 @@ export function AskOverlay({
         hintEquivalent: false,
         rating: null,
         savedNoteId: null,
-        promotion: null
+        promotion: null,
+        promotionRequest: null
       }
     ]);
     setQuestion("");
@@ -304,6 +318,7 @@ export function AskOverlay({
                 rating: null,
                 savedNoteId: null,
                 promotion: null,
+                promotionRequest: null,
                 citations: answer.citations
               }
             : entry
@@ -365,8 +380,17 @@ export function AskOverlay({
     try {
       const result = await api.promoteTutorQuestion(eventId, intent);
       setThread((prev) =>
-        prev.map((entry) => (entry.eventId === eventId ? { ...entry, promotion: result } : entry))
+        prev.map((entry) =>
+          entry.eventId === eventId
+            ? {
+                ...entry,
+                promotion: result.promotion,
+                promotionRequest: result.request
+              }
+            : entry
+        )
       );
+      notifyQueueChanged();
     } catch (error) {
       showPromoteNotice({ eventId, message: (error as CommandError).message });
     } finally {
@@ -495,8 +519,35 @@ export function AskOverlay({
                         {saveNoteLabel(entry)}
                       </span>
                       {/* → practice: promote this socratic question (spec_tutor_promotion.md §2). */}
-                      {entry.promotion ? (
+                      {entry.promotionRequest?.status === "failed" ? (
+                        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span
+                            style={{
+                              color:
+                                entry.promotionRequest.status === "failed"
+                                  ? COLOR.red
+                                  : COLOR.textDim
+                            }}
+                          >
+                            {promotionRequestLabel(entry.promotionRequest)}
+                          </span>
+                          {entry.promotionRequest.retryable ? (
+                            <span
+                              onClick={() =>
+                                void promote(entry.eventId as string, entry.promotionRequest!.intent)
+                              }
+                              style={{ cursor: "pointer", color: COLOR.amberLink }}
+                            >
+                              retry
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : entry.promotion ? (
                         <span style={{ color: COLOR.textDim }}>{promotionChipLabel(entry.promotion)}</span>
+                      ) : entry.promotionRequest ? (
+                        <span style={{ color: COLOR.textDim }}>
+                          {promotionRequestLabel(entry.promotionRequest)}
+                        </span>
                       ) : promotingEventId === entry.eventId ? (
                         <span style={{ color: COLOR.textDim }}>promoting…</span>
                       ) : promoteChoiceEventId === entry.eventId ? (

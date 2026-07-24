@@ -78,6 +78,7 @@ def _variant_request_payload(row: dict[str, Any]) -> dict[str, Any]:
         "source_practice_item_id": row["source_practice_item_id"],
         "learning_object_id": row["learning_object_id"],
         "direction": row["direction"],
+        "variant_kind": row.get("variant_kind") or row["direction"],
         "source_waypoint": row["source_waypoint_slug"],
         "target_waypoint": row["target_waypoint_slug"],
         "status": row["status"],

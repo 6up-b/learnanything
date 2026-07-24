@@ -41,8 +41,10 @@ def test_question_promotions_schema_available_on_fresh_db(tmp_path):
         ).fetchone()["sql"]
 
     assert "question_promotions" in tables
+    assert "question_promotion_requests" in tables
+    assert "queue_state" in tables
     assert {"question_event_id", "intent", "route", "attributed_facets_json"} <= qp_columns
-    assert "saved_note_id" in qe_columns
+    assert {"saved_note_id", "source_context_json"} <= qe_columns
     assert "tutor_gap_declaration" in claims_sql
     assert "question_promotion" in decision_sql
     assert "UNIQUE" in decision_sql
@@ -202,6 +204,37 @@ def test_update_question_promotion_missing_row_returns_false(tmp_path):
     assert repository.update_question_promotion("nope", route="auto_apply") is False
 
 
+def test_durable_promotion_request_and_queue_revision(tmp_path):
+    repository = Repository(tmp_path / "state.sqlite")
+    _insert_event(repository, "ev_request")
+    assert repository.queue_revision()["revision"] == 0
+
+    repository.insert_question_promotion_request(
+        question_event_id="ev_request",
+        intent="practice",
+        subject_id="linear-algebra",
+        learning_object_id="lo_svd_definition",
+    )
+    repository.update_question_promotion_request(
+        "ev_request",
+        status="failed",
+        stage="failed",
+        error_code="provider_timeout",
+        error_message="turn timed out",
+        retryable=True,
+    )
+    request = repository.question_promotion_request("ev_request")
+    assert request["status"] == "failed"
+    assert request["error_code"] == "provider_timeout"
+    assert request["retryable"] is True
+
+    assert repository.retry_question_promotion_request("ev_request")
+    assert repository.question_promotion_request("ev_request")["status"] == "queued"
+    assert repository.bump_queue_revision() == 1
+    assert repository.bump_queue_revision() == 2
+    assert repository.queue_revision()["revision"] == 2
+
+
 def test_requested_practice_item_ids_orders_oldest_first_and_excludes_attempted(tmp_path):
     repository = Repository(tmp_path / "state.sqlite")
     for event_id in ("ev_a", "ev_b", "ev_c"):
@@ -230,7 +263,7 @@ def test_requested_practice_item_ids_orders_oldest_first_and_excludes_attempted(
         clock=FrozenClock(NOW + timedelta(minutes=2)),
     )
 
-    # pi_c already has an attempt -> excluded from the requested floor.
+    # pi_c is attempted AFTER its promotion -> that request is consumed.
     with connect(repository.sqlite_path) as connection:
         connection.execute(
             """
@@ -239,12 +272,52 @@ def test_requested_practice_item_ids_orders_oldest_first_and_excludes_attempted(
               attempt_type, hints_used, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("att_c", "pi_c", "lo_svd_definition", "short_answer",
-             "independent_attempt", 0, NOW_ISO),
+            (
+                "att_c",
+                "pi_c",
+                "lo_svd_definition",
+                "short_answer",
+                "independent_attempt",
+                0,
+                (NOW + timedelta(minutes=3)).isoformat().replace("+00:00", "Z"),
+            ),
         )
         connection.commit()
 
     assert repository.requested_practice_item_ids() == ["pi_b", "pi_a"]
+
+
+def test_attempt_before_promotion_does_not_consume_practice_again_request(tmp_path):
+    repository = Repository(tmp_path / "state.sqlite")
+    _insert_event(repository, "ev_again")
+    with connect(repository.sqlite_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO practice_attempts(
+              id, practice_item_id, learning_object_id, practice_mode,
+              attempt_type, hints_used, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "att_before",
+                "pi_again",
+                "lo_svd_definition",
+                "short_answer",
+                "independent_attempt",
+                0,
+                NOW_ISO,
+            ),
+        )
+        connection.commit()
+    repository.insert_question_promotion(
+        question_event_id="ev_again",
+        intent="practice",
+        route="existing_item",
+        existing_practice_item_id="pi_again",
+        clock=FrozenClock(NOW + timedelta(minutes=1)),
+    )
+
+    assert repository.requested_practice_item_ids() == ["pi_again"]
 
 
 def test_pending_gap_need_for_facets(tmp_path):

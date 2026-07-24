@@ -13,6 +13,11 @@ from learnloop.services.proposals import (
     reset_items,
 )
 from learnloop.services.patches import PatchApplicationError
+from learnloop.services.promotions import (
+    reconcile_accepted_question_promotion_patch,
+    reconcile_rejected_question_promotion_patch,
+    reconcile_reset_question_promotion_patch,
+)
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -204,6 +209,9 @@ def accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
     vault, _repository = ctx.require_vault()
     try:
         accept_items(vault.root, params.patch_id, params.item_ids)
+        reconcile_accepted_question_promotion_patch(
+            _repository, params.patch_id
+        )
     except PatchApplicationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # Applying writes vault files, so refresh the in-memory vault — but proposal
@@ -216,9 +224,12 @@ def accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
 def reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]:
     """Reject proposal items (reverting any already-applied change), then refresh."""
 
-    vault, _repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     try:
         reject_items(vault.root, params.patch_id, params.item_ids)
+        reconcile_rejected_question_promotion_patch(
+            repository, params.patch_id
+        )
     except PatchApplicationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # Reverting an applied item touches vault files; refresh without the Codex probe.
@@ -230,8 +241,9 @@ def reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
 def reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]:
     """Undo a rejection (never-applied items back to pending), then refresh."""
 
-    vault, _repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     reset_items(vault.root, params.patch_id, params.item_ids)
+    reconcile_reset_question_promotion_patch(repository, params.patch_id)
     # Undo only flips a DB decision (never-applied items); refresh without the Codex probe.
     ctx.reload(maintenance=False)
     return _proposals_payload(ctx)

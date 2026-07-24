@@ -42,6 +42,7 @@ from learnloop.services.grading import (
     ValidatedErrorAttribution,
     build_grading_context,
     confidence_to_grader_confidence,
+    enforce_passed_target_firewall,
     evidence_coverage,
     grading_context_hash,
     resolved_rubric,
@@ -178,6 +179,18 @@ class GradeAttribution:
     misconception_id: str | None = None
     target_evidence_families: list[str] = field(default_factory=list)
     target_criterion_ids: list[str] = field(default_factory=list)
+    resolution_status: str | None = None
+    abstention_reason: str | None = None
+    cause_scope: str | None = None
+    target_ref: dict[str, Any] | None = None
+    operation: str | None = None
+    first_divergence: dict[str, Any] | None = None
+    model_reported_localization_confidence: float | None = None
+    model_reported_causal_confidence: float | None = None
+    facet_contrast: dict[str, Any] | None = None
+    candidate_causes: list[dict[str, Any]] = field(default_factory=list)
+    postdictive_claims: list[dict[str, Any]] = field(default_factory=list)
+    soft_postdictive_claims: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -192,6 +205,8 @@ class ResolvedGrade:
     feedback_md: str | None = None
     repair_suggestions: list[dict[str, Any]] = field(default_factory=list)
     fatal_errors: list[str] = field(default_factory=list)
+    diagnosis_md: str | None = None
+    attribution_audit_events: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -1187,13 +1202,81 @@ def _stamp_observation_lineage(
                 for target in targets
             }
             selected: set[tuple[str, str]] = set()
-            for attribution in attempt.grade.error_attributions:
+            machine_review_blocked = False
+            for event in application.error_events:
+                repair_plan = (
+                    event.get("repair_plan")
+                    if isinstance(event.get("repair_plan"), dict)
+                    else {}
+                )
+                target_families = [
+                    str(value)
+                    for value in repair_plan.get("target_evidence_families") or []
+                ]
+                target_criteria = [
+                    str(value)
+                    for value in repair_plan.get("target_criterion_ids") or []
+                ]
+                target_ref = (
+                    repair_plan.get("target_ref")
+                    if isinstance(repair_plan.get("target_ref"), dict)
+                    else None
+                )
+                machine_review_scope = repair_plan.get("cause_scope") in {
+                    "item_contract",
+                    "grader_interpretation",
+                }
+                event_has_target = bool(
+                    target_families
+                    or target_criteria
+                    or (
+                        target_ref is not None
+                        and target_ref.get("kind") != "none"
+                    )
+                )
+                event_matches_criterion = (
+                    not event_has_target
+                    or str(criterion_id) in target_criteria
+                    or bool(
+                        set(target_families)
+                        & {facet for facet, _capability in target_keys}
+                    )
+                    or (
+                        target_ref is not None
+                        and target_ref.get("kind") == "criterion"
+                        and str(target_ref.get("criterion_id") or "")
+                        == str(criterion_id)
+                    )
+                    or (
+                        target_ref is not None
+                        and target_ref.get("kind") == "facet_capability"
+                        and str(target_ref.get("facet_id") or "")
+                        in {facet for facet, _capability in target_keys}
+                    )
+                )
+                if machine_review_scope and event_matches_criterion:
+                    machine_review_blocked = True
+                    continue
+                resolution_status = repair_plan.get("resolution_status")
+                if resolution_status is None:
+                    resolution_status = (
+                        "resolved"
+                        if target_families
+                        or target_criteria
+                        or (
+                            target_ref is not None
+                            and target_ref.get("kind") != "none"
+                        )
+                        else "unresolved"
+                    )
+                if resolution_status != "resolved":
+                    continue
                 if (
-                    attribution.target_criterion_ids
-                    and str(criterion_id) not in attribution.target_criterion_ids
+                    target_criteria
+                    and str(criterion_id) not in target_criteria
                 ):
                     continue
-                for facet in attribution.target_evidence_families:
+                for facet in target_families:
                     selected.update(key for key in target_keys if key[0] == facet)
             if selected:
                 weight = 1.0 / len(selected)
@@ -1203,6 +1286,15 @@ def _stamp_observation_lineage(
                             {"facet": facet, "capability": capability, "weight": weight}
                             for facet, capability in sorted(selected)
                         ]
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            elif machine_review_blocked:
+                row["attribution_json"] = json.dumps(
+                    {
+                        "targets": [],
+                        "negative_evidence_blocked": "machine_review_scope",
                     },
                     sort_keys=True,
                     separators=(",", ":"),
@@ -1421,6 +1513,22 @@ def _compute_resolved_grade_application(
         )
     prior_mastery = prior_state.mastery
     grade_attributions = _canonicalized_grade_attributions(vault, grade.error_attributions)
+    (
+        grade_attributions,
+        repair_suggestions,
+        write_barrier_events,
+    ) = enforce_passed_target_firewall(
+        item,
+        rubric,
+        criterion_points=grade.criterion_points,
+        error_attributions=grade_attributions,
+        repair_suggestions=grade.repair_suggestions,
+        vault=vault,
+    )
+    attribution_audit_events = [
+        *grade.attribution_audit_events,
+        *write_barrier_events,
+    ]
     primary_error_type = _primary_error_type(grade_attributions)
     item_a, item_b = resolve_item_irt_params(
         item, learning_object, vault.config.mastery, prior_state.item_parameter_state
@@ -1808,6 +1916,59 @@ def _compute_resolved_grade_application(
         "observation_weight": error_impact.observation_weight,
         "covered_facets": coverage.covered_facets,
         "facet_outcomes": facet_outcomes,
+        "causal_attribution": {
+            "prompt_version": GRADING_PROMPT_VERSION,
+            "diagnosis_present": bool((grade.diagnosis_md or "").strip()),
+            "attribution_count": len(grade_attributions),
+            "resolution_counts": {
+                status: sum(
+                    1
+                    for attribution in grade_attributions
+                    if (
+                        attribution.resolution_status
+                        or (
+                            "resolved"
+                            if attribution.target_evidence_families
+                            or attribution.target_criterion_ids
+                            or (
+                                attribution.target_ref is not None
+                                and attribution.target_ref.get("kind") != "none"
+                            )
+                            else "unresolved"
+                        )
+                    )
+                    == status
+                )
+                for status in ("resolved", "unresolved", "abstained")
+            },
+            "facet_target_fill_count": sum(
+                bool(attribution.target_evidence_families)
+                for attribution in grade_attributions
+            ),
+            "criterion_target_fill_count": sum(
+                bool(attribution.target_criterion_ids)
+                for attribution in grade_attributions
+            ),
+            "judgment_fill_counts": {
+                "cause_scope": sum(attribution.cause_scope is not None for attribution in grade_attributions),
+                "operation": sum(attribution.operation is not None for attribution in grade_attributions),
+                "first_divergence": sum(
+                    attribution.first_divergence is not None for attribution in grade_attributions
+                ),
+                "facet_contrast": sum(
+                    attribution.facet_contrast is not None for attribution in grade_attributions
+                ),
+                "localization_confidence": sum(
+                    attribution.model_reported_localization_confidence is not None
+                    for attribution in grade_attributions
+                ),
+                "causal_confidence": sum(
+                    attribution.model_reported_causal_confidence is not None
+                    for attribution in grade_attributions
+                ),
+            },
+            "firewall_events": attribution_audit_events,
+        },
         "max_error_severity": max_event_severity,
         "primary_error_type": primary_error_type,
         "prior_bad_item_suspicion": prior_bad_item_suspicion,
@@ -1855,7 +2016,7 @@ def _compute_resolved_grade_application(
         bayesian_surprise=surprise.bayesian_surprise,
         error_event_ids=error_event_ids,
         feedback_md=grade.feedback_md,
-        repair_suggestions=list(grade.repair_suggestions),
+        repair_suggestions=list(repair_suggestions),
         fatal_errors=list(grade.fatal_errors),
         mastery_trace=mastery_trace,
         debug_payload=debug_payload,
@@ -1934,14 +2095,47 @@ def _canonicalized_grade_attributions(
     vault: LoadedVault,
     attributions: list[GradeAttribution],
 ) -> list[GradeAttribution]:
-    if not vault.facet_aliases:
-        return attributions
     canonicalized: list[GradeAttribution] = []
     for attribution in attributions:
         target_evidence_families = list(
             dict.fromkeys(vault.canonical_facet_id(facet) for facet in attribution.target_evidence_families)
         )
-        canonicalized.append(replace(attribution, target_evidence_families=target_evidence_families))
+        target_ref = dict(attribution.target_ref) if attribution.target_ref else None
+        if target_ref and target_ref.get("kind") == "facet_capability":
+            target_ref["facet_id"] = vault.canonical_facet_id(
+                str(target_ref.get("facet_id") or "")
+            )
+        facet_contrast = (
+            dict(attribution.facet_contrast)
+            if attribution.facet_contrast
+            else None
+        )
+        if facet_contrast:
+            for key in ("target_facet", "confused_with_facet"):
+                if facet_contrast.get(key):
+                    facet_contrast[key] = vault.canonical_facet_id(
+                        str(facet_contrast[key])
+                    )
+        candidate_causes: list[dict[str, Any]] = []
+        for raw in attribution.candidate_causes:
+            cause = dict(raw)
+            cause_ref = cause.get("target_ref")
+            if isinstance(cause_ref, dict) and cause_ref.get("kind") == "facet_capability":
+                cause_ref = dict(cause_ref)
+                cause_ref["facet_id"] = vault.canonical_facet_id(
+                    str(cause_ref.get("facet_id") or "")
+                )
+                cause["target_ref"] = cause_ref
+            candidate_causes.append(cause)
+        canonicalized.append(
+            replace(
+                attribution,
+                target_evidence_families=target_evidence_families,
+                target_ref=target_ref,
+                facet_contrast=facet_contrast,
+                candidate_causes=candidate_causes,
+            )
+        )
     return canonicalized
 
 
@@ -1977,6 +2171,32 @@ def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) 
         repair_plan["target_evidence_families"] = list(attribution.target_evidence_families)
     if attribution.target_criterion_ids:
         repair_plan["target_criterion_ids"] = list(attribution.target_criterion_ids)
+    for key in (
+        "resolution_status",
+        "abstention_reason",
+        "cause_scope",
+        "target_ref",
+        "operation",
+        "first_divergence",
+        "facet_contrast",
+    ):
+        value = getattr(attribution, key)
+        if value is not None:
+            repair_plan[key] = value
+    if attribution.model_reported_localization_confidence is not None:
+        repair_plan["model_reported_localization_confidence"] = (
+            attribution.model_reported_localization_confidence
+        )
+    if attribution.model_reported_causal_confidence is not None:
+        repair_plan["model_reported_causal_confidence"] = (
+            attribution.model_reported_causal_confidence
+        )
+    if attribution.candidate_causes:
+        repair_plan["candidate_causes"] = list(attribution.candidate_causes)
+    if attribution.postdictive_claims:
+        repair_plan["postdictive_claims"] = list(attribution.postdictive_claims)
+    if attribution.soft_postdictive_claims:
+        repair_plan["soft_postdictive_claims"] = list(attribution.soft_postdictive_claims)
     if abs(attribution.severity - _error_severity(vault, attribution.error_type)) > 1e-9:
         repair_plan["base_severity"] = attribution.severity
     return repair_plan or None
@@ -2013,6 +2233,45 @@ def _replay_error_attributions(
                     misconception_id=event.get("misconception_id"),
                     target_evidence_families=[str(facet) for facet in target_evidence_families],
                     target_criterion_ids=[str(criterion_id) for criterion_id in target_criterion_ids],
+                    resolution_status=repair_plan.get("resolution_status"),
+                    abstention_reason=repair_plan.get("abstention_reason"),
+                    cause_scope=repair_plan.get("cause_scope"),
+                    target_ref=(
+                        dict(repair_plan["target_ref"])
+                        if isinstance(repair_plan.get("target_ref"), dict)
+                        else None
+                    ),
+                    operation=repair_plan.get("operation"),
+                    first_divergence=(
+                        dict(repair_plan["first_divergence"])
+                        if isinstance(repair_plan.get("first_divergence"), dict)
+                        else None
+                    ),
+                    model_reported_localization_confidence=repair_plan.get(
+                        "model_reported_localization_confidence"
+                    ),
+                    model_reported_causal_confidence=repair_plan.get(
+                        "model_reported_causal_confidence"
+                    ),
+                    facet_contrast=(
+                        dict(repair_plan["facet_contrast"])
+                        if isinstance(repair_plan.get("facet_contrast"), dict)
+                        else None
+                    ),
+                    candidate_causes=[
+                        dict(value)
+                        for value in repair_plan.get("candidate_causes") or []
+                        if isinstance(value, dict)
+                    ],
+                    postdictive_claims=[
+                        dict(value)
+                        for value in repair_plan.get("postdictive_claims") or []
+                        if isinstance(value, dict)
+                    ],
+                    soft_postdictive_claims=[
+                        str(value)
+                        for value in repair_plan.get("soft_postdictive_claims") or []
+                    ],
                 )
             )
         if attributions:
@@ -2068,6 +2327,20 @@ def _resolved_codex_grade(
                 misconception_id=getattr(attribution, "misconception_id", None),
                 target_evidence_families=list(attribution.target_evidence_families or []),
                 target_criterion_ids=list(attribution.target_criterion_ids or []),
+                resolution_status=attribution.resolution_status,
+                abstention_reason=attribution.abstention_reason,
+                cause_scope=attribution.cause_scope,
+                target_ref=attribution.target_ref,
+                operation=attribution.operation,
+                first_divergence=attribution.first_divergence,
+                model_reported_localization_confidence=(
+                    attribution.model_reported_localization_confidence
+                ),
+                model_reported_causal_confidence=attribution.model_reported_causal_confidence,
+                facet_contrast=attribution.facet_contrast,
+                candidate_causes=list(attribution.candidate_causes or []),
+                postdictive_claims=list(attribution.postdictive_claims or []),
+                soft_postdictive_claims=list(attribution.soft_postdictive_claims or []),
             )
             for attribution in validated.error_attributions
         ],
@@ -2077,6 +2350,8 @@ def _resolved_codex_grade(
         feedback_md=validated.feedback_md,
         repair_suggestions=list(validated.repair_suggestions or []),
         fatal_errors=list(validated.fatal_errors),
+        diagnosis_md=validated.diagnosis_md,
+        attribution_audit_events=list(validated.attribution_audit_events or []),
     )
 
 

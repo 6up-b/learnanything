@@ -141,7 +141,12 @@ def evaluate_intervention_followup(
 
     config = vault.config.scheduler.followup
     thresholds = resolve_followup_thresholds(repository, config, exclude_attempt_id=attempt_id)
-    target_facets = target_facets or _attempt_target_facets(repository, practice_item_id)
+    # `None` means a legacy caller supplied no localization information. An
+    # explicit empty list means the failure was localized off the canonical
+    # facet vocabulary (for example, an item-local notation step); falling back
+    # to the item's full facet set would recreate the exhibit's false retry.
+    if target_facets is None:
+        target_facets = _attempt_target_facets(repository, practice_item_id)
     target_facets = _canonical_target_facets(vault, target_facets)
     failed_facets = target_facets if failed_facets is None else _canonical_target_facets(vault, failed_facets)
     # Raw failure streaks are kept (not just booleans) so score mode can grade
@@ -599,6 +604,15 @@ def _facet_targets_from_debug(debug_payload: dict[str, Any]) -> AttemptFacetTarg
         ]
         if failed:
             return AttemptFacetTargets(selection_facets=failed, failed_facets=failed)
+        attribution = debug_payload.get("causal_attribution")
+        if (
+            isinstance(attribution, dict)
+            and int(attribution.get("attribution_count") or 0) > 0
+        ):
+            # An observed error with no failed canonical facet is a meaningful
+            # item-local localization. Do not turn "none applies" back into all
+            # covered facets when selecting a retry.
+            return AttemptFacetTargets(selection_facets=[], failed_facets=[])
     covered = debug_payload.get("covered_facets")
     if isinstance(covered, dict):
         return AttemptFacetTargets(selection_facets=list(covered.keys()), failed_facets=[])

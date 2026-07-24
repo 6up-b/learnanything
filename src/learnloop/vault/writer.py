@@ -75,6 +75,8 @@ PRACTICE_ITEM_ORDER = [
     "evidence_facets",
     "evidence_weights",
     "criterion_facet_weights",
+    "trace_contract",
+    "variant_contract",
     "prompt",
     "expected_answer",
     "difficulty",

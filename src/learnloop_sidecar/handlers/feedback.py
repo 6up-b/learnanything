@@ -33,6 +33,12 @@ class RateFollowupInput(ParamsModel):
     useful: bool
 
 
+class ReportUnresolvedCauseInput(ParamsModel):
+    factor_id: str
+    response: str
+    candidate_index: int | None = None
+
+
 @method("get_feedback", AttemptInput)
 def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
@@ -57,6 +63,28 @@ def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
 def get_attempt(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     return attempt_detail(vault, repository, params.attempt_id)
+
+
+@method("report_unresolved_cause", ReportUnresolvedCauseInput)
+def report_unresolved_cause(
+    ctx: SidecarContext, params: ReportUnresolvedCauseInput
+) -> dict[str, Any]:
+    from learnloop.services.causal_attribution import (
+        record_unresolved_cause_self_report,
+    )
+
+    vault, repository = ctx.require_vault()
+    try:
+        result = record_unresolved_cause_self_report(
+            vault,
+            repository,
+            factor_id=params.factor_id,
+            response=params.response,
+            candidate_index=params.candidate_index,
+        )
+    except ValueError as exc:
+        raise SidecarError("invalid_unresolved_cause_report", str(exc)) from exc
+    return result
 
 
 @method("trigger_regrade", TriggerRegradeInput)

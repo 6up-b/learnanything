@@ -137,6 +137,7 @@ interface BackgroundRequest {
   status: string;
   preset: string;
   resultJson?: string | null;
+  errorJson?: string | null;
 }
 
 /** One synthesized source object head (reader.source_objects), flattened for the rail. */
@@ -162,6 +163,20 @@ function parseRequestResult(resultJson: string | null | undefined): { sourceObje
     };
   } catch {
     return { sourceObjectId: null, proposalId: null };
+  }
+}
+
+function parseRequestError(errorJson: string | null | undefined): string | null {
+  try {
+    const parsed = JSON.parse(errorJson ?? "") as { message?: unknown };
+    const message = typeof parsed.message === "string" ? parsed.message.trim() : "";
+    if (!message) return null;
+    if (/unexpected end of hex escape|invalid .* json|json_invalid/i.test(message)) {
+      return "The AI returned malformed structured text while formatting the result. Retry will regenerate it safely.";
+    }
+    return message;
+  } catch {
+    return null;
   }
 }
 
@@ -1196,6 +1211,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     async (preset: string) => {
       if (!render || !selection) return;
       const nodes = selectionNodes(selection);
+      const editedText = selection.editedText?.trim();
       const nodeSpanIds = nodes.map((n) => n.spanId);
       if (offline) {
         setAnnotations((a) => [
@@ -1215,7 +1231,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
           extractionId: render.extractionId,
           clientIdempotencyKey: newKey(),
           renderViewId: render.renderViewId,
-          rawSelection: { nodes },
+          rawSelection: editedText ? { nodes, editedText } : { nodes },
           learnerText: note,
           subjectId: selection.spanId,
         });
@@ -2275,6 +2291,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {requests.map((request) => {
                   const { sourceObjectId, proposalId } = parseRequestResult(request.resultJson);
+                  const requestError = parseRequestError(request.errorJson);
                   const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined;
                   const expanded = expandedRequests.has(request.id);
                   const proposalOpen = proposalId !== null && openProposalIds.has(proposalId);
@@ -2316,6 +2333,9 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                           </button>
                         ) : null}
                       </div>
+                      {request.status === "failed" && requestError ? (
+                        <Faint style={{ fontSize: 10, color: COLOR.red }}>{requestError}</Faint>
+                      ) : null}
                       {expanded && result ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                           {result.contentMd ? (

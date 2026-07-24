@@ -462,6 +462,21 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
                     "id": factor["id"],
                     "observation_id": factor["observation_id"],
                     "candidate_causes": factor["candidate_causes"],
+                    "self_report": factor.get("self_report"),
+                    "self_report_question": (
+                        None
+                        if factor.get("self_report") is not None
+                        else {
+                            "prompt": "What best describes what happened?",
+                            "options": [
+                                {"id": "slipped", "label": "I knew it and slipped"},
+                                {"id": "believed_candidate", "label": "I believed one of these"},
+                                {"id": "item_unclear", "label": "The item was unclear"},
+                                {"id": "other_valid_approach", "label": "I used another valid approach"},
+                                {"id": "diagnosis_wrong", "label": "The diagnosis is wrong"},
+                            ],
+                        }
+                    ),
                 }
                 for factor in repository.unresolved_cause_factors_for_attempt(attempt_id)
             ],

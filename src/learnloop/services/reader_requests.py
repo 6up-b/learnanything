@@ -38,7 +38,7 @@ TOKEN_CAP = 6000
 # Non-numeric contract versions (not decision params).
 INVENTORY_SCHEMA_VERSION = "reader-inventory-v1"
 SYNTHESIS_SCHEMA_VERSION = "reader-synthesis-v1"
-PROMPT_VERSION = "reader-demand-paged-v1"
+PROMPT_VERSION = "reader-demand-paged-v2-selection-focus"
 _chars_per_token = 4
 
 # preset -> proposed source-object type for the demand-paged synthesis result.
@@ -108,6 +108,12 @@ def request_key(
         {
             "revision_id": revision_id,
             "span_ids": window.get("span_ids", []),
+            # A span is often a whole exercise list. Two different selections
+            # inside it must never reuse one another's worked example.
+            "selected_text_hash": hashlib.sha256(
+                str(window.get("selected_text") or "").encode("utf-8")
+            ).hexdigest(),
+            "selection_edited": bool(window.get("selection_edited")),
             "preset": preset,
             "inventory_schema_version": INVENTORY_SCHEMA_VERSION,
             "inventory_profile": inventory_profile,
@@ -138,6 +144,8 @@ def enqueue_request(
     annotation_id: str | None = None,
     commitment_id: str | None = None,
     client_idempotency_key: str | None = None,
+    selected_text: str = "",
+    selection_edited: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Enqueue a demand-paged synthesis request (§6). Idempotent on the canonical
@@ -145,12 +153,15 @@ def enqueue_request(
     never blocks on this -- it only writes a durable ``queued`` row."""
 
     window = neighborhood(repository, extraction_id=extraction_id, span_id=span_id)
+    window["selected_text"] = selected_text.strip()
+    window["selection_edited"] = bool(selection_edited)
+    window["prompt_char_count"] = window["char_count"] + len(window["selected_text"])
     key = request_key(
         revision_id=revision_id, window=window, preset=preset,
         provider=provider, model=model, config_hash=config_hash,
         inventory_profile=inventory_profile,
     )
-    est_input = window["char_count"] // _chars_per_token + 1
+    est_input = window["prompt_char_count"] // _chars_per_token + 1
     est_output = 512
     capped = (est_input + est_output) > TOKEN_CAP
 
@@ -325,6 +336,8 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
 
         result = run_preset(ReaderPresetSynthesisContext(
             preset=str(request.get("preset") or ""),
+            selected_text=str(window.get("selected_text") or ""),
+            selection_edited=bool(window.get("selection_edited")),
             learner_text=learner_text,
             section_path=list(window.get("section_path") or []),
             blocks=blocks,
@@ -343,10 +356,19 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
         proposals = _land_proposals(
             repository, request, clock,
             object_type=_PRESET_OBJECT_TYPE.get(preset, "claim"),
-            exact_text=(window.get("text") or "").strip()[:2000],
+            exact_text=(
+                (
+                    window.get("selected_text")
+                    if window.get("selected_text") and not window.get("selection_edited")
+                    else window.get("text")
+                )
+                or ""
+            ).strip()[:2000],
             content={
                 "preset": preset,
                 "content_md": content_md,
+                "selected_text": window.get("selected_text", ""),
+                "selection_edited": bool(window.get("selection_edited")),
                 "section_path": window.get("section_path", []),
             },
             span_ids=cited,
@@ -364,7 +386,8 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
         )
         return {
             "proposals": proposals,
-            "tokens_in": window.get("char_count", 0) // _chars_per_token,
+            "tokens_in": window.get("prompt_char_count", window.get("char_count", 0))
+            // _chars_per_token,
             "tokens_out": max(128, len(content_md) // _chars_per_token),
         }
 
@@ -385,14 +408,27 @@ def _deterministic_synthesis(
     proposals = _land_proposals(
         repository, request, clock,
         object_type=_PRESET_OBJECT_TYPE.get(preset, "claim"),
-        exact_text=text[:2000],
-        content={"preset": preset, "section_path": window.get("section_path", [])},
+        exact_text=(
+            str(window.get("selected_text") or "")
+            if window.get("selected_text") and not window.get("selection_edited")
+            else text
+        )[:2000],
+        content={
+            "preset": preset,
+            "selected_text": window.get("selected_text", ""),
+            "selection_edited": bool(window.get("selection_edited")),
+            "section_path": window.get("section_path", []),
+        },
         span_ids=[str(sid) for sid in span_ids],
         model_provenance={"provider": request.get("provider"), "model": request.get("model"),
                           "prompt_version": request.get("prompt_version")},
     )
-    return {"proposals": proposals, "tokens_in": window.get("char_count", 0) // _chars_per_token,
-            "tokens_out": 128}
+    return {
+        "proposals": proposals,
+        "tokens_in": window.get("prompt_char_count", window.get("char_count", 0))
+        // _chars_per_token,
+        "tokens_out": 128,
+    }
 
 
 def drain_requests(

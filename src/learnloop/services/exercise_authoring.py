@@ -167,7 +167,13 @@ def _validated_rubric(payload: Any) -> dict[str, Any] | None:
             return None
         total += float(criterion.points)
         criteria.append(
-            {"id": criterion_id, "points": criterion.points, "description": description}
+            {
+                "id": criterion_id,
+                "points": criterion.points,
+                "description": description,
+                "tier": criterion.tier,
+                "measurement_status": criterion.measurement_status,
+            }
         )
     if len({criterion["id"] for criterion in criteria}) != len(criteria):
         return None
@@ -179,9 +185,12 @@ def _validated_rubric(payload: Any) -> dict[str, Any] | None:
 def _normalized_weights(
     raw: Mapping[str, float], facets: list[str], canonical: Any
 ) -> dict[str, float]:
-    """Weights over exactly the admitted facets: model weights canonicalized
-    and filtered, missing facets backfilled uniformly, the whole map
-    renormalized to 1.0."""
+    """Normalize only facet links the author actually asserted.
+
+    Missing links are abstentions, not permission to spread weight over the
+    available vocabulary. In particular, an empty map remains empty and a
+    partial map remains partial after normalization.
+    """
 
     weights: dict[str, float] = {}
     for key, value in (raw or {}).items():
@@ -189,11 +198,26 @@ def _normalized_weights(
         if facet in facets and float(value) > 0:
             weights[facet] = weights.get(facet, 0.0) + float(value)
     if not weights:
-        return {facet: round(1.0 / len(facets), 4) for facet in facets}
-    for facet in facets:
-        weights.setdefault(facet, min(weights.values()))
+        return {}
     total = sum(weights.values())
     return {facet: round(value / total, 4) for facet, value in weights.items()}
+
+
+def _uniform_criterion_smear(
+    criterion_weights: Mapping[str, Mapping[str, float]],
+) -> bool:
+    """Whether multiple criteria received the same multi-facet distribution."""
+
+    distributions = [
+        tuple(sorted((facet, round(float(weight), 6)) for facet, weight in weights.items()))
+        for weights in criterion_weights.values()
+        if weights
+    ]
+    return (
+        len(distributions) > 1
+        and len(distributions[0]) > 1
+        and len(set(distributions)) == 1
+    )
 
 
 def import_exercises(
@@ -405,7 +429,16 @@ def import_exercises(
         if facets:
             for criterion in rubric["criteria"]:
                 raw = criterion_map.get(criterion["id"]) or {}
-                criterion_weights[criterion["id"]] = _normalized_weights(raw, facets, canonical)
+                if not raw:
+                    continue
+                normalized = _normalized_weights(raw, facets, canonical)
+                if normalized:
+                    criterion_weights[criterion["id"]] = normalized
+        if _uniform_criterion_smear(criterion_weights):
+            warnings.append(
+                f"{label}: identical multi-facet weights were applied across criteria; "
+                "flagged for measurement re-audit"
+            )
 
         capability: str | None = None
         features: dict[str, Any] | None = None
@@ -454,6 +487,11 @@ def import_exercises(
             "evidence_facets": facets,
             "evidence_weights": weights,
             "criterion_facet_weights": criterion_weights,
+            "trace_contract": (
+                entry.trace_contract.model_dump(mode="json", exclude_none=True)
+                if entry.trace_contract is not None
+                else None
+            ),
             "hints": hints,
             "provenance": {"origin": "canonical_extract", "source_refs": source_refs},
             "created_at": now,

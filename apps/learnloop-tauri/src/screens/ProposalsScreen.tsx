@@ -8,6 +8,7 @@ import type {
   ProposalsSnapshot
 } from "../api/dto";
 import { EntityLink } from "../components/ui";
+import { notifyQueueChanged } from "../queueEvents";
 import {
   COLOR,
   Dim,
@@ -664,6 +665,7 @@ export function ProposalsScreen({
       setBusy(true);
       try {
         applySnapshot(await action());
+        notifyQueueChanged();
       } catch (error) {
         onError((error as Error).message);
       } finally {

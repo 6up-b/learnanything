@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.db.repositories import Repository
+from learnloop.vault.models import LoadedVault
 
 RESOLUTIONS = ("open", "resolved", "dismissed")
 
@@ -28,6 +29,7 @@ class QuestionQueueError(ValueError):
 def list_question_queue(
     repository: Repository,
     *,
+    vault: LoadedVault | None = None,
     resolution: str | None = "open",
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
@@ -44,6 +46,18 @@ def list_question_queue(
     if limit is not None:
         events = events[: max(0, int(limit))]
     promotions = repository.question_promotions_for_events([e["id"] for e in events])
+    promotion_requests = repository.question_promotion_requests_for_events(
+        [e["id"] for e in events]
+    )
+    if vault is not None:
+        from learnloop.services.promotions import promotion_target_ids
+
+        targets = {
+            event["id"]: promotion_target_ids(vault, repository, event)
+            for event in events
+        }
+    else:
+        targets = {event["id"]: [] for event in events}
     return [
         {
             "id": event["id"],
@@ -58,6 +72,8 @@ def list_question_queue(
             "saved_note_id": event.get("saved_note_id"),
             "created_at": event["created_at"],
             "promotion": promotions.get(event["id"]),
+            "promotion_request": promotion_requests.get(event["id"]),
+            "promotion_target_ids": targets[event["id"]],
         }
         for event in events
     ]

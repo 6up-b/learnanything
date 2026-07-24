@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { CommandError, QuestionQueueRowDto } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, type PillColor } from "./term";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 
 // The outstanding-question queue (spec_andymatusnotes: "a queue of outstanding
 // questions"). Renders on Today so open questions stay ambiently visible in the
@@ -20,6 +21,7 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
   const [rows, setRows] = useState<QuestionQueueRowDto[] | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedTargetById, setSelectedTargetById] = useState<Record<string, string>>({});
 
   const refresh = useCallback(() => {
     api
@@ -30,6 +32,7 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
 
   useEffect(() => {
     refresh();
+    return subscribeQueueChanged(refresh);
   }, [refresh]);
 
   const resolve = useCallback(
@@ -50,17 +53,43 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
 
   const promote = useCallback(
     async (row: QuestionQueueRowDto) => {
+      const targetId =
+        selectedTargetById[row.id] ??
+        (row.promotionTargetIds.length === 1 ? row.promotionTargetIds[0] : undefined);
+      if (row.context === "reader" && !targetId) {
+        onError(
+          row.promotionTargetIds.length > 1
+            ? "Choose which learning object this reader question should practice."
+            : "This reader span is not mapped to a learning object yet."
+        );
+        return;
+      }
       setBusyId(row.id);
       try {
-        const promotion = await api.promoteTutorQuestion(row.id, "practice");
-        setRows((prev) => (prev ?? []).map((r) => (r.id === row.id ? { ...r, promotion } : r)));
+        const result = await api.promoteTutorQuestion(
+          row.id,
+          "practice",
+          targetId ? { learningObjectId: targetId } : undefined
+        );
+        setRows((prev) =>
+          (prev ?? []).map((r) =>
+            r.id === row.id
+              ? {
+                  ...r,
+                  promotion: result.promotion,
+                  promotionRequest: result.request
+                }
+              : r
+          )
+        );
+        notifyQueueChanged();
       } catch (error) {
         onError((error as CommandError).message);
       } finally {
         setBusyId(null);
       }
     },
-    [onError]
+    [onError, selectedTargetById]
   );
 
   if (!rows || rows.length === 0) return null;
@@ -124,16 +153,68 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <QueueAction label="✓ resolved" disabled={busy} onClick={() => void resolve(row.id, "resolved")} />
                   <QueueAction label="dismiss" disabled={busy} onClick={() => void resolve(row.id, "dismissed")} />
-                  {row.promotion ? (
+                  {row.promotionRequest?.status === "failed" ? (
+                    <>
+                      <Pill color="red">
+                        failed: {row.promotionRequest.errorMessage ?? row.promotionRequest.errorCode ?? "unknown error"}
+                      </Pill>
+                      {row.promotionRequest.retryable ? (
+                        <QueueAction label="↻ retry" disabled={busy} onClick={() => void promote(row)} />
+                      ) : null}
+                    </>
+                  ) : row.promotion ? (
                     <Pill color="green">
                       {row.promotion.route === "existing_item"
-                        ? `scheduled: ${row.promotion.existingPracticeItemId ?? "?"}`
-                        : row.promotion.createdPracticeItemId
-                          ? `added: ${row.promotion.createdPracticeItemId}`
-                          : row.promotion.route.replace(/_/g, " ")}
+                        ? `ready: ${row.promotion.existingPracticeItemId ?? "?"}`
+                        : row.promotion.route === "review_required"
+                          ? `awaiting review${row.promotion.proposedPatchId ? `: ${row.promotion.proposedPatchId}` : ""}`
+                          : row.promotion.createdPracticeItemId
+                            ? `ready: ${row.promotion.createdPracticeItemId}`
+                            : row.promotion.route.replace(/_/g, " ")}
+                    </Pill>
+                  ) : row.promotionRequest ? (
+                    <Pill color="amber">
+                      {row.promotionRequest.stage === "review"
+                        ? "awaiting review"
+                        : `authoring: ${row.promotionRequest.stage}`}
                     </Pill>
                   ) : (
-                    <QueueAction label="→ practice this" disabled={busy} onClick={() => void promote(row)} />
+                    <>
+                      {row.context === "reader" && row.promotionTargetIds.length > 1 ? (
+                        <select
+                          value={selectedTargetById[row.id] ?? ""}
+                          onChange={(event) =>
+                            setSelectedTargetById((current) => ({
+                              ...current,
+                              [row.id]: event.target.value
+                            }))
+                          }
+                          style={{
+                            background: COLOR.bg,
+                            color: COLOR.text,
+                            border: `1px solid ${COLOR.border}`,
+                            fontFamily: FONT_MONO,
+                            fontSize: 10,
+                            maxWidth: 260
+                          }}
+                        >
+                          <option value="">choose learning object…</option>
+                          {row.promotionTargetIds.map((id) => (
+                            <option key={id} value={id}>{id}</option>
+                          ))}
+                        </select>
+                      ) : null}
+                      <QueueAction
+                        label="→ practice this"
+                        disabled={
+                          busy ||
+                          (row.context === "reader" &&
+                            (row.promotionTargetIds.length === 0 ||
+                              (row.promotionTargetIds.length > 1 && !selectedTargetById[row.id])))
+                        }
+                        onClick={() => void promote(row)}
+                      />
+                    </>
                   )}
                 </div>
               </>

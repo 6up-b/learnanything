@@ -88,7 +88,7 @@ def test_codex_misconception_without_statement_does_not_hard_fail(tmp_path):
     assert attribution.misconception_consistent_answer is None
 
 
-def test_codex_error_attribution_maps_target_criterion_to_facet(tmp_path):
+def test_codex_error_attribution_does_not_expand_target_criterion_to_facet(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
     vault = load_vault(vault_root)
@@ -109,7 +109,7 @@ def test_codex_error_attribution_maps_target_criterion_to_facet(tmp_path):
 
     attribution = validated.error_attributions[0]
     assert attribution.target_criterion_ids == ["correctness"]
-    assert attribution.target_evidence_families == ["numeric"]
+    assert attribution.target_evidence_families == []
 
 
 def test_explicit_recall_wording_normalizes_to_recall_failure(tmp_path):
@@ -339,7 +339,20 @@ def _proposal(
     target_criterion_ids: list[str] | None = None,
     repair_suggestions: list[RepairSuggestion] | None = None,
 ) -> GradingProposal:
+    diagnosis_facets = [
+        *(target_evidence_families or []),
+        *(
+            facet
+            for suggestion in repair_suggestions or []
+            for facet in suggestion.target_evidence_families
+        ),
+    ]
     return GradingProposal(
+        diagnosis_md=(
+            "The diagnosis implicates " + ", ".join(diagnosis_facets) + "."
+            if diagnosis_facets
+            else None
+        ),
         attempt_id=attempt_id,
         practice_item_id=practice_item_id,
         rubric_score=rubric_score,

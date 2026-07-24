@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.codex.client import CodexUnavailable, PromotionAnalysisContext
@@ -44,6 +44,96 @@ class PromotionError(ValueError):
     pass
 
 
+class PromotionNoItemError(PromotionError):
+    """The authoring turn completed but proposed no practice item."""
+
+
+def promotion_target_ids(
+    vault: LoadedVault,
+    repository: Repository,
+    event: dict[str, Any],
+) -> list[str]:
+    """Deterministic LO choices available to a question promotion."""
+
+    item_id = event.get("practice_item_id")
+    item = vault.practice_items.get(str(item_id)) if item_id else None
+    if item is not None:
+        return [item.learning_object_id]
+    if event.get("context") == "library":
+        note = vault.notes.get(str(event.get("note_id") or ""))
+        return sorted(
+            lo_id
+            for lo_id in (note.related_los if note is not None else [])
+            if lo_id in vault.learning_objects
+        )
+    if event.get("context") != "reader":
+        return []
+    source_context = event.get("source_context")
+    if isinstance(source_context, dict):
+        stored = [
+            str(lo_id)
+            for lo_id in source_context.get("candidate_learning_object_ids") or []
+            if str(lo_id) in vault.learning_objects
+        ]
+        if stored:
+            return sorted(set(stored))
+    anchor = _reader_anchor(event)
+    if anchor is None:
+        return []
+    from learnloop.services.reader_progression import learning_objects_for_span
+
+    extraction_id, span_id = anchor
+    return learning_objects_for_span(
+        vault,
+        repository,
+        extraction_id=extraction_id,
+        span_id=span_id,
+    )
+
+
+def _reader_anchor(event: dict[str, Any]) -> tuple[str, str] | None:
+    source_context = event.get("source_context")
+    if isinstance(source_context, dict):
+        extraction_id = str(source_context.get("extraction_id") or "")
+        span_id = str(source_context.get("span_id") or "")
+        if extraction_id and span_id:
+            return extraction_id, span_id
+    key = str(event.get("note_id") or "")
+    if not key.startswith("span:") or "/" not in key:
+        return None
+    extraction_id, span_id = key.removeprefix("span:").split("/", 1)
+    return (extraction_id, span_id) if extraction_id and span_id else None
+
+
+def _reader_target_ids(
+    vault: LoadedVault, repository: Repository, event: dict[str, Any]
+) -> list[str]:
+    return promotion_target_ids(vault, repository, event)
+
+
+def _reader_source_refs(
+    vault: LoadedVault,
+    repository: Repository,
+    event: dict[str, Any],
+    origin_lo: LearningObject | None,
+) -> list[dict[str, Any]]:
+    if event.get("context") != "reader" or origin_lo is None:
+        return []
+    anchor = _reader_anchor(event)
+    if anchor is None:
+        return []
+    from learnloop.services.reader_progression import source_refs_for_span
+
+    extraction_id, span_id = anchor
+    return source_refs_for_span(
+        vault,
+        repository,
+        extraction_id=extraction_id,
+        span_id=span_id,
+        learning_object_ids=[origin_lo.id],
+    )
+
+
 def promote_tutor_question(
     root: Path,
     client: Any,
@@ -51,6 +141,10 @@ def promote_tutor_question(
     event_id: str,
     intent: str,
     subject_id: str | None = None,
+    learning_object_id: str | None = None,
+    authoring_client: Any | None = None,
+    authoring_client_factory: Callable[[], Any] | None = None,
+    progress: Callable[[str], None] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Promote one answered tutor turn (spec_tutor_promotion.md §3).
@@ -88,15 +182,56 @@ def promote_tutor_question(
             "available in the practice/feedback contexts."
         )
 
-    origin_item = None
     origin_lo: LearningObject | None = None
+    if learning_object_id is not None:
+        origin_lo = vault.learning_objects.get(learning_object_id)
+        if origin_lo is None:
+            raise PromotionError(
+                f"Learning object {learning_object_id!r} was not found."
+            )
+        if subject_id is not None and subject_id not in origin_lo.subjects:
+            raise PromotionError(
+                f"Learning object {learning_object_id!r} does not belong to subject "
+                f"{subject_id!r}."
+            )
     item_id = event.get("practice_item_id")
-    if item_id is not None:
+    if origin_lo is None and item_id is not None:
         origin_item = vault.practice_items.get(item_id)
         if origin_item is not None:
             origin_lo = vault.learning_objects.get(origin_item.learning_object_id)
+    if origin_lo is None and context == "library":
+        note = vault.notes.get(str(event.get("note_id") or ""))
+        related = [
+            vault.learning_objects[lo_id]
+            for lo_id in (note.related_los if note is not None else [])
+            if lo_id in vault.learning_objects
+        ]
+        if len(related) == 1:
+            origin_lo = related[0]
+    reader_target_ids: list[str] = []
+    reader_target_error: str | None = None
+    if context == "reader":
+        reader_target_ids = _reader_target_ids(vault, repository, event)
+        if origin_lo is None and len(reader_target_ids) == 1:
+            origin_lo = vault.learning_objects.get(reader_target_ids[0])
+        elif origin_lo is None and len(reader_target_ids) > 1:
+            reader_target_error = (
+                "This reader question maps to several learning objects; choose "
+                "which one the practice item should target."
+            )
+        elif origin_lo is None:
+            reader_target_error = (
+                "This reader span is not mapped to a learning object yet, so it "
+                "cannot be grounded as practice."
+            )
+        elif reader_target_ids and origin_lo.id not in reader_target_ids:
+            raise PromotionError(
+                f"Learning object {origin_lo.id!r} is not grounded in this reader span."
+            )
     if intent == "gap" and origin_lo is None:
         raise PromotionError("The gap route could not resolve an origin learning object for this turn.")
+    if subject_id is None and origin_lo is not None and origin_lo.subjects:
+        subject_id = origin_lo.subjects[0]
 
     thread = _thread(
         repository,
@@ -107,6 +242,8 @@ def promote_tutor_question(
         session_id=event.get("session_id"),
     )
 
+    if progress is not None:
+        progress("analysis")
     analysis = _run_promotion_analysis(
         client,
         vault,
@@ -133,31 +270,57 @@ def promote_tutor_question(
             existing_item_id=covered,
             clock=clock,
         )
+    if reader_target_error is not None:
+        raise PromotionError(reader_target_error)
 
     # Step 1 grounding: materialize the turn as a vault note (idempotent).
-    note_info = build_tutor_qa_note(vault, repository, event, subject_id=subject_id, clock=clock)
+    note_info = build_tutor_qa_note(
+        vault,
+        repository,
+        event,
+        subject_id=subject_id,
+        related_lo_ids=[origin_lo.id] if origin_lo is not None else None,
+        clock=clock,
+    )
     saved_note_id = note_info["note_id"]
     if not note_info["reused"]:
         vault = load_vault(root)  # make the freshly written note visible
 
     if intent == "practice":
+        if progress is not None:
+            progress("authoring")
+        practice_client = (
+            authoring_client_factory()
+            if authoring_client_factory is not None
+            else (authoring_client or client)
+        )
         return _promote_practice(
             root,
             repository,
             vault,
-            client,
+            practice_client,
             event=event,
             analysis=analysis,
             attributed=attributed,
             origin_lo=origin_lo,
             saved_note_id=saved_note_id,
+            reader_source_refs=_reader_source_refs(
+                vault, repository, event, origin_lo
+            ),
             clock=clock,
         )
+    if progress is not None:
+        progress("diagnostic")
+    diagnostic_client = (
+        authoring_client_factory()
+        if authoring_client_factory is not None
+        else (authoring_client or client)
+    )
     return _promote_gap(
         root,
         repository,
         vault,
-        client,
+        diagnostic_client,
         event=event,
         analysis=analysis,
         attributed=attributed,
@@ -165,6 +328,131 @@ def promote_tutor_question(
         saved_note_id=saved_note_id,
         clock=clock,
     )
+
+
+def reconcile_accepted_question_promotion_patch(
+    repository: Repository,
+    patch_id: str,
+    *,
+    clock: Clock | None = None,
+) -> list[str]:
+    """Make accepted reviewed items consume their original promotion request.
+
+    Historical review-required rows omitted ``created_practice_item_id``.  When
+    their proposal is accepted, recover the accepted create id from the patch,
+    transition the promotion to the ready route, and wake Today.
+    """
+
+    accepted_ids = [
+        str(
+            (item.get("payload") or {}).get("id")
+            or item.get("target_entity_id")
+            or ""
+        )
+        for item in repository.proposal_items(patch_id)
+        if item.get("item_type") == "practice_item"
+        and item.get("operation") == "create"
+        and item.get("decision") == "accepted"
+    ]
+    accepted_ids = [item_id for item_id in accepted_ids if item_id]
+    if not accepted_ids:
+        return []
+    updated: list[str] = []
+    for promotion in repository.question_promotions_for_patch(patch_id):
+        event_id = str(promotion["question_event_id"])
+        item_id = str(promotion.get("created_practice_item_id") or accepted_ids[0])
+        if item_id not in accepted_ids:
+            continue
+        repository.update_question_promotion(
+            event_id,
+            route="auto_apply",
+            created_practice_item_id=item_id,
+            clock=clock,
+        )
+        repository.update_question_promotion_request(
+            event_id,
+            status="completed",
+            stage="ready",
+            promotion_route="auto_apply",
+            error_code=None,
+            error_message=None,
+            retryable=False,
+            clock=clock,
+        )
+        updated.append(event_id)
+    if updated:
+        repository.bump_queue_revision(clock=clock)
+    return updated
+
+
+def reconcile_rejected_question_promotion_patch(
+    repository: Repository,
+    patch_id: str,
+    *,
+    clock: Clock | None = None,
+) -> list[str]:
+    """Expose a fully rejected practice proposal as a retryable request failure."""
+
+    practice_rows = [
+        item
+        for item in repository.proposal_items(patch_id)
+        if item.get("item_type") == "practice_item"
+        and item.get("operation") == "create"
+    ]
+    if not practice_rows or any(
+        item.get("decision") in {"pending", "accepted"} for item in practice_rows
+    ):
+        return []
+    updated: list[str] = []
+    for promotion in repository.question_promotions_for_patch(patch_id):
+        event_id = str(promotion["question_event_id"])
+        if repository.update_question_promotion_request(
+            event_id,
+            status="failed",
+            stage="failed",
+            error_code="proposal_rejected",
+            error_message="The proposed practice item was rejected; undo the rejection to review it again.",
+            retryable=False,
+            clock=clock,
+        ):
+            updated.append(event_id)
+    if updated:
+        repository.bump_queue_revision(clock=clock)
+    return updated
+
+
+def reconcile_reset_question_promotion_patch(
+    repository: Repository,
+    patch_id: str,
+    *,
+    clock: Clock | None = None,
+) -> list[str]:
+    """Restore the awaiting-review request state after undoing a rejection."""
+
+    if not any(
+        item.get("item_type") == "practice_item"
+        and item.get("operation") == "create"
+        and item.get("decision") == "pending"
+        for item in repository.proposal_items(patch_id)
+    ):
+        return []
+    updated: list[str] = []
+    for promotion in repository.question_promotions_for_patch(patch_id):
+        event_id = str(promotion["question_event_id"])
+        if repository.update_question_promotion_request(
+            event_id,
+            status="completed",
+            stage="review",
+            promotion_route="review_required",
+            error_code=None,
+            error_message=None,
+            retryable=False,
+            clock=clock,
+        ):
+            updated.append(event_id)
+    if updated:
+        repository.bump_queue_revision(clock=clock)
+    return updated
 
 
 def _run_promotion_analysis(
@@ -258,6 +546,7 @@ def _promote_existing_item(
         existing_practice_item_id=existing_item_id,
         clock=clock,
     )
+    repository.bump_queue_revision(clock=clock)
     return repository.question_promotion(str(event["id"]))
 
 
@@ -272,12 +561,18 @@ def _promote_practice(
     attributed: list[str],
     origin_lo: LearningObject | None,
     saved_note_id: str,
+    reader_source_refs: list[dict[str, Any]] | None,
     clock: Clock | None,
 ) -> dict[str, Any]:
     """Practice route: author a practice item, enforcing routing in code (§3 Steps 2-3)."""
 
-    source_refs, origin_source_note_ids = _promotion_source_refs(vault, saved_note_id, origin_lo)
-    force_review_no_grounding = not origin_source_note_ids
+    source_refs, has_authoritative_grounding = _promotion_source_refs(
+        vault,
+        saved_note_id,
+        origin_lo,
+        additional_refs=reader_source_refs,
+    )
+    force_review_no_grounding = not has_authoritative_grounding
     subjects = _promotion_subjects(vault, origin_lo, saved_note_id)
     instructions = _promotion_instructions(vault, repository, origin_lo, analysis, attributed, event)
 
@@ -294,6 +589,14 @@ def _promote_practice(
                 if _TUTOR_PROMOTED_TAG not in tags:
                     tags.append(_TUTOR_PROMOTED_TAG)
                 payload["tags"] = tags
+                if (
+                    row.get("item_type") == "practice_item"
+                    and row.get("operation") == "create"
+                    and origin_lo is not None
+                ):
+                    # The learner-selected/derived target is authoritative;
+                    # authoring may vary the surface, not silently retarget it.
+                    payload["learning_object_id"] = origin_lo.id
             if force_review and row.get("_auto_apply"):
                 row["_auto_apply"] = False
 
@@ -309,6 +612,10 @@ def _promote_practice(
     )
 
     created_pi, created_lo, auto_applied, has_lo_create = _created_entities(repository, patch_id)
+    if created_pi is None:
+        raise PromotionNoItemError(
+            f"Authoring patch {patch_id} did not contain a practice-item creation."
+        )
     if has_lo_create:
         outcome = "new_lo_review"
     elif auto_applied:
@@ -337,10 +644,14 @@ def _promote_practice(
         attempted_in_thread=analysis.attempted_in_thread,
         proposed_patch_id=patch_id,
         saved_note_id=saved_note_id,
-        created_practice_item_id=created_pi if auto_applied else None,
-        created_learning_object_id=created_lo if auto_applied else None,
+        # Keep the proposal-local id even while review is pending. It is not
+        # schedulable until the proposal is accepted into the vault, but this
+        # durable link lets acceptance consume the original learner request.
+        created_practice_item_id=created_pi,
+        created_learning_object_id=created_lo,
         clock=clock,
     )
+    repository.bump_queue_revision(clock=clock)
     return repository.question_promotion(str(event["id"]))
 
 
@@ -406,6 +717,7 @@ def _promote_gap(
         saved_note_id=saved_note_id,
         clock=clock,
     )
+    repository.bump_queue_revision(clock=clock)
     return repository.question_promotion(str(event["id"]))
 
 
@@ -608,28 +920,41 @@ def _promotion_instructions(
 
 
 def _promotion_source_refs(
-    vault: LoadedVault, saved_note_id: str, origin_lo: LearningObject | None
-) -> tuple[list[dict[str, Any]], list[str]]:
-    """(source_refs, origin_source_note_ids): the grounding note + origin LO source material.
+    vault: LoadedVault,
+    saved_note_id: str,
+    origin_lo: LearningObject | None,
+    *,
+    additional_refs: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Grounding note + authoritative source material.
 
     A note-only grounding is semantically empty (the tutor guardrail forbids the
-    answer), so auto-apply requires the origin LO's own source notes (§3 Step 1);
-    the returned id list is empty when the LO has none, which forces review."""
+    answer), so auto-apply requires either the origin LO's source notes or the
+    path-backed reader span bundles captured with the question."""
 
     refs: list[dict[str, Any]] = []
     saved_note = vault.notes.get(saved_note_id)
     if saved_note is not None:
         refs.append({"ref_type": "note", "ref_id": saved_note.id, "path": saved_note.path})
 
-    origin_source_note_ids: list[str] = []
+    has_authoritative_grounding = False
     if origin_lo is not None:
         for note in vault.notes.values():
             if note.id == saved_note_id or origin_lo.id not in note.related_los:
                 continue
             ref_type = "canonical_source" if note.source_type == "canonical_source" else "note"
             refs.append({"ref_type": ref_type, "ref_id": note.id, "path": note.path})
-            origin_source_note_ids.append(note.id)
-    return refs, origin_source_note_ids
+            has_authoritative_grounding = True
+    for ref in additional_refs or []:
+        if not isinstance(ref, dict):
+            continue
+        refs.append(dict(ref))
+        if ref.get("ref_type") == "canonical_source" and ref.get("path"):
+            has_authoritative_grounding = True
+    deduplicated = {
+        str(ref.get("ref_id")): ref for ref in refs if ref.get("ref_id")
+    }
+    return list(deduplicated.values()), has_authoritative_grounding
 
 
 def _promotion_subjects(

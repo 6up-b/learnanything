@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 from typing import Literal, Mapping, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from learnloop.config import CodexConfig
 from learnloop.codex.prompts import (
@@ -172,6 +172,7 @@ class GradingContext:
     evidence_facets: list[str] = field(default_factory=list)
     evidence_weights: dict[str, float] = field(default_factory=dict)
     criterion_facet_weights: dict[str, dict[str, float]] = field(default_factory=dict)
+    trace_contract: dict[str, Any] | None = None
     error_taxonomy: dict[str, Any] = field(default_factory=dict)
 
 
@@ -346,12 +347,16 @@ class ReaderPresetSynthesisContext:
     """Bounded input for one demand-paged reader preset request (spec §6.3).
 
     ``blocks`` is the smallest-sufficient window as [{span_id, text}];
+    ``selected_text`` is the exact learner-selected surface inside that window
+    (or the learner's OCR correction when ``selection_edited`` is true);
     ``learner_text`` is the learner's optional note/question. Both are
     untrusted — the prompt delimits them and instructs the model to ignore
     embedded instructions.
     """
 
     preset: str
+    selected_text: str = ""
+    selection_edited: bool = False
     learner_text: str = ""
     section_path: list = field(default_factory=list)
     blocks: list = field(default_factory=list)
@@ -808,60 +813,37 @@ class SdkCodexClient:
         ).start()
 
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
-        text = self._run_structured(
-            _authoring_prompt(context),
-            _codex_output_schema(AuthoringProposal),
-            purpose="authoring",
+        return self._run_validated(
+            _authoring_prompt(context), AuthoringProposal, purpose="authoring"
         )
-        return AuthoringProposal.model_validate_json(text)
 
     def run_canonical_ingest(self, context: CanonicalIngestContext) -> AuthoringProposal:
-        text = self._run_structured(
-            _canonical_ingest_prompt(context),
-            _codex_output_schema(AuthoringProposal),
-            purpose="canonical_ingest",
+        return self._run_validated(
+            _canonical_ingest_prompt(context), AuthoringProposal, purpose="canonical_ingest"
         )
-        return AuthoringProposal.model_validate_json(text)
 
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
-        text = self._run_structured(
-            _grading_prompt(context),
-            _codex_output_schema(GradingProposal),
-            purpose="grading",
+        return self._run_validated(
+            _grading_prompt(context), GradingProposal, purpose="grading"
         )
-        return GradingProposal.model_validate_json(text)
 
     def run_tutor_qa(self, context: TutorQAContext) -> TutorAnswer:
-        text = self._run_structured(
-            _tutor_qa_prompt(context),
-            _codex_output_schema(TutorAnswer),
-            purpose="tutor_qa",
-        )
-        return TutorAnswer.model_validate_json(text)
+        return self._run_validated(_tutor_qa_prompt(context), TutorAnswer, purpose="tutor_qa")
 
     def run_teach_back_question(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
-        text = self._run_structured(
-            _teach_back_question_prompt(context),
-            _codex_output_schema(TeachBackQuestion),
-            purpose="teach_back",
+        return self._run_validated(
+            _teach_back_question_prompt(context), TeachBackQuestion, purpose="teach_back"
         )
-        return TeachBackQuestion.model_validate_json(text)
 
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
-        text = self._run_structured(
-            _misconception_match_prompt(context),
-            _codex_output_schema(MisconceptionMatch),
-            purpose="misconception_match",
+        return self._run_validated(
+            _misconception_match_prompt(context), MisconceptionMatch, purpose="misconception_match"
         )
-        return MisconceptionMatch.model_validate_json(text)
 
     def run_promotion_analysis(self, context: Any) -> PromotionAnalysis:
-        text = self._run_structured(
-            _promotion_analysis_prompt(context),
-            _codex_output_schema(PromotionAnalysis),
-            purpose="promotion_analysis",
+        return self._run_validated(
+            _promotion_analysis_prompt(context), PromotionAnalysis, purpose="promotion_analysis"
         )
-        return PromotionAnalysis.model_validate_json(text)
 
     def run_diagnostic_trials(self, context: Any) -> DiagnosticTrials:
         """Codex answers-under-belief for the sim discrimination gate (spec §6).
@@ -871,12 +853,9 @@ class SdkCodexClient:
         None)`` so providers without it degrade to the deterministic path.
         """
 
-        text = self._run_structured(
-            _diagnostic_trials_prompt(context),
-            _codex_output_schema(DiagnosticTrials),
-            purpose="diagnostic_trials",
+        return self._run_validated(
+            _diagnostic_trials_prompt(context), DiagnosticTrials, purpose="diagnostic_trials"
         )
-        return DiagnosticTrials.model_validate_json(text)
 
     def run_probe_instance_surfaces(self, context: ProbeInstanceContext) -> ProbeInstanceSurfaces:
         """LLM-backed Item Instance surfaces (probe redesign §9.2/§9.4).
@@ -887,12 +866,11 @@ class SdkCodexClient:
         surface templates when the provider lacks it or is unavailable.
         """
 
-        text = self._run_structured(
+        return self._run_validated(
             _probe_instance_surfaces_prompt(context),
-            _codex_output_schema(ProbeInstanceSurfaces),
+            ProbeInstanceSurfaces,
             purpose="probe_instance_surfaces",
         )
-        return ProbeInstanceSurfaces.model_validate_json(text)
 
     def run_probe_dialogue_turn(self, context: ProbeDialogueTurnContext) -> ProbeDialogueTurn:
         """One adaptive dialogue microprobe turn (probe redesign §8.1).
@@ -902,12 +880,9 @@ class SdkCodexClient:
         the provider lacks it or is unavailable.
         """
 
-        text = self._run_structured(
-            _probe_dialogue_turn_prompt(context),
-            _codex_output_schema(ProbeDialogueTurn),
-            purpose="probe_dialogue_turn",
+        return self._run_validated(
+            _probe_dialogue_turn_prompt(context), ProbeDialogueTurn, purpose="probe_dialogue_turn"
         )
-        return ProbeDialogueTurn.model_validate_json(text)
 
     def run_probe_family_trials(self, context: ProbeFamilyTrialsContext) -> ProbeFamilyTrials:
         """LLM planted trials for the family admission gate (probe redesign §9.6).
@@ -917,12 +892,9 @@ class SdkCodexClient:
         than fabricating synthetic admission evidence.
         """
 
-        text = self._run_structured(
-            _probe_family_trials_prompt(context),
-            _codex_output_schema(ProbeFamilyTrials),
-            purpose="probe_family_trials",
+        return self._run_validated(
+            _probe_family_trials_prompt(context), ProbeFamilyTrials, purpose="probe_family_trials"
         )
-        return ProbeFamilyTrials.model_validate_json(text)
 
     def run_reader_preset_synthesis(self, context: ReaderPresetSynthesisContext) -> ReaderPresetSynthesis:
         """Fulfil one demand-paged reader preset request (spec §6).
@@ -934,12 +906,11 @@ class SdkCodexClient:
         span citations and lands it as a PROPOSED source object for review.
         """
 
-        text = self._run_structured(
+        return self._run_validated(
             _reader_preset_synthesis_prompt(context),
-            _codex_output_schema(ReaderPresetSynthesis),
+            ReaderPresetSynthesis,
             purpose="reader_preset_synthesis",
         )
-        return ReaderPresetSynthesis.model_validate_json(text)
 
     def run_reading_quick_check(self, context: ReadingQuickCheckContext) -> ReadingQuickCheck:
         """Author one section-boundary quick check (reader producer slice).
@@ -951,12 +922,9 @@ class SdkCodexClient:
         validates span citations against the section's spans before persisting.
         """
 
-        text = self._run_structured(
-            _reading_quick_check_prompt(context),
-            _codex_output_schema(ReadingQuickCheck),
-            purpose="reading_quick_check",
+        return self._run_validated(
+            _reading_quick_check_prompt(context), ReadingQuickCheck, purpose="reading_quick_check"
         )
-        return ReadingQuickCheck.model_validate_json(text)
 
     def run_rung_backfill(self, context: RungBackfillContext) -> RungBackfillClassification:
         """Classify legacy items into rung metadata (depth backfill).
@@ -966,12 +934,11 @@ class SdkCodexClient:
         is candidate-only; deterministic validators admit or skip each entry.
         """
 
-        text = self._run_structured(
+        return self._run_validated(
             _rung_backfill_prompt(context),
-            _codex_output_schema(RungBackfillClassification),
+            RungBackfillClassification,
             purpose="rung_backfill",
         )
-        return RungBackfillClassification.model_validate_json(text)
 
     def run_exercise_authoring(self, context: ExerciseAuthoringContext) -> ExerciseAuthoring:
         """Complete selected textbook exercises into full practice items.
@@ -984,12 +951,9 @@ class SdkCodexClient:
         the rest through deterministic validators before writing the item.
         """
 
-        text = self._run_structured(
-            _exercise_authoring_prompt(context),
-            _codex_output_schema(ExerciseAuthoring),
-            purpose="exercise_authoring",
+        return self._run_validated(
+            _exercise_authoring_prompt(context), ExerciseAuthoring, purpose="exercise_authoring"
         )
-        return ExerciseAuthoring.model_validate_json(text)
 
     def run_depth_edge_instances(self, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch:
         """Author depth-edge instances from reviewed templates (spec v2 depth).
@@ -1001,12 +965,11 @@ class SdkCodexClient:
         deterministic admission gates before persisting as admitted/rejected.
         """
 
-        text = self._run_structured(
+        return self._run_validated(
             _depth_edge_instance_prompt(context),
-            _codex_output_schema(DepthEdgeInstanceBatch),
+            DepthEdgeInstanceBatch,
             purpose="depth_edge_instances",
         )
-        return DepthEdgeInstanceBatch.model_validate_json(text)
 
     def run_source_unit_inventory(self, context: SourceUnitInventoryContext) -> SourceUnitInventory:
         """Role-aware unit inventory over one unit view (source-ingestion §7).
@@ -1019,12 +982,11 @@ class SdkCodexClient:
         span citations before persisting.
         """
 
-        text = self._run_structured(
+        return self._run_validated(
             _source_unit_inventory_prompt(context),
-            _codex_output_schema(SourceUnitInventory),
+            SourceUnitInventory,
             purpose="source_unit_inventory",
         )
-        return SourceUnitInventory.model_validate_json(text)
 
     def run_source_set_synthesis(self, context: SourceSetSynthesisContext) -> SourceSetSynthesis:
         """N-way bootstrap synthesis over role-specific inventories (§8.5).
@@ -1037,12 +999,9 @@ class SdkCodexClient:
         and persists through the existing proposal pipeline.
         """
 
-        text = self._run_structured(
-            _source_set_synthesis_prompt(context),
-            _codex_output_schema(SourceSetSynthesis),
-            purpose="source_set_synthesis",
+        return self._run_validated(
+            _source_set_synthesis_prompt(context), SourceSetSynthesis, purpose="source_set_synthesis"
         )
-        return SourceSetSynthesis.model_validate_json(text)
 
     def run_concept_graph_structuring(self, context: ConceptGraphContext) -> ConceptGraphStructuring:
         """Duplicate-concept merges + big-picture concept relations (§8.5).
@@ -1053,12 +1012,11 @@ class SdkCodexClient:
         relations) when the provider lacks it. Output is candidate-only: the
         service validates every id/edge and applies merges itself."""
 
-        text = self._run_structured(
+        return self._run_validated(
             _concept_graph_structuring_prompt(context),
-            _codex_output_schema(ConceptGraphStructuring),
+            ConceptGraphStructuring,
             purpose="concept_graph_structuring",
         )
-        return ConceptGraphStructuring.model_validate_json(text)
 
     def run_concept_animation(self, context: ConceptAnimationContext) -> ManimAnimation:
         """Author one Manim CE explainer scene for a concept.
@@ -1068,12 +1026,9 @@ class SdkCodexClient:
         fails typed when the provider lacks it. Output is candidate-only: the
         service AST-validates and renders it in a constrained subprocess."""
 
-        text = self._run_structured(
-            _concept_animation_prompt(context),
-            _codex_output_schema(ManimAnimation),
-            purpose="concept_animation",
+        return self._run_validated(
+            _concept_animation_prompt(context), ManimAnimation, purpose="concept_animation"
         )
-        return ManimAnimation.model_validate_json(text)
 
     def run_append_reconciliation(self, context: AppendReconciliationContext) -> AppendReconciliation:
         """Reconcile new/changed material into an existing map (§10.1/§10.2).
@@ -1085,12 +1040,69 @@ class SdkCodexClient:
         payload, runs the §8.7 gates plus the append-vocabulary gate, and persists
         through the existing proposal pipeline."""
 
-        text = self._run_structured(
+        return self._run_validated(
             _append_reconciliation_prompt(context),
-            _codex_output_schema(AppendReconciliation),
+            AppendReconciliation,
             purpose="append_reconciliation",
         )
-        return AppendReconciliation.model_validate_json(text)
+
+    def _run_validated(
+        self, prompt: str, model_type: type[BaseModel], *, purpose: str
+    ) -> Any:
+        """Run one structured turn and repair malformed/schema-invalid JSON once.
+
+        The OpenAI-compatible provider already has this bounded repair pass.
+        Keeping the same behavior here prevents a transient invalid escape or
+        lone Unicode surrogate in model-authored Markdown from failing an
+        otherwise retryable background job.
+        """
+
+        output_schema = _codex_output_schema(model_type)
+        try:
+            text = self._run_structured(prompt, output_schema, purpose=purpose)
+        except CodexUnavailable as first_exc:
+            # Some app-server/model combinations reject malformed structured
+            # output before exposing a final_response to the SDK. In that case
+            # the ordinary validation repair below never gets a chance to run.
+            # Retry only the narrow family of JSON string/escape failures; a
+            # genuinely unavailable provider must retain its original error.
+            if not _is_structured_json_transport_error(first_exc):
+                raise
+            _log_codex_debug(
+                "codex.structured_output_regenerate",
+                provider="codex",
+                provider_type=self.provider_type,
+                purpose=purpose,
+                model=self.config.model,
+                error=str(first_exc),
+            )
+            text = self._run_structured(
+                _structured_output_regeneration_prompt(prompt),
+                output_schema,
+                purpose=f"{purpose}_json_regenerate",
+            )
+        try:
+            return model_type.model_validate_json(text)
+        except (ValidationError, ValueError, json.JSONDecodeError) as first_exc:
+            _log_codex_debug(
+                "codex.structured_output_repair",
+                provider="codex",
+                provider_type=self.provider_type,
+                purpose=purpose,
+                model=self.config.model,
+                error=str(first_exc),
+            )
+            repaired = self._run_structured(
+                _structured_output_repair_prompt(text, model_type),
+                output_schema,
+                purpose=f"{purpose}_json_repair",
+            )
+            try:
+                return model_type.model_validate_json(repaired)
+            except (ValidationError, ValueError, json.JSONDecodeError) as second_exc:
+                raise CodexUnavailable(
+                    f"Codex returned invalid {model_type.__name__} JSON after one repair attempt."
+                ) from second_exc
 
     def _run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
         if self._interrupt_requested.is_set():
@@ -1109,10 +1121,8 @@ class SdkCodexClient:
             effort = _sdk_reasoning_effort(ReasoningEffort, self.config.reasoning_effort)
             summary = _sdk_reasoning_summary(ReasoningSummary, self.config.reasoning_summary)
             launch_args = _sdk_launch_args(self.config.sdk_launch_command)
-            if launch_args is None and not self.config.sdk_codex_bin:
-                launch_args = _default_sdk_launch_args()
             app_config = SdkAppConfig(
-                codex_bin=self.config.sdk_codex_bin or None,
+                codex_bin=_resolved_sdk_codex_bin(self.config.sdk_codex_bin),
                 launch_args_override=launch_args,
                 cwd=str(self.vault_root),
                 client_name="learnloop",
@@ -1235,9 +1245,13 @@ _PRACTICE_METADATA_GUIDANCE = (
     "For every generated Practice Item, include reward-facing metadata: "
     "`evidence_facets`, `evidence_weights`, `criterion_facet_weights` when a rubric "
     "exists, `retrieval_demand`, `transfer_distance`, `scaffold_level`, "
-    "`surface_family`, and `repair_targets`. `criterion_facet_weights` must map "
-    "EVERY rubric criterion id (core and transfer) to its facet weight map; an "
-    "empty object `{}` fails validation whenever the item has a rubric. Generated "
+    "`surface_family`, and `repair_targets`. Link a rubric criterion to a facet "
+    "only when the criterion genuinely measures that facet's claim. Set each "
+    "criterion's `measurement_status`; `item_local` and `no_canonical_facet` "
+    "criteria intentionally have no criterion_facet_weights entry. When the "
+    "expected answer has a reliable step structure, include a nullable "
+    "`trace_contract` with named checkpoint recipes and dependencies; otherwise "
+    "declare `no_reliable_decomposition` rather than inventing steps. Generated "
     "grading rubrics must stay on the LearnLoop 0-4 grading scale: set `max_points` "
     "to 4 or less, and make rubric criterion points sum to `max_points`. "
     "`repair_targets` must name evidence facets or rubric fatal error ids."
@@ -1322,6 +1336,13 @@ def _grading_prompt(context: GradingContext) -> str:
             "task": (
                 "Grade the learner answer against the prompt, expected answer, and "
                 "rubric. Return a LearnLoop GradingProposal as schema-valid JSON only. "
+                "Write `diagnosis_md` FIRST, before filling any structured field. "
+                "Diagnose the displayed work in ordinary prose without trying to fit "
+                "it to the supplied facet vocabulary; then structure only claims that "
+                "the prose actually establishes. A first_divergence span quote must "
+                "be copied from the learner answer, and every named facet must also "
+                "appear in diagnosis_md. A missing_required_step divergence must name "
+                "a checkpoint_id from the item's trace contract. "
                 "For each error_attribution's `error_type`, pick the id from "
                 "`error_taxonomy.canonical_error_types` whose `use_when` fits the "
                 "observed failure and whose `avoid_when` does not — use ONLY those "
@@ -1333,12 +1354,21 @@ def _grading_prompt(context: GradingContext) -> str:
                 "memory; do not invent a `missing_*` or `unknown_*` "
                 "error type. For each failed rubric line or facet, add an "
                 "error_attribution unless another attribution already covers the same "
-                "failure. For each error_attribution, fill "
-                "`target_criterion_ids` and/or `target_evidence_families` with "
-                "the rubric line(s) and item evidence facet(s) most directly affected. "
-                "For each repair_suggestion, also fill `target_evidence_families` "
-                "with the narrow item evidence facet(s) the learner-facing repair "
-                "rationale is meant to diagnose or repair. "
+                "failure. Set the orthogonal `resolution_status`, `cause_scope`, and "
+                "typed `target_ref` axes independently. A facet may be named only "
+                "when the failed step exercises that facet's claim; prefer a failed "
+                "criterion, item step, answer span, or a reasoned abstention over the "
+                "nearest listed facet. `target_evidence_families` may be empty. "
+                "Passing evidence for a facet is evidence FOR it, never a repair "
+                "target. Set facet_contrast only when the trace explicitly demonstrates "
+                "a contract swap, with a trace-citing justification. "
+                "When resolution_status is abstained, give a concrete abstention_reason. "
+                "When unresolved, include at least two thin candidate_causes; the "
+                "system adds the open-set H_OTHER arm. `localization_confidence` and "
+                "`causal_confidence` are separate model-reported proposals, not outcome "
+                "confidence or posteriors. `operation` is nullable free snake_case. "
+                "For each repair_suggestion, target only failed criterion ids and/or "
+                "genuinely implicated evidence facets; both target lists may be empty. "
                 "When an error_attribution sets `is_misconception=true`, "
                 "`misconception_statement` is REQUIRED: state the learner's belief "
                 "in learner-model terms (what the learner thinks is true), NOT a "
@@ -1347,6 +1377,8 @@ def _grading_prompt(context: GradingContext) -> str:
                 "\"used Q instead of Q^T\". Also fill "
                 "`misconception_consistent_answer` when you can: the answer a holder "
                 "of that belief would give on this specific item. "
+                "Postdictive claims are deterministic implications only: if the "
+                "cause were true, the named criterion must fail or lose full credit. "
                 "Use the supplied `error_taxonomy.selection_policy` and "
                 "`error_taxonomy.targeting_policy` exactly."
             ),
@@ -1783,6 +1815,52 @@ def _json_prompt(title: str, prompt_version: str, payload: dict[str, Any]) -> st
     )
 
 
+def _structured_output_repair_prompt(text: str, model_type: type[BaseModel]) -> str:
+    """Bounded second pass for malformed or schema-invalid structured output."""
+
+    schema = json.dumps(_codex_output_schema(model_type), sort_keys=True, ensure_ascii=False)
+    # JSON-encode the prior output as data so its backslashes, control
+    # characters, and any invalid-looking LaTeX escapes cannot become prompt
+    # structure on the repair turn.
+    encoded_output = json.dumps(text, ensure_ascii=True)
+    return (
+        "Repair the prior model output into one JSON object that validates against "
+        "the schema below. Preserve its meaning. Return only JSON. In every JSON "
+        "string, escape backslashes (including LaTeX commands) correctly, and replace "
+        "any lone Unicode surrogate with the intended Unicode scalar or U+FFFD.\n\n"
+        f"Schema:\n{schema}\n\nPrior output as a JSON string:\n{encoded_output}"
+    )
+
+
+def _structured_output_regeneration_prompt(prompt: str) -> str:
+    """Retry a turn whose malformed JSON was rejected inside app-server."""
+
+    return (
+        f"{prompt}\n\n"
+        "The prior attempt was rejected because its structured output was not valid "
+        "JSON. Generate the answer again. In every JSON string, double every literal "
+        "backslash used by LaTeX or other prose (for example, emit `\\\\in`, not "
+        "`\\in`) and never emit a lone Unicode surrogate."
+    )
+
+
+def _is_structured_json_transport_error(exc: BaseException) -> bool:
+    """Whether app-server failed before returning malformed structured output."""
+
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "hex escape",
+            "invalid escape",
+            "unicode escape",
+            "invalid json",
+            "json parse",
+            "json syntax",
+        )
+    )
+
+
 def _sdk_reasoning_effort(reasoning_effort_type: Any, value: str | None) -> Any:
     normalized = (value or "").strip().lower()
     if not normalized:
@@ -1880,9 +1958,25 @@ def _sdk_launch_args(command: str) -> tuple[str, ...] | None:
     return tuple(shlex.split(command, posix=os.name != "nt"))
 
 
-def _default_sdk_launch_args() -> tuple[str, ...]:
-    executable = shutil.which("codex.cmd" if os.name == "nt" else "codex") or "codex"
-    return (executable, "app-server", "--listen", "stdio://")
+def _resolved_sdk_codex_bin(configured: str | None) -> str | None:
+    """Prefer an explicit/pinned SDK runtime, with a source-checkout fallback.
+
+    LearnLoop can import the SDK straight from a Codex source checkout. Such a
+    checkout does not necessarily install the SDK's optional
+    ``openai-codex-cli-bin`` package, so leaving ``codex_bin`` unset would make
+    every tutor/authoring call fail before launch. When the pinned package is
+    present the SDK resolves it itself; otherwise use the installed CLI.
+    """
+
+    if (configured or "").strip():
+        return str(configured).strip()
+    try:
+        from codex_cli_bin import bundled_codex_path
+
+        bundled_codex_path()
+        return None
+    except (ImportError, FileNotFoundError):
+        return shutil.which("codex.cmd" if os.name == "nt" else "codex")
 
 
 def _resolve_checkout_path(vault_root: Path, checkout_path: str) -> Path:

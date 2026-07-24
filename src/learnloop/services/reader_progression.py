@@ -27,6 +27,41 @@ _SOURCE_BUNDLE_RADIUS = 5
 _MAX_SOURCE_BUNDLES_PER_LO = 4
 
 
+def section_id_for_span(
+    repository: Repository, *, extraction_id: str, span_id: str
+) -> str | None:
+    """Resolve one reader span to its containing normalized section."""
+
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return None
+    _sections, _block_by_span, span_to_section = extraction_sections(ir)
+    section = span_to_section.get(span_id)
+    return str(section) if section is not None else None
+
+
+def learning_objects_for_span(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    extraction_id: str,
+    span_id: str,
+) -> list[str]:
+    """Provenance-linked Learning Objects available as promotion targets."""
+
+    section_id = section_id_for_span(
+        repository, extraction_id=extraction_id, span_id=span_id
+    )
+    if section_id is None:
+        return []
+    return learning_objects_for_section(
+        vault,
+        repository,
+        extraction_id=extraction_id,
+        section_id=section_id,
+    )
+
+
 def learning_objects_for_section(
     vault: LoadedVault,
     repository: Repository,
@@ -83,6 +118,30 @@ def learning_objects_for_section(
                 matched.add(learning_object.id)
                 break
     return sorted(matched)
+
+
+def source_refs_for_span(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    extraction_id: str,
+    span_id: str,
+    learning_object_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Canonical, path-backed grounding bundles for a selected reader target."""
+
+    section_id = section_id_for_span(
+        repository, extraction_id=extraction_id, span_id=span_id
+    )
+    if section_id is None:
+        return []
+    return source_refs_for_section(
+        vault,
+        repository,
+        extraction_id=extraction_id,
+        section_id=section_id,
+        learning_object_ids=learning_object_ids,
+    )
 
 
 def section_generation_candidates(

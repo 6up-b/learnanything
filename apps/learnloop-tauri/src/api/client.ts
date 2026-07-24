@@ -28,6 +28,8 @@ import type {
   CapabilityGridResult,
   FacetEvidenceTimelineDto,
   FeedbackBundle,
+  UnresolvedCauseSelfReportResponse,
+  UnresolvedCauseSelfReportResultDto,
   PrimedRetryResultDto,
   GradingProviderResult,
   AnimationRuntimeDto,
@@ -89,6 +91,7 @@ import type {
   PromotionIntent,
   PromoteTutorQuestionResult,
   QuestionQueueSnapshot,
+  QueueRevisionDto,
   QuestionResolution,
   ResolveQuestionEventResult,
   RetirementReason,
@@ -268,6 +271,7 @@ export const api = {
   clearSessionCheckpoint: (sessionId: string) => call<{ cleared: boolean }>("clear_session_checkpoint", { sessionId }),
   endSession: (sessionId: string) => call<SessionEndSummary>("end_session", { sessionId }),
   getTodayQueue: (input: QueueInput) => call<QueueSnapshot>("get_today_queue", { input }),
+  getQueueRevision: () => call<QueueRevisionDto>("get_queue_revision"),
   explainPracticeItem: (practiceItemId: string) =>
     call<SchedulerExplanationDto>("explain_practice_item", { practiceItemId }),
   openQueueItem: (practiceItemId: string) => call<PracticeItemDetail>("open_queue_item", { practiceItemId }),
@@ -306,6 +310,14 @@ export const api = {
     call<FeedbackBundle>("trigger_followup", { input: { attemptId } }),
   rateFollowup: (attemptId: string, useful: boolean) =>
     call<FeedbackBundle>("rate_followup", { input: { attemptId, useful } }),
+  reportUnresolvedCause: (input: {
+    factorId: string;
+    response: UnresolvedCauseSelfReportResponse;
+    candidateIndex?: number | null;
+  }) =>
+    call<UnresolvedCauseSelfReportResultDto>("report_unresolved_cause", {
+      input: { ...input, candidateIndex: input.candidateIndex ?? null }
+    }),
   startPrimedRetry: (attemptId: string) =>
     call<PrimedRetryResultDto>("start_primed_retry", { input: { attemptId } }),
   inspectEntity: (id: string) => call<InspectorEntity>("inspect_entity", { id }),
@@ -498,8 +510,21 @@ export const api = {
     }),
   getTutorTranscript: (input: TutorTranscriptInput) =>
     call<TutorTranscriptSnapshot>("get_tutor_transcript", { input }),
-  promoteTutorQuestion: (eventId: string, intent: PromotionIntent) =>
-    call<PromoteTutorQuestionResult>("promote_tutor_question", { input: { eventId, intent } }),
+  promoteTutorQuestion: (
+    eventId: string,
+    intent: PromotionIntent,
+    options?: { subjectId?: string; learningObjectId?: string }
+  ) =>
+    call<PromoteTutorQuestionResult>("promote_tutor_question", {
+      input: {
+        eventId,
+        intent,
+        ...(options?.subjectId ? { subjectId: options.subjectId } : {}),
+        ...(options?.learningObjectId
+          ? { learningObjectId: options.learningObjectId }
+          : {})
+      }
+    }),
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
   authorPracticeItem: (input: { learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>

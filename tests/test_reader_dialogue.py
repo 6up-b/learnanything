@@ -117,6 +117,10 @@ def test_ask_answers_logs_new_kinds_and_persists_the_exchange(tmp_path):
     assert payload["provider"] == "stub_reader" and payload["model"] == "stub-reader-1"
     assert payload["manifest"]["span"]["span_id"] == "s1"
     assert payload["target_key"] == "tcv-1"
+    question = repo.question_event(result["event_id"])
+    assert question["source_context"]["extraction_id"] == "ext1"
+    assert question["source_context"]["span_id"] == "s1"
+    assert "candidate_learning_object_ids" in question["source_context"]
 
 
 def test_ask_is_never_ability_evidence(tmp_path):

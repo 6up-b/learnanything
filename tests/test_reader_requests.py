@@ -51,6 +51,32 @@ def test_enqueue_is_idempotent_on_contract_and_versions_change_identity(tmp_path
     assert c["deduplicated"] is False and c["request_key"] != a["request_key"]
 
 
+def test_different_selections_in_one_block_do_not_share_a_request(tmp_path: Path) -> None:
+    repo = Repository(tmp_path / "s.sqlite")
+    _ingest(repo)
+    first = RR.enqueue_request(
+        repo,
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+        span_id="s1",
+        preset="worked_example",
+        selected_text="Show that (a+b)x = ax + bx.",
+    )
+    second = RR.enqueue_request(
+        repo,
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+        span_id="s1",
+        preset="worked_example",
+        selected_text="Show that a(x+y) = ax + ay.",
+    )
+
+    assert first["request_key"] != second["request_key"]
+    assert second["deduplicated"] is False
+
+
 def test_drain_produces_reviewable_proposals_not_evidence(tmp_path: Path) -> None:
     repo = Repository(tmp_path / "s.sqlite")
     _ingest(repo)
@@ -140,6 +166,35 @@ def test_model_synthesis_lands_generated_content_as_proposed_object(tmp_path: Pa
     content = json_mod.loads(version["content_json"])
     assert content["content_md"].startswith("A worked example")
     assert repo.mapping_proposals(status="proposed")
+
+
+def test_model_synthesis_focuses_edited_latex_selection(tmp_path: Path) -> None:
+    import json as json_mod
+
+    repo = Repository(tmp_path / "s.sqlite")
+    _ingest(repo)
+    selected = r"Show that $(a+b)x = ax + bx$ for all $a,b \in F$ and all $x \in F^n$"
+    RR.enqueue_request(
+        repo,
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+        span_id="s1",
+        preset="worked_example",
+        selected_text=selected,
+        selection_edited=True,
+    )
+    client = _FakePresetClient()
+
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client))
+
+    assert len(result["completed"]) == 1
+    assert client.calls[0].selected_text == selected
+    assert client.calls[0].selection_edited is True
+    version = repo.source_objects_for_source("src1")[0]["version"]
+    content = json_mod.loads(version["content_json"])
+    assert content["selected_text"] == selected
+    assert content["selection_edited"] is True
 
 
 def test_model_synthesis_rejects_invented_spans(tmp_path: Path) -> None:

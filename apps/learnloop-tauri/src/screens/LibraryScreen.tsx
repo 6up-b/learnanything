@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import type {
   CoverageRollupDto,
@@ -472,6 +472,7 @@ export function LibraryScreen({
     if (selected?.kind === "proposal") {
       return [
         { key: "^s", label: "Save payload" },
+        { key: "^f", label: "Find" },
         { key: "j/k", label: "Move" }
       ];
     }
@@ -1113,6 +1114,169 @@ function FileViewer({
   );
 }
 
+const RAW_EDITOR_FONT_SIZE = 12.5;
+const RAW_EDITOR_LINE_HEIGHT = RAW_EDITOR_FONT_SIZE * 1.65;
+const RAW_EDITOR_PADDING_TOP = 12;
+
+type EditorTextMatch = {
+  start: number;
+  end: number;
+  lineIndex: number;
+};
+
+type ValidationErrorAnchor = {
+  error: string;
+  lineIndex: number;
+};
+
+function lineIndexForOffset(text: string, offset: number): number {
+  let lineIndex = 0;
+  const boundedOffset = Math.max(0, Math.min(offset, text.length));
+  for (let index = 0; index < boundedOffset; index += 1) {
+    if (text[index] === "\n") lineIndex += 1;
+  }
+  return lineIndex;
+}
+
+function textMatches(text: string, needle: string): EditorTextMatch[] {
+  if (!needle) return [];
+  const haystack = text.toLowerCase();
+  const matches: EditorTextMatch[] = [];
+  let offset = 0;
+  while (offset <= haystack.length - needle.length) {
+    const start = haystack.indexOf(needle, offset);
+    if (start < 0) break;
+    matches.push({
+      start,
+      end: start + needle.length,
+      lineIndex: lineIndexForOffset(text, start)
+    });
+    offset = start + Math.max(needle.length, 1);
+  }
+  return matches;
+}
+
+function validationFieldHint(error: string): string | null {
+  if (error.startsWith("missing_required:")) return error.slice("missing_required:".length);
+  if (error.includes("grading_rubric") || error.startsWith("missing_rubric:")) return "grading_rubric";
+  if (error.includes("criterion_facet")) return "criterion_facet_weights";
+  if (error.includes("evidence_weight")) return "evidence_weights";
+  if (error.includes("evidence_facet") || error.includes("diagnostic_footprint")) return "evidence_facets";
+  if (error.includes("repair_target")) return "repair_targets";
+  if (error.includes("retrieval_demand")) return "retrieval_demand";
+  if (error.includes("transfer_distance")) return "transfer_distance";
+  if (error.includes("scaffold_level")) return "scaffold_level";
+  if (error.includes("surface_family")) return "surface_family";
+  if (error.includes("misconception_consistent_answer")) return "misconception_consistent_answer";
+  if (error.startsWith("invalid_concept_edge:")) return "source_concept_id";
+  if (error.startsWith("duplicate_id:")) return "id";
+  return null;
+}
+
+function validationErrorAnchors(text: string, errors: string[]): ValidationErrorAnchor[] {
+  const lines = text.split("\n");
+  const lastContentLine = Math.max(
+    0,
+    lines.reduce((last, line, index) => (line.trim() ? index : last), 0)
+  );
+
+  return errors.map((error) => {
+    const fieldHint = validationFieldHint(error);
+    const fieldLine = fieldHint
+      ? lines.findIndex((line) => line.toLowerCase().includes(JSON.stringify(fieldHint).toLowerCase()))
+      : -1;
+
+    // Error suffixes generally carry the offending ref/id/facet. Search them
+    // from most-specific to least-specific and require a JSON string match so
+    // validation code words do not accidentally match property names.
+    const detailLine = error
+      .split(":")
+      .slice(1)
+      .reverse()
+      .map((detail) => JSON.stringify(detail).toLowerCase())
+      .reduce<number>(
+        (foundLine, quotedDetail) =>
+          foundLine >= 0
+            ? foundLine
+            : lines.findIndex((line) => line.toLowerCase().includes(quotedDetail)),
+        -1
+      );
+
+    // Prefer the concrete invalid value. For an absent required field there is
+    // no offending line, so the containing field or final object line is the
+    // most useful insertion point.
+    const lineIndex = detailLine >= 0 ? detailLine : fieldLine >= 0 ? fieldLine : lastContentLine;
+    return { error, lineIndex };
+  });
+}
+
+function jsonParseIssue(text: string): { message: string; lineIndex: number } | null {
+  try {
+    JSON.parse(text);
+    return null;
+  } catch (error) {
+    const message = (error as Error).message;
+    const explicitLine = /\bline\s+(\d+)\b/i.exec(message);
+    if (explicitLine) {
+      return { message, lineIndex: Math.max(0, Number(explicitLine[1]) - 1) };
+    }
+    const position = /\bposition\s+(\d+)\b/i.exec(message);
+    return {
+      message,
+      lineIndex: position ? lineIndexForOffset(text, Number(position[1])) : Math.max(0, text.split("\n").length - 1)
+    };
+  }
+}
+
+function EditorLineHighlights({
+  validationLines,
+  findLines,
+  currentFindLine,
+  scrollTop
+}: {
+  validationLines: number[];
+  findLines: number[];
+  currentFindLine: number | null;
+  scrollTop: number;
+}) {
+  const validationSet = new Set(validationLines);
+  const findSet = new Set(findLines);
+  const lines = [...new Set([...validationLines, ...findLines])].sort((left, right) => left - right);
+
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+      {lines.map((lineIndex) => {
+        const validation = validationSet.has(lineIndex);
+        const find = findSet.has(lineIndex);
+        const current = currentFindLine === lineIndex;
+        return (
+          <div
+            key={lineIndex}
+            style={{
+              position: "absolute",
+              top: RAW_EDITOR_PADDING_TOP + lineIndex * RAW_EDITOR_LINE_HEIGHT - scrollTop,
+              left: 0,
+              right: 0,
+              height: RAW_EDITOR_LINE_HEIGHT,
+              boxSizing: "border-box",
+              background: current
+                ? "rgba(255, 213, 79, 0.18)"
+                : validation
+                  ? COLOR.washRed
+                  : find
+                    ? "rgba(255, 213, 79, 0.10)"
+                    : "transparent",
+              borderLeft: validation ? `3px solid ${COLOR.red}` : undefined,
+              outline: current ? `1px solid ${COLOR.amber}` : undefined,
+              outlineOffset: current ? -1 : undefined
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function ProposalEditor({
   found,
   draft,
@@ -1132,54 +1296,213 @@ function ProposalEditor({
   onReject: () => void;
   onDelete: () => void;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const findInputRef = useRef<HTMLInputElement | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [matchIdx, setMatchIdx] = useState(0);
+  const [editorScrollTop, setEditorScrollTop] = useState(0);
+  const item = found?.item ?? null;
+  const validationAnchors = useMemo(
+    () => validationErrorAnchors(draft, item?.validationErrors ?? []),
+    [draft, item?.validationErrors]
+  );
+  const findNeedle = findQuery.trim().toLowerCase();
+  const findMatches = useMemo(
+    () => (findOpen && findNeedle.length >= 2 ? textMatches(draft, findNeedle) : []),
+    [draft, findNeedle, findOpen]
+  );
+  const parseIssue = useMemo(() => jsonParseIssue(draft), [draft]);
+
+  const scrollToLine = useCallback((lineIndex: number, behavior: ScrollBehavior = "smooth") => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const top =
+      RAW_EDITOR_PADDING_TOP
+      + lineIndex * RAW_EDITOR_LINE_HEIGHT
+      - (textarea.clientHeight - RAW_EDITOR_LINE_HEIGHT) / 2;
+    textarea.scrollTo({ top: Math.max(0, top), behavior });
+  }, []);
+
+  const openFind = useCallback(() => {
+    setFindOpen(true);
+    window.setTimeout(() => findInputRef.current?.focus(), 0);
+  }, []);
+
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    setFindQuery("");
+    setMatchIdx(0);
+  }, []);
+
+  const gotoFindMatch = useCallback((delta: number) => {
+    if (!findMatches.length) return;
+    setMatchIdx((index) => (index + delta + findMatches.length) % findMatches.length);
+  }, [findMatches.length]);
+
+  useEffect(() => {
+    setMatchIdx(0);
+  }, [findNeedle]);
+
+  useEffect(() => {
+    if (!findOpen || !findMatches.length) return;
+    const boundedIndex = Math.min(matchIdx, findMatches.length - 1);
+    if (boundedIndex !== matchIdx) {
+      setMatchIdx(boundedIndex);
+      return;
+    }
+    const match = findMatches[boundedIndex];
+    scrollToLine(match.lineIndex);
+    textareaRef.current?.setSelectionRange(match.start, match.end);
+  }, [findMatches, findOpen, matchIdx, scrollToLine]);
+
+  useEffect(() => {
+    closeFind();
+    setEditorScrollTop(0);
+  }, [item?.id, closeFind]);
+
+  useEffect(() => {
+    if (!item || validationAnchors.length === 0) return;
+    const timer = window.setTimeout(
+      () => scrollToLine(validationAnchors[0].lineIndex, "auto"),
+      0
+    );
+    return () => window.clearTimeout(timer);
+    // Scroll once when a proposal's persisted validation state changes. Draft
+    // edits continuously remap highlights but must not keep stealing scroll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id, item?.validationErrors.join("|"), scrollToLine]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!item) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        openFind();
+      }
+    };
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
+  }, [item, openFind]);
+
   if (!found) {
     return <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>proposal not found — it may have been deleted.</div>;
   }
-  const { item } = found;
-  const pending = item.decision === "pending";
-  let parseError: string | null = null;
-  try {
-    JSON.parse(draft);
-  } catch (error) {
-    parseError = (error as Error).message;
-  }
+  const { item: foundItem } = found;
+  const pending = foundItem.decision === "pending";
+  const parseError = parseIssue?.message ?? null;
 
   return (
     <>
       <div style={{ padding: "12px 18px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
-        <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.purpleText }}>proposals/{proposalLabel(item)}</span>
-        <Pill color="purple">{item.itemType.replace(/_/g, " ")}</Pill>
-        <span style={{ color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 12 }}>{item.operation}</span>
-        <Pill color={item.decision === "accepted" ? "green" : item.decision === "rejected" ? "red" : "amber"}>{item.decision}</Pill>
-        {item.edited ? <Pill color="amber">edited</Pill> : null}
+        <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.purpleText }}>proposals/{proposalLabel(foundItem)}</span>
+        <Pill color="purple">{foundItem.itemType.replace(/_/g, " ")}</Pill>
+        <span style={{ color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 12 }}>{foundItem.operation}</span>
+        <Pill color={foundItem.decision === "accepted" ? "green" : foundItem.decision === "rejected" ? "red" : "amber"}>{foundItem.decision}</Pill>
+        {foundItem.edited ? <Pill color="amber">edited</Pill> : null}
         {dirty ? <Faint style={{ fontSize: 11 }}>● unsaved</Faint> : null}
         <span style={{ flex: 1 }} />
+        {findOpen ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              ref={findInputRef}
+              value={findQuery}
+              onChange={(event) => setFindQuery(event.target.value)}
+              placeholder="find in payload…"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  gotoFindMatch(event.shiftKey ? -1 : 1);
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeFind();
+                }
+              }}
+              style={{ fontFamily: FONT_MONO, fontSize: 11, width: 150, background: COLOR.bg, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "2px 6px" }}
+            />
+            <Faint style={{ fontSize: 10 }}>{findMatches.length ? `${matchIdx + 1}/${findMatches.length}` : "0/0"}</Faint>
+            {([["↑", () => gotoFindMatch(-1)], ["↓", () => gotoFindMatch(1)], ["✕", closeFind]] as Array<[string, () => void]>).map(([label, onClick]) => (
+              <button
+                key={label}
+                type="button"
+                onClick={onClick}
+                style={{ width: 20, height: 18, border: `1px solid ${COLOR.border}`, background: "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 10, cursor: "pointer", padding: 0 }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={openFind}
+            title="find in payload (ctrl+f)"
+            aria-label="find in proposal payload"
+            style={{ width: 20, height: 18, border: `1px solid ${COLOR.border}`, background: "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
+          >
+            ⌕
+          </button>
+        )}
         <ActionButton label={saving ? "saving…" : "save"} active={pending && dirty && !parseError} disabled={!pending || saving || Boolean(parseError)} onClick={onSave} />
-        {item.decision !== "rejected" ? <ActionButton label="reject" onClick={onReject} disabled={saving} /> : null}
+        {foundItem.decision !== "rejected" ? <ActionButton label="reject" onClick={onReject} disabled={saving} /> : null}
         <ActionButton label="delete" danger onClick={onDelete} disabled={saving} />
       </div>
       {!pending ? (
         <div style={{ padding: "6px 18px", fontSize: 11, color: COLOR.amber, borderBottom: `1px solid ${COLOR.border}` }}>
-          payload is read-only — only pending proposals can be edited (this one is {item.decision}).
+          payload is read-only — only pending proposals can be edited (this one is {foundItem.decision}).
         </div>
       ) : null}
       {parseError ? (
-        <div style={{ padding: "6px 18px", fontSize: 11, color: COLOR.red, borderBottom: `1px solid ${COLOR.border}` }}>
-          invalid JSON · {parseError}
+        <div style={{ padding: "6px 18px", fontSize: 11, color: COLOR.red, borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span>invalid JSON · {parseError}</span>
+          <button
+            type="button"
+            onClick={() => scrollToLine(parseIssue?.lineIndex ?? 0)}
+            title={`jump to line ${(parseIssue?.lineIndex ?? 0) + 1}`}
+            style={{ border: `1px solid ${COLOR.red}`, background: COLOR.washRed, color: COLOR.red, fontFamily: FONT_MONO, fontSize: 10.5, cursor: "pointer", padding: "2px 6px" }}
+          >
+            L{(parseIssue?.lineIndex ?? 0) + 1}
+          </button>
         </div>
       ) : null}
-      {item.validationStatus === "invalid" && item.validationErrors.length ? (
-        <div style={{ padding: "6px 18px", fontSize: 11, color: COLOR.red, borderBottom: `1px solid ${COLOR.border}` }}>
-          validation · {item.validationErrors.join(" · ")}
+      {foundItem.validationStatus === "invalid" && validationAnchors.length ? (
+        <div style={{ padding: "6px 18px", fontSize: 11, color: COLOR.red, borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span>validation ·</span>
+          {validationAnchors.map((anchor, index) => (
+            <button
+              key={`${anchor.error}-${index}`}
+              type="button"
+              onClick={() => scrollToLine(anchor.lineIndex)}
+              title={`jump to line ${anchor.lineIndex + 1}`}
+              style={{ border: `1px solid ${COLOR.red}`, background: COLOR.washRed, color: COLOR.red, fontFamily: FONT_MONO, fontSize: 10.5, cursor: "pointer", padding: "2px 6px" }}
+            >
+              {anchor.error} · L{anchor.lineIndex + 1}
+            </button>
+          ))}
         </div>
       ) : null}
-      <div style={{ flex: 1, overflow: "hidden", minHeight: 0, display: "flex" }}>
+      <div style={{ position: "relative", flex: 1, overflow: "hidden", minHeight: 0, display: "flex", background: COLOR.bgInput }}>
+        <EditorLineHighlights
+          validationLines={[
+            ...validationAnchors.map((anchor) => anchor.lineIndex),
+            ...(parseIssue ? [parseIssue.lineIndex] : [])
+          ]}
+          findLines={findMatches.map((match) => match.lineIndex)}
+          currentFindLine={findMatches[matchIdx]?.lineIndex ?? null}
+          scrollTop={editorScrollTop}
+        />
         <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(event) => onChangeDraft(event.target.value)}
+          onScroll={(event) => setEditorScrollTop(event.currentTarget.scrollTop)}
           spellCheck={false}
           readOnly={!pending}
-          style={rawEditorStyle}
+          wrap="off"
+          aria-label="proposal payload JSON editor"
+          style={{ ...rawEditorStyle, position: "relative", zIndex: 1, background: "transparent" }}
         />
       </div>
     </>
@@ -1227,8 +1550,8 @@ const rawEditorStyle: CSSProperties = {
   background: COLOR.bgInput,
   color: COLOR.text,
   fontFamily: FONT_MONO,
-  fontSize: 12.5,
-  lineHeight: 1.65,
+  fontSize: RAW_EDITOR_FONT_SIZE,
+  lineHeight: `${RAW_EDITOR_LINE_HEIGHT}px`,
   padding: "12px 16px",
   minHeight: 0
 };

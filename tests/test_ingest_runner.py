@@ -217,6 +217,51 @@ def test_codex_timeout_releases_lease_and_continues_draining(tmp_path):
     assert calls == {completed["id"]: 1}
 
 
+def test_rung_variant_failed_result_fails_the_durable_job(tmp_path, monkeypatch):
+    from learnloop.services import rung_variants
+
+    runner = _runner(
+        tmp_path,
+        services=RunnerServices(rung_variant_client_factory=lambda _ctx: object()),
+    )
+    request_id = runner.repo.insert_rung_variant_request(
+        {
+            "source_practice_item_id": "pi_source",
+            "learning_object_id": "lo_source",
+            "direction": "harder",
+            "source_waypoint_slug": "execute",
+            "target_waypoint_slug": "select_method",
+            "target_rung_json": "{}",
+            "status": "pending",
+        }
+    )
+
+    def fail_generation(_root, _client, *, request_id, clock):
+        runner.repo.update_rung_variant_request(
+            request_id,
+            status="failed",
+            failure_reason="generation produced no practice item",
+            clock=clock,
+        )
+        return {"request_id": request_id, "status": "failed"}
+
+    monkeypatch.setattr(rung_variants, "generate_rung_variant", fail_generation)
+    batch_id = runner.enqueue_batch(
+        "rung_variant",
+        [JobSpec("rung_variant", {"request_id": request_id})],
+    )
+
+    runner.drain()
+
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "failed"
+    assert job["error"]["code"] == "rung_variant_failed"
+    assert job["error"]["retryable"] is True
+    assert job["error"]["message"] == "generation produced no practice item"
+    assert job["error"]["details"]["result"]["status"] == "failed"
+    assert runner.repo.get_ingest_batch(batch_id)["status"] == "failed"
+
+
 def test_waiting_for_input_holds_no_lease(tmp_path):
     def waiter(ctx: JobContext) -> dict:
         raise WaitingForInput({"kind": "unit_selection"}, message="Choose units")

@@ -58,6 +58,27 @@ CHECKPOINT_LADDER: tuple[str, ...] = (
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _UNFINISHED_STATUSES = frozenset({"failed", "blocked", "cancelled"})
 
+
+def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
+    """Correct legacy rung jobs whose result contradicted their queue status.
+
+    Older rung-variant handlers returned ``{"status": "failed"}`` normally, so
+    the generic runner persisted the outer job as completed. Preserve the raw
+    record for audit while presenting and retrying it as the failure it was.
+    """
+
+    status = str(job.get("status") or "")
+    result = job.get("result")
+    if (
+        status == "completed"
+        and job.get("job_type") == "rung_variant"
+        and isinstance(result, Mapping)
+        and result.get("status") == "failed"
+    ):
+        return "failed"
+    return status
+
+
 # Application-validated open vocabularies (§6.2 — deliberately not SQL CHECKs).
 KNOWN_WORKFLOW_TYPES = frozenset(
     {"import", "import_inventory", "legacy_ingest", "create_study_map", "update_study_map"}
@@ -72,6 +93,19 @@ KNOWN_JOB_TYPES = frozenset(
         "bootstrap_synthesis",
         "append_synthesis",
         "extraction_repair",
+    }
+)
+
+# These jobs can add or replace scheduler-visible practice. Bump the durable
+# high-water mark only after the ingest row itself is completed, so a Today
+# poll cannot observe the revision before the sidecar is able to reload the
+# newly written vault state.
+_QUEUE_AFFECTING_JOB_TYPES = frozenset(
+    {
+        "practice_expansion",
+        "rung_variant",
+        "question_promotion",
+        "reader_exercise_import",
     }
 )
 
@@ -136,6 +170,8 @@ class RunnerServices:
     synthesis_client_factory: Callable[["JobContext"], Any] | None = None
     quick_check_client_factory: Callable[["JobContext"], Any] | None = None
     rung_variant_client_factory: Callable[["JobContext"], Any] | None = None
+    promotion_analysis_client_factory: Callable[["JobContext"], Any] | None = None
+    promotion_authoring_client_factory: Callable[["JobContext"], Any] | None = None
     exercise_import_client_factory: Callable[["JobContext"], Any] | None = None
     animation_client_factory: Callable[["JobContext"], Any] | None = None
     animation_renderer: Callable[..., Any] | None = None
@@ -172,6 +208,21 @@ class RunnerServices:
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
         client = (self.rung_variant_client_factory or default_rung_variant_client)(ctx)
+        ctx.bind_interruptible(client)
+        return client
+
+    def promotion_analysis_client(self, ctx: "JobContext") -> Any:
+        client = (
+            self.promotion_analysis_client_factory or default_promotion_analysis_client
+        )(ctx)
+        ctx.bind_interruptible(client)
+        return client
+
+    def promotion_authoring_client(self, ctx: "JobContext") -> Any:
+        client = (
+            self.promotion_authoring_client_factory
+            or default_promotion_authoring_client
+        )(ctx)
         ctx.bind_interruptible(client)
         return client
 
@@ -1036,6 +1087,34 @@ def default_rung_variant_client(ctx: JobContext) -> Any:
     judgment-heavy synthesis profile, and the learner is actively waiting."""
 
     return _routed_task_client(ctx, "rung_variant")
+
+
+def default_promotion_analysis_client(ctx: JobContext) -> Any:
+    """Fast classification/dedup pass for a durable promotion request."""
+
+    try:
+        return _routed_task_client(ctx, "tutor_qa")
+    except IngestRunnerError as exc:
+        raise IngestRunnerError(
+            str(exc),
+            code="provider_unavailable",
+            details={"task": "tutor_qa"},
+            retryable=True,
+        ) from exc
+
+
+def default_promotion_authoring_client(ctx: JobContext) -> Any:
+    """Judgment-heavy practice generation follows the configured authoring route."""
+
+    try:
+        return _routed_task_client(ctx, "authoring")
+    except IngestRunnerError as exc:
+        raise IngestRunnerError(
+            str(exc),
+            code="provider_unavailable",
+            details={"task": "authoring"},
+            retryable=True,
+        ) from exc
 
 
 def _routed_task_client(ctx: JobContext, task: str) -> Any:
@@ -1906,6 +1985,114 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     }
 
 
+def handle_question_promotion(ctx: JobContext) -> dict[str, Any]:
+    """Run one persisted Open-question → practice request.
+
+    Analysis and authoring use separate routed clients. Every terminal failure
+    is copied onto the domain request before the generic ingest runner records
+    its own job error, so the Open questions UI can explain and retry it.
+    """
+
+    from learnloop.codex.client import (
+        CodexTurnTimeout,
+        CodexUnavailable,
+    )
+    from learnloop.services.promotions import (
+        PromotionError,
+        PromotionNoItemError,
+        promote_tutor_question,
+    )
+
+    event_id = str(ctx.payload.get("event_id") or "")
+    if not event_id:
+        raise IngestRunnerError("question_promotion job requires an 'event_id'.")
+    request = ctx.repo.question_promotion_request(event_id)
+    if request is None:
+        raise IngestRunnerError(
+            f"question promotion request {event_id!r} does not exist."
+        )
+
+    def stage(name: str) -> None:
+        ctx.repo.update_question_promotion_request(
+            event_id, status="running", stage=name, clock=ctx.clock
+        )
+        ctx.report(name, message=f"Question promotion: {name}")
+
+    def fail(code: str, exc: BaseException, *, retryable: bool) -> IngestRunnerError:
+        message = str(exc) or exc.__class__.__name__
+        ctx.repo.update_question_promotion_request(
+            event_id,
+            status="failed",
+            stage="failed",
+            error_code=code,
+            error_message=message,
+            retryable=retryable,
+            clock=ctx.clock,
+        )
+        ctx.repo.bump_queue_revision(clock=ctx.clock)
+        return IngestRunnerError(
+            message,
+            code=code,
+            details={
+                "event_id": event_id,
+                "exception_type": exc.__class__.__name__,
+            },
+            retryable=retryable,
+        )
+
+    stage("analysis")
+    try:
+        analysis_client = ctx.services.promotion_analysis_client(ctx)
+        result = promote_tutor_question(
+            ctx.vault_root,
+            analysis_client,
+            event_id=event_id,
+            intent=str(request["intent"]),
+            subject_id=request.get("subject_id"),
+            learning_object_id=request.get("learning_object_id"),
+            authoring_client_factory=lambda: ctx.services.promotion_authoring_client(ctx),
+            progress=stage,
+            clock=ctx.clock,
+        )
+    except PromotionNoItemError as exc:
+        raise fail("no_practice_item", exc, retryable=True) from exc
+    except PromotionError as exc:
+        raise fail("validation_error", exc, retryable=False) from exc
+    except CodexTurnTimeout as exc:
+        raise fail("provider_timeout", exc, retryable=True) from exc
+    except TimeoutError as exc:
+        raise fail("provider_timeout", exc, retryable=True) from exc
+    except CodexUnavailable as exc:
+        raise fail("provider_unavailable", exc, retryable=True) from exc
+    except IngestRunnerError as exc:
+        raise fail(exc.code, exc, retryable=exc.retryable) from exc
+    except ValueError as exc:
+        raise fail("invalid_structured_output", exc, retryable=True) from exc
+    except Exception as exc:  # noqa: BLE001 - domain request must not stay "running"
+        raise fail("promotion_failed", exc, retryable=True) from exc
+
+    route = str(result.get("route") or "")
+    stage_name = "review" if route == "review_required" else "ready"
+    ctx.repo.update_question_promotion_request(
+        event_id,
+        status="completed",
+        stage=stage_name,
+        promotion_route=route,
+        error_code=None,
+        error_message=None,
+        retryable=False,
+        clock=ctx.clock,
+    )
+    # The promotion service bumps on the actual queue mutation; bump once more
+    # for request-state consumers (review/ready chips) even on diagnostic routes.
+    ctx.repo.bump_queue_revision(clock=ctx.clock)
+    return {
+        "question_event_id": event_id,
+        "route": route,
+        "promotion": result,
+    }
+
+
 def handle_rung_variant(ctx: JobContext) -> dict[str, Any]:
     """rung_variant: author one learner-requested easier/harder sibling item.
 
@@ -1921,9 +2108,21 @@ def handle_rung_variant(ctx: JobContext) -> dict[str, Any]:
     ctx.report("generation", message="Authoring the requested variant")
     client = ctx.services.rung_variant_client(ctx)
     try:
-        return generate_rung_variant(ctx.vault_root, client, request_id=request_id, clock=ctx.clock)
+        result = generate_rung_variant(
+            ctx.vault_root, client, request_id=request_id, clock=ctx.clock
+        )
     except RungVariantError as exc:
         raise IngestRunnerError(str(exc)) from exc
+    if result.get("status") == "failed":
+        request = ctx.repo.rung_variant_request(request_id) or {}
+        reason = str(request.get("failure_reason") or "Rung variant generation failed.")
+        raise IngestRunnerError(
+            reason,
+            code="rung_variant_failed",
+            details={"request_id": request_id, "result": result},
+            retryable=True,
+        )
+    return result
 
 
 def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
@@ -1974,6 +2173,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "reader_quick_check": handle_reader_quick_check,
     "reader_exercise_import": handle_reader_exercise_import,
     "practice_expansion": handle_practice_expansion,
+    "question_promotion": handle_question_promotion,
     "rung_variant": handle_rung_variant,
     "concept_animation": handle_concept_animation,
 }
@@ -2197,7 +2397,11 @@ class IngestRunner:
     def resume_batch(self, batch_id: str) -> None:
         """Resume a partially-complete or cancelled batch: only unfinished jobs
         (failed/blocked/cancelled) are re-queued; completed jobs are preserved,
-        so a resume creates new attempts only for what did not finish (§6.2)."""
+        so a resume creates new attempts only for what did not finish (§6.2).
+
+        Rung-variant retries also reopen the failed domain request. Its learner
+        attempt and claim remain untouched; only generation-owned state resets.
+        """
 
         batch = self.repo.get_ingest_batch(batch_id)
         if batch is None:
@@ -2208,7 +2412,19 @@ class IngestRunner:
             )
             connection.commit()
         for job in self.repo.ingest_jobs_for_batch(batch_id):
-            if job["status"] in _UNFINISHED_STATUSES:
+            if effective_ingest_job_status(job) in _UNFINISHED_STATUSES:
+                if job["job_type"] == "rung_variant":
+                    request_id = str((job.get("payload") or {}).get("request_id") or "")
+                    if request_id:
+                        self.repo.retry_failed_rung_variant_request(
+                            request_id, clock=self.clock
+                        )
+                elif job["job_type"] == "question_promotion":
+                    event_id = str((job.get("payload") or {}).get("event_id") or "")
+                    if event_id:
+                        self.repo.retry_question_promotion_request(
+                            event_id, clock=self.clock
+                        )
                 self.repo.requeue_ingest_job(job["id"], clock=self.clock)
         self._refresh_batch(batch_id)
 
@@ -2336,6 +2552,8 @@ class IngestRunner:
                     usage=ctx._usage or None,
                     clock=self.clock,
                 )
+                if job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
+                    self.repo.bump_queue_revision(clock=self.clock)
         self._clear_job_interruptible(job["id"])
         self._refresh_batch(batch_id)
 
@@ -2405,7 +2623,7 @@ def derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, A
     """Batch status is derived from its member jobs and can represent partial
     completion (§6.2)."""
 
-    statuses = [job["status"] for job in jobs]
+    statuses = [effective_ingest_job_status(job) for job in jobs]
     if not statuses:
         return "queued"
     if all(status == "completed" for status in statuses):

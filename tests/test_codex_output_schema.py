@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import sys
 import threading
@@ -13,11 +14,19 @@ from pydantic import ValidationError
 
 from learnloop.codex.client import (
     AuthoringContext,
+    CodexUnavailable,
     CodexTurnTimeout,
+    ReaderPresetSynthesisContext,
     SdkCodexClient,
     _codex_output_schema,
+    _resolved_sdk_codex_bin,
 )
-from learnloop.codex.schemas import AuthoringProposal, GradingProposal, PracticeItemPatchPayload
+from learnloop.codex.schemas import (
+    AuthoringProposal,
+    GradingProposal,
+    PracticeItemPatchPayload,
+    ReaderPresetSynthesis,
+)
 from learnloop.config import CodexConfig
 
 
@@ -61,6 +70,106 @@ def test_sdk_authoring_path_passes_strict_schema_to_codex(tmp_path):
     assert "retrieval_demand" in captured["prompt"]
     assert "repair_targets" in captured["prompt"]
     assert not _non_strict_objects(captured["output_schema"])
+
+
+def test_sdk_reader_preset_repairs_invalid_unicode_json_once(tmp_path):
+    client = SdkCodexClient(
+        CodexConfig(checkout_path=str(tmp_path / "codex")),
+        tmp_path,
+    )
+    calls: list[dict[str, Any]] = []
+    malformed = (
+        '{"content_md":"'
+        + ("x" * 990)
+        + '\\ud800","span_ids":["s1"]}'
+    )
+    responses = iter(
+        [
+            malformed,
+            '{"content_md":"Use coordinatewise distributivity.","span_ids":["s1"]}',
+        ]
+    )
+
+    def fake_run_structured(prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
+        calls.append({"prompt": prompt, "output_schema": output_schema, "purpose": purpose})
+        return next(responses)
+
+    client._run_structured = fake_run_structured  # type: ignore[method-assign]
+    selected = r"Show that $(a+b)x = ax + bx$ for all $a,b \in F$ and all $x \in F^n$"
+
+    result = client.run_reader_preset_synthesis(
+        ReaderPresetSynthesisContext(
+            preset="worked_example",
+            selected_text=selected,
+            selection_edited=True,
+            blocks=[{"span_id": "s1", "text": selected}],
+        )
+    )
+
+    assert result == ReaderPresetSynthesis(
+        content_md="Use coordinatewise distributivity.", span_ids=["s1"]
+    )
+    assert [call["purpose"] for call in calls] == [
+        "reader_preset_synthesis",
+        "reader_preset_synthesis_json_repair",
+    ]
+    payload = json.loads(calls[0]["prompt"].rsplit("\n\n", 1)[1])
+    assert payload["context"]["selected_text"] == selected
+    assert "escape backslashes" in calls[1]["prompt"]
+
+
+def test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape(tmp_path):
+    client = SdkCodexClient(
+        CodexConfig(checkout_path=str(tmp_path / "codex")),
+        tmp_path,
+    )
+    calls: list[dict[str, Any]] = []
+    responses: list[str | BaseException] = [
+        CodexUnavailable("unexpected end of hex escape at line 1 column 1024"),
+        '{"content_md":"Apply distributivity coordinatewise.","span_ids":["s1"]}',
+    ]
+
+    def fake_run_structured(prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
+        calls.append({"prompt": prompt, "output_schema": output_schema, "purpose": purpose})
+        response = responses.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        return response
+
+    client._run_structured = fake_run_structured  # type: ignore[method-assign]
+    selected = r"Show that $(a+b)x = ax + bx$ for all $a,b \in F$ and all $x \in F^n$"
+
+    result = client.run_reader_preset_synthesis(
+        ReaderPresetSynthesisContext(
+            preset="worked_example",
+            selected_text=selected,
+            selection_edited=True,
+            blocks=[{"span_id": "s1", "text": selected}],
+        )
+    )
+
+    assert result.content_md == "Apply distributivity coordinatewise."
+    assert [call["purpose"] for call in calls] == [
+        "reader_preset_synthesis",
+        "reader_preset_synthesis_json_regenerate",
+    ]
+    assert r"emit `\\in`" in calls[1]["prompt"]
+
+
+def test_sdk_runtime_prefers_bundle_and_falls_back_for_source_checkout(
+    monkeypatch,
+):
+    bundled = ModuleType("codex_cli_bin")
+    bundled.bundled_codex_path = lambda: "/pinned/codex"  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "codex_cli_bin", bundled)
+    assert _resolved_sdk_codex_bin("") is None
+
+    bundled.bundled_codex_path = lambda: (_ for _ in ()).throw(  # type: ignore[attr-defined]
+        FileNotFoundError("package metadata absent")
+    )
+    monkeypatch.setattr("learnloop.codex.client.shutil.which", lambda _name: "/usr/bin/codex")
+    assert _resolved_sdk_codex_bin("") == "/usr/bin/codex"
+    assert _resolved_sdk_codex_bin("/configured/codex") == "/configured/codex"
 
 
 def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, caplog):

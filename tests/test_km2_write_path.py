@@ -284,6 +284,15 @@ def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
     assert repository.canonical_facet_recall_state(SELECT, "method_selection", None) is None
     # An unresolved joint-cause factor is recorded instead.
     assert repository.open_unresolved_cause_observation_ids()
+    factor = repository.open_unresolved_cause_factors()[0]
+    assert sum(
+        cause.get("hypothesis_id") != "H_OTHER"
+        for cause in factor["candidate_causes"]
+    ) >= 2
+    assert any(
+        cause.get("hypothesis_id") == "H_OTHER"
+        for cause in factor["candidate_causes"]
+    )
 
 
 def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):

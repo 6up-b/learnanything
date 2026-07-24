@@ -214,6 +214,9 @@ class RubricCriterion(VaultModel):
     depends_on: list[str] = Field(default_factory=list)
     correlation_group: str | None = None
     recipe_ids: list[str] = Field(default_factory=list)
+    measurement_status: Literal[
+        "direct", "supporting", "composite", "item_local", "no_canonical_facet"
+    ] | None = None
 
 
 class RubricFatalError(VaultModel):
@@ -351,6 +354,60 @@ class EvidenceFingerprint(VaultModel):
     answer_structure: str | None = None
 
 
+class TraceRecipe(VaultModel):
+    id: str
+    checkpoints: list[str] = Field(default_factory=list)
+    dependencies: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class TraceContract(VaultModel):
+    status: Literal["available", "no_reliable_decomposition"] = "available"
+    recipes: list[TraceRecipe] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_trace_contract(self) -> "TraceContract":
+        if self.status == "no_reliable_decomposition" and self.recipes:
+            raise ValueError("no_reliable_decomposition trace contract cannot contain recipes")
+        if self.status == "available" and not self.recipes:
+            raise ValueError("available trace contract requires at least one recipe")
+        recipe_ids = [recipe.id for recipe in self.recipes]
+        if len(set(recipe_ids)) != len(recipe_ids):
+            raise ValueError("trace contract has duplicate recipe ids")
+        for recipe in self.recipes:
+            checkpoints = set(recipe.checkpoints)
+            if len(checkpoints) != len(recipe.checkpoints):
+                raise ValueError(f"trace recipe {recipe.id} has duplicate checkpoints")
+            unknown = set(recipe.dependencies) - checkpoints
+            unknown.update(
+                dependency
+                for dependencies in recipe.dependencies.values()
+                for dependency in dependencies
+                if dependency not in checkpoints
+            )
+            if unknown:
+                raise ValueError(
+                    f"trace recipe {recipe.id} has unknown dependency checkpoints: "
+                    + ", ".join(sorted(unknown))
+                )
+        return self
+
+
+class VariantManipulation(VaultModel):
+    axis: str
+    direction: Literal["increase", "decrease", "hold"]
+    rationale: str | None = None
+
+
+class VariantAuthoringContract(VaultModel):
+    variant_kind: Literal["easier", "harder", "rung_shift"]
+    intended_manipulations: list[VariantManipulation] = Field(default_factory=list)
+    incidental_changes: list[str] = Field(default_factory=list)
+    held_constant: list[str] = Field(default_factory=list)
+    preserves_checkpoints: list[str] = Field(default_factory=list)
+    deepens_checkpoints: list[str] = Field(default_factory=list)
+    drops_checkpoints: list[str] = Field(default_factory=list)
+
+
 class PracticeItem(VaultModel):
     schema_version: int = 1
     id: str
@@ -361,6 +418,8 @@ class PracticeItem(VaultModel):
     evidence_facets: list[str] = Field(default_factory=list)
     evidence_weights: dict[str, float] = Field(default_factory=dict)
     criterion_facet_weights: dict[str, dict[str, float]] = Field(default_factory=dict)
+    trace_contract: TraceContract | None = None
+    variant_contract: VariantAuthoringContract | None = None
     prompt: str
     expected_answer: str | dict[str, Any]
     difficulty: float | None = Field(default=None, ge=0.0, le=1.0)
