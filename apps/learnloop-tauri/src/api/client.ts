@@ -318,6 +318,13 @@ export const api = {
     call<UnresolvedCauseSelfReportResultDto>("report_unresolved_cause", {
       input: { ...input, candidateIndex: input.candidateIndex ?? null }
     }),
+  contestCausalDiagnosis: (
+    attemptId: string,
+    response: Exclude<UnresolvedCauseSelfReportResponse, "believed_candidate">,
+  ) =>
+    call<UnresolvedCauseSelfReportResultDto>("contest_causal_diagnosis", {
+      input: { attemptId, response }
+    }),
   startPrimedRetry: (attemptId: string) =>
     call<PrimedRetryResultDto>("start_primed_retry", { input: { attemptId } }),
   inspectEntity: (id: string) => call<InspectorEntity>("inspect_entity", { id }),
@@ -568,6 +575,10 @@ export const api = {
   createGoal: (input: CreateGoalInput) => call<CreateGoalResult>("create_goal", { input }),
   updateGoalStatus: (goalId: string, status: GoalDto["status"]) =>
     call<CreateGoalResult>("update_goal_status", { input: { goalId, status } }),
+  updateGoalIntent: (goalId: string, intentSentence: string | null) =>
+    call<CreateGoalResult>("update_goal_intent", {
+      input: { goalId, intentSentence }
+    }),
   getExamStatus: (goalId: string) => call<ExamStatusSnapshot>("get_exam_status", { goalId }),
   startExam: (goalId: string) => call<ExamSessionSnapshot>("start_exam", { input: { goalId } }),
   submitExamAnswer: (sessionId: string, practiceItemId: string, answerMd: string) =>

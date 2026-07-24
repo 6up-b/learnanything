@@ -200,6 +200,7 @@ export function DialogueProbePanel({
               completionReason={blockEnd.completionReason}
               route={blockEnd.route}
               releasedFeedback={blockEnd.releasedFeedback}
+              onError={onError}
               labelForIndex={(index) =>
                 `turn ${index + 1}` +
                 (submitted[index] ? ` · ${TURN_KIND_LABEL[submitted[index].kind] ?? submitted[index].kind}` : "")

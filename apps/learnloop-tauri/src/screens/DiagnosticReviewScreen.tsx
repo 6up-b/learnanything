@@ -97,6 +97,7 @@ export function DiagnosticReviewScreen({
             completionReason={blockEnd.completionReason}
             route={blockEnd.route}
             releasedFeedback={blockEnd.releasedFeedback}
+            onError={onError}
           />
           <div className="form-row" style={{ marginTop: 14 }}>
             <button className="queue-row focused" type="button" disabled={continuing} onClick={() => void handleContinue()}>

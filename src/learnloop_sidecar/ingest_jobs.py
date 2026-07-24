@@ -48,6 +48,8 @@ _APPLYING_JOB_TYPES = (
     "question_promotion",
     # Reader-selected textbook exercises become vault practice items directly.
     "reader_exercise_import",
+    # Goal-wizard population applies generated practice directly.
+    "goal_population",
 )
 _ACTIVE_STATUSES = {"queued", "running", "waiting_for_input"}
 _RECENT_LIMIT = 30
@@ -97,7 +99,7 @@ class DurableIngestJobs:
         lease_ttl_seconds: int = 120,
         heartbeat_interval_seconds: float = 15,
         poll_interval_seconds: float = 1.0,
-        background: bool = True,
+        background: bool | None = None,
         reader_synth_client_factory: Any = None,
     ) -> None:
         """Attach the wrapper to a loaded vault. Called from SidecarContext.load."""
@@ -134,7 +136,12 @@ class DurableIngestJobs:
                     heartbeat_interval_seconds=heartbeat_interval_seconds,
                 )
                 self._runner = runner
-            self._background = background
+            # A same-vault SidecarContext.reload() must not silently replace an
+            # explicitly foreground-bound test/CLI host with a background
+            # thread. Omitted means "preserve" on rebind and "background" on
+            # first bind.
+            if not same_vault or background is not None:
+                self._background = True if background is None else background
             self._poll_interval = poll_interval_seconds
         # Recover anything a prior process left mid-flight before draining.
         if not same_vault:
@@ -396,6 +403,18 @@ class DurableIngestJobs:
                 )
             ],
             subject_id=subject_id,
+        )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_goal_population(self, *, goal_id: str) -> str:
+        """Enqueue durable goal-scoped practice authoring from the wizard."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "goal_population",
+            [JobSpec("goal_population", {"goal_id": goal_id})],
+            priority=QUICK_ADD_PRIORITY,
         )
         self._ensure_worker()
         return batch_id

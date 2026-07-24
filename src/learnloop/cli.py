@@ -3201,10 +3201,138 @@ def _echo_practice_attempt(attempt_id: str, payload: dict, repository: Repositor
             typer.echo(f"  {_dim(key + ':')} {value}")
 
 
+def _echo_causal_episode(episode: dict[str, Any] | None) -> None:
+    _echo_section("causal episode")
+    if episode is None or not isinstance(episode.get("receipt"), dict):
+        typer.echo("  No P1 diagnosis receipt was recorded.")
+        return
+    receipt = episode["receipt"]
+    _echo_kv("receipt", receipt.get("id"))
+    _echo_kv(
+        "permitted uses",
+        ", ".join(str(value) for value in receipt.get("permitted_uses") or [])
+        or "none",
+    )
+
+    typer.echo(f"  {_dim('criterion outcomes:')}")
+    for row in receipt.get("criterion_outcomes") or []:
+        if not isinstance(row, dict):
+            continue
+        assessable = bool(row.get("assessable"))
+        passed = bool(row.get("passed"))
+        mark = "✓" if passed else ("✗" if assessable else "·")
+        color = (
+            typer.colors.GREEN
+            if passed
+            else (typer.colors.RED if assessable else typer.colors.BRIGHT_BLACK)
+        )
+        typer.echo(
+            "    "
+            + typer.style(mark, fg=color)
+            + f" {row.get('criterion_id')} "
+            + _dim(
+                f"{row.get('points_awarded')}/{row.get('points_possible')}"
+                + ("" if assessable else " unassessable")
+            )
+        )
+
+    hypotheses = {
+        str(value["id"]): value
+        for value in episode.get("hypotheses") or []
+        if isinstance(value, dict)
+    }
+    support = receipt.get("support_scores") or {}
+    typer.echo(f"  {_dim('candidate causes:')}")
+    for ref in receipt.get("hypotheses") or []:
+        if not isinstance(ref, dict):
+            continue
+        hypothesis = hypotheses.get(str(ref.get("id") or ""))
+        if hypothesis is None:
+            continue
+        score = support.get(str(hypothesis["id"]))
+        score_label = (
+            f" support={float(score):.2f}"
+            if isinstance(score, (int, float))
+            else " support=unscored"
+        )
+        status = str(hypothesis.get("status") or "candidate")
+        typer.echo(
+            f"    {_dim(hypothesis['id'])} "
+            + typer.style(
+                f"[{status}]",
+                fg=(
+                    typer.colors.BRIGHT_BLACK
+                    if status == "open_set"
+                    else typer.colors.YELLOW
+                ),
+            )
+            + score_label
+        )
+        for line in _wrap_text(
+            str(hypothesis.get("statement") or ""),
+            indent="      ",
+        ):
+            typer.echo(line)
+        evidence = hypothesis.get("evidence")
+        if isinstance(evidence, dict) and evidence.get("observed_evidence"):
+            for line in _wrap_text(
+                "evidence: " + str(evidence["observed_evidence"]),
+                indent="      ",
+            ):
+                typer.echo(_dim(line))
+
+    cover = receipt.get("common_repair_cover") or {}
+    selection = receipt.get("repair_selection") or {}
+    selected = selection.get("selected") if isinstance(selection, dict) else None
+    typer.echo(f"  {_dim('repair decision:')}")
+    if isinstance(selected, dict):
+        repair_class = selected.get("repair_class") or {}
+        _echo_kv("selected class", repair_class.get("id"))
+        _echo_kv("operator", repair_class.get("operator"))
+        _echo_kv(
+            "common cover",
+            "yes"
+            if cover.get("covers_plausible_set")
+            else "no",
+        )
+        minimality = selected.get("minimality") or {}
+        _echo_kv("latent changes", minimality.get("latent_change_cost"))
+        _echo_kv("checkpoint changes", minimality.get("checkpoint_change_cost"))
+        _echo_kv("trace edit cost", minimality.get("trace_edit_cost"))
+        _echo_kv("estimated minutes", minimality.get("estimated_minutes"))
+    else:
+        typer.echo("    No safe structural repair was selected.")
+    for rejected in (
+        selection.get("rejected") if isinstance(selection, dict) else []
+    ) or []:
+        if not isinstance(rejected, dict):
+            continue
+        typer.echo(
+            "    rejected "
+            + str(rejected.get("repair_class_id"))
+            + ": "
+            + ", ".join(str(value) for value in rejected.get("reasons") or [])
+        )
+    probe = receipt.get("probe_decision") or {}
+    _echo_kv("probe decision", probe.get("decision"))
+    if probe.get("reason"):
+        for line in _wrap_text(
+            str(probe["reason"]), indent="    "
+        ):
+            typer.echo(line)
+
+
 @app.command()
 def show(
     identifier: Annotated[str, typer.Argument(help="Entity or SQL id.")],
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+    causal: Annotated[
+        bool,
+        typer.Option(
+            "--causal",
+            help="Render the P1 causal-episode receipt for an attempt.",
+        ),
+    ] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
     loaded = load_vault(_root(vault))
@@ -3253,6 +3381,14 @@ def show(
                     "grading_evidence": repository.fetch_grading_evidence(identifier),
                     "surprise": repository.latest_attempt_surprise(identifier),
                 }
+                if causal:
+                    from learnloop.services.causal_attribution import (
+                        causal_episode_for_attempt,
+                    )
+
+                    payload["causal_episode"] = causal_episode_for_attempt(
+                        repository, identifier
+                    )
             elif entity_type == "proposal" and isinstance(payload, dict):
                 payload = {
                     **payload,
@@ -3268,6 +3404,14 @@ def show(
         typer.echo(_dump({"version": 1, "type": entity_type, "id": identifier, "record": payload}))
     elif entity_type == "practice_attempt" and isinstance(payload, dict):
         _echo_practice_attempt(identifier, payload, repository)
+        if causal:
+            from learnloop.services.causal_attribution import (
+                causal_episode_for_attempt,
+            )
+
+            _echo_causal_episode(
+                causal_episode_for_attempt(repository, identifier)
+            )
     else:
         typer.echo(_dump(payload if not isinstance(payload, tuple) else {"type": entity_type, "record": payload}))
 
@@ -5169,6 +5313,54 @@ def causal_attribution_audit_command(
             f"abstained={group['resolution_counts']['abstained']}, "
             f"firewall={group['firewall_trigger_count']}"
         )
+
+
+@app.command("build-causal-taxonomy")
+def build_causal_taxonomy_command(
+    vault: Annotated[
+        Path | None, typer.Option("--vault", help="Vault root.")
+    ] = None,
+    min_cluster_size: Annotated[
+        int,
+        typer.Option(
+            "--min-cluster-size",
+            min=2,
+            help="Minimum recurring operations required to mint a mechanism.",
+        ),
+    ] = 2,
+    activate: Annotated[
+        bool,
+        typer.Option(
+            "--activate/--draft",
+            help="Make this immutable snapshot eligible for new receipts.",
+        ),
+    ] = False,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Emit the full JSON artifact.")
+    ] = False,
+) -> None:
+    """Build the P1 mechanism taxonomy as an explicit maintenance batch."""
+
+    from learnloop.services.causal_attribution import (
+        mint_causal_mechanism_taxonomy,
+    )
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    taxonomy = mint_causal_mechanism_taxonomy(
+        repository,
+        min_cluster_size=min_cluster_size,
+        activate=activate,
+    )
+    if json_output:
+        typer.echo(_dump({"version": 1, "taxonomy": taxonomy}))
+        return
+    typer.echo(
+        f"{taxonomy['id']} · {taxonomy['status']} · "
+        f"{len(taxonomy['taxonomy'].get('clusters') or [])} mechanisms · "
+        f"{len(taxonomy.get('assignments') or [])} assignments"
+    )
 
 
 @app.command("correct-measurement")

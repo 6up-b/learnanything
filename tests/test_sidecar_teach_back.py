@@ -716,6 +716,15 @@ def test_sidecar_request_teach_back_mints_and_is_idempotent(tmp_path):
     assert "Define SVD." in minted.prompt
     assert minted.teach_back_source.source_practice_item_id == "pi_svd_define_001"
     assert minted.teach_back_source.authoring_mode == "deterministic_fallback"
+    detail = _call(
+        vault_root,
+        "get_practice_item",
+        {"practiceItemId": first["practiceItemId"]},
+    )["result"]
+    assert detail["teachBackSource"]["questSentence"] == "Linear algebra for ML"
+    assert detail["teachBackSource"]["questConnection"] == (
+        minted.teach_back_source.quest_connection
+    )
     assert all(
         criterion.measurement_status == "item_local"
         for criterion in minted.grading_rubric.criteria

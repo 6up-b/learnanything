@@ -131,13 +131,15 @@ export function GoalBanner({
   onError,
   onPracticeAtRisk,
   onTakeExam,
-  onNewGoal
+  onNewGoal,
+  onGoalChanged
 }: {
   goals: GoalDto[]; // active goals, primary first
   onError: (message: string) => void;
   onPracticeAtRisk: () => void;
   onTakeExam?: (goalId: string) => void;
   onNewGoal: () => void;
+  onGoalChanged: () => void;
 }) {
   const [selectedId, setSelectedId] = useState<string>(goals[0]?.id ?? "");
   const goal = useMemo(() => goals.find((g) => g.id === selectedId) ?? goals[0], [goals, selectedId]);
@@ -152,6 +154,9 @@ export function GoalBanner({
 
   const [exam, setExam] = useState<ExamStatusSnapshot | null>(null);
   const [celebrateCount, setCelebrateCount] = useState<number | null>(null);
+  const [editingIntent, setEditingIntent] = useState(false);
+  const [intentDraft, setIntentDraft] = useState("");
+  const [intentSaving, setIntentSaving] = useState(false);
 
   const [showTrackRecord, setShowTrackRecord] = useState(false);
   const [showPlanning, setShowPlanning] = useState(false);
@@ -239,6 +244,8 @@ export function GoalBanner({
     setScenarioDays(null);
     setPresentationId(null);
     setOverrideSaved(false);
+    setEditingIntent(false);
+    setIntentDraft(goal?.intentSentence ?? "");
   }, [goalId]);
 
   // Milestone celebration: a facet certified since this goal was last rendered.
@@ -294,6 +301,20 @@ export function GoalBanner({
   // directly; otherwise the ref falls back to a goal-scoped one, labeled as such.
   const paceForecast = report?.activeForecasts?.pace ?? null;
   const paceSentence = report && pace ? buildPaceSentence(report, pace, goal.dueAt) : null;
+
+  async function saveIntent() {
+    if (intentSaving) return;
+    setIntentSaving(true);
+    try {
+      await api.updateGoalIntent(goal.id, intentDraft.trim() || null);
+      setEditingIntent(false);
+      onGoalChanged();
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setIntentSaving(false);
+    }
+  }
 
   // Planning override: recompute the horizon under "n study days/week", clearly the
   // learner's scenario, and log it to the forecast ledger via respondClaim.
@@ -355,9 +376,36 @@ export function GoalBanner({
         <span style={{ fontSize: 10, color: COLOR.textFaint, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: FONT_MONO }}>
           goal
         </span>
-        <span style={{ fontSize: 14, color: COLOR.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {goal.title}
-        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, color: COLOR.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {goal.title}
+          </div>
+          {goal.resolvedQuestSentence ? (
+            <div style={{ marginTop: 3, color: COLOR.textDim, fontSize: 11, lineHeight: 1.4 }}>
+              {goal.resolvedQuestSentence}
+              <span style={{ marginLeft: 7, color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10 }}>
+                {goal.questBasis === "explicit_intent" ? "your intent" : "derived"}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIntentDraft(goal.intentSentence ?? "");
+            setEditingIntent((value) => !value);
+          }}
+          style={{
+            border: 0,
+            background: "transparent",
+            color: COLOR.textFaint,
+            cursor: "pointer",
+            fontFamily: FONT_MONO,
+            fontSize: 10
+          }}
+        >
+          {goal.intentSentence ? "edit why" : "add why"}
+        </button>
         {goals.length > 1 ? (
           <span style={{ display: "inline-flex", gap: 4, marginLeft: 4 }}>
             {goals.map((g) => (
@@ -391,6 +439,33 @@ export function GoalBanner({
           {dueLabel(goal.dueAt)}
         </span>
       </div>
+
+      {editingIntent ? (
+        <div style={{ borderBottom: `1px solid ${COLOR.border}`, padding: "9px 16px", display: "flex", gap: 8 }}>
+          <input
+            value={intentDraft}
+            onChange={(event) => setIntentDraft(event.target.value)}
+            placeholder="Why does this goal matter to you?"
+            autoFocus
+            style={{
+              flex: 1,
+              border: `1px solid ${COLOR.border}`,
+              background: COLOR.bgInput,
+              color: COLOR.text,
+              fontSize: 12,
+              padding: "6px 8px"
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void saveIntent()}
+            disabled={intentSaving}
+            style={{ border: `1px solid ${COLOR.amber}`, background: "transparent", color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 11, padding: "5px 9px" }}
+          >
+            {intentSaving ? "saving…" : "save"}
+          </button>
+        </div>
+      ) : null}
 
       {/* ── body ── */}
       <div style={{ display: "flex", gap: 24, padding: "14px 16px", flexWrap: "wrap" }}>

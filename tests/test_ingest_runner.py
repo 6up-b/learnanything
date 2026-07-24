@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -20,6 +21,7 @@ from learnloop.services.ingest_runner import (
     derive_batch_status,
 )
 from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+from tests.helpers import create_basic_vault
 
 
 def _clock(seconds: int = 0) -> FrozenClock:
@@ -215,6 +217,71 @@ def test_codex_timeout_releases_lease_and_continues_draining(tmp_path):
     assert failed["heartbeat_at"] is None
     assert completed["status"] == "completed"
     assert calls == {completed["id"]: 1}
+
+
+def test_goal_population_handler_generates_and_applies_practice(tmp_path, monkeypatch):
+    from learnloop.services import practice_generation, proposals
+    from learnloop.services.patches import PatchApplyResult
+
+    paths = create_basic_vault(tmp_path / "vault")
+    runner = IngestRunner(
+        Repository(paths.sqlite_path),
+        vault_root=paths.root,
+        worker_id="goal-population-worker",
+        clock=_clock(),
+        services=RunnerServices(synthesis_client_factory=lambda _ctx: object()),
+    )
+    generated: list[str] = []
+    applied: list[tuple[str, FrozenClock]] = []
+    plan = SimpleNamespace(
+        targets=[SimpleNamespace(learning_object_id="lo_svd_define")],
+        requested_new_items=2,
+    )
+
+    monkeypatch.setattr(
+        practice_generation,
+        "build_goal_practice_plan",
+        lambda *_args, **_kwargs: (plan, ["facet_svd_define"]),
+    )
+
+    def fake_generate(_root, _client, *, goal_id, **_kwargs):
+        generated.append(goal_id)
+        return SimpleNamespace(patch_id="patch_goal_population", plan=plan)
+
+    monkeypatch.setattr(
+        practice_generation,
+        "generate_goal_practice_proposal",
+        fake_generate,
+    )
+
+    def fake_accept(_root, patch_id, *, clock):
+        applied.append((patch_id, clock))
+        return PatchApplyResult(applied_count=2, change_batch_ids=["change_1"])
+
+    monkeypatch.setattr(proposals, "accept_items", fake_accept)
+    batch_id = runner.enqueue_batch(
+        "goal_population",
+        [
+            JobSpec(
+                "goal_population",
+                {"goal_id": "goal_linear_algebra_ml"},
+            )
+        ],
+    )
+
+    assert runner.drain() == 1
+
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed"
+    assert job["result"] == {
+        "goal_id": "goal_linear_algebra_ml",
+        "proposal_id": "patch_goal_population",
+        "generated": 2,
+        "applied_count": 2,
+        "at_risk_facets": ["facet_svd_define"],
+    }
+    assert generated == ["goal_linear_algebra_ml"]
+    assert applied == [("patch_goal_population", runner.clock)]
 
 
 def test_rung_variant_failed_result_fails_the_durable_job(tmp_path, monkeypatch):

@@ -64,6 +64,7 @@ class CreateGoalInput(ParamsModel):
     facets: list[str] = []
     exam_enabled: bool = False
     exam_item_count: int = 20
+    populate_practice: bool = False
 
 
 class UpdateGoalStatusInput(ParamsModel):
@@ -71,7 +72,15 @@ class UpdateGoalStatusInput(ParamsModel):
     status: str
 
 
+class UpdateGoalIntentInput(ParamsModel):
+    goal_id: str
+    intent_sentence: str | None = None
+
+
 class GoalFeasibilityInput(ParamsModel):
+    title: str = ""
+    intent_sentence: str | None = None
+    exam_enabled: bool = False
     target_recall: float = 0.8
     due_at: str | None = None
     concepts: list[str] = []
@@ -285,10 +294,13 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
     now = utc_now_iso()
     transient = Goal(
         id="goal_transient_feasibility",
-        title="(feasibility probe)",
+        title=params.title.strip() or "(feasibility probe)",
+        intent_sentence=(params.intent_sentence or "").strip() or None,
+        creation_source="learner",
         target_recall=params.target_recall,
         due_at=params.due_at,
         facet_scope={"concepts": params.concepts, "facets": params.facets},
+        exam={"enabled": params.exam_enabled, "item_count": 20},
         created_at=now,
         updated_at=now,
     )
@@ -300,6 +312,7 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
         if lo_id in vault.learning_objects
     }
     uncovered = [concept for concept in params.concepts if concept not in covered_concepts]
+    quest = resolve_goal_quest(transient)
     return versioned(
         {
             "scope_facet_count": report.total,
@@ -308,6 +321,10 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
                 report.on_track_count / report.total if report.total else None
             ),
             "uncovered_concepts": uncovered,
+            "resolved_quest_sentence": (
+                quest.sentence if quest is not None else None
+            ),
+            "quest_basis": quest.basis if quest is not None else None,
         }
     )
 
@@ -424,7 +441,16 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
 
         reserve_exam_pool(vault, repository, goal)
     report = goal_report(vault, repository, goal)
-    return versioned({"goal": _goal_dto(vault, goal, report, repository)})
+    population_batch = None
+    if params.populate_practice:
+        batch_id = ctx.ingest_jobs.enqueue_goal_population(goal_id=goal.id)
+        population_batch = ctx.ingest_jobs.get_batch(batch_id)
+    return versioned(
+        {
+            "goal": _goal_dto(vault, goal, report, repository),
+            "population_batch": population_batch,
+        }
+    )
 
 
 @method("update_goal_status", UpdateGoalStatusInput)
@@ -449,3 +475,38 @@ def update_goal_status(ctx: SidecarContext, params: UpdateGoalStatusInput) -> di
     goal = _find_goal(vault, params.goal_id)
     report = goal_report(vault, repository, goal) if goal.status == "active" else None
     return versioned({"goal": _goal_dto(vault, goal, report, repository)})
+
+
+@method("update_goal_intent", UpdateGoalIntentInput)
+def update_goal_intent(
+    ctx: SidecarContext, params: UpdateGoalIntentInput
+) -> dict[str, Any]:
+    """Add, replace, or clear a learner's larger purpose after creation."""
+
+    vault, _repository = ctx.require_vault()
+    _find_goal(vault, params.goal_id)
+    paths = VaultPaths(vault.root, vault.config)
+    goals_data = read_yaml(paths.goals_path)
+    updated = False
+    intent = (params.intent_sentence or "").strip() or None
+    for goal in goals_data.get("goals", []):
+        if isinstance(goal, dict) and goal.get("id") == params.goal_id:
+            goal["intent_sentence"] = intent
+            goal["updated_at"] = utc_now_iso()
+            updated = True
+    if not updated:
+        raise SidecarError(
+            "goal_not_found", f"Goal {params.goal_id} does not exist."
+        )
+    write_yaml(paths.goals_path, goals_data)
+    ctx.reload(maintenance=False)
+    vault, repository = ctx.require_vault()
+    goal = _find_goal(vault, params.goal_id)
+    report = (
+        goal_report(vault, repository, goal)
+        if goal.status == "active"
+        else None
+    )
+    return versioned(
+        {"goal": _goal_dto(vault, goal, report, repository)}
+    )

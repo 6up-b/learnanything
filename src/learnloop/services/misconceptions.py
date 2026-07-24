@@ -424,13 +424,22 @@ def _normalize_compositional(
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None:
         return []
+    from learnloop.services.causal_attribution import materialize_causal_episode
+
+    feedback = repository.fetch_attempt_feedback_metadata(attempt_id) or {}
+    materialize_causal_episode(
+        vault,
+        repository,
+        attempt_id=attempt_id,
+        repair_suggestions=list(feedback.get("repair_suggestions") or []),
+        generation_agent_run_id=feedback.get("agent_run_id"),
+        clock=clock,
+    )
     events = repository.error_events_for_attempt(attempt_id)
     attempt = repository.fetch_practice_attempt(attempt_id)
     open_unresolved = bool(
         repository.unresolved_cause_factors_for_attempt(attempt_id, status="open")
     )
-    surface_family = _surface_family_for_attempt(vault, attempt)
-    item_id = str(attempt.get("practice_item_id")) if attempt else None
     durable_candidates = _candidate_misconceptions(vault, repository, learning_object_id)
     touched: list[str] = []
     for event in events:
@@ -466,29 +475,6 @@ def _normalize_compositional(
         # An open unresolved factor blocks durable promotion, but it does not
         # silence the repair/routing lane.
         normalized = _normalize_text(statement)
-        facets = _event_facet_ids(vault, event, attempt)
-        repair_plan = event.get("repair_plan")
-        repair_plan = repair_plan if isinstance(repair_plan, dict) else {}
-        contrast = repair_plan.get("facet_contrast")
-        contrast = contrast if isinstance(contrast, dict) else {}
-        target_ref = repair_plan.get("target_ref")
-        target_ref = target_ref if isinstance(target_ref, dict) else {}
-        target_facet = (
-            vault.canonical_facet_id(str(contrast.get("target_facet")))
-            if contrast.get("target_facet")
-            else (
-                vault.canonical_facet_id(str(target_ref.get("facet_id")))
-                if target_ref.get("kind") == "facet_capability" and target_ref.get("facet_id")
-                else None
-            )
-        )
-        confused_with_facet = (
-            vault.canonical_facet_id(str(contrast.get("confused_with_facet")))
-            if contrast.get("confused_with_facet")
-            else None
-        )
-        mechanism = map_legacy_error_type(str(event.get("error_type") or "")) or None
-        signature = event.get("misconception_consistent_answer")
         candidate = repository.misconception_candidate_by_normalized(
             learning_object_id, normalized
         )
@@ -500,45 +486,8 @@ def _normalize_compositional(
             candidate.get("signature") if candidate is not None else None
         )
         if candidate is None:
-            candidate_id = repository.insert_misconception_candidate(
-                learning_object_id=learning_object_id,
-                statement=statement,
-                statement_normalized=normalized,
-                concept_id=learning_object.concept,
-                signature=None if diagnostic_probe else signature,
-                mechanism=mechanism,
-                target_facet=target_facet,
-                confused_with_facet=confused_with_facet,
-                facet_ids=facets,
-                source_error_event_ids=[event["id"]],
-                surface_families=[surface_family] if surface_family else [],
-                item_ids=[item_id] if item_id else [],
-                occurrence_count=1,
-                severity=severity,
-                clock=clock,
-            )
-        else:
-            candidate_id = candidate["id"]
-            repository.update_misconception_candidate(
-                candidate_id,
-                severity=max(float(candidate.get("severity") or 0.0), severity),
-                occurrence_count=int(candidate.get("occurrence_count") or 0) + 1,
-                append_source_error_event_ids=[event["id"]],
-                add_surface_families=[surface_family] if surface_family else [],
-                add_item_ids=[item_id] if item_id else [],
-                signature=(
-                    candidate.get("signature")
-                    if diagnostic_probe
-                    else signature or candidate.get("signature")
-                ),
-                mechanism=mechanism or candidate.get("mechanism"),
-                target_facet=target_facet or candidate.get("target_facet"),
-                confused_with_facet=confused_with_facet or candidate.get("confused_with_facet"),
-                clock=clock,
-            )
-        candidate = repository.misconception_candidate_by_id(candidate_id)
-        if candidate is None:
             continue
+        candidate_id = candidate["id"]
         promotion_candidate = candidate
         if diagnostic_probe:
             promotion_candidate = {

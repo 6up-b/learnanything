@@ -769,6 +769,14 @@ pub async fn report_unresolved_cause(
 }
 
 #[tauri::command]
+pub async fn contest_causal_diagnosis(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "contest_causal_diagnosis", input).await
+}
+
+#[tauri::command]
 pub async fn start_primed_retry(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -1130,6 +1138,14 @@ pub async fn update_goal_status(
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "update_goal_status", input).await
+}
+
+#[tauri::command]
+pub async fn update_goal_intent(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "update_goal_intent", input).await
 }
 
 #[tauri::command]

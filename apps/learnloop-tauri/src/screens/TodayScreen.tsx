@@ -4,6 +4,7 @@ import type {
   ClaimCandidateDto,
   DecayPressureDto,
   GoalDto,
+  IngestBatchDto,
   OverconfidentFacetDto,
   PracticeItemDetail,
   QueueSection,
@@ -32,6 +33,79 @@ const HOTKEYS = "123456789abcdef";
 function masteryColor(mastery: number): string {
   return masteryTone(mastery, COLOR);
 }
+
+function GoalPopulationStrip({
+  batch,
+  onDismiss,
+  onShowQueue
+}: {
+  batch: IngestBatchDto;
+  onDismiss: () => void;
+  onShowQueue: () => void;
+}) {
+  const job = batch.jobs[0];
+  const active = batch.status === "queued" || batch.status === "running";
+  const completed = batch.status === "completed";
+  const failed = batch.status === "failed" || batch.status === "blocked";
+  const rawCount = job?.result?.appliedCount ?? job?.result?.applied_count;
+  const appliedCount = typeof rawCount === "number" ? rawCount : null;
+  const message = active
+    ? job?.message || "Generating practice for your goal"
+    : completed
+      ? appliedCount === 0
+        ? "Your goal already has enough practice."
+        : `${appliedCount ?? "New"} practice item${appliedCount === 1 ? "" : "s"} added to your goal.`
+      : job?.error?.message || "Goal practice generation did not finish.";
+  const tone = completed ? COLOR.green : failed ? COLOR.red : COLOR.cyan;
+
+  return (
+    <div
+      role="status"
+      style={{
+        margin: "0 18px 10px",
+        padding: "9px 12px",
+        border: `1px solid ${COLOR.border}`,
+        borderLeft: `3px solid ${tone}`,
+        background: COLOR.bgElev,
+        display: "flex",
+        alignItems: "center",
+        gap: 9,
+        fontSize: 12
+      }}
+    >
+      <span style={{ color: tone, fontFamily: FONT_MONO }}>
+        {active ? "◐" : completed ? "✓" : "!"}
+      </span>
+      <span style={{ color: COLOR.text }}>{message}</span>
+      <span style={{ flex: 1 }} />
+      {completed ? (
+        <button type="button" onClick={onShowQueue} style={stripActionStyle}>
+          show in queue →
+        </button>
+      ) : null}
+      {!active ? (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss goal population status"
+          style={{ ...stripActionStyle, color: COLOR.textFaint }}
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+const stripActionStyle: CSSProperties = {
+  border: 0,
+  background: "transparent",
+  color: COLOR.amber,
+  cursor: "pointer",
+  fontFamily: FONT_MONO,
+  fontSize: 11,
+  padding: "2px 4px"
+};
 
 export function TodayScreen({
   session,
@@ -76,6 +150,10 @@ export function TodayScreen({
   const [ending, setEnding] = useState(false);
   const [goals, setGoals] = useState<GoalDto[] | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [goalPopulation, setGoalPopulation] =
+    useState<IngestBatchDto | null>(null);
+  const [dismissedPopulationId, setDismissedPopulationId] =
+    useState<string | null>(null);
   const [writeCardOpen, setWriteCardOpen] = useState(false);
   const [evidenceFacetId, setEvidenceFacetId] = useState<string | null>(null);
   const [dismissedReview, setDismissedReview] = useState<Set<string>>(() => new Set());
@@ -284,8 +362,19 @@ export function TodayScreen({
           const newlyCompleted = batches.some(
             (batch) => batch.status === "completed" && previous.get(batch.id) !== "completed"
           );
-          if (newlyCompleted) void refreshQueue({ force: true });
+          if (newlyCompleted) {
+            void refreshQueue({ force: true });
+            refreshGoals();
+          }
         }
+        const latestPopulation = batches.find(
+          (batch) => batch.workflowType === "goal_population"
+        );
+        setGoalPopulation(
+          latestPopulation?.id === dismissedPopulationId
+            ? null
+            : latestPopulation ?? null
+        );
         seenBatchStatusRef.current = next;
       } catch {
         /* transient poll failure — try again next tick */
@@ -298,7 +387,7 @@ export function TodayScreen({
       window.clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dismissedPopulationId, refreshGoals]);
 
   useEffect(() => {
     onPaletteEntities?.({
@@ -465,6 +554,7 @@ export function TodayScreen({
             onPracticeAtRisk={practiceAtRisk}
             onTakeExam={onTakeExam}
             onNewGoal={() => setWizardOpen(true)}
+            onGoalChanged={refreshAfterGoalChange}
           />
         ) : !noGoalBannerDismissed ? (
           <NoGoalFallback
@@ -491,6 +581,23 @@ export function TodayScreen({
         ) : null
       ) : null}
 
+      {goalPopulation ? (
+        <GoalPopulationStrip
+          batch={goalPopulation}
+          onDismiss={() => {
+            setDismissedPopulationId(goalPopulation.id);
+            setGoalPopulation(null);
+          }}
+          onShowQueue={() => {
+            void refreshQueue({ force: true }).then(() => {
+              document
+                .getElementById("today-practice-queue")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          }}
+        />
+      ) : null}
+
       {reviewCandidate ? (
         <GoalReviewCard
           goal={reviewCandidate.goal}
@@ -502,6 +609,7 @@ export function TodayScreen({
       ) : null}
 
       <div
+        id="today-practice-queue"
         className={wizardOpen ? "modal-underlay-obscured" : undefined}
         style={{ flex: 1, display: "flex", minHeight: 0 }}
       >

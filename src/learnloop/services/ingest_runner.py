@@ -106,6 +106,7 @@ _QUEUE_AFFECTING_JOB_TYPES = frozenset(
         "rung_variant",
         "question_promotion",
         "reader_exercise_import",
+        "goal_population",
     }
 )
 
@@ -1985,6 +1986,98 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     }
 
 
+def handle_goal_population(ctx: JobContext) -> dict[str, Any]:
+    """Generate and apply the missing practicable supply for one active goal."""
+
+    from learnloop.services.patches import PatchApplicationError
+    from learnloop.services.practice_generation import (
+        PracticeExpansionError,
+        build_goal_practice_plan,
+        generate_goal_practice_proposal,
+    )
+    from learnloop.services.proposals import accept_items
+    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.vault.loader import load_vault
+
+    goal_id = str(ctx.payload.get("goal_id") or "")
+    if not goal_id:
+        raise IngestRunnerError(
+            "goal_population job requires a 'goal_id'."
+        )
+    vault = load_vault(ctx.vault_root)
+    sync_vault_state(vault, ctx.repo)
+    goal = next(
+        (
+            candidate
+            for candidate in vault.goals
+            if candidate.id == goal_id and candidate.status == "active"
+        ),
+        None,
+    )
+    if goal is None:
+        raise IngestRunnerError(
+            f"Goal {goal_id} does not exist or is not active.",
+            code="invalid_goal",
+        )
+    try:
+        plan, at_risk_facets = build_goal_practice_plan(
+            vault,
+            ctx.repo,
+            goal,
+            target_items_per_lo=5,
+            max_new_per_lo=3,
+        )
+    except PracticeExpansionError as exc:
+        raise IngestRunnerError(
+            str(exc), code="invalid_generation_request"
+        ) from exc
+    if not plan.targets:
+        return {
+            "goal_id": goal_id,
+            "generated": 0,
+            "applied_count": 0,
+            "skipped_reason": "Goal already has enough practicable items.",
+        }
+    ctx.report(
+        "generation",
+        message=f"Generating practice for {goal.title}",
+    )
+    client = ctx.services.synthesis_client(ctx)
+    try:
+        result = generate_goal_practice_proposal(
+            ctx.vault_root,
+            client,
+            goal_id=goal_id,
+            target_items_per_lo=5,
+            max_new_per_lo=3,
+        )
+    except PracticeExpansionError as exc:
+        raise IngestRunnerError(
+            str(exc), code="goal_population_failed"
+        ) from exc
+    ctx.report(
+        "applying",
+        message=f"Adding generated practice to {goal.title}",
+    )
+    try:
+        applied = accept_items(
+            ctx.vault_root,
+            result.patch_id,
+            clock=ctx.clock,
+        )
+    except PatchApplicationError as exc:
+        raise IngestRunnerError(
+            str(exc), code="goal_population_apply_failed"
+        ) from exc
+    return {
+        "goal_id": goal_id,
+        "proposal_id": result.patch_id,
+        "generated": result.plan.requested_new_items,
+        "applied_count": applied.applied_count,
+        "at_risk_facets": at_risk_facets,
+    }
+
+
 def handle_question_promotion(ctx: JobContext) -> dict[str, Any]:
     """Run one persisted Open-question → practice request.
 
@@ -2173,6 +2266,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "reader_quick_check": handle_reader_quick_check,
     "reader_exercise_import": handle_reader_exercise_import,
     "practice_expansion": handle_practice_expansion,
+    "goal_population": handle_goal_population,
     "question_promotion": handle_question_promotion,
     "rung_variant": handle_rung_variant,
     "concept_animation": handle_concept_animation,

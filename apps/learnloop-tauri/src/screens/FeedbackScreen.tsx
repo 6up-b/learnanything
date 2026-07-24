@@ -22,6 +22,7 @@ import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { CausalFeedbackPanel, formatCausalTarget, formatDivergenceAnchor } from "../components/CausalAttribution";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -208,6 +209,23 @@ function CriterionRow({ row, showTier = false }: { row: CriterionEvidenceRowDto;
 
 // ── ErrorAttribution ──────────────────────────────────────────────────────────
 function ErrorAttribution({ ea, onInspect }: { ea: ErrorEventDto; onInspect: (id: string) => void }) {
+  const plan = ea.repairPlan;
+  const resolutionStatus =
+    typeof plan?.resolutionStatus === "string" ? plan.resolutionStatus : null;
+  const causeScope = typeof plan?.causeScope === "string" ? plan.causeScope : null;
+  const operation = typeof plan?.operation === "string" ? plan.operation : null;
+  const abstentionReason =
+    typeof plan?.abstentionReason === "string" ? plan.abstentionReason : null;
+  const targetRef =
+    plan?.targetRef && typeof plan.targetRef === "object" && !Array.isArray(plan.targetRef)
+      ? plan.targetRef as Parameters<typeof formatCausalTarget>[0]
+      : null;
+  const firstDivergence =
+    plan?.firstDivergence &&
+    typeof plan.firstDivergence === "object" &&
+    !Array.isArray(plan.firstDivergence)
+      ? plan.firstDivergence as Parameters<typeof formatDivergenceAnchor>[0]
+      : null;
   return (
     <div style={{
       padding: "12px 14px",
@@ -231,6 +249,33 @@ function ErrorAttribution({ ea, onInspect }: { ea: ErrorEventDto; onInspect: (id
           <Pill tone={ea.status === "active" ? "amber" : "slate"}>{ea.status}</Pill>
         </span>
       </div>
+      {resolutionStatus || causeScope || operation || targetRef ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginTop: 8,
+          }}
+        >
+          {resolutionStatus ? <Pill tone={resolutionStatus === "resolved" ? "green" : "amber"}>{resolutionStatus.replace(/_/g, " ")}</Pill> : null}
+          {causeScope ? <Pill tone="slate">{causeScope.replace(/_/g, " ")}</Pill> : null}
+          {operation ? <Meta>{operation.replace(/_/g, " ")}</Meta> : null}
+          {targetRef ? <Dim>target · {formatCausalTarget(targetRef)}</Dim> : null}
+        </div>
+      ) : null}
+      {firstDivergence ? (
+        <div style={{ marginTop: 7, color: C.textDim, lineHeight: 1.5 }}>
+          <Faint>first divergence · </Faint>
+          {formatDivergenceAnchor(firstDivergence)}
+        </div>
+      ) : null}
+      {abstentionReason ? (
+        <div style={{ marginTop: 7, color: C.amber, lineHeight: 1.5 }}>
+          attribution abstained · {abstentionReason}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1313,6 +1358,26 @@ export function FeedbackScreen({
           <ScoreBlock f={f} />
 
           {/* rubric criteria */}
+          {item?.teachBackSource?.questConnection === "connected" &&
+          item.teachBackSource.questSentence ? (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "9px 12px",
+                background: C.bgElev,
+                borderLeft: `3px solid ${C.cyan}`,
+                color: C.textDim,
+                fontSize: 12,
+                lineHeight: 1.5
+              }}
+            >
+              This teach-back connected your explanation to:{" "}
+              <span style={{ color: C.text }}>
+                {item.teachBackSource.questSentence}
+              </span>
+            </div>
+          ) : null}
+
           <div style={{ marginTop: 22 }}>
             <div style={{
               color: C.amber, fontSize: 13, marginBottom: 6,
@@ -1343,7 +1408,7 @@ export function FeedbackScreen({
           )}
 
           {/* tutor note */}
-          {f.feedbackMd && (
+          {f.feedbackMd && !f.causalFeedback && (
             <div style={{
               marginTop: 18, padding: "12px 14px",
               background: C.bgElev, borderLeft: `3px solid ${C.cyan}`,
@@ -1365,13 +1430,38 @@ export function FeedbackScreen({
           </>
         )}
 
-        {/* ── diagnosis (§4.7 card hierarchy) ──
-            A matched registry misconception WITH an authored correction renders
-            the statement-pair card and *replaces* the unresolved-cause card —
-            never both, never two diagnoses at once. Rows without a correction
-            (the backend shouldn't send them, but guard anyway) fall back to the
-            unresolved-cause card. */}
-        {matchedMisconception ? (
+        {/* P1 is authoritative for learner-facing causal claims. It replaces
+            the raw tutor diagnosis/correction display with receipt-typed
+            sections, but the P0 one-tap unresolved-cause question remains
+            available below as an evidence channel. */}
+        {f.causalFeedback ? (
+          <>
+            <FbHeader>Causal feedback</FbHeader>
+            <CausalFeedbackPanel
+              feedback={f.causalFeedback}
+              contestPending={reportingFactorId != null}
+              onContest={(reason, factorId) => {
+                if (factorId) {
+                  void handleUnresolvedCauseReport(factorId, reason);
+                  return;
+                }
+                setReportingFactorId(`receipt:${f.attemptId}`);
+                api
+                  .contestCausalDiagnosis(
+                    f.attemptId,
+                    reason as Exclude<UnresolvedCauseSelfReportResponse, "believed_candidate">,
+                  )
+                  .then(() => api.getFeedback(f.attemptId))
+                  .then(setFeedback)
+                  .catch((error) => onError((error as Error).message))
+                  .finally(() => setReportingFactorId(null));
+              }}
+            />
+          </>
+        ) : null}
+
+        {/* ── diagnosis (§4.7 fallback + P0 self-report) ── */}
+        {!f.causalFeedback && matchedMisconception ? (
           <MisconceptionStatementCard
             m={matchedMisconception}
             attemptId={f.attemptId}
@@ -1517,7 +1607,7 @@ export function FeedbackScreen({
                 )}
               </div>
             )}
-            {f.repairSuggestions.length > 0 && (
+            {!f.causalFeedback && f.repairSuggestions.length > 0 && (
               <>
                 <div style={{ marginTop: 10, fontSize: 13, color: C.text, lineHeight: 1.55 }}>
                   {f.repairSuggestions[0].rationale}

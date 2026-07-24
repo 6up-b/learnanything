@@ -34,6 +34,11 @@ import { ConceptAnimationSection } from "./ConceptAnimationSection";
 import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { CommandOverlayFrame, commandOverlayActionStyle, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
+import {
+  CausalEpisodeInspector,
+  formatCausalTarget,
+  formatDivergenceAnchor,
+} from "./CausalAttribution";
 
 // ── kind → header pill ──────────────────────────────────────────────────
 const KIND_PILL: Record<string, { color: PillColor; label: string }> = {
@@ -749,14 +754,127 @@ function ErrorEventBody({ detail, onGo }: { detail: ErrorEventDto; onGo: (id: st
       </InspectorRow>
 
       {detail.repairPlan && Object.keys(detail.repairPlan).length ? (
+        <P0AttributionInspector plan={detail.repairPlan} />
+      ) : null}
+    </div>
+  );
+}
+
+function P0AttributionInspector({ plan }: { plan: Record<string, unknown> }) {
+  const text = (key: string): string | null =>
+    typeof plan[key] === "string" && String(plan[key]).trim() ? String(plan[key]) : null;
+  const number = (key: string): number | null =>
+    typeof plan[key] === "number" ? Number(plan[key]) : null;
+  const object = (key: string): Record<string, unknown> | null =>
+    plan[key] && typeof plan[key] === "object" && !Array.isArray(plan[key])
+      ? plan[key] as Record<string, unknown>
+      : null;
+  const list = (key: string): unknown[] => Array.isArray(plan[key]) ? plan[key] as unknown[] : [];
+  const target = object("targetRef") as Parameters<typeof formatCausalTarget>[0];
+  const divergence = object("firstDivergence") as Parameters<typeof formatDivergenceAnchor>[0];
+  const resolution = text("resolutionStatus");
+  const causeScope = text("causeScope");
+  const operation = text("operation");
+  const localization = number("modelReportedLocalizationConfidence");
+  const causal = number("modelReportedCausalConfidence");
+  const contrast = object("facetContrast");
+  const candidates = list("candidateCauses");
+  const claims = list("postdictiveClaims");
+  return (
+    <>
+      <SectionHeader>P0 attribution axes</SectionHeader>
+      {text("diagnosisMd") ? (
+        <div style={{ ...panelStyle, borderLeft: `3px solid ${COLOR.cyan}`, fontSize: 12, lineHeight: 1.55, marginBottom: 8 }}>
+          <div style={{ color: COLOR.cyan, fontFamily: FONT_MONO, marginBottom: 5 }}>prose-first diagnosis</div>
+          <MarkdownMath value={text("diagnosisMd")!} />
+        </div>
+      ) : null}
+      <InspectorRow label="resolution">
+        <Pill color={resolution === "resolved" ? "green" : resolution === "abstained" ? "slate" : "amber"}>
+          {resolution?.replace(/_/g, " ") ?? "unknown"}
+        </Pill>
+      </InspectorRow>
+      {text("abstentionReason") ? (
+        <InspectorRow label="abstention_reason"><Dim>{text("abstentionReason")}</Dim></InspectorRow>
+      ) : null}
+      <InspectorRow label="cause_scope">
+        <Pill color="slate">{causeScope?.replace(/_/g, " ") ?? "unknown"}</Pill>
+      </InspectorRow>
+      <InspectorRow label="target">
+        <Dim>{formatCausalTarget(target)}</Dim>
+      </InspectorRow>
+      <InspectorRow label="operation">
+        <Dim style={{ fontFamily: FONT_MONO }}>{operation?.replace(/_/g, " ") ?? "abstained"}</Dim>
+      </InspectorRow>
+      <InspectorRow label="first_divergence">
+        <Dim>{formatDivergenceAnchor(divergence)}</Dim>
+      </InspectorRow>
+      <InspectorRow label="model confidence">
+        <Dim style={{ fontFamily: FONT_MONO }}>
+          localization {localization == null ? "unreported" : localization.toFixed(2)}
+          {" · "}causal {causal == null ? "unreported" : causal.toFixed(2)}
+        </Dim>
+      </InspectorRow>
+      {contrast ? (
+        <InspectorRow label="facet contrast">
+          <Dim>
+            {String(contrast.targetFacet ?? "unknown")} ↔ {String(contrast.confusedWithFacet ?? "unknown")}
+            {contrast.justification ? ` · ${String(contrast.justification)}` : ""}
+          </Dim>
+        </InspectorRow>
+      ) : null}
+      {candidates.length ? (
         <>
-          <SectionHeader>Repair plan</SectionHeader>
-          <div style={{ ...panelStyle, borderLeft: `3px solid ${COLOR.red}`, whiteSpace: "pre-wrap", fontSize: 12, fontFamily: FONT_MONO }}>
-            {formatUnknown(detail.repairPlan)}
+          <SectionHeader>Candidate causes · includes open set</SectionHeader>
+          <div style={{ display: "grid", gap: 6 }}>
+            {candidates.map((raw, index) => {
+              const candidate =
+                raw && typeof raw === "object" && !Array.isArray(raw)
+                  ? raw as Record<string, unknown>
+                  : {};
+              const candidateTarget =
+                candidate.targetRef &&
+                typeof candidate.targetRef === "object" &&
+                !Array.isArray(candidate.targetRef)
+                  ? candidate.targetRef as Parameters<typeof formatCausalTarget>[0]
+                  : null;
+              return (
+                <div key={index} style={{ ...panelStyle, borderLeft: `3px solid ${COLOR.amber}`, fontSize: 12 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <Pill color={candidate.openSet ? "slate" : "amber"}>
+                      {candidate.openSet ? "open set" : "proposal"}
+                    </Pill>
+                    {candidate.causeScope ? <Pill color="slate">{String(candidate.causeScope).replace(/_/g, " ")}</Pill> : null}
+                    {candidateTarget ? <Faint>{formatCausalTarget(candidateTarget)}</Faint> : null}
+                  </div>
+                  <div style={{ marginTop: 5, lineHeight: 1.5 }}>
+                    {String(candidate.statement ?? "Something else not represented here")}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       ) : null}
-    </div>
+      {claims.length ? (
+        <>
+          <SectionHeader>Postdictive claims</SectionHeader>
+          {claims.map((raw, index) => {
+            const claim =
+              raw && typeof raw === "object" && !Array.isArray(raw)
+                ? raw as Record<string, unknown>
+                : {};
+            return (
+              <div key={index} style={{ padding: "5px 0", borderBottom: `1px solid ${COLOR.border}`, fontSize: 12 }}>
+                <Dim>
+                  {claim.criterionId ? `${String(claim.criterionId)} must ${String(claim.must ?? "hold")}` : String(claim.claim ?? "soft claim")}
+                </Dim>
+              </div>
+            );
+          })}
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -829,8 +947,8 @@ function NoteBody({ detail, onGo }: { detail: NoteInspectorDetail; onGo: (id: st
 // ── attempt ─────────────────────────────────────────────────────────────────
 // Structured mirror of the CLI's `learnloop show <attempt>` layout: identity
 // rows, a score stat grid, the learner answer, per-criterion grading evidence
-// with ✓/✗ verdicts, tutor feedback + repair suggestions, surprise, and error
-// attributions — instead of the old raw key/value dump.
+// with ✓/✗ verdicts, raw grader output, the full P1 causal receipt, surprise,
+// and typed P0 error axes — instead of the old raw key/value dump.
 function AttemptBody({ id, detail, onGo }: { id: string; detail: AttemptInspectorDetail; onGo: (id: string) => void }) {
   const feedback = detail.feedback ?? null;
   const surprise = feedback?.surprise ?? null;
@@ -933,7 +1051,10 @@ function AttemptBody({ id, detail, onGo }: { id: string; detail: AttemptInspecto
 
       {feedback?.feedbackMd || repairs.length || (feedback?.fatalErrors.length ?? 0) ? (
         <>
-          <SectionHeader>Feedback{feedback?.gradingSource ? ` · graded by ${feedback.gradingSource}` : ""}</SectionHeader>
+          <SectionHeader>
+            {detail.causalEpisode?.receipt ? "Raw grader output" : "Feedback"}
+            {feedback?.gradingSource ? ` · graded by ${feedback.gradingSource}` : ""}
+          </SectionHeader>
           {feedback?.fatalErrors.length ? (
             <div style={{ marginBottom: 6, color: COLOR.red, fontSize: 12 }}>
               fatal errors: {feedback.fatalErrors.join(", ")}
@@ -960,6 +1081,8 @@ function AttemptBody({ id, detail, onGo }: { id: string; detail: AttemptInspecto
         </>
       ) : null}
 
+      <CausalEpisodeInspector episode={detail.causalEpisode} />
+
       {surprise && (surprise.predictiveSurprise != null || surprise.bayesianSurprise != null) ? (
         <>
           <SectionHeader>Surprise</SectionHeader>
@@ -983,17 +1106,74 @@ function AttemptBody({ id, detail, onGo }: { id: string; detail: AttemptInspecto
           <SectionHeader>Error attributions</SectionHeader>
           <div style={{ display: "grid", gap: 6 }}>
             {attributions.map((ea) => (
-              <div key={ea.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12 }}>
-                <IdLink id={ea.id} onGo={onGo}>
-                  <span style={{ color: COLOR.red }}>{ea.errorTitle ?? ea.errorType}</span>
-                </IdLink>
-                {ea.isMisconception ? <Pill color="red">misconception</Pill> : null}
-                <Pill color={ea.status === "active" ? "amber" : "slate"}>{ea.status}</Pill>
-                <Dim style={{ fontFamily: FONT_MONO }}>sev {ea.severity.toFixed(2)}</Dim>
-              </div>
+              <AttemptAttributionRow key={ea.id} event={ea} onGo={onGo} />
             ))}
           </div>
         </>
+      ) : null}
+    </div>
+  );
+}
+
+function AttemptAttributionRow({
+  event,
+  onGo,
+}: {
+  event: ErrorEventDto;
+  onGo: (id: string) => void;
+}) {
+  const plan = event.repairPlan;
+  const resolution =
+    typeof plan?.resolutionStatus === "string" ? plan.resolutionStatus : null;
+  const scope = typeof plan?.causeScope === "string" ? plan.causeScope : null;
+  const operation = typeof plan?.operation === "string" ? plan.operation : null;
+  const abstention =
+    typeof plan?.abstentionReason === "string" ? plan.abstentionReason : null;
+  const target =
+    plan?.targetRef && typeof plan.targetRef === "object" && !Array.isArray(plan.targetRef)
+      ? plan.targetRef as Parameters<typeof formatCausalTarget>[0]
+      : null;
+  const divergence =
+    plan?.firstDivergence &&
+    typeof plan.firstDivergence === "object" &&
+    !Array.isArray(plan.firstDivergence)
+      ? plan.firstDivergence as Parameters<typeof formatDivergenceAnchor>[0]
+      : null;
+  return (
+    <div
+      style={{
+        borderBottom: `1px solid ${COLOR.border}`,
+        padding: "7px 0",
+        fontSize: 12,
+      }}
+    >
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <IdLink id={event.id} onGo={onGo}>
+          <span style={{ color: COLOR.red }}>{event.errorTitle ?? event.errorType}</span>
+        </IdLink>
+        {event.isMisconception ? <Pill color="red">misconception</Pill> : null}
+        <Pill color={event.status === "active" ? "amber" : "slate"}>{event.status}</Pill>
+        {resolution ? <Pill color={resolution === "resolved" ? "green" : "amber"}>{resolution.replace(/_/g, " ")}</Pill> : null}
+        {scope ? <Pill color="slate">{scope.replace(/_/g, " ")}</Pill> : null}
+        <Dim style={{ fontFamily: FONT_MONO }}>sev {event.severity.toFixed(2)}</Dim>
+      </div>
+      {target || operation ? (
+        <div style={{ marginTop: 4 }}>
+          {target ? <><Faint>target · </Faint><Dim>{formatCausalTarget(target)}</Dim></> : null}
+          {target && operation ? <Faint> · </Faint> : null}
+          {operation ? <><Faint>operation · </Faint><Dim>{operation.replace(/_/g, " ")}</Dim></> : null}
+        </div>
+      ) : null}
+      {divergence ? (
+        <div style={{ marginTop: 4 }}>
+          <Faint>first divergence · </Faint>
+          <Dim>{formatDivergenceAnchor(divergence)}</Dim>
+        </div>
+      ) : null}
+      {abstention ? (
+        <div style={{ marginTop: 4, color: COLOR.amber }}>
+          attribution abstained · {abstention}
+        </div>
       ) : null}
     </div>
   );

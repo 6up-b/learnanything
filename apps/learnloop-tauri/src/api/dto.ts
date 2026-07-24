@@ -486,6 +486,16 @@ export interface PracticeItemDetail {
   subjects: string[];
   practiceMode: string;
   attemptTypesAllowed: AttemptType[];
+  teachBackSource: {
+    sourcePracticeItemId: string;
+    sourceUpdatedAt: string;
+    compilerVersion: string;
+    questId: string | null;
+    questSentence: string | null;
+    questBasis: "explicit_intent" | "exam_goal" | "practice_goal" | "legacy_title" | "provided" | null;
+    questConnection: "connected" | "not_relevant" | "no_quest";
+    authoringMode: "ai" | "deterministic_fallback";
+  } | null;
   evidenceFacets: string[];
   evidenceWeights: Record<string, number>;
   prompt: string;
@@ -605,6 +615,7 @@ export interface ProbeBlockEndDto {
     rubricScore: number | null;
     feedbackMd: string | null;
     fatalErrors: string[];
+    causalFeedback?: CausalFeedbackDto | null;
   }[];
   normalizedMisconceptionIds: string[];
   openSet: Record<string, unknown> | null;
@@ -738,11 +749,217 @@ export interface FeedbackBundle {
    * candidate causes imply different repairs (drives the diagnostic card). */
   unresolvedCauses?: UnresolvedCauseDto[];
   matchedMisconception?: MatchedMisconceptionDto | null;
+  /** P1 receipt-checked overlay. Every diagnostic statement is typed as
+   * verified, uncertain, unverified, or a proposed action before display. */
+  causalFeedback?: CausalFeedbackDto | null;
   /** Persisted §2.1 regrade ledger fact: present when this attempt's grading
    * history carries a regrade (a grading epoch after the original), so the
    * RegradeLedgerCard renders on a fresh load, not only after an in-screen
    * trigger_regrade. Null/absent when the attempt was never regraded. */
   regrade?: PersistedRegradeDto | null;
+}
+
+export interface CausalFeedbackDto {
+  receiptId: string;
+  verifiedCorrection: {
+    label: string;
+    rationale: string | null;
+    verificationStatus: "verified";
+    verificationScope: string;
+  } | null;
+  causalHypotheses: {
+    hypothesisId: string;
+    label: string;
+    statement: string;
+    causeScope: string;
+    supportScore: number | null;
+  }[];
+  unverified: {
+    kind: string;
+    hypothesisId?: string;
+    statement: string;
+  }[];
+  proposedNextAction: {
+    label: string;
+    operator: string | null;
+    rationale: string | null;
+    repairClassId: string | null;
+  } | null;
+  demonstratedCriteria: {
+    criterionId: string;
+    criterionLabel: string | null;
+    pointsAwarded: number;
+    pointsPossible: number;
+  }[];
+  firstDivergence: CausalDivergenceAnchorDto | null;
+  protectedTargets: { target: string | null; reason: string }[];
+  contestAction: {
+    available: boolean;
+    reasons: UnresolvedCauseSelfReportResponse[];
+    factorId?: string | null;
+  };
+  repairedTrace: RepairedTraceDto | null;
+  repairedTraceWithheldReason: string | null;
+  permittedUses: string[];
+}
+
+export interface CausalTargetRefDto {
+  kind: string;
+  facetId?: string | null;
+  capability?: string | null;
+  criterionId?: string | null;
+  recipeId?: string | null;
+  checkpointId?: string | null;
+  quote?: string | null;
+  charStart?: number | null;
+  charEnd?: number | null;
+}
+
+export interface CausalDivergenceAnchorDto {
+  anchorKind?: string | null;
+  criterionId?: string | null;
+  checkpointId?: string | null;
+  quote?: string | null;
+  normalizedQuote?: string | null;
+  charStart?: number | null;
+  charEnd?: number | null;
+  [key: string]: unknown;
+}
+
+export interface RepairedTraceDto {
+  learnerWorkPrefix?: string | null;
+  repairInsertionPoint?: CausalDivergenceAnchorDto | null;
+  minimalEdit?: string | null;
+  regeneratedWork?: string | null;
+  repairedAnswerMd?: string | null;
+  changedLatentClaims?: string[];
+  changedCheckpointIds?: string[];
+}
+
+export interface CausalRepairClassDto {
+  id: string;
+  equivalenceScope?: string;
+  episodeId?: string;
+  repairPolicyVersion?: string;
+  operator: string;
+  targetRefs: CausalTargetRefDto[];
+  preserveRefs: CausalTargetRefDto[];
+  expectedMinutes: number | null;
+  answerRevealBudget: number;
+}
+
+export interface CausalHypothesisDto {
+  id: string;
+  episodeKey: string;
+  version: number;
+  supersedesId: string | null;
+  attemptId: string;
+  errorEventId: string | null;
+  learningObjectId: string;
+  causeScope: string;
+  statement: string;
+  statementNormalized: string;
+  mechanism: string | null;
+  operation: string | null;
+  targetRef: CausalTargetRefDto | null;
+  applicability: Record<string, unknown> | null;
+  postdictiveClaims: Record<string, unknown>[];
+  evidence: Record<string, unknown> | null;
+  repairClassId: string | null;
+  status: string;
+  generationAgentRunId: string | null;
+  model: string | null;
+  createdAt: IsoTimestamp;
+}
+
+export interface CausalMinimalityDto {
+  preservedSpans: string[];
+  preservedCriteria: string[];
+  changedLatentClaims: string[];
+  changedTraceSteps: string[];
+  traceEditCost: number | null;
+  latentChangeCost: number;
+  checkpointChangeCost: number;
+  backtrackingDepth?: number | null;
+  estimatedMinutes: number | null;
+  divergenceAnchors?: Record<string, CausalDivergenceAnchorDto | null>;
+  textDiff?: { before: string; after: string } | null;
+}
+
+export interface DiagnosisReceiptDto {
+  id: string;
+  schemaVersion: number;
+  attemptId: string;
+  criterionOutcomes: {
+    criterionId: string;
+    pointsAwarded: number;
+    pointsPossible: number;
+    assessable: boolean;
+    passed: boolean;
+    fullCredit: boolean;
+  }[];
+  divergenceAnchors: {
+    firstObservableDivergence: CausalDivergenceAnchorDto | null;
+    earliestSupportedFaultyCommitment: CausalDivergenceAnchorDto | null;
+    repairInsertionPoint: CausalDivergenceAnchorDto | null;
+    observableDivergenceCandidates?: CausalDivergenceAnchorDto[];
+    anchorDisagreement?: boolean;
+  };
+  attributionAxes: {
+    hypothesisId: string;
+    version: number;
+    causeScope: string;
+    resolutionStatus: string | null;
+    targetRef: CausalTargetRefDto | null;
+  }[];
+  validTargets: CausalTargetRefDto[];
+  hypotheses: {
+    id: string;
+    version: number;
+    status: string;
+    repairClassId: string | null;
+  }[];
+  supportScores: Record<string, number | null>;
+  modelReportedSupportProposals?: Record<string, number | null>;
+  supportAuthority?: string;
+  plausibleSet: string[];
+  ordinalRanking: string[];
+  repairClasses: CausalRepairClassDto[];
+  repairClassRanking: string[];
+  repairSelection: {
+    selected: {
+      repairClass: CausalRepairClassDto;
+      suggestion: RepairSuggestionDto;
+      minimality: CausalMinimalityDto;
+    } | null;
+    rejected: { repairClassId: string; reasons: string[] }[];
+    ranking: string[];
+  };
+  commonRepairCover: {
+    coversPlausibleSet: boolean;
+    repairClassId: string | null;
+    matrix?: {
+      hypothesisId: string;
+      repairClassId: string | null;
+      targetRef: CausalTargetRefDto | null;
+      covered: boolean;
+      basis: string;
+    }[];
+  };
+  probeDecision: { decision: string; reason: string };
+  permittedUses: string[];
+  mechanismTaxonomyVersionId?: string | null;
+  mechanismTaxonomyHash?: string | null;
+  /** Legacy receipt field retained only so old vaults remain inspectable. */
+  mechanismTaxonomy?: Record<string, unknown>;
+  contaminationStatus?: string | null;
+  createdAt: IsoTimestamp;
+}
+
+export interface CausalEpisodeDto {
+  attemptId: string;
+  receipt: DiagnosisReceiptDto | null;
+  hypotheses: CausalHypothesisDto[];
 }
 
 export interface PersistedRegradeDto {
@@ -796,6 +1013,7 @@ export type UnresolvedCauseSelfReportResponse =
   | "slipped"
   | "believed_candidate"
   | "item_unclear"
+  | "notation_confused"
   | "other_valid_approach"
   | "diagnosis_wrong";
 
@@ -1228,6 +1446,28 @@ export interface RepairSuggestionDto {
   learningObjectId: string | null;
   rationale: string;
   targetEvidenceFamilies?: string[];
+  targetCriterionIds?: string[];
+  operator?: string | null;
+  targetRefs?: CausalTargetRefDto[];
+  preserveRefs?: CausalTargetRefDto[];
+  expectedMinutes?: number | null;
+  answerRevealBudget?: number | null;
+  repairedTrace?: RepairedTraceDto | null;
+  verificationRequest?: {
+    kind: "symbolic_equality" | "exact_match";
+    assumptions?: string[];
+    requiredAssumptions?: string[];
+  } | null;
+  repairValidation?: {
+    id: string;
+    authority: "learnloop_validator";
+    status: "valid" | "invalid" | "incomplete";
+    reasons: string[];
+    verification: {
+      status: string;
+      detail?: string | null;
+    };
+  };
 }
 
 // Detail payload for `inspect_entity` on a practice attempt (sidecar
@@ -1256,6 +1496,9 @@ export interface AttemptInspectorDetail {
   schedulerCandidateId?: string | null;
   createdAt: IsoTimestamp;
   feedback: FeedbackBundle | null;
+  /** Full P1 audit record. Unlike feedback.causalFeedback, this debug surface
+   * includes evidence, alternatives, selector costs, and probe reasoning. */
+  causalEpisode?: CausalEpisodeDto | null;
 }
 
 export interface NoteInspectorDetail {
@@ -2668,6 +2911,9 @@ export interface GoalSeriesSnapshot {
 }
 
 export interface GoalFeasibilityInput {
+  title?: string;
+  intentSentence?: string | null;
+  examEnabled?: boolean;
   targetRecall: number;
   dueAt?: string | null;
   concepts: string[];
@@ -2680,6 +2926,8 @@ export interface GoalFeasibilityResult {
   onTrackCount: number;
   projectedOnTrackFraction: number | null;
   uncoveredConcepts: string[];
+  resolvedQuestSentence: string | null;
+  questBasis: GoalDto["questBasis"];
 }
 
 export interface CreateGoalInput {
@@ -2691,11 +2939,13 @@ export interface CreateGoalInput {
   facets: string[];
   examEnabled: boolean;
   examItemCount?: number;
+  populatePractice?: boolean;
 }
 
 export interface CreateGoalResult {
   version: number;
   goal: GoalDto;
+  populationBatch?: IngestBatchDto | null;
 }
 
 // ── calibration sessions (probe redesign §5.9) ───────────────────────────────

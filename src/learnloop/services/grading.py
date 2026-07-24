@@ -894,6 +894,100 @@ def validate_codex_grading_proposal(
             payload["target_criterion_ids"] = target_criterion_ids
         else:
             payload.pop("target_criterion_ids", None)
+        structural_refs: dict[str, list[dict[str, Any]]] = {
+            "target_refs": [],
+            "preserve_refs": [],
+        }
+        for field_name, raw_refs in (
+            ("target_refs", suggestion.target_refs),
+            ("preserve_refs", suggestion.preserve_refs),
+        ):
+            for raw_ref in raw_refs:
+                ref = raw_ref.model_dump(mode="json", exclude_none=True)
+                if ref.get("kind") == "facet_capability":
+                    raw_facet = str(ref.get("facet_id") or "")
+                    canonical = vault.canonical_facet_id(raw_facet)
+                    if canonical not in known_facets:
+                        unknown_target_families.add(raw_facet)
+                        continue
+                    ref["facet_id"] = canonical
+                elif ref.get("kind") == "criterion":
+                    criterion_id = str(ref.get("criterion_id") or "")
+                    if criterion_id not in criteria:
+                        unknown_target_criteria.add(criterion_id)
+                        continue
+                structural_refs[field_name].append(ref)
+        for field_name, refs in structural_refs.items():
+            if refs or field_name in suggestion.model_fields_set:
+                payload[field_name] = refs
+            else:
+                payload.pop(field_name, None)
+        for field_name in (
+            "operator",
+            "expected_minutes",
+            "answer_reveal_budget",
+            "repaired_trace",
+            "verification_request",
+        ):
+            if field_name not in suggestion.model_fields_set:
+                payload.pop(field_name, None)
+        repaired_trace = payload.get("repaired_trace")
+        if isinstance(repaired_trace, dict):
+            learner_prefix = str(
+                repaired_trace.get("learner_work_prefix") or ""
+            )
+            answer = learner_answer_md or ""
+            if learner_prefix and not answer.startswith(learner_prefix):
+                raise GradingValidationError(
+                    "repaired-trace learner_work_prefix is not verbatim learner work"
+                )
+            repaired_answer = str(
+                repaired_trace.get("repaired_answer_md") or ""
+            )
+            if learner_prefix and not repaired_answer.startswith(learner_prefix):
+                raise GradingValidationError(
+                    "repaired trace does not preserve learner_work_prefix"
+                )
+            known_checkpoints = {
+                checkpoint
+                for recipe in (
+                    item.trace_contract.recipes
+                    if item.trace_contract is not None
+                    and item.trace_contract.status == "available"
+                    else []
+                )
+                for checkpoint in recipe.checkpoints
+            }
+            unknown_changed = sorted(
+                {
+                    str(value)
+                    for value in repaired_trace.get(
+                        "changed_checkpoint_ids"
+                    )
+                    or []
+                    if str(value) not in known_checkpoints
+                }
+            )
+            if unknown_changed:
+                raise GradingValidationError(
+                    "Unknown repaired-trace checkpoint "
+                    + ", ".join(unknown_changed)
+                )
+            insertion = repaired_trace.get("repair_insertion_point")
+            if isinstance(insertion, dict):
+                criterion_id = str(insertion.get("criterion_id") or "")
+                if criterion_id not in criteria:
+                    raise GradingValidationError(
+                        f"Unknown repaired-trace criterion {criterion_id}"
+                    )
+                quote = insertion.get("quote")
+                answer = learner_answer_md or ""
+                if quote and str(quote) not in answer and " ".join(
+                    str(quote).split()
+                ) not in " ".join(answer.split()):
+                    raise GradingValidationError(
+                        "repaired-trace insertion quote does not anchor in learner answer"
+                    )
         validated_repair_suggestions.append(payload)
 
     criterion_points = {
@@ -909,6 +1003,15 @@ def validate_codex_grading_proposal(
             vault=vault,
         )
     )
+    from learnloop.services.causal_attribution import (
+        validate_repair_candidate,
+    )
+
+    for suggestion in validated_repair_suggestions:
+        suggestion["repair_validation"] = validate_repair_candidate(
+            suggestion,
+            expected_answer=item.expected_answer,
+        ).as_dict()
     manual_review_reason = "codex_manual_review" if proposal.manual_review_recommended else None
     if manual_review_reason is None and proposal.grader_confidence < 0.4:
         manual_review_reason = "low_grader_confidence"

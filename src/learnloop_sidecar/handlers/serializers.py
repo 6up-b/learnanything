@@ -113,6 +113,11 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             "subjects": vault.subjects_for_item(item),
             "practice_mode": item.practice_mode,
             "attempt_types_allowed": item.attempt_types_allowed,
+            "teach_back_source": (
+                item.teach_back_source.model_dump(mode="json")
+                if item.teach_back_source is not None
+                else None
+            ),
             "evidence_facets": item.evidence_facets,
             "evidence_weights": item.evidence_weights,
             "prompt": item.prompt,
@@ -314,6 +319,8 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {attempt_id} was not found.")
+    from learnloop.services.causal_attribution import causal_episode_for_attempt
+
     return versioned(
         {
             "id": attempt["id"],
@@ -338,6 +345,9 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
             "scheduler_candidate_id": attempt.get("scheduler_candidate_id"),
             "created_at": attempt["created_at"],
             "feedback": feedback_bundle(vault, repository, attempt_id),
+            # Debug-only P1 audit surface. The learner-facing feedback bundle
+            # receives the narrower claim-checked projection below.
+            "causal_episode": causal_episode_for_attempt(repository, attempt_id),
         }
     )
 
@@ -356,6 +366,9 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     gate_attempt_id = repository.followup_source_attempt(attempt_id)
     rating = repository.followup_rating(attempt_id)
     error_events = repository.error_events_for_attempt(attempt_id)
+    from learnloop.services.causal_attribution import claim_checked_feedback
+
+    causal_feedback = claim_checked_feedback(vault, repository, attempt_id)
     matched_misconception = None
     for error_event in error_events:
         misconception_id = error_event.get("misconception_id")
@@ -472,6 +485,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
                                 {"id": "slipped", "label": "I knew it and slipped"},
                                 {"id": "believed_candidate", "label": "I believed one of these"},
                                 {"id": "item_unclear", "label": "The item was unclear"},
+                                {"id": "notation_confused", "label": "The notation confused me"},
                                 {"id": "other_valid_approach", "label": "I used another valid approach"},
                                 {"id": "diagnosis_wrong", "label": "The diagnosis is wrong"},
                             ],
@@ -481,6 +495,9 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
                 for factor in repository.unresolved_cause_factors_for_attempt(attempt_id)
             ],
             "matched_misconception": matched_misconception,
+            # P1 receipt-checked, claim-typed overlay. The original feedback
+            # generation remains unchanged; this is the authority/display gate.
+            "causal_feedback": causal_feedback,
             # Persisted regrade ledger fact (None unless the attempt's grading
             # history carries a regrade). Renders the RegradeLedgerCard on load.
             "regrade": regrade,

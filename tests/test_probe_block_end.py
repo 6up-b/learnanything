@@ -178,6 +178,13 @@ def test_followup_and_normalization_defer_to_block_end(tmp_path):
     assert len(rows) == 1  # both events merged into one registry row
     assert rows[0].statement == MISCONCEPTION_STATEMENT
     assert block_end["normalized_misconception_ids"]
+    # Withheld learner feedback is claim-checked only after normalization has
+    # produced the current P1 receipt; the diagnostic review must not release
+    # raw causal prose as its only representation.
+    assert all(
+        entry["causal_feedback"]["receipt_id"]
+        for entry in block_end["released_feedback"]
+    )
 
 
 def test_ordinary_attempt_outside_block_still_normalizes(tmp_path):

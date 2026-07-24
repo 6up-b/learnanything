@@ -121,7 +121,7 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
 
 
 def test_grader_prompt_version_bumped():
-    assert GRADING_PROMPT_VERSION == "mvp-0.8-causal-attribution-prose-first"
+    assert GRADING_PROMPT_VERSION == "mvp-0.9-causal-structural-repair"
     assert GRADING_PROMPT_VERSION != "mvp-0.5-misconception-statements"
 
 

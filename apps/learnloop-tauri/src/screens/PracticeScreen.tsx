@@ -794,6 +794,25 @@ function TeachBackConversation({
           the AI plays a student — it will not confirm or correct
         </span>
       </div>
+      {item.teachBackSource?.questConnection === "connected" &&
+      item.teachBackSource.questSentence ? (
+        <div
+          style={{
+            marginTop: 9,
+            borderLeft: `3px solid ${COLOR.cyan}`,
+            background: COLOR.bgElev,
+            color: COLOR.textDim,
+            fontSize: 12,
+            lineHeight: 1.5,
+            padding: "8px 11px"
+          }}
+        >
+          This transfer question connects to:{" "}
+          <span style={{ color: COLOR.text }}>
+            {item.teachBackSource.questSentence}
+          </span>
+        </div>
+      ) : null}
 
       {/* transcript */}
       <div

@@ -1030,6 +1030,55 @@ def apply_attempt(
     record_remediation_attempt(repository, application.attempt_record, clock=clock)
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
     _project_canonical_belief(vault, repository, clock=clock)
+    from learnloop.services.causal_attribution import materialize_causal_episode
+
+    stored_feedback = repository.fetch_attempt_feedback_metadata(
+        application.result.attempt_id
+    ) or {}
+    repair_suggestions = (
+        application.result.repair_suggestions
+        or stored_feedback.get("repair_suggestions")
+        or []
+    )
+    generation_agent_run_id = next(
+        (
+            str(row["agent_run_id"])
+            for row in application.evidence_rows
+            if row.get("agent_run_id")
+        ),
+        None,
+    )
+    has_causal_episode = bool(
+        application.error_events
+        or repair_suggestions
+        or repository.unresolved_cause_factors_for_attempt(
+            application.result.attempt_id,
+            status="open",
+        )
+    )
+    if has_causal_episode:
+        materialize_causal_episode(
+            vault,
+            repository,
+            attempt_id=application.result.attempt_id,
+            repair_suggestions=list(repair_suggestions),
+            generation_agent_run_id=generation_agent_run_id,
+            clock=clock,
+        )
+        persisted_debug = repository.attempt_debug_payload(
+            application.result.attempt_id
+        )
+        application = replace(
+            application,
+            attempt_debug_payload=(
+                persisted_debug or application.attempt_debug_payload
+            ),
+            result=replace(
+                application.result,
+                debug_payload=persisted_debug
+                or application.result.debug_payload,
+            ),
+        )
     if attempt.record_probe_update:
         # Probe redesign Checkpoint 0/1: episode accounting replaces the legacy
         # lo_probe_state advancement (`record_probe_attempt` is frozen for

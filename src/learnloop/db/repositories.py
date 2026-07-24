@@ -1580,10 +1580,176 @@ class Repository:
 
     # -- Misconception candidates (KM4 §10.3 promotion discipline) -----------
 
+    def _projected_causal_candidates(
+        self,
+        learning_object_id: str,
+        *,
+        statement_normalized: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Compatibility projection over P1's single hypothesis owner."""
+
+        heads = self.causal_hypotheses_for_learning_object(
+            learning_object_id,
+            statuses=("candidate", "validated"),
+            statement_normalized=statement_normalized,
+        )
+        validated_statements = {
+            str(row["statement_normalized"])
+            for row in heads
+            if row["status"] == "validated"
+        }
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for row in heads:
+            if row["status"] != "candidate":
+                continue
+            if row.get("cause_scope") != "learner_state":
+                continue
+            normalized = str(row["statement_normalized"])
+            if normalized in validated_statements:
+                continue
+            grouped.setdefault(normalized, []).append(row)
+        attempt_ids = sorted(
+            {
+                str(member["attempt_id"])
+                for members in grouped.values()
+                for member in members
+            }
+        )
+        concepts_by_attempt: dict[str, Any] = {}
+        if attempt_ids:
+            placeholders = ",".join("?" for _ in attempt_ids)
+            with self.connection() as connection:
+                attempt_rows = connection.execute(
+                    f"""
+                    SELECT id, concept FROM practice_attempts
+                     WHERE id IN ({placeholders})
+                    """,
+                    attempt_ids,
+                ).fetchall()
+            concepts_by_attempt = {
+                str(row["id"]): row["concept"] for row in attempt_rows
+            }
+        projections: list[dict[str, Any]] = []
+        for normalized, members in grouped.items():
+            members.sort(
+                key=lambda row: (
+                    str(row.get("created_at") or ""),
+                    str(row["id"]),
+                )
+            )
+            representative = members[0]
+            source_error_event_ids: list[str] = []
+            surface_families: set[str] = set()
+            item_ids: set[str] = set()
+            facet_ids: set[str] = set()
+            signatures: list[str] = []
+            severities: list[float] = []
+            target_facet: str | None = None
+            confused_with_facet: str | None = None
+            for member in members:
+                evidence = member.get("evidence")
+                evidence = evidence if isinstance(evidence, Mapping) else {}
+                applicability = member.get("applicability")
+                applicability = (
+                    applicability if isinstance(applicability, Mapping) else {}
+                )
+                event_id = member.get("error_event_id")
+                if event_id and str(event_id) not in source_error_event_ids:
+                    source_error_event_ids.append(str(event_id))
+                surface = applicability.get("surface_family")
+                if surface:
+                    surface_families.add(str(surface))
+                item_id = applicability.get("practice_item_id")
+                if item_id:
+                    item_ids.add(str(item_id))
+                target_ref = member.get("target_ref")
+                if (
+                    isinstance(target_ref, Mapping)
+                    and target_ref.get("kind") == "facet_capability"
+                ):
+                    target_facet = target_facet or str(
+                        target_ref.get("facet_id") or ""
+                    )
+                    if target_ref.get("facet_id"):
+                        facet_ids.add(str(target_ref["facet_id"]))
+                contrast = evidence.get("facet_contrast")
+                if isinstance(contrast, Mapping):
+                    target_facet = target_facet or contrast.get("target_facet")
+                    confused_with_facet = (
+                        confused_with_facet
+                        or contrast.get("confused_with_facet")
+                    )
+                signature = evidence.get("preregistered_signature")
+                if signature and str(signature) not in signatures:
+                    signatures.append(str(signature))
+                severity = evidence.get("severity")
+                if isinstance(severity, (int, float)):
+                    severities.append(float(severity))
+            latest = members[-1]
+            latest_evidence = latest.get("evidence")
+            latest_evidence = (
+                latest_evidence
+                if isinstance(latest_evidence, Mapping)
+                else {}
+            )
+            projections.append(
+                {
+                    "id": representative["id"],
+                    "learning_object_id": learning_object_id,
+                    "concept_id": concepts_by_attempt.get(
+                        str(representative["attempt_id"])
+                    ),
+                    "statement": representative["statement"],
+                    "statement_normalized": normalized,
+                    "signature": signatures[0] if signatures else None,
+                    # Compatibility-only projection for pre-P1 consumers. The
+                    # causal hypothesis itself keeps mechanism NULL until an
+                    # operation cluster earns a taxonomy id.
+                    "mechanism": latest.get("mechanism")
+                    or latest_evidence.get("error_type"),
+                    "operation": latest.get("operation"),
+                    "target_facet": target_facet,
+                    "confused_with_facet": confused_with_facet,
+                    "facet_ids": sorted(facet_ids),
+                    "source_error_event_ids": source_error_event_ids,
+                    "surface_families": sorted(surface_families),
+                    "item_ids": sorted(item_ids),
+                    "occurrence_count": len(members),
+                    "severity": max(severities, default=0.0),
+                    "status": "candidate",
+                    "promoted_misconception_id": None,
+                    "promotion_reason": None,
+                    "created_at": representative["created_at"],
+                    "updated_at": latest["created_at"],
+                    "causal_hypothesis_ids": [
+                        member["id"] for member in members
+                    ],
+                    "projection": "causal_hypotheses",
+                }
+            )
+        return sorted(
+            projections,
+            key=lambda row: (str(row["created_at"]), str(row["id"])),
+        )
+
     def misconception_candidate_by_normalized(
         self, learning_object_id: str, statement_normalized: str
     ) -> dict[str, Any] | None:
         """The open candidate for one normalized statement on an LO, if any."""
+
+        projected = next(
+            (
+                row
+                for row in self._projected_causal_candidates(
+                    learning_object_id,
+                    statement_normalized=statement_normalized,
+                )
+                if row["statement_normalized"] == statement_normalized
+            ),
+            None,
+        )
+        if projected is not None:
+            return projected
 
         with self.connection() as connection:
             row = connection.execute(
@@ -1612,7 +1778,23 @@ class Repository:
                 """,
                 (learning_object_id, *status_list),
             ).fetchall()
-        return [_decode_misconception_candidate(row) for row in rows]
+        legacy = [_decode_misconception_candidate(row) for row in rows]
+        projected = (
+            self._projected_causal_candidates(learning_object_id)
+            if "candidate" in status_list
+            else []
+        )
+        projected_normalized = {
+            str(row["statement_normalized"]) for row in projected
+        }
+        return [
+            *projected,
+            *[
+                row
+                for row in legacy
+                if str(row["statement_normalized"]) not in projected_normalized
+            ],
+        ]
 
     def insert_misconception_candidate(
         self,
@@ -1691,6 +1873,85 @@ class Repository:
         promotion_reason: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any] | None:
+        causal = self.causal_hypothesis(candidate_id)
+        if causal is not None:
+            if status not in (None, "candidate", "promoted"):
+                raise ValueError("unsupported causal candidate status transition")
+            unsupported_values = {
+                "severity": severity,
+                "occurrence_count": occurrence_count,
+                "append_source_error_event_ids": (
+                    list(append_source_error_event_ids)
+                    if append_source_error_event_ids is not None
+                    else None
+                ),
+                "add_surface_families": (
+                    list(add_surface_families)
+                    if add_surface_families is not None
+                    else None
+                ),
+                "add_item_ids": (
+                    list(add_item_ids)
+                    if add_item_ids is not None
+                    else None
+                ),
+                "signature": signature,
+                "mechanism": mechanism,
+                "target_facet": target_facet,
+                "confused_with_facet": confused_with_facet,
+            }
+            supplied_unsupported = sorted(
+                name
+                for name, value in unsupported_values.items()
+                if value is not None
+            )
+            if supplied_unsupported:
+                raise ValueError(
+                    "projected causal candidates are read-only for fields: "
+                    + ", ".join(supplied_unsupported)
+                )
+            if status != "promoted" and (
+                promoted_misconception_id is not None
+                or promotion_reason is not None
+            ):
+                raise ValueError(
+                    "promotion metadata requires status='promoted'"
+                )
+            if status == "promoted":
+                normalized = str(causal["statement_normalized"])
+                for member in self.causal_hypotheses_for_learning_object(
+                    str(causal["learning_object_id"]),
+                    statuses=("candidate",),
+                ):
+                    if member["statement_normalized"] != normalized:
+                        continue
+                    evidence = dict(member.get("evidence") or {})
+                    evidence["promoted_misconception_id"] = promoted_misconception_id
+                    evidence["promotion_reason"] = promotion_reason
+                    self.append_causal_hypothesis(
+                        episode_key=str(member["episode_key"]),
+                        attempt_id=str(member["attempt_id"]),
+                        error_event_id=member.get("error_event_id"),
+                        learning_object_id=str(member["learning_object_id"]),
+                        cause_scope=str(member["cause_scope"]),
+                        statement=str(member["statement"]),
+                        statement_normalized=normalized,
+                        mechanism=member.get("mechanism"),
+                        operation=member.get("operation"),
+                        target_ref=member.get("target_ref"),
+                        applicability=member.get("applicability"),
+                        postdictive_claims=member.get("postdictive_claims")
+                        or [],
+                        evidence=evidence,
+                        repair_class_id=member.get("repair_class_id"),
+                        status="validated",
+                        generation_agent_run_id=member.get(
+                            "generation_agent_run_id"
+                        ),
+                        model=member.get("model"),
+                        clock=clock,
+                    )
+            return self.misconception_candidate_by_id(candidate_id)
         now = utc_now_iso(clock)
         with self.connection() as connection:
             row = connection.execute(
@@ -1741,6 +2002,18 @@ class Repository:
         return self.misconception_candidate_by_id(candidate_id)
 
     def misconception_candidate_by_id(self, candidate_id: str) -> dict[str, Any] | None:
+        causal = self.causal_hypothesis(candidate_id)
+        if causal is not None:
+            return next(
+                (
+                    row
+                    for row in self._projected_causal_candidates(
+                        str(causal["learning_object_id"])
+                    )
+                    if candidate_id in row.get("causal_hypothesis_ids", [])
+                ),
+                None,
+            )
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM misconception_candidates WHERE id = ?",
@@ -3590,7 +3863,10 @@ class Repository:
                 placeholders = ",".join("?" for _ in attempt_ids)
                 connection.execute(f"DELETE FROM error_events WHERE attempt_id IN ({placeholders})", attempt_ids)
                 connection.execute(f"DELETE FROM attempt_surprise WHERE attempt_id IN ({placeholders})", attempt_ids)
-                connection.execute(f"DELETE FROM attempt_debug_payloads WHERE attempt_id IN ({placeholders})", attempt_ids)
+                # P1 diagnosis receipts live inside attempt_debug_payloads and
+                # are immutable decision records, not disposable derived state.
+                # replace_attempt_derived_outcome preserves them while replacing
+                # the surrounding replay trace below.
                 connection.execute(f"DELETE FROM ability_transition_events WHERE attempt_id IN ({placeholders})", attempt_ids)
             if item_ids:
                 placeholders = ",".join("?" for _ in item_ids)
@@ -3624,6 +3900,47 @@ class Repository:
         item_parameter_state: ItemParameterState | None = None,
     ) -> None:
         with self.connection() as connection:
+            prior_debug_row = connection.execute(
+                """
+                SELECT payload_json FROM attempt_debug_payloads
+                WHERE attempt_id = ?
+                """,
+                (attempt["id"],),
+            ).fetchone()
+            prior_debug = (
+                _loads(prior_debug_row["payload_json"], {})
+                if prior_debug_row is not None
+                else {}
+            )
+            next_debug = (
+                dict(attempt_debug_payload)
+                if attempt_debug_payload is not None
+                else None
+            )
+            if next_debug is not None:
+                prior_attribution = prior_debug.get("causal_attribution")
+                prior_receipts = (
+                    prior_attribution.get("diagnosis_receipts")
+                    if isinstance(prior_attribution, Mapping)
+                    else None
+                )
+                if isinstance(prior_receipts, list) and prior_receipts:
+                    next_attribution = next_debug.get("causal_attribution")
+                    if not isinstance(next_attribution, dict):
+                        next_attribution = {}
+                        next_debug["causal_attribution"] = next_attribution
+                    next_attribution["diagnosis_receipts"] = [
+                        dict(value)
+                        for value in prior_receipts
+                        if isinstance(value, Mapping)
+                    ]
+                    current = (
+                        prior_attribution.get("diagnosis_receipt")
+                        if isinstance(prior_attribution, Mapping)
+                        else None
+                    )
+                    if isinstance(current, Mapping):
+                        next_attribution["diagnosis_receipt"] = dict(current)
             connection.execute(
                 """
                 UPDATE practice_attempts
@@ -3672,7 +3989,7 @@ class Repository:
                 self._upsert_ability_transition_event(connection, ability_transition)
             if item_parameter_state is not None:
                 self._upsert_item_parameter_state_record(connection, item_parameter_state)
-            if attempt_debug_payload is not None:
+            if next_debug is not None:
                 connection.execute(
                     """
                     INSERT INTO attempt_debug_payloads(
@@ -3686,9 +4003,9 @@ class Repository:
                     """,
                     (
                         attempt["id"],
-                        _json(attempt_debug_payload),
-                        attempt_debug_payload.get("algorithm_version", ""),
-                        attempt_debug_payload.get("created_at", attempt.get("created_at")),
+                        _json(next_debug),
+                        next_debug.get("algorithm_version", ""),
+                        next_debug.get("created_at", attempt.get("created_at")),
                     ),
                 )
             connection.execute("DELETE FROM learning_outcome_labels WHERE outcome_attempt_id = ?", (attempt["id"],))
@@ -4310,6 +4627,75 @@ class Repository:
                 (attempt_id,),
             ).fetchone()
         return _loads(row["payload_json"], {}) if row is not None else None
+
+    def append_attempt_diagnosis_receipt(
+        self,
+        attempt_id: str,
+        receipt: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Append one immutable P1 decision snapshot to the attempt payload.
+
+        ``attempt_debug_payloads`` is the deliberately reused receipt store from
+        §6.2.  Replay may replace the surrounding derived debug trace, so this
+        method restores the content-addressed receipt when needed; within one
+        payload it never replaces a receipt carrying the same id with different
+        content.
+        """
+
+        receipt_payload = dict(receipt)
+        receipt_id = str(receipt_payload.get("id") or "")
+        if not receipt_id:
+            raise ValueError("diagnosis receipt requires an id")
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT payload_json, algorithm_version, created_at
+                FROM attempt_debug_payloads
+                WHERE attempt_id = ?
+                """,
+                (attempt_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("attempt debug payload does not exist")
+            payload = _loads(row["payload_json"], {})
+            attribution = payload.get("causal_attribution")
+            if not isinstance(attribution, dict):
+                attribution = {}
+                payload["causal_attribution"] = attribution
+            receipts = attribution.get("diagnosis_receipts")
+            if not isinstance(receipts, list):
+                receipts = []
+            for existing in receipts:
+                if not isinstance(existing, Mapping) or existing.get("id") != receipt_id:
+                    continue
+                if dict(existing) != receipt_payload:
+                    raise ValueError(
+                        f"diagnosis receipt {receipt_id} is immutable"
+                    )
+                attribution["diagnosis_receipt"] = dict(existing)
+                connection.execute(
+                    """
+                    UPDATE attempt_debug_payloads
+                       SET payload_json = ?
+                     WHERE attempt_id = ?
+                    """,
+                    (_json(payload), attempt_id),
+                )
+                connection.commit()
+                return dict(existing)
+            receipts.append(receipt_payload)
+            attribution["diagnosis_receipts"] = receipts
+            attribution["diagnosis_receipt"] = receipt_payload
+            connection.execute(
+                """
+                UPDATE attempt_debug_payloads
+                   SET payload_json = ?
+                 WHERE attempt_id = ?
+                """,
+                (_json(payload), attempt_id),
+            )
+            connection.commit()
+        return receipt_payload
 
     def ability_transition_event(self, attempt_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -11527,6 +11913,410 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    # -- P1 causal hypotheses + diagnosis receipts -----------------------
+
+    def latest_causal_hypothesis_for_episode(
+        self, episode_key: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM causal_hypotheses
+                 WHERE episode_key = ?
+                 ORDER BY version DESC
+                 LIMIT 1
+                """,
+                (episode_key,),
+            ).fetchone()
+        return _decode_causal_hypothesis(row) if row is not None else None
+
+    def append_causal_hypothesis(
+        self,
+        *,
+        episode_key: str,
+        attempt_id: str,
+        learning_object_id: str,
+        cause_scope: str,
+        statement: str,
+        statement_normalized: str,
+        error_event_id: str | None = None,
+        mechanism: str | None = None,
+        operation: str | None = None,
+        target_ref: Mapping[str, Any] | None = None,
+        applicability: Mapping[str, Any] | None = None,
+        postdictive_claims: Sequence[Mapping[str, Any]] = (),
+        evidence: Mapping[str, Any] | None = None,
+        repair_class_id: str | None = None,
+        status: str = "candidate",
+        generation_agent_run_id: str | None = None,
+        model: str | None = None,
+        hypothesis_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append a changed hypothesis version, or return the identical head."""
+
+        statement = statement.strip()
+        if not statement:
+            raise ValueError("causal hypothesis statement cannot be empty")
+        if operation is not None and (
+            not operation
+            or not operation[0].isalpha()
+            or not operation[0].islower()
+            or any(
+                not (character.islower() or character.isdigit() or character == "_")
+                for character in operation
+            )
+        ):
+            raise ValueError("causal hypothesis operation must be snake_case")
+        semantic = {
+            "attempt_id": attempt_id,
+            "error_event_id": error_event_id,
+            "learning_object_id": learning_object_id,
+            "cause_scope": cause_scope,
+            "statement": statement,
+            "statement_normalized": statement_normalized,
+            "mechanism": mechanism,
+            "operation": operation,
+            "target_ref": dict(target_ref) if target_ref is not None else None,
+            "applicability": dict(applicability or {}),
+            "postdictive_claims": [dict(value) for value in postdictive_claims],
+            "evidence": dict(evidence or {}),
+            "repair_class_id": repair_class_id,
+            "status": status,
+            "generation_agent_run_id": generation_agent_run_id,
+            "model": model,
+        }
+        latest = self.latest_causal_hypothesis_for_episode(episode_key)
+        if latest is not None and all(
+            latest.get(key) == value for key, value in semantic.items()
+        ):
+            return latest
+        version = int(latest.get("version") or 0) + 1 if latest is not None else 1
+        hypothesis_id = hypothesis_id or new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO causal_hypotheses(
+                  id, episode_key, version, supersedes_id, attempt_id,
+                  error_event_id, learning_object_id, cause_scope, statement,
+                  statement_normalized, mechanism, operation, target_ref_json,
+                  applicability_json, postdictive_claims_json, evidence_json,
+                  repair_class_id, status, generation_agent_run_id, model,
+                  created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?)
+                """,
+                (
+                    hypothesis_id,
+                    episode_key,
+                    version,
+                    latest.get("id") if latest is not None else None,
+                    attempt_id,
+                    error_event_id,
+                    learning_object_id,
+                    cause_scope,
+                    statement,
+                    statement_normalized,
+                    mechanism,
+                    operation,
+                    _json(semantic["target_ref"])
+                    if semantic["target_ref"] is not None
+                    else None,
+                    _json(semantic["applicability"]),
+                    _json(semantic["postdictive_claims"]),
+                    _json(semantic["evidence"]),
+                    repair_class_id,
+                    status,
+                    generation_agent_run_id,
+                    model,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        created = self.causal_hypothesis(hypothesis_id)
+        assert created is not None
+        return created
+
+    def causal_hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_hypotheses WHERE id = ?",
+                (hypothesis_id,),
+            ).fetchone()
+        return _decode_causal_hypothesis(row) if row is not None else None
+
+    def causal_hypotheses_for_attempt(
+        self,
+        attempt_id: str,
+        *,
+        latest_only: bool = True,
+    ) -> list[dict[str, Any]]:
+        latest_clause = (
+            """
+            AND h.version = (
+              SELECT MAX(head.version)
+                FROM causal_hypotheses head
+               WHERE head.episode_key = h.episode_key
+            )
+            """
+            if latest_only
+            else ""
+        )
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT h.* FROM causal_hypotheses h
+                 WHERE h.attempt_id = ? {latest_clause}
+                 ORDER BY h.created_at, h.id
+                """,
+                (attempt_id,),
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
+
+    def causal_hypotheses_for_learning_object(
+        self,
+        learning_object_id: str,
+        *,
+        statuses: Iterable[str] = ("candidate",),
+        latest_only: bool = True,
+        statement_normalized: str | None = None,
+    ) -> list[dict[str, Any]]:
+        status_list = [str(value) for value in statuses]
+        if not status_list:
+            return []
+        placeholders = ",".join("?" for _ in status_list)
+        statement_clause = (
+            "AND h.statement_normalized = ?"
+            if statement_normalized is not None
+            else ""
+        )
+        latest_clause = (
+            """
+            AND h.version = (
+              SELECT MAX(head.version)
+                FROM causal_hypotheses head
+               WHERE head.episode_key = h.episode_key
+            )
+            """
+            if latest_only
+            else ""
+        )
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT h.* FROM causal_hypotheses h
+                 WHERE h.learning_object_id = ?
+                   AND h.status IN ({placeholders})
+                   {statement_clause}
+                   {latest_clause}
+                 ORDER BY h.created_at, h.id
+                """,
+                (
+                    learning_object_id,
+                    *status_list,
+                    *(
+                        (statement_normalized,)
+                        if statement_normalized is not None
+                        else ()
+                    ),
+                ),
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
+
+    def causal_hypotheses_with_operations(
+        self, *, latest_only: bool = True
+    ) -> list[dict[str, Any]]:
+        latest_clause = (
+            """
+            AND h.version = (
+              SELECT MAX(head.version)
+                FROM causal_hypotheses head
+               WHERE head.episode_key = h.episode_key
+            )
+            """
+            if latest_only
+            else ""
+        )
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT h.* FROM causal_hypotheses h
+                 WHERE h.operation IS NOT NULL {latest_clause}
+                 ORDER BY h.operation, h.created_at, h.id
+                """
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
+
+    def insert_causal_mechanism_taxonomy_version(
+        self,
+        *,
+        taxonomy_version_id: str,
+        algorithm: str,
+        min_cluster_size: int,
+        source_head_hash: str,
+        status: str,
+        taxonomy: Mapping[str, Any],
+        assignments: Sequence[Mapping[str, str]],
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Insert an immutable taxonomy snapshot and its hypothesis assignments."""
+
+        if status not in {"draft", "active"}:
+            raise ValueError("taxonomy status must be draft or active")
+        now = utc_now_iso(clock)
+        encoded = _json(dict(taxonomy))
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_mechanism_taxonomy_versions(
+                  id, algorithm, min_cluster_size, source_head_hash, status,
+                  taxonomy_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    taxonomy_version_id,
+                    algorithm,
+                    min_cluster_size,
+                    source_head_hash,
+                    status,
+                    encoded,
+                    now,
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM causal_mechanism_taxonomy_versions
+                 WHERE id = ?
+                """,
+                (taxonomy_version_id,),
+            ).fetchone()
+            if row is None:
+                raise RuntimeError("taxonomy version insert did not persist")
+            existing = _decode_causal_mechanism_taxonomy(row)
+            expected = {
+                "algorithm": algorithm,
+                "min_cluster_size": min_cluster_size,
+                "source_head_hash": source_head_hash,
+                "status": status,
+                "taxonomy": dict(taxonomy),
+            }
+            if any(existing.get(key) != value for key, value in expected.items()):
+                raise ValueError(
+                    "content-addressed taxonomy id refers to different content"
+                )
+            for assignment in assignments:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO causal_mechanism_taxonomy_assignments(
+                      taxonomy_version_id, hypothesis_id, mechanism_id,
+                      created_at
+                    )
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        taxonomy_version_id,
+                        str(assignment["hypothesis_id"]),
+                        str(assignment["mechanism_id"]),
+                        now,
+                    ),
+                )
+            connection.commit()
+        created = self.causal_mechanism_taxonomy_version(
+            taxonomy_version_id, include_assignments=True
+        )
+        assert created is not None
+        return created
+
+    def causal_mechanism_taxonomy_version(
+        self,
+        taxonomy_version_id: str,
+        *,
+        include_assignments: bool = False,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM causal_mechanism_taxonomy_versions
+                 WHERE id = ?
+                """,
+                (taxonomy_version_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            payload = _decode_causal_mechanism_taxonomy(row)
+            if include_assignments:
+                assignment_rows = connection.execute(
+                    """
+                    SELECT hypothesis_id, mechanism_id
+                      FROM causal_mechanism_taxonomy_assignments
+                     WHERE taxonomy_version_id = ?
+                     ORDER BY hypothesis_id
+                    """,
+                    (taxonomy_version_id,),
+                ).fetchall()
+                payload["assignments"] = [
+                    dict(value) for value in assignment_rows
+                ]
+        return payload
+
+    def latest_active_causal_mechanism_taxonomy(
+        self,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM causal_mechanism_taxonomy_versions
+                 WHERE status = 'active'
+                 ORDER BY created_at DESC, id DESC
+                 LIMIT 1
+                """
+            ).fetchone()
+        return (
+            _decode_causal_mechanism_taxonomy(row)
+            if row is not None
+            else None
+        )
+
+    def causal_mechanism_assignment(
+        self,
+        taxonomy_version_id: str,
+        hypothesis_id: str,
+    ) -> str | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT mechanism_id
+                  FROM causal_mechanism_taxonomy_assignments
+                 WHERE taxonomy_version_id = ? AND hypothesis_id = ?
+                """,
+                (taxonomy_version_id, hypothesis_id),
+            ).fetchone()
+        return str(row["mechanism_id"]) if row is not None else None
+
+    def set_unresolved_cause_hypothesis_refs(
+        self,
+        factor_id: str,
+        refs: Sequence[Mapping[str, Any]],
+        *,
+        clock: Clock | None = None,
+    ) -> None:
+        """Replace P0 duplicated candidate prose with P1 hypothesis references."""
+
+        encoded = _json([dict(value) for value in refs])
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE unresolved_cause_factors
+                   SET candidate_causes_json = ?, updated_at = ?
+                 WHERE id = ? AND status = 'open'
+                   AND candidate_causes_json != ?
+                """,
+                (encoded, utc_now_iso(clock), factor_id, encoded),
+            )
+            connection.commit()
+
     def insert_unresolved_cause_factor(
         self,
         *,
@@ -11621,12 +12411,15 @@ class Repository:
             ).fetchall()
         factors: list[dict[str, Any]] = []
         for row in rows:
+            candidate_causes = _loads(row["candidate_causes_json"], [])
             factors.append(
                 {
                     "id": row["id"],
                     "attempt_id": row["attempt_id"],
                     "observation_id": row["observation_id"],
-                    "candidate_causes": json.loads(row["candidate_causes_json"] or "[]"),
+                    "candidate_causes": self._presented_causal_candidates(
+                        candidate_causes
+                    ),
                     "status": row["status"],
                     "algorithm_version": row["algorithm_version"],
                     "created_at": row["created_at"],
@@ -11644,6 +12437,50 @@ class Repository:
                 }
             )
         return factors
+
+    def _presented_causal_candidates(
+        self, candidates: Sequence[Any]
+    ) -> list[dict[str, Any]]:
+        """Hydrate P1 refs for presentation without duplicating stored claims."""
+
+        presented: list[dict[str, Any]] = []
+        for raw in candidates:
+            if not isinstance(raw, Mapping):
+                continue
+            candidate = dict(raw)
+            hypothesis_id = candidate.get("hypothesis_id")
+            if not hypothesis_id or set(candidate) - {
+                "hypothesis_id",
+                "version",
+                "open_set",
+            }:
+                presented.append(candidate)
+                continue
+            hypothesis = self.causal_hypothesis(str(hypothesis_id))
+            if hypothesis is None:
+                presented.append(candidate)
+                continue
+            target_ref = hypothesis.get("target_ref")
+            presented.append(
+                {
+                    **candidate,
+                    "statement": hypothesis["statement"],
+                    "cause_scope": hypothesis["cause_scope"],
+                    "target_ref": target_ref,
+                    "mechanism": hypothesis.get("mechanism"),
+                    "operation": hypothesis.get("operation"),
+                    **(
+                        {
+                            "facet": target_ref.get("facet_id"),
+                            "capability": target_ref.get("capability"),
+                        }
+                        if isinstance(target_ref, Mapping)
+                        and target_ref.get("kind") == "facet_capability"
+                        else {}
+                    ),
+                }
+            )
+        return presented
 
     def open_unresolved_cause_factors(self) -> list[dict[str, Any]]:
         """Every open positional-ambiguity factor for diagnostic surfaces."""
@@ -11663,7 +12500,9 @@ class Repository:
                 "id": row["id"],
                 "attempt_id": row["attempt_id"],
                 "observation_id": row["observation_id"],
-                "candidate_causes": _loads(row["candidate_causes_json"], []),
+                "candidate_causes": self._presented_causal_candidates(
+                    _loads(row["candidate_causes_json"], [])
+                ),
                 "status": row["status"],
                 "algorithm_version": row["algorithm_version"],
                 "created_at": row["created_at"],
@@ -11687,8 +12526,8 @@ class Repository:
         if row is None:
             return None
         payload = dict(row)
-        payload["candidate_causes"] = _loads(
-            payload.pop("candidate_causes_json"), []
+        payload["candidate_causes"] = self._presented_causal_candidates(
+            _loads(payload.pop("candidate_causes_json"), [])
         )
         payload["resolution_observation_ids"] = _loads(
             payload.pop("resolution_observation_ids_json"), []
@@ -12242,6 +13081,7 @@ class Repository:
             ("observation_template", "observation_templates", "id", _decode_observation_template),
             ("observation_event", "observation_events", "id", _decode_observation_event),
             ("agent_run", "agent_runs", "id", dict),
+            ("causal_hypothesis", "causal_hypotheses", "id", _decode_causal_hypothesis),
         ]
         with self.connection() as connection:
             for label, table, column, decoder in tables:
@@ -19315,6 +20155,26 @@ def _decode_error_event(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["is_misconception"] = bool(payload["is_misconception"])
     payload["repair_plan"] = _loads(payload.pop("repair_plan_json"), None)
+    return payload
+
+
+def _decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    for field in (
+        "target_ref",
+        "applicability",
+        "postdictive_claims",
+        "evidence",
+    ):
+        payload[field] = _loads(payload.pop(f"{field}_json"), None)
+    return payload
+
+
+def _decode_causal_mechanism_taxonomy(
+    row: sqlite3.Row,
+) -> dict[str, Any]:
+    payload = dict(row)
+    payload["taxonomy"] = _loads(payload.pop("taxonomy_json"), {})
     return payload
 
 

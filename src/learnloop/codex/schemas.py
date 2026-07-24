@@ -476,6 +476,34 @@ class PostdictiveClaim(BaseModel):
     must: Literal["fail", "not_full_credit"]
 
 
+class RepairedTrace(BaseModel):
+    """A minimal, auditable edit of the learner's displayed reasoning."""
+
+    learner_work_prefix: str = ""
+    repair_insertion_point: FirstDivergence | None = None
+    minimal_edit: str
+    regenerated_work: str = ""
+    repaired_answer_md: str
+    changed_latent_claims: list[str] = Field(default_factory=list)
+    changed_checkpoint_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_minimal_edit(self) -> "RepairedTrace":
+        if not self.minimal_edit.strip():
+            raise ValueError("repaired trace requires a non-empty minimal_edit")
+        if not self.repaired_answer_md.strip():
+            raise ValueError("repaired trace requires repaired_answer_md")
+        return self
+
+
+class RepairVerificationRequest(BaseModel):
+    """A request for a backend verifier, never a model-supplied verdict."""
+
+    kind: Literal["symbolic_equality", "exact_match"]
+    assumptions: list[str] = Field(default_factory=list)
+    required_assumptions: list[str] = Field(default_factory=list)
+
+
 class ErrorAttribution(BaseModel):
     error_type: str
     severity: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -521,6 +549,15 @@ class RepairSuggestion(BaseModel):
     rationale: str
     target_evidence_families: list[str] = Field(default_factory=list)
     target_criterion_ids: list[str] = Field(default_factory=list)
+    # P1 structural repair fields. They remain nullable so older/self grading
+    # can keep producing the P0 shape without fabricating structure.
+    operator: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]*$")
+    target_refs: list[AttributionTargetRef] = Field(default_factory=list)
+    preserve_refs: list[AttributionTargetRef] = Field(default_factory=list)
+    expected_minutes: float | None = Field(default=None, ge=0.0)
+    answer_reveal_budget: float = Field(default=0.0, ge=0.0, le=1.0)
+    repaired_trace: RepairedTrace | None = None
+    verification_request: RepairVerificationRequest | None = None
 
 
 class GradingProposal(BaseModel):

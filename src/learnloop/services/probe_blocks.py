@@ -311,6 +311,16 @@ def end_diagnostic_block(
                 clock=clock,
             )
         )
+    # P1 claim-checking happens after normalization, because normalization may
+    # append a newer hypothesis/receipt version. Diagnostic-block review must
+    # never bypass the learner-facing authority gate by rendering the withheld
+    # raw grader prose directly.
+    from learnloop.services.causal_attribution import claim_checked_feedback
+
+    for released in released_feedback:
+        released["causal_feedback"] = claim_checked_feedback(
+            vault, repository, str(released["attempt_id"])
+        )
 
     # 3+4. Open-set trigger and completion policy run on the
     # post-normalization posterior.

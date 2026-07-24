@@ -136,12 +136,78 @@ def test_create_goal_rejects_empty_scope(ctx):
         )
 
 
+def test_create_goal_enqueues_durable_population_batch(ctx):
+    from learnloop.services.ingest_runner import RunnerServices
+
+    vault, repository = ctx.require_vault()
+    ctx.ingest_jobs.bind(
+        repository,
+        vault.root,
+        services=RunnerServices(),
+        background=False,
+    )
+    runner = ctx.ingest_jobs._require_runner()
+    runner.handlers["goal_population"] = lambda job_ctx: {
+        "goal_id": job_ctx.payload["goal_id"],
+        "generated": 2,
+        "applied_count": 2,
+    }
+
+    created = _call(
+        ctx,
+        "create_goal",
+        {
+            "title": "Durable practice",
+            "targetRecall": 0.8,
+            "concepts": ["singular_value_decomposition"],
+            "facets": [],
+            "examEnabled": False,
+            "populatePractice": True,
+        },
+    )
+
+    batch = created["populationBatch"]
+    assert batch["workflowType"] == "goal_population"
+    assert batch["status"] == "completed"
+    assert batch["jobs"][0]["result"] == {
+        "goalId": created["goal"]["id"],
+        "generated": 2,
+        "appliedCount": 2,
+    }
+
+
 def test_update_goal_status_and_paused_goals_skip_reports(ctx):
     out = _call(ctx, "update_goal_status", {"goalId": "goal_linear_algebra_ml", "status": "paused"})
     assert out["goal"]["status"] == "paused"
     assert out["goal"]["report"] is None
     listed = _call(ctx, "goals_list", {})
     assert listed["goals"][0]["status"] == "paused"
+
+
+def test_existing_goal_intent_can_be_added_and_cleared(ctx):
+    added = _call(
+        ctx,
+        "update_goal_intent",
+        {
+            "goalId": "goal_linear_algebra_ml",
+            "intentSentence": "I want to understand the models I deploy.",
+        },
+    )
+    assert added["goal"]["intentSentence"] == (
+        "I want to understand the models I deploy."
+    )
+    assert added["goal"]["resolvedQuestSentence"] == (
+        "I want to understand the models I deploy."
+    )
+    assert added["goal"]["questBasis"] == "explicit_intent"
+
+    cleared = _call(
+        ctx,
+        "update_goal_intent",
+        {"goalId": "goal_linear_algebra_ml", "intentSentence": "  "},
+    )
+    assert cleared["goal"]["intentSentence"] is None
+    assert cleared["goal"]["questBasis"] == "legacy_title"
 
 
 def test_goal_feasibility_transient_probe(ctx):
@@ -159,6 +225,23 @@ def test_goal_feasibility_transient_probe(ctx):
         {"concepts": ["concept_nonexistent"], "facets": [], "targetRecall": 0.8},
     )
     assert missing["uncoveredConcepts"] == ["concept_nonexistent"]
+
+    preview = _call(
+        ctx,
+        "goal_feasibility",
+        {
+            "title": "Signals exam",
+            "intentSentence": "I want to understand Fourier methods.",
+            "examEnabled": True,
+            "concepts": ["singular_value_decomposition"],
+            "facets": [],
+            "targetRecall": 0.8,
+        },
+    )
+    assert preview["resolvedQuestSentence"] == (
+        "I want to understand Fourier methods."
+    )
+    assert preview["questBasis"] == "explicit_intent"
 
 
 def _issue(repository, goal_id, *, kind, snapshot):

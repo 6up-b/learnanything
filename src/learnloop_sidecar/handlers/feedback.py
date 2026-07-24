@@ -39,6 +39,11 @@ class ReportUnresolvedCauseInput(ParamsModel):
     candidate_index: int | None = None
 
 
+class ContestCausalDiagnosisInput(ParamsModel):
+    attempt_id: str
+    response: str
+
+
 @method("get_feedback", AttemptInput)
 def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
@@ -85,6 +90,26 @@ def report_unresolved_cause(
     except ValueError as exc:
         raise SidecarError("invalid_unresolved_cause_report", str(exc)) from exc
     return result
+
+
+@method("contest_causal_diagnosis", ContestCausalDiagnosisInput)
+def contest_causal_diagnosis(
+    ctx: SidecarContext, params: ContestCausalDiagnosisInput
+) -> dict[str, Any]:
+    from learnloop.services.causal_attribution import (
+        record_causal_diagnosis_contest,
+    )
+
+    vault, repository = ctx.require_vault()
+    try:
+        return record_causal_diagnosis_contest(
+            vault,
+            repository,
+            attempt_id=params.attempt_id,
+            response=params.response,
+        )
+    except ValueError as exc:
+        raise SidecarError("invalid_causal_diagnosis_contest", str(exc)) from exc
 
 
 @method("trigger_regrade", TriggerRegradeInput)

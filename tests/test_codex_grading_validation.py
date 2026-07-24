@@ -193,14 +193,16 @@ def test_repair_suggestion_target_families_are_canonicalized(tmp_path):
     )
 
     assert validated.manual_review_reason is None
-    assert validated.repair_suggestions == [
-        {
-            "practice_mode": "targeted_review",
-            "learning_object_id": None,
-            "rationale": "Fix numeric setup.",
-            "target_evidence_families": ["numeric"],
-        }
-    ]
+    assert validated.repair_suggestions is not None
+    suggestion = validated.repair_suggestions[0]
+    assert suggestion["practice_mode"] == "targeted_review"
+    assert suggestion["learning_object_id"] is None
+    assert suggestion["rationale"] == "Fix numeric setup."
+    assert suggestion["target_evidence_families"] == ["numeric"]
+    assert suggestion["repair_validation"]["authority"] == (
+        "learnloop_validator"
+    )
+    assert suggestion["repair_validation"]["status"] == "incomplete"
 
 
 def test_unknown_repair_suggestion_target_family_routes_to_manual_review(tmp_path):

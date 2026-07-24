@@ -8,12 +8,13 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
-import type { ConceptGraphNode, GoalFeasibilityResult } from "../api/dto";
+import type { ConceptGraphNode, CreateGoalResult, GoalFeasibilityResult } from "../api/dto";
+import { CommandOverlayFrame } from "./CommandOverlayFrame";
 import { COLOR, Faint, FONT_MONO } from "./term";
 
 const STEP_LABELS = ["what", "how well", "by when", "exam"];
 
-export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => void; onCreated: () => void; onError: (m: string) => void }) {
+export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => void; onCreated: (result: CreateGoalResult) => void; onError: (m: string) => void }) {
   const [step, setStep] = useState(0);
 
   // step 1
@@ -81,7 +82,15 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
     setFeasibilityLoading(true);
     const handle = window.setTimeout(() => {
       api
-        .goalFeasibility({ targetRecall, dueAt, concepts: conceptIds, facets: facetIds })
+        .goalFeasibility({
+          title: title.trim(),
+          intentSentence: intentSentence.trim() || null,
+          examEnabled,
+          targetRecall,
+          dueAt,
+          concepts: conceptIds,
+          facets: facetIds
+        })
         .then((res) => {
           if (!cancelled) setFeasibility(res);
         })
@@ -97,7 +106,7 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
       window.clearTimeout(handle);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conceptIds.join(","), facetIds.join(","), targetRecall, dueAt]);
+  }, [conceptIds.join(","), facetIds.join(","), title, intentSentence, examEnabled, targetRecall, dueAt]);
 
   const advance = () => {
     if (step < 3) {
@@ -120,24 +129,10 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
         concepts: conceptIds,
         facets: facetIds,
         examEnabled,
-        examItemCount: examEnabled ? examItemCount : undefined
+        examItemCount: examEnabled ? examItemCount : undefined,
+        populatePractice
       });
-      if (populatePractice) {
-        // Fire-and-forget: the exam pool reserves never-attempted items on day
-        // one, which can leave the goal with nothing practicable. Populate in
-        // the background; failures surface through the shared error channel.
-        void api
-          .runCliCommand(["populate-goal", created.goal.id])
-          .then((result) => {
-            if (result.exitCode !== 0) {
-              onError(`goal practice generation failed: ${result.stderr || result.stdout}`.trim());
-            } else {
-              onCreated();
-            }
-          })
-          .catch((e) => onError(`goal practice generation failed: ${(e as Error).message}`));
-      }
-      onCreated();
+      onCreated(created);
       onClose();
     } catch (e) {
       setCreateError((e as Error).message);
@@ -145,23 +140,6 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
       setSubmitting(false);
     }
   }
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
-      const isInput = tag === "input" || tag === "textarea";
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "Enter" && !isInput) {
-        event.preventDefault();
-        advance();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, stepValid, submitting, title, intentSentence, conceptIds, facetIds, targetRecall, dueAt, examEnabled, examItemCount]);
 
   const filteredConcepts = useMemo(() => {
     if (!concepts) return [];
@@ -173,15 +151,31 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
   const examQuestionsRoughly = Math.round(targetRecall * 20);
 
   return (
-    <div style={backdropStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        {/* header + step indicator */}
-        <div style={headerStyle}>
-          <span style={{ color: COLOR.amber, fontWeight: 700 }}>❯</span>
-          <span style={{ color: COLOR.text, fontSize: 13 }}>
-            new <span style={{ color: COLOR.amber }}>goal</span>
-          </span>
-          <span style={{ flex: 1 }} />
+    <CommandOverlayFrame
+      command="goal"
+      context="new"
+      ariaLabel="Create a new goal"
+      width="min(680px, 100%)"
+      zIndex={210}
+      focusOnMount
+      onClose={onClose}
+      onKeyDown={(event) => {
+        const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+        const ownsEnter =
+          tag === "input" ||
+          tag === "textarea" ||
+          tag === "select" ||
+          tag === "button";
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        } else if (event.key === "Enter" && !ownsEnter) {
+          event.preventDefault();
+          advance();
+        }
+      }}
+      headerActions={
+        <>
           {STEP_LABELS.map((label, i) => (
             <span
               key={label}
@@ -196,12 +190,30 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
               {i + 1}·{label}
             </span>
           ))}
-          <span onClick={onClose} style={{ color: COLOR.textDim, cursor: "pointer", fontSize: 12, marginLeft: 8 }}>
-            esc
-          </span>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "20px 22px" }}>
+        </>
+      }
+      footerKeys={
+        step > 0 ? (
+          <button type="button" onClick={() => setStep((s) => s - 1)} style={ghostBtn}>
+            ← back
+          </button>
+        ) : null
+      }
+      footerRight={
+        <>
+          <Faint style={{ fontSize: 11 }}>enter {step < 3 ? "next" : "create"} · esc cancel</Faint>
+          <button
+            type="button"
+            onClick={advance}
+            disabled={!stepValid || submitting}
+            style={{ ...primaryBtn, marginLeft: 12, opacity: !stepValid || submitting ? 0.4 : 1, cursor: !stepValid || submitting ? "default" : "pointer" }}
+          >
+            {step < 3 ? "next →" : submitting ? "creating…" : "create goal ↵"}
+          </button>
+        </>
+      }
+    >
+      <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "20px 22px" }}>
           {step === 0 ? (
             <StepWhat
               title={title}
@@ -240,14 +252,13 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
             />
           ) : (
             <StepExam
+              title={title}
               examEnabled={examEnabled}
               onExamEnabled={setExamEnabled}
               examItemCount={examItemCount}
               onExamItemCount={setExamItemCount}
               populatePractice={populatePractice}
               onPopulatePractice={setPopulatePractice}
-              title={title}
-              intentSentence={intentSentence}
               conceptCount={conceptIds.length}
               facetCount={facetIds.length}
               targetRecall={targetRecall}
@@ -256,30 +267,8 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
               createError={createError}
             />
           )}
-        </div>
-
-        {/* footer */}
-        <div style={footerStyle}>
-          {step > 0 ? (
-            <button type="button" onClick={() => setStep((s) => s - 1)} style={ghostBtn}>
-              ← back
-            </button>
-          ) : (
-            <span />
-          )}
-          <span style={{ flex: 1 }} />
-          <Faint style={{ fontSize: 11 }}>enter {step < 3 ? "next" : "create"} · esc cancel</Faint>
-          <button
-            type="button"
-            onClick={advance}
-            disabled={!stepValid || submitting}
-            style={{ ...primaryBtn, opacity: !stepValid || submitting ? 0.4 : 1, cursor: !stepValid || submitting ? "default" : "pointer" }}
-          >
-            {step < 3 ? "next →" : submitting ? "creating…" : "create goal ↵"}
-          </button>
-        </div>
       </div>
-    </div>
+    </CommandOverlayFrame>
   );
 }
 
@@ -443,14 +432,13 @@ function StepByWhen({
 
 // ── step 4: exam + summary ──────────────────────────────────────────────────
 function StepExam({
+  title,
   examEnabled,
   onExamEnabled,
   examItemCount,
   onExamItemCount,
   populatePractice,
   onPopulatePractice,
-  title,
-  intentSentence,
   conceptCount,
   facetCount,
   targetRecall,
@@ -458,14 +446,13 @@ function StepExam({
   feasibility,
   createError
 }: {
+  title: string;
   examEnabled: boolean;
   onExamEnabled: (v: boolean) => void;
   examItemCount: number;
   onExamItemCount: (v: number) => void;
   populatePractice: boolean;
   onPopulatePractice: (v: boolean) => void;
-  title: string;
-  intentSentence: string;
   conceptCount: number;
   facetCount: number;
   targetRecall: number;
@@ -520,13 +507,11 @@ function StepExam({
         <SummaryRow k="title" v={title || "—"} />
         <SummaryRow
           k="quest"
-          v={
-            intentSentence.trim() ||
-            (examEnabled
-              ? `Do well on the exam goal “${title}”.`
-              : `Be good at problems covered by the goal “${title}”.`)
-          }
+          v={feasibility?.resolvedQuestSentence || "No quest will be attached."}
         />
+        {feasibility?.questBasis ? (
+          <SummaryRow k="quest basis" v={feasibility.questBasis.replace(/_/g, " ")} />
+        ) : null}
         <SummaryRow k="scope" v={`${conceptCount} concepts${facetCount ? ` + ${facetCount} facets` : ""}`} />
         <SummaryRow k="target" v={`${Math.round(targetRecall * 100)}% recall`} />
         <SummaryRow k="due" v={dueAt ? new Date(dueAt).toLocaleDateString() : "open-ended"} />
@@ -556,48 +541,6 @@ function Label({ children, style = {} }: { children: ReactNode; style?: CSSPrope
     </div>
   );
 }
-
-const backdropStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 210,
-  background: "rgba(8, 8, 13, 0.78)",
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "center",
-  padding: "6vh 5vw",
-  backdropFilter: "blur(2px)"
-};
-
-const modalStyle: CSSProperties = {
-  width: "min(680px, 100%)",
-  maxHeight: "84vh",
-  background: COLOR.bg,
-  border: `1px solid ${COLOR.borderStrong}`,
-  boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-  display: "flex",
-  flexDirection: "column",
-  fontFamily: FONT_MONO,
-  color: COLOR.text
-};
-
-const headerStyle: CSSProperties = {
-  padding: "12px 16px",
-  borderBottom: `1px solid ${COLOR.border}`,
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexShrink: 0
-};
-
-const footerStyle: CSSProperties = {
-  borderTop: `1px solid ${COLOR.border}`,
-  padding: "10px 16px",
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexShrink: 0
-};
 
 const inputStyle: CSSProperties = {
   width: "100%",

@@ -1,6 +1,6 @@
 AUTHORING_PROMPT_VERSION = "mvp-0.8-causal-attribution-honesty"
 CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.5-canonical-ingest-audit-facet-weights"
-GRADING_PROMPT_VERSION = "mvp-0.8-causal-attribution-prose-first"
+GRADING_PROMPT_VERSION = "mvp-0.9-causal-structural-repair"
 # ING M8: cross-source practice generation with hard leakage controls (§8.5). The
 # authoring path grows a bounded multi-source grounding context + blueprint task-family
 # shaping, and generated surfaces are screened against the held-out inventory by a
