@@ -125,12 +125,19 @@ def rebuild_derived_state(
         rebuilt.append(learning_object_id)
         replayed_attempts += result.replayed_attempts
     scope = "learning_object" if learning_object_ids else "all"
+    # P2 §4.4: the canonical projection's own semantics version is recorded
+    # alongside the vault algorithm version, so a projection change that
+    # retro-changes derived facet state from unchanged evidence surfaces as one
+    # deliberate recalibration boundary rather than silently.
+    from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
+
     marker_id = repository.record_derived_state_rebuild(
         scope=scope,
         learning_object_ids=rebuilt,
         algorithm_version=vault.config.algorithms.algorithm_version,
         rebuilt_learning_objects=len(rebuilt),
         replayed_attempts=replayed_attempts,
+        canonical_projection_version=CANONICAL_PROJECTION_VERSION,
         clock=clock,
     )
     return RebuildResult(

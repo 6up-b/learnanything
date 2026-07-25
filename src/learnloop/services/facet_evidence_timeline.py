@@ -45,8 +45,8 @@ from learnloop.services.capability_mapping import (
     criterion_pseudo_mass,
     localize_criterion_outcomes,
 )
+from learnloop.services.causal_activity_policy import attempt_counts_as_assisted
 from learnloop.services.canonical_projection import (
-    ASSISTED_ATTEMPT_TYPES,
     DEFAULT_REPEAT_SURFACE_DISCOUNT,
     FAILURE_THRESHOLD,
     _attribution_weights,
@@ -444,9 +444,11 @@ def _observation_events_by_facet(
                 else f"legacy:{record.created_at}"
             )
             epochs.setdefault((record.created_at, revision_key), []).append(record)
-        assisted = (
-            attempt["attempt_type"] in ASSISTED_ATTEMPT_TYPES
-            or int(attempt.get("hints_used") or 0) > 0
+        # P2 §4.4: one authority, shared with the canonical projection.
+        assisted = attempt_counts_as_assisted(
+            attempt_type=attempt["attempt_type"],
+            hints_used=int(attempt.get("hints_used") or 0),
+            primed=bool(attempt.get("primed")),
         )
         # A correction replaces this attempt's contribution; it must keep the
         # attempt's original novelty position rather than becoming a repeat.

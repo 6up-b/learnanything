@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass, field, replace
 from datetime import UTC, timedelta
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEMPT_TYPES, unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
@@ -35,6 +35,7 @@ from learnloop.services.fsrs import (
     rating_from_score,
 )
 from learnloop.services.ability_transition import estimate_ability_transition
+from learnloop.services.causal_activity_policy import classify_attempt_activity
 from learnloop.services.grading import (
     GradingValidationError,
     ValidatedCodexGrade,
@@ -990,6 +991,48 @@ def _dual_write_grade_channel(
         )
 
 
+def _persist_repair_mapping_source(
+    repository: Repository,
+    result: AttemptResult,
+    stored: Mapping[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Make the authored repair suggestions durable on EVERY attempt path.
+
+    ``attempt_feedback_metadata`` used to have exactly one writer, the sidecar's
+    ``_persist_feedback_metadata``.  That row is the only durable copy of the
+    authored repair suggestions, and ``causal_attribution
+    .record_unresolved_cause_self_report`` re-materializes the causal episode
+    from it: on any non-sidecar path (CLI, tests, a future service, an
+    in-process app) a learner confirmation therefore re-minted every hypothesis
+    with ``repair_class_id = None`` and silently destroyed the repair mapping.
+    Writing it here, at the shared attempt step, makes the mapping survive a
+    confirmation on every path rather than on one.
+
+    Deliberately conditional.  A replay/regrade re-enters this step with a grade
+    reconstructed from the attempt row, which carries no repair suggestions; an
+    unconditional upsert would blank the very column this exists to protect.
+    The other columns are merged rather than overwritten for the same reason —
+    ``grading_source`` and ``agent_run_id`` are the sidecar's to refine, and this
+    write must never be a downgrade.
+    """
+
+    suggestions = list(result.repair_suggestions or [])
+    if not suggestions or list(stored.get("repair_suggestions") or []) == suggestions:
+        return
+    repository.upsert_attempt_feedback_metadata(
+        attempt_id=result.attempt_id,
+        grading_source=str(stored.get("grading_source") or result.grading_source),
+        fallback_reason=stored.get("fallback_reason") or result.fallback_reason,
+        agent_run_id=stored.get("agent_run_id") or result.agent_run_id,
+        fatal_errors=list(stored.get("fatal_errors") or result.fatal_errors or []),
+        feedback_md=stored.get("feedback_md") or result.feedback_md,
+        repair_suggestions=suggestions,
+        clock=clock,
+    )
+
+
 def apply_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -1028,6 +1071,26 @@ def apply_attempt(
     from learnloop.services.remediation import record_remediation_attempt
 
     record_remediation_attempt(repository, application.attempt_record, clock=clock)
+    if attempt.draft.primed:
+        # Priming IS the intervention, so the attempt is a repair activity
+        # (§7). A primed *probe* is also a diagnostic administration; both
+        # writers now append and the repository derives the most-contaminated
+        # winner instead of raising inside attempt application (§4.2).
+        policy = classify_attempt_activity(
+            attempt_type=attempt.draft.attempt_type,
+            primed=True,
+            hints_used=attempt.draft.hints_used,
+            explicit_class="repair_activity",
+        )
+        repository.record_causal_activity_classification(
+            attempt_id=application.result.attempt_id,
+            contamination_class=policy.contamination_class,
+            near_clone=policy.near_clone,
+            near_clone_basis="no_source_item",
+            source="apply_attempt.primed",
+            detail={"practice_item_id": attempt.draft.practice_item_id},
+            clock=clock,
+        )
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
     _project_canonical_belief(vault, repository, clock=clock)
     from learnloop.services.causal_attribution import materialize_causal_episode
@@ -1035,6 +1098,9 @@ def apply_attempt(
     stored_feedback = repository.fetch_attempt_feedback_metadata(
         application.result.attempt_id
     ) or {}
+    _persist_repair_mapping_source(
+        repository, application.result, stored_feedback, clock=clock
+    )
     repair_suggestions = (
         application.result.repair_suggestions
         or stored_feedback.get("repair_suggestions")
@@ -1814,7 +1880,14 @@ def _compute_resolved_grade_application(
         purpose="practice", feedback_condition=None
     )
     observation_eligible = evidence_eligibility == "practice"
-    if hot_path_applies_practice_review(
+    # P2 §4.4: the diagnostic/repair FSRS skip is the causal activity policy's
+    # decision, not a local hardcode. See services/causal_activity_policy.py.
+    causal_activity = classify_attempt_activity(
+        attempt_type=draft.attempt_type,
+        primed=draft.primed,
+        hints_used=draft.hints_used,
+    )
+    if causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
         attempt_type=draft.attempt_type,
         eligible=observation_eligible,
         algorithm_version=vault.config.algorithms.algorithm_version,

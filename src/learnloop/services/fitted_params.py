@@ -18,6 +18,11 @@ from learnloop.services.fsrs import FSRS6_DEFAULT_WEIGHTS
 FSRS_WEIGHTS_SCOPE = "fsrs_weights"
 FOLLOWUP_GATE_SCOPE = "followup_gate"
 GRADER_CHANNEL_SCOPE = "grader_channel_prior"
+# Causal-attribution P2 probe policy: the open-set prior weight, the EVSI
+# thresholds `decide_probe` applies, and the cold-verification success cut.
+# Resolved (with pinned heuristic defaults and a lifecycle stamp) by
+# `services.causal_probe_coherence.resolve_causal_probe_parameters`.
+CAUSAL_PROBE_POLICY_SCOPE = "causal_probe_policy"
 
 # Heuristic grade-channel prior policy knobs (measurement-correctness P4).
 # ``reliability`` is the floor for the seeded symmetric-confusion identity share;

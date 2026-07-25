@@ -773,6 +773,8 @@ export interface CausalFeedbackDto {
     statement: string;
     causeScope: string;
     supportScore: number | null;
+    supportAuthority?: string | null;
+    traceConsistency?: CausalTraceConsistencyState;
   }[];
   unverified: {
     kind: string;
@@ -801,6 +803,9 @@ export interface CausalFeedbackDto {
   repairedTrace: RepairedTraceDto | null;
   repairedTraceWithheldReason: string | null;
   permittedUses: string[];
+  traceConsistency?: Record<string, CausalTraceConsistencyState>;
+  probeNeed?: CausalProbeNeedDto | null;
+  decisionPolicyVersion?: string | null;
 }
 
 export interface CausalTargetRefDto {
@@ -946,7 +951,39 @@ export interface DiagnosisReceiptDto {
       basis: string;
     }[];
   };
+  /** P2 §1.3: what a probe would have to resolve. The decision verbs moved to
+   * the probe-coherence service; the receipt states a need, not a decision. */
+  probeNeed?: CausalProbeNeedDto;
+  /** @deprecated schema 2 alias of probeNeed; `decision` reads "see probe_need"
+   * on schema 3 receipts. */
   probeDecision: { decision: string; reason: string };
+  /** P2 §1.1: per-hypothesis trace-consistency state, keyed by hypothesis id.
+   * Only "consistent_with_claims" is positive evidence. */
+  traceConsistency?: Record<string, CausalTraceConsistencyState>;
+  traceConsistencyDetail?: {
+    policyVersion: string;
+    rubricAvailable: boolean;
+    unattributedPostdictiveClaims: {
+      errorEventId: string;
+      claim: Record<string, unknown>;
+      reason: string;
+    }[];
+    byHypothesis: Record<
+      string,
+      {
+        state: CausalTraceConsistencyState;
+        reason: string;
+        claimsAttributed: number;
+        claimsChecked: number;
+        claimsUnverifiable?: number;
+        contradictedCriterionIds: string[];
+      }
+    >;
+  };
+  /** @deprecated receipt-level alias; cannot name the contradicted hypothesis. */
+  traceConsistent?: boolean;
+  decisionPolicyVersion?: string;
+  unmappedHypothesisIds?: string[];
   permittedUses: string[];
   mechanismTaxonomyVersionId?: string | null;
   mechanismTaxonomyHash?: string | null;
@@ -956,10 +993,132 @@ export interface DiagnosisReceiptDto {
   createdAt: IsoTimestamp;
 }
 
+export type CausalTraceConsistencyState =
+  | "contradicted"
+  | "consistent_with_claims"
+  | "no_deterministic_claims"
+  | "unknown";
+
+export interface CausalProbeNeedDto {
+  divergent: boolean;
+  repairClassIds: string[];
+  commonRepairCover: boolean;
+  incompleteRepairMapping: boolean;
+  reason: string;
+  /** Present when derived from a schema 2 receipt's decision verbs. */
+  legacySchema?: boolean;
+}
+
+// ── P2 causal repair orchestration (spec_causal_attribution_v1 §6) ───────────
+// The typed union `causal_orchestrator.causal_repair_status` returns. It
+// replaces the old raw RemediationError path, whose only learner-visible form
+// was an `invalid_request` toast reading "unrelated remediation is blocked …" —
+// semantically wrong copy for a hold on the *branch-specific* repair inside one
+// divergent causal factor.
+
+export type CausalRepairStatusState =
+  | "started"
+  | "needs_disambiguation"
+  | "deferred_machine_checks"
+  | "safe_common_repair_available"
+  | "blocked_pending_review";
+
+/** Action ids the orchestrator offers. The backend is authoritative about
+ *  *which* are offered: after "Not now" the state stays `needs_disambiguation`
+ *  with `probeOffered: false` and only `teach_me_now` comes back. */
+export type CausalRepairActionId = "take_quick_check" | "teach_me_now" | "not_now";
+
+export interface CausalRepairActionDto {
+  id: CausalRepairActionId;
+  label: string;
+}
+
+export interface CausalRepairStatusDto {
+  status: CausalRepairStatusState;
+  /** Machine-readable hold reason (e.g. "divergent_repair_classes",
+   *  "incomplete_repair_mapping", "unreviewed_probe_candidate"). */
+  reason: string;
+  /** Learner-facing copy authored in the orchestrator (§6). Render this. */
+  message: string;
+  misconceptionId: string;
+  factorId: string | null;
+  learningObjectId: string | null;
+  attemptId: string | null;
+  /** False once the learner has deferred: the causes still diverge, only the
+   *  offer is withdrawn. Never re-offer the quick check on false. */
+  probeOffered: boolean;
+  probeDecision: string | null;
+  probeDecisionReason: string | null;
+  decisionReceiptId: string | null;
+  candidateId: string | null;
+  blindBundleIds: string[];
+  hypothesisSetId: string | null;
+  repairClassIds: string[];
+  commonRepairClassId: string | null;
+  pendingMachineCheckIds: string[];
+  learnerPreference: string;
+  actions: CausalRepairActionDto[];
+  episode: RemediationEpisodeDto | null;
+  /** Resolved fitted-parameter manifests (orchestrator + probe policy). */
+  parameters: Record<string, unknown>;
+  /** Standing constraint 4: per-EVSI-input provenance —
+   *  "deterministic" | "model_reported" | "heuristic_default". */
+  evsiProvenance: Record<string, string>;
+  decisionPolicyVersion?: string | null;
+  formulaVersion?: string | null;
+}
+
+export interface CausalRepairStatusResultDto {
+  version: number;
+  repairStatus: CausalRepairStatusDto;
+}
+
+/** Result of "Take the quick check": a factor-aware probe episode with the
+ *  candidate and its blind bundles pinned into the presentation. */
+export interface CausalProbeOfferDto {
+  accepted: boolean;
+  reason: string;
+  factorId: string;
+  episodeId: string | null;
+  presentationId: string | null;
+  practiceItemId: string | null;
+  candidateId: string | null;
+  hypothesisSetId: string | null;
+  blindBundleIds: string[];
+}
+
+export interface CausalProbeOfferResultDto {
+  version: number;
+  offer: CausalProbeOfferDto;
+}
+
+export interface CausalProbePreferenceDto {
+  id: string;
+  scope: string;
+  scopeRef: string;
+  sessionId: string | null;
+  preference: string;
+  source: string;
+  expiresAt: IsoTimestamp | null;
+  detail: Record<string, unknown> | null;
+  createdAt: IsoTimestamp;
+}
+
+export interface CausalProbeDeferResultDto {
+  version: number;
+  preference: CausalProbePreferenceDto;
+}
+
 export interface CausalEpisodeDto {
   attemptId: string;
   receipt: DiagnosisReceiptDto | null;
   hypotheses: CausalHypothesisDto[];
+  /** Normalized across receipt schema versions; legacy receipts read
+   * "unknown" for every hypothesis rather than inheriting an unattributable
+   * verdict. */
+  traceConsistency?: Record<string, CausalTraceConsistencyState>;
+  probeNeed?: CausalProbeNeedDto | null;
+  decisionPolicyVersion?: string | null;
 }
 
 export interface PersistedRegradeDto {
@@ -3385,6 +3544,19 @@ export interface RemediationDto {
   practiceItem?: PracticeItemDetail;
 }
 
+/** `start_remediation` only. A causal hold is a *state*, not an error: the
+ *  handler returns `episode: null` plus the typed §6 `repairStatus` so the
+ *  learner sees the hold reason and its actions instead of an error toast. */
+export interface StartRemediationDto {
+  version: number;
+  episode: RemediationEpisodeDto | null;
+  case: RemediationCaseDto | null;
+  repairStatus?: CausalRepairStatusDto | null;
+  primedItemId?: string;
+  coldItemId?: string;
+  practiceItem?: PracticeItemDetail;
+}
+
 export interface ForecastTrackRecordDto {
   version: number;
   trackRecord: {
@@ -4215,6 +4387,13 @@ export interface TriageResultDto {
   routedTo: string | null;
   autoCommitted: boolean;
   anchorSampleId: string | null;
+  /**
+   * Which arm of the P2 tier-one gate committed the route -- one of
+   * "deterministic_trigger" | "legacy_dominance" | "causal_authority", or null for
+   * tier two. Causal support may veto freely but promotes only under an approved
+   * support authority (spec_causal_attribution_v1 §2).
+   */
+  tierOneBasis?: string | null;
 }
 
 /** golden_path.list_runs — every confirmed run, for re-entry after restart. */

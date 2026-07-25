@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -501,6 +502,7 @@ def evaluate_attempt_intervention_followup(
     maybe_reprobe_for_predictive_failure(
         vault, repository, result.learning_object_id, clock=clock
     )
+    _run_causal_orchestrator_hooks(vault, repository, result, clock=clock)
 
     debug_payload = result.debug_payload or {}
     facet_targets = _facet_targets_from_debug(debug_payload)
@@ -553,6 +555,89 @@ def evaluate_attempt_intervention_followup(
         manual_override=manual_override,
         clock=clock,
     )
+
+
+def _run_causal_orchestrator_hooks(
+    vault: LoadedVault,
+    repository: Repository,
+    result: Any,
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Live-path P2 hooks: the machine-check producer and cold verification.
+
+    Both are deliberately here rather than in ``apply_attempt``:
+
+    * ``sweep_machine_checks`` is the PRODUCER for the ``deferred_machine_checks``
+      arm (causal spec §6). ``probe_targeting.repair_mapping_backfills`` emits
+      typed backfill obligations and nothing consumed them; this turns them into
+      queued ``causal_machine_checks`` the orchestrator reads, and auto-closes
+      the ones whose obligation has gone away.
+    * ``record_cold_verification_from_task`` fires the delayed cold verification
+      when a scheduled remediation retry completes (§6.2), reading the source
+      attempt / factor / hypothesis set / repair class / avoided affordances off
+      the follow-up task record rather than reconstructing them.
+    * ``auto_classify_pinned_probe`` closes the classification -> resolution edge
+      when a causal probe answer is machine-readable: it writes the §7
+      discriminating-observation receipt and resolves the factor. It declines
+      (recording nothing) whenever the pinned bundles declare features no
+      deterministic sensor can supply, because an exact-key matcher handed an
+      incapable sensor reports ``no_bundle_matched`` — which would manufacture
+      open-set evidence out of a probe that was never read.
+
+    Never replay: this function runs only from the live post-attempt path, and
+    it never raises — a P2 bookkeeping failure must not fail an attempt.
+    """
+
+    from learnloop.services.causal_orchestrator import (
+        auto_classify_pinned_probe,
+        record_cold_verification_from_task,
+        sweep_machine_checks,
+    )
+
+    logger = logging.getLogger(__name__)
+    try:
+        sweep_machine_checks(
+            vault,
+            repository,
+            result.learning_object_id,
+            source="attempt_followup",
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        # Logged, never swallowed silently: an invisible failure here is how a
+        # producer becomes inert, which is the defect this wiring exists to fix.
+        logger.warning(
+            "causal machine-check sweep failed for %s",
+            result.learning_object_id,
+            exc_info=True,
+        )
+    try:
+        task = repository.consumed_followup_task_for_attempt(result.attempt_id)
+        if task is not None and task.get("kind") == "cold_retry":
+            record_cold_verification_from_task(
+                vault,
+                repository,
+                task=task,
+                cold_attempt_id=result.attempt_id,
+                clock=clock,
+            )
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        logger.warning(
+            "cold verification wiring failed for attempt %s",
+            result.attempt_id,
+            exc_info=True,
+        )
+    try:
+        auto_classify_pinned_probe(
+            vault, repository, attempt_id=result.attempt_id, clock=clock
+        )
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        logger.warning(
+            "causal probe classification failed for attempt %s",
+            result.attempt_id,
+            exc_info=True,
+        )
 
 
 def _probe_unfamiliar_probability(

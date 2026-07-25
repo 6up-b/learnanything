@@ -2360,8 +2360,18 @@ class Repository:
         source_attempt_id: str | None = None,
         remediation_episode_id: str | None = None,
         expires_at: str | None = None,
+        context: Mapping[str, Any] | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
+        """Schedule one delayed follow-up.
+
+        ``context`` (migration 124, spec §6.2) travels WITH the task: the cold
+        retry that consumes it needs the source attempt, causal factor,
+        hypothesis set, repair class, and avoided affordances, and reconstructing
+        them days later from a bare item id is exactly the "future caller"
+        assumption the causal spec forbids.
+        """
+
         task_id = new_ulid()
         now = utc_now_iso(clock)
         with self.connection() as connection:
@@ -2370,13 +2380,15 @@ class Repository:
                 INSERT INTO followup_tasks(
                   id, kind, case_kind, case_ref, source_attempt_id,
                   remediation_episode_id, not_before, expires_at, status,
-                  selected_item_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                  selected_item_id, context_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
                 """,
                 (
                     task_id, kind, case_kind, case_ref, source_attempt_id,
                     remediation_episode_id, not_before, expires_at,
-                    selected_item_id, now, now,
+                    selected_item_id,
+                    _json(dict(context)) if context is not None else None,
+                    now, now,
                 ),
             )
             connection.commit()
@@ -2387,7 +2399,7 @@ class Repository:
     def followup_task(self, task_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT * FROM followup_tasks WHERE id = ?", (task_id,)).fetchone()
-        return dict(row) if row is not None else None
+        return _decode_followup_task(row) if row is not None else None
 
     def due_followup_tasks(self, *, clock: Clock | None = None) -> list[dict[str, Any]]:
         now = utc_now_iso(clock)
@@ -2417,7 +2429,7 @@ class Repository:
                     (now, *ids),
                 )
             connection.commit()
-        return [dict(row) | {"status": "served"} for row in rows]
+        return [_decode_followup_task(row) | {"status": "served"} for row in rows]
 
     def active_followup_task_for_item(
         self, practice_item_id: str, *, at: str | None = None
@@ -2433,7 +2445,7 @@ class Repository:
                 """,
                 (practice_item_id, now, now),
             ).fetchone()
-        return dict(row) if row is not None else None
+        return _decode_followup_task(row) if row is not None else None
 
     def consume_followup_task(
         self, task_id: str, attempt_id: str, *, clock: Clock | None = None
@@ -4725,6 +4737,7 @@ class Repository:
         algorithm_version: str,
         rebuilt_learning_objects: int,
         replayed_attempts: int,
+        canonical_projection_version: str | None = None,
         clock: Clock | None = None,
     ) -> str:
         rebuild_id = new_ulid()
@@ -4734,9 +4747,10 @@ class Repository:
                 """
                 INSERT INTO derived_state_rebuilds(
                   id, scope, learning_object_ids_json, algorithm_version,
-                  rebuilt_learning_objects, replayed_attempts, created_at
+                  rebuilt_learning_objects, replayed_attempts,
+                  canonical_projection_version, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     rebuild_id,
@@ -4745,6 +4759,7 @@ class Repository:
                     algorithm_version,
                     rebuilt_learning_objects,
                     replayed_attempts,
+                    canonical_projection_version,
                     created_at,
                 ),
             )
@@ -5481,6 +5496,7 @@ class Repository:
         hypotheses: list[Mapping[str, Any]],
         prior: Mapping[str, float],
         algorithm_version: str,
+        prior_basis: str | None = None,
         clock: Clock | None = None,
     ) -> str:
         now = utc_now_iso(clock)
@@ -5490,9 +5506,9 @@ class Repository:
                 """
                 INSERT INTO hypothesis_sets(
                   id, learning_object_id, probe_phase_id, hypotheses_json,
-                  prior_json, algorithm_version, created_at
+                  prior_json, algorithm_version, prior_basis, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     hypothesis_set_id,
@@ -5501,6 +5517,7 @@ class Repository:
                     _json(list(hypotheses)),
                     _json(dict(prior)),
                     algorithm_version,
+                    prior_basis,
                     now,
                 ),
             )
@@ -11947,13 +11964,21 @@ class Repository:
         postdictive_claims: Sequence[Mapping[str, Any]] = (),
         evidence: Mapping[str, Any] | None = None,
         repair_class_id: str | None = None,
+        repair_class_basis: str | None = None,
+        repair_class_unresolved_reason: str | None = None,
         status: str = "candidate",
         generation_agent_run_id: str | None = None,
         model: str | None = None,
         hypothesis_id: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
-        """Append a changed hypothesis version, or return the identical head."""
+        """Append a changed hypothesis version, or return the identical head.
+
+        ``repair_class_basis`` / ``repair_class_unresolved_reason`` are part of
+        the semantic identity: a hypothesis that stops being unmapped (because a
+        repair was finally authored for it) is a CHANGED interpretation and earns
+        a new version, exactly like a changed statement would.
+        """
 
         statement = statement.strip()
         if not statement:
@@ -11982,6 +12007,8 @@ class Repository:
             "postdictive_claims": [dict(value) for value in postdictive_claims],
             "evidence": dict(evidence or {}),
             "repair_class_id": repair_class_id,
+            "repair_class_basis": repair_class_basis,
+            "repair_class_unresolved_reason": repair_class_unresolved_reason,
             "status": status,
             "generation_agent_run_id": generation_agent_run_id,
             "model": model,
@@ -12001,11 +12028,12 @@ class Repository:
                   error_event_id, learning_object_id, cause_scope, statement,
                   statement_normalized, mechanism, operation, target_ref_json,
                   applicability_json, postdictive_claims_json, evidence_json,
-                  repair_class_id, status, generation_agent_run_id, model,
-                  created_at
+                  repair_class_id, repair_class_basis,
+                  repair_class_unresolved_reason, status,
+                  generation_agent_run_id, model, created_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?)
+                        ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     hypothesis_id,
@@ -12027,6 +12055,8 @@ class Repository:
                     _json(semantic["postdictive_claims"]),
                     _json(semantic["evidence"]),
                     repair_class_id,
+                    repair_class_basis,
+                    repair_class_unresolved_reason,
                     status,
                     generation_agent_run_id,
                     model,
@@ -12295,6 +12325,727 @@ class Repository:
             ).fetchone()
         return str(row["mechanism_id"]) if row is not None else None
 
+    # -- P2 causal probe coherence ---------------------------------------
+
+    def insert_causal_blind_prediction_bundle(
+        self,
+        *,
+        bundle_id: str,
+        hypothesis_id: str,
+        hypothesis_version: int,
+        practice_item_id: str,
+        input_hash: str,
+        predictions: Mapping[str, Any],
+        model_revision: str,
+        outcome_schema_version: str,
+        generation_agent_run_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Insert one content-addressed, observation-blind prediction bundle."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_blind_prediction_bundles(
+                  id, hypothesis_id, hypothesis_version, practice_item_id,
+                  input_hash, predictions_json, generated_without_observation,
+                  model_revision, outcome_schema_version,
+                  generation_agent_run_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                """,
+                (
+                    bundle_id,
+                    hypothesis_id,
+                    hypothesis_version,
+                    practice_item_id,
+                    input_hash,
+                    _json(dict(predictions)),
+                    model_revision,
+                    outcome_schema_version,
+                    generation_agent_run_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        bundle = self.causal_blind_prediction_bundle(bundle_id)
+        assert bundle is not None
+        return bundle
+
+    def causal_blind_prediction_bundle(
+        self, bundle_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM causal_blind_prediction_bundles WHERE id = ?
+                """,
+                (bundle_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["predictions"] = _loads(
+            payload.pop("predictions_json"), {}
+        )
+        payload["generated_without_observation"] = bool(
+            payload["generated_without_observation"]
+        )
+        return payload
+
+    def causal_blind_prediction_bundles(
+        self,
+        *,
+        practice_item_id: str | None = None,
+        hypothesis_ids: Iterable[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        wanted = [str(value) for value in hypothesis_ids or []]
+        clauses: list[str] = []
+        values: list[Any] = []
+        if practice_item_id is not None:
+            clauses.append("practice_item_id = ?")
+            values.append(practice_item_id)
+        if wanted:
+            clauses.append(
+                "hypothesis_id IN ("
+                + ",".join("?" for _ in wanted)
+                + ")"
+            )
+            values.extend(wanted)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT id FROM causal_blind_prediction_bundles
+                {where}
+                ORDER BY created_at, id
+                """,
+                tuple(values),
+            ).fetchall()
+        return [
+            bundle
+            for row in rows
+            if (
+                bundle := self.causal_blind_prediction_bundle(str(row["id"]))
+            )
+            is not None
+        ]
+
+    def insert_probe_manipulation_audit(
+        self,
+        *,
+        audit_id: str,
+        source_kind: str,
+        source_item_id: str,
+        candidate_item_id: str,
+        contract: Mapping[str, Any],
+        structural_diff: Mapping[str, Any],
+        adversarial_review: Mapping[str, Any] | None,
+        status: str,
+        generation_agent_run_id: str | None = None,
+        reviewer_agent_run_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO probe_manipulation_audits(
+                  id, source_kind, source_item_id, candidate_item_id,
+                  contract_json, structural_diff_json,
+                  adversarial_review_json, status,
+                  generation_agent_run_id, reviewer_agent_run_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    audit_id,
+                    source_kind,
+                    source_item_id,
+                    candidate_item_id,
+                    _json(dict(contract)),
+                    _json(dict(structural_diff)),
+                    (
+                        _json(dict(adversarial_review))
+                        if adversarial_review is not None
+                        else None
+                    ),
+                    status,
+                    generation_agent_run_id,
+                    reviewer_agent_run_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        audit = self.probe_manipulation_audit(audit_id)
+        assert audit is not None
+        return audit
+
+    def probe_manipulation_audit(
+        self, audit_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM probe_manipulation_audits WHERE id = ?",
+                (audit_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        for key in ("contract", "structural_diff", "adversarial_review"):
+            payload[key] = _loads(payload.pop(f"{key}_json"), None)
+        return payload
+
+    def insert_causal_probe_candidate(
+        self,
+        *,
+        candidate_id: str,
+        factor_id: str,
+        practice_item_id: str,
+        hypothesis_set_id: str,
+        manipulation_audit_id: str,
+        measurement_contract: Mapping[str, Any],
+        blind_bundle_ids: Sequence[str],
+        discrimination: Mapping[str, Any] | None = None,
+        status: str = "candidate",
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_probe_candidates(
+                  id, factor_id, practice_item_id, hypothesis_set_id,
+                  manipulation_audit_id, measurement_contract_json,
+                  blind_bundle_ids_json, discrimination_json, status,
+                  created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    candidate_id,
+                    factor_id,
+                    practice_item_id,
+                    hypothesis_set_id,
+                    manipulation_audit_id,
+                    _json(dict(measurement_contract)),
+                    _json(list(blind_bundle_ids)),
+                    (
+                        _json(dict(discrimination))
+                        if discrimination is not None
+                        else None
+                    ),
+                    status,
+                    now,
+                    now,
+                ),
+            )
+            if cursor.rowcount:
+                connection.execute(
+                    """
+                    INSERT INTO causal_probe_candidate_events(
+                      id, candidate_id, seq, from_status, to_status, actor,
+                      reason, created_at
+                    )
+                    VALUES (?, ?, 1, NULL, ?, NULL, ?, ?)
+                    """,
+                    (
+                        new_ulid(),
+                        candidate_id,
+                        status,
+                        "candidate_created",
+                        now,
+                    ),
+                )
+            connection.commit()
+        candidate = self.causal_probe_candidate(candidate_id)
+        assert candidate is not None
+        return candidate
+
+    def causal_probe_candidate(
+        self, candidate_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_probe_candidates WHERE id = ?",
+                (candidate_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["measurement_contract"] = _loads(
+            payload.pop("measurement_contract_json"), {}
+        )
+        payload["blind_bundle_ids"] = _loads(
+            payload.pop("blind_bundle_ids_json"), []
+        )
+        payload["discrimination"] = _loads(
+            payload.pop("discrimination_json"), None
+        )
+        return payload
+
+    def update_causal_probe_candidate(
+        self,
+        candidate_id: str,
+        *,
+        status: str,
+        discrimination: Mapping[str, Any] | None = None,
+        reviewer: str | None = None,
+        review_reason: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        current = self.causal_probe_candidate(candidate_id)
+        if current is None:
+            return None
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE causal_probe_candidates
+                   SET status = ?,
+                       discrimination_json = COALESCE(?, discrimination_json),
+                       reviewer = COALESCE(?, reviewer),
+                       review_reason = COALESCE(?, review_reason),
+                       updated_at = ?
+                 WHERE id = ?
+                """,
+                (
+                    status,
+                    (
+                        _json(dict(discrimination))
+                        if discrimination is not None
+                        else None
+                    ),
+                    reviewer,
+                    review_reason,
+                    utc_now_iso(clock),
+                    candidate_id,
+                ),
+            )
+            if cursor.rowcount:
+                sequence_row = connection.execute(
+                    """
+                    SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq
+                      FROM causal_probe_candidate_events
+                     WHERE candidate_id = ?
+                    """,
+                    (candidate_id,),
+                ).fetchone()
+                connection.execute(
+                    """
+                    INSERT INTO causal_probe_candidate_events(
+                      id, candidate_id, seq, from_status, to_status, actor,
+                      reason, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_ulid(),
+                        candidate_id,
+                        int(sequence_row["next_seq"]),
+                        current["status"],
+                        status,
+                        reviewer,
+                        review_reason,
+                        utc_now_iso(clock),
+                    ),
+                )
+            connection.commit()
+        return (
+            self.causal_probe_candidate(candidate_id)
+            if cursor.rowcount
+            else None
+        )
+
+    def causal_probe_candidate_events(
+        self, candidate_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM causal_probe_candidate_events
+                 WHERE candidate_id = ?
+                 ORDER BY seq
+                """,
+                (candidate_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def record_causal_activity_classification(
+        self,
+        *,
+        attempt_id: str,
+        contamination_class: str,
+        near_clone: bool = False,
+        closes_pre_intervention_segment: bool | None = None,
+        eligible_for_fsrs: bool | None = None,
+        eligible_for_certification: bool | None = None,
+        near_clone_basis: str | None = None,
+        source: str = "unknown",
+        detail: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one classification event; NEVER raises on a conflict (§4.2).
+
+        Classification writes happen on the attempt hot path and several honest
+        writers can disagree about the same attempt (a primed probe is both a
+        repair activity and a diagnostic administration). Both facts are
+        recorded; :meth:`causal_activity_classification` derives the winner by
+        ``CONTAMINATION_PRECEDENCE``. Restating an identical fact is a no-op, so
+        replay does not grow the log.
+
+        The derived flags are recomputed from the policy matrix, so the explicit
+        ``closes_pre_intervention_segment`` / ``eligible_*`` arguments are
+        accepted for backwards compatibility but are not the authority.
+        """
+
+        from learnloop.services.causal_activity_policy import (
+            CAUSAL_ACTIVITY_POLICY_VERSION,
+            policy_for_class,
+        )
+
+        policy = policy_for_class(contamination_class, near_clone=bool(near_clone))
+        with self.connection() as connection:
+            next_seq = connection.execute(
+                """
+                SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq
+                  FROM causal_activity_classification_events
+                 WHERE attempt_id = ?
+                """,
+                (attempt_id,),
+            ).fetchone()["next_seq"]
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_activity_classification_events(
+                  id, attempt_id, seq, contamination_class, near_clone,
+                  near_clone_basis, closes_pre_intervention_segment,
+                  eligible_for_fsrs, eligible_for_certification, source,
+                  policy_version, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_ulid(),
+                    attempt_id,
+                    int(next_seq),
+                    policy.contamination_class,
+                    int(policy.near_clone),
+                    near_clone_basis,
+                    int(policy.closes_pre_intervention_segment),
+                    int(policy.eligible_for_fsrs),
+                    int(policy.eligible_for_certification),
+                    source,
+                    CAUSAL_ACTIVITY_POLICY_VERSION,
+                    _json(dict(detail or {})),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        result = self.causal_activity_classification(attempt_id)
+        assert result is not None
+        return result
+
+    def causal_activity_classification_events(
+        self, attempt_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM causal_activity_classification_events
+                 WHERE attempt_id = ?
+                 ORDER BY seq
+                """,
+                (attempt_id,),
+            ).fetchall()
+        events: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            payload["near_clone"] = bool(payload["near_clone"])
+            payload["closes_pre_intervention_segment"] = bool(
+                payload["closes_pre_intervention_segment"]
+            )
+            payload["eligible_for_fsrs"] = bool(payload["eligible_for_fsrs"])
+            payload["eligible_for_certification"] = bool(
+                payload["eligible_for_certification"]
+            )
+            payload["detail"] = _loads(payload.pop("detail_json"), {})
+            events.append(payload)
+        return events
+
+    def causal_activity_classification(
+        self, attempt_id: str
+    ) -> dict[str, Any] | None:
+        """The current classification, DERIVED from the event log (§4.2).
+
+        Most contaminated class wins; within it near_clone fails closed (any
+        writer asserting a near clone wins). The eligibility flags are always
+        recomputed from the policy matrix so a stored row can never disagree
+        with the single authority.
+        """
+
+        from learnloop.services.causal_activity_policy import (
+            CONTAMINATION_PRECEDENCE,
+            policy_for_class,
+        )
+
+        events = self.causal_activity_classification_events(attempt_id)
+        if not events:
+            return None
+        winning_class = min(
+            (str(event["contamination_class"]) for event in events),
+            key=CONTAMINATION_PRECEDENCE.index,
+        )
+        winners = [
+            event
+            for event in events
+            if str(event["contamination_class"]) == winning_class
+        ]
+        near_clone = any(bool(event["near_clone"]) for event in winners)
+        primary = next(
+            (event for event in winners if bool(event["near_clone"]) == near_clone),
+            winners[0],
+        )
+        policy = policy_for_class(winning_class, near_clone=near_clone)
+        detail: dict[str, Any] = {}
+        for event in events:
+            detail.update(event.get("detail") or {})
+        return {
+            "attempt_id": attempt_id,
+            **policy.as_dict(),
+            "near_clone_basis": primary.get("near_clone_basis"),
+            "source": primary.get("source"),
+            "detail": detail,
+            "created_at": primary.get("created_at"),
+            "recorded_classes": sorted(
+                {str(event["contamination_class"]) for event in events},
+                key=CONTAMINATION_PRECEDENCE.index,
+            ),
+            "event_count": len(events),
+        }
+
+    def insert_causal_cold_verification(
+        self,
+        *,
+        verification_id: str,
+        source_attempt_id: str,
+        cold_attempt_id: str,
+        repair_class_id: str,
+        hypothesis_ids: Sequence[str],
+        source_surface_family: str,
+        cold_surface_family: str,
+        avoided_affordances: Sequence[str],
+        success: bool,
+        capability_update: Mapping[str, Any],
+        diagnosis_support_update: Mapping[str, Any],
+        repair_effect_support: Mapping[str, Any],
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_cold_verifications(
+                  id, source_attempt_id, cold_attempt_id, repair_class_id,
+                  hypothesis_ids_json, source_surface_family,
+                  cold_surface_family, avoided_affordances_json, success,
+                  capability_update_json, diagnosis_support_update_json,
+                  repair_effect_support_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    verification_id,
+                    source_attempt_id,
+                    cold_attempt_id,
+                    repair_class_id,
+                    _json(list(hypothesis_ids)),
+                    source_surface_family,
+                    cold_surface_family,
+                    _json(list(avoided_affordances)),
+                    int(success),
+                    _json(dict(capability_update)),
+                    _json(dict(diagnosis_support_update)),
+                    _json(dict(repair_effect_support)),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        result = self.causal_cold_verification_for_attempt(cold_attempt_id)
+        assert result is not None
+        expected = {
+            "id": verification_id,
+            "source_attempt_id": source_attempt_id,
+            "repair_class_id": repair_class_id,
+            "hypothesis_ids": list(hypothesis_ids),
+            "source_surface_family": source_surface_family,
+            "cold_surface_family": cold_surface_family,
+            "avoided_affordances": list(avoided_affordances),
+            "success": success,
+            "capability_update": dict(capability_update),
+            "diagnosis_support_update": dict(diagnosis_support_update),
+            "repair_effect_support": dict(repair_effect_support),
+        }
+        if any(result.get(key) != value for key, value in expected.items()):
+            raise ValueError(
+                "cold attempt already belongs to a different verification receipt"
+            )
+        return result
+
+    def causal_cold_verification_for_attempt(
+        self, cold_attempt_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM causal_cold_verifications
+                 WHERE cold_attempt_id = ?
+                """,
+                (cold_attempt_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        for field in (
+            "hypothesis_ids",
+            "avoided_affordances",
+            "capability_update",
+            "diagnosis_support_update",
+            "repair_effect_support",
+        ):
+            payload[field] = _loads(payload.pop(f"{field}_json"), None)
+        payload["success"] = bool(payload["success"])
+        return payload
+
+    # -- discriminating observations (migration 130) ------------------------
+
+    def insert_causal_discriminating_observation(
+        self,
+        *,
+        observation_id: str,
+        factor_id: str,
+        presentation_id: str,
+        hypothesis_set_id: str,
+        outcome: str,
+        classified_as: Sequence[str],
+        supports_open_set: bool,
+        feature_source: str,
+        observed_features: Mapping[str, Any],
+        declared_keys_observed: bool,
+        admitted: bool,
+        admission_reason: str,
+        support_scores: Mapping[str, Any],
+        resolved_factor: bool,
+        detail: Mapping[str, Any],
+        decision_policy_version: str,
+        formula_version: str,
+        blind_bundle_ids: Sequence[str] = (),
+        attempt_id: str | None = None,
+        probe_attempt_id: str | None = None,
+        candidate_id: str | None = None,
+        support_authority: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one discriminating-observation receipt (idempotent on id).
+
+        ``observation_id`` is the content hash of the frozen inputs, so
+        classifying the same pinned probe against the same observed features
+        twice records once; a DIFFERENT feature vector on the same presentation
+        appends a second row, because the disagreement is itself the signal.
+        """
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_discriminating_observations(
+                  id, factor_id, attempt_id, probe_attempt_id, presentation_id,
+                  hypothesis_set_id, candidate_id, blind_bundle_ids_json,
+                  outcome, classified_as_json, supports_open_set,
+                  feature_source, observed_features_json,
+                  declared_keys_observed, admitted, admission_reason,
+                  support_authority, support_scores_json, resolved_factor,
+                  detail_json, decision_policy_version, formula_version,
+                  created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?)
+                """,
+                (
+                    observation_id,
+                    factor_id,
+                    attempt_id,
+                    probe_attempt_id,
+                    presentation_id,
+                    hypothesis_set_id,
+                    candidate_id,
+                    _json([str(value) for value in blind_bundle_ids]),
+                    outcome,
+                    _json([str(value) for value in classified_as]),
+                    int(bool(supports_open_set)),
+                    feature_source,
+                    _json(dict(observed_features)),
+                    int(bool(declared_keys_observed)),
+                    int(bool(admitted)),
+                    admission_reason,
+                    support_authority,
+                    _json(dict(support_scores)),
+                    int(bool(resolved_factor)),
+                    _json(dict(detail)),
+                    decision_policy_version,
+                    formula_version,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        record = self.causal_discriminating_observation(observation_id)
+        assert record is not None
+        return record
+
+    def causal_discriminating_observation(
+        self, observation_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_discriminating_observations WHERE id = ?",
+                (observation_id,),
+            ).fetchone()
+        return (
+            _decode_causal_discriminating_observation(row)
+            if row is not None
+            else None
+        )
+
+    def causal_discriminating_observations(
+        self,
+        *,
+        factor_id: str | None = None,
+        attempt_id: str | None = None,
+        presentation_id: str | None = None,
+        admitted_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Observation receipts, oldest first."""
+
+        clauses: list[str] = []
+        values: list[Any] = []
+        if factor_id is not None:
+            clauses.append("factor_id = ?")
+            values.append(factor_id)
+        if attempt_id is not None:
+            clauses.append("attempt_id = ?")
+            values.append(attempt_id)
+        if presentation_id is not None:
+            clauses.append("presentation_id = ?")
+            values.append(presentation_id)
+        if admitted_only:
+            clauses.append("admitted = 1")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM causal_discriminating_observations
+                {where}
+                ORDER BY created_at, id
+                """,
+                values,
+            ).fetchall()
+        return [_decode_causal_discriminating_observation(row) for row in rows]
+
     def set_unresolved_cause_hypothesis_refs(
         self,
         factor_id: str,
@@ -12469,6 +13220,13 @@ class Repository:
                     "target_ref": target_ref,
                     "mechanism": hypothesis.get("mechanism"),
                     "operation": hypothesis.get("operation"),
+                    "repair_class_id": hypothesis.get("repair_class_id"),
+                    # Provenance rides along so a cause-set classifier can report
+                    # WHY a mapping is missing without a second query.
+                    "repair_class_basis": hypothesis.get("repair_class_basis"),
+                    "repair_class_unresolved_reason": hypothesis.get(
+                        "repair_class_unresolved_reason"
+                    ),
                     **(
                         {
                             "facet": target_ref.get("facet_id"),
@@ -12482,18 +13240,38 @@ class Repository:
             )
         return presented
 
-    def open_unresolved_cause_factors(self) -> list[dict[str, Any]]:
-        """Every open positional-ambiguity factor for diagnostic surfaces."""
+    def open_unresolved_cause_factors(
+        self, *, learning_object_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Open positional-ambiguity factors, optionally one learning object.
 
+        Repair blocking is a per-learning-object question (causal spec §3.9);
+        scanning every open factor on every repair start is both slow and wrong
+        in intent, so callers pass the scope they actually mean.
+        """
+
+        clause = ""
+        values: tuple[Any, ...] = ()
+        if learning_object_id is not None:
+            clause = """
+                  AND EXISTS (
+                        SELECT 1 FROM causal_hypotheses h
+                         WHERE h.attempt_id = unresolved_cause_factors.attempt_id
+                           AND h.learning_object_id = ?
+                      )
+            """
+            values = (learning_object_id,)
         with self.connection() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, attempt_id, observation_id, candidate_causes_json,
                        status, algorithm_version, created_at, updated_at
                 FROM unresolved_cause_factors
                 WHERE status = 'open'
+                {clause}
                 ORDER BY created_at, id
-                """
+                """,
+                values,
             ).fetchall()
         return [
             {
@@ -16045,34 +16823,80 @@ class Repository:
 
     def derived_state_rebuild_version_changes(self) -> list[dict[str, Any]]:
         """Recalibration boundaries: each derived-state rebuild whose
-        ``algorithm_version`` differs from the immediately preceding rebuild.
-        Collapses consecutive same-version rebuilds so a version bump surfaces
-        as exactly one entry, regardless of how many learning objects/facets it
-        recomputed. Ordered oldest-first.
+        ``algorithm_version`` OR ``canonical_projection_version`` differs from
+        the immediately preceding rebuild. Collapses consecutive same-version
+        rebuilds so a version bump surfaces as exactly one entry, regardless of
+        how many learning objects/facets it recomputed. Ordered oldest-first.
+
+        The projection version is a second, finer boundary: a canonical
+        projection semantics change (P2 §4.4 — probe/primed attempts become
+        assisted) retro-changes derived facet state without touching the vault
+        algorithm version, and must still surface as one honest "estimates
+        recomputed, your evidence unchanged" entry rather than silently.
+
+        THE FIRST ROW IS NOT ALWAYS HOUSEKEEPING.  Skipping it unconditionally
+        (there is no predecessor to differ from) is right for a fresh vault, but
+        wrong for the case that actually matters: a vault whose learner has been
+        practising for months and whose ``derived_state_rebuilds`` table is
+        empty, because rebuilds only started being recorded later.  Its first
+        rebuild recomputes estimates the learner has already SEEN, under a
+        projection version that was never in force when they saw them — and
+        under the old rule it emitted nothing at all.  A silent state change is
+        the failure mode `spec_diagnostic_augmentation_v1.md` A6 exists to
+        prevent: the system must be able to say it was wrong.
+
+        So the first row emits a boundary exactly when it recomputed prior
+        learner evidence (``replayed_attempts > 0``) under a recorded projection
+        version.  A first rebuild on a vault with nothing to replay narrates
+        housekeeping the learner never saw, and stays silent.
+        ``previous_*`` is ``None`` on that entry, which is the truthful statement
+        that no earlier version was on record.
         """
 
         with self.connection() as connection:
             rows = connection.execute(
                 """
-                SELECT id, algorithm_version, created_at
+                SELECT id, algorithm_version, canonical_projection_version,
+                       replayed_attempts, created_at
                 FROM derived_state_rebuilds
                 ORDER BY created_at, id
                 """
             ).fetchall()
         changes: list[dict[str, Any]] = []
         previous_version: str | None = None
+        previous_projection: str | None = None
+        first = True
         for row in rows:
             version = str(row["algorithm_version"])
-            if previous_version is not None and version != previous_version:
+            projection = row["canonical_projection_version"]
+            projection = str(projection) if projection is not None else None
+            first_recalibrates_seen_evidence = (
+                first
+                and projection is not None
+                and int(row["replayed_attempts"] or 0) > 0
+            )
+            if first_recalibrates_seen_evidence or (
+                not first
+                and (
+                    version != previous_version
+                    or projection != previous_projection
+                )
+            ):
                 changes.append(
                     {
                         "id": str(row["id"]),
                         "algorithm_version": version,
                         "previous_algorithm_version": previous_version,
+                        "canonical_projection_version": projection,
+                        "previous_canonical_projection_version": (
+                            previous_projection
+                        ),
                         "at": str(row["created_at"]),
                     }
                 )
+            first = False
             previous_version = version
+            previous_projection = projection
         return changes
 
     # ------------------------------------------------------------------
@@ -19498,6 +20322,629 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    # --- Causal repair orchestration (P2 §6, migration 124) ------------------
+    #
+    # Owned by `services/causal_orchestrator.py`.  Three stores: the append-only
+    # probe DECISION ledger (every decision, including the negative majority
+    # class), the append-only learner PREFERENCE log that makes "Not now"
+    # survive the attempt, and the mutable machine-check QUEUE that gives the
+    # `deferred_machine_checks` arm a producer and a consumer.
+
+    def insert_causal_probe_decision_receipt(
+        self,
+        *,
+        factor_id: str,
+        decision: str,
+        reason: str,
+        repair_status: str,
+        decision_policy_version: str,
+        formula_version: str,
+        inputs: Mapping[str, Any],
+        parameters: Mapping[str, Any],
+        hypothesis_ids: Sequence[str] = (),
+        repair_class_ids: Sequence[str] = (),
+        blind_bundle_ids: Sequence[str] = (),
+        machine_check_ids: Sequence[str] = (),
+        learning_object_id: str | None = None,
+        attempt_id: str | None = None,
+        misconception_id: str | None = None,
+        candidate_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one probe decision.
+
+        Never deduplicated: a repeated identical decision is a repeated
+        observation, and its frequency is exactly what the P4 training records
+        need.  ``decision_fingerprint`` carries the content hash so a caller can
+        still group identical decisions without losing the counts.
+        """
+
+        import hashlib
+
+        now = utc_now_iso(clock)
+        fingerprint = hashlib.sha256(
+            _json(
+                {
+                    "factor_id": factor_id,
+                    "decision": decision,
+                    "inputs": dict(inputs),
+                    "parameters": dict(parameters),
+                    "formula_version": formula_version,
+                }
+            ).encode("utf-8")
+        ).hexdigest()[:32]
+        receipt_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO causal_probe_decision_receipts(
+                  id, decision_fingerprint, factor_id, learning_object_id,
+                  attempt_id, misconception_id, decision, reason, repair_status,
+                  decision_policy_version, formula_version, inputs_json,
+                  parameters_json, hypothesis_ids_json, repair_class_ids_json,
+                  candidate_id, blind_bundle_ids_json, machine_check_ids_json,
+                  created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt_id,
+                    fingerprint,
+                    factor_id,
+                    learning_object_id,
+                    attempt_id,
+                    misconception_id,
+                    decision,
+                    reason,
+                    repair_status,
+                    decision_policy_version,
+                    formula_version,
+                    _json(dict(inputs)),
+                    _json(dict(parameters)),
+                    _json([str(value) for value in hypothesis_ids]),
+                    _json([str(value) for value in repair_class_ids]),
+                    candidate_id,
+                    _json([str(value) for value in blind_bundle_ids]),
+                    _json([str(value) for value in machine_check_ids]),
+                    now,
+                ),
+            )
+            connection.commit()
+        receipt = self.causal_probe_decision_receipt(receipt_id)
+        assert receipt is not None
+        return receipt
+
+    def _decode_causal_probe_decision_receipt(
+        self, row: sqlite3.Row
+    ) -> dict[str, Any]:
+        payload = dict(row)
+        payload["inputs"] = _loads(payload.pop("inputs_json"), {})
+        payload["parameters"] = _loads(payload.pop("parameters_json"), {})
+        payload["hypothesis_ids"] = _loads(payload.pop("hypothesis_ids_json"), [])
+        payload["repair_class_ids"] = _loads(
+            payload.pop("repair_class_ids_json"), []
+        )
+        payload["blind_bundle_ids"] = _loads(
+            payload.pop("blind_bundle_ids_json"), []
+        )
+        payload["machine_check_ids"] = _loads(
+            payload.pop("machine_check_ids_json"), []
+        )
+        return payload
+
+    def causal_probe_decision_receipt(
+        self, receipt_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_probe_decision_receipts WHERE id = ?",
+                (receipt_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._decode_causal_probe_decision_receipt(row)
+
+    def causal_probe_decision_receipts(
+        self,
+        *,
+        factor_id: str | None = None,
+        decision: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        values: list[Any] = []
+        if factor_id is not None:
+            clauses.append("factor_id = ?")
+            values.append(factor_id)
+        if decision is not None:
+            clauses.append("decision = ?")
+            values.append(decision)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM causal_probe_decision_receipts
+                {where}
+                ORDER BY created_at, id
+                LIMIT ?
+                """,
+                (*values, limit),
+            ).fetchall()
+        return [
+            self._decode_causal_probe_decision_receipt(row) for row in rows
+        ]
+
+    def record_causal_probe_preference(
+        self,
+        *,
+        scope: str,
+        scope_ref: str,
+        preference: str,
+        source: str,
+        session_id: str | None = None,
+        expires_at: str | None = None,
+        detail: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Persist one learner probe preference ("Not now" and friends)."""
+
+        now = utc_now_iso(clock)
+        event_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO causal_probe_preference_events(
+                  id, scope, scope_ref, session_id, preference, source,
+                  expires_at, detail_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    scope,
+                    scope_ref,
+                    session_id,
+                    preference,
+                    source,
+                    expires_at,
+                    _json(dict(detail)) if detail is not None else None,
+                    now,
+                ),
+            )
+            connection.commit()
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_probe_preference_events WHERE id = ?",
+                (event_id,),
+            ).fetchone()
+        payload = dict(row)
+        payload["detail"] = _loads(payload.pop("detail_json"), None)
+        return payload
+
+    def causal_probe_preference(
+        self,
+        *,
+        factor_id: str | None = None,
+        learning_object_id: str | None = None,
+        session_id: str | None = None,
+        at: str | None = None,
+    ) -> dict[str, Any] | None:
+        """The newest applicable, unexpired preference across the given scopes.
+
+        Latest learner intent wins rather than most-specific-forever: a learner
+        who declined a factor yesterday and re-enabled diagnostics for today's
+        session should not be held to yesterday's answer.
+        """
+
+        now = at or utc_now_iso()
+        clauses: list[str] = []
+        values: list[Any] = []
+        if factor_id is not None:
+            clauses.append("(scope = 'factor' AND scope_ref = ?)")
+            values.append(factor_id)
+        if learning_object_id is not None:
+            clauses.append("(scope = 'learning_object' AND scope_ref = ?)")
+            values.append(learning_object_id)
+        if session_id is not None:
+            clauses.append("(scope = 'session' AND scope_ref = ?)")
+            values.append(session_id)
+        if not clauses:
+            return None
+        with self.connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT * FROM causal_probe_preference_events
+                WHERE ({' OR '.join(clauses)})
+                  AND (expires_at IS NULL OR expires_at > ?)
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (*values, now),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["detail"] = _loads(payload.pop("detail_json"), None)
+        return payload
+
+    def enqueue_causal_machine_check(
+        self,
+        *,
+        check_id: str,
+        kind: str,
+        payload: Mapping[str, Any],
+        source: str,
+        learning_object_id: str | None = None,
+        factor_id: str | None = None,
+        attempt_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Queue one machine-side obligation, idempotently.
+
+        ``check_id`` is the content hash of the obligation, so re-sweeping the
+        same unresolved mapping does not pile up duplicates.  A previously
+        resolved check whose obligation reappears is re-opened.
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO causal_machine_checks(
+                  id, kind, learning_object_id, factor_id, attempt_id, status,
+                  source, payload_json, resolution_json, created_at, updated_at,
+                  resolved_at
+                )
+                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, NULL, ?, ?, NULL)
+                ON CONFLICT(id) DO UPDATE SET
+                  status = 'pending',
+                  payload_json = excluded.payload_json,
+                  resolution_json = NULL,
+                  resolved_at = NULL,
+                  updated_at = excluded.updated_at
+                WHERE causal_machine_checks.status != 'pending'
+                """,
+                (
+                    check_id,
+                    kind,
+                    learning_object_id,
+                    factor_id,
+                    attempt_id,
+                    source,
+                    _json(dict(payload)),
+                    now,
+                    now,
+                ),
+            )
+            connection.commit()
+        check = self.causal_machine_check(check_id)
+        assert check is not None
+        return check
+
+    def causal_machine_check(self, check_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_machine_checks WHERE id = ?", (check_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["payload"] = _loads(payload.pop("payload_json"), {})
+        payload["resolution"] = _loads(payload.pop("resolution_json"), None)
+        return payload
+
+    def causal_machine_checks(
+        self,
+        *,
+        status: str | None = "pending",
+        learning_object_id: str | None = None,
+        factor_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        values: list[Any] = []
+        if status is not None:
+            clauses.append("status = ?")
+            values.append(status)
+        if learning_object_id is not None:
+            clauses.append("learning_object_id = ?")
+            values.append(learning_object_id)
+        if factor_id is not None:
+            clauses.append("factor_id = ?")
+            values.append(factor_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM causal_machine_checks
+                {where}
+                ORDER BY created_at, id
+                """,
+                tuple(values),
+            ).fetchall()
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            payload["payload"] = _loads(payload.pop("payload_json"), {})
+            payload["resolution"] = _loads(payload.pop("resolution_json"), None)
+            results.append(payload)
+        return results
+
+    def close_causal_machine_check(
+        self,
+        check_id: str,
+        *,
+        status: str,
+        resolution: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        if status not in {"resolved", "dismissed"}:
+            raise ValueError("a machine check closes as resolved or dismissed")
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE causal_machine_checks
+                   SET status = ?, resolution_json = ?, resolved_at = ?,
+                       updated_at = ?
+                 WHERE id = ? AND status = 'pending'
+                """,
+                (
+                    status,
+                    _json(dict(resolution)) if resolution is not None else None,
+                    now,
+                    now,
+                    check_id,
+                ),
+            )
+            connection.commit()
+        return self.causal_machine_check(check_id)
+
+    def consumed_followup_task_for_attempt(
+        self, attempt_id: str
+    ) -> dict[str, Any] | None:
+        """The delayed task this attempt discharged, with its carried context.
+
+        Used by the cold-verification wiring (§6.2): the attempt that consumes a
+        ``cold_retry`` task is the cold observation, and the task carries the
+        source attempt, factor, hypothesis set, repair class and avoided
+        affordances resolved when the retry was scheduled.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM followup_tasks
+                WHERE consumed_attempt_id = ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """,
+                (attempt_id,),
+            ).fetchone()
+        return _decode_followup_task(row) if row is not None else None
+
+    def causal_probe_candidates_for_factor(
+        self, factor_id: str, *, statuses: Sequence[str] | None = None
+    ) -> list[dict[str, Any]]:
+        """Probe candidates minted for one unresolved-cause factor.
+
+        Only ``active`` candidates are servable (§6): a candidate that has not
+        cleared the review ladder is an unreviewed instrument, and serving it
+        would spend learner effort on something no reviewer has admitted.
+        """
+
+        clauses = ["factor_id = ?"]
+        values: list[Any] = [factor_id]
+        if statuses:
+            clauses.append(
+                f"status IN ({','.join('?' for _ in statuses)})"
+            )
+            values.extend(statuses)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT id FROM causal_probe_candidates
+                WHERE {' AND '.join(clauses)}
+                ORDER BY created_at, id
+                """,
+                tuple(values),
+            ).fetchall()
+        return [
+            candidate
+            for row in rows
+            if (candidate := self.causal_probe_candidate(str(row["id"])))
+            is not None
+        ]
+
+    # ------------------------------------------------------------------
+    # Diagnosis adjudication store (migration 126;
+    # spec_diagnostic_augmentation_v1.md §2 A4).  Append-only: no update or
+    # delete method exists here because the table's triggers would abort one.
+    # ------------------------------------------------------------------
+
+    def insert_diagnosis_adjudication(
+        self,
+        *,
+        values: Mapping[str, Any],
+        adjudication_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Append one immutable verdict on a diagnosis (A4).
+
+        The caller owns validation; this method owns persistence only. The SQL
+        CHECKs are the backstop that keeps a crossed verdict/abstention cell out
+        of the eval set even if a future caller forgets.
+        """
+
+        adjudication_id = adjudication_id or new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO diagnosis_adjudications(
+                  id, attempt_id, diagnosis_receipt_id, verdict,
+                  system_abstained, adjudicated_anchor_json,
+                  adjudicated_anchor_kind, adjudicated_repair_md,
+                  adjudicated_repair_class_id, queue_reason, learner_report_id,
+                  adjudicator_source, rationale, decision_policy_version,
+                  repair_policy_version, grading_prompt_version, grader_model,
+                  receipt_schema_version, system_snapshot_json, supersedes_id,
+                  created_at
+                ) VALUES (
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    adjudication_id,
+                    str(values["attempt_id"]),
+                    str(values["diagnosis_receipt_id"]),
+                    str(values["verdict"]),
+                    1 if values.get("system_abstained") else 0,
+                    _json(values["adjudicated_anchor"])
+                    if values.get("adjudicated_anchor") is not None
+                    else None,
+                    values.get("adjudicated_anchor_kind"),
+                    values.get("adjudicated_repair_md"),
+                    values.get("adjudicated_repair_class_id"),
+                    str(values["queue_reason"]),
+                    values.get("learner_report_id"),
+                    str(values["adjudicator_source"]),
+                    values.get("rationale"),
+                    values.get("decision_policy_version"),
+                    values.get("repair_policy_version"),
+                    values.get("grading_prompt_version"),
+                    values.get("grader_model"),
+                    values.get("receipt_schema_version"),
+                    _json(dict(values.get("system_snapshot") or {})),
+                    values.get("supersedes_id"),
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return adjudication_id
+
+    def diagnosis_adjudication(
+        self, adjudication_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM diagnosis_adjudications WHERE id = ?",
+                (adjudication_id,),
+            ).fetchone()
+        return _decode_diagnosis_adjudication(row) if row is not None else None
+
+    def diagnosis_adjudications_for_attempt(
+        self, attempt_id: str
+    ) -> list[dict[str, Any]]:
+        """The whole supersession chain for one attempt, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM diagnosis_adjudications
+                WHERE attempt_id = ?
+                ORDER BY created_at, id
+                """,
+                (attempt_id,),
+            ).fetchall()
+        return [_decode_diagnosis_adjudication(row) for row in rows]
+
+    def active_diagnosis_adjudication(
+        self, attempt_id: str
+    ) -> dict[str, Any] | None:
+        """The head of the chain: the row nothing else supersedes."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT a.* FROM diagnosis_adjudications a
+                WHERE a.attempt_id = ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM diagnosis_adjudications s
+                    WHERE s.supersedes_id = a.id
+                  )
+                ORDER BY a.created_at DESC, a.id DESC
+                LIMIT 1
+                """,
+                (attempt_id,),
+            ).fetchone()
+        return _decode_diagnosis_adjudication(row) if row is not None else None
+
+    def adjudicated_attempt_ids(self) -> set[str]:
+        """Attempts already carrying a verdict — the queue's exclusion set."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT attempt_id FROM diagnosis_adjudications"
+            ).fetchall()
+        return {str(row["attempt_id"]) for row in rows}
+
+    def list_diagnosis_adjudications(
+        self,
+        *,
+        active_only: bool = True,
+        attempt_ids: Sequence[str] | None = None,
+        verdicts: Sequence[str] | None = None,
+        grading_prompt_version: str | None = None,
+        grader_model: str | None = None,
+        queue_reasons: Sequence[str] | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Scoreboard/eval read. ``active_only`` keeps one row per attempt so a
+        re-adjudicated case is never double-counted in a rate."""
+
+        clauses: list[str] = []
+        values: list[Any] = []
+        if active_only:
+            clauses.append(
+                "NOT EXISTS (SELECT 1 FROM diagnosis_adjudications s "
+                "WHERE s.supersedes_id = a.id)"
+            )
+        if attempt_ids is not None:
+            ids = list(attempt_ids)
+            if not ids:
+                return []
+            clauses.append(f"a.attempt_id IN ({','.join('?' for _ in ids)})")
+            values.extend(ids)
+        if verdicts:
+            clauses.append(f"a.verdict IN ({','.join('?' for _ in verdicts)})")
+            values.extend(verdicts)
+        if grading_prompt_version is not None:
+            clauses.append("a.grading_prompt_version = ?")
+            values.append(grading_prompt_version)
+        if grader_model is not None:
+            clauses.append("a.grader_model = ?")
+            values.append(grader_model)
+        if queue_reasons:
+            clauses.append(
+                f"a.queue_reason IN ({','.join('?' for _ in queue_reasons)})"
+            )
+            values.extend(queue_reasons)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        suffix = ""
+        if limit is not None:
+            suffix = " LIMIT ?"
+            values.append(int(limit))
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT a.* FROM diagnosis_adjudications a
+                {where}
+                ORDER BY a.created_at, a.id
+                {suffix}
+                """,
+                tuple(values),
+            ).fetchall()
+        return [_decode_diagnosis_adjudication(row) for row in rows]
+
+
+def _decode_diagnosis_adjudication(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["adjudicated_anchor"] = _loads(
+        data.pop("adjudicated_anchor_json", None), None
+    )
+    data["system_snapshot"] = _loads(data.pop("system_snapshot_json"), {})
+    data["system_abstained"] = bool(data["system_abstained"])
+    return data
+
 
 def _decode_source_conflict(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
@@ -20144,6 +21591,13 @@ def _decode_remediation_episode(row: sqlite3.Row) -> dict[str, Any]:
     return payload
 
 
+def _decode_followup_task(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    # Migration 124: the cold-verification inputs ride on the task itself.
+    payload["context"] = _loads(payload.pop("context_json", None), None)
+    return payload
+
+
 def _decode_attempt_feedback_metadata(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["fatal_errors"] = _loads(payload.pop("fatal_errors_json"), [])
@@ -20167,6 +21621,26 @@ def _decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]:
         "evidence",
     ):
         payload[field] = _loads(payload.pop(f"{field}_json"), None)
+    return payload
+
+
+def _decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    for field in (
+        "blind_bundle_ids",
+        "classified_as",
+        "observed_features",
+        "support_scores",
+        "detail",
+    ):
+        payload[field] = _loads(payload.pop(f"{field}_json"), None)
+    for field in (
+        "supports_open_set",
+        "declared_keys_observed",
+        "admitted",
+        "resolved_factor",
+    ):
+        payload[field] = bool(payload[field])
     return payload
 
 

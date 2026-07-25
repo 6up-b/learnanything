@@ -1,9 +1,14 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
+import { api } from "../api/client";
 import type {
   CausalDivergenceAnchorDto,
   CausalEpisodeDto,
   CausalFeedbackDto,
   CausalHypothesisDto,
+  CausalProbeOfferDto,
+  CausalRepairActionId,
+  CausalRepairStatusDto,
+  CausalRepairStatusState,
   CausalTargetRefDto,
   RepairedTraceDto,
   UnresolvedCauseSelfReportResponse,
@@ -158,10 +163,236 @@ function TraceView({
   );
 }
 
+// ── P2 causal repair hold (spec_causal_attribution_v1 §6, §6.6) ──────────────
+// The typed union `causal_repair_status` returns, rendered as the learner state
+// it is. The message is authored server-side (`causal_orchestrator`) precisely
+// so one copy exists; this component never re-words it — it only chooses tone,
+// the section heading, and which actions are reachable.
+//
+// §6.6 places the hold in the "why we are NOT reviewing X" position of the typed
+// feedback display, next to "why we are not reviewing demonstrated work". What
+// is held is the BRANCH-SPECIFIC repair inside one divergent causal factor, not
+// "unrelated remediation" — the old wording named the wrong thing.
+
+const REPAIR_STATUS_TONE: Record<
+  CausalRepairStatusState,
+  "cyan" | "green" | "amber" | "red" | "slate"
+> = {
+  started: "green",
+  safe_common_repair_available: "green",
+  needs_disambiguation: "amber",
+  deferred_machine_checks: "cyan",
+  blocked_pending_review: "slate",
+};
+
+const REPAIR_STATUS_PILL: Record<CausalRepairStatusState, string> = {
+  started: "repair started",
+  safe_common_repair_available: "one repair covers it",
+  needs_disambiguation: "holding this repair",
+  deferred_machine_checks: "checking first",
+  blocked_pending_review: "check not ready",
+};
+
+const REPAIR_STATUS_HEADING: Record<CausalRepairStatusState, string> = {
+  started: "what happens next",
+  safe_common_repair_available: "what happens next",
+  needs_disambiguation: "why we are not reviewing this yet",
+  deferred_machine_checks: "why we are not reviewing this yet",
+  blocked_pending_review: "why we are not reviewing this yet",
+};
+
+/** Honest learner copy for a probe offer that could not be served. The typed
+ *  reasons come from `causal_orchestrator.accept_probe_offer`. */
+const PROBE_OFFER_COPY: Record<string, string> = {
+  factor_not_open: "This one is already settled — there is nothing left to check.",
+  no_reviewed_active_candidate: "The check that would tell these apart isn't ready yet.",
+  probe_item_missing_from_vault: "The check that would tell these apart isn't ready yet.",
+  probe_item_not_eligible: "The check that would tell these apart isn't ready yet.",
+  another_probe_episode_is_open:
+    "Another diagnostic is already open for this topic — finish that one first.",
+};
+
+function probeOfferCopy(reason: string): string {
+  return PROBE_OFFER_COPY[reason] ?? "The quick check could not be started right now.";
+}
+
+export function CausalRepairStatusPanel({
+  status,
+  pendingActionId = null,
+  note = null,
+  onAction,
+  style,
+}: {
+  status: CausalRepairStatusDto;
+  pendingActionId?: CausalRepairActionId | null;
+  /** Transient outcome copy (e.g. a probe offer that could not be served). */
+  note?: string | null;
+  onAction?: (actionId: CausalRepairActionId, status: CausalRepairStatusDto) => void;
+  style?: CSSProperties;
+}) {
+  const tone = REPAIR_STATUS_TONE[status.status] ?? "slate";
+  const busy = pendingActionId != null;
+  const pendingChecks = status.pendingMachineCheckIds.length;
+  return (
+    <Panel tone={tone} style={style}>
+      <SmallLabel>{REPAIR_STATUS_HEADING[status.status] ?? "repair status"}</SmallLabel>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <Pill color={tone}>{REPAIR_STATUS_PILL[status.status] ?? status.status}</Pill>
+      </div>
+      <div style={{ marginTop: 7, color: COLOR.text, lineHeight: 1.55 }}>{status.message}</div>
+
+      {/* "Not now" means stop asking, not stop being ambiguous: the state is
+          still needs_disambiguation, the offer is simply withdrawn. */}
+      {status.status === "needs_disambiguation" && !status.probeOffered ? (
+        <div style={{ marginTop: 6 }}>
+          <Dim>You asked me not to check again for now — you can still ask to be taught.</Dim>
+        </div>
+      ) : null}
+
+      {status.status === "deferred_machine_checks" && pendingChecks ? (
+        <div style={{ marginTop: 6 }}>
+          <Dim>
+            {pendingChecks} machine-side check{pendingChecks === 1 ? "" : "s"} still to finish.
+          </Dim>
+        </div>
+      ) : null}
+
+      {note ? (
+        <div style={{ marginTop: 7 }}>
+          <Dim>{note}</Dim>
+        </div>
+      ) : null}
+
+      {status.actions.length && onAction ? (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {status.actions.map((action) => {
+            const primary = action.id === "take_quick_check";
+            const color = primary ? COLOR.cyan : COLOR.amber;
+            return (
+              <button
+                key={action.id}
+                type="button"
+                disabled={busy}
+                onClick={() => onAction(action.id, status)}
+                style={{
+                  border: `1px solid ${busy ? COLOR.border : color}`,
+                  background: "transparent",
+                  color: busy ? COLOR.textFaint : color,
+                  cursor: busy ? "default" : "pointer",
+                  fontFamily: FONT_MONO,
+                  fontSize: 11,
+                  padding: "5px 9px",
+                }}
+              >
+                {pendingActionId === action.id ? "…" : action.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {status.probeDecision ? (
+        <div style={{ marginTop: 8, fontFamily: FONT_MONO, fontSize: 10 }}>
+          <Faint>
+            decision · {humanize(status.probeDecision)} · {humanize(status.reason)}
+            {status.decisionPolicyVersion ? ` · ${status.decisionPolicyVersion}` : ""}
+          </Faint>
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+/** Fetch + act on one causal repair case. Shared by Feedback (where the hold is
+ *  rendered inside the typed feedback display) and Repair (where the learner
+ *  tapped "start repair"), so the three actions behave identically on both. */
+export function useCausalRepairActions({
+  sessionId,
+  onStatus,
+  onProbeAccepted,
+  onError,
+}: {
+  sessionId?: string | null;
+  onStatus: (status: CausalRepairStatusDto) => void;
+  /** The probe was pinned into a factor-aware episode — serve the instrument. */
+  onProbeAccepted?: (offer: CausalProbeOfferDto) => void;
+  onError?: (message: string) => void;
+}) {
+  const [pendingActionId, setPendingActionId] = useState<CausalRepairActionId | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const runAction = useCallback(
+    (actionId: CausalRepairActionId, status: CausalRepairStatusDto) => {
+      const factorId = status.factorId;
+      if (!factorId) return;
+      setPendingActionId(actionId);
+      setNote(null);
+      const refresh = () =>
+        api
+          .causalRepairStatus(status.misconceptionId, sessionId)
+          .then((result) => onStatus(result.repairStatus));
+      const done = () => setPendingActionId(null);
+      const fail = (error: unknown) => {
+        onError?.(error instanceof Error ? error.message : String(error));
+      };
+
+      if (actionId === "take_quick_check") {
+        api
+          .causalProbeOfferAction({
+            factorId,
+            misconceptionId: status.misconceptionId,
+            sessionId,
+            decisionReceiptId: status.decisionReceiptId,
+          })
+          .then((result) => {
+            const offer = result.offer;
+            if (offer.accepted && offer.practiceItemId && onProbeAccepted) {
+              onProbeAccepted(offer);
+              return;
+            }
+            setNote(probeOfferCopy(offer.reason));
+            return refresh();
+          })
+          .catch(fail)
+          .finally(done);
+        return;
+      }
+
+      if (actionId === "not_now") {
+        // The decline persists; re-reading is what proves it — the factor stays
+        // divergent and comes back with probeOffered: false.
+        api
+          .causalProbeDefer({ factorId, misconceptionId: status.misconceptionId, sessionId })
+          .then(refresh)
+          .catch(fail)
+          .finally(done);
+        return;
+      }
+
+      api
+        .causalTeachMeNow({
+          factorId,
+          misconceptionId: status.misconceptionId,
+          sessionId,
+        })
+        .then((result) => onStatus(result.repairStatus))
+        .catch(fail)
+        .finally(done);
+    },
+    [onError, onProbeAccepted, onStatus, sessionId],
+  );
+
+  return { pendingActionId, note, runAction };
+}
+
 export function CausalFeedbackPanel({
   feedback,
   onContest,
   contestPending = false,
+  repairStatus = null,
+  repairPendingActionId = null,
+  repairNote = null,
+  onRepairAction,
 }: {
   feedback: CausalFeedbackDto;
   onContest?: (
@@ -169,6 +400,12 @@ export function CausalFeedbackPanel({
     factorId: string | null,
   ) => void;
   contestPending?: boolean;
+  /** §6.6: the typed P2 repair hold, rendered in the "why we are NOT reviewing
+   *  X" position rather than raised as a modal error. */
+  repairStatus?: CausalRepairStatusDto | null;
+  repairPendingActionId?: CausalRepairActionId | null;
+  repairNote?: string | null;
+  onRepairAction?: (actionId: CausalRepairActionId, status: CausalRepairStatusDto) => void;
 }) {
   const nonHypothesisUnverified = feedback.unverified.filter(
     (claim) => claim.kind !== "causal_hypothesis",
@@ -315,6 +552,19 @@ export function CausalFeedbackPanel({
             </div>
           ))}
         </Panel>
+      ) : null}
+
+      {/* §6.6: the "why we are NOT reviewing X" slot. A held targeted repair
+          belongs here — next to the demonstrated work we are also not
+          reviewing — not behind a modal error. */}
+      {repairStatus ? (
+        <CausalRepairStatusPanel
+          status={repairStatus}
+          pendingActionId={repairPendingActionId}
+          note={repairNote}
+          onAction={onRepairAction}
+          style={{ marginTop: 8 }}
+        />
       ) : null}
 
       {feedback.repairedTrace ? (
@@ -664,9 +914,25 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
             {receipt.commonRepairCover.coversPlausibleSet ? "covers plausible set" : "no common cover"}
           </Pill>
         </AuditRow>
-        <AuditRow label="probe decision">
-          <span style={{ color: COLOR.amber }}>{humanize(receipt.probeDecision.decision)}</span>
-          <Dim> · {receipt.probeDecision.reason}</Dim>
+        <AuditRow label="probe need">
+          {receipt.probeNeed ? (
+            <>
+              <Pill color={receipt.probeNeed.divergent ? "amber" : "slate"}>
+                {receipt.probeNeed.divergent ? "divergent repairs" : "not divergent"}
+              </Pill>
+              {receipt.probeNeed.incompleteRepairMapping ? (
+                <Pill color="red">incomplete repair mapping</Pill>
+              ) : null}
+              <Dim> · {receipt.probeNeed.reason}</Dim>
+            </>
+          ) : (
+            <>
+              <span style={{ color: COLOR.amber }}>
+                {humanize(receipt.probeDecision.decision)}
+              </span>
+              <Dim> · {receipt.probeDecision.reason}</Dim>
+            </>
+          )}
         </AuditRow>
         {selected?.suggestion.repairedTrace ? (
           <div style={{ marginTop: 8 }}>

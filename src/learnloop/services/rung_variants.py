@@ -232,6 +232,39 @@ def audit_variant_direction(
     return violations
 
 
+def audit_variant_manipulation_contract(
+    repository: Repository,
+    source_item: PracticeItem,
+    candidate_payload: dict[str, Any],
+    *,
+    adversarial_review: dict[str, Any] | None,
+    generation_agent_run_id: str | None = None,
+    reviewer_agent_run_id: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """P2 shared diff audit for harder/easier/rung-shift siblings.
+
+    Direction-specific deterministic checks remain above; undeclared semantic
+    differences are reviewed by the same independent mechanism used for causal
+    probes, rather than a second variant-only implementation.
+    """
+
+    from learnloop.services.causal_probe_coherence import (
+        audit_manipulation_contract,
+    )
+
+    return audit_manipulation_contract(
+        repository,
+        source_item=source_item,
+        candidate_item=candidate_payload,
+        source_kind="rung_variant",
+        adversarial_review=adversarial_review,
+        generation_agent_run_id=generation_agent_run_id,
+        reviewer_agent_run_id=reviewer_agent_run_id,
+        clock=clock,
+    )
+
+
 def _variant_kind(source_item: PracticeItem, rung: RungTarget, direction: str) -> str:
     """A rung whose demanded point moves against direction is a trajectory shift."""
 

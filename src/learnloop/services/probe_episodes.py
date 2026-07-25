@@ -144,6 +144,7 @@ def enter_episode(
     trigger: str = "initial",
     origin: str | None = None,
     goal_id: str | None = None,
+    causal_factor_id: str | None = None,
     clock: Clock | None = None,
     ai_client: object | None = None,
 ) -> ProbeEpisodeRecord:
@@ -179,15 +180,38 @@ def enter_episode(
     algorithm_version = vault.config.algorithms.algorithm_version
     episode_config = vault.config.probe.episode
     episode_id = new_ulid()
-    hypothesis_set = build_episode_hypothesis_set(vault, repository, learning_object_id, clock=clock)
-    hypothesis_set_id = repository.insert_hypothesis_set(
-        learning_object_id=learning_object_id,
-        probe_phase_id=episode_id,
-        hypotheses=[hypothesis.as_record() for hypothesis in hypothesis_set.hypotheses],
-        prior=hypothesis_set.prior,
-        algorithm_version=algorithm_version,
-        clock=clock,
-    )
+    if causal_factor_id is not None:
+        from learnloop.services.causal_probe_coherence import (
+            lock_causal_hypothesis_set,
+        )
+
+        hypothesis_set = lock_causal_hypothesis_set(
+            repository,
+            causal_factor_id,
+            probe_phase_id=episode_id,
+            algorithm_version=algorithm_version,
+            clock=clock,
+        )
+        if hypothesis_set.learning_object_id != learning_object_id:
+            raise ValueError(
+                "causal factor belongs to a different learning object"
+            )
+        hypothesis_set_id = str(hypothesis_set.id)
+    else:
+        hypothesis_set = build_episode_hypothesis_set(
+            vault, repository, learning_object_id, clock=clock
+        )
+        hypothesis_set_id = repository.insert_hypothesis_set(
+            learning_object_id=learning_object_id,
+            probe_phase_id=episode_id,
+            hypotheses=[
+                hypothesis.as_record()
+                for hypothesis in hypothesis_set.hypotheses
+            ],
+            prior=hypothesis_set.prior,
+            algorithm_version=algorithm_version,
+            clock=clock,
+        )
     locked = HypothesisSet(
         learning_object_id=learning_object_id,
         hypotheses=hypothesis_set.hypotheses,
@@ -232,7 +256,14 @@ def enter_episode(
         trigger=trigger,
         hypothesis_set_id=hypothesis_set_id,
         active_state_segment_id=None,
-        target_decision=None,
+        target_decision=(
+            {
+                "kind": "causal_repair_class_divergence",
+                "causal_factor_id": causal_factor_id,
+            }
+            if causal_factor_id is not None
+            else None
+        ),
         origin=origin,
         algorithm_version=algorithm_version,
         required_facets=sorted(required_facets(vault, learning_object_id, repository)),
@@ -275,6 +306,150 @@ def enter_episode(
                 repository, vault, episode_id, clock=clock, ai_client=ai_client
             )
     refreshed = repository.probe_episode(episode_id)
+    assert refreshed is not None
+    return refreshed
+
+
+def episode_has_observations(repository: Repository, episode_id: str) -> bool:
+    """True when this episode's locked hypothesis set has interpreted evidence.
+
+    Both channels count: a recorded probe observation, and a presentation the
+    learner already consumed (a submission whose observation was not qualifying
+    still happened under the locked set). An episode that has neither has
+    measured nothing, so nothing can be *re*interpreted by relocking it.
+    """
+
+    if repository.probe_observations_for_episode(episode_id):
+        return True
+    return any(
+        presentation.status == "submitted"
+        for presentation in repository.probe_presentations_for_episode(episode_id)
+    )
+
+
+def _relock_episode_row(
+    repository: Repository,
+    episode_id: str,
+    *,
+    hypothesis_set_id: str,
+    origin: str,
+    target_decision: Mapping[str, Any],
+    clock: Clock | None,
+) -> None:
+    now = utc_now_iso(clock)
+    with repository.connection() as connection:
+        connection.execute(
+            """
+            UPDATE probe_episodes
+               SET hypothesis_set_id = ?, origin = ?, target_decision_json = ?,
+                   entered_at = ?, updated_at = ?
+             WHERE id = ?
+            """,
+            (
+                hypothesis_set_id,
+                origin,
+                json.dumps(dict(target_decision)),
+                # `entered_at` moves with the lock. `episode_posterior` scopes
+                # replay by it (not by state segment), so leaving it behind
+                # would replay evidence recorded under the PREVIOUS set into the
+                # new one — including the very attempt the cause hypotheses were
+                # derived from, which would then be scored as independent
+                # evidence for itself. A freshly entered episode excludes that
+                # evidence by construction; so does this one.
+                now,
+                now,
+                episode_id,
+            ),
+        )
+        connection.commit()
+
+
+def retarget_episode_to_causal_factor(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    causal_factor_id: str,
+    *,
+    origin: str,
+    clock: Clock | None = None,
+) -> ProbeEpisodeRecord:
+    """Point an OBSERVATION-FREE open episode at a causal cause set.
+
+    At most one episode may be open per Learning Object (unique index
+    ``idx_probe_episodes_open``), and vault state sync cold-starts a plain
+    ``initial`` episode for every active LO. Without this, the causal
+    disambiguation probe could never be served in the running app: the placement
+    episode owns the LO and ``accept_probe_offer`` refuses.
+
+    The refusal it replaces is still correct where it bites — locking a second
+    hypothesis set over an episode that has already recorded observations would
+    reinterpret those observations under a set that did not exist when they were
+    made. So this is precondition-guarded rather than removed: an episode with
+    ANY observation (see :func:`episode_has_observations`) is refused, and only
+    an episode that has measured nothing is relocked.
+
+    The episode keeps its entry ``trigger`` and observation budget — they
+    describe how the block was opened and are not retro-written. The causal
+    provenance rides on ``origin`` and ``target_decision``, which is the same
+    place :func:`enter_episode` puts it. ``entered_at`` DOES move: it is what
+    :func:`episode_posterior` scopes replay by, so the measurement block under
+    the new set has to start at the relock or the new set would inherit evidence
+    gathered under the old one.
+    """
+
+    if episode.status not in ("pending_items", "in_progress"):
+        raise ValueError("only an open probe episode can be retargeted")
+    if episode_has_observations(repository, episode.id):
+        raise ValueError(
+            "a probe episode with observations cannot be relocked onto a new "
+            "hypothesis set"
+        )
+
+    from learnloop.services.causal_probe_coherence import lock_causal_hypothesis_set
+
+    hypothesis_set = lock_causal_hypothesis_set(
+        repository,
+        causal_factor_id,
+        probe_phase_id=episode.id,
+        algorithm_version=vault.config.algorithms.algorithm_version,
+        clock=clock,
+    )
+    if hypothesis_set.learning_object_id != episode.learning_object_id:
+        raise ValueError("causal factor belongs to a different learning object")
+
+    # Anything committed under the old set is not an assignment under the new
+    # one; it must not stay consumable.
+    active = repository.active_probe_presentation(episode.id)
+    if active is not None:
+        repository.end_probe_presentation(
+            active.id, end_reason="invalidated", clock=clock
+        )
+
+    _relock_episode_row(
+        repository,
+        episode.id,
+        hypothesis_set_id=str(hypothesis_set.id),
+        origin=origin,
+        target_decision={
+            "kind": "causal_repair_class_divergence",
+            "causal_factor_id": causal_factor_id,
+            "relocked_from_hypothesis_set_id": episode.hypothesis_set_id,
+        },
+        clock=clock,
+    )
+    relocked = repository.probe_episode(episode.id)
+    assert relocked is not None
+    instruments = eligible_instruments(
+        vault, repository, relocked, hypothesis_set=hypothesis_set
+    )
+    repository.update_probe_episode_status(
+        episode.id,
+        status="in_progress" if instruments else "pending_items",
+        clock=clock,
+    )
+    if not instruments:
+        _record_generation_need(vault, repository, relocked, hypothesis_set, clock=clock)
+    refreshed = repository.probe_episode(episode.id)
     assert refreshed is not None
     return refreshed
 
@@ -1699,6 +1874,38 @@ def _record_presentation_observation(
         features=features,
         clock=clock,
     )
+    from learnloop.services.causal_activity_policy import (
+        near_clone_from_selection_components,
+    )
+
+    contamination_class = (
+        "instructional_diagnostic"
+        if contaminated
+        else "pure_diagnostic"
+    )
+    # P2 §4.3: provenance is not similarity. Being instantiated FROM a source
+    # item does not make a probe a near clone of it; only a shared surface
+    # fingerprint does. The old truthiness test made every generated probe a
+    # near clone and permanently voided its certification eligibility.
+    near_clone_assessment = near_clone_from_selection_components(
+        vault,
+        practice_item_id=practice_item_id,
+        selection_components=presentation.selection_components,
+    )
+    repository.record_causal_activity_classification(
+        attempt_id=attempt_id,
+        contamination_class=contamination_class,
+        near_clone=near_clone_assessment.near_clone,
+        near_clone_basis=near_clone_assessment.basis,
+        source="probe_presentation_observation",
+        detail={
+            "probe_episode_id": episode.id,
+            "probe_presentation_id": presentation.id,
+            "contamination": contamination or None,
+            "near_clone_assessment": near_clone_assessment.as_dict(),
+        },
+        clock=clock,
+    )
     _dual_write_probe_grade(
         vault,
         repository,
@@ -1709,6 +1916,12 @@ def _record_presentation_observation(
         observed_outcome=outcome,
         clock=clock,
     )
+    if contamination_class == "instructional_diagnostic":
+        close_diagnostic_segment(
+            repository,
+            episode.id,
+            clock=clock,
+        )
     if eligible and instrument.family_template_id is not None and instrument.provenance == "instrument_card":
         record_real_observation_counts(
             repository,

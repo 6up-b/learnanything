@@ -29,6 +29,11 @@ from learnloop.services.assessment_contracts import (
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
 )
+from learnloop.services.causal_activity_policy import (
+    ASSISTED_ATTEMPT_TYPES as _ASSISTED_ATTEMPT_TYPES,
+    attempt_counts_as_assisted,
+)
+from learnloop.services.causal_attribution import OPEN_SET_CAUSE_ID
 from learnloop.services.capability_mapping import (
     CriterionOutcome,
     allocate_success_mass,
@@ -51,9 +56,30 @@ FAILURE_THRESHOLD = 0.40
 DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 
 # Assistance channels that certify nothing (§5.4/§6).
-ASSISTED_ATTEMPT_TYPES: frozenset[str] = frozenset(
-    {"hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough"}
-)
+#
+# DEPRECATED as a decision point: the attempt-type set alone cannot see
+# ``primed`` or ``hints_used``. Re-exported from the single authority for
+# readers that still want the flat set; use ``attempt_counts_as_assisted``.
+ASSISTED_ATTEMPT_TYPES = _ASSISTED_ATTEMPT_TYPES
+
+# P2 §4.4 canonical projection semantics version. Bumped whenever the fold over
+# the observation ledger changes what it derives from unchanged evidence, so a
+# rebuild surfaces as ONE deliberate recalibration boundary
+# (``derived_state_rebuild_version_changes`` -> learner review feed) instead of
+# a silent retro-change.
+#
+#   v1  (implicit, pre-P2) attempt-type-only assistance test.
+#   v2  causal activity policy: ``diagnostic_probe`` and any ``primed`` attempt
+#       count as assisted, so historical probe/primed attempts stop minting
+#       certification credit and independent surface groups on rebuild.
+#   v3  open cause-set UNION: when a diagnosis names exactly one candidate
+#       cause, the synthesized facet-target arms are unioned with it instead of
+#       REPLACING it. Before v3 the model's own asserted cause was minted as a
+#       hypothesis but left out of the factor's arms, so the locked probe set
+#       excluded the very cause under test. Rebuilding an affected vault changes
+#       the projected cause set (one extra arm per affected factor), which is
+#       why it is a versioned boundary rather than a silent correction.
+CANONICAL_PROJECTION_VERSION = "canonical_projection_v3_open_cause_union"
 
 
 def surface_group_id(item: PracticeItem) -> str:
@@ -223,6 +249,41 @@ def observed_unresolved_failure(
     return observed_fraction < 1.0 and len(targets) > 1 and not attribution
 
 
+def _target_ref_key(target_ref: Any) -> str:
+    """Identity of a candidate cause's declared target, for union de-duplication."""
+
+    if not isinstance(target_ref, Mapping):
+        return ""
+    kind = str(target_ref.get("kind") or "")
+    if kind == "facet_capability":
+        return (
+            f"facet_capability:{target_ref.get('facet_id')}"
+            f":{target_ref.get('capability')}"
+        )
+    if kind in ("", "none"):
+        return ""
+    return json.dumps(dict(target_ref), sort_keys=True, default=str)
+
+
+def _facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None:
+    """One synthesized open-world arm for a criterion target."""
+
+    if not target.facet:
+        return None
+    return {
+        "statement": f"Failure of {target.facet} at {target.capability}",
+        "cause_scope": "unknown",
+        "target_ref": {
+            "kind": "facet_capability",
+            "facet_id": target.facet,
+            "capability": target.capability,
+        },
+        # Compatibility keys for existing cause-set selectors.
+        "facet": target.facet,
+        "capability": target.capability,
+    }
+
+
 def _open_candidate_causes(
     repository: Repository,
     attempt_id: str,
@@ -247,20 +308,27 @@ def _open_candidate_causes(
                 candidate.setdefault("capability", target_ref.get("capability"))
             candidates.append(candidate)
     if len(candidates) < 2:
+        # UNION, not replace (projection v3).  Replacing dropped the model's
+        # own asserted cause from the factor's arms whenever the diagnosis named
+        # exactly one: the cause was still minted as a `causal_hypotheses` row,
+        # but `build_causal_hypothesis_set` reads the FACTOR's arms, so it
+        # locked a probe set that excluded the one cause the diagnosis actually
+        # claimed -- and no administered probe could ever confirm or refute it.
+        #
+        # A synthesized arm for a target the authored cause already names is
+        # suppressed: it would restate that cause in the facet vocabulary under
+        # indictment (§5.3) and add an arm no instrument can separate from it.
+        claimed = {
+            _target_ref_key(candidate.get("target_ref")) for candidate in candidates
+        }
         candidates = [
-            {
-                "statement": f"Failure of {target.facet} at {target.capability}",
-                "cause_scope": "unknown",
-                "target_ref": {
-                    "kind": "facet_capability",
-                    "facet_id": target.facet,
-                    "capability": target.capability,
-                },
-                # Compatibility keys for existing cause-set selectors.
-                "facet": target.facet,
-                "capability": target.capability,
-            }
-            for target in targets
+            *candidates,
+            *(
+                synthesized
+                for target in targets
+                if (synthesized := _facet_target_cause(target)) is not None
+                and _target_ref_key(synthesized["target_ref"]) not in claimed
+            ),
         ]
     deduped: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -271,7 +339,12 @@ def _open_candidate_causes(
             seen.add(key)
     deduped.append(
         {
-            "hypothesis_id": "H_OTHER",
+            # The `open_set` flag is what actually carries the arm through every
+            # consumer; the id is the human-readable placeholder P1 replaces with
+            # a materialized hypothesis. One named constant so the readers in
+            # `failure_triage` / `probe_targeting` / `causal_probe_coherence`
+            # compare against the value that is genuinely written here.
+            "hypothesis_id": OPEN_SET_CAUSE_ID,
             "statement": "Another cause not represented by the listed hypotheses",
             "cause_scope": "unknown",
             "target_ref": {"kind": "none"},
@@ -447,9 +520,10 @@ def project_canonical_facet_state(
             if use_p0
             else None
         )
-        assisted = (
-            attempt["attempt_type"] in ASSISTED_ATTEMPT_TYPES
-            or int(attempt["hints_used"]) > 0
+        assisted = attempt_counts_as_assisted(
+            attempt_type=attempt["attempt_type"],
+            hints_used=int(attempt["hints_used"]),
+            primed=bool(attempt.get("primed")),
         )
         assistance = "hinted" if assisted else "unassisted"
         created_at = attempt["created_at"]

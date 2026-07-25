@@ -1,7 +1,8 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   CandidateErrorTypeDto,
+  CausalRepairStatusDto,
   ClaimCandidateDto,
   CriterionEvidenceRowDto,
   ErrorEventDto,
@@ -22,7 +23,12 @@ import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
-import { CausalFeedbackPanel, formatCausalTarget, formatDivergenceAnchor } from "../components/CausalAttribution";
+import {
+  CausalFeedbackPanel,
+  formatCausalTarget,
+  formatDivergenceAnchor,
+  useCausalRepairActions,
+} from "../components/CausalAttribution";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -986,6 +992,9 @@ export function FeedbackScreen({
   const visitId = useRef(mintVisitId()).current;
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
+  // P2 §6: the typed causal repair hold for this attempt's diagnosis, rendered
+  // inside the claim-checked feedback panel rather than raised as an error.
+  const [repairStatus, setRepairStatus] = useState<CausalRepairStatusDto | null>(null);
   const [addingError, setAddingError] = useState(false);
   const [errorTypeInput, setErrorTypeInput] = useState("");
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
@@ -1030,6 +1039,65 @@ export function FeedbackScreen({
       .catch((error) => { if (!cancelled) onError(error.message); });
     return () => { cancelled = true; };
   }, [attemptId, onError]);
+
+  // ── P2 causal repair hold (spec_causal_attribution_v1 §6, §6.6) ───────────
+  // Ask the orchestrator only when the receipt says there is something to hold:
+  // divergent repair classes, or a repair mapping the machine still owes. The
+  // read is pure (`start_repair: false`) but still records the decision
+  // receipt, so it must not fire on every feedback view.
+  const applyRepairStatus = useCallback(
+    (next: CausalRepairStatusDto) => {
+      setRepairStatus(next);
+      // The hold has lifted (typically via "Teach me now") and an episode
+      // exists — hand off to the repair flow the app already owns.
+      if (next.status === "started" && next.episode && onOpenRepair) {
+        onOpenRepair(next.misconceptionId);
+      }
+    },
+    [onOpenRepair],
+  );
+
+  const repairCaseId = useMemo(() => {
+    const causal = feedback?.causalFeedback;
+    const need = causal?.probeNeed;
+    if (!causal || !need) return null;
+    if (!need.divergent && !need.incompleteRepairMapping) return null;
+    return (
+      feedback?.matchedMisconception?.id ??
+      causal.causalHypotheses[0]?.hypothesisId ??
+      null
+    );
+  }, [feedback]);
+
+  useEffect(() => {
+    setRepairStatus(null);
+    if (!repairCaseId) return;
+    let cancelled = false;
+    api
+      .causalRepairStatus(repairCaseId, sessionId)
+      .then((result) => {
+        // A pure read reports "started" for anything the causal state does not
+        // hold. There is nothing to explain then, and the orchestrator's
+        // "Starting the targeted repair." copy would be untrue here — no
+        // episode was minted by a read.
+        if (cancelled || result.repairStatus.status === "started") return;
+        setRepairStatus(result.repairStatus);
+      })
+      // No open factor, or no candidate case yet: nothing is being held, so
+      // there is nothing to say. Never a toast — this read is speculative.
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [repairCaseId, sessionId]);
+
+  const { pendingActionId: repairPendingActionId, note: repairNote, runAction: runRepairAction } =
+    useCausalRepairActions({
+      sessionId,
+      onStatus: applyRepairStatus,
+      onProbeAccepted: (offer) => {
+        if (offer.practiceItemId && onOpenPractice) onOpenPractice(offer.practiceItemId);
+      },
+      onError,
+    });
 
   useEffect(() => {
     if (addingError) {
@@ -1440,6 +1508,10 @@ export function FeedbackScreen({
             <CausalFeedbackPanel
               feedback={f.causalFeedback}
               contestPending={reportingFactorId != null}
+              repairStatus={repairStatus}
+              repairPendingActionId={repairPendingActionId}
+              repairNote={repairNote}
+              onRepairAction={runRepairAction}
               onContest={(reason, factorId) => {
                 if (factorId) {
                   void handleUnresolvedCauseReport(factorId, reason);

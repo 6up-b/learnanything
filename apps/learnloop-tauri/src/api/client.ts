@@ -30,6 +30,10 @@ import type {
   FeedbackBundle,
   UnresolvedCauseSelfReportResponse,
   UnresolvedCauseSelfReportResultDto,
+  CausalProbeDeferResultDto,
+  CausalProbeOfferResultDto,
+  CausalRepairStatusResultDto,
+  StartRemediationDto,
   PrimedRetryResultDto,
   GradingProviderResult,
   AnimationRuntimeDto,
@@ -325,6 +329,56 @@ export const api = {
     call<UnresolvedCauseSelfReportResultDto>("contest_causal_diagnosis", {
       input: { attemptId, response }
     }),
+  // ── P2 causal repair orchestration (spec_causal_attribution_v1 §6) ────────
+  // One orchestration service behind four RPCs. `causalRepairStatus` is a pure
+  // read (it records the decision receipt but mints no remediation episode);
+  // the three action calls are the learner offer.
+  causalRepairStatus: (misconceptionId: string, sessionId?: string | null) =>
+    call<CausalRepairStatusResultDto>("causal_repair_status", {
+      input: { misconceptionId, sessionId: sessionId ?? null }
+    }),
+  /** "Take the quick check" — enter the factor-aware episode and pin the probe. */
+  causalProbeOfferAction: (input: {
+    factorId: string;
+    misconceptionId?: string | null;
+    sessionId?: string | null;
+    decisionReceiptId?: string | null;
+  }) =>
+    call<CausalProbeOfferResultDto>("causal_probe_offer_action", {
+      input: {
+        factorId: input.factorId,
+        misconceptionId: input.misconceptionId ?? null,
+        sessionId: input.sessionId ?? null,
+        decisionReceiptId: input.decisionReceiptId ?? null
+      }
+    }),
+  /** "Not now" — persists the decline so the next attempt does not re-offer.
+   *  The factor stays divergent; only the offer is withdrawn. */
+  causalProbeDefer: (input: {
+    factorId: string;
+    misconceptionId?: string | null;
+    sessionId?: string | null;
+  }) =>
+    call<CausalProbeDeferResultDto>("causal_probe_defer", {
+      input: {
+        factorId: input.factorId,
+        misconceptionId: input.misconceptionId ?? null,
+        sessionId: input.sessionId ?? null
+      }
+    }),
+  /** "Teach me now" — explicit learner authorisation to repair under ambiguity. */
+  causalTeachMeNow: (input: {
+    factorId: string;
+    misconceptionId: string;
+    sessionId?: string | null;
+  }) =>
+    call<CausalRepairStatusResultDto>("causal_teach_me_now", {
+      input: {
+        factorId: input.factorId,
+        misconceptionId: input.misconceptionId,
+        sessionId: input.sessionId ?? null
+      }
+    }),
   startPrimedRetry: (attemptId: string) =>
     call<PrimedRetryResultDto>("start_primed_retry", { input: { attemptId } }),
   inspectEntity: (id: string) => call<InspectorEntity>("inspect_entity", { id }),
@@ -611,8 +665,10 @@ export const api = {
   exportClaims: () => call<{ version: number; events: HypothesisEventDto[] }>("export_claims"),
   purgeClaims: () => call<{ version: number; purged: number }>("purge_claims"),
   getReviewLog: () => call<ReviewLogDto>("get_review_log"),
+  // Returns `episode: null` + the typed §6 `repairStatus` when the causal state
+  // holds the branch-specific repair — a state to render, not an error to toast.
   startRemediation: (misconceptionId: string) =>
-    call<RemediationDto>("start_remediation", { misconceptionId }),
+    call<StartRemediationDto>("start_remediation", { misconceptionId }),
   prescribeRemediation: (episodeId: string) =>
     call<RemediationDto>("prescribe_remediation", { episodeId }),
   startRemediationTreatment: (episodeId: string) =>

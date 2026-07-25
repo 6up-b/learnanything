@@ -787,10 +787,17 @@ export function App() {
       {repairMisconceptionId ? (
         <RepairScreen
           misconceptionId={repairMisconceptionId}
+          sessionId={session?.sessionId ?? null}
           onClose={() => setRepairMisconceptionId(null)}
           onPractice={(practiceItemId) => {
             setRepairMisconceptionId(null);
             openPrimedRetry(practiceItemId);
+          }}
+          onProbe={(practiceItemId) => {
+            // A causal disambiguation probe is a measurement, not a primed
+            // retry: it opens cold so the attempt carries no repair context.
+            setRepairMisconceptionId(null);
+            openPractice(practiceItemId);
           }}
           onError={onError}
         />

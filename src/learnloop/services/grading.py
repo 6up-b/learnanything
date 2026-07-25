@@ -1008,9 +1008,14 @@ def validate_codex_grading_proposal(
     )
 
     for suggestion in validated_repair_suggestions:
+        # The item's authored decomposition travels with the validation so a
+        # `changed_checkpoint_ids` entry naming no real recipe step is rejected
+        # as `unverifiable_checkpoint_claim` where it enters the system, rather
+        # than silently degrading the backtracking-depth term downstream.
         suggestion["repair_validation"] = validate_repair_candidate(
             suggestion,
             expected_answer=item.expected_answer,
+            trace_contract=item.trace_contract,
         ).as_dict()
     manual_review_reason = "codex_manual_review" if proposal.manual_review_recommended else None
     if manual_review_reason is None and proposal.grader_confidence < 0.4:

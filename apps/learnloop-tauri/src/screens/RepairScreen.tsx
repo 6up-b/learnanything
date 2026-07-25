@@ -21,7 +21,11 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
-import type { RemediationDto, SpanViewDto } from "../api/dto";
+import type { CausalRepairStatusDto, StartRemediationDto, SpanViewDto } from "../api/dto";
+import {
+  CausalRepairStatusPanel,
+  useCausalRepairActions,
+} from "../components/CausalAttribution";
 import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Divider, Faint, FONT_MONO, Pill } from "../components/term";
 
@@ -103,18 +107,30 @@ function PassageCard({
 
 export function RepairScreen({
   misconceptionId,
+  sessionId,
   onClose,
   onPractice,
+  onProbe,
   onError
 }: {
   misconceptionId: string;
+  /** Active session, when known — scopes the causal probe preference. */
+  sessionId?: string | null;
   onClose: () => void;
   // Hand off to the app's primed practice loop (App.openPrimedRetry). Also
   // closes this overlay.
   onPractice: (practiceItemId: string) => void;
+  /** Open a causal disambiguation probe COLD. It must not route through
+   *  `onPractice`: that path submits `primed: true`, which would contaminate a
+   *  diagnostic measurement with the repair context it is meant to be free of. */
+  onProbe?: (practiceItemId: string) => void;
   onError: (message: string) => void;
 }) {
-  const [remediation, setRemediation] = useState<RemediationDto | null>(null);
+  const [remediation, setRemediation] = useState<StartRemediationDto | null>(null);
+  // P2 §6: the causal state can hold this targeted repair. That is a state with
+  // its own learner copy and actions, not an error — the previous build turned
+  // it into an `invalid_request` toast in developer language and stopped there.
+  const [repairStatus, setRepairStatus] = useState<CausalRepairStatusDto | null>(null);
   const [prescribed, setPrescribed] = useState(false);
   const [treated, setTreated] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -136,18 +152,47 @@ export function RepairScreen({
   useEffect(() => {
     let alive = true;
     setRemediation(null);
+    setRepairStatus(null);
     setPrescribed(false);
     setTreated(false);
     api
       .startRemediation(misconceptionId)
-      .then((r) => alive && setRemediation(r))
+      .then((r) => {
+        if (!alive) return;
+        setRemediation(r);
+        setRepairStatus(r.episode ? null : r.repairStatus ?? null);
+      })
       .catch(report);
     return () => {
       alive = false;
     };
   }, [misconceptionId, report]);
 
-  const episodeId = remediation?.episode.id ?? null;
+  const {
+    pendingActionId: repairPendingActionId,
+    note: repairNote,
+    runAction: runRepairAction,
+  } = useCausalRepairActions({
+    sessionId,
+    onStatus: (next) => {
+      setRepairStatus(next.episode ? null : next);
+      // "Teach me now" lifts the hold and returns the episode it started — use
+      // that one rather than re-asking, which would mint a second episode.
+      if (next.episode) {
+        setRemediation((current) =>
+          current ? { ...current, episode: next.episode } : current
+        );
+      }
+    },
+    onProbeAccepted: (offer) => {
+      // The probe is pinned into a factor-aware episode; serve the instrument
+      // cold, never through the primed-retry path.
+      if (offer.practiceItemId && onProbe) onProbe(offer.practiceItemId);
+    },
+    onError,
+  });
+
+  const episodeId = remediation?.episode?.id ?? null;
 
   const prescribe = async () => {
     if (!episodeId) return;
@@ -178,8 +223,8 @@ export function RepairScreen({
   };
 
   const kase = remediation?.case ?? null;
-  const passages = remediation?.episode.passagesShown ?? [];
-  const primedItemId = remediation?.primedItemId ?? remediation?.episode.primedItemId ?? null;
+  const passages = remediation?.episode?.passagesShown ?? [];
+  const primedItemId = remediation?.primedItemId ?? remediation?.episode?.primedItemId ?? null;
   const returned = kase?.history.some((h) => h.label === "returned") ?? false;
 
   return (
@@ -196,6 +241,21 @@ export function RepairScreen({
 
         <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
           {!remediation ? <Faint>starting repair…</Faint> : null}
+
+          {/* P2 §6: the causal state holds the BRANCH-SPECIFIC repair inside a
+              divergent factor (never "unrelated remediation" — that copy named
+              the wrong thing). Show the hold and its three actions here, where
+              the learner just asked for the repair. */}
+          {repairStatus ? (
+            <div style={{ marginBottom: 14 }}>
+              <CausalRepairStatusPanel
+                status={repairStatus}
+                pendingActionId={repairPendingActionId}
+                note={repairNote}
+                onAction={runRepairAction}
+              />
+            </div>
+          ) : null}
 
           {kase ? (
             <>
@@ -247,7 +307,14 @@ export function RepairScreen({
                   ))}
                 </div>
               ) : null}
+            </>
+          ) : null}
 
+          {/* Stages b–d belong to the episode, not to the case record: a repair
+              on a provisional belief has a live episode and no `misconceptions`
+              row, so gating them on `kase` would strand the flow. */}
+          {episodeId ? (
+            <>
               {/* b. Open the source — side-by-side spans for BOTH facets */}
               <div style={stageBox}>
                 <div style={{ fontSize: 11, color: COLOR.amber, letterSpacing: "0.1em", textTransform: "uppercase" }}>

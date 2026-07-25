@@ -22,6 +22,8 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
+from learnloop.services.causal_probe_coherence import build_causal_hypothesis_set
+from learnloop.services.probe_hypotheses import H_OTHER
 from learnloop.services.replay import rebuild_derived_state
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -37,6 +39,12 @@ from tests.helpers import (
 
 SHARED = "facet_svd_factorization"
 SELECT = "facet_svd_method_selection"
+
+
+def _is_open_set_arm(cause: dict) -> bool:
+    """The open-set arm, before or after P1 hypothesis materialization."""
+
+    return bool(cause.get("open_set")) or cause.get("hypothesis_id") == "H_OTHER"
 
 
 def _rubric(criterion_id, targets, *, points=4, correlation_group=None, depends_on=None):
@@ -285,14 +293,40 @@ def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
     # An unresolved joint-cause factor is recorded instead.
     assert repository.open_unresolved_cause_observation_ids()
     factor = repository.open_unresolved_cause_factors()[0]
-    assert sum(
-        cause.get("hypothesis_id") != "H_OTHER"
-        for cause in factor["candidate_causes"]
-    ) >= 2
-    assert any(
-        cause.get("hypothesis_id") == "H_OTHER"
-        for cause in factor["candidate_causes"]
-    )
+    causes = factor["candidate_causes"]
+    assert sum(not _is_open_set_arm(cause) for cause in causes) >= 2
+    # The open-set arm survives (spec §5.1: candidate causes are NEVER a closed
+    # set). P1 materialization replaces the P0 prose with hypothesis refs, so the
+    # arm is identified by its `open_set` flag and its materialized `open_set`
+    # hypothesis — the literal "H_OTHER" placeholder only survives on a factor
+    # that was never materialized.
+    open_arms = [cause for cause in causes if _is_open_set_arm(cause)]
+    assert len(open_arms) == 1
+    arm = open_arms[0]
+    if arm.get("hypothesis_id") != "H_OTHER":
+        hypothesis = repository.causal_hypothesis(str(arm["hypothesis_id"]))
+        assert hypothesis is not None
+        assert hypothesis["status"] == "open_set"
+
+
+def test_open_set_arm_survives_apply_attempt_into_the_probe_path(mvp07):
+    """The P2 probe path must not fail closed on a real materialized factor.
+
+    `build_causal_hypothesis_set` raises when a factor lost its open-set arm, so
+    this drives the real write path (apply_attempt -> canonical projection ->
+    P1 materialization) rather than a hand-built factor dict."""
+
+    vault, repository = mvp07
+    clock = FrozenClock(NOW)
+    _attempt(vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, clock)
+
+    factor = repository.open_unresolved_cause_factors()[0]
+    plan = build_causal_hypothesis_set(repository, str(factor["id"]))
+
+    labels = {hypothesis.label for hypothesis in plan.hypotheses}
+    assert H_OTHER in labels
+    assert plan.prior[H_OTHER] > 0.0
+    assert len(labels) >= 3  # two concrete causes plus the open-set arm
 
 
 def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):

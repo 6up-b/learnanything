@@ -776,6 +776,44 @@ pub async fn contest_causal_diagnosis(
     blocking_sidecar_call(sidecar, "contest_causal_diagnosis", input).await
 }
 
+// ── P2 causal repair orchestration (spec_causal_attribution_v1 §6) ──
+// One orchestration service, four learner-facing RPCs: read the typed repair
+// status, take the quick check, defer the offer ("Not now"), or ask to be
+// taught under ambiguity. `causal_repair_status` is a pure read — it records
+// the decision receipt but never mints a remediation episode.
+
+#[tauri::command]
+pub async fn causal_repair_status(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "causal_repair_status", input).await
+}
+
+#[tauri::command]
+pub async fn causal_probe_offer_action(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "causal_probe_offer_action", input).await
+}
+
+#[tauri::command]
+pub async fn causal_probe_defer(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "causal_probe_defer", input).await
+}
+
+#[tauri::command]
+pub async fn causal_teach_me_now(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "causal_teach_me_now", input).await
+}
+
 #[tauri::command]
 pub async fn start_primed_retry(
     input: Value,

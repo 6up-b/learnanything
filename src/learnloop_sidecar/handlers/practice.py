@@ -108,6 +108,42 @@ class ProbeContractInput(ParamsModel):
     session_id: str | None = None
 
 
+#: Sentinel for a durable assignment that no session's slate owns.
+_OTHER_SESSION = object()
+
+
+def _committed_presentation(repository, episode, session_id: str | None):
+    """The durable presentation this open of the item should consume.
+
+    Routine probes are precommitted alongside a `scheduler_slate_candidates`
+    row, so `active_probe_presentation_for_session` finds them by joining the
+    session's slate. A CAUSAL probe (`causal_orchestrator.accept_probe_offer`)
+    has no scheduler candidate at all — it is minted by a learner action, not
+    by the planner — so that join misses it, and the caller used to commit a
+    SECOND presentation for the same item. That silently dropped the
+    `causal_probe` selection component pinning the candidate and blind-bundle
+    ids, which is exactly the replay pin §3.4 exists to protect: classification
+    then fell back to whatever bundles existed at answer time.
+
+    A presentation with no `scheduler_candidate_id` is owned by no session's
+    slate, so any session opening its item may consume it. One with a scheduler
+    candidate that this session's slate does not contain still belongs to the
+    other session (`_OTHER_SESSION`).
+    """
+
+    if session_id is not None:
+        active = repository.active_probe_presentation_for_session(session_id)
+        if active is not None:
+            return active
+        other = repository.active_probe_presentation(episode.id)
+        if other is None:
+            return None
+        if other.scheduler_candidate_id is not None:
+            return _OTHER_SESSION
+        return other
+    return repository.active_probe_presentation(episode.id)
+
+
 @method("get_probe_contract", ProbeContractInput)
 def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[str, Any]:
     """The probe measurement contract for opening one item (§12).
@@ -148,12 +184,8 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # the episode parks and the LO degrades to belief-only ordinary practice.
     _provider, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
     if not runtime.ready or client is None:
-        active = (
-            repository.active_probe_presentation_for_session(params.session_id)
-            if params.session_id is not None
-            else repository.active_probe_presentation(episode.id)
-        )
-        if active is not None:
+        active = _committed_presentation(repository, episode, params.session_id)
+        if active is not None and active is not _OTHER_SESSION:
             repository.end_probe_presentation(active.id, end_reason="invalidated")
         repository.update_probe_episode_status(episode.id, status="pending_items")
         return versioned({"active": False, "reason": "grading_provider_unavailable"})
@@ -165,15 +197,9 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # its slate candidate. Opening the selected item merely marks that durable
     # presentation served; opening another returned item does not reinterpret
     # it as a probe.
-    active = (
-        repository.active_probe_presentation_for_session(params.session_id)
-        if params.session_id is not None
-        else repository.active_probe_presentation(episode.id)
-    )
-    if active is None and params.session_id is not None:
-        other_assignment = repository.active_probe_presentation(episode.id)
-        if other_assignment is not None and other_assignment.scheduler_candidate_id is not None:
-            return versioned({"active": False, "reason": "probe_assigned_to_other_session"})
+    active = _committed_presentation(repository, episode, params.session_id)
+    if active is _OTHER_SESSION:
+        return versioned({"active": False, "reason": "probe_assigned_to_other_session"})
     if active is not None:
         validation = validate_presentation_for_submission(
             repository,
