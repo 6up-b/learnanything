@@ -132,41 +132,58 @@ class LoCertification:
     integration_gaps: tuple[str, ...]  # integration facets lacking direct evidence
 
 
-def lo_certification(
-    vault: LoadedVault, repository: Repository, learning_object: LearningObject
-) -> LoCertification:
-    """Whether a composite LO is demonstrated (§9.2 last bullet, §9.5).
+@dataclass(frozen=True)
+class RecipeGaps:
+    """The unmet requirements of ONE recipe (§9.2 last bullet, §9.5).
 
-    Certification requires, for at least one declared blueprint: every hard
-    component demonstrated at its capability **and** direct evidence on the
-    blueprint's declared integration facet. Strong components alone cannot
-    saturate it — a planted integration gap keeps the LO undemonstrated.
-
-    Only meaningful on mvp-0.7 vaults with authored blueprints; returns
-    ``demonstrated=False`` otherwise (nothing to certify against).
+    Extracted from :func:`lo_certification` so that a caller which needs to know
+    *which* recipe a certificate rests on — the §5.7 delayed cold probe has to
+    name the blueprint/recipe and the certified cells on its task record — runs
+    the identical predicate rather than a second copy of it that can drift.
+    ``satisfied`` is the per-recipe certification decision; the LO-level decision
+    is "some recipe is satisfied".
     """
 
-    if not is_canonical_state_vault(vault) or not learning_object.blueprints:
-        return LoCertification(
-            learning_object_id=learning_object.id,
-            demonstrated=False,
-            component_gaps=(),
-            integration_gaps=(),
-        )
+    blueprint_id: str
+    recipe_id: str
+    component_gaps: tuple[str, ...]
+    integration_gaps: tuple[str, ...]
 
-    demonstrated_cache: dict[str, set[str]] = {}
+    @property
+    def satisfied(self) -> bool:
+        return not self.component_gaps and not self.integration_gaps
+
+
+def _demonstrated_resolver(vault: LoadedVault, repository: Repository):
+    """Memoized ``facet -> demonstrated capabilities`` over the ledger."""
+
+    cache: dict[str, set[str]] = {}
 
     def demo(facet_id: str) -> set[str]:
         canonical = vault.canonical_facet_id(facet_id)
-        if canonical not in demonstrated_cache:
-            demonstrated_cache[canonical] = demonstrated_capabilities_for_facet(
+        if canonical not in cache:
+            cache[canonical] = demonstrated_capabilities_for_facet(
                 vault, repository, canonical
             )
-        return demonstrated_cache[canonical]
+        return cache[canonical]
 
-    any_blueprint_demonstrated = False
-    all_component_gaps: set[str] = set()
-    all_integration_gaps: set[str] = set()
+    return demo
+
+
+def recipe_gaps(
+    vault: LoadedVault, repository: Repository, learning_object: LearningObject
+) -> tuple[RecipeGaps, ...]:
+    """Per-recipe gaps for every declared recipe, in declaration order.
+
+    Requires a canonical-state vault with authored blueprints; returns ``()``
+    otherwise, exactly as :func:`lo_certification` returns ``demonstrated=False``
+    there (nothing to certify against).
+    """
+
+    if not is_canonical_state_vault(vault) or not learning_object.blueprints:
+        return ()
+    demo = _demonstrated_resolver(vault, repository)
+    rows: list[RecipeGaps] = []
     for blueprint in learning_object.blueprints:
         for recipe in blueprint.recipes:
             component_gaps: set[str] = set()
@@ -180,10 +197,43 @@ def lo_certification(
                 integ = recipe.integration
                 if integ.capability not in demo(integ.facet):
                     integration_gaps.add(vault.canonical_facet_id(integ.facet))
-            all_component_gaps |= component_gaps
-            all_integration_gaps |= integration_gaps
-            if not component_gaps and not integration_gaps:
-                any_blueprint_demonstrated = True
+            rows.append(
+                RecipeGaps(
+                    blueprint_id=blueprint.id,
+                    recipe_id=recipe.id,
+                    component_gaps=tuple(sorted(component_gaps)),
+                    integration_gaps=tuple(sorted(integration_gaps)),
+                )
+            )
+    return tuple(rows)
+
+
+def lo_certification(
+    vault: LoadedVault, repository: Repository, learning_object: LearningObject
+) -> LoCertification:
+    """Whether a composite LO is demonstrated (§9.2 last bullet, §9.5).
+
+    Certification requires, for at least one declared blueprint: every hard
+    component demonstrated at its capability **and** direct evidence on the
+    blueprint's declared integration facet. Strong components alone cannot
+    saturate it — a planted integration gap keeps the LO undemonstrated.
+
+    Only meaningful on mvp-0.7 vaults with authored blueprints; returns
+    ``demonstrated=False`` otherwise (nothing to certify against).
+
+    Delegates the per-recipe predicate to :func:`recipe_gaps` — one copy, so the
+    §5.7 cold probe (which needs to name the satisfying recipe) and this
+    decision can never disagree about what a certificate is.
+    """
+
+    any_blueprint_demonstrated = False
+    all_component_gaps: set[str] = set()
+    all_integration_gaps: set[str] = set()
+    for gaps in recipe_gaps(vault, repository, learning_object):
+        all_component_gaps |= set(gaps.component_gaps)
+        all_integration_gaps |= set(gaps.integration_gaps)
+        if gaps.satisfied:
+            any_blueprint_demonstrated = True
     return LoCertification(
         learning_object_id=learning_object.id,
         demonstrated=any_blueprint_demonstrated,

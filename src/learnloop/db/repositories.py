@@ -21,6 +21,7 @@ from learnloop.ingest.ir import (
 )
 from learnloop.ingest.locators import detect_locator_scheme
 from learnloop.numeric import beta_mean, beta_quantile
+from learnloop.token_usage import TokenUsage
 
 
 _UNSET: Any = object()  # sentinel: "argument not supplied" vs an explicit None
@@ -75,6 +76,23 @@ def _loads(value: str | None, default: Any) -> Any:
     if value is None:
         return default
     return json.loads(value)
+
+
+def _non_negative_tokens(value: Any) -> int:
+    """Coerce a token count for a NOT NULL DEFAULT 0 column (migration 131).
+
+    Token columns are counters that get SUMmed into cost ratios, so a None from
+    an unset mapping key, or a float from a provider that reports one, must land
+    as a plain non-negative int rather than as NULL or a type error.
+    """
+
+    if value is None:
+        return 0
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return count if count > 0 else 0
 
 
 # measurement_events.kind is validated here rather than by a SQL CHECK, so later
@@ -2306,10 +2324,14 @@ class Repository:
         """
 
         task_rows = self.due_followup_tasks(clock=clock)
+        # ``action_type`` follows the task's own ``kind`` (migration 139): the
+        # table now carries two delayed lanes and hardcoding ``cold_retry`` here
+        # would label a §5.7 certification probe as a repair retry all the way
+        # into the scheduler's plain-English reason.
         pending: list[dict[str, str]] = [
             {
                 "practice_item_id": str(task["selected_item_id"]),
-                "action_type": "cold_retry",
+                "action_type": str(task["kind"]),
                 "followup_task_id": str(task["id"]),
             }
             for task in task_rows
@@ -2433,6 +2455,7 @@ class Repository:
         remediation_episode_id: str | None = None,
         expires_at: str | None = None,
         context: Mapping[str, Any] | None = None,
+        learning_object_id: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Schedule one delayed follow-up.
@@ -2441,7 +2464,12 @@ class Repository:
         retry that consumes it needs the source attempt, causal factor,
         hypothesis set, repair class, and avoided affordances, and reconstructing
         them days later from a bare item id is exactly the "future caller"
-        assumption the causal spec forbids.
+        assumption the causal spec forbids. The §5.7 certification cold probe
+        (migration 139) carries its certificate receipt through the same channel.
+
+        ``learning_object_id`` (migration 139) is the indexed scope a
+        certification probe needs so "is there a live probe for an LO whose
+        certificate has since been withdrawn?" is a query rather than a JSON scan.
         """
 
         task_id = new_ulid()
@@ -2452,14 +2480,16 @@ class Repository:
                 INSERT INTO followup_tasks(
                   id, kind, case_kind, case_ref, source_attempt_id,
                   remediation_episode_id, not_before, expires_at, status,
-                  selected_item_id, context_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+                  selected_item_id, context_json, learning_object_id,
+                  created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id, kind, case_kind, case_ref, source_attempt_id,
                     remediation_episode_id, not_before, expires_at,
                     selected_item_id,
                     _json(dict(context)) if context is not None else None,
+                    learning_object_id,
                     now, now,
                 ),
             )
@@ -2504,20 +2534,109 @@ class Repository:
         return [_decode_followup_task(row) | {"status": "served"} for row in rows]
 
     def active_followup_task_for_item(
-        self, practice_item_id: str, *, at: str | None = None
+        self, practice_item_id: str, *, kind: str | None = None, at: str | None = None
     ) -> dict[str, Any] | None:
+        """The due, unconsumed follow-up task selecting ``practice_item_id``.
+
+        ``kind`` (migration 139) narrows to one lane. Since 139 there are two
+        lanes queued on the same table, and a caller that means "the cold retry"
+        must say so rather than take whichever row sorted first — an unfiltered
+        read would let a certification probe answer a remediation question.
+        """
+
         now = at or utc_now_iso()
+        clause = "" if kind is None else " AND kind = ?"
+        params: tuple[Any, ...] = (
+            (practice_item_id, now, now)
+            if kind is None
+            else (practice_item_id, now, now, kind)
+        )
+        with self.connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT * FROM followup_tasks
+                WHERE selected_item_id = ? AND status IN ('pending', 'served')
+                  AND not_before <= ? AND (expires_at IS NULL OR expires_at >= ?)
+                  {clause}
+                ORDER BY not_before, created_at, id LIMIT 1
+                """,
+                params,
+            ).fetchone()
+        return _decode_followup_task(row) if row is not None else None
+
+    def followup_task_for_case(self, *, kind: str, case_ref: str) -> dict[str, Any] | None:
+        """Any task of ``kind`` for ``case_ref``, whatever its status.
+
+        The idempotency read behind "one delayed cold probe per certificate, ever"
+        (§5.7): a consumed or expired probe must still suppress a second one, so
+        this deliberately does NOT filter on status the way
+        ``active_followup_task_for_item`` does.
+        """
+
         with self.connection() as connection:
             row = connection.execute(
                 """
                 SELECT * FROM followup_tasks
-                WHERE selected_item_id = ? AND status IN ('pending', 'served')
-                  AND not_before <= ? AND (expires_at IS NULL OR expires_at >= ?)
-                ORDER BY not_before, created_at, id LIMIT 1
+                WHERE kind = ? AND case_ref = ?
+                ORDER BY created_at, id LIMIT 1
                 """,
-                (practice_item_id, now, now),
+                (kind, case_ref),
             ).fetchone()
         return _decode_followup_task(row) if row is not None else None
+
+    def open_followup_tasks_of_kind(
+        self, kind: str, *, learning_object_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Tasks of ``kind`` still awaiting an attempt (``pending`` or ``served``)."""
+
+        clause = "" if learning_object_id is None else " AND learning_object_id = ?"
+        params: tuple[Any, ...] = (
+            (kind,) if learning_object_id is None else (kind, learning_object_id)
+        )
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM followup_tasks
+                WHERE kind = ? AND status IN ('pending', 'served'){clause}
+                ORDER BY not_before, created_at, id
+                """,
+                params,
+            ).fetchall()
+        return [_decode_followup_task(row) for row in rows]
+
+    def followup_tasks_of_kind(self, kind: str) -> list[dict[str, Any]]:
+        """Every task of ``kind``, any status — the metric's denominator read."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM followup_tasks WHERE kind = ?
+                ORDER BY created_at, id
+                """,
+                (kind,),
+            ).fetchall()
+        return [_decode_followup_task(row) for row in rows]
+
+    def expire_followup_task(
+        self, task_id: str, *, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        """Retire an un-taken task. Never touches a consumed one.
+
+        Used when the claim a task was scheduled to test no longer stands — a
+        withdrawn certificate must not go on to schedule or serve its §5.7 probe.
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks SET status = 'expired', updated_at = ?
+                WHERE id = ? AND status IN ('pending', 'served')
+                """,
+                (now, task_id),
+            )
+            connection.commit()
+        return self.followup_task(task_id)
 
     def consume_followup_task(
         self, task_id: str, attempt_id: str, *, clock: Clock | None = None
@@ -4810,6 +4929,7 @@ class Repository:
         rebuilt_learning_objects: int,
         replayed_attempts: int,
         canonical_projection_version: str | None = None,
+        coverage_denominator_version: str | None = None,
         clock: Clock | None = None,
     ) -> str:
         rebuild_id = new_ulid()
@@ -4820,9 +4940,10 @@ class Repository:
                 INSERT INTO derived_state_rebuilds(
                   id, scope, learning_object_ids_json, algorithm_version,
                   rebuilt_learning_objects, replayed_attempts,
-                  canonical_projection_version, created_at
+                  canonical_projection_version, coverage_denominator_version,
+                  created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     rebuild_id,
@@ -4832,6 +4953,7 @@ class Repository:
                     rebuilt_learning_objects,
                     replayed_attempts,
                     canonical_projection_version,
+                    coverage_denominator_version,
                     created_at,
                 ),
             )
@@ -7808,6 +7930,10 @@ class Repository:
         response_payload: Mapping[str, Any] | None = None,
         session_id: str | None = None,
         visit_id: str | None = None,
+        claim_text: str | None = None,
+        belief_kind: str | None = None,
+        belief_id: str | None = None,
+        surfaced_to_learner: bool = False,
         id: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
@@ -7820,9 +7946,11 @@ class Repository:
                   id, created_at, presentation_id, event_type, claim_class,
                   claim_type, claim_ref, claim_version, producer_version,
                   surface, temperature, visible_at, suppression_reason,
-                  response_payload_json, session_id, visit_id
+                  response_payload_json, session_id, visit_id,
+                  claim_text_as_shown, belief_kind, belief_id,
+                  surfaced_to_learner
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -7841,6 +7969,10 @@ class Repository:
                     _json(dict(response_payload)) if response_payload is not None else None,
                     session_id,
                     visit_id,
+                    claim_text,
+                    belief_kind,
+                    belief_id,
+                    1 if surfaced_to_learner else 0,
                 ),
             )
             connection.commit()
@@ -7879,15 +8011,48 @@ class Repository:
             ).fetchone()
         return _decode_hypothesis_event(row) if row is not None else None
 
-    def mark_hypothesis_visible(self, presentation_id: str, visible_at: str) -> dict[str, Any] | None:
+    def mark_hypothesis_visible(
+        self,
+        presentation_id: str,
+        visible_at: str,
+        *,
+        claim_text: str | None = None,
+        belief_kind: str | None = None,
+        belief_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Patch actual viewport exposure onto a debounced presentation.
+
+        Every write is ``COALESCE``-guarded, so this is idempotent and safe on a
+        read path: the FIRST exposure timestamp and the FIRST as-shown wording
+        win forever (A6 quotes what the learner saw, not the latest rewrite).
+        ``surfaced_to_learner`` flips only for an unsuppressed row that is now
+        known-visible — a card the attention budget swallowed was authored, not
+        shown, and must never trigger an apology.
+        """
+
         with self.connection() as connection:
             connection.execute(
                 """
                 UPDATE hypothesis_events
-                SET visible_at = COALESCE(visible_at, ?)
+                SET visible_at = COALESCE(visible_at, ?),
+                    claim_text_as_shown = COALESCE(claim_text_as_shown, ?),
+                    belief_kind = COALESCE(belief_kind, ?),
+                    belief_id = COALESCE(belief_id, ?),
+                    surfaced_to_learner = CASE
+                      WHEN suppression_reason IS NULL
+                        AND COALESCE(visible_at, ?) IS NOT NULL THEN 1
+                      ELSE surfaced_to_learner
+                    END
                 WHERE id = ? AND event_type = 'presented'
                 """,
-                (visible_at, presentation_id),
+                (
+                    visible_at,
+                    claim_text,
+                    belief_kind,
+                    belief_id,
+                    visible_at,
+                    presentation_id,
+                ),
             )
             connection.commit()
         return self.hypothesis_event(presentation_id)
@@ -7950,6 +8115,260 @@ class Repository:
             connection.execute("DELETE FROM hypothesis_events")
             connection.commit()
         return count
+
+    # -- A6 surfaced-belief withdrawals (migration 132) --------------------
+
+    def record_surfaced_belief_presentation(
+        self,
+        *,
+        id: str,
+        belief_kind: str,
+        belief_id: str,
+        claim_text: str,
+        surface: str,
+        claim_class: str = "diagnosis",
+        claim_type: str = "misconception",
+        claim_version: str = "surfaced-1",
+        producer_version: str = "surfaced_beliefs",
+        clock: Clock | None = None,
+    ) -> str:
+        """Record a belief shown on a surface that does NOT dispatch claims.
+
+        Most diagnoses reach the learner through ``present_claims`` (every Tauri
+        ClaimSurface mount). Repair does not: ``handlers/remediation._case_dto``
+        prints the belief statement directly, so without this the flag would be
+        blind to the one screen whose entire job is that belief.
+
+        ``INSERT OR IGNORE`` on a caller-supplied DETERMINISTIC id is what makes
+        this safe on a read path: the surface is polled, and the second through
+        n-th call are no-ops at one index probe. The first exposure timestamp
+        therefore wins, which is the honest reading of "when the learner met this
+        claim".
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO hypothesis_events(
+                  id, created_at, presentation_id, event_type, claim_class,
+                  claim_type, claim_ref, claim_version, producer_version,
+                  surface, temperature, visible_at, suppression_reason,
+                  response_payload_json, session_id, visit_id,
+                  claim_text_as_shown, belief_kind, belief_id,
+                  surfaced_to_learner
+                )
+                VALUES (
+                  ?, ?, NULL, 'presented', ?, ?, ?, ?, ?, ?, 'cold', ?, NULL,
+                  NULL, NULL, NULL, ?, ?, ?, 1
+                )
+                """,
+                (
+                    id,
+                    now,
+                    claim_class,
+                    claim_type,
+                    belief_id,
+                    claim_version,
+                    producer_version,
+                    surface,
+                    now,
+                    claim_text,
+                    belief_kind,
+                    belief_id,
+                ),
+            )
+            connection.commit()
+        return id
+
+    def insert_misconception_disposition(
+        self,
+        *,
+        misconception_id: str,
+        disposition: str,
+        reason: str,
+        replacement_misconception_id: str | None = None,
+        id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Append one demotion/supersession to the append-only lifecycle stream.
+
+        Migration 116 created the store and backfilled it, but nothing has ever
+        WRITTEN to it from service code, so every demotion since has been
+        invisible to the semantic authority. This is that writer. The typed
+        withdrawal vocabulary lives in ``services/surfaced_beliefs.py``; this
+        method stores what it is given and never invents a reason.
+        """
+
+        event_id = id or new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO misconception_disposition_events(
+                  id, misconception_id, disposition, reason, created_at,
+                  replacement_misconception_id
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    misconception_id,
+                    disposition,
+                    reason,
+                    now,
+                    replacement_misconception_id,
+                ),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM misconception_disposition_events WHERE id = ?",
+                (event_id,),
+            ).fetchone()
+        assert row is not None
+        return dict(row)
+
+    def misconception_dispositions(
+        self, misconception_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            if misconception_id is None:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM misconception_disposition_events
+                    ORDER BY created_at, id
+                    """
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM misconception_disposition_events
+                    WHERE misconception_id = ?
+                    ORDER BY created_at, id
+                    """,
+                    (misconception_id,),
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def surfaced_beliefs(self) -> list[dict[str, Any]]:
+        """Distinct beliefs the learner was actually SHOWN (migration 132).
+
+        The denominator of `harmful_write_rate` (Aug §3 B5): a rate whose
+        numerator is "surfaced beliefs later withdrawn as false" must divide by
+        beliefs *surfaced*, not by diagnoses written, or it would fall whenever
+        the system got chattier without getting more careful.
+
+        Deduplicated on (kind, id) rather than counting presentations: a belief
+        shown on five screens is one thing the learner was told once, and
+        `surfaced_belief_withdrawals` already emits one row per disposition
+        event regardless of exposure count. Rides the partial index from 132.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT belief_kind,
+                       belief_id,
+                       MIN(created_at) AS first_surfaced_at,
+                       COUNT(*)        AS presentations
+                FROM hypothesis_events
+                WHERE surfaced_to_learner = 1
+                  AND belief_kind IS NOT NULL
+                  AND belief_id IS NOT NULL
+                GROUP BY belief_kind, belief_id
+                ORDER BY first_surfaced_at, belief_kind, belief_id
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def attempt_count(self) -> int:
+        """Every attempt ever served — the "questions served" denominator.
+
+        Meas §0's identity is `questions ~ (cells to clear) / (cells cleared per
+        question)`, so `cells_cleared_per_question` divides by questions served
+        vault-wide. `attempt_count_for_learning_objects` is the goal-scoped
+        cousin; this is the unscoped one the scoreboard needs.
+        """
+
+        with self.connection() as connection:
+            return int(
+                connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()[0]
+            )
+
+    def surfaced_belief_withdrawals(self) -> list[dict[str, Any]]:
+        """The A6 join: dispositions on beliefs the learner was actually SHOWN.
+
+        One row per disposition event, and ONLY for beliefs with at least one
+        ``surfaced_to_learner`` presentation dated at or before the disposition
+        (migration 132). The scope guard is the WHERE clause: retiring a belief
+        nobody saw yields no row at all, which is what keeps housekeeping out of
+        the learner's feed.
+
+        Correlated subqueries rather than a GROUP BY join because the projection
+        needs THREE different aggregates over the same presentations — the first
+        exposure (when the learner met the claim), and the wording plus surface
+        of the LAST exposure before withdrawal (the words actually in their
+        memory). All three ride the partial index from migration 132.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                  d.id                             AS disposition_event_id,
+                  d.misconception_id               AS belief_id,
+                  d.disposition                    AS disposition,
+                  d.reason                         AS reason,
+                  d.created_at                     AS at,
+                  d.replacement_misconception_id   AS replacement_belief_id,
+                  m.statement                      AS current_statement,
+                  m.facet_ids_json                 AS facet_ids_json,
+                  m.learning_object_id             AS learning_object_id,
+                  r.statement                      AS replacement_statement,
+                  (
+                    SELECT MIN(h.created_at) FROM hypothesis_events h
+                    WHERE h.belief_kind = 'misconception'
+                      AND h.belief_id = d.misconception_id
+                      AND h.surfaced_to_learner = 1
+                      AND h.created_at <= d.created_at
+                  ) AS first_surfaced_at,
+                  (
+                    SELECT h.claim_text_as_shown FROM hypothesis_events h
+                    WHERE h.belief_kind = 'misconception'
+                      AND h.belief_id = d.misconception_id
+                      AND h.surfaced_to_learner = 1
+                      AND h.created_at <= d.created_at
+                      AND h.claim_text_as_shown IS NOT NULL
+                    ORDER BY h.created_at DESC, h.id DESC LIMIT 1
+                  ) AS claim_text_as_shown,
+                  (
+                    SELECT h.surface FROM hypothesis_events h
+                    WHERE h.belief_kind = 'misconception'
+                      AND h.belief_id = d.misconception_id
+                      AND h.surfaced_to_learner = 1
+                      AND h.created_at <= d.created_at
+                    ORDER BY h.created_at DESC, h.id DESC LIMIT 1
+                  ) AS last_surface
+                FROM misconception_disposition_events d
+                LEFT JOIN misconceptions m ON m.id = d.misconception_id
+                LEFT JOIN misconceptions r ON r.id = d.replacement_misconception_id
+                WHERE EXISTS (
+                  SELECT 1 FROM hypothesis_events h
+                  WHERE h.belief_kind = 'misconception'
+                    AND h.belief_id = d.misconception_id
+                    AND h.surfaced_to_learner = 1
+                    AND h.created_at <= d.created_at
+                )
+                ORDER BY d.created_at, d.id
+                """
+            ).fetchall()
+        withdrawals: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            payload["facet_ids"] = [
+                str(facet) for facet in _loads(payload.pop("facet_ids_json"), [])
+            ]
+            withdrawals.append(payload)
+        return withdrawals
 
     # -- Frozen forecast ledger -------------------------------------------
 
@@ -8130,9 +8549,9 @@ class Repository:
                   id, purpose, model, provider, prompt_template, prompt_version,
                   sdk_version, codex_revision, provider_type, provider_revision,
                   input_context_hash, output_schema, started_at, completed_at,
-                  status, error_message
+                  status, error_message, est_input_tokens, est_output_tokens
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -8151,6 +8570,11 @@ class Repository:
                     run.get("completed_at"),
                     run.get("status", "running"),
                     run.get("error_message"),
+                    # A7 (spec_diagnostic_augmentation_v1.md §2): the pre-flight
+                    # budget, 0 when the caller does not estimate. Actuals are
+                    # written at completion, where the provider has reported them.
+                    _non_negative_tokens(run.get("est_input_tokens")),
+                    _non_negative_tokens(run.get("est_output_tokens")),
                 ),
             )
             connection.commit()
@@ -8162,17 +8586,78 @@ class Repository:
         *,
         status: str = "completed",
         error_message: str | None = None,
+        usage: TokenUsage | None = None,
         clock: Clock | None = None,
     ) -> bool:
+        """Finalize a run, optionally recording what the provider charged for it.
+
+        `usage` is what the client accumulated over every model call this run
+        made (A7 / migration 131) — extended here rather than split into a
+        second `record_agent_run_usage` method because usage is known exactly
+        when the run ends, on both the success and the failure arm, and a
+        separate call would double the writes and let the two drift apart.
+        `usage=None` leaves the actual_* columns untouched, so a caller with no
+        client in scope (or a second, redundant completion of the same run)
+        cannot zero out a cost already recorded.
+        """
+
         now = utc_now_iso(clock)
+        with self.connection() as connection:
+            if usage is None:
+                cursor = connection.execute(
+                    """
+                    UPDATE agent_runs
+                    SET completed_at = ?, status = ?, error_message = ?
+                    WHERE id = ?
+                    """,
+                    (now, status, error_message, run_id),
+                )
+            else:
+                cursor = connection.execute(
+                    """
+                    UPDATE agent_runs
+                    SET completed_at = ?, status = ?, error_message = ?,
+                        actual_input_tokens = ?, actual_output_tokens = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        now,
+                        status,
+                        error_message,
+                        _non_negative_tokens(usage.input_tokens),
+                        _non_negative_tokens(usage.output_tokens),
+                        run_id,
+                    ),
+                )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def add_agent_run_usage(self, run_id: str, usage: TokenUsage) -> bool:
+        """Add tokens to a run that was already finalized (A7).
+
+        For the one shape `complete_agent_run` cannot express: a billed call that
+        happens *after* the run is closed. `generate_authoring_proposal` closes
+        its run before the best-effort item-repair pass, deliberately — a repair
+        interrupt must not reopen a completed authoring run — but the repair
+        still costs tokens that belong to that run's cost, not to whatever the
+        client does next. Additive, so it is safe to call after any drain.
+        """
+
+        if usage.input_tokens <= 0 and usage.output_tokens <= 0:
+            return False
         with self.connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE agent_runs
-                SET completed_at = ?, status = ?, error_message = ?
+                SET actual_input_tokens = actual_input_tokens + ?,
+                    actual_output_tokens = actual_output_tokens + ?
                 WHERE id = ?
                 """,
-                (now, status, error_message, run_id),
+                (
+                    _non_negative_tokens(usage.input_tokens),
+                    _non_negative_tokens(usage.output_tokens),
+                    run_id,
+                ),
             )
             connection.commit()
             return cursor.rowcount > 0
@@ -12227,8 +12712,20 @@ class Repository:
         return [_decode_causal_hypothesis(row) for row in rows]
 
     def causal_hypotheses_with_operations(
-        self, *, latest_only: bool = True
+        self, *, latest_only: bool = True, require_operation: bool = True
     ) -> list[dict[str, Any]]:
+        """Hypothesis heads for taxonomy minting.
+
+        ``require_operation`` exists because Aug A2 demoted the operation string
+        from grouping key to human-readable label: a hypothesis that carries a
+        repair class and postdictive claims but no operation string is fully
+        clusterable under the new key, and filtering it out would have hidden it
+        behind the label it no longer depends on.
+        """
+
+        operation_clause = (
+            "h.operation IS NOT NULL" if require_operation else "1 = 1"
+        )
         latest_clause = (
             """
             AND h.version = (
@@ -12244,11 +12741,222 @@ class Repository:
             rows = connection.execute(
                 f"""
                 SELECT h.* FROM causal_hypotheses h
-                 WHERE h.operation IS NOT NULL {latest_clause}
+                 WHERE {operation_clause} {latest_clause}
                  ORDER BY h.operation, h.created_at, h.id
                 """
             ).fetchall()
         return [_decode_causal_hypothesis(row) for row in rows]
+
+    def insert_missing_vocabulary_notes(
+        self,
+        notes: Sequence[Mapping[str, Any]],
+        *,
+        clock: Clock | None = None,
+    ) -> int:
+        """Append missing-vocabulary notes (migration 134, Aug A5).
+
+        Ids are content-addressed by the caller, so re-recording an abstention
+        already captured is a no-op.  Returns the number of NEW notes.
+        """
+
+        now = utc_now_iso(clock)
+        written = 0
+        with self.connection() as connection:
+            for note in notes:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO missing_vocabulary_notes(
+                      id, source, abstention_reason, learning_object_id,
+                      practice_item_id, attempt_id, error_event_id, criterion_id,
+                      trace_json, item_context_json, selected_repair_class_id,
+                      repair_equivalence_id, grading_prompt_version,
+                      decision_policy_version, repair_policy_version,
+                      grader_model, grader_provider, grader_provider_revision,
+                      agent_run_id, note_version, detail_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(note["id"]),
+                        str(note["source"]),
+                        str(note["abstention_reason"]),
+                        note.get("learning_object_id"),
+                        note.get("practice_item_id"),
+                        note.get("attempt_id"),
+                        note.get("error_event_id"),
+                        note.get("criterion_id"),
+                        _json(dict(note.get("trace") or {})),
+                        _json(dict(note.get("item_context") or {})),
+                        note.get("selected_repair_class_id"),
+                        note.get("repair_equivalence_id"),
+                        note.get("grading_prompt_version"),
+                        note.get("decision_policy_version"),
+                        note.get("repair_policy_version"),
+                        note.get("grader_model"),
+                        note.get("grader_provider"),
+                        note.get("grader_provider_revision"),
+                        note.get("agent_run_id"),
+                        str(note["note_version"]),
+                        _json(dict(note.get("detail") or {})),
+                        now,
+                    ),
+                )
+                written += int(cursor.rowcount or 0)
+            connection.commit()
+        return written
+
+    def missing_vocabulary_notes(
+        self,
+        *,
+        source: str | None = None,
+        learning_object_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if source:
+            clauses.append("source = ?")
+            params.append(source)
+        if learning_object_id:
+            clauses.append("learning_object_id = ?")
+            params.append(learning_object_id)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        suffix = ""
+        if limit is not None:
+            suffix = " LIMIT ?"
+            params.append(int(limit))
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM missing_vocabulary_notes{where}
+                 ORDER BY created_at, id{suffix}
+                """,
+                tuple(params),
+            ).fetchall()
+        decoded: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            for field in ("trace", "item_context", "detail"):
+                payload[field] = _loads(payload.pop(f"{field}_json"), None)
+            decoded.append(payload)
+        return decoded
+
+    def record_causal_repair_class_definitions(
+        self,
+        definitions: Sequence[Mapping[str, Any]],
+        *,
+        clock: Clock | None = None,
+    ) -> int:
+        """Persist repair-class definitions durably (migration 133, Aug A2).
+
+        The definition previously existed only inside the diagnosis receipt in
+        ``attempt_debug_payloads``, which replay rebuilds.  The mechanism
+        taxonomy keys on it, so it has to survive a rebuild.  Rows are
+        content-addressed on ``repair_class_id``; re-recording an identical
+        definition is a no-op, which is what makes this safe to call on every
+        materialization.
+        """
+
+        now = utc_now_iso(clock)
+        recorded = 0
+        with self.connection() as connection:
+            for definition in definitions:
+                repair_class_id = str(definition["repair_class_id"])
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO causal_repair_class_definitions(
+                      repair_class_id, repair_equivalence_id, episode_id,
+                      operator, repair_policy_version, target_refs_json,
+                      preserve_refs_json, expected_minutes,
+                      answer_reveal_budget, definition_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        repair_class_id,
+                        str(definition["repair_equivalence_id"]),
+                        str(definition.get("episode_id") or ""),
+                        str(definition.get("operator") or ""),
+                        str(definition.get("repair_policy_version") or ""),
+                        _json(list(definition.get("target_refs") or [])),
+                        _json(list(definition.get("preserve_refs") or [])),
+                        definition.get("expected_minutes"),
+                        float(definition.get("answer_reveal_budget") or 0.0),
+                        _json(dict(definition.get("definition") or {})),
+                        now,
+                    ),
+                )
+                recorded += int(cursor.rowcount or 0)
+            connection.commit()
+        return recorded
+
+    def causal_repair_class_definitions(
+        self, repair_class_ids: Sequence[str] | None = None
+    ) -> dict[str, dict[str, Any]]:
+        """Durable repair-class definitions keyed by ``repair_class_id``."""
+
+        clause = ""
+        params: tuple[Any, ...] = ()
+        ids = [str(value) for value in repair_class_ids or [] if value]
+        if repair_class_ids is not None:
+            if not ids:
+                return {}
+            placeholders = ", ".join("?" for _ in ids)
+            clause = f" WHERE repair_class_id IN ({placeholders})"
+            params = tuple(ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM causal_repair_class_definitions{clause}",
+                params,
+            ).fetchall()
+        decoded: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            payload = dict(row)
+            for field in ("target_refs", "preserve_refs", "definition"):
+                payload[field] = _loads(payload.pop(f"{field}_json"), None)
+            decoded[str(payload["repair_class_id"])] = payload
+        return decoded
+
+    def retired_causal_mechanism_taxonomy_versions(self) -> dict[str, dict[str, Any]]:
+        """Taxonomy versions withdrawn from new receipts, keyed by version id."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM causal_mechanism_taxonomy_retirements
+                 ORDER BY retired_at, taxonomy_version_id
+                """
+            ).fetchall()
+        return {str(row["taxonomy_version_id"]): dict(row) for row in rows}
+
+    def retire_causal_mechanism_taxonomy_version(
+        self,
+        taxonomy_version_id: str,
+        *,
+        reason: str,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Withdraw a taxonomy version from NEW receipts (migration 133).
+
+        Pinned reads keep resolving, because a receipt that was labelled by this
+        taxonomy has to replay against it.  Returns False when the version was
+        already retired — retirement is append-only and idempotent.
+        """
+
+        if not str(reason).strip():
+            raise ValueError("taxonomy retirement requires a reason")
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_mechanism_taxonomy_retirements(
+                  taxonomy_version_id, reason, retired_at
+                )
+                VALUES (?, ?, ?)
+                """,
+                (taxonomy_version_id, str(reason), utc_now_iso(clock)),
+            )
+            connection.commit()
+            return bool(cursor.rowcount)
 
     def insert_causal_mechanism_taxonomy_version(
         self,
@@ -12366,12 +13074,23 @@ class Repository:
     def latest_active_causal_mechanism_taxonomy(
         self,
     ) -> dict[str, Any] | None:
+        """The taxonomy a NEW receipt may adopt.
+
+        Retired versions (migration 133) are excluded here and only here: a
+        receipt that already pinned one still resolves it by id, because replay
+        has to see the taxonomy that actually labelled it.
+        """
+
         with self.connection() as connection:
             row = connection.execute(
                 """
-                SELECT * FROM causal_mechanism_taxonomy_versions
-                 WHERE status = 'active'
-                 ORDER BY created_at DESC, id DESC
+                SELECT v.* FROM causal_mechanism_taxonomy_versions v
+                 WHERE v.status = 'active'
+                   AND NOT EXISTS (
+                     SELECT 1 FROM causal_mechanism_taxonomy_retirements r
+                      WHERE r.taxonomy_version_id = v.id
+                   )
+                 ORDER BY v.created_at DESC, v.id DESC
                  LIMIT 1
                 """
             ).fetchone()
@@ -12410,6 +13129,7 @@ class Repository:
         predictions: Mapping[str, Any],
         model_revision: str,
         outcome_schema_version: str,
+        blind_input_contract_version: str | None = None,
         generation_agent_run_id: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
@@ -12422,9 +13142,10 @@ class Repository:
                   id, hypothesis_id, hypothesis_version, practice_item_id,
                   input_hash, predictions_json, generated_without_observation,
                   model_revision, outcome_schema_version,
-                  generation_agent_run_id, created_at
+                  blind_input_contract_version, generation_agent_run_id,
+                  created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
                 """,
                 (
                     bundle_id,
@@ -12435,6 +13156,7 @@ class Repository:
                     _json(dict(predictions)),
                     model_revision,
                     outcome_schema_version,
+                    blind_input_contract_version,
                     generation_agent_run_id,
                     utc_now_iso(clock),
                 ),
@@ -12578,6 +13300,7 @@ class Repository:
         measurement_contract: Mapping[str, Any],
         blind_bundle_ids: Sequence[str],
         discrimination: Mapping[str, Any] | None = None,
+        blind_input_contract_version: str | None = None,
         status: str = "candidate",
         clock: Clock | None = None,
     ) -> dict[str, Any]:
@@ -12588,10 +13311,11 @@ class Repository:
                 INSERT OR IGNORE INTO causal_probe_candidates(
                   id, factor_id, practice_item_id, hypothesis_set_id,
                   manipulation_audit_id, measurement_contract_json,
-                  blind_bundle_ids_json, discrimination_json, status,
+                  blind_bundle_ids_json, discrimination_json,
+                  blind_input_contract_version, status,
                   created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     candidate_id,
@@ -12606,6 +13330,7 @@ class Repository:
                         if discrimination is not None
                         else None
                     ),
+                    blind_input_contract_version,
                     status,
                     now,
                     now,
@@ -12984,6 +13709,138 @@ class Repository:
             payload[field] = _loads(payload.pop(f"{field}_json"), None)
         payload["success"] = bool(payload["success"])
         return payload
+
+    # -- certification cold probes (migration 139) --------------------------
+    #
+    # The §5.7 ground-truth store. Append-only: the table's triggers refuse an
+    # UPDATE or DELETE, so the write is INSERT OR IGNORE over a content-addressed
+    # id and re-recording the same probe is a no-op rather than a second label.
+
+    def insert_certification_cold_probe_outcome(
+        self,
+        *,
+        outcome_id: str,
+        certificate_id: str,
+        learning_object_id: str,
+        blueprint_id: str,
+        recipe_id: str,
+        certificate_receipt: Mapping[str, Any],
+        certified_at: str | None,
+        followup_task_id: str,
+        scheduled_not_before: str,
+        scheduled_expires_at: str | None,
+        horizon_days: float,
+        window_days: float,
+        probe_practice_item_id: str,
+        probe_attempt_id: str,
+        probe_surface_group: str,
+        excluded_surface_groups: Sequence[str],
+        held_out_basis: str,
+        avoided_affordances: Sequence[str],
+        verdict: str,
+        indeterminate_reason: str | None,
+        success: bool | None,
+        correctness: float | None,
+        success_threshold: float,
+        assisted: bool,
+        certificate_state_at_probe: str,
+        store_version: str,
+        policy_version: str,
+        certification_algorithm_version: str | None,
+        parameters: Mapping[str, Any],
+        grading_source: str | None = None,
+        grading_prompt_version: str | None = None,
+        grader_model: str | None = None,
+        grader_provider: str | None = None,
+        grader_provider_revision: str | None = None,
+        grading_agent_run_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO certification_cold_probe_outcomes(
+                  id, certificate_id, learning_object_id, blueprint_id, recipe_id,
+                  certificate_receipt_json, certified_at, followup_task_id,
+                  scheduled_not_before, scheduled_expires_at, horizon_days,
+                  window_days, probe_practice_item_id, probe_attempt_id,
+                  probe_surface_group, excluded_surface_groups_json,
+                  held_out_basis, avoided_affordances_json, verdict,
+                  indeterminate_reason, success, correctness, success_threshold,
+                  assisted, certificate_state_at_probe, store_version,
+                  policy_version, certification_algorithm_version,
+                  parameters_json, grading_source, grading_prompt_version,
+                  grader_model, grader_provider, grader_provider_revision,
+                  grading_agent_run_id, created_at
+                ) VALUES (
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    outcome_id,
+                    certificate_id,
+                    learning_object_id,
+                    blueprint_id,
+                    recipe_id,
+                    _json(dict(certificate_receipt)),
+                    certified_at,
+                    followup_task_id,
+                    scheduled_not_before,
+                    scheduled_expires_at,
+                    float(horizon_days),
+                    float(window_days),
+                    probe_practice_item_id,
+                    probe_attempt_id,
+                    probe_surface_group,
+                    _json(sorted({str(value) for value in excluded_surface_groups})),
+                    held_out_basis,
+                    _json(sorted({str(value) for value in avoided_affordances})),
+                    verdict,
+                    indeterminate_reason,
+                    None if success is None else int(success),
+                    None if correctness is None else float(correctness),
+                    float(success_threshold),
+                    int(bool(assisted)),
+                    certificate_state_at_probe,
+                    store_version,
+                    policy_version,
+                    certification_algorithm_version,
+                    _json(dict(parameters)),
+                    grading_source,
+                    grading_prompt_version,
+                    grader_model,
+                    grader_provider,
+                    grader_provider_revision,
+                    grading_agent_run_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return self.certification_cold_probe_outcome_for_attempt(probe_attempt_id)
+
+    def certification_cold_probe_outcome_for_attempt(
+        self, probe_attempt_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM certification_cold_probe_outcomes
+                 WHERE probe_attempt_id = ?
+                """,
+                (probe_attempt_id,),
+            ).fetchone()
+        return _decode_certification_cold_probe_outcome(row) if row is not None else None
+
+    def certification_cold_probe_outcomes(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM certification_cold_probe_outcomes
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        return [_decode_certification_cold_probe_outcome(row) for row in rows]
 
     # -- discriminating observations (migration 130) ------------------------
 
@@ -13475,6 +14332,42 @@ class Repository:
                 (patch_id,),
             ).fetchall()
         return [_decode_proposal_item(row) for row in rows]
+
+    def persona_gate_audit_rows(self, *, since: str | None = None) -> list[dict[str, Any]]:
+        """Every proposal item carrying a §3.0 persona-gate audit (plan item 5.3).
+
+        The projection is deliberately narrow — the gate's typed verdict fields
+        plus the reviewer's later ``decision`` — because its one consumer
+        (``persona_gate.gate_precision``) is a rate over gate predictions and must
+        not accidentally acquire a second definition of the verdict by re-deriving
+        it from the payload. ``decision`` is returned as ``reviewer_decision`` to
+        keep it from colliding with the gate's own ``decision`` arm.
+        """
+
+        clauses = ["json_extract(audit_json, '$.persona_gate') IS NOT NULL"]
+        parameters: list[Any] = []
+        if since is not None:
+            clauses.append("created_at >= ?")
+            parameters.append(since)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT id AS proposal_item_id,
+                       proposed_patch_id AS patch_id,
+                       client_item_id,
+                       created_at,
+                       decision AS reviewer_decision,
+                       json_extract(audit_json, '$.persona_gate.instrument_class') AS instrument_class,
+                       json_extract(audit_json, '$.persona_gate.tier') AS tier,
+                       json_extract(audit_json, '$.persona_gate.decision') AS decision,
+                       json_extract(audit_json, '$.persona_gate.reason') AS reason
+                  FROM proposed_patch_items
+                 WHERE {' AND '.join(clauses)}
+                 ORDER BY created_at, id
+                """,
+                tuple(parameters),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def proposal_item(self, item_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -16929,7 +17822,7 @@ class Repository:
             rows = connection.execute(
                 """
                 SELECT id, algorithm_version, canonical_projection_version,
-                       replayed_attempts, created_at
+                       coverage_denominator_version, replayed_attempts, created_at
                 FROM derived_state_rebuilds
                 ORDER BY created_at, id
                 """
@@ -16937,14 +17830,33 @@ class Repository:
         changes: list[dict[str, Any]] = []
         previous_version: str | None = None
         previous_projection: str | None = None
+        previous_coverage: str | None = None
         first = True
         for row in rows:
             version = str(row["algorithm_version"])
             projection = row["canonical_projection_version"]
             projection = str(projection) if projection is not None else None
+            # Measurement §5.2 (migration 138): a third, independent boundary.
+            # The contract-frontier denominator moves DISPLAYED mastery with no
+            # change to the evidence or the projection, so it needs its own
+            # version — attributing the entry to either existing one would name a
+            # cause that was not the cause.
+            #
+            # A NULL means "this writer did not report a coverage version", not
+            # "the version was rolled back to nothing". Historical rows predate
+            # the column, and not every rebuild path stamps it. Comparing NULL as
+            # a real value would mint a phantom boundary on the next stamped
+            # rebuild and then another on the one after — narrating
+            # recalibrations that never happened. So an unreported version
+            # carries the last reported one forward and can never itself be a
+            # boundary.
+            raw_coverage = row["coverage_denominator_version"]
+            coverage = (
+                str(raw_coverage) if raw_coverage is not None else previous_coverage
+            )
             first_recalibrates_seen_evidence = (
                 first
-                and projection is not None
+                and (projection is not None or coverage is not None)
                 and int(row["replayed_attempts"] or 0) > 0
             )
             if first_recalibrates_seen_evidence or (
@@ -16952,6 +17864,7 @@ class Repository:
                 and (
                     version != previous_version
                     or projection != previous_projection
+                    or coverage != previous_coverage
                 )
             ):
                 changes.append(
@@ -16963,12 +17876,15 @@ class Repository:
                         "previous_canonical_projection_version": (
                             previous_projection
                         ),
+                        "coverage_denominator_version": coverage,
+                        "previous_coverage_denominator_version": previous_coverage,
                         "at": str(row["created_at"]),
                     }
                 )
             first = False
             previous_version = version
             previous_projection = projection
+            previous_coverage = coverage
         return changes
 
     # ------------------------------------------------------------------
@@ -20772,7 +21688,7 @@ class Repository:
         return self.causal_machine_check(check_id)
 
     def consumed_followup_task_for_attempt(
-        self, attempt_id: str
+        self, attempt_id: str, *, kind: str | None = None
     ) -> dict[str, Any] | None:
         """The delayed task this attempt discharged, with its carried context.
 
@@ -20780,17 +21696,24 @@ class Repository:
         ``cold_retry`` task is the cold observation, and the task carries the
         source attempt, factor, hypothesis set, repair class and avoided
         affordances resolved when the retry was scheduled.
+
+        ``kind`` (migration 139) pins the lane. One attempt can discharge a task
+        in each lane — the same item may be both a remediation cold item and a
+        §5.7 certification probe — and an unfiltered read would then return the
+        other lane's row, silently skipping the verification this exists for.
         """
 
+        clause = "" if kind is None else " AND kind = ?"
+        params: tuple[Any, ...] = (attempt_id,) if kind is None else (attempt_id, kind)
         with self.connection() as connection:
             row = connection.execute(
-                """
+                f"""
                 SELECT * FROM followup_tasks
-                WHERE consumed_attempt_id = ?
+                WHERE consumed_attempt_id = ?{clause}
                 ORDER BY updated_at DESC, id DESC
                 LIMIT 1
                 """,
-                (attempt_id,),
+                params,
             ).fetchone()
         return _decode_followup_task(row) if row is not None else None
 
@@ -21666,7 +22589,25 @@ def _decode_remediation_episode(row: sqlite3.Row) -> dict[str, Any]:
 def _decode_followup_task(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     # Migration 124: the cold-verification inputs ride on the task itself.
+    # Migration 139: so does the §5.7 certificate receipt.
     payload["context"] = _loads(payload.pop("context_json", None), None)
+    return payload
+
+
+def _decode_certification_cold_probe_outcome(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["certificate_receipt"] = _loads(payload.pop("certificate_receipt_json"), None)
+    payload["excluded_surface_groups"] = _loads(
+        payload.pop("excluded_surface_groups_json"), []
+    )
+    payload["avoided_affordances"] = _loads(payload.pop("avoided_affordances_json"), [])
+    payload["parameters"] = _loads(payload.pop("parameters_json"), None)
+    # `success` stays tri-state: True / False / None on the abstention arm. A
+    # bool() here would launder "not measured" into "failed", which is the exact
+    # collapse `false_certification_rate` exists to prevent (§5.7).
+    raw_success = payload.get("success")
+    payload["success"] = None if raw_success is None else bool(raw_success)
+    payload["assisted"] = bool(payload["assisted"])
     return payload
 
 

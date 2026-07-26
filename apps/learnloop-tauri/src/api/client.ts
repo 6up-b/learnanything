@@ -134,6 +134,7 @@ import type {
   RefreshResultDto,
   RefreshRevisionInput,
   MaintenanceFeedSnapshot,
+  MeasurementHealthDto,
   MaintenanceNoticeDto,
   SourceConflictDto,
   ResolveConflictInput,
@@ -440,6 +441,28 @@ export const api = {
     call<{ version: number; refresh: RefreshResultDto }>("refresh_revision", { input }),
   getMaintenanceFeed: (subjectId?: string | null) =>
     call<MaintenanceFeedSnapshot>("maintenance_feed", { input: { subjectId: subjectId ?? null } }),
+  getMeasurementHealth: () => call<MeasurementHealthDto>("get_measurement_health"),
+  scheduleCertificationColdProbes: (learningObjectId?: string | null) =>
+    call<{ version: number; schedule: Record<string, unknown> }>(
+      "schedule_certification_cold_probes",
+      { input: { learningObjectId: learningObjectId ?? null } },
+    ),
+  transitionCausalProbeCandidate: (input: {
+    candidateId: string;
+    toStatus: string;
+    reviewer?: string | null;
+    reason?: string | null;
+  }) =>
+    call<{ version: number; candidate: Record<string, unknown> }>(
+      "transition_causal_probe_candidate",
+      { input: { ...input, reviewer: input.reviewer ?? null, reason: input.reason ?? null } },
+    ),
+  applyIntegrationBackfill: () =>
+    call<{
+      version: number;
+      applied: Record<string, unknown>;
+      integrationBackfill: MeasurementHealthDto["integrationBackfill"];
+    }>("apply_integration_backfill", { input: { confirm: true } }),
   maintenanceNoticeAction: (noticeId: string, action: "dismiss" | "snooze", snoozedUntil?: string | null) =>
     call<{ version: number; notice: MaintenanceNoticeDto | null }>("maintenance_notice_action", {
       input: { noticeId, action, snoozedUntil: snoozedUntil ?? null }

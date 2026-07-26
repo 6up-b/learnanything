@@ -26,9 +26,6 @@ blueprints:
             modality: hard
         any_of: []
         integration:
-          facet: facet_scalar_calculations_over_r_or_c_use_commutative_
-          capability: coordination
-          modality: hard
 difficulty_prior:
 difficulty_source:
 tags: []
@@ -62,4 +59,4 @@ provenance:
       source_id: src_01KY2YG27G1SDWA4FN939ZBB34
       span_hash:
 created_at: '2026-07-22T03:48:08Z'
-updated_at: '2026-07-22T03:48:48Z'
+updated_at: '2026-07-26T18:41:58Z'

@@ -1,0 +1,33 @@
+-- Measurement §5.2 (Stage 3.3): the coverage denominator becomes the contract
+-- frontier, and the learner is told.
+--
+-- `covered_required_fraction`'s denominator was the union of the LO's ACTIVE
+-- items' `evidence_facets` — an artifact of authoring history, not an
+-- obligation — and it feeds the mastery variance floor. So the floor was
+-- punishing the learner for the system's authoring activity: generate more items
+-- touching more facets, and displayed mastery went DOWN with no change in what
+-- the learner knew. The denominator is now the `(facet, capability)` cells the
+-- LO's blueprint recipes actually require.
+--
+-- WHY THIS NEEDS A LEARNER-FACING BOUNDARY.  Displayed mastery moves — mostly
+-- upward — on the first read after this ships, with no new evidence behind the
+-- change. `learner_review_feed` already has exactly the right entry kind for
+-- that ("estimates recomputed, your evidence unchanged"), and
+-- `derived_state_rebuild_version_changes` already collapses a version bump into
+-- ONE honest entry instead of a per-facet flood the learner appears to have
+-- caused. What it lacked was a version to notice.
+--
+-- Migration 122 set the precedent: `canonical_projection_version` is a second,
+-- finer boundary than `algorithm_version`, because a projection-semantics change
+-- retro-changes derived state without touching the vault's algorithm version.
+-- The coverage denominator is a third such boundary and is independent of both:
+-- it changes neither projection nor the evidence, only what fraction of the
+-- contract counts as measured. Reusing either existing column would have made
+-- the entry claim a cause that was not the cause.
+--
+-- Nullable with no default, so historical rebuilds read as "not recorded" rather
+-- than as any particular version — the same choice migration 125 makes for
+-- repair-mapping provenance.
+
+ALTER TABLE derived_state_rebuilds
+  ADD COLUMN coverage_denominator_version TEXT;

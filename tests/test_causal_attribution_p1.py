@@ -42,6 +42,8 @@ def _attempt(
     operation: str = "transpose_confusion",
     statement: str = "The learner may be treating Q and Q transpose as identical.",
     candidate_causes: list[dict] | None = None,
+    repair_operator: str = "insert_transpose",
+    postdictive_claims: list[dict] | None = None,
 ):
     return apply_attempt(
         vault,
@@ -95,7 +97,8 @@ def _attempt(
                                 },
                             }
                         ],
-                        postdictive_claims=[
+                        postdictive_claims=postdictive_claims
+                        or [
                             {
                                 "criterion_id": "correctness",
                                 "must": "not_full_credit",
@@ -110,7 +113,7 @@ def _attempt(
                 repair_suggestions=[
                     {
                         "practice_mode": "targeted_review",
-                        "operator": "insert_transpose",
+                        "operator": repair_operator,
                         "rationale": "Preserve the factorization and repair only the transpose.",
                         "target_refs": [
                             {
@@ -219,9 +222,15 @@ def test_mechanism_taxonomy_is_earned_from_recurring_operations(tmp_path):
     heads_after = repository.causal_hypotheses_with_operations()
 
     assert taxonomy["status"] == "active"
-    assert taxonomy["taxonomy"]["clusters"][0]["id"] == (
-        "operation:transpose_confusion"
-    )
+    cluster = taxonomy["taxonomy"]["clusters"][0]
+    # Aug A2: the id is content-addressed on (repair equivalence, cause scope,
+    # discrimination profile); the operation string is only the label.
+    assert cluster["id"].startswith("mech_")
+    assert cluster["algorithm"] == "repair_equivalence_probe_profile_v1"
+    assert cluster["label"] == "transpose_confusion"
+    assert cluster["cause_scope"] == "learner_state"
+    assert cluster["discrimination_profile"] == ["correctness:not_full_credit"]
+    assert cluster["support"] == 2
     assert len(taxonomy["assignments"]) == 2
     assert heads_after == heads_before
     assert all(value["version"] == 1 for value in heads_after)
@@ -236,9 +245,7 @@ def test_mechanism_taxonomy_is_earned_from_recurring_operations(tmp_path):
     episode = causal_episode_for_attempt(repository, second.attempt_id)
     assert episode is not None
     assert episode["receipt"]["mechanism_taxonomy_version_id"] == taxonomy["id"]
-    assert episode["hypotheses"][0]["mechanism"] == (
-        "operation:transpose_confusion"
-    )
+    assert episode["hypotheses"][0]["mechanism"] == cluster["id"]
     assert repository.causal_hypotheses_for_attempt(
         second.attempt_id, latest_only=False
     ) == [
@@ -246,6 +253,220 @@ def test_mechanism_taxonomy_is_earned_from_recurring_operations(tmp_path):
         for value in heads_before
         if value["attempt_id"] == second.attempt_id
     ]
+
+
+def test_lexical_operation_synonyms_collapse_into_one_mechanism(tmp_path):
+    """Aug A2's motivating exhibit: `dropped_sign`, `sign_dropped` and
+    `lost_negative_branch` are one mechanism, not three singletons that abstain
+    and then mint as three."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    for index, operation in enumerate(
+        ("dropped_sign", "sign_dropped", "lost_negative_branch")
+    ):
+        _attempt(
+            vault,
+            repository,
+            f"att_synonym_{index}",
+            operation=operation,
+            statement=f"The learner may lose the negative branch ({operation}).",
+        )
+
+    taxonomy = mint_causal_mechanism_taxonomy(
+        repository, activate=True, clock=FrozenClock(NOW)
+    )["taxonomy"]
+
+    assert len(taxonomy["clusters"]) == 1
+    cluster = taxonomy["clusters"][0]
+    assert cluster["support"] == 3
+    assert [entry["operation"] for entry in cluster["operation_labels"]] == [
+        "dropped_sign",
+        "lost_negative_branch",
+        "sign_dropped",
+    ]
+    assert taxonomy["abstained"] == []
+
+
+def test_distinct_repair_splits_one_operation_string_into_two_mechanisms(tmp_path):
+    """The converse of the collapse: one lexical habit covering two different
+    repairs is two mechanisms, because the distinction predicts distinct help."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    for index in range(2):
+        _attempt(
+            vault,
+            repository,
+            f"att_insert_{index}",
+            statement=f"Transpose marker omitted, case {index}.",
+            repair_operator="insert_transpose",
+        )
+    for index in range(2):
+        _attempt(
+            vault,
+            repository,
+            f"att_reteach_{index}",
+            statement=f"Orthogonality misunderstood, case {index}.",
+            repair_operator="reteach_orthogonality",
+        )
+
+    taxonomy = mint_causal_mechanism_taxonomy(
+        repository, activate=True, clock=FrozenClock(NOW)
+    )["taxonomy"]
+
+    assert len(taxonomy["clusters"]) == 2
+    assert {cluster["support"] for cluster in taxonomy["clusters"]} == {2}
+    # Same label on both: the operation string genuinely could not tell them apart.
+    assert {cluster["label"] for cluster in taxonomy["clusters"]} == {
+        "transpose_confusion"
+    }
+    assert len({cluster["repair_equivalence_id"] for cluster in taxonomy["clusters"]}) == 2
+
+
+def test_distinct_measurement_need_splits_a_shared_repair(tmp_path):
+    """Same repair, different falsifiable commitments: distinct measurement need,
+    so distinct mechanism (§9's criterion is repair OR probe)."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    for index in range(2):
+        _attempt(
+            vault,
+            repository,
+            f"att_profile_a_{index}",
+            statement=f"Profile A case {index}.",
+        )
+    for index in range(2):
+        _attempt(
+            vault,
+            repository,
+            f"att_profile_b_{index}",
+            statement=f"Profile B case {index}.",
+            postdictive_claims=[{"criterion_id": "correctness", "must": "fail"}],
+        )
+
+    taxonomy = mint_causal_mechanism_taxonomy(
+        repository, activate=True, clock=FrozenClock(NOW)
+    )["taxonomy"]
+
+    assert len(taxonomy["clusters"]) == 2
+    assert {
+        tuple(cluster["discrimination_profile"]) for cluster in taxonomy["clusters"]
+    } == {("correctness:fail",), ("correctness:not_full_credit",)}
+    assert len({cluster["repair_equivalence_id"] for cluster in taxonomy["clusters"]}) == 1
+
+
+def test_unmapped_repair_class_abstains_with_a_typed_reason(tmp_path):
+    """A cause that names no repair predicts no distinct help, so it cannot earn a
+    mechanism id — and the abstention says which remedy it is owed."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    for index in range(2):
+        _attempt(
+            vault,
+            repository,
+            f"att_unmapped_{index}",
+            statement=f"Unmappable cause {index}.",
+            candidate_causes=[
+                {
+                    "statement": f"Unmappable cause {index}.",
+                    "cause_scope": "learner_state",
+                    # No target the authored repair covers -> no repair class.
+                    "target_ref": {
+                        "kind": "facet_capability",
+                        "facet_id": "unrelated_facet",
+                        "capability": "transfer",
+                    },
+                }
+            ],
+        )
+
+    taxonomy = mint_causal_mechanism_taxonomy(
+        repository, activate=True, clock=FrozenClock(NOW)
+    )["taxonomy"]
+
+    assert taxonomy["clusters"] == []
+    reasons = {entry["reason"] for entry in taxonomy["abstained"]}
+    assert reasons == {"unmapped_repair_class"}
+    assert taxonomy["abstained"][0]["support"] == 2
+
+
+def test_retired_taxonomy_is_never_adopted_by_a_new_receipt(tmp_path):
+    """Migration 133 retires the string-keyed taxonomies. Pinned reads keep
+    resolving; new receipts must not adopt a retired version."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    _attempt(vault, repository, "att_retire_1")
+    _attempt(vault, repository, "att_retire_2", statement="Second observation.")
+    taxonomy = mint_causal_mechanism_taxonomy(
+        repository, activate=True, clock=FrozenClock(NOW)
+    )
+
+    assert repository.latest_active_causal_mechanism_taxonomy()["id"] == taxonomy["id"]
+    assert repository.retire_causal_mechanism_taxonomy_version(
+        taxonomy["id"], reason="test_retirement", clock=FrozenClock(NOW)
+    )
+    # Idempotent: retirement is append-only.
+    assert not repository.retire_causal_mechanism_taxonomy_version(
+        taxonomy["id"], reason="test_retirement", clock=FrozenClock(NOW)
+    )
+    assert repository.latest_active_causal_mechanism_taxonomy() is None
+    # Pinned resolution survives, so a receipt labelled by it still replays.
+    assert (
+        repository.causal_mechanism_taxonomy_version(taxonomy["id"])["id"]
+        == taxonomy["id"]
+    )
+    assert repository.retired_causal_mechanism_taxonomy_versions()[taxonomy["id"]][
+        "reason"
+    ] == "test_retirement"
+
+
+def test_repair_class_definitions_are_durable_and_content_addressed(tmp_path):
+    """The A2 key reads the repair-class DEFINITION, so it must survive the
+    replay rebuild that owns the receipt it used to live in."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    result = _attempt(vault, repository, "att_durable")
+    stored = repository.causal_repair_class_definitions()
+    assert len(stored) == 1
+    definition = next(iter(stored.values()))
+    assert definition["operator"] == "insert_transpose"
+    assert definition["repair_equivalence_id"].startswith("re_")
+    assert definition["episode_id"] == result.attempt_id
+
+    # Re-materializing writes nothing new: rows are content-addressed.
+    materialize_causal_episode(
+        vault,
+        repository,
+        attempt_id=result.attempt_id,
+        repair_suggestions=result.repair_suggestions,
+        clock=FrozenClock(NOW),
+    )
+    assert repository.causal_repair_class_definitions() == stored
+
+    with repository.connection() as connection:
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute(
+                "UPDATE causal_repair_class_definitions SET operator = 'x' "
+                "WHERE repair_class_id = ?",
+                (definition["repair_class_id"],),
+            )
 
 
 def test_candidate_reordering_does_not_change_episode_identity(tmp_path):
@@ -471,6 +692,61 @@ def test_verifier_adapters_preserve_typed_outcomes():
     assert tests.verify(returncode=0, tests_collected=0).status == (
         "assumption_missing"
     )
+
+
+def _test_execution_candidate() -> dict:
+    return {
+        "operator": "fix_off_by_one",
+        "target_refs": [{"kind": "criterion", "criterion_id": "correctness"}],
+        "repaired_trace": {
+            "learner_work_prefix": "",
+            "minimal_edit": "use <= instead of <",
+            "regenerated_work": "",
+            "repaired_answer_md": "for i in range(n + 1)",
+            "changed_latent_claims": ["loop bound is inclusive"],
+            "changed_checkpoint_ids": [],
+        },
+        "verification_request": {"kind": "test_execution"},
+    }
+
+
+def test_test_execution_verifier_is_reachable_from_dispatch():
+    """§7 decision 4: the adapter was unreachable — dispatch covered only
+    symbolic_equality / exact_match."""
+
+    verified = validate_repair_candidate(
+        _test_execution_candidate(),
+        expected_answer="for i in range(n + 1)",
+        execution_result={"returncode": 0, "tests_collected": 3},
+    )
+    assert verified.verification.status == "verified"
+    assert "deterministic_verifier_contradiction" not in verified.reasons
+
+    failed = validate_repair_candidate(
+        _test_execution_candidate(),
+        expected_answer="for i in range(n + 1)",
+        execution_result={"returncode": 1, "tests_collected": 3},
+    )
+    assert failed.verification.status == "contradicted"
+    assert "deterministic_verifier_contradiction" in failed.reasons
+    assert failed.status == "invalid"
+
+
+def test_a_model_cannot_supply_its_own_execution_result():
+    """The verdict channel is the caller's parameter, never the model's payload.
+    A repair that attaches `returncode: 0` to its own request must not thereby
+    acquire a deterministic `verified`."""
+
+    forged = _test_execution_candidate()
+    forged["verification_request"]["execution_result"] = {
+        "returncode": 0,
+        "tests_collected": 99,
+    }
+    result = validate_repair_candidate(
+        forged, expected_answer="for i in range(n + 1)"
+    )
+    assert result.verification.status == "unsupported"
+    assert result.verification.detail == "test execution was unavailable"
 
 
 def test_feedback_overlay_and_cli_are_receipt_checked(tmp_path):

@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
-import type { FacetContractCardDto, IdentifiabilityWarningDto, SubjectRegistryDto } from "../api/dto";
+import type { FacetContractCardDto, IdentifiabilityWarningDto, MeasurementRankDto, SubjectRegistryDto } from "../api/dto";
 import { ProvenancePanel } from "../components/ProvenancePanel";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "../components/term";
 
@@ -90,6 +90,8 @@ export function RegistryReviewScreen({
       {error ? <div style={{ color: COLOR.red, fontSize: 12 }}>{error}</div> : null}
       {notice ? <div style={{ color: COLOR.green, fontSize: 12 }}>{notice}</div> : null}
 
+      {registry?.measurementRank ? <MeasurementRankRow rank={registry.measurementRank} /> : null}
+
       {registry && registry.identifiabilityWarnings.length ? (
         <div>
           <SectionHeader style={{ marginTop: 0 }}>Identifiability warnings</SectionHeader>
@@ -105,6 +107,50 @@ export function RegistryReviewScreen({
             <FacetCard key={card.facetId} card={card} facetOptions={facetOptions} onMerge={(survivor) => void proposeMerge(card.facetId, survivor)} onOpenSource={onOpenSource} />
           ))}
           {registry.facets.length === 0 ? <Faint>No facets in this subject's registry yet.</Faint> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Meas §D1 measurement_rank: how many independent dimensions this subject's pool
+// can actually resolve, against the facets declared — "charging the learner 40
+// facets' worth of questions for 12 facets' worth of information" made visible.
+// The deficit is stated, and split by cause, rather than left to be subtracted:
+// a facet nothing observes is an instrumentation problem, a group of facets
+// sharing one measurement signature is a collapse candidate. Read-only surface:
+// the groups are listed for a reviewer, and merging still goes only through the
+// explicit "propose merge" action on a facet card (§D1 review, never auto-merge).
+function MeasurementRankRow({ rank }: { rank: MeasurementRankDto }) {
+  const ratio = rank.rankRatio == null ? "—" : rank.rankRatio.toFixed(2);
+  return (
+    <div style={{ border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${COLOR.cyan}`, padding: "10px 14px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <Pill color="cyan">measurement rank</Pill>
+        <span style={{ fontSize: 12, color: COLOR.text }}>
+          {rank.independentDimensions} independent dimension(s) / {rank.facetsDeclared} facet(s) declared
+        </span>
+        <Faint style={{ fontSize: 11 }}>ratio {ratio}</Faint>
+      </div>
+      {rank.deficit > 0 ? (
+        <div style={{ fontSize: 12, color: COLOR.textDim, marginTop: 4 }}>
+          rank deficit {rank.deficit} — {rank.deficitFromUnobserved} facet(s) observed by nothing,{" "}
+          {rank.deficitFromCollapse} lost to shared measurement signatures
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: COLOR.textDim, marginTop: 4 }}>no rank deficit — every declared facet is separately observable</div>
+      )}
+      {rank.collapsedGroups.length ? (
+        <div style={{ fontSize: 11, color: COLOR.textDim, marginTop: 6 }}>
+          <Faint style={{ fontSize: 11 }}>indistinguishable groups (review candidates — nothing is merged from here):</Faint>
+          {rank.collapsedGroups.map((group) => (
+            <div key={group.join("|")} style={{ marginTop: 2 }}>· {group.join(", ")}</div>
+          ))}
+        </div>
+      ) : null}
+      {rank.unobservedFacets.length ? (
+        <div style={{ fontSize: 11, color: COLOR.textDim, marginTop: 6 }}>
+          <Faint style={{ fontSize: 11 }}>observed by no item or criterion:</Faint> {rank.unobservedFacets.join(", ")}
         </div>
       ) : null}
     </div>

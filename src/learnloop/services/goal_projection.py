@@ -49,6 +49,9 @@ from learnloop.services.facet_state_reader import (
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.fsrs import forgetting_curve
 from learnloop.services.goal_certification import facet_demonstration
+from learnloop.services.mastery import covering_learner_claim
+from learnloop.services.measurement_state import UNKNOWN as MEASUREMENT_UNKNOWN
+from learnloop.services.measurement_state import classify_measurement_state
 from learnloop.services.recall_coverage import expected_facet_mass_gain
 from learnloop.services.selection_rewards import predicted_facet_recall
 from learnloop.vault.models import Goal, LoadedVault
@@ -81,6 +84,13 @@ class FacetProjection:
     demonstrated_capabilities: tuple[str, ...] = ()  # of those, the ones with direct capability-matched credit
     demonstrated_from_legacy_default: bool = False  # capabilities resolved from a mode default, not blueprints
     decay_estimated: bool = False                    # at least one supporting item has FSRS state
+    # Meas §B2/§E2 (plan 3.2): provenance of ``predicted_current`` /
+    # ``predicted_at_horizon`` — measured | inferred | claimed | unknown, from
+    # ``measurement_state.classify_measurement_state``. Display only: nothing
+    # here or downstream branches a threshold or a certification on it
+    # (``certified`` stays ``label == "solid"``). The default is the abstention
+    # arm, so a projection built without the ingredients never claims more.
+    measurement_state: str = MEASUREMENT_UNKNOWN
 
     @property
     def ready(self) -> float:
@@ -390,6 +400,18 @@ def _facet_projections(
     min_mass = vault.config.recall_coverage.min_facet_evidence_mass
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
     projections: list[FacetProjection] = []
+    # §E2 claim coverage, memoized per LO and only consulted on the arm that can
+    # reach ``claimed`` (nothing measured, nothing to pool) — a goal report spans
+    # every in-scope LO and ``covering_learner_claim`` is a query apiece.
+    claim_cache: dict[str, bool] = {}
+
+    def _claim_present(learning_object_id: str) -> bool:
+        cached = claim_cache.get(learning_object_id)
+        if cached is None:
+            cached = covering_learner_claim(vault, repository, learning_object_id) is not None
+            claim_cache[learning_object_id] = cached
+        return cached
+
     for learning_object_id in sorted(scope):
         # Keyed by canonical facet id; alias rows fold onto the canonical entry
         # (highest evidence mass wins, matching the aggregate's intent).
@@ -433,6 +455,15 @@ def _facet_projections(
                 blend_count,
             )
             predicted_at_horizon = clamp(predicted_current * retention)
+            # Meas §B2: label the prediction that was already being rendered
+            # unlabelled. Same ingredients as ``predicted_facet_recall`` above,
+            # so the label cannot disagree with the number it qualifies.
+            measurement_state = classify_measurement_state(
+                evidence_mass=evidence_mass,
+                min_evidence_mass=min_mass,
+                mastery_evidence_count=mastery.evidence_count if mastery is not None else 0,
+                claim_present=lambda: _claim_present(learning_object_id),
+            )
             certified = label == "solid"
             on_track = predicted_at_horizon >= goal.target_recall and label != "known_gap"
             learning_object = vault.learning_objects.get(learning_object_id)
@@ -467,6 +498,7 @@ def _facet_projections(
                         demonstration.from_legacy_default if demonstration else False
                     ),
                     decay_estimated=decay_estimated,
+                    measurement_state=measurement_state,
                 )
             )
     return projections

@@ -38,6 +38,7 @@ from learnloop.codex.schemas import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.append_neighborhood import Neighborhood, select_neighborhood
 from learnloop.services.patches import compute_target_hash
 from learnloop.services.source_set_synthesis import (
@@ -259,7 +260,14 @@ def _append(
             subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
             unlimited_token_budget=unlimited_token_budget,
         )
-        rows, gate_items, conflict_candidates, dispositions, auto_apply_ids = _normalize_append(
+        (
+            rows,
+            gate_items,
+            conflict_candidates,
+            dispositions,
+            auto_apply_ids,
+            normalizer_diagnostics,
+        ) = _normalize_append(
             reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
         )
 
@@ -272,11 +280,12 @@ def _append(
         )
         report = run_synthesis_gates(gate_proposal, gate_ctx)
         diagnostics = [d.to_dict() for d in report.diagnostics]
+        diagnostics.extend(normalizer_diagnostics)
         if report.blocked:
             repository.complete_synthesis_run(synthesis_run_id, status="failed",
                                               coverage_decisions={"gate_diagnostics": diagnostics})
-            repository.complete_agent_run(agent_run_id, status="failed",
-                                          error_message="append gates hard-failed", clock=clock)
+            finish_agent_run(repository, agent_run_id, client, status="failed",
+                             error_message="append gates hard-failed", clock=clock)
             raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
                                 diagnostics=diagnostics)
 
@@ -297,12 +306,15 @@ def _append(
             synthesis_run_id, status="completed", proposal_id=patch_id,
             coverage_decisions={"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids},
         )
-        repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+        finish_agent_run(repository, agent_run_id, client, clock=clock)
     except StudyMapError:
         raise
     except Exception as exc:  # pragma: no cover - defensive
         repository.complete_synthesis_run(synthesis_run_id, status="failed")
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
 
     row_by_client = {r["client_item_id"]: r["id"] for r in rows}
@@ -498,7 +510,18 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
                      entity_id=target_id, payload=payload, reconciliation_intent="restructure_unlocked")
         )
 
-    return rows, gate_items, conflict_candidates, set(getattr(reconciliation, "non_conflict_dispositions", []) or []), auto_apply_ids
+    # `normalized.edge_diagnostics` carries the bootstrap normalizer's typed review
+    # records — concept-edge drops and, since plan item 5.4, the D2 facet-mint
+    # verdicts. They must ride out to the caller's `gate_diagnostics`: D2's rule is
+    # "failure is typed, not silent", and a record dropped here is silent.
+    return (
+        rows,
+        gate_items,
+        conflict_candidates,
+        set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
+        auto_apply_ids,
+        list(normalized.edge_diagnostics),
+    )
 
 
 def _relation_for_intent(intent: str | None) -> str:

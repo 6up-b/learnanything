@@ -87,6 +87,7 @@ from learnloop.codex.schemas import (
     TeachBackQuestion,
     TutorAnswer,
 )
+from learnloop.token_usage import TokenUsageAccounting, usage_from_chat_response
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ _sleep = time.sleep
 _RETRY_DELAYS_SECONDS = (1.0, 4.0)
 
 
-class OpenAIChatProviderClient:
+class OpenAIChatProviderClient(TokenUsageAccounting):
     provider_type = "openai_chat"
     # Subclass hooks: a provider type with a fixed endpoint (e.g. openrouter)
     # overrides these so profiles only need a model slug.
@@ -286,6 +287,10 @@ class OpenAIChatProviderClient:
             kwargs["max_tokens"] = self.profile.max_tokens
         kwargs.update(self._reasoning_kwargs())
         response = self._create_with_retry(kwargs)
+        # A7: meter before touching the body. Everything below can raise
+        # (empty content, and upstream a validation failure that triggers a
+        # second billed repair round) and those tokens were still spent.
+        self.record_token_usage(*usage_from_chat_response(response))
         content = response.choices[0].message.content
         if not isinstance(content, str) or not content.strip():
             raise CodexUnavailable(f"{self.provider_name} returned an empty response")

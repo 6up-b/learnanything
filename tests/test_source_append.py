@@ -463,9 +463,19 @@ def test_append_vocabulary_gate_rejects_mutation_outside_restructure():
     assert "lo_y" not in refs
 
 
-def test_post_append_near_duplicate_yields_merge_review_never_auto_merge(tmp_path):
-    """A new_coverage facet nearly identical to an existing one yields a merge-review
-    proposal, never an auto-merge (§14)."""
+def test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged(tmp_path):
+    """Two rules, at two different times, and they do not conflict.
+
+    Plan item 5.4 / Meas D2 moved the *mint* gate upstream onto the append path
+    too, so a near-duplicate `new_coverage` facet no longer earns an id: it is
+    registered as an alias of the facet it collapses into ("alias-not-mint"). D2
+    also says Phase D's review loop is "otherwise unchanged", and it is — §14's
+    near-duplicate doctor still only ever *proposes* a merge for facets that are
+    already registered, which the second half of this test pins.
+
+    The two are consistent: D2 governs admission (the second entry never exists),
+    §14 governs two entries that already do (never merged without a human).
+    """
 
     root, repo = _bootstrap_and_add(tmp_path)
 
@@ -488,15 +498,42 @@ def test_post_append_near_duplicate_yields_merge_review_never_auto_merge(tmp_pat
 
     result = append_source(root, "set_la", client=FakeAppendClient(builder=builder),
                            new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
-    # new_coverage facet is a pending review item (not auto-applied).
+    # D2: identical error signature AND identical repair -> one obligation, two ids.
+    # The single facet row is the alias registration, not a new facet, and it is a
+    # pending review item (never auto-applied).
     assert result.item_counts.get("facet") == 1
-    # apply the new facet so the registry contains both, then the near-dup pass fires.
+    mint = [d for d in result.gate_diagnostics if d["gate"] == "facet_mint"]
+    assert len(mint) == 1 and "same_repair_class" in mint[0]["message"]
     from learnloop.services.patches import apply_accepted_items
     facet_items = [i["id"] for i in repo.proposal_items(result.proposal_id) if i["item_type"] in {"facet", "concept"}]
     apply_accepted_items(root, result.proposal_id, item_ids=facet_items, clock=_CLOCK)
+
+    v = load_vault(root)
+    assert "facet_symmetry_definition_dup" not in v.evidence_facets
+    assert "facet_symmetry_definition_dup" in v.evidence_facets["facet_symmetry_definition"].aliases
+    # The id still resolves, so nothing filed against it is lost.
+    assert v.canonical_facet_id("facet_symmetry_definition_dup") == "facet_symmetry_definition"
+
+    # §14, unchanged: two facets that ARE both registered (legacy content, minted
+    # before D2 existed) still only ever yield a merge-review proposal.
+    from learnloop.vault.writer import upsert_facet
+
+    upsert_facet(root, {
+        "id": "facet_spectral_legacy_dup",
+        "kind": "applicability_condition",
+        "claim": "The spectral theorem applies to real symmetric matrices.",
+        "error_signatures": ["applies spectral theorem to non-symmetric matrices"],
+        "instructional_repairs": ["check symmetry before invoking the spectral theorem"],
+        "status": "reviewed",
+    }, clock=_CLOCK)
     from learnloop.services.facet_doctor import near_duplicate_facet_review
     pairs = near_duplicate_facet_review(load_vault(root))
-    assert any({p.left_facet_id, p.right_facet_id} == {"facet_symmetry_definition", "facet_symmetry_definition_dup"} for p in pairs)
-    # nothing auto-merged: both facets still exist independently.
+    assert any(
+        {p.left_facet_id, p.right_facet_id}
+        == {"facet_spectral_applicability", "facet_spectral_legacy_dup"}
+        for p in pairs
+    )
+    # Nothing auto-merged: both registered facets still exist independently.
     v = load_vault(root)
-    assert "facet_symmetry_definition" in v.evidence_facets and "facet_symmetry_definition_dup" in v.evidence_facets
+    assert "facet_spectral_applicability" in v.evidence_facets
+    assert "facet_spectral_legacy_dup" in v.evidence_facets

@@ -296,6 +296,14 @@ def _promotion_reason(candidate: dict, attempt: dict | None) -> str | None:
     pre-registered signature. A validated-registry match is handled up-front by
     the durable-row match; model-reported first-error confidence has no
     promotion authority.
+
+    These are §5.6 arms (b) and (a) — the two that are decidable from the attempt
+    in hand at normalization time. Arms (c) (deterministic proof + learner
+    confirmation) and (d) (human adjudication) are LATE evidence: a confirmation
+    arrives after this function has already run for the attempt, and a verdict
+    arrives days later. They live in ``services/durable_promotion.py``, which
+    re-drives ``_promote_candidate`` for the same holding-pen candidate. Adding
+    them as branches here would make them permanently unreachable.
     """
 
     if len(set(candidate.get("surface_families") or [])) >= 2:
@@ -641,6 +649,17 @@ def normalize_and_resolve_attempt(
         learning_object_id=learning_object_id,
         ai_client=ai_client,
         clock=clock,
+    )
+    # §5.6 arms (c)/(d) are LATE evidence — a learner confirmation or a human
+    # verdict lands after the attempt it judges has already been normalized. Both
+    # fire at their own source when a vault is in hand; this is the backstop that
+    # keeps a verdict recorded through a vault-less surface from sitting inert
+    # forever. Idempotent and bounded by the adjudicated/confirmed sets, so a
+    # vault with no late evidence pays one index probe.
+    from learnloop.services.durable_promotion import sweep_late_promotion_evidence
+
+    sweep_late_promotion_evidence(
+        vault, repository, learning_object_id=learning_object_id, clock=clock
     )
     update_misconception_posteriors_and_resolve(
         vault, repository, learning_object_id=learning_object_id, clock=clock

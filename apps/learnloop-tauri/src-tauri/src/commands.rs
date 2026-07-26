@@ -544,6 +544,37 @@ pub async fn maintenance_feed(
 }
 
 #[tauri::command]
+pub async fn get_measurement_health(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_measurement_health", json!({})).await
+}
+
+#[tauri::command]
+pub async fn schedule_certification_cold_probes(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "schedule_certification_cold_probes", input).await
+}
+
+#[tauri::command]
+pub async fn transition_causal_probe_candidate(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "transition_causal_probe_candidate", input).await
+}
+
+#[tauri::command]
+pub async fn apply_integration_backfill(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "apply_integration_backfill", input).await
+}
+
+#[tauri::command]
 pub async fn maintenance_notice_action(
     input: Value,
     sidecar: State<'_, SidecarManager>,

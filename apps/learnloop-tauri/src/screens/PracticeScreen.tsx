@@ -122,8 +122,18 @@ export function PracticeScreen({
     return () => onTeachBackActive(false);
   }, [teachBackActive, onTeachBackActive]);
   // When this item was opened — the ask overlay reports secondsIntoAttempt
-  // from it (there is no other attempt timer on this screen).
+  // from it, and the submitted attempt reports `latencySeconds` from it.
   const openedAtMs = useRef(Date.now());
+  // Wall-clock seconds from presentation to submission. Deliberately NOT
+  // idle-adjusted: subtracting time the learner "wasn't really working" would be
+  // a fabrication, and the metric that consumes this (B5's
+  // `learner_minutes_to_cold_success`) is denominated in the learner's actual
+  // elapsed experience. The whole backend path — `SubmitAttemptInput`, the
+  // sidecar handler, `AttemptDraft`, the `latency_seconds` column — already
+  // existed; only this client-side value was missing, so every attempt to date
+  // recorded NULL and the metric was permanently uncomputable.
+  const elapsedSeconds = () =>
+    Math.max(0, Math.round((Date.now() - openedAtMs.current) / 1000));
   const submissionId = useRef(crypto.randomUUID());
   useEffect(() => {
     openedAtMs.current = Date.now();
@@ -390,6 +400,7 @@ export function PracticeScreen({
         // §12: an active diagnostic block forces the recording attempt type.
         attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
         hintsUsed,
+        latencySeconds: elapsedSeconds(),
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
@@ -424,6 +435,7 @@ export function PracticeScreen({
         sessionId: session.sessionId,
         practiceItemId: item.id,
         hintsUsed,
+        latencySeconds: elapsedSeconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,

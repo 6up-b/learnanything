@@ -24,6 +24,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     knowledge_model,
     ladder,
     library,
+    measurement,
     practice,
     proposals,
     provenance,

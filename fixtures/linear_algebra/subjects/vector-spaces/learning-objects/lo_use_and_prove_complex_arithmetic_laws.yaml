@@ -31,9 +31,6 @@ blueprints:
             modality: facilitating
         any_of: []
         integration:
-          facet: facet_to_prove_a_universal_identity_about_complex_mult
-          capability: coordination
-          modality: hard
 difficulty_prior:
 difficulty_source:
 tags: []
@@ -93,4 +90,4 @@ provenance:
       source_id: src_01KY2YG27G1SDWA4FN939ZBB34
       span_hash:
 created_at: '2026-07-22T03:47:56Z'
-updated_at: '2026-07-22T03:48:34Z'
+updated_at: '2026-07-26T18:41:58Z'

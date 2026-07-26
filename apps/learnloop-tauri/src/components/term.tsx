@@ -173,6 +173,35 @@ export function modePillColor(mode: string | null | undefined): PillColor {
   return "purple";
 }
 
+// Meas §B2/§E2 measurement-provenance vocabulary (backend
+// services/measurement_state.py). The four labels are closed and the backend
+// decides which one a number carries; these two helpers only render it, so no
+// surface re-derives provenance from the value it is attached to. An absent or
+// unrecognised label degrades to the abstention word rather than guessing
+// "measured" — the whole point of the item is that inference must not read as
+// measurement. Purely presentational: nothing branches behaviour on it.
+const MEASUREMENT_STATE_WORDS: Record<string, string> = {
+  measured: "measured",
+  inferred: "inferred",
+  claimed: "claimed, unverified",
+  unknown: "unmeasured"
+};
+
+const MEASUREMENT_STATE_COLORS: Record<string, string> = {
+  measured: COLOR.green,
+  inferred: COLOR.cyan,
+  claimed: COLOR.amber,
+  unknown: COLOR.textFaint
+};
+
+export function measurementStateLabel(state: string | null | undefined): string {
+  return MEASUREMENT_STATE_WORDS[state ?? ""] ?? MEASUREMENT_STATE_WORDS.unknown;
+}
+
+export function measurementStateColor(state: string | null | undefined): string {
+  return MEASUREMENT_STATE_COLORS[state ?? ""] ?? MEASUREMENT_STATE_COLORS.unknown;
+}
+
 // Terminal-styled dropdown that replaces native <select>. Closed state is a
 // bordered chip (amber border/text when open); the open list is an absolutely
 // positioned panel below the control. Keyboard: ↑/↓ move highlight, Enter picks,

@@ -29,9 +29,6 @@ blueprints:
             modality: hard
         any_of: []
         integration:
-          facet: facet_a_collection_is_linearly_dependent_when_a_vector
-          capability: coordination
-          modality: hard
 difficulty_prior:
 difficulty_source:
 tags: []
@@ -78,4 +75,4 @@ provenance:
       source_id: src_01KY3VMAEVKJ1F8PMFW8Q6VSAS
       span_hash:
 created_at: '2026-07-22T03:48:28Z'
-updated_at: '2026-07-22T03:49:11Z'
+updated_at: '2026-07-26T18:41:58Z'

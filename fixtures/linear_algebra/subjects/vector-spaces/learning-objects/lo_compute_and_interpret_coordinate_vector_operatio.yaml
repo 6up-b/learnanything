@@ -32,7 +32,7 @@ blueprints:
         any_of: []
         integration:
           facet: facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co
-          capability: coordination
+          capability: method_selection
           modality: hard
       - id: recipe_coordinate_operation_discrimination
         composition: conjunctive
@@ -91,4 +91,4 @@ provenance:
       source_id: src_01KY2YG27G1SDWA4FN939ZBB34
       span_hash:
 created_at: '2026-07-22T03:48:12Z'
-updated_at: '2026-07-22T03:48:52Z'
+updated_at: '2026-07-26T18:41:58Z'

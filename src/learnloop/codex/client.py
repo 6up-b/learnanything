@@ -18,6 +18,12 @@ from typing import Iterator, Literal, Mapping, Protocol
 from pydantic import BaseModel, ValidationError
 
 from learnloop.config import CodexConfig
+from learnloop.token_usage import (
+    TokenUsage,
+    TokenUsageAccounting,
+    usage_from_chat_response,
+    usage_from_codex_turn,
+)
 from learnloop.codex.prompts import (
     AUTHORING_PROMPT_VERSION,
     CANONICAL_INGEST_PROMPT_VERSION,
@@ -566,6 +572,10 @@ class AppendReconciliationContext:
 
 
 class CodexClient(Protocol):
+    def consume_usage(self) -> TokenUsage:
+        """Read-and-reset provider-reported token usage (A7; see token_usage)."""
+        ...
+
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
         ...
 
@@ -612,7 +622,7 @@ def make_codex_client(config: CodexConfig, vault_root: Path) -> CodexClient:
     raise CodexUnavailable(f"Unsupported Codex provider {config.provider!r}")
 
 
-class HttpCodexClient:
+class HttpCodexClient(TokenUsageAccounting):
     """Minimal local Codex app-server client.
 
     The MVP transport is intentionally small: JSON POSTs to a local app-server.
@@ -749,6 +759,10 @@ class HttpCodexClient:
                 error="non_object_response",
             )
             raise CodexUnavailable("Codex app-server response must be a JSON object")
+        # A7: the adapter contract does not require a `usage` object, so this is
+        # opportunistic — an app-server that reports one in the OpenAI shape gets
+        # metered, one that does not leaves the run's actual_* columns at 0.
+        self.record_token_usage(*usage_from_chat_response(decoded))
         _log_codex_debug(
             "codex.http.response",
             provider="codex",
@@ -770,7 +784,7 @@ def _decode_lossy(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
-class SdkCodexClient:
+class SdkCodexClient(TokenUsageAccounting):
     """Codex Python SDK-backed client.
 
     The SDK speaks the real Codex app-server v2 JSON-RPC protocol over stdio.
@@ -1249,6 +1263,12 @@ class SdkCodexClient:
                 error=str(exc),
             )
             raise CodexUnavailable(str(exc)) from exc
+
+        # A7 (spec_diagnostic_augmentation_v1.md §2): meter before the
+        # deadline/interrupt/empty-response checks below. A turn the learner
+        # interrupted or that timed out still burned tokens, and a cost meter
+        # that only counts clean completions understates every ratio built on it.
+        self.record_token_usage(*usage_from_codex_turn(result))
 
         if self._deadline_expired.is_set():
             raise CodexTurnTimeout(

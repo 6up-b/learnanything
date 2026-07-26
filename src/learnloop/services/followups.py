@@ -613,8 +613,12 @@ def _run_causal_orchestrator_hooks(
             exc_info=True,
         )
     try:
-        task = repository.consumed_followup_task_for_attempt(result.attempt_id)
-        if task is not None and task.get("kind") == "cold_retry":
+        # Ask for the repair lane by name: migration 139 put a second `kind` on
+        # the same table, and one attempt can discharge a task in each.
+        task = repository.consumed_followup_task_for_attempt(
+            result.attempt_id, kind="cold_retry"
+        )
+        if task is not None:
             record_cold_verification_from_task(
                 vault,
                 repository,

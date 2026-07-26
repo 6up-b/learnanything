@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Literal
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -460,8 +460,18 @@ def validate_repair_candidate(
     *,
     expected_answer: str | dict[str, Any] | None = None,
     trace_contract: Any = None,
+    execution_result: Mapping[str, Any] | None = None,
 ) -> RepairValidationResult:
-    """Validate a repair without trusting any verdict supplied in its payload."""
+    """Validate a repair without trusting any verdict supplied in its payload.
+
+    ``execution_result`` is the ONLY channel by which a test-execution outcome may
+    enter (§7 decision 4).  It is a separate parameter, not a field of
+    ``suggestion``, because ``suggestion`` is model-authored: a payload that could
+    carry ``{"returncode": 0}`` would let the model hand itself a
+    ``verified`` verdict from the deterministic verifier — the precise inversion
+    the P0a write barriers exist to prevent.  The model may REQUEST test
+    execution; only a trusted caller may report what happened.
+    """
 
     repair_class = _repair_class(suggestion)
     trace_value = suggestion.get("repaired_trace")
@@ -547,6 +557,25 @@ def validate_repair_candidate(
                 },
                 assumptions=assumptions,
                 discrimination_features={"unparsed": False},
+            )
+        elif kind == "test_execution":
+            # §7 decision 4: `TestExecutionVerifierAdapter` was unreachable —
+            # dispatch covered only `symbolic_equality` / `exact_match`. It is
+            # wired rather than descoped, on the terms its own docstring sets: the
+            # adapter is a typed reader of an ALREADY-sandboxed result and never
+            # executes anything. The result therefore arrives from the caller, not
+            # from the model's own payload; when no caller supplied one the verdict
+            # is `unsupported` with a typed detail, because a verifier that could
+            # not run must never read as a pass.
+            execution = dict(execution_result or {})
+            returncode = execution.get("returncode")
+            verification = TestExecutionVerifierAdapter().verify(
+                returncode=(
+                    int(returncode) if isinstance(returncode, (int, bool)) else None
+                ),
+                tests_collected=int(execution.get("tests_collected") or 0),
+                parsed_form=execution.get("parsed_form"),
+                assumptions=assumptions,
             )
         else:
             verification = VerificationResult(
@@ -856,6 +885,129 @@ def _normalized(value: str) -> str:
     return _NORMALIZE_RE.sub(" ", value.casefold()).strip()
 
 
+def repair_equivalence_id(repair_class: Mapping[str, Any]) -> str:
+    """The cross-episode "same help" id for a repair class (Aug A2).
+
+    ``repair_class_id`` hashes ``episode_id`` too — deliberately, since a repair
+    class is minted for one episode — so it can never relate two episodes that
+    need the identical repair.  This id is the relation that can: operator plus
+    the refs the repair touches and preserves, canonicalized so ref ORDER (a
+    model artifact) cannot split a group.
+
+    ``expected_minutes`` and ``answer_reveal_budget`` are excluded because they
+    are model self-reports.  A1 demoted them to tie-breakers for exactly this
+    reason; keying an append-only taxonomy on a volunteered float would
+    re-fragment the synonyms A2 exists to collapse.
+    """
+
+    return _content_id(
+        "re",
+        {
+            "operator": str(
+                repair_class.get("operator")
+                or repair_class.get("practice_mode")
+                or "targeted_repair"
+            ),
+            "target_refs": sorted(
+                _ref_key(value) for value in repair_class.get("target_refs") or []
+            ),
+            "preserve_refs": sorted(
+                _ref_key(value) for value in repair_class.get("preserve_refs") or []
+            ),
+        },
+    )
+
+
+def repair_class_definition_rows(
+    repair_classes: Sequence[Mapping[str, Any]],
+    *,
+    episode_id: str,
+) -> list[dict[str, Any]]:
+    """Durable-store rows for the repair classes an episode minted."""
+
+    rows: list[dict[str, Any]] = []
+    for repair_class in repair_classes:
+        if not repair_class.get("id"):
+            continue
+        rows.append(
+            {
+                "repair_class_id": str(repair_class["id"]),
+                "repair_equivalence_id": repair_equivalence_id(repair_class),
+                "episode_id": str(repair_class.get("episode_id") or episode_id),
+                "operator": repair_class.get("operator"),
+                "repair_policy_version": repair_class.get(
+                    "repair_policy_version"
+                )
+                or REPAIR_POLICY_VERSION,
+                "target_refs": list(repair_class.get("target_refs") or []),
+                "preserve_refs": list(repair_class.get("preserve_refs") or []),
+                "expected_minutes": repair_class.get("expected_minutes"),
+                "answer_reveal_budget": repair_class.get(
+                    "answer_reveal_budget"
+                )
+                or 0.0,
+                "definition": dict(repair_class),
+            }
+        )
+    return rows
+
+
+#: Aug A2: the grouping key is shared repair equivalence + probe discrimination
+#: profile; the operation string is a label.  The name says which, so a stored
+#: taxonomy can never be mistaken for one minted under the string key.
+MECHANISM_TAXONOMY_ALGORITHM = "repair_equivalence_probe_profile_v1"
+
+#: Why a group of observations did NOT earn a mechanism id.  Every arm names a
+#: distinct remedy, so an abstention is routable rather than an undifferentiated
+#: "no cluster" (standing constraint 2: no new enum without an abstention arm,
+#: and abstentions are the signal that the vocabulary cannot name what happened).
+MECHANISM_ABSTENTION_REASONS = (
+    # The key is well-formed and the group is real, there just are not yet
+    # `min_cluster_size` observations of it.  Remedy: wait for volume.
+    "insufficient_support",
+    # No repair class mapped (§5.3's machine-side backfill obligation).  A cause
+    # that names no repair predicts no distinct help, so it cannot earn a
+    # mechanism id.  Remedy: resolve the repair mapping (the reason WHY it is
+    # unmapped is already recorded per hypothesis).
+    "unmapped_repair_class",
+    # A repair class id exists but its definition predates migration 133's
+    # durable store, so the cross-episode equivalence cannot be computed.
+    # Remedy: re-materialize the episode.  Deliberately NOT merged into
+    # `unmapped_repair_class`: one is missing diagnosis, the other missing
+    # provenance.
+    "repair_class_definition_missing",
+    # The open-world arm (§5.1) names no cause and therefore no repair and no
+    # measurement.  It is not a mechanism and must not be clustered as one.
+    "open_set_arm",
+)
+
+
+def _discrimination_profile(hypothesis: Mapping[str, Any]) -> list[str]:
+    """What a probe would have to observe to bear on this hypothesis.
+
+    Postdictive claims are the hypothesis's own falsifiable commitments — the
+    criteria it says must fail if it is true — and they are precisely what
+    ``generate_blind_prediction_bundle`` hands a blind generator.  Two causes
+    committing to the same observables are indiscriminable by measurement.
+
+    Blind-bundle feature keys are deliberately NOT used here even though they are
+    the more direct signal: bundles are per-item and per-model, so a key built
+    from them would split one mechanism by which item happened to probe it.
+    """
+
+    claims = hypothesis.get("postdictive_claims")
+    keys: set[str] = set()
+    for claim in claims or []:
+        if not isinstance(claim, Mapping):
+            continue
+        criterion_id = str(claim.get("criterion_id") or "").strip()
+        if not criterion_id:
+            continue
+        must = str(claim.get("must") or "").strip() or "unspecified"
+        keys.add(f"{criterion_id}:{must}")
+    return sorted(keys)
+
+
 def mint_causal_mechanism_taxonomy(
     repository: Repository,
     *,
@@ -865,36 +1017,102 @@ def mint_causal_mechanism_taxonomy(
 ) -> dict[str, Any]:
     """Build an immutable mechanism-taxonomy snapshot as an explicit batch.
 
-    The first implementation is intentionally interpretable: exact normalized
-    operation groups are the clusters, statements are retained as medoids/examples,
-    and singleton operations explicitly abstain.  Assignments live on this
-    snapshot; hypothesis episode history is not rewritten.
+    The grouping key is ``(repair equivalence, cause scope, discrimination
+    profile)`` — Aug A2.  The previous key was the exact ``operation`` string,
+    which recovered the grader's lexical habits: ``dropped_sign``,
+    ``sign_dropped`` and ``lost_negative_branch`` were three singletons that all
+    abstained and then minted as three mechanisms once counts grew.  §9's
+    criterion — a cluster earns an id only when it predicts a distinct repair or
+    measurement need — now actually governs §6.1, and the operation string is
+    retained as the human-readable label.
+
+    ``cause_scope`` is part of the profile rather than a separate axis: a
+    ``learner_state`` cause and an ``item_contract`` cause need different
+    instruments even when the authored repair is identical, so collapsing them
+    would assert an equivalence no measurement supports.
+
+    Groups that cannot earn an id abstain with a typed reason
+    (``MECHANISM_ABSTENTION_REASONS``) instead of minting.  Assignments live on
+    this snapshot; hypothesis episode history is never rewritten.
     """
 
     if min_cluster_size < 2:
         raise ValueError("mechanism clusters require at least two observations")
-    hypotheses = repository.causal_hypotheses_with_operations()
-    grouped: dict[str, list[dict[str, Any]]] = {}
+    hypotheses = repository.causal_hypotheses_with_operations(
+        require_operation=False
+    )
+    definitions = repository.causal_repair_class_definitions(
+        [
+            str(value["repair_class_id"])
+            for value in hypotheses
+            if value.get("repair_class_id")
+        ]
+    )
+    grouped: dict[tuple[str, str, tuple[str, ...]], list[dict[str, Any]]] = {}
+    unkeyed: dict[str, list[dict[str, Any]]] = {}
     for hypothesis in hypotheses:
-        operation = str(hypothesis.get("operation") or "")
-        if operation:
-            grouped.setdefault(operation, []).append(hypothesis)
+        if str(hypothesis.get("status") or "") == "open_set":
+            unkeyed.setdefault("open_set_arm", []).append(hypothesis)
+            continue
+        repair_class_id = str(hypothesis.get("repair_class_id") or "")
+        if not repair_class_id:
+            unkeyed.setdefault("unmapped_repair_class", []).append(hypothesis)
+            continue
+        definition = definitions.get(repair_class_id)
+        if definition is None:
+            unkeyed.setdefault(
+                "repair_class_definition_missing", []
+            ).append(hypothesis)
+            continue
+        key = (
+            str(definition["repair_equivalence_id"]),
+            str(hypothesis.get("cause_scope") or "unknown"),
+            tuple(_discrimination_profile(hypothesis)),
+        )
+        grouped.setdefault(key, []).append(hypothesis)
     clusters: list[dict[str, Any]] = []
     abstained: list[dict[str, Any]] = []
     assignments: list[dict[str, str]] = []
-    for operation, members in sorted(grouped.items()):
+    for key, members in sorted(grouped.items()):
+        equivalence, cause_scope, profile = key
+        operation_labels = _operation_labels(members)
         if len(members) < min_cluster_size:
-            abstained.append({"operation": operation, "support": len(members)})
+            abstained.append(
+                {
+                    "reason": "insufficient_support",
+                    "support": len(members),
+                    "repair_equivalence_id": equivalence,
+                    "cause_scope": cause_scope,
+                    "discrimination_profile": list(profile),
+                    "operations": [
+                        entry["operation"] for entry in operation_labels
+                    ],
+                }
+            )
             continue
-        mechanism_id = f"operation:{operation}"
+        mechanism_id = _content_id(
+            "mech",
+            {
+                "repair_equivalence_id": equivalence,
+                "cause_scope": cause_scope,
+                "discrimination_profile": list(profile),
+            },
+        )
         statements = list(
             dict.fromkeys(str(member["statement"]) for member in members)
         )
         clusters.append(
             {
                 "id": mechanism_id,
-                "algorithm": "exact_operation_v1",
-                "operation": operation,
+                "algorithm": MECHANISM_TAXONOMY_ALGORITHM,
+                "repair_equivalence_id": equivalence,
+                "cause_scope": cause_scope,
+                "discrimination_profile": list(profile),
+                # Demoted from key to label (A2).  The most frequent operation
+                # string names the cluster for humans; ties break lexically so
+                # the snapshot stays content-addressable.
+                "label": operation_labels[0]["operation"] if operation_labels else "",
+                "operation_labels": operation_labels,
                 "support": len(members),
                 "statements": statements,
             }
@@ -906,20 +1124,36 @@ def mint_causal_mechanism_taxonomy(
                     "mechanism_id": mechanism_id,
                 }
             )
+    for reason, members in sorted(unkeyed.items()):
+        abstained.append(
+            {
+                "reason": reason,
+                "support": len(members),
+                "operations": [
+                    entry["operation"] for entry in _operation_labels(members)
+                ],
+                "hypothesis_ids": sorted(str(value["id"]) for value in members),
+            }
+        )
     source_heads = [
         {
             "id": str(value["id"]),
             "episode_key": str(value["episode_key"]),
             "version": int(value["version"]),
-            "operation": str(value["operation"]),
+            "operation": str(value["operation"] or ""),
             "statement_normalized": str(value["statement_normalized"]),
+            # The key's inputs belong in the source hash: two mints over the
+            # same heads must differ if the repair mapping changed underneath.
+            "repair_class_id": str(value.get("repair_class_id") or ""),
+            "cause_scope": str(value.get("cause_scope") or ""),
+            "discrimination_profile": _discrimination_profile(value),
         }
         for value in hypotheses
     ]
     source_head_hash = _content_id("ch", source_heads)
     taxonomy = {
-        "schema_version": 1,
-        "algorithm": "exact_operation_v1",
+        "schema_version": 2,
+        "algorithm": MECHANISM_TAXONOMY_ALGORITHM,
         "min_cluster_size": min_cluster_size,
         "source_head_hash": source_head_hash,
         "clusters": clusters,
@@ -936,7 +1170,7 @@ def mint_causal_mechanism_taxonomy(
     )
     return repository.insert_causal_mechanism_taxonomy_version(
         taxonomy_version_id=taxonomy_version_id,
-        algorithm="exact_operation_v1",
+        algorithm=MECHANISM_TAXONOMY_ALGORITHM,
         min_cluster_size=min_cluster_size,
         source_head_hash=source_head_hash,
         status=status,
@@ -944,6 +1178,60 @@ def mint_causal_mechanism_taxonomy(
         assignments=assignments,
         clock=clock,
     )
+
+
+def _record_abstention_notes(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    repair_classes: Sequence[Mapping[str, Any]],
+    selected_repair_class_id: str | None,
+    clock: Clock | None = None,
+) -> int:
+    """Capture A5 missing-vocabulary notes for this episode's abstentions.
+
+    Imported locally to keep the causal core free of a dependency on a capture
+    surface: nothing here may influence the diagnosis, and a note that failed to
+    write must never take a graded attempt down with it.
+    """
+
+    from learnloop.services.missing_vocabulary import (
+        record_diagnostic_abstention_notes,
+    )
+
+    equivalence = next(
+        (
+            repair_equivalence_id(value)
+            for value in repair_classes
+            if str(value.get("id") or "") == str(selected_repair_class_id or "")
+        ),
+        None,
+    )
+    return record_diagnostic_abstention_notes(
+        repository,
+        attempt_id=attempt_id,
+        selected_repair_class_id=selected_repair_class_id,
+        repair_equivalence_id=equivalence,
+        clock=clock,
+    )
+
+
+def _operation_labels(
+    members: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Operation strings observed in a group, most frequent first."""
+
+    counts: dict[str, int] = {}
+    for member in members:
+        operation = str(member.get("operation") or "").strip()
+        if operation:
+            counts[operation] = counts.get(operation, 0) + 1
+    return [
+        {"operation": operation, "support": support}
+        for operation, support in sorted(
+            counts.items(), key=lambda entry: (-entry[1], entry[0])
+        )
+    ]
 
 
 def _criterion_receipt(
@@ -1686,12 +1974,31 @@ def materialize_causal_episode(
         trace_contract=_attempt_trace_contract(vault, attempt),
         learner_answer_md=str(attempt.get("learner_answer_md") or ""),
     )
+    # A2: the mechanism taxonomy keys on the repair class's DEFINITION, which
+    # otherwise exists only inside the receipt in `attempt_debug_payloads` —
+    # a payload `services/replay.py` rebuilds.  Persist it durably here, at the
+    # one point where the definition is authoritative.
+    repository.record_causal_repair_class_definitions(
+        repair_class_definition_rows(repair_classes, episode_id=attempt_id),
+        clock=clock,
+    )
+    # A5: an abstention is the system saying the vocabulary cannot name what the
+    # learner did. It cannot be reconstructed later (standing constraint 6), so
+    # capture it here, where the selected repair is known.
+    selected_repair_class_id = _selected_repair_class_id(selection)
+    _record_abstention_notes(
+        repository,
+        attempt_id=attempt_id,
+        repair_classes=repair_classes,
+        selected_repair_class_id=selected_repair_class_id,
+        clock=clock,
+    )
     specs, factor_specs = _hypothesis_specs(
         vault,
         repository,
         attempt_id=attempt_id,
         repair_classes=repair_classes,
-        selected_repair_class_id=_selected_repair_class_id(selection),
+        selected_repair_class_id=selected_repair_class_id,
     )
     by_episode: dict[str, dict[str, Any]] = {}
     for spec in specs:

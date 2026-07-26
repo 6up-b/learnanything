@@ -55,6 +55,12 @@ class ProposalView:
     planted_profiles: list[dict[str, Any]] = field(default_factory=list)
     # criterion_id -> representation/source-example/testlet fingerprint signature
     criterion_fingerprints: dict[str, str] = field(default_factory=dict)
+    # Meas §D1 measurement_rank only: practice item id -> canonical facet ids that
+    # item observes (its ``evidence_facets``). Empty on the synthesis-time
+    # proposal view, which has no item pool yet — rank then reads criteria alone.
+    # Deliberately NOT read by the seven checks: they judge whether *grading*
+    # discriminates two facets, which is a criterion-level question.
+    item_observations: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -94,6 +100,158 @@ def _criteria_by_facet(view: ProposalView) -> dict[str, set[str]]:
         signature = str(target.get("correlation_group") or target.get("criterion_id") or "")
         signatures.setdefault(facet, set()).add(signature)
     return signatures
+
+
+# --- Meas §D1: measurement_rank ---------------------------------------------
+#
+# "The number of independent dimensions the item pool can actually resolve,
+# against the number of facets declared. If 40 facets resolve to 12 dimensions,
+# the system is charging the learner 40 facets' worth of questions for 12 facets'
+# worth of information, and that number should be visible rather than inferred
+# from frustration."
+#
+# INDEPENDENCE, as implemented: a facet's *measurement signature* is the set of
+# observation units that can see it — every criterion signature (correlation
+# group, else criterion id, exactly what ``_criteria_by_facet`` builds and what
+# check 1 compares) plus every practice item whose ``evidence_facets`` names it.
+# Two facets are the SAME dimension iff those sets are identical: nothing in the
+# pool ever moves one without moving the other, so no evidence can separate them
+# — this is check 1's behavioural criterion (standing constraint 11), counted
+# instead of reported pairwise. Identical signatures therefore contribute ONE
+# dimension, not two. A facet with an EMPTY signature contributes ZERO: nothing
+# observes it, so it is not a resolvable dimension at all.
+#
+# The deficit therefore has two distinguishable causes, and §5.8.2 measured them
+# to be very different sizes on the real vault — 25 of 39 facets uninstrumented,
+# zero synonymous pairs — so the report names both rather than one total:
+#   * ``deficit_from_unobserved`` — declared, never observed (D2's problem);
+#   * ``deficit_from_collapse``  — observed, but indistinguishable from another
+#     facet (D1's problem, the merge candidates).
+#
+# Analysis only. Computing or publishing the rank proposes nothing and merges
+# nothing: collapse candidates surface for review (§D1 "review, never
+# auto-merge"), and only ``schedule_discriminating_probes`` — driven by the seven
+# checks, never by the rank — persists anything.
+
+
+def _measurement_signatures(view: ProposalView) -> dict[str, frozenset[str]]:
+    """facet id -> the set of observation units that can see it (§D1).
+
+    Union of criterion signatures and observing items. Keys cover every facet
+    named by an observer, whether or not the facet is also declared.
+    """
+
+    signatures: dict[str, set[str]] = {}
+    for facet, criteria in _criteria_by_facet(view).items():
+        signatures.setdefault(facet, set()).update(f"criterion:{sig}" for sig in criteria if sig)
+    for item_id, facets in view.item_observations.items():
+        for facet in facets:
+            if facet:
+                signatures.setdefault(str(facet), set()).add(f"item:{item_id}")
+    return {facet: frozenset(units) for facet, units in signatures.items()}
+
+
+def declared_facets(view: ProposalView) -> set[str]:
+    """Every facet this neighborhood declares — the standing measurement obligations.
+
+    Union of registry entries (``facet_repairs``), facets named by recipe
+    components, facets named by criterion targets, and facets observed by items:
+    each of those is an assertion that the facet exists and will be measured.
+    The registry keys alone under-count, because a subject-scoped registry view
+    only keeps facets its blueprints reference.
+    """
+
+    facets: set[str] = set(view.facet_repairs)
+    for component in view.recipe_components:
+        facet = str(component.get("facet") or "")
+        if facet:
+            facets.add(facet)
+    for target in view.criterion_targets:
+        facet = str(target.get("facet") or "")
+        if facet:
+            facets.add(facet)
+    for observed in view.item_observations.values():
+        facets.update(str(facet) for facet in observed if facet)
+    return facets
+
+
+@dataclass(frozen=True)
+class MeasurementRank:
+    """§D1's published ratio: resolvable dimensions vs facets declared.
+
+    ``deficit`` is stated outright (``facets_declared - independent_dimensions``)
+    rather than left to the reader to subtract, and split by cause. Report-only:
+    no field of this is read by a threshold, a merge, or a certification.
+    """
+
+    facets_declared: int
+    independent_dimensions: int
+    deficit: int
+    deficit_from_unobserved: int
+    deficit_from_collapse: int
+    # Declared but observed by nothing — uninstrumented, not synonymous (§D2).
+    unobserved_facets: tuple[str, ...] = ()
+    # Groups of ≥2 declared facets sharing one measurement signature: the D1
+    # collapse candidates, offered to review and never merged from here.
+    collapsed_groups: tuple[tuple[str, ...], ...] = ()
+
+    @property
+    def rank_ratio(self) -> float | None:
+        """``measurement_rank / facets_declared`` (§5.8.2 reports 14/39 = 0.36)."""
+
+        if self.facets_declared <= 0:
+            return None
+        return self.independent_dimensions / self.facets_declared
+
+    def as_dict(self) -> dict[str, Any]:
+        ratio = self.rank_ratio
+        return {
+            "facets_declared": self.facets_declared,
+            "independent_dimensions": self.independent_dimensions,
+            "measurement_rank": self.independent_dimensions,
+            "rank_ratio": round(ratio, 6) if ratio is not None else None,
+            "deficit": self.deficit,
+            "deficit_from_unobserved": self.deficit_from_unobserved,
+            "deficit_from_collapse": self.deficit_from_collapse,
+            "unobserved_facets": list(self.unobserved_facets),
+            "collapsed_groups": [list(group) for group in self.collapsed_groups],
+        }
+
+
+def measurement_rank(view: ProposalView) -> MeasurementRank:
+    """Count independent measurement dimensions against facets declared (§D1).
+
+    See the block comment above for what "independent" means as implemented.
+    Deterministic, read-only, and merge-free.
+    """
+
+    declared = declared_facets(view)
+    signatures = _measurement_signatures(view)
+    groups: dict[frozenset[str], list[str]] = {}
+    unobserved: list[str] = []
+    for facet in sorted(declared):
+        signature = signatures.get(facet) or frozenset()
+        if not signature:
+            unobserved.append(facet)
+            continue
+        groups.setdefault(signature, []).append(facet)
+    dimensions = len(groups)
+    collapsed = tuple(
+        tuple(facets) for _signature, facets in sorted(groups.items(), key=lambda kv: sorted(kv[1]))
+        if len(facets) > 1
+    )
+    # Every collapsed group of n facets costs n-1 dimensions; every unobserved
+    # facet costs 1. The two add up to the whole deficit by construction.
+    collapse_deficit = sum(len(group) - 1 for group in collapsed)
+    return MeasurementRank(
+        facets_declared=len(declared),
+        independent_dimensions=dimensions,
+        deficit=len(declared) - dimensions,
+        deficit_from_unobserved=len(unobserved),
+        deficit_from_collapse=collapse_deficit,
+        unobserved_facets=tuple(unobserved),
+        collapsed_groups=collapsed,
+    )
 
 
 def _primary_anchor_pairs(view: ProposalView) -> set[tuple[str, str]]:
@@ -607,9 +765,18 @@ def build_registry_view(
     rubrics: list[tuple[str, Any, Any]] = [
         (f"rubric:{mode}", rubric, None) for mode, rubric in vault.default_rubrics.items()
     ]
+    # Meas §D1 measurement_rank input (item pool observations), gathered in the
+    # same scoped pass. Canonical facet ids so an alias-named item lands on the
+    # declared facet it actually observes.
+    item_observations: dict[str, tuple[str, ...]] = {}
     for item in vault.practice_items.values():
         if subject_id is not None and item.learning_object_id not in scoped_los:
             continue
+        observed = tuple(
+            sorted({vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets if facet})
+        )
+        if observed:
+            item_observations[item.id] = observed
         if item.grading_rubric is not None:
             rubrics.append((item.id, item.grading_rubric, item))
     for owner_id, rubric, item in rubrics:
@@ -641,6 +808,7 @@ def build_registry_view(
         recipes=recipes,
         planted_profiles=planted_profiles,
         criterion_fingerprints=criterion_fingerprints,
+        item_observations=item_observations,
     )
 
 
@@ -794,12 +962,17 @@ def graph_identifiability_report(
     discriminating probe per finding through the synthesis generation-needs
     machinery (a coarsen need only when repairs are identical and no distinguishing
     assessment exists).
+
+    Also publishes Meas §D1's ``measurement_rank`` per subject — analysis only,
+    computed off the same view, and never a reason to schedule or apply anything.
     """
 
     subject_ids = [subject_id] if subject_id else sorted(vault.subjects) or [None]
     subjects_out: list[dict[str, Any]] = []
     total_findings = 0
     total_scheduled = 0
+    total_declared = 0
+    total_dimensions = 0
     for sid in subject_ids:
         scoped_los = {
             lo.id
@@ -810,8 +983,12 @@ def graph_identifiability_report(
         view = build_registry_view(vault, sid, misconception_records=records)
         findings = analyze_identifiability(view)
         total_findings += len(findings)
+        rank = measurement_rank(view)
+        total_declared += rank.facets_declared
+        total_dimensions += rank.independent_dimensions
         scheduled: list[dict[str, Any]] = []
         if schedule_probes and repository is not None and sid is not None:
+            # Findings schedule probes; the rank never does (§D1 review-only).
             scheduled = schedule_discriminating_probes(repository, sid, findings, clock=clock)
             total_scheduled += len(scheduled)
         subjects_out.append(
@@ -821,6 +998,10 @@ def graph_identifiability_report(
                 "findings": [f.as_dict() for f in findings],
                 "unresolved_bundles": _bundle_findings(findings),
                 "scheduled_probes": scheduled,
+                # Meas §D1, plan 3.4. Published even when there are no findings:
+                # an uninstrumented facet trips no check yet still costs a
+                # dimension, which is the §5.8.2 result on the real vault.
+                "measurement_rank": rank.as_dict(),
                 "counts": {
                     "findings": len(findings),
                     "by_check": _count_by_check(findings),
@@ -831,7 +1012,17 @@ def graph_identifiability_report(
         "version": 1,
         "subject": subject_id,
         "subjects": subjects_out,
-        "totals": {"findings": total_findings, "scheduled_probes": total_scheduled},
+        "totals": {
+            "findings": total_findings,
+            "scheduled_probes": total_scheduled,
+            # Sums over the per-subject views, so a facet shared by two subjects
+            # counts in both — read the per-subject ranks for exact figures.
+            "measurement_rank": {
+                "facets_declared": total_declared,
+                "independent_dimensions": total_dimensions,
+                "deficit": total_declared - total_dimensions,
+            },
+        },
     }
 
 

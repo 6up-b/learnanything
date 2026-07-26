@@ -23,6 +23,7 @@ from learnloop.services.goal_projection import (
     resolve_goal_scope,
 )
 from learnloop.services.goal_series import goal_report_series
+from learnloop.services.measurement_state import require_measurement_state
 from learnloop.vault.models import Goal, LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -189,6 +190,14 @@ def _report_dto(
                 "projected_recall": facet.projected_recall,
                 "predicted_current": facet.predicted_current,
                 "predicted_at_horizon": facet.predicted_at_horizon,
+                # Meas §B2/§E2 (plan 3.2): provenance of the two predicted
+                # numbers above — measured | inferred | claimed | unknown. The
+                # goal surface rendered them unlabelled next to measured recall;
+                # display only, nothing certifies on it. Gated on the closed
+                # vocabulary at the wire: a label outside the four is a code bug
+                # (nothing persists it), and passing one through would let an
+                # inference render as a measurement.
+                "measurement_state": require_measurement_state(facet.measurement_state),
                 "evidence_mass": facet.evidence_mass,
                 "certified": facet.certified,
                 "attempts_to_certify": facet.attempts_to_certify,

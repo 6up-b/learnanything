@@ -32,9 +32,6 @@ blueprints:
             modality: hard
         any_of: []
         integration:
-          facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
-          capability: coordination
-          modality: hard
       - id: recipe_vector_space_recognition
         composition: conjunctive
         all_of:
@@ -92,4 +89,4 @@ provenance:
       source_id: src_01KY2YG27G1SDWA4FN939ZBB34
       span_hash:
 created_at: '2026-07-22T03:48:17Z'
-updated_at: '2026-07-22T03:48:59Z'
+updated_at: '2026-07-26T18:41:58Z'

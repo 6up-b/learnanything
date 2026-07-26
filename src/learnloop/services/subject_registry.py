@@ -116,12 +116,22 @@ def build_subject_registry(vault, repository, subject_id: str) -> dict[str, Any]
         for need in needs
     ]
 
+    # Meas §D1 (plan 3.4): publish measurement_rank on the surface where the
+    # identifiability findings already land, so a reviewer sees what the pool can
+    # actually resolve next to the merge proposals. Read-only analysis — it
+    # neither creates a need nor proposes a merge; ``propose_facet_merge`` stays
+    # the only path, and it still goes through review (§12.2).
+    from learnloop.services.identifiability import build_registry_view, measurement_rank
+
+    rank = measurement_rank(build_registry_view(vault, subject_id))
+
     return {
         "subject_id": subject_id,
         "facets": cards,
         "identifiability_warnings": warnings,
         "facet_count": len(cards),
         "locked_count": sum(1 for card in cards if card["locked"]),
+        "measurement_rank": rank.as_dict(),
     }
 
 

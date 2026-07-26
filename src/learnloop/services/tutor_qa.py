@@ -43,6 +43,7 @@ from learnloop.codex.client import TutorQAContext
 from learnloop.codex.prompts import TUTOR_QA_PROMPT_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.facet_diagnostics import required_facets
 from learnloop.vault.loader import add_note
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -310,7 +311,10 @@ def ask_question(
     try:
         answer = client.run_tutor_qa(ai_context)
     except Exception as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         repository.update_question_event_answer(
             event_id,
             answer_md=None,
@@ -321,7 +325,7 @@ def ask_question(
             answer_status="failed",
         )
         raise
-    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, client, clock=clock)
 
     facets = sorted(
         {vault.canonical_facet_id(str(facet)) for facet in answer.facets}

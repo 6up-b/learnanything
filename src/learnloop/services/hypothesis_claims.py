@@ -12,6 +12,7 @@ from typing import Any, Iterable, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.services.surfaced_beliefs import resolve_belief_reference
 
 
 CLAIM_CLASSES = {"estimate", "diagnosis", "policy", "ledger_fact"}
@@ -102,6 +103,16 @@ def present_claims(
     for candidate in ordered:
         claim_ref = canonical_claim_ref(candidate.get("claim_ref"))
         claim_version = str(candidate["claim_version"])
+        # A6 capture (spec_diagnostic_augmentation_v1.md §2 A6, migration 132).
+        # Resolve the belief from the RAW ref, before canonicalization json-encodes
+        # the structured shape the Feedback surface sends, and keep the wording the
+        # learner is about to read. `claim_text` has always been accepted by the
+        # sidecar and silently dropped; it is the only record of what was on screen
+        # once synthesis re-authors the belief's statement.
+        belief = resolve_belief_reference(str(candidate["claim_type"]), candidate.get("claim_ref"))
+        claim_text = str(candidate.get("claim_text") or "").strip() or None
+        belief_kind = belief.kind if belief is not None else None
+        belief_id = belief.id if belief is not None else None
         existing = repository.find_hypothesis_presentation(
             claim_ref=claim_ref,
             claim_version=claim_version,
@@ -112,7 +123,19 @@ def present_claims(
         visible_at = candidate.get("visible_at")
         if existing is not None:
             if visible_at:
-                existing = repository.mark_hypothesis_visible(existing["id"], str(visible_at)) or existing
+                # Idempotent by construction (every write COALESCE-guarded), which
+                # is what lets the surfaced flag ride this read path: the UI
+                # re-presents on every mount/scroll-in.
+                existing = (
+                    repository.mark_hypothesis_visible(
+                        existing["id"],
+                        str(visible_at),
+                        claim_text=claim_text,
+                        belief_kind=belief_kind,
+                        belief_id=belief_id,
+                    )
+                    or existing
+                )
             results.append(_presentation_result(candidate, existing, debounced=True))
             continue
 
@@ -152,6 +175,13 @@ def present_claims(
             suppression_reason=suppression_reason,
             session_id=session_id,
             visit_id=visit_id,
+            claim_text=claim_text,
+            belief_kind=belief_kind,
+            belief_id=belief_id,
+            # "Surfaced" means dispatched with affordances AND reported visible.
+            # A card the attention budget suppressed was authored, not shown, and
+            # A6's scope guard forbids apologising for it.
+            surfaced_to_learner=suppression_reason is None and bool(visible_at),
             clock=clock,
         )
         if suppression_reason is None:

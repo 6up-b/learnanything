@@ -27,8 +27,10 @@ from learnloop.codex.prompts import (
 )
 from learnloop.codex.schemas import AuthoringProposal, AuthoringProposalItem, ProposalItemAudit, SourceRef
 from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.diagnostic_gate import GateResult, run_discrimination_gate
 from learnloop.ids import new_ulid
+from learnloop.token_usage import consume_client_usage
 from learnloop.services.patches import PatchApplyResult, apply_accepted_items, reject_applied_items
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
@@ -440,11 +442,14 @@ def generate_authoring_proposal(
     try:
         proposal = codex_client.run_authoring_proposal(context)
     except (CodexUnavailable, TimeoutError, ValueError) as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, codex_client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
     if merge_context_source_refs:
         proposal = _proposal_with_context_source_refs(proposal, context.source_refs)
-    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, codex_client, clock=clock)
     provider = provider_fields["provider"] or "codex"
     rows = [
         _proposal_item_row(item, now, vault=vault, proposal=proposal, provider=provider)
@@ -459,6 +464,10 @@ def generate_authoring_proposal(
         provider=provider,
         now=now,
     )
+    # A7: the repair pass is a second billed call against an already-completed
+    # run (closing it earlier is deliberate — see `_repair_invalid_proposal_items`
+    # on interrupt handling), so its tokens are added rather than written.
+    repository.add_agent_run_usage(agent_run_id, consume_client_usage(codex_client))
     if row_transform is not None:
         row_transform(rows)
     proposal_payload = proposal.model_dump(mode="json", exclude_none=False)
@@ -678,9 +687,12 @@ def generate_diagnostic_proposal(
     try:
         proposal = client.run_authoring_proposal(context)
     except (CodexUnavailable, TimeoutError, ValueError) as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
-    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, client, clock=clock)
 
     provider = provider_fields["provider"] or "codex"
     proposal_payload = proposal.model_dump(mode="json", exclude_none=False)
@@ -1197,6 +1209,27 @@ def accept_items(
     result = apply_accepted_items(root, patch_id, item_ids, clock=clock)
     if result.applied_count and diagnostic_items:
         _queue_accepted_diagnostic_followups_for_patch(repository, patch_id, diagnostic_items)
+    if result.applied_count:
+        # Causal §5.8 rule 4 / Aug A5: an item that declined to name canonical
+        # facets is the authoring-side half of the missing-vocabulary signal.
+        # Captured on ACCEPTANCE, not on generation: a reviewer who filled the
+        # facets in has withdrawn the abstention, and a rejected proposal is not
+        # evidence that the registry lacks a word.  Notes are content-addressed,
+        # so re-reading the whole patch is idempotent rather than duplicating.
+        from learnloop.services.missing_vocabulary import (
+            record_authoring_facet_abstention_notes,
+        )
+
+        record_authoring_facet_abstention_notes(
+            repository,
+            [
+                item
+                for item in repository.proposal_items(patch_id)
+                if item.get("decision") == "accepted"
+            ],
+            patch_id=patch_id,
+            clock=clock,
+        )
     return result
 
 

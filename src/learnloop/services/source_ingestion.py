@@ -21,6 +21,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import kebab_case, new_ulid, snake_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import ResolvedSource, resolve_source
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.pdf_extraction import PdfExtractionError, extract_pdf_markdown
 from learnloop.services.proposals import _auto_apply_rows, _proposal_item_row
 from learnloop.vault.loader import add_subject, load_vault
@@ -243,6 +244,10 @@ def ingest_canonical_source(
             "status": "running",
         }
     )
+    # Whichever client the CURRENT agent run belongs to: the retry branch below
+    # opens a second run against `retry_client`, and each run must be billed the
+    # windows it actually paid for (A7).
+    active_client: CodexClient | AIProviderClient = codex_client
     try:
         merged = _run_ingest_windows(
             codex_client,
@@ -264,8 +269,12 @@ def ingest_canonical_source(
         ]
         _downgrade_unready_auto_apply(rows, vault_for_validation)
         if retry_client is not None and any(row["validation_status"] == "invalid" for row in rows):
-            repository.complete_agent_run(
+            # A7: drain against THIS run before the retry run opens, so the
+            # first provider's windows are not billed to the stronger provider.
+            finish_agent_run(
+                repository,
                 agent_run_id,
+                codex_client,
                 status="failed",
                 error_message="canonical_ingest_validation_failed; retrying with stronger provider",
                 clock=clock,
@@ -288,6 +297,7 @@ def ingest_canonical_source(
                     "status": "running",
                 }
             )
+            active_client = retry_client
             merged = _run_ingest_windows(
                 retry_client,
                 vault,
@@ -336,9 +346,12 @@ def ingest_canonical_source(
             clock=clock,
         )
         repository.record_content_events(change_analysis.events)
-        repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+        finish_agent_run(repository, agent_run_id, active_client, clock=clock)
     except Exception as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, active_client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
 
     return IngestResult(

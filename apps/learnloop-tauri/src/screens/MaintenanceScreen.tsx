@@ -15,6 +15,7 @@ import type {
   ExamReadinessReportDto,
   MaintenanceNoticeDto,
   MaintenanceSeverity,
+  MeasurementHealthDto,
   SourceConflictDto,
   SourceSetSummaryDto,
   ConflictResolutionKind,
@@ -78,6 +79,7 @@ export function MaintenanceScreen({
   const [conflicts, setConflicts] = useState<SourceConflictDto[]>([]);
   const [readiness, setReadiness] = useState<ExamReadinessReportDto | null>(null);
   const [sourceSets, setSourceSets] = useState<SourceSetSummaryDto[]>([]);
+  const [measurementHealth, setMeasurementHealth] = useState<MeasurementHealthDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [append, setAppend] = useState<AppendResultDto | null>(null);
   const [openSpan, setOpenSpan] = useState<{
@@ -97,6 +99,7 @@ export function MaintenanceScreen({
     api.listSourceConflicts("open").then((r) => setConflicts(r.conflicts)).catch(reportError);
     api.getExamReadiness(subjectId).then((r) => setReadiness(r.report)).catch(reportError);
     api.listSourceSets().then((r) => setSourceSets(r.sourceSets)).catch(reportError);
+    api.getMeasurementHealth().then(setMeasurementHealth).catch(reportError);
   }, [subjectId, reportError]);
 
   useEffect(() => {
@@ -157,6 +160,47 @@ export function MaintenanceScreen({
 
   const bySeverity = (sev: MaintenanceSeverity) => notices.filter((n) => n.severity === sev);
 
+  const scheduleColdProbes = async () => {
+    setBusy(true);
+    try {
+      await api.scheduleCertificationColdProbes();
+      load();
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const transitionProbe = async (candidateId: string, toStatus: string) => {
+    const needsReviewer = toStatus === "reviewed" || toStatus === "rejected";
+    const reviewer = needsReviewer ? window.prompt("Reviewer name?")?.trim() : null;
+    if (needsReviewer && !reviewer) return;
+    const reason = needsReviewer ? window.prompt("Review reason (optional)?")?.trim() || null : null;
+    try {
+      await api.transitionCausalProbeCandidate({ candidateId, toStatus, reviewer, reason });
+      load();
+    } catch (err) {
+      reportError(err);
+    }
+  };
+
+  const applyIntegrationBackfill = async () => {
+    const confirmed = window.confirm(
+      "Apply the reviewed D3 coordination backfill? This rewrites authored learning-object YAML, rebuilds affected state, and records one learner-visible recalibration boundary."
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    try {
+      await api.applyIntegrationBackfill();
+      load();
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div style={{ fontFamily: FONT_MONO, color: COLOR.text, padding: "8px 4px", overflowY: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -170,6 +214,14 @@ export function MaintenanceScreen({
         ) : null}
         <button style={btn} onClick={load}>↻ refresh</button>
       </div>
+
+      <MeasurementHealthPanel
+        health={measurementHealth}
+        busy={busy}
+        onScheduleColdProbes={scheduleColdProbes}
+        onTransitionProbe={transitionProbe}
+        onApplyIntegrationBackfill={applyIntegrationBackfill}
+      />
 
       {/* Maintenance feed (§11) */}
       <div style={panel}>
@@ -339,6 +391,233 @@ export function MaintenanceScreen({
           onClose={() => setOpenSpan(null)}
         />
       ) : null}
+    </div>
+  );
+}
+
+function metricValue(metric: MeasurementHealthDto["scoreboard"]["metrics"][number]): string {
+  if (!metric.available || metric.value == null) return metric.availability.replace(/_/g, " ");
+  if (metric.unit === "rate") return `${(metric.value * 100).toFixed(1)}%`;
+  return `${Number(metric.value.toFixed(2))} ${metric.unit}`;
+}
+
+function MeasurementHealthPanel({
+  health,
+  busy,
+  onScheduleColdProbes,
+  onTransitionProbe,
+  onApplyIntegrationBackfill
+}: {
+  health: MeasurementHealthDto | null;
+  busy: boolean;
+  onScheduleColdProbes: () => void;
+  onTransitionProbe: (candidateId: string, toStatus: string) => void;
+  onApplyIntegrationBackfill: () => void;
+}) {
+  if (!health) {
+    return (
+      <div style={panel}>
+        <Faint>Measurement & causal health · loading authoritative Stage 0–5 producers…</Faint>
+      </div>
+    );
+  }
+
+  const reach = health.reachability.summary;
+  const cold = health.coldProbes.coverage;
+  const backfill = health.integrationBackfill.summary;
+  const backfillChanges =
+    (backfill.dispositions.DROP ?? 0) + (backfill.dispositions.LOWER ?? 0);
+  const queue = health.reachability.cells.filter((cell) => cell.verdict !== "REACHABLE").slice(0, 8);
+  const nextStatus = (status: string): string | null =>
+    status === "candidate" ? "registered" :
+    status === "registered" ? "reviewed" :
+    status === "reviewed" ? "active" : null;
+
+  return (
+    <div style={panel}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <Faint>Measurement & causal health · Stage 0–5</Faint>
+        <Pill color={reach.cellCount === 0 ? "slate" : reach.unreachableCount === 0 ? "green" : "amber"}>
+          {reach.cellCount === 0
+            ? "no contract cells declared"
+            : `${reach.reachableCount}/${reach.cellCount} contract cells reachable`}
+        </Pill>
+        <Pill color={health.missingVocabulary.uncapturedDiagnosticAbstentions === 0 ? "green" : "red"}>
+          {health.missingVocabulary.uncapturedDiagnosticAbstentions} uncaptured abstentions
+        </Pill>
+        <Pill color={cold.certificatesActive === 0 ? "slate" : cold.certificatesUnscheduled === 0 ? "green" : "amber"}>
+          {cold.certificatesActive === 0
+            ? "no active certificates to probe"
+            : `${cold.certificatesUnscheduled} cold probes unscheduled`}
+        </Pill>
+      </div>
+
+      <Divider />
+      <Faint>Efficiency scoreboard · unavailable arms remain visible and are never rendered as zero</Faint>
+      <div style={{ overflowX: "auto", marginTop: 6 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
+          <thead>
+            <tr style={{ color: COLOR.textDim, textAlign: "left" }}>
+              <th style={th}>metric</th>
+              <th style={th}>value / availability</th>
+              <th style={th}>denominator</th>
+            </tr>
+          </thead>
+          <tbody>
+            {health.scoreboard.metrics.map((metric) => (
+              <tr key={metric.name} style={{ borderTop: `1px solid ${COLOR.border}` }}>
+                <td style={td}>{metric.name.replace(/_/g, " ")}</td>
+                <td style={{ ...td, color: metric.available ? COLOR.green : COLOR.amber }}>
+                  {metricValue(metric)}
+                </td>
+                <td style={{ ...td, color: COLOR.textFaint }}>
+                  {metric.denominator ?? "—"} · {metric.denominatorLabel}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Divider />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: 14 }}>
+        <div>
+          <Faint>
+            Contract reachability · {reach.facetsInstrumented}/{reach.facetsDeclared} facets instrumented
+          </Faint>
+          {reach.cellCount === 0 ? (
+            <div style={{ marginTop: 5, color: COLOR.amber }}>
+              No contract cells are declared; reachability is unknown, not 100%.
+            </div>
+          ) : queue.length === 0 ? (
+            <div style={{ marginTop: 5, color: COLOR.green }}>All declared cells have an instrument.</div>
+          ) : (
+            queue.map((cell) => (
+              <div key={`${cell.learningObjectId}:${cell.facetId}:${cell.requiredCapability}`} style={{ marginTop: 5, fontSize: 11 }}>
+                <Pill color="amber">{cell.verdict}</Pill>{" "}
+                <span>{cell.requiredCapability}</span>{" "}
+                <Faint>{cell.remedy} · {cell.learningObjectId}</Faint>
+              </div>
+            ))
+          )}
+          {health.reachability.cells.filter((cell) => cell.verdict !== "REACHABLE").length > queue.length ? (
+            <Faint style={{ display: "block", marginTop: 5 }}>
+              first {queue.length} of {reach.unreachableCount} commissioning rows
+            </Faint>
+          ) : null}
+        </div>
+
+        <div>
+          <Faint>Delayed held-out cold probes · certification §5.7</Faint>
+          <div style={{ marginTop: 5, fontSize: 12 }}>
+            active {cold.certificatesActive} · unmeasurable {cold.certificatesUnmeasurable} · unscheduled {cold.certificatesUnscheduled}
+          </div>
+          <button style={{ ...btn, marginTop: 6 }} disabled={busy} onClick={onScheduleColdProbes}>
+            {busy ? "scheduling…" : "schedule eligible probes"}
+          </button>
+          <div style={{ marginTop: 10 }}>
+            <Faint>Missing vocabulary</Faint>
+            <div style={{ fontSize: 12, marginTop: 3 }}>
+              {health.missingVocabulary.notes} note(s) · {(health.missingVocabulary.abstentionRate * 100).toFixed(1)}% diagnostic abstention
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Faint>Persona realism validity</Faint>
+            <div style={{ fontSize: 12, marginTop: 3, color: COLOR.amber }}>
+              not validated · pre-B2 gate verdicts do not count
+            </div>
+            <Faint style={{ display: "block", marginTop: 2 }}>
+              precision producer: {health.personaGate.availability.replace(/_/g, " ")} · {health.personaGate.note}
+            </Faint>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Faint>D2 facet mint gate</Faint>
+            <div style={{ fontSize: 12, marginTop: 3, color: COLOR.amber }}>
+              structural proxy · original shared-harness gate incomplete
+            </div>
+            <Faint style={{ display: "block", marginTop: 2 }}>
+              MINT {health.facetMintGate.summary.dispositions.MINT ?? 0} · ALIAS {health.facetMintGate.summary.dispositions.ALIAS ?? 0} · ABSTAIN {health.facetMintGate.summary.dispositions.ABSTAIN ?? 0}
+            </Faint>
+          </div>
+        </div>
+      </div>
+
+      <Divider />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: 14 }}>
+        <div>
+          <Faint>Causal-lane fill / abstention health</Faint>
+          {health.causalHealth.channels.map((channel) => (
+            <div key={channel.channel} style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 4, fontSize: 11 }}>
+              <span>{channel.channel.replace(/_/g, " ")}</span>
+              <span style={{ color: channel.missing > 0 ? COLOR.red : COLOR.textDim }}>
+                fill {(channel.fillRate * 100).toFixed(0)}% · abstain {channel.abstained} · missing {channel.missing}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div>
+          <Faint>D3 integration backfill · coordination scope</Faint>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {backfill.integrationComponentCount} component(s) · {backfillChanges} content edit(s) · {backfill.owedCapstones.length} owed capstone(s)
+          </div>
+          <Faint style={{ display: "block", marginTop: 4 }}>
+            KEEP {backfill.dispositions.KEEP ?? 0} · LOWER {backfill.dispositions.LOWER ?? 0} · DROP {backfill.dispositions.DROP ?? 0}
+          </Faint>
+          {health.integrationBackfill.previewEdits.map((edit) => (
+            <details key={edit.learningObjectId} style={{ marginTop: 5, fontSize: 11 }}>
+              <summary style={{ cursor: "pointer", color: COLOR.cyan }}>
+                review {edit.learningObjectId}
+              </summary>
+              <pre style={{ overflowX: "auto", color: COLOR.textDim, whiteSpace: "pre-wrap" }}>
+                {edit.diff}
+              </pre>
+            </details>
+          ))}
+          {backfillChanges > 0 ? (
+            <button style={{ ...btn, marginTop: 6 }} disabled={busy} onClick={onApplyIntegrationBackfill}>
+              {busy ? "applying…" : `review & apply ${backfillChanges} edit(s)`}
+            </button>
+          ) : null}
+          {!backfill.coordinationObserved ? (
+            <div style={{ color: COLOR.amber, fontSize: 11, marginTop: 5 }}>
+              No active instrument observes coordination; coordination claims remain gated.
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <Divider />
+      <Faint>
+        Causal probe review · {health.causalProbeReview.openFactors.length} open factor(s) ·{" "}
+        {health.causalProbeReview.pendingMachineChecks.length} pending machine check(s)
+      </Faint>
+      {health.causalProbeReview.candidates.length === 0 ? (
+        <div style={{ marginTop: 5, color: COLOR.textDim }}>No commissioned probe candidates awaiting review.</div>
+      ) : (
+        health.causalProbeReview.candidates.map((candidate) => {
+          const next = nextStatus(candidate.status);
+          return (
+            <div key={candidate.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 6, fontSize: 11 }}>
+              <Pill color={candidate.distinguishable ? "green" : "red"}>
+                {candidate.distinguishable ? "blind-separable" : "not separable"}
+              </Pill>
+              {!candidate.blindInputContractValid ? (
+                <Pill color="red">obsolete observation-exposed input</Pill>
+              ) : null}
+              <span>{candidate.practiceItemId}</span>
+              <Faint>{candidate.status} · factor {candidate.factorId}</Faint>
+              {next && candidate.blindInputContractValid ? (
+                <button style={btn} onClick={() => onTransitionProbe(candidate.id, next)}>
+                  advance to {next}
+                </button>
+              ) : null}
+              {candidate.status !== "rejected" && candidate.status !== "active" ? (
+                <button style={btn} onClick={() => onTransitionProbe(candidate.id, "rejected")}>reject</button>
+              ) : null}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

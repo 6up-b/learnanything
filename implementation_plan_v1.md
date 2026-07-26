@@ -18,6 +18,49 @@ Each stage item carries its provenance tag `[Spec §item]`. Nothing here changes
 any spec's content; the only deliberate override of a spec's *internal* ordering
 is called out in §2 (measurement §5.7 pulled forward).
 
+**Progress:** items are marked ✅ as they land, with a one-line note on what
+shipped. Stage 0 ✅ · Stage 1 ✅ · Stage 2 ✅ · Stage 3 ✅ · Stage 4 ✅ ·
+Stage 5 ⚠️ (5.1 ✅ 5.2 ✅ 5.3 ⚠️ 5.4 ⚠️, audited 2026-07-26).
+
+**Original-spec audit correction (2026-07-26):** 5.3's gate mechanics are live,
+but augmentation B2's blinded persona-vs-real matcher does not land until Stage
+7. The measurement spec explicitly says pre-B2 verdicts “do not count,” so 5.3
+cannot be called fully compliant yet. 5.4 uses exclusive normalized error
+signatures as a structural authorability proxy; it does not actually author and
+grade a discriminating item through §3.0's shared planted-persona harness. Both
+are useful fail-typed scaffolds, but neither is the complete original gate.
+
+**Verified integration state at Stage 3 close:** 309 tests pass across all new
+work plus its regression surface; `tsc --noEmit` clean; migrations 131-134,
+138-140 apply both as a fresh build from zero and as an incremental upgrade of both
+real vaults, with `foreign_key_check` and `integrity_check` clean on each.
+
+**Known pre-existing failures — 18, all present at `101474c`** and unrelated to
+this plan; each reproduced on a pristine checkout of HEAD:
+`tests/test_activity_backfill.py` ×2 (the fixture DB gained exam attempts the
+backfill does not replay), `tests/test_grading_cli.py` ×2 (`registry audit` exits
+1), `tests/test_sidecar_contract.py` ×2 (fixture facet drift),
+`tests/test_graph_editor_reads.py` ×2 (the test asserts an empty facet registry
+but `fixtures/linear_algebra/facets.yaml` carries 39 facets at HEAD; the other
+fails on a drifted concept id), `tests/test_p0_projection_cutover.py` ×2,
+`tests/test_tutor_promotion_w2.py` ×3, `tests/test_state_sync.py` ×2,
+`tests/test_deferred_regrade.py` ×1,
+`tests/test_ingest_transcripts.py` ×1 and `tests/test_span_view.py` ×1 —
+**18 in total**. Not caused by any stage below. Fixing them is unclaimed work
+outside this plan.
+
+Those last five share **one** root cause worth knowing before anyone chases them
+individually: `config.py`'s `claim_prior_min_variance = 2.0` at HEAD, against tests
+that assert the pre-change `0.25`/`1.0` seeds (`mastery.py` computes
+`max(1/4.0, 2.0) = 2.0`). `config.py`, `mastery.py` and `state_sync.py` are all
+unmodified in the working tree, so it is a config/expectation drift, not code.
+
+**`fixtures/*/state.sqlite` show as modified**, and the change is benign: both
+live vaults had migrations 131-134, 138, 139 applied when a service opened them
+(`Repository()` migrates on construction). Schema-only — attempt counts are
+unchanged at 43 and 27. Reverting would only defer the same migration to the next
+time the app opens the vault.
+
 ---
 
 ## 1. Verified status snapshot (audit summary)
@@ -95,13 +138,19 @@ is called out in §2 (measurement §5.7 pulled forward).
   no-default `SynthIntegrationComponent.capability`, dropped-with-diagnostic,
   coordination kept-and-flagged). The 18 already-persisted coordination
   integrations are NOT backfilled.
-- **§3.0** persona gate: exists but its only ship/no-ship caller is test-only;
-  the live `generate-diagnostics` route never touches it.
+- **§3.0** persona gate mechanics: LIVE but validity-gated at Stage 5.3 —
+  `services/persona_gate.py` rides the
+  `row_transform` seam on every generation route. (The bypass, located: the gated
+  entry point `proposals.generate_diagnostic_proposal(need_id=)` had *no* production
+  callers, while `learnloop generate-diagnostics` goes through
+  `practice_generation.generate_diagnostic_practice_proposal`.)
 - **A1:** synthesis lane can author `targets`; **practice lane cannot** —
   `RubricCriterionPayload` has no `targets` field and pydantic silently drops
   one if emitted. Spread rule NOT inverted. Guards absent.
-- **A2–A8, B1–B4, all of Part III, §5.8.2 doctor check, D1 rank, D2, E3, E4:**
-  ABSENT. **B2 labels:** plumbing fully wired end-to-end; only the `inferred`
+- **A2–A8, B1–B4, all of Part III, §5.8.2 doctor check, E3, E4:**
+  ABSENT. **D1 rank:** shipped at 3.4. **D2 structural proxy:** shipped at Stage 5.4
+  (`services/facet_mint_gate.py`, wired in `source_set_synthesis._normalize`);
+  the literal shared-harness execution remains open. **B2 labels:** plumbing fully wired end-to-end; only the `inferred`
   (and `claimed`) vocabulary is missing. **§5.2:** uncommitted `scope_facets`
   is a real partial move but does not reach `covered_required_fraction`.
 - **Uncommitted working tree contains:** D3, the capability-cell fix
@@ -147,58 +196,631 @@ is called out in §2 (measurement §5.7 pulled forward).
 
 ## 4. Stages
 
-### Stage 0 — land the working tree
+### Stage 0 — land the working tree ✅
 
 ~2,236 uncommitted insertions spanning all three specs (D3, capability-cell
 fix, `scope_facets`, exam conjunctive coverage, quality gates, principle-8
 amendment). Finished work at risk. Commit before anything else.
 
-### Stage 1 — Augmentation Phase A, remaining items
+**Landed as `101474c`** ("last commit save before big changes").
+
+### Stage 1 — Augmentation Phase A, remaining items ✅
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 1.1 | Fix taxonomy grouping key: shared episode repair class + probe discrimination profile; operation string demoted to label | [Aug A2] | **Most urgent item in the plan** — live and accruing wrong append-only assignments (`causal_attribution.py:877-889`); `repair_class_id` already selected and unused. Migrate existing assignments now, while volume is small. |
-| 1.2 | `agent_runs` token columns + write path | [Aug A7] | One migration following `migrations/093` naming (`est_/actual_ input_/output_tokens`); populate from `ai/client.py` / `codex/client.py`. Unblocks `tokens_per_resolved_diagnostic_episode`. |
-| 1.3 | Missing-vocabulary note store: append-only, written on abstention (incl. §5.8 facet-abstaining variants), version-stamped; abstention *rate* surfaced in the attribution audit CLI | [Aug A5] | Cannot be backfilled. While here: wire `causal_health.py`'s abstention rate into the CLI or delete the module (currently dead). |
-| 1.4 | `surfaced_to_learner` flag + correction feed entry on demoted/retired surfaced beliefs | [Aug A6] | Join the existing `hypothesis_events 'presented'` store (migration 055) to `misconception_disposition_events` (migration 116); one new `learner_review_feed` entry kind. |
+| 1.1 ✅ | Fix taxonomy grouping key: shared episode repair class + probe discrimination profile; operation string demoted to label | [Aug A2] | **Most urgent item in the plan** — live and accruing wrong append-only assignments (`causal_attribution.py:877-889`); `repair_class_id` already selected and unused. Migrate existing assignments now, while volume is small. |
+| 1.2 ✅ | `agent_runs` token columns + write path | [Aug A7] | One migration following `migrations/093` naming (`est_/actual_ input_/output_tokens`); populate from `ai/client.py` / `codex/client.py`. Unblocks `tokens_per_resolved_diagnostic_episode`. |
+| 1.3 ✅ | Missing-vocabulary note store: append-only, written on abstention (incl. §5.8 facet-abstaining variants), version-stamped; abstention *rate* surfaced in the attribution audit CLI | [Aug A5] | Cannot be backfilled. While here: wire `causal_health.py`'s abstention rate into the CLI or delete the module (currently dead). |
+| 1.4 ✅ | `surfaced_to_learner` flag + correction feed entry on demoted/retired surfaced beliefs | [Aug A6] | Join the existing `hypothesis_events 'presented'` store (migration 055) to `misconception_disposition_events` (migration 116); one new `learner_review_feed` entry kind. |
 
-### Stage 2 — Causal P2 completion
+**1.1 as shipped** (migration 133): the grouping key is
+`(repair_equivalence_id, cause_scope, discrimination_profile)`, algorithm
+`repair_equivalence_probe_profile_v1`. Two structural findings forced design
+choices the item did not anticipate: (a) `repair_class_id` hashes `episode_id`,
+so it can never relate two episodes — a cross-episode `repair_equivalence_id`
+(operator + target/preserve refs, model self-reports excluded per A1) is what
+the key actually needs; (b) the repair-class *definition* lived only in
+`attempt_debug_payloads`, which replay rebuilds, so migration 133 adds a durable
+append-only `causal_repair_class_definitions` store written at materialization.
+`cause_scope` joins the profile because a `learner_state` and an `item_contract`
+cause need different instruments even under an identical repair. Four typed
+abstention arms (`insufficient_support`, `unmapped_repair_class`,
+`repair_class_definition_missing`, `open_set_arm`). Existing string-keyed
+taxonomies are retired via an append-only
+`causal_mechanism_taxonomy_retirements` table (119's triggers forbid a status
+edit); pinned receipts still resolve, `latest_active_…` skips retired. Both live
+vaults held **zero** taxonomy versions and one hypothesis, so no assignments
+needed remapping — the debt was caught before it accrued. Requires one
+`learnloop build-causal-taxonomy --activate` run to mint under the new key.
+
+**1.3 as shipped** (migration 134): `missing_vocabulary_notes`, content-addressed
+(so regrade/replay re-materialization is idempotent), with both producers wired —
+diagnostic abstention at `materialize_causal_episode`, and causal §5.8 rule 4's
+facet-abstaining authored items at `proposals.accept_items` (on acceptance, not
+generation: a reviewer who filled the facets in withdrew the abstention).
+`causal_health.py` is no longer dead — `causal_lane_health` and the new
+abstention rate both report through `learnloop causal-attribution-audit`, which
+also warns on `uncaptured_diagnostic_abstentions` (the one hole capture cannot
+heal). Resolves §7 decision 2's `causal_health.py` arm: **wired, not deleted**.
+
+**1.4 as shipped** (migration 132): `surfaced_to_learner` is written only where a
+belief's wording actually reaches the learner (`hypothesis_claims.present_claims`
+insert + visibility-debounce paths, and the Repair-screen `_case_dto`, which
+bypasses `ClaimSurface`), gated on *unsuppressed AND visible*; the wording as
+shown is stored alongside, because the belief text may be rewritten before the
+correction fires. New `learner_review_feed` kind `belief_withdrawn`, keyed on the
+disposition event so re-reads re-derive rather than duplicate. Three findings:
+(a) the plan's presumed join does not exist as an equality join — `claim_ref` is
+caller-shaped and the two diagnosis surfaces disagree, so Review presentations
+matched and **every Feedback presentation silently missed**; fixed by normalizing
+to `belief_kind`/`belief_id` at capture. (b) `hypothesis_events` carried no
+wording at all: `claim_text` existed in the handler and was dropped before the
+repository. (c) The disposition vocabulary the spec names
+(`retired_misdiagnosed`, `contradicted_by_trace`) **does not exist in code** —
+migration 116's CHECK admits only `demoted`/`superseded`, and nothing had ever
+written that store, so A6's four typed reasons live in `reason` with
+`disposition` as the coarse arm. Consequence: narration is live and tested, but
+**no production path yet decides to withdraw a belief** — that is item 2.2.
+
+### Stage 2 — Causal P2 completion ✅
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 2.1 | Wire probe-candidate + blind-bundle producers into the orchestrator commissioning path | [Causal §7] | `create_probe_candidate` / `transition_probe_candidate` / `generate_blind_prediction_bundle` currently have zero production callers; readers, EVSI rule, receipts, and migration-130 writer are already live. One producer lights the whole lane. |
-| 2.2 | Adjudication → promotion arm (d); finish arm (c) | [Causal §5.6 via Aug A4] | Path from adjudicated verdicts into `_promote_candidate`. Until then the A4 store cannot change any belief. |
-| 2.3 | Wire or delete the orphaned manipulation-contract auditors | [Causal §7] | `audit_variant_manipulation_contract` (zero callers incl. tests), `validate_independent_measurement_contract` (zero callers), `resolve_machine_check` (exported, no callers). Decide per §7 below. |
+| 2.1 ✅ | Wire probe-candidate + blind-bundle producers into the orchestrator commissioning path | [Causal §7] | `create_probe_candidate` / `transition_probe_candidate` / `generate_blind_prediction_bundle` currently have zero production callers; readers, EVSI rule, receipts, and migration-130 writer are already live. One producer lights the whole lane. |
+| 2.2 ✅ | Adjudication → promotion arm (d); finish arm (c) | [Causal §5.6 via Aug A4] | Path from adjudicated verdicts into `_promote_candidate`. Until then the A4 store cannot change any belief. |
+| 2.3 ✅ | Wire or delete the orphaned manipulation-contract auditors | [Causal §7] | `audit_variant_manipulation_contract` (zero callers incl. tests), `validate_independent_measurement_contract` (zero callers), `resolve_machine_check` (exported, no callers). Decide per §7 below. |
 
-### Stage 3 — Measurement Wave 1 (static, zero learner cost)
+**2.1 as shipped** — new `services/causal_probe_commissioning.py`, no migration.
+The pipeline is: divergence check → lock hypothesis set → blind bundles per
+hypothesis → discrimination → manipulation audit → `create_probe_candidate` →
+`registered`. It stops at `registered` deliberately: only `active` is servable
+and `registered → reviewed` requires a reviewer, so a producer that activated its
+own instruments would defeat the register → review → activate ladder it exists to
+feed. Eleven typed outcomes rather than a bare success/failure, because "no
+instrument" has six different remedies.
+
+**The blind generator runs no model and consumes no learner observation.** The
+first audit implementation incorrectly derived its frame from
+`postdictive_claims`; causal §5.1 expressly forbids observation-conditioned
+claims from feeding probe discrimination. The corrected generator maps only the
+hypothesis's typed `target_ref` into criterion targets authored on the fresh
+probe rubric (`criterion`, or an explicitly targeted `facet_capability`).
+`item_step` / `answer_span` targets and unmatched facet targets abstain rather
+than guessing. Each bundle declares over the union of those observation-free
+target commitments, with rival-only criteria predicted to earn full credit.
+That complement is an added reviewer-visible commitment, gated by the review
+ladder; when wrong it yields `no_bundle_matched` (open-set evidence, resolves
+nothing) — never a promotion. Regression tests vary postdictive learner claims
+while holding typed targets constant and require byte-identical bundles.
+The allowlisted input is stamped `observation_free_hypothesis_target_v2`;
+pre-correction candidates lack that stamp, cannot be registered/activated or
+served, and are withdrawn through the candidate event log on the next
+commissioning sweep. The commissioning policy is consequently v2.
+
+**A learner-visible verb changes, correctly.** The orchestrator already had a
+`unreviewed_probe_candidate` reason that no vault could ever reach, because
+nothing minted candidates; commissioning makes it reachable for the first time.
+A divergent factor now reports `no_discriminating_instrument` before
+commissioning and `unreviewed_probe_candidate` after — both under
+`blocked_pending_review`, and the second is the more actionable statement (a
+human owes a review, rather than the pool owing an instrument).
+
+**Queue producer:** `sweep_machine_checks` (already on the post-attempt path) now
+also emits `MACHINE_CHECK_INSTRUMENT_COMMISSIONING` for a divergent factor with
+no candidate, so the machine's instrument debt is drainable instead of re-derived
+and forgotten every attempt. It is deliberately **not** in
+`PROBE_BLOCKING_MACHINE_CHECK_KINDS`: `defer_machine_checks` means "the machine
+can still resolve this itself", which is false of commissioning — it builds the
+instrument rather than resolving the uncertainty — and folding it in would relabel
+a missing instrument as a resolvable check and hide the instrument-pool
+bottleneck behind a softer verb. `no_discriminating_instrument` remains the honest
+learner-facing state. New CLI: `learnloop commission-causal-probes` (drains the
+queue, discharges each check via `resolve_machine_check` with grounds) and
+`learnloop review-causal-probe` (walks the ladder).
+
+**2.2 as shipped** — new `services/durable_promotion.py`, no migration. Arms (c)
+and (d) are **late evidence**: a learner confirmation arrives after the feedback
+screen renders and a human verdict days later, so neither is decidable inside
+`misconceptions`'s normalization loop — a branch there would have been permanently
+dead. The module is a re-driver reaching durable state through the one existing
+door (`_promote_candidate`), wired at three production sites:
+`diagnosis_adjudication` (arm d), `handlers/feedback` (arm c's confirmation half),
+and a sweep from `misconceptions`. Verdict mapping: only `correct` promotes (the
+sole verdict affirming both anchor and repair); `wrong_anchor` /
+`should_have_abstained` **withdraw** — the first real producer of 1.4's
+`belief_withdrawn` entries, which closes the loop 1.4 correctly reported as open;
+`wrong_repair` and both abstention verdicts are explicitly neutral, each with a
+recorded reason (`wrong_repair` says "right place, wrong fix", so withdrawing
+would contradict the verdict and promoting would launder it). **The §5.6
+trace-consistency veto survives both arms**: adjudication outranks the system's
+uncertainty, never its evidence — if the grade ledger deterministically falsifies
+H, promoting H would write permanent facet damage for a belief the learner
+demonstrably does not hold. Idempotency is structural rather than flag-guarded (a
+promoted candidate stops being a candidate), so replay reproduces it.
+
+**3.1 as shipped** — new `services/contract_reachability.py`, wired as a standing
+`learnloop doctor` check plus a `learnloop contract-reachability` report. **It
+independently reproduces Step 0's own numbers**, which is the strongest available
+evidence it measures the right thing: on `fixtures/linear_algebra`,
+`facets_declared: 39 / facets_instrumented: 14` against §5.8.2's stated 14/39 =
+0.36, and 55 of 64 cells unreachable (85.9%) against Step 0's "86% of contract
+cells unreachable". `integration_reachable_share: 0.0` reproduces "0 coordination
+instruments". Verdict split: 9 `REACHABLE`, 15 `MISMATCH_BELOW`, 1
+`MISMATCH_ABOVE`, 39 `NO_INSTRUMENT`, plus an `INDETERMINATE` abstention arm.
+`fixtures/arxiv` reports 0 cells over 15 LOs — no authored contracts, so the
+legacy path correctly has nothing to check rather than faking a score. **This is
+Stage 5.1's commissioning queue**: the 15 `MISMATCH_BELOW` cells are the
+authoring-at-the-wrong-rung lever, and the 39 `NO_INSTRUMENT` cells are the
+authoring backlog.
+
+**2.3 as shipped** — all four orphans resolved by wiring, none deleted:
+`validate_independent_measurement_contract` and `audit_manipulation_contract` now
+have production callers through 2.1; `resolve_machine_check` gets its first
+caller in the commissioning drain (an explicit discharge that records *what*
+satisfied the obligation, where the sweep would only have said "obligation no
+longer present"); `audit_variant_manipulation_contract` is wired into
+`generate_rung_variant`'s row transform, which also adds real deterministic
+coverage the direction audit lacked — `undeclared_differences` and
+`held_constant_violations` now surface as rung-gate violations. Per §5.8 rule 2
+the audit is persisted on every variant even with no reviewer, since the
+declarations are the adversarial reviewer's audit substrate in the meantime.
+
+### Stage 3 — Measurement Wave 1 (static, zero learner cost) ✅
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 3.1 | Contract-cell reachability as a standing `learnloop doctor` check: `REACHABLE / MISMATCH_ABOVE / MISMATCH_BELOW / NO_INSTRUMENT` per contract cell | [Meas §5.8.2] | Pure static analysis; the check whose absence let 43 attempts land on an uncloseable contract. Output doubles as Stage 5's commissioning queue. |
-| 3.2 | Three-state labels `measured / inferred / unknown` (+ E2's `claimed` state) | [Meas B2, E2] | `facet_state_label` plumbing is already wired to the UI end-to-end; the prediction to render exists unlabelled in `selection_rewards.py:438`. Vocabulary change only; writes nothing, certifies nothing. |
-| 3.3 | Coverage denominator → contract frontier, with capability axis | [Meas §5.2] | Extend uncommitted `scope_facets` into `covered_required_fraction` (`facet_diagnostics.py:150`); fix the vacuous no-items⇒1.0 case; variance floor relieved by inference at a discount. Ship with a learner-visible recalibration feed entry (uses 1.4) — displayed mastery will jump. Legacy vaults without contracts keep current behaviour. |
-| 3.4 | Publish `measurement_rank` | [Meas D1] | Identifiability already computes the observing-criteria signature; this is counting independent dimensions vs facets declared. Analysis only; merges stay behind review. |
+| 3.1 ✅ | Contract-cell reachability as a standing `learnloop doctor` check: `REACHABLE / MISMATCH_ABOVE / MISMATCH_BELOW / NO_INSTRUMENT` per contract cell | [Meas §5.8.2] | Pure static analysis; the check whose absence let 43 attempts land on an uncloseable contract. Output doubles as Stage 5's commissioning queue. |
+| 3.2 ✅ | Three-state labels `measured / inferred / unknown` (+ E2's `claimed` state) | [Meas B2, E2] | `facet_state_label` plumbing is already wired to the UI end-to-end; the prediction to render exists unlabelled in `selection_rewards.py:438`. Vocabulary change only; writes nothing, certifies nothing. |
+| 3.3 ✅ | Coverage denominator → contract frontier, with capability axis | [Meas §5.2] | Extend uncommitted `scope_facets` into `covered_required_fraction` (`facet_diagnostics.py:150`); fix the vacuous no-items⇒1.0 case; variance floor relieved by inference at a discount. Ship with a learner-visible recalibration feed entry (uses 1.4) — displayed mastery will jump. Legacy vaults without contracts keep current behaviour. |
+| 3.4 ✅ | Publish `measurement_rank` | [Meas D1] | Identifiability already computes the observing-criteria signature; this is counting independent dimensions vs facets declared. Analysis only; merges stay behind review. |
 
-### Stage 4 — Scoreboard producers + delayed cold probe (pulled forward)
+**3.2 as shipped** — new `services/measurement_state.py` holds the closed
+four-label vocabulary in one place; render sites read the label and never
+re-derive it. Precedence `measured > inferred > claimed > unknown`: a claim is a
+prior so it can never outrank evidence, and a pooled prediction never outranks
+direct evidence over the mass gate. The sharp edge is that **ignorance is not
+inference** — `predicted_facet_recall` returns a 0.5 default when there is
+nothing to pool from, and labelling that `inferred` would be exactly the
+confident wrongness the vocabulary exists to prevent, so it reports `unknown`.
+Emitted from `capability_grid` and `goal_projection`, through
+`handlers/goals`, rendered in `term.tsx`. Display-only by construction: no
+threshold, certification, or stored belief reads the label, which is §B2's own
+revert condition.
+
+**3.4 as shipped** — `measurement_rank` in `services/identifiability.py`,
+published per subject through `subject_registry`, the CLI, and
+`RegistryReviewScreen`. It separates the two ways a vocabulary can outrun its
+instruments, and **the split is the finding**:
+
+- `fixtures/linear_algebra` / `vector-spaces`: 39 declared, 15 independent
+  dimensions (ratio 0.385 — §5.8.2 reports 14/39 = 0.36), deficit 24, **all from
+  unobserved facets**, none from collapse. This vault's problem is missing
+  instruments, which is the same verdict 3.1 reached independently.
+- `fixtures/arxiv` / `attn`: 101 declared, 38 independent dimensions, deficit 63
+  — **all 63 from collapse**, across 21 groups of facets no authored criterion
+  can separate. Roughly 62% of that subject's facet vocabulary is redundant *by
+  measurement*, which is precisely the case D1 exists for. Merges stay behind
+  review: publishing the rank triggers nothing.
+
+  **This deficit is NOT over-minting, and D2 would not have prevented it** —
+  established at 5.4 by re-judging all 101 facets under the D2 gate: **100 MINT,
+  1 ABSTAIN, 0 ALIAS**. Two independent reasons. (1) All 101 carry **zero**
+  `error_signatures` and **zero** `instructional_repairs` (provenance origin
+  `facet_normalization`, not `sourceset_synthesis`), so D2's raw material is
+  simply absent. (2) Within-group lexical Jaccard peaks at 0.17–0.64 — e.g.
+  `add_to_embedding` / `pattern_as_weights` / `values_as_content` /
+  `weighted_sum_column` are four genuinely different atoms. They collapse because
+  **one criterion observes several at once**: under-instrumentation, which A1/A2/A4
+  fix, not vocabulary bloat, which D1/D2 fix. The one true near-duplicate on the
+  vault (`dot_product_ab` ~ `dot_product_ac`, 0.875) is exactly the ABSTAIN.
+  Corollary for sequencing: **this deficit is Stage 6's problem, not Part IV's.**
+- A subject with no declared facets reports `rank_ratio: None`, not 0.0.
+
+Two corrections to this item's one-line description. First, "identifiability
+already computes the observing-criteria signature" is true but **insufficient**:
+criteria alone rank `linear_algebra` at 3/39, because that vault has only 5
+criterion targets. §D1 asks what *the item pool* can resolve, so the signature is
+the union of criterion signatures and observing practice items — which is what
+reproduces §5.8.2's own measurement. The item observations are deliberately not
+read by the seven existing checks (a test asserts `analyze_identifiability` is
+bit-identical with and without them, and the registry hash is unchanged, so the
+doctor watermark is untouched). Second, and more useful: on `arxiv`
+`analyze_identifiability` reports **0 findings** while the rank reports a
+63-facet collapse deficit — check 1 sees only criterion signatures and that vault
+has no per-item rubric targets. **The rank surfaces a real D1 signal the seven
+checks are structurally blind to**, which is an argument for treating it as a
+first-class report rather than a derived statistic.
+
+**3.3 as shipped** (migration 138): `contract_frontier(vault, lo, repository)`
+returns the `(facet, capability)` cells the LO's blueprint recipes require, plus
+an `authored` flag; `covered_required_fraction` switches denominators on that
+flag, so legacy vaults with no authored blueprint components keep their previous
+behaviour byte-for-byte (§5.2 is strictly additive) and their "nothing required ⇒
+1.0" arm survives. The vacuous case is fixed in the direction the floor exists to
+express: an LO that *declares* obligations but has no instruments now reports 0.0
+instead of 1.0. The capability axis reads the per-cell ledger
+(`facet_capability_evidence`), so evidence at `retrieval` no longer closes a
+`transfer` cell — the 72% mismatch Step 0 measured; a vault predating that ledger
+falls back to facet-level mass and *says so* in `denominator_basis`
+(`contract_frontier_facet_mass`) rather than claiming per-cell precision it does
+not have. `inferred_cells` + `INFERRED_CELL_COVERAGE_DISCOUNT` are the §5.2
+inference-relief seam, inert until Stage 8 supplies inferred cells — deliberately,
+so the discount is decided once in the open rather than by whichever inference
+rule ships first.
+
+Two judgment calls worth flagging: (a) the frontier is the **union** over recipes,
+not the best-covered single recipe — that overstates debt where recipes are true
+alternatives, which is the conservative direction for a variance floor, and it
+keeps one definition of "required cell" in the vault (`required_capabilities_for_facet`
+already reads the same components); per-recipe routing belongs with §5.3's
+substitution rule, which owns "for SOME blueprint". (b) Displayed mastery moves
+with no new evidence, so it is narrated through 1.4's machinery — but the existing
+recalibration boundary keys on `algorithm_version` / `canonical_projection_version`,
+and attributing this to either would name a cause that was not the cause. Migration
+138 adds `coverage_denominator_version` as a third independent boundary (following
+122's precedent for the second), so the switch surfaces as exactly one honest
+"estimates recomputed, your evidence unchanged" entry that can say which version
+moved.
+
+### Stage 4 — Scoreboard producers + delayed cold probe (pulled forward) ✅
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 4.1 | `harmful_write_rate`, `problems_to_cold_success` producers | [Aug B5] | The two metrics the augmentation spec ranks first; currently no producer. |
-| 4.2 | Delayed cold probe per certified LO (+2–3 weeks, held-out surface) + `false_certification_rate` | [Meas §5.7] | The only external validity check in a single-learner vault; also the ground-truth consumer nothing currently computes. Existing cold-probe machinery is repair-scoped — generalize the scheduler. The earlier this runs, the sooner cold-outcome labels accrue (causal P4's unpark trigger). |
-| 4.3 | `questions_to_certification`, `certification_regret`, `cells_cleared_per_question` | [Meas §5.7] | Counters over existing attempt/exam logs. |
-| 4.4 | `tokens_per_resolved_diagnostic_episode`, `probe_action_change_rate`, `planted_vs_adjudicated_agreement` scaffold | [Aug B5] | Tokens unblocked by 1.2. Agreement metric lands as a producer even while the planted side (Stage 7) is empty. |
+| 4.1 ✅ | `harmful_write_rate`, `problems_to_cold_success` producers | [Aug B5] | The two metrics the augmentation spec ranks first; currently no producer. |
+| 4.2 ✅ | Delayed cold probe per certified LO (+2–3 weeks, held-out surface) + `false_certification_rate` | [Meas §5.7] | The only external validity check in a single-learner vault; also the ground-truth consumer nothing currently computes. Existing cold-probe machinery is repair-scoped — generalize the scheduler. The earlier this runs, the sooner cold-outcome labels accrue (causal P4's unpark trigger). |
+| 4.3 ✅ | `questions_to_certification`, `certification_regret`, `cells_cleared_per_question` | [Meas §5.7] | Counters over existing attempt/exam logs. |
+| 4.4 ✅ | `tokens_per_resolved_diagnostic_episode`, `probe_action_change_rate`, `planted_vs_adjudicated_agreement` scaffold | [Aug B5] | Tokens unblocked by 1.2. Agreement metric lands as a producer even while the planted side (Stage 7) is empty. |
+
+**4.2 as shipped** (migration 139) — new
+`services/certification_cold_probe.py` plus `learnloop cold-probe-schedule` /
+`cold-probe-audit`. **Generalized, not parallel**: `followup_tasks` gained a second
+`kind` (`certification_cold_probe` / `case_kind='certification'`), reusing the
+existing `not_before` invisibility window, serve/consume/expire, migration 124's
+carry-the-inputs `context_json`, and the unassisted-attempt guard in
+`attempts._validate` — which now keys on a `COLD_FOLLOWUP_TASK_KINDS` lane class
+rather than one literal. The readers gained a `kind=` filter and the repair lane
+now asks for `cold_retry` **by name**; without that a queued certification probe on
+the same item would have shadowed the repair retry. "Held out" reuses the existing
+vocabulary only: `surface_group_id(item)` not in the union of
+`independent_surface_groups` over the certified cells, with `held_out_basis` taken
+verbatim from `causal_activity_policy.NEAR_CLONE_BASES`. Horizon lives in the fitted
+store (house rule) under scope `certification_cold_probe`: due at +14d, expires at
++21d, which is how §5.7's "+2–3 weeks" stays a range rather than a magic number.
+
+Three findings that changed the design, none anticipated by the item:
+
+1. **There is no durable certificate record anywhere** — §5.3's receipts are plan
+   8.4 and unbuilt. So "which certificate" is *derived* and content-hashed over
+   (LO, blueprint, recipe, cells): requirements, not evidence, so extra practice
+   never mints a new certificate while a re-authored recipe does.
+2. **Certification has no timestamp anywhere.** `facet_capability_evidence.updated_at`
+   is projection time, which a rebuild moves. `certified_at` is derived as the max
+   `last_observed_at` over the certifying cells — projected from immutable attempt
+   timestamps — and when absent the horizon runs from discovery, which only ever
+   *delays* a probe.
+3. **`certification_credit` is monotone non-decreasing**, so failing new work can
+   never withdraw a certificate. The metric's numerator is therefore not
+   self-suppressing (good), but the `certificate_withdrawn` abstention arm is
+   reachable only through authoring/ledger changes.
+
+The consume hook sits in `apply_attempt` **before** `_project_canonical_belief`,
+deliberately, so a failing probe is scored against the certificate it falsified
+rather than one its own evidence just withdrew. `lo_certification`'s per-recipe
+predicate was extracted to `recipe_gaps()` and the authority now calls it, so the
+probe naming the satisfying recipe cannot drift from the code deciding
+certification. **Live-vault state:** the one certified LO in
+`fixtures/linear_algebra` has no held-out surface, so the metric reports
+`certificates_unmeasurable: 1` rather than a rate — the honest answer.
+
+**4.1/4.3/4.4 as shipped** — new `services/scoreboard.py` assembling all 14 B5
+metrics plus `learnloop scoreboard`, composing (never reimplementing) the four
+adjudication-owned metrics, `measurement_rank`, and 4.2's
+`false_certification_rate`; tests monkeypatch each upstream and require the board
+to move, so a silent reimplementation fails them.
+
+**The availability discipline is structural, not conventional.** `Metric` refuses
+at construction to carry a value on an unavailable arm, and `_rate` is the single
+choke point — there is no code path from an empty denominator to a number. Four
+distinct unavailable arms, because each implies a different remedy: `no_data`
+(producer ran, denominator empty), `no_producer` (nothing produces it yet),
+`unmeasured` (the events exist but the measurement was never captured and cannot
+be backfilled), `requires_replay`.
+
+That discipline immediately earned its keep — **two metrics would otherwise have
+rendered as successes**:
+
+- `learner_minutes_to_cold_success` was `unmeasured`: **all 43 attempts in
+  `fixtures/linear_algebra` had NULL `latency_seconds`**. B5 requires this as
+  `problems_to_cold_success`'s companion. A trajectory with any NULL latency is
+  excluded outright rather than summed over the recorded subset. **Fixed — see
+  the scope addition below.**
+- `tokens_per_resolved_diagnostic_episode` is `unmeasured`: 2 of 3 episodes are
+  unmetered (a run reporting 0/0 is indistinguishable from a pre-migration-131
+  run). Without the guard it would have reported **0.0 tokens for a loop that
+  demonstrably calls a grader**.
+
+**`harmful_write_rate` — definition chosen: surfaced-then-withdrawn.** Numerator:
+distinct beliefs with `surfaced_to_learner = 1` later withdrawn as *false*
+(`contradicted_by_trace` / `adjudicated` / `retired_misdiagnosed`); denominator:
+distinct beliefs surfaced. B5's own wording decides it — "being told something
+false about your own mind" — so the harm is in the telling, which is the same
+argument migration 132's scope guard makes. `superseded` is excluded (A6 defines
+it as a better-supported replacement, not a lie) and reported separately. The
+adjudication-verdict arm rides alongside in `detail["arms"]` with an
+`arms_agree` flag; `wrong_repair` is excluded from it because the adjudication
+scoreboard already counts that verdict as anchor-*correct*.
+
+**Architectural finding at 4.3: there is no persisted "certified at" record.**
+`lo_certification` is a pure predicate, so `questions_to_certification` and
+`certification_regret` require a prefix replay over the attempt sequence.
+Certification credit is monotone in the prefix, so the implementation **bisects**
+(exact, not a coarse grid), memoized across LOs and budgeted: ~5s per cutoff, 7
+cutoffs, 35.8s on `fixtures/linear_algebra`. Opt-in behind `--replay`; otherwise
+the metric reports `requires_replay` rather than a number.
+`cells_cleared_per_question` uses `contract_reachability.contract_cells` rather
+than `facet_diagnostics.contract_frontier`, because the frontier drops the LO from
+the cell identity (so cells collide across LOs) and carries a legacy item-mode arm
+that §5.2 itself calls an authoring artifact.
+
+**Scope addition (not a listed item): attempt latency was never captured.** The
+entire backend path existed and worked — `SubmitAttemptInput.latencySeconds`, the
+sidecar `PracticeInput`/`DontKnowInput` fields, `AttemptDraft.latency_seconds`
+with its non-negative validation, and the `latency_seconds` column — but **no
+Tauri client ever populated it**, so every attempt in both live vaults recorded
+NULL. `PracticeScreen` already kept an `openedAtMs` ref for the ask overlay, so
+the fix is to send elapsed seconds from it on submit and on don't-know, and to
+time `DialogueProbe` **per turn** rather than per block (each turn is its own
+committed attempt; a block-scoped timer would bill every turn for the ones before
+it). Wall-clock, deliberately not idle-adjusted: subtracting time the learner
+"wasn't really working" would be a fabrication, and the metric is denominated in
+their actual elapsed experience.
+
+This is outside the plan's items, but it is un-backfillable capture-now data —
+ordering principle 1's exact category, and the same shape as A5/A6 — and without
+it 4.1 ships a metric that reports `unmeasured` forever. Guarded by `tsc --noEmit`
+on the client side; the backend path is already covered by the scoreboard's own
+tests (30+60+90s ⇒ 3.0 minutes). Note that **the scoreboard is itself the
+regression detector**: if a client stops sending latency, the metric flips back to
+`unmeasured` loudly rather than silently reporting a number.
+
+**Board on `fixtures/linear_algebra`:** 5 of 15 available (`no_data` 7,
+`no_producer` 1, `unmeasured` 2). `problems_to_cold_success` 1.25 [10/8];
+`questions_to_certification` 5 and `certification_regret` **1** — one certified
+LO, certified at its 5th of 6 questions, so regret is real and now measurable;
+`cells_cleared_per_question` 0.093 [4 of 64 cells over 43 questions];
+`measurement_rank` 0.385.
 
 **Why here:** Stage 6's instrument hypotheses/reverts are stated in these
 metrics. B5 freezes before Phase C (Stage 7), after these are added.
 
-### Stage 5 — Measurement Wave 2 (authoring correctness + gates)
+### Stage 5 — Measurement Wave 2 (authoring correctness + gates) ⚠️
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 5.1 | **Rung-correct generation:** practice generation authors at the capability the contract names, consuming 3.1's reachability report as a prioritized commissioning queue for `MISMATCH_BELOW` / `NO_INSTRUMENT` cells | [Meas §5.8.2 verdict; promoted to a named item] | The measured 72% lever — the single highest-ROI change in the measurement spec, and it needs no new instrument class. Hypothesis: contract-cell hit rate of new attempts rises from 28%. Revert: never (this is honoring existing contracts). |
-| 5.2 | Backfill the 18 persisted coordination integrations under D3's criterion | [Meas §5.8.3/Wave 2] | Blueprints are vault content; no rebuild touches them. Expect most dropped, some lowered, a few genuinely `coordination` (owed an A1 capstone later). Pilot on one LO first, measure reachable-cell delta, then batch. |
-| 5.3 | §3.0 planted-persona gate wired into the **live** generation path — tiered | [Meas §3.0] | Hard ship/no-ship for diagnostic instruments (error-hunts, contrast pairs, profiles); flag-for-review for plain practice items until Aug B2's realism matcher exists (authoring throughput is the measured bottleneck; don't throttle it on an unvalidated simulator). Track gate precision from day one. |
-| 5.4 | D2 ingest mint gate: separability + distinct repair, typed rejection reasons, alias-not-mint | [Meas D2] | Before the next ingest round. Reuses the §3.0 harness; ingest payloads (`error_signatures` etc.) are the persona raw material. |
+| 5.1 ✅ | **Rung-correct generation:** practice generation authors at the capability the contract names, consuming 3.1's reachability report as a prioritized commissioning queue for `MISMATCH_BELOW` / `NO_INSTRUMENT` cells | [Meas §5.8.2 verdict; promoted to a named item] | The measured 72% lever — the single highest-ROI change in the measurement spec, and it needs no new instrument class. Hypothesis: contract-cell hit rate of new attempts rises from 28%. Revert: never (this is honoring existing contracts). |
+| 5.2 ✅ | Backfill the 18 persisted coordination integrations under D3's criterion | [Meas §5.8.3/Wave 2] | Blueprints are vault content; no rebuild touches them. Expect most dropped, some lowered, a few genuinely `coordination` (owed an A1 capstone later). Pilot on one LO first, measure reachable-cell delta, then batch. **Applied to `fixtures/linear_algebra` with narration — see below.** |
+| 5.3 ⚠️ | §3.0 planted-persona gate wired into the **live** generation path — tiered | [Meas §3.0] | Mechanics shipped. Original-spec validity remains blocked on Aug B2's blinded matcher; every row honestly carries `persona_realism_validated: false`. |
+| 5.4 ⚠️ | D2 ingest mint gate: separability + distinct repair, typed rejection reasons, alias-not-mint | [Meas D2] | Structural proxy shipped. It normalizes the same persona material but does not yet run an authored item through the shared §3.0 grading harness, so literal D2 compliance remains open. |
+
+**5.1 as shipped** — new `services/contract_commissioning.py`, consumed by
+`build_practice_expansion_plan`; `depth_rungs` gains `waypoint_slug_for_capability`
+/ `capability_rung`.
+
+*The mechanism 72% came from, located:* `select_rung` keys the generation waypoint
+to the learner's mastery band (or a probe hypothesis, or a commitment milestone)
+and therefore **independently of the blueprint**, while `_RungGate` then hard-failed
+any generated item whose capability differed from that waypoint. The blueprint's
+declared capability reached the authoring model only as prose
+(`blueprint_components`), and the one deterministic gate in the path actively
+*rejected* items authored at it. Measured on `fixtures/linear_algebra`: on 3 of the
+4 LOs at the head of the commissioning queue the band rung is `recall` /
+`retrieval` while the contract asks `schema_interpretation` /
+`procedure_execution` / `method_selection` — the `MISMATCH_BELOW` shortfall
+manufactured at generation time.
+
+*What drives target selection now:* for an LO that declares contract cells the
+contract **is** the waypoint. `commission_plan` walks
+`ContractReachabilityReport.commissioning_queue()` in the order `_queue_sort_key`
+already encodes — no second priority is invented — resolves each
+`MISMATCH_BELOW` / `NO_INSTRUMENT` cell to the trajectory waypoint at *its*
+capability, and hands the cells to the prompt in that order. Target ordering (and
+so `max_los` truncation) follows each LO's best queue rank, which is the
+"prioritized" half of the item. `_RungGate`'s admission set becomes the set of
+capabilities the LO's contract names: an item at one of them is validated against
+that capability's waypoint (it used to hard-fail), and an item outside them
+hard-fails (it used to pass). No knob, no threshold: an LO with **no** contract
+cells keeps `select_rung`'s behaviour byte-for-byte, which is why `fixtures/arxiv`
+(0 cells over 15 LOs) is untouched.
+
+*Integration cells, per §5.8.3/D3 criterion 2:* a `coordination` cell is
+**deferred** with the typed reason `coordination_requires_reviewed_depth_envelope`,
+never re-aimed one rung lower (that would be a blueprint edit disguised as
+generation — 5.2's job) and never authored off-trajectory. All 18 coordination cells
+on the fixture are integration cells; the one integration cell at
+`method_selection` is commissioned like any other, since its role does not change
+what a rung means. Deferrals ride on the plan, not the prompt.
+
+*Measured before-number for the hypothesis:* `services/contract_commissioning.contract_cell_hit_rate`
++ `learnloop contract-hit-rate` (with `--since` for "new attempts").
+`fixtures/linear_algebra`: **12/43 = 28% contract-cell hit rate**, reproducing Step
+0's 28% exactly, with the miss decomposed as 28/43 = 65% rung loss (contract facet,
+wrong capability) + 3/43 = 7% off-contract — total miss 72%, also §5.8.2's number.
+One honest divergence: §5.8.2 reports a 100% *facet* hit rate, this reports 93%; the
+3 attempts responsible observe a facet its LO declares only in a `facilitating`
+component, which 3.1's `CONTRACT_MODALITIES` correctly excludes from the contract.
+
+**5.2 as shipped, and where it stopped** — new `services/integration_backfill.py`
++ `learnloop integration-backfill` (diff-only unless `--apply`).
+
+D3's two criteria, applied retroactively with structural proxies: criterion 1 fails
+as `no_assembly_to_fail` (fewer than two *binding* `all_of` components — nothing to
+assemble) or `facet_duplicates_component` (the integration names a facet the recipe
+already lists, so its failure is not *separately repairable* — the same part one
+rung harder, exactly the shape §5.8.3 diagnosed). Criterion 2 is **measured**, not
+assumed: `coordination` counts as observable once some active instrument observes
+anything at it, so once 6.1's A1 capstones exist the same code stops lowering with
+no flag flipped.
+
+Verdicts on the 18 coordination integrations of `fixtures/linear_algebra`:
+**17 DROP** (13 `facet_duplicates_component`, 4 `no_assembly_to_fail`), **1 LOWER**
+(`lo_compute_and_interpret_coordinate_vector_operatio`, three distinct binding
+components plus a genuinely distinct integration facet → `method_selection`), **0
+KEEP**. The plan expected "a few genuinely `coordination`"; on this vault that set
+is **empty** — 18 of 19 integration components name a facet the recipe already
+declares. Independent corroboration: applying the batch on a temp copy clears 17
+`identifiability:component_vs_integration` and 17 `identifiability:missing_anchor`
+doctor warnings and adds none.
+
+Measured on temp copies: the **pilot** (the single LOWER) moves no verdict at all —
+64 cells, 9 reachable, before and after — it moves the cell from
+`(facet, coordination)` to `(facet, method_selection)`, i.e. from *deferred* to
+*commissionable* (queue: 36 → 37 commissioned, 19 → 18 deferred). The **batch**
+takes 64 → 47 cells with reachable still 9, so 14% → 19%, and integration cells
+19 → 2. That is §5.8.3's own prediction reproduced: "it removes a third of the
+contract cells outright — but it does not move the reachable-cell count at all".
+
+**Raised as a decision, then applied with narration (owner-approved).** Two
+objections had to clear first, and both did: (b) D3's stated revert trigger is
+"certified LOs failing the §5.7 delayed cold probe", which is item **4.2** — that
+landed, so the detector for "we dropped a real assembly obligation" now exists;
+and (a) removing 17 contract cells shrinks 3.3's `covered_required_fraction`
+denominator, so displayed mastery moves with **no new evidence** — which a
+vault-content edit would bypass, since nothing on the YAML write path records a
+rebuild. Rather than accept (a), the write path now narrates it.
+
+**The narration mechanism, and why the version is content-addressed.**
+`coverage_denominator_version(vault, repository)` (in `facet_diagnostics.py`) is
+now `coverage_contract_frontier_v1` **plus a hash of the effective sorted
+`(LO, facet, capability)` frontier** — deliberately not a hash of the authored
+YAML, which would be wrong in both directions: an `updated_at` or comment touch
+would mint a phantom boundary and narrate a recalibration that did not happen,
+while a facet alias/merge that changes which canonical cells resolve would move
+the denominator with no file changing. Hashing the resolved cell set makes the
+version a function of the thing being versioned, which buys two properties for
+free: a rerun of the backfill and any later ordinary rebuild recompute the same
+value and emit **nothing**, and a real cell change emits **exactly once**. Both
+the backfill and the ordinary rebuild path call the same helper, so they cannot
+drift.
+
+`apply_integration_backfill_and_recalibrate` orders the work the only way that
+works: **every YAML edit, then reload the vault, then rebuild the affected LOs,
+then one batch marker.** Reloading between edit and rebuild is what lets the
+rebuild see the new blueprints (the frontier is read from vault content, not the
+database); one marker for the batch rather than one per LO is what keeps the
+learner from seeing an 18-entry flood they appear to have caused. A dry run writes
+no files and **no boundary**.
+
+One reader fix this exposed: `derived_state_rebuild_version_changes` compared a
+NULL coverage version as a real value, so an unstamped rebuild between two stamped
+ones would have minted two phantom boundaries. A NULL now means "this writer did
+not report a version", carries the last reported one forward, and can never itself
+be a boundary.
+
+**Applied to `fixtures/linear_algebra`:** 18 files written, 18 LOs rebuilt, cells
+**64 → 47**, reachable still 9 so the share moves **14.1% → 19.1%**, integration
+cells **19 → 2**, and **exactly one** recalibration entry
+(`coverage_contract_frontier_v1:0d9f26c30373a770`). Verified live afterwards: a
+second `--apply` writes 0 files and a subsequent `learnloop rebuild-derived-state`
+(8 LOs, 43 attempts replayed) leaves the count at exactly one entry.
+
+**5.3 as shipped** — new `services/persona_gate.py`, chained as a `row_transform`
+into all four generation routes in `practice_generation` (diagnostic, post-probe,
+goal-population, cross-source) plus a narrow read method
+`Repository.persona_gate_audit_rows`.
+
+*Why the live path bypassed the gate, located:* the gated entry point,
+`proposals.generate_diagnostic_proposal(need_id=)`, has **no production callers** —
+only `tests/test_diagnostic_generation`. `learnloop generate-diagnostics` calls
+`practice_generation.generate_diagnostic_practice_proposal`, which reaches
+`proposals.generate_authoring_proposal` directly and never constructs the
+`MisconceptionRecord` the old signature demands. The gate was never disabled; it was
+attached to the branch of the generation tree production does not use.
+
+*Tiering is structural, not a flag:* `classify_instrument(payload)` reads the
+instrument class off the row's own payload (error-hunt / contrast-pair /
+discrimination-profile by `practice_mode` or tag; misconception-diagnostic by a
+`misconception_consistent_answer` or a `misconception_id`-keyed fatal error; plain
+practice otherwise), and `tier_for` maps the diagnostic classes to HARD and plain
+practice to ADVISORY. Because the gate is chained into *every* route, a row that is
+structurally a diagnostic instrument is hard-gated even when the plain-practice route
+authored it. There is no `strict=` parameter to forget. A `practice_mode` of
+`diagnostic_probe` alone does **not** promote a row: it names no belief, so it makes
+no discrimination claim to check, and blocking it would throttle exactly the
+authoring throughput §7.3 protects.
+
+*Four typed outcomes, recorded not logged:* `PASS` / `FLAG_FOR_REVIEW` / `BLOCK` /
+`UNTESTED`, each with a closed `PersonaGateReason`, written to
+`proposed_patch_items.audit_json` under `persona_gate` (with
+`persona_realism_validated: false` stamped on every row, per §3.0's B2 precondition).
+`BLOCK` also sets `validation_status="invalid"`, which `patches` refuses to accept,
+and reopens the intervention need with `diagnostic_proposal_rejected:` rather than
+letting an undiscriminating instrument consume it. `FLAG_FOR_REVIEW` sets `"warning"`
++ loses auto-apply — it ships to review. `UNTESTED` is the abstention arm (no persona
+material exists for the item's targets) and changes no route; on the legacy vault
+with no facet registry that is the common outcome, which is deliberate — flagging
+every item would make the flag meaningless.
+
+*Gate precision:* `persona_gate.gate_precision(repository, *, blinded_labels=None,
+since=None) -> scoreboard.Metric` (`learnloop persona-gate-precision`). Precision =
+of the items the gate **blocked or flagged**, how many were genuinely bad; `PASS` and
+`UNTESTED` are excluded because the gate made no prediction about them. The
+denominator is countable today; the numerator needs a **blinded** label, which only
+Aug B2's realism matcher or Stage 7 B1's planted side can supply. So it reports
+`no_data` over an empty denominator and `no_producer` once predictions exist without
+labels — never 0.0 and never 1.0. Reviewer decisions ARE captured from day one but
+are reported only as descriptive counts in `detail.reviewer_decisions`: the gate
+writes its reason into `validation_errors`, which is what the reviewer reads, so a
+reviewer-decision numerator would be caused by the prediction it is meant to score.
+
+**5.4 as shipped** — new `services/facet_mint_gate.py` (pure functions over payload
+dicts), wired into `source_set_synthesis._normalize` as a two-pass facet loop, plus
+`learnloop facet-mint-gate` (read-only, re-judges the registry).
+
+*Typed rejection reasons:* `no_authorable_discriminating_item` (each side must own an
+error signature the other does not — symmetric, so a subset facet is a collapse),
+`same_repair_class` (no `instructional_repairs` entry the neighbour lacks),
+`insufficient_payload_to_test` (the abstention arm), against the admitting reasons
+`separable_and_distinct_repair` and `no_neighbour`. Neighbours are nominated by shared
+error signature, identical claim, or the §8.7 lexical hint at the same threshold — the
+hint can put a pair in front of the harness but never decides one (D1: "never promoted
+to a merge criterion").
+
+*Alias-not-mint:* an `ALIAS` verdict emits **no facet row**. Instead
+`facet_client_to_id` redirects every downstream reference (recipe components, criterion
+targets, item evidence facets) to the neighbour, and the candidate id is appended to the
+neighbour's `aliases` — in place when the neighbour is minted in the same batch, via a
+`facet` `update` row when it is already registered — so `loader._facet_aliases` keeps
+resolving the id and evidence filed against it lands on the surviving facet. Candidates
+are judged in order and may only alias into a registered facet or an earlier *minted*
+candidate, which makes alias chains impossible without a compression pass. Dependencies
+are rewired through a new `facet_dep_client` map; leaving them on the aliased candidate
+would be a dangling requirement.
+
+*One documented departure from a literal reading:* D2 says "otherwise it is registered
+as an alias", but that sentence describes a candidate that was **tested and collapsed**.
+Aliasing on ignorance would delete the very missing-vocabulary record D2 asks for, so
+`insufficient_payload_to_test` mints at `status: "proposed"` instead of the `"reviewed"`
+D2 names as today's defect. Nothing minted through that arm is born reviewed.
+
+*What D2 would have done to `fixtures/arxiv`'s 101 facets* (measured read-only on a
+temp copy; 3.4's numbers reproduce exactly: 101 declared, 38 dimensions, deficit 63 from
+collapse across 21 groups): **100 MINT (`no_neighbour`), 1 ABSTAIN, 0 ALIAS.** The gate
+would not have prevented that backlog, and the reason matters. Those 101 facets carry
+**zero** `error_signatures` and **zero** `instructional_repairs` — their provenance
+origin is `facet_normalization`, not `sourceset_synthesis`, so the raw material D2
+assumes "is already in the payload" is simply absent. And the collapse is not synonymy:
+maximum within-group lexical Jaccard across the 21 groups is 0.17–0.64 (e.g.
+`add_to_embedding` / `pattern_as_weights` / `values_as_content` / `weighted_sum_column`
+are four genuinely different atoms), so they collapse because **one criterion observes
+several of them at once** — under-instrumentation, which A1/A2/A4 fix, not
+over-minting. The single genuine near-duplicate pair on the vault
+(`dot_product_ab` ~ `dot_product_ac`, Jaccard 0.875) is exactly the one ABSTAIN, and it
+says "I cannot test this, here is the record" rather than guessing. On the vaults whose
+facets *did* come from `sourceset_synthesis` (`linear_algebra` 39, `probability` 39,
+`arxiv_v2` 59 — all 100% populated on both fields) the gate admits every facet, so it
+costs nothing retroactively; what it stops is future growth, which the two identical
+cross-shard facets in `test_source_set_synthesis` now demonstrate at its smallest scale
+(4 rows for 2 atoms became 2 + 2 aliases).
 
 ### Stage 6 — Measurement Wave 3 (instruments)
 
@@ -218,7 +840,7 @@ Ship order within the stage: 6.1 → 6.2 → 6.3, then 6.4 as fixtures permit.
 | 7.1 | B1 planted-misconception eval harness scoring the diagnostician **blind**, over the §12 regression shapes incl. abstention cases; B3 cross-model separation from day one (the existing planted-trial path has the same-model defect) | [Aug B1, B3] | Consumes A5 discrimination profiles (6.4) as authored planted ground truth — the producer B1 currently lacks. |
 | 7.2 | B2 blinded persona-vs-real matcher | [Aug B2] | Licenses every B1 number; also upgrades 5.3's tiered gate to hard. |
 | 7.3 | B4 planted-vs-adjudicated agreement live | [Aug B4] | Producer scaffold from 4.4; adjudicated side accrues via the contest-first queue. |
-| 7.4 | Freeze B5; ship C1–C4 one rung at a time, each with hypothesis + revert | [Aug C] | **Resolve the C1 ↔ causal §5.1 conflict first** (recommended: diagnosis prose stays first, repaired trace moves ahead of the structured causal fields — satisfies both rationales). C3 revert is measurable via 1.2. C4's eval must include a mid-history cause change. |
+| 7.4 | Freeze B5; ship C1–C4 one rung at a time, each with hypothesis + revert | [Aug C] | **C1 is amended to repair-before-structure:** `diagnosis_md` stays first, the repaired trace comes second, and structured causal fields come last. This preserves causal §5.1's prose-first invariant while letting the checkable repair constrain structured attribution; it does not claim to implement literal repair-first ordering. C3 revert is measurable via 1.2. C4's eval must include a mid-history cause change. |
 
 ### Stage 8 — Measurement Waves 4–5 (inference, then certification)
 
@@ -257,16 +879,33 @@ certifiable contracts (Stages 5–6 are what create this).
 
 ## 7. Decisions to resolve (not code)
 
-1. **C1 vs causal §5.1 field ordering** — recommended: diagnosis prose first,
-   repaired trace second, structured causal fields last (7.4).
-2. **Dead code disposition** — `causal_health.py` (wire the abstention rate or
-   delete), `audit_variant_manipulation_contract` /
-   `validate_independent_measurement_contract` / `resolve_machine_check`
-   (wire at 2.1/2.3 or delete; if deleted, P2's manipulation-contract claim in
-   the spec should be annotated as descoped).
-3. **Persona-gate tiering** (5.3) — confirm flag-for-review is acceptable for
-   plain practice items until B2 lands.
-4. **`TestExecutionVerifierAdapter`** — wire a dispatch arm or mark descoped.
+1. ✅ **C1 vs causal §5.1 field ordering** — **resolved as
+   repair-before-structure:** diagnosis prose first, repaired trace second,
+   structured causal fields last (7.4). C1's literal repair-first wording is
+   amended rather than treated as silently compatible with the causal spec's
+   prose-first invariant.
+2. ✅ **Dead code disposition** — **all wired, nothing deleted.** `causal_health.py`
+   now reports through `learnloop causal-attribution-audit` alongside A5's
+   abstention rate (1.3); `audit_variant_manipulation_contract` is wired into
+   `generate_rung_variant`; `validate_independent_measurement_contract` and
+   `audit_manipulation_contract` are reached through 2.1's commissioning path;
+   `resolve_machine_check` discharges the commissioning obligation with recorded
+   grounds. P2's manipulation-contract claim stands as written — no descoping
+   annotation needed.
+3. ✅ **Persona-gate tiering** (5.3) — **confirmed:** diagnostic-purpose
+   instruments are hard-rejected when the personas do not separate; plain
+   practice items receive an advisory review flag until B2 lands. Before B2,
+   passing is not treated as persona-realism validation or diagnostic evidence,
+   and the advisory path bypasses no existing quality gate or normal review.
+4. ✅ **`TestExecutionVerifierAdapter`** — **wired**, with the trust boundary made
+   explicit. A `test_execution` dispatch arm now exists, and the execution result
+   arrives via a new `execution_result` parameter on `validate_repair_candidate`
+   rather than from the model-authored `suggestion` payload: a repair that could
+   attach its own `returncode: 0` would be issuing itself a deterministic
+   `verified` verdict, which is the exact inversion the P0a write barriers exist
+   to prevent. `test_execution` is requestable by the model (the schema Literal
+   now admits it) and carries no result field. With no caller-supplied result the
+   verdict is `unsupported`, never a pass. Regression-tested both ways.
 
 ## 8. Cross-spec dependency summary
 

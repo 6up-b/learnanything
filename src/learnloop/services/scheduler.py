@@ -495,6 +495,14 @@ def build_due_queue(
     return queue
 
 
+#: Learner-facing reason per delayed follow-up lane. Keyed on the
+#: ``followup_tasks.kind`` the repository now passes through as ``action_type``.
+_FOLLOWUP_REASONS: dict[str, str] = {
+    "cold_retry": "unassisted cold retry",
+    "certification_cold_probe": "held-out check on a certified skill",
+}
+
+
 def _insert_pending_followups(
     vault: LoadedVault,
     queue: list[ScheduledItem],
@@ -537,10 +545,14 @@ def _insert_pending_followups(
         action_type = pending.get("action_type") or "negative_surprise_followup"
         component = (
             "intervention_followup"
-            if action_type in {"intervention_followup", "cold_retry"}
+            if action_type
+            in {"intervention_followup", "cold_retry", "certification_cold_probe"}
             else "negative_surprise_followup"
         )
-        reason = "unassisted cold retry" if action_type == "cold_retry" else "intervention follow-up"
+        # Measurement §5.7's probe is a retention/validity check, not a repair
+        # retry, and the learner-facing reason says so: it is the one item in the
+        # queue whose purpose is to test something the system already claimed.
+        reason = _FOLLOWUP_REASONS.get(action_type, "intervention follow-up")
         components[component] = 1.0
         reasons = [reason] + [existing for existing in scheduled.plain_english if existing != reason]
         followups.append(

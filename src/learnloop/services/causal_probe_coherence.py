@@ -48,9 +48,16 @@ PROBE_REVIEW_TRANSITIONS = {
     "candidate": {"registered", "rejected"},
     "registered": {"reviewed", "rejected"},
     "reviewed": {"active", "rejected"},
-    "active": set(),
+    # An active instrument may be withdrawn when its input contract is found
+    # invalid. The event log preserves the prior activation and the reason.
+    "active": {"rejected"},
     "rejected": set(),
 }
+
+#: Version of the allowlisted input supplied to a blind prediction generator.
+#: v1 included observation-conditioned ``postdictive_claims`` and is therefore
+#: permanently ineligible for registration or serving.
+BLIND_INPUT_CONTRACT_VERSION = "observation_free_hypothesis_target_v2"
 
 #: Typed reasons a declared feature row is unusable.  Recorded rather than
 #: silently dropped so a null-on-100%-of-bundles field is visible (standing
@@ -802,7 +809,15 @@ def lock_causal_hypothesis_set(
 # --- §3.6 the blind generation input ----------------------------------------
 
 
-_RUBRIC_CRITERION_FIELDS = ("id", "criterion_id", "description", "points", "max_points")
+_RUBRIC_CRITERION_FIELDS = (
+    "id",
+    "criterion_id",
+    "description",
+    "points",
+    "max_points",
+    "measurement_status",
+    "targets",
+)
 
 
 @dataclass(frozen=True)
@@ -820,7 +835,7 @@ class BlindGenerationInput:
     statement: str
     cause_scope: str
     applicability: dict | None
-    postdictive_claims: list | None
+    target_ref: dict | None
     item_prompt: str
     item_id: str
     rubric_criteria: list
@@ -835,7 +850,7 @@ class BlindGenerationInput:
                 "statement": self.statement,
                 "cause_scope": self.cause_scope,
                 "applicability": self.applicability,
-                "postdictive_claims": self.postdictive_claims,
+                "target_ref": self.target_ref,
             },
             "item": {"id": self.item_id, "prompt": self.item_prompt},
             "rubric": {"criteria": self.rubric_criteria},
@@ -871,11 +886,6 @@ def _optional_mapping(value: Any) -> dict | None:
     return dict(payload) if isinstance(payload, Mapping) else None
 
 
-def _optional_list(value: Any) -> list | None:
-    payload = _jsonable(value)
-    return list(payload) if isinstance(payload, (list, tuple)) else None
-
-
 def generate_blind_prediction_bundle(
     repository: Repository,
     *,
@@ -906,7 +916,10 @@ def generate_blind_prediction_bundle(
         statement=str(hypothesis["statement"]),
         cause_scope=str(hypothesis["cause_scope"]),
         applicability=_optional_mapping(hypothesis.get("applicability")),
-        postdictive_claims=_optional_list(hypothesis.get("postdictive_claims")),
+        # Causal §5.1: postdictive claims are observation-conditioned and may
+        # never feed probe discrimination. A blind bundle gets the hypothesis's
+        # typed target plus the fresh item's authored contract instead.
+        target_ref=_optional_mapping(hypothesis.get("target_ref")),
         item_prompt=str(item_payload.get("prompt") or ""),
         item_id=item_id,
         rubric_criteria=_rubric_criteria(rubric),
@@ -953,6 +966,7 @@ def generate_blind_prediction_bundle(
         predictions=predictions,
         model_revision=model_revision,
         outcome_schema_version=outcome_schema_version,
+        blind_input_contract_version=BLIND_INPUT_CONTRACT_VERSION,
         generation_agent_run_id=generation_agent_run_id,
         clock=clock,
     )
@@ -1006,6 +1020,11 @@ def blind_bundle_discrimination(
     latest: dict[str, dict[str, Any]] = {}
     for bundle in bundles:
         if not bundle["generated_without_observation"]:
+            continue
+        if (
+            bundle.get("blind_input_contract_version")
+            != BLIND_INPUT_CONTRACT_VERSION
+        ):
             continue
         latest[str(bundle["hypothesis_id"])] = bundle
     missing = [value for value in wanted if value not in latest]
@@ -1498,6 +1517,7 @@ def create_probe_candidate(
         "manipulation_audit_id": manipulation_audit_id,
         "measurement_contract": contract,
         "bundle_ids": discrimination["bundle_ids"],
+        "blind_input_contract_version": BLIND_INPUT_CONTRACT_VERSION,
     }
     return repository.insert_causal_probe_candidate(
         candidate_id=_content_id("cpc", identity),
@@ -1508,7 +1528,19 @@ def create_probe_candidate(
         measurement_contract=contract,
         blind_bundle_ids=discrimination["bundle_ids"],
         discrimination=discrimination,
+        blind_input_contract_version=BLIND_INPUT_CONTRACT_VERSION,
         clock=clock,
+    )
+
+
+def candidate_has_current_blind_input_contract(
+    candidate: Mapping[str, Any],
+) -> bool:
+    """Whether a candidate was minted from the observation-free v2 input."""
+
+    return (
+        str(candidate.get("blind_input_contract_version") or "")
+        == BLIND_INPUT_CONTRACT_VERSION
     )
 
 
@@ -1533,6 +1565,14 @@ def transition_probe_candidate(
         )
     if to_status in {"reviewed", "rejected"} and not reviewer:
         raise ValueError("review transition requires a reviewer")
+    if (
+        to_status in {"registered", "reviewed", "active"}
+        and not candidate_has_current_blind_input_contract(candidate)
+    ):
+        raise ValueError(
+            "probe was generated under an obsolete observation-exposed blind "
+            "input contract"
+        )
     discrimination = candidate.get("discrimination")
     if to_status in {"registered", "reviewed", "active"} and not (
         isinstance(discrimination, Mapping)

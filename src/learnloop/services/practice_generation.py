@@ -5,16 +5,19 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import log
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from learnloop.codex.prompts import PRACTICE_GENERATION_PROMPT_VERSION
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.services.activity_patterns import LEGACY_UNMAPPED, map_capability
+from learnloop.services.contract_commissioning import commission_plan
 from learnloop.services.depth_rungs import (
     TASK_FEATURE_SCHEMA_SLUG,
     RungTarget,
+    capability_rung,
     select_rung,
     validate_item_against_rung,
 )
@@ -24,9 +27,11 @@ from learnloop.services.followups import (
 )
 from learnloop.services.facet_state_reader import facet_recall_states_for_lo
 from learnloop.services.mastery import covering_learner_claim, display_mastery
+from learnloop.services.persona_gate import PersonaGate
 from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
 from learnloop.services.state_sync import sync_vault_state
+from learnloop.services.synthesis_gates import GateDiagnostic
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -57,6 +62,21 @@ class PracticeExpansionTarget:
     blueprint_components: list[dict[str, Any]] = field(default_factory=list)
     # Surface families already used for this LO — the batch must not repeat them.
     existing_surface_families: list[str] = field(default_factory=list)
+    # Stage 5.1 (Meas §5.8.2): the unreachable contract cells this LO owes
+    # instruments for, in `commissioning_queue()` order, each carrying the
+    # capability the CONTRACT names and the waypoint that authors AT it. Non-empty
+    # => `rung` above is the first of these, not the mastery-band waypoint: Step 0
+    # measured that 72% of attempts landed at a capability the contract never
+    # asked for, purely because the rung was chosen independently of the contract.
+    commissioned_cells: list[dict[str, Any]] = field(default_factory=list)
+    # Every capability this LO's contract names (reachable cells included) — the
+    # admission set `_RungGate` holds generated items to. Empty for a legacy LO
+    # with no blueprint, which keeps today's single-rung behaviour exactly.
+    contract_capabilities: list[str] = field(default_factory=list)
+    # Cells generation may NOT author, with their typed reason (§5.8.3: a
+    # `coordination` integration is owed a reviewed depth envelope / A1 capstone,
+    # not a quietly-lowered rung). Reported, never silently dropped.
+    deferred_cells: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -74,6 +94,10 @@ class PracticeExpansionTarget:
             "blueprint_components": self.blueprint_components,
             "existing_surface_families": self.existing_surface_families,
         }
+        if self.commissioned_cells:
+            payload["commissioned_cells"] = self.commissioned_cells
+        if self.contract_capabilities:
+            payload["contract_capabilities"] = self.contract_capabilities
         if self.rung is not None:
             from learnloop.services.depth_rungs import rung_float_proxies
 
@@ -96,10 +120,22 @@ class PracticeExpansionPlan:
         return sum(target.requested_new_items for target in self.targets)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "targets": [target.as_dict() for target in self.targets],
             "requested_new_items": self.requested_new_items,
         }
+        # Deferred contract cells ride on the PLAN, not on the prompt payload:
+        # they are an authoring obligation nobody may discharge yet (§5.8.3), so
+        # naming them to the model would only invite a wrong-rung item, while
+        # dropping them entirely is how 18 uncertifiable objectives went unseen.
+        deferred = [
+            {"learning_object_id": target.learning_object_id, **cell}
+            for target in self.targets
+            for cell in target.deferred_cells
+        ]
+        if deferred:
+            payload["deferred_contract_cells"] = deferred
+        return payload
 
 
 @dataclass(frozen=True)
@@ -195,13 +231,27 @@ class DiagnosticPracticeResult:
     patch_id: str
     plan: DiagnosticPracticePlan
     fulfilled_need_ids: list[str]
+    # Stage 5.3 (Meas §3.0): the planted-persona gate's roll-up for this batch.
+    # Blocked rows are persisted `validation_status="invalid"` (acceptance refuses
+    # them); flagged rows lost auto-apply and carry a review note. Reported here so
+    # the CLI can name the decisive reason instead of the caller re-deriving it.
+    persona_gate: dict[str, Any] = field(default_factory=dict)
+    persona_gate_violations: list[str] = field(default_factory=list)
+    persona_gate_warnings: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "patch_id": self.patch_id,
             "plan": self.plan.as_dict(),
             "fulfilled_need_ids": self.fulfilled_need_ids,
         }
+        if self.persona_gate:
+            payload["persona_gate"] = dict(self.persona_gate)
+        if self.persona_gate_violations:
+            payload["persona_gate_violations"] = list(self.persona_gate_violations)
+        if self.persona_gate_warnings:
+            payload["persona_gate_warnings"] = list(self.persona_gate_warnings)
+        return payload
 
 
 def build_practice_expansion_plan(
@@ -232,6 +282,11 @@ def build_practice_expansion_plan(
     item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids)
     facet_unions = _active_evidence_facet_unions(vault, repository)
     surface_families = _active_surface_families(vault, repository)
+    # Stage 5.1: 3.1's reachability report, resolved into rung-correct authoring
+    # targets. One static pass over vault content (no attempts, no provider), and
+    # it is what makes the contract — rather than the learner's mastery band — the
+    # authority on the capability new items are authored at.
+    commissions = commission_plan(vault, repository)
     irt = vault.config.mastery.irt
     mode_mix_items = sum(mode_mix.values()) if mode_mix else None
     targets: list[PracticeExpansionTarget] = []
@@ -269,14 +324,26 @@ def build_practice_expansion_plan(
         if mastery is None:
             claim = covering_learner_claim(vault, repository, learning_object.id)
             claimed_level = float(claim["claimed_level"]) if claim is not None else None
-        rung = select_rung(
-            vault,
-            repository,
-            learning_object_id=learning_object.id,
-            mastery_mean=mastery_mean,
-            evidence_count=(mastery.evidence_count if mastery is not None else 0),
-            claimed_level=claimed_level,
-        )
+        # Rung-correct generation (Stage 5.1 / Meas §5.8.2): when this LO's own
+        # blueprint names cells no authored item can observe, the CONTRACT sets the
+        # waypoint — the head of the commissioning queue for this LO, honouring
+        # 3.1's `_queue_sort_key` rather than a second priority invented here.
+        # Otherwise nothing changes: `select_rung`'s mastery-band / probe-hypothesis
+        # / milestone path stands exactly as before, which is why a legacy vault
+        # with no authored blueprints is byte-for-byte unaffected.
+        commissioned = commissions.for_learning_object(learning_object.id)
+        deferred = commissions.deferred_for_learning_object(learning_object.id)
+        if commissioned:
+            rung = commissioned[0].rung
+        else:
+            rung = select_rung(
+                vault,
+                repository,
+                learning_object_id=learning_object.id,
+                mastery_mean=mastery_mean,
+                evidence_count=(mastery.evidence_count if mastery is not None else 0),
+                claimed_level=claimed_level,
+            )
         ability = mastery_mean if mastery_mean is not None else claimed_level
         targets.append(
             PracticeExpansionTarget(
@@ -301,8 +368,24 @@ def build_practice_expansion_plan(
                 rung=rung,
                 blueprint_components=_blueprint_components(learning_object),
                 existing_surface_families=surface_families.get(learning_object.id, []),
+                commissioned_cells=[cell.as_dict() for cell in commissioned],
+                contract_capabilities=list(commissions.capabilities_for(learning_object.id)),
+                deferred_cells=[cell.as_dict() for cell in deferred],
             )
         )
+    # Target order follows the commissioning queue: an LO whose best unreachable
+    # cell sits earlier in `commissioning_queue()` is commissioned first, and LOs
+    # with nothing commissionable sort last by id. This is the "prioritized queue"
+    # half of item 5.1 — without it `max_los` would truncate alphabetically and
+    # could drop every cell the queue put at the front.
+    queue_rank = commissions.learning_object_rank()
+    unranked = len(queue_rank) + 1
+    targets.sort(
+        key=lambda target: (
+            queue_rank.get(target.learning_object_id, unranked),
+            target.learning_object_id,
+        )
+    )
     if max_los is not None:
         targets = targets[:max_los]
     return PracticeExpansionPlan(targets=targets)
@@ -527,6 +610,15 @@ def generate_diagnostic_practice_proposal(
     if not plan.targets:
         raise PracticeExpansionError("No pending intervention needs require diagnostic Practice Items.")
     source_refs = _diagnostic_source_refs(plan)
+    # Stage 5.3 (Meas §3.0): the planted-persona gate on the LIVE diagnostic route.
+    # It rides the same `row_transform` seam `_RungGate`/`_SelectedResponseGate`
+    # use, so it runs after validation/repair and before persist + auto-apply. The
+    # gate is passed the provider as its grading client: `PersonaGate` escalates to
+    # `grade_diagnostic_fire` only when the provider exposes it, and falls back to
+    # the deterministic in-memory rule otherwise (a provider outage must not block
+    # authoring). Nothing about the tier is decided here — see `classify_instrument`.
+    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
+    surface_gate = _SelectedResponseGate()
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -535,12 +627,50 @@ def generate_diagnostic_practice_proposal(
         instructions=_diagnostic_practice_instructions(plan, extra_instructions=extra_instructions),
         codex_revision=codex_revision,
         merge_context_source_refs=True,
+        row_transform=_chain_gates(surface_gate, persona_gate),
     )
     fulfilled: list[str] = []
-    diagnostic_item_ids_by_need = _diagnostic_item_ids_by_need(plan, repository.proposal_items(patch_id))
+    persisted_items = repository.proposal_items(patch_id)
+    diagnostic_item_ids_by_need = _diagnostic_item_ids_by_need(plan, persisted_items)
+    # Rows the persona gate hard-blocked, resolved from client id to persisted id.
+    blocked_client_ids = {outcome.client_item_id for outcome in persona_gate.blocked}
+    blocked_item_ids = {
+        str(item["id"])
+        for item in persisted_items
+        if str(item.get("client_item_id") or "") in blocked_client_ids
+    }
+    authored_items = [
+        item
+        for item in persisted_items
+        if item.get("item_type") == "practice_item" and item.get("operation") == "create"
+    ]
+    # `_diagnostic_item_ids_by_need` is a heuristic attribution (source refs, then a
+    # single-unmatched-pair fallback). When it cannot attribute an item to a need
+    # but EVERY authored item in the batch was blocked, nothing shippable exists for
+    # that need either way, so reopening it is exact rather than conservative.
+    nothing_shippable = bool(authored_items) and len(blocked_item_ids) == len(authored_items)
     for target in plan.targets:
-        blocked_reason = f"diagnostic_proposal_queued:{patch_id}"
         item_id = diagnostic_item_ids_by_need.get(target.need_id)
+        if (item_id is not None and item_id in blocked_item_ids) or (
+            item_id is None and nothing_shippable
+        ):
+            # §3.0 hard tier: a diagnostic that cannot discriminate must not
+            # consume the need that asked for it, or the learner silently loses the
+            # measurement. Same reopen convention as `proposals._reopen_need_after_
+            # gate_failure`. The row is left `pending` + `invalid` rather than
+            # auto-rejected: acceptance already refuses an invalid row, and leaving
+            # `decision` untouched keeps it a record of a HUMAN's judgement (which
+            # is what `persona_gate.gate_precision` reports descriptively).
+            rejected_reason = f"diagnostic_proposal_rejected:{patch_id}"
+            if item_id is not None:
+                rejected_reason = f"{rejected_reason}:{item_id}"
+            repository.update_intervention_need_status(
+                target.need_id,
+                status="pending",
+                blocked_reason=rejected_reason,
+            )
+            continue
+        blocked_reason = f"diagnostic_proposal_queued:{patch_id}"
         if item_id:
             blocked_reason = f"{blocked_reason}:{item_id}"
         if repository.update_intervention_need_status(
@@ -549,7 +679,14 @@ def generate_diagnostic_practice_proposal(
             blocked_reason=blocked_reason,
         ):
             fulfilled.append(target.need_id)
-    return DiagnosticPracticeResult(patch_id=patch_id, plan=plan, fulfilled_need_ids=fulfilled)
+    return DiagnosticPracticeResult(
+        patch_id=patch_id,
+        plan=plan,
+        fulfilled_need_ids=fulfilled,
+        persona_gate=persona_gate.summary(),
+        persona_gate_violations=persona_gate.violations,
+        persona_gate_warnings=persona_gate.warnings,
+    )
 
 
 def generate_post_probe_practice_proposal(
@@ -588,6 +725,11 @@ def generate_post_probe_practice_proposal(
         raise PracticeExpansionError("No completed probe Learning Objects need more Practice Items.")
     rung_gate = _RungGate(repository, plan)
     surface_gate = _SelectedResponseGate()
+    # Meas §3.0, advisory tier for plain practice (plan §7.3): chained onto the
+    # plain-practice route too, so that a row which is *structurally* a diagnostic
+    # instrument is hard-gated even when produced here. The tier is never a
+    # property of the route.
+    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -603,7 +745,7 @@ def generate_post_probe_practice_proposal(
         source_refs=source_refs,
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
-        row_transform=_chain_gates(surface_gate, rung_gate),
+        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate),
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -614,8 +756,8 @@ def generate_post_probe_practice_proposal(
         plan=plan,
         mode_mix_violations=violations,
         mode_mix_warnings=warnings,
-        rung_violations=rung_gate.violations + surface_gate.violations,
-        rung_warnings=rung_gate.warnings,
+        rung_violations=rung_gate.violations + surface_gate.violations + persona_gate.violations,
+        rung_warnings=rung_gate.warnings + persona_gate.warnings,
     )
 
 
@@ -704,6 +846,8 @@ def generate_goal_practice_proposal(
     )
     rung_gate = _RungGate(repository, plan)
     surface_gate = _SelectedResponseGate()
+    # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note).
+    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -716,13 +860,13 @@ def generate_goal_practice_proposal(
         focus_concepts=list(goal.facet_scope.concepts) or None,
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
-        row_transform=_chain_gates(surface_gate, rung_gate),
+        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate),
     )
     return PracticeExpansionResult(
         patch_id=patch_id,
         plan=plan,
-        rung_violations=rung_gate.violations + surface_gate.violations,
-        rung_warnings=rung_gate.warnings,
+        rung_violations=rung_gate.violations + surface_gate.violations + persona_gate.violations,
+        rung_warnings=rung_gate.warnings + persona_gate.warnings,
     )
 
 
@@ -819,6 +963,13 @@ def _cross_source_instructions(
         "the waypoint - never change the waypoint to change difficulty.",
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
+    ]
+    # Same rung-correct rule as the post-probe path: BLUEPRINT_SHAPING already
+    # named the contract's capabilities as a *distribution*, which the model was
+    # free to read as advice; commissioned_cells names them as the requirement.
+    if any(target.commissioned_cells for target in plan.targets):
+        lines.append(_CONTRACT_CELL_RULE)
+    lines += [
         f"Targets: {[target.as_dict() for target in plan.targets]}",
         f"CROSS_SOURCE_CONTEXT: {json.dumps(context_by_lo, sort_keys=True, separators=(",", ":"))}",
         f"BLUEPRINT_SHAPING: {json.dumps(shaping_by_lo, sort_keys=True, separators=(",", ":"))}",
@@ -924,11 +1075,14 @@ def generate_cross_source_practice_proposal(
 
     rung_gate = _RungGate(repository, plan)
     surface_gate = _SelectedResponseGate()
+    # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note).
+    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
 
     def _combined_gate(rows: list[dict[str, Any]]) -> None:
         _leakage_gate(rows)
         surface_gate(rows)
         rung_gate(rows)
+        persona_gate(rows)
 
     patch_id = generate_authoring_proposal(
         root,
@@ -1060,7 +1214,18 @@ class _RungGate:
     """Deterministic rung admission over persisted proposal rows (row_transform
     seam): a generated item that overshoots or contradicts its target waypoint is
     forced off the auto-apply route; the diagnostics surface on the result.
-    Fail-closed: an exception here aborts persistence, never silently admits."""
+    Fail-closed: an exception here aborts persistence, never silently admits.
+
+    Stage 5.1 changes *which* waypoint an item is held to, not how strictly. For a
+    contract-bearing LO the admission set is the set of capabilities that LO's own
+    blueprint names, and each item is validated against the trajectory waypoint of
+    the capability it declares — so an item authored at the contract's capability is
+    admitted where it used to hard-fail against the mastery-band waypoint, and an
+    item at a capability the contract never names hard-fails where it used to pass.
+    That inversion *is* item 5.1: §5.4 files credit per ``(facet, capability)``
+    cell, so an off-contract rung produces evidence that can never close the cell.
+    An LO with no contract cells keeps the previous single-rung behaviour exactly.
+    """
 
     def __init__(self, repository: Repository, plan: PracticeExpansionPlan):
         from learnloop.services.activity_patterns import ensure_capability_alias_registry
@@ -1071,6 +1236,19 @@ class _RungGate:
             target.learning_object_id: target.rung
             for target in plan.targets
             if target.rung is not None
+        }
+        # LO -> {capability the contract names: the waypoint authoring AT it}. The
+        # value is ``None`` for ``coordination``: the contract legitimately asks for
+        # it (§5.8.3) but the default trajectory has no waypoint there, so the item
+        # is admitted with a review diagnostic rather than validated against a
+        # waypoint that does not exist or silently re-aimed one rung down.
+        self._contract_rungs_by_lo: dict[str, dict[str, RungTarget | None]] = {
+            target.learning_object_id: {
+                capability: capability_rung(repository, capability)
+                for capability in target.contract_capabilities
+            }
+            for target in plan.targets
+            if target.contract_capabilities
         }
         self._band_by_lo: dict[str, tuple[float, float]] = {
             target.learning_object_id: target.recommended_difficulty_band
@@ -1089,10 +1267,11 @@ class _RungGate:
             learning_object_id = str(payload.get("learning_object_id") or "")
             ref = str(row.get("client_item_id") or payload.get("id") or "item")
             self._check_difficulty_band(row, payload, learning_object_id, ref)
-            rung = self._rung_by_lo.get(learning_object_id)
-            if rung is None:
-                continue
-            diagnostics = validate_item_against_rung(self._repository, payload=payload, rung=rung)
+            rung, diagnostics = self._resolve_rung(payload, learning_object_id, ref)
+            if rung is not None:
+                diagnostics = diagnostics + validate_item_against_rung(
+                    self._repository, payload=payload, rung=rung
+                )
             hard = [d for d in diagnostics if d.severity == "hard_fail"]
             soft = [d for d in diagnostics if d.severity != "hard_fail"]
             self.violations.extend(f"{ref}: {d.message}" for d in hard)
@@ -1105,6 +1284,84 @@ class _RungGate:
                 row["validation_errors"] = errors
             if isinstance(payload.get("task_features"), dict):
                 payload["task_feature_schema"] = TASK_FEATURE_SCHEMA_SLUG
+
+    def _resolve_rung(
+        self,
+        payload: dict[str, Any],
+        learning_object_id: str,
+        ref: str,
+    ) -> tuple[RungTarget | None, list[GateDiagnostic]]:
+        """The waypoint this item is admitted against, plus resolution diagnostics.
+
+        Three arms, closed over the possibilities:
+
+        * **no contract** — legacy LO (no blueprint components, e.g. every LO in
+          ``fixtures/arxiv``): the plan's single mastery-band rung, unchanged;
+        * **on-contract capability** — the trajectory waypoint at *that*
+          capability, so the contract decides the rung; ``coordination`` resolves
+          to no waypoint and earns a review diagnostic naming the obligation;
+        * **off-contract capability** — hard fail. This is the 72% lever: an item
+          one rung below the requirement files evidence into a cell the contract
+          did not ask for, and no amount of practice on it can close the cell.
+        """
+
+        contract = self._contract_rungs_by_lo.get(learning_object_id)
+        if not contract:
+            return self._rung_by_lo.get(learning_object_id), []
+
+        def diag(severity: str, message: str, action: str) -> GateDiagnostic:
+            return GateDiagnostic(
+                gate="contract_capability",
+                severity=severity,  # type: ignore[arg-type]
+                entity_refs=(ref,),
+                message=message,
+                suggested_action=action,
+            )
+
+        declared = payload.get("capability")
+        if not declared:
+            # Missing metadata is not an off-contract claim; fall through to the
+            # plan rung so `validate_item_against_rung` raises its existing
+            # "missing capability/task_features" review diagnostic once.
+            return self._rung_by_lo.get(learning_object_id), []
+        mapped = map_capability(self._repository, str(declared))
+        if mapped == LEGACY_UNMAPPED:
+            return self._rung_by_lo.get(learning_object_id), []
+        if mapped not in contract:
+            return None, [
+                diag(
+                    "hard_fail",
+                    f"capability {mapped!r} is not one this learning object's contract "
+                    f"names ({', '.join(sorted(contract))}); evidence is filed per "
+                    "(facet, capability) cell, so it cannot close any required cell",
+                    "author at one of the contract's capabilities (see commissioned_cells)",
+                )
+            ]
+        rung = contract[mapped]
+        if rung is None:
+            diagnostics = [
+                diag(
+                    "review",
+                    f"contract capability {mapped!r} has no default-trajectory waypoint; "
+                    "a whole-task instrument needs a reviewed depth envelope",
+                    "review the item as a whole-task capstone, or lower the blueprint component",
+                )
+            ]
+            # No waypoint means no task-feature bounds to check, but the one
+            # structural rule about `coordination` still holds and would otherwise
+            # go unchecked here (it normally lives in `validate_item_against_rung`):
+            # a coordination observation IS a whole-task observation.
+            features = payload.get("task_features")
+            if isinstance(features, Mapping) and features.get("span") != "whole_task":
+                diagnostics.append(
+                    diag(
+                        "hard_fail",
+                        f"{mapped} requires span=whole_task, not {features.get('span')!r}",
+                        "use a whole-task span or a different capability",
+                    )
+                )
+            return None, diagnostics
+        return rung, []
 
     #: How far outside its band an item's difficulty may sit before the batch is
     #: held for review. One deliberately-harder transfer item per target is
@@ -1331,6 +1588,28 @@ _BLUEPRINT_SPREAD_RULE = (
     "the answer's shape. Each item must state in its rationale which blueprint component it probes."
 )
 
+#: Rung-correct authoring (Stage 5.1, Meas §5.8.2). Step 0 measured that 100% of
+#: attempts hit a facet the contract requires and only 28% hit a required
+#: ``(facet, capability)`` cell — every attempt on-topic, nearly three quarters of
+#: the practice discarded by the capability axis alone. The prompt now hands the
+#: model the cells themselves rather than one learner-derived waypoint, and
+#: ``_RungGate`` enforces the admission set deterministically.
+_CONTRACT_CELL_RULE = (
+    "AUTHOR AT THE CAPABILITY THE CONTRACT NAMES. A target that lists commissioned_cells is "
+    "telling you exactly which (facet, capability) obligations its own assessment blueprint "
+    "declares that NO existing item can observe, already ordered by priority. Author the target's "
+    "requested_new_items against commissioned_cells IN THAT ORDER - the first item for the first "
+    "cell, the second for the second, and so on; only if there are more items than cells may you "
+    "give a cell a second item. For each item: set `capability` to that cell's capability EXACTLY, "
+    "set every dimension of `task_features` to that cell's target_task_features, include that "
+    "cell's facet in evidence_facets with the dominant evidence weight, and name the cell's "
+    "recipe_refs in the item's rationale. An item whose capability is not listed in the target's "
+    "contract_capabilities is REJECTED by a deterministic gate: evidence credit is filed per "
+    "(facet, capability) cell, so an item one rung below the requirement produces evidence that "
+    "can NEVER close it, however well the learner answers. Difficulty still varies WITHIN the "
+    "cell's capability - never trade the capability for an easier item."
+)
+
 _TEACH_BACK_GENERATION_GUIDANCE = (
     "teach_back item format: the learner teaches the concept to an AI that plays a curious naive student; "
     "the learner writes an opening explanation and then answers the student's follow-up questions. "
@@ -1368,8 +1647,12 @@ def _practice_expansion_instructions(
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
         "For each target, create exactly requested_new_items Practice Items.",
-        f"Targets: {[target.as_dict() for target in plan.targets]}",
     ]
+    # Stated only when there is a contract to honour: on a legacy vault with no
+    # authored blueprints the rule would name fields no target carries.
+    if any(target.commissioned_cells for target in plan.targets):
+        lines.append(_CONTRACT_CELL_RULE)
+    lines.append(f"Targets: {[target.as_dict() for target in plan.targets]}")
     if mode_mix:
         mix = ", ".join(f"{count} item(s) with practice_mode='{mode}'" for mode, count in sorted(mode_mix.items()))
         lines.append(

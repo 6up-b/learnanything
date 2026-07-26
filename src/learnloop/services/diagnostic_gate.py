@@ -51,6 +51,14 @@ def _normalize(text: str | None) -> str:
     return _WS_RE.sub(" ", lowered).strip()
 
 
+#: Public alias. §3.0's shared authoring gate (``services/persona_gate``) and the
+#: D2 mint gate (``services/facet_mint_gate``) decide "categorically distinct"
+#: with THIS normalizer, not a second one, so the three uses of the one harness
+#: (Meas §3.0/D2: "one mechanism, three uses") cannot drift apart on what counts
+#: as the same answer.
+normalize_answer = _normalize
+
+
 @dataclass(frozen=True)
 class GateResult:
     """Beta posteriors + acceptance verdict from a discrimination gate run (§6)."""

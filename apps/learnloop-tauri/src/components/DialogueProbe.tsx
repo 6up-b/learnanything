@@ -42,6 +42,10 @@ export function DialogueProbePanel({
 }) {
   const [phase, setPhase] = useState<Phase>("starting");
   const [turn, setTurn] = useState<DialogueTurnDto | null>(null);
+  // Wall-clock, not idle-adjusted (see PracticeScreen for the rationale).
+  const turnOpenedAtMs = useRef(Date.now());
+  const elapsedSeconds = () =>
+    Math.max(0, Math.round((Date.now() - turnOpenedAtMs.current) / 1000));
   const [answer, setAnswer] = useState("");
   const [confidence, setConfidence] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState<SubmittedTurn[]>([]);
@@ -84,6 +88,10 @@ export function DialogueProbePanel({
       setTurn(next.turn);
       setAnswer("");
       setConfidence(null);
+      // Each dialogue turn is its own committed attempt, so latency is timed per
+      // TURN, not per block — a block-scoped timer would bill every turn for the
+      // ones before it (B5's `learner_minutes_to_cold_success`).
+      turnOpenedAtMs.current = Date.now();
       setPhase("asking");
     } catch (error) {
       fail(error);
@@ -122,6 +130,7 @@ export function DialogueProbePanel({
             sessionId,
             practiceItemId: turn.practiceItemId,
             hintsUsed: 0,
+            latencySeconds: elapsedSeconds(),
             probePresentationId: turn.presentationId,
             answerConfidence: confidence
           });
@@ -132,6 +141,7 @@ export function DialogueProbePanel({
             answerMd: answer,
             attemptType: "diagnostic_probe",
             hintsUsed: 0,
+            latencySeconds: elapsedSeconds(),
             probePresentationId: turn.presentationId,
             answerConfidence: confidence
           });

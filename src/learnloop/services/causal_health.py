@@ -46,7 +46,10 @@ from learnloop.services.causal_attribution import (
     APPROVED_SUPPORT_AUTHORITIES,
     OPEN_SET_CAUSE_ID,
 )
-from learnloop.services.causal_probe_coherence import bundle_feature_row_report
+from learnloop.services.causal_probe_coherence import (
+    BLIND_INPUT_CONTRACT_VERSION,
+    bundle_feature_row_report,
+)
 
 CAUSAL_HEALTH_VERSION = "causal_health_v1"
 
@@ -192,6 +195,12 @@ def causal_lane_health(
 
     # -- blind bundle feature rows ------------------------------------------
     for bundle in repository.causal_blind_prediction_bundles():
+        if (
+            bundle.get("blind_input_contract_version")
+            != BLIND_INPUT_CONTRACT_VERSION
+        ):
+            counters["bundle_features"].add(filled=False, abstained=True)
+            continue
         report = bundle_feature_row_report(bundle.get("predictions"))
         counters["bundle_features"].add(
             filled=report.usable, abstained=bool(report.skipped)

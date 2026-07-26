@@ -19,6 +19,7 @@ from learnloop.services.remediation import (
     start_remediation_episode,
     start_remediation_treatment,
 )
+from learnloop.services.surfaced_beliefs import mark_belief_surfaced
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -61,9 +62,22 @@ def _case_dto(repository, case: Any, *, durable: bool) -> dict[str, Any]:
     dict projection over its causal hypotheses. Both fill the same keys — the
     Tauri `RemediationCaseDto` reads them by name — and a provisional belief
     simply has no correction statement and no promotion history yet.
+
+    A6 capture (spec_diagnostic_augmentation_v1.md §2 A6): RepairScreen prints
+    `statement` directly rather than through a ClaimSurface, so this is the one
+    diagnosis surface `present_claims` cannot see. Flag it here — only for the
+    DURABLE case, because a provisional belief has no `misconceptions` row and so
+    no disposition lifecycle to ever be withdrawn from.
     """
 
     case_id = str(_case_value(case, "id", ""))
+    if durable:
+        mark_belief_surfaced(
+            repository,
+            belief_id=case_id,
+            claim_text=_case_value(case, "statement"),
+            surface="repair_case",
+        )
     return {
         "id": case_id,
         "statement": _case_value(case, "statement"),

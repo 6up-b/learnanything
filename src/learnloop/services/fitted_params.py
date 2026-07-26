@@ -23,6 +23,15 @@ GRADER_CHANNEL_SCOPE = "grader_channel_prior"
 # Resolved (with pinned heuristic defaults and a lifecycle stamp) by
 # `services.causal_probe_coherence.resolve_causal_probe_parameters`.
 CAUSAL_PROBE_POLICY_SCOPE = "causal_probe_policy"
+# Measurement §5.7 delayed cold probe: the "+2-3 weeks" horizon, the window the
+# probe stays takeable for, and the correctness cut at which a probe counts as
+# the certificate having held. Resolved (with pinned heuristic defaults and a
+# lifecycle stamp that rides on every ground-truth row) by
+# `services.certification_cold_probe.resolve_cold_probe_parameters`. These are
+# decision parameters, not truths, so they live here rather than in the TOML
+# config — nothing about "+2-3 weeks" is a constant of nature and the realized
+# `false_certification_rate` is what will eventually tune it.
+CERTIFICATION_COLD_PROBE_SCOPE = "certification_cold_probe"
 
 # Heuristic grade-channel prior policy knobs (measurement-correctness P4).
 # ``reliability`` is the floor for the seeded symmetric-confusion identity share;

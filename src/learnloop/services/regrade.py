@@ -10,6 +10,7 @@ from learnloop.codex.prompts import GRADING_PROMPT_VERSION
 from learnloop.codex.runtime import CodexRuntimeReport
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.attempts import GradeAttribution
 from learnloop.services.grading import (
     GradingValidationError,
@@ -182,7 +183,10 @@ def _regrade_attempt(
             vault=vault,
         )
     except Exception as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
 
     old_score = int(attempt["rubric_score"] or 0)
@@ -287,7 +291,7 @@ def _regrade_attempt(
         related_concept_id=learning_object.concept,
         clock=clock,
     )
-    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, client, clock=clock)
 
 
 def _agent_run_provider_fields(client: CodexClient | AIProviderClient, runtime) -> dict[str, str | None]:

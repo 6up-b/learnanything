@@ -9,6 +9,10 @@ Each cell encodes the dual axis for a (facet, capability) pair:
   mean (capability-agnostic at launch, §4.2, so the same Ready value tiles a
   facet's row; certification is the axis that discriminates capabilities).
 * **untested** — no direct evidence has touched this capability cell at all.
+* **measurement_state** — Meas §B2/§E2 provenance of the Ready number:
+  ``measured | inferred | claimed | unknown``. §B2 names this grid explicitly —
+  it renders Ready for untested cells, and an inference shown as if measured is
+  the defect. Facet-level like Ready itself, so it tiles the row with it.
 
 It supersedes the per-LO facet radar as the diagnostic drill-down (the radar
 stays for legacy mvp-0.6 vaults, which have no capability ledger). Pure read over
@@ -28,6 +32,11 @@ from learnloop.services.facet_state_reader import (
     is_canonical_state_vault,
 )
 from learnloop.services.goal_certification import required_capabilities_for_facet
+from learnloop.services.mastery import covering_learner_claim
+from learnloop.services.measurement_state import (
+    classify_measurement_state,
+    require_measurement_state,
+)
 from learnloop.services.selection_rewards import predicted_facet_recall
 from learnloop.vault.models import LoadedVault
 
@@ -43,6 +52,11 @@ class GridCell:
     direct_negative_mass: float
     ready: float                   # pooled prediction (capability-agnostic)
     tested: bool                   # any direct evidence touched this cell
+    # Provenance of ``ready`` (Meas §B2/§E2). Facet-level, exactly like ``ready``
+    # — labelling it from this cell's capability-scoped mass would say "measured"
+    # over a number that is facet-pooled. Display only; ``demonstrated`` and the
+    # certification credit are untouched by it.
+    measurement_state: str = "unknown"
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -55,6 +69,11 @@ class GridCell:
             "direct_negative_mass": self.direct_negative_mass,
             "ready": self.ready,
             "tested": self.tested,
+            # Gate the closed vocabulary where the label leaves Python: the
+            # label is always computed fresh (never persisted), so an
+            # out-of-vocabulary value can only be a code bug, and a render site
+            # that received one would display an inference as a measurement.
+            "measurement_state": require_measurement_state(self.measurement_state),
         }
 
 
@@ -109,6 +128,20 @@ def capability_grid(
         recall_by_facet[vault.canonical_facet_id(state.facet_id)] = state
     mastery = repository.mastery_state(learning_object_id)
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
+    min_mass = vault.config.recall_coverage.min_facet_evidence_mass
+    # §E2 claim coverage for the ``claimed`` arm — one LO, so one lazy lookup,
+    # skipped entirely unless some facet row reaches that arm.
+    claim_covers: bool | None = None
+
+    def _claim_present() -> bool:
+        nonlocal claim_covers
+        if claim_covers is None:
+            claim_covers = covering_learner_claim(vault, repository, learning_object_id) is not None
+        return claim_covers
+
+    def _facet_mass(facet: str) -> float:
+        state = recall_by_facet.get(facet)
+        return max(state.independent_evidence_mass, 0.0) if state is not None else 0.0
 
     def ready_for(facet: str) -> float:
         state = recall_by_facet.get(facet)
@@ -116,8 +149,18 @@ def capability_grid(
             mastery.logit_mean if mastery is not None else None,
             mastery.evidence_count if mastery is not None else 0,
             state.recall_mean if state is not None else None,
-            max(state.independent_evidence_mass, 0.0) if state is not None else 0.0,
+            _facet_mass(facet),
             blend_count,
+        )
+
+    def ready_state_for(facet: str) -> str:
+        """Meas §B2/§E2 provenance of ``ready_for(facet)`` — same ingredients."""
+
+        return classify_measurement_state(
+            evidence_mass=_facet_mass(facet),
+            min_evidence_mass=min_mass,
+            mastery_evidence_count=mastery.evidence_count if mastery is not None else 0,
+            claim_present=_claim_present,
         )
 
     capabilities_seen: set[str] = set()
@@ -130,6 +173,7 @@ def capability_grid(
                 evidence_by_cap[cell.capability] = cell
         cell_caps = sorted(set(required_caps) | set(evidence_by_cap))
         ready = ready_for(facet)
+        ready_state = ready_state_for(facet)
         for capability in cell_caps:
             capabilities_seen.add(capability)
             evidence = evidence_by_cap.get(capability)
@@ -147,6 +191,7 @@ def capability_grid(
                     direct_negative_mass=neg,
                     ready=ready,
                     tested=(pos + neg) > 0.0,
+                    measurement_state=ready_state,
                 )
             )
     return CapabilityGrid(

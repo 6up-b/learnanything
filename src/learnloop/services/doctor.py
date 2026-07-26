@@ -69,6 +69,11 @@ class DoctorReport:
     state_sync: StateSyncResult | None = None
     codex_runtime: CodexRuntimeReport | None = None
     ai_runtime: AIRuntimeReport | None = None
+    #: Aggregate contract-cell reachability (spec_measurement_efficiency §5.8.2).
+    #: Aggregates only — §5.8's argument is stated in proportions, and the
+    #: per-cell commissioning queue is unbounded, so it lives behind
+    #: ``learnloop contract-reachability`` instead of every ``doctor --json``.
+    contract_reachability: dict[str, Any] | None = None
 
     @property
     def clean(self) -> bool:
@@ -93,6 +98,7 @@ class DoctorReport:
             "state_sync": self.state_sync.as_dict() if self.state_sync else None,
             "codex_runtime": self.codex_runtime.as_dict() if self.codex_runtime else None,
             "ai_runtime": self.ai_runtime.as_dict() if self.ai_runtime else None,
+            "contract_reachability": self.contract_reachability,
         }
 
 
@@ -157,6 +163,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_contract_drift(vault, repository, issues)
     _check_mvp07_canonical_state(vault, repository, issues)
     _check_pre_first_practice_identifiability(vault, repository, issues, fix_state=fix_state)
+    reachability = _check_contract_cell_reachability(vault, issues)
 
     return DoctorReport(
         root=vault_root,
@@ -164,6 +171,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         state_sync=state_sync_result,
         codex_runtime=codex_runtime,
         ai_runtime=ai_runtime,
+        contract_reachability=reachability,
     )
 
 
@@ -1356,6 +1364,104 @@ def _check_pre_first_practice_identifiability(
                 registry_hash=registry_hash,
                 finding_count=len(findings),
             )
+
+
+#: Doctor code per non-reachable verdict (spec_measurement_efficiency §5.8.2).
+_REACHABILITY_CODES: dict[str, str] = {
+    "MISMATCH_ABOVE": "contract_cell:mismatch_above",
+    "MISMATCH_BELOW": "contract_cell:mismatch_below",
+    "NO_INSTRUMENT": "contract_cell:no_instrument",
+    "INDETERMINATE": "contract_cell:indeterminate_capability",
+}
+
+_REACHABILITY_HEADLINE: dict[str, str] = {
+    "MISMATCH_ABOVE": "observed only ABOVE the required capability",
+    "MISMATCH_BELOW": "observed only BELOW the required capability",
+    "NO_INSTRUMENT": "no item observes the facet at any capability",
+    "INDETERMINATE": "required capability is outside the closed vocabulary",
+}
+
+_REACHABILITY_ACTION: dict[str, str] = {
+    "MISMATCH_ABOVE": (
+        "Deeper evidence already exists; propagate downward dominance rather than "
+        "authoring a new item."
+    ),
+    "MISMATCH_BELOW": (
+        "Author instruments AT the required capability (depth_rungs targets). "
+        "Dominance only propagates downward, so lower-rung practice can never "
+        "close these cells."
+    ),
+    "NO_INSTRUMENT": (
+        "Author an instrument for this facet, or retire the requirement: a facet "
+        "admitted with no authorable instrument is uninstrumented vocabulary."
+    ),
+    "INDETERMINATE": (
+        "Repair the blueprint capability (see blueprint:invalid_capability); "
+        "reachability abstains until the cell can be placed on the ladder."
+    ),
+}
+
+
+def _check_contract_cell_reachability(
+    vault: LoadedVault, issues: list[HealthIssue]
+) -> dict[str, Any] | None:
+    """Contract-cell reachability as a standing check (§5.8.2, plan item 3.1).
+
+    Pure static analysis — no attempts, no learner state, no provider calls. It
+    answers "can *any* authored item observe this contract cell at the capability
+    the contract names?", which on ``fixtures/linear_algebra`` was false for 55 of
+    64 cells and for *every* integration cell: certification was structurally
+    impossible for 20 of 21 LOs, and 43 attempts were spent before anyone looked.
+
+    Findings are **warnings**, one per (LO, verdict) group, matching the review
+    severity the identifiability doctor already uses (§11.3): an unreachable cell
+    is valid content carrying an authoring obligation, not malformed content, and
+    `error` here would hard-fail every legacy and mid-authoring vault. The CLI
+    still exits non-zero on any issue, so the finding is not silent — it is just
+    not classified as a defect. The full per-cell commissioning queue (Stage 5.1's
+    input) is deliberately NOT inlined here; ``learnloop contract-reachability
+    --json`` reads the same function for that.
+
+    Returns the aggregate summary for :class:`DoctorReport`, or ``None`` when the
+    vault declares no contract cells at all (a legacy vault has nothing to
+    certify; reporting a share for it would be a fake 100%).
+    """
+
+    from learnloop.services.contract_reachability import analyze_contract_reachability
+
+    report = analyze_contract_reachability(vault)
+    if not report.cells:
+        return None
+
+    grouped: dict[tuple[str, str], list[Any]] = {}
+    for row in report.commissioning_queue():
+        grouped.setdefault((row.cell.learning_object_id, str(row.verdict)), []).append(row)
+    for (learning_object_id, verdict), rows in sorted(grouped.items()):
+        facets = sorted({row.cell.facet_id for row in rows})
+        capabilities = sorted({row.cell.capability for row in rows})
+        integration = sum(1 for row in rows if row.cell.integration)
+        issues.append(
+            _issue(
+                "warning",
+                _REACHABILITY_CODES[verdict],
+                (
+                    f"{learning_object_id} has {len(rows)} unreachable contract cell(s) "
+                    f"({_REACHABILITY_HEADLINE[verdict]}): "
+                    f"capabilities {capabilities} over facets {facets}"
+                    + (f"; {integration} integration cell(s)" if integration else "")
+                ),
+                entity_id=learning_object_id,
+                details={
+                    "learning_object_id": learning_object_id,
+                    "verdict": verdict,
+                    "cell_count": len(rows),
+                    "integration_cell_count": integration,
+                    "cells": [row.as_dict() for row in rows],
+                    "suggested_action": _REACHABILITY_ACTION[verdict],
+                },
+            )
+        )
+    return report.summary()
 
 
 def _check_contract_drift(vault, repository, issues: list[HealthIssue]) -> None:

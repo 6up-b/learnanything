@@ -652,9 +652,18 @@ def test_cross_shard_same_title_concepts_consolidate_deterministically(tmp_path)
         budget_overrides={"synthesis_shard_input_tokens": 1},
     )
     # Both shards emitted "Symmetric matrix"; only one concept survives while
-    # both shards' facets/LOs/practice items are kept and still resolve.
+    # both shards' LOs/practice items are kept and still resolve.
     assert result.item_counts["concept"] == 1
-    assert result.item_counts["facet"] == 4
+    # Plan item 5.4 / Meas D2: the two shards emit byte-identical facets, so the
+    # mint gate aliases shard 2's copies into shard 1's rather than minting 4 rows
+    # for 2 atoms. This assertion used to read 4 — that was the near-duplicate
+    # firehose D2 exists to stop, visible here at its smallest scale.
+    assert result.item_counts["facet"] == 2
+    aliased = [
+        d for d in result.gate_diagnostics
+        if d["gate"] == "facet_mint" and "alias" in d["message"]
+    ]
+    assert len(aliased) == 2
     assert result.item_counts["learning_object"] == 2
     assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
 

@@ -614,8 +614,22 @@ def generate_rung_variant(
             request_id, status="failed", failure_reason=str(exc), clock=clock
         )
         return {"request_id": request_id, "status": "failed"}
+    # A rung-variant request is an explicit instruction to author one step off the
+    # LO's own waypoint (the cheap correction when an item landed too hard/easy), so
+    # it deliberately opts out of Stage 5.1's contract-driven admission set: the
+    # commissioning fields are cleared and `_RungGate` holds the variant to
+    # `target_rung` alone, exactly as it did before rung-correct generation landed.
+    # Leaving them populated would hard-fail an easier variant as "off-contract"
+    # and break the safety valve.
     targets = [
-        dataclasses.replace(target, rung=target_rung, requested_new_items=1)
+        dataclasses.replace(
+            target,
+            rung=target_rung,
+            requested_new_items=1,
+            commissioned_cells=[],
+            contract_capabilities=[],
+            deferred_cells=[],
+        )
         for target in plan.targets
         if target.learning_object_id == lo_id
     ]
@@ -665,6 +679,32 @@ def generate_rung_variant(
                 if expected_kind in DIRECTIONS:
                     rung_gate.violations.extend(
                         audit_variant_direction(source_item, payload, expected_kind)
+                    )
+                # §5.8 rule 2 / §7: persist the SHARED diff audit as well. The
+                # direction checks above are direction-specific; this is the
+                # cross-lane structural diff (undeclared axis changes,
+                # held-constant violations) plus the seat the adversarial-LLM
+                # reviewer takes at P2. Recorded on every variant even without a
+                # reviewer, because the spec's own plan is that the declarations
+                # are that reviewer's audit substrate in the meantime — and a
+                # deterministic violation is a violation now, reviewer or not.
+                audit = audit_variant_manipulation_contract(
+                    repository,
+                    source_item,
+                    payload,
+                    adversarial_review=None,
+                    generation_agent_run_id=None,
+                    reviewer_agent_run_id=None,
+                    clock=clock,
+                )
+                structural = audit.get("structural_diff") or {}
+                for axis in structural.get("undeclared_differences") or []:
+                    rung_gate.violations.append(
+                        f"manipulation_contract:undeclared:{axis}"
+                    )
+                for axis in structural.get("held_constant_violations") or []:
+                    rung_gate.violations.append(
+                        f"manipulation_contract:held_constant:{axis}"
                     )
 
         patch_id = generate_authoring_proposal(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import replace
 from datetime import timedelta
 from math import log
@@ -11,6 +13,7 @@ from learnloop.db.repositories import FacetRecallState, FacetUncertaintyState, M
 from learnloop.services.facet_state_reader import (
     facet_recall_states_for_lo,
     facet_uncertainty_states_for_lo,
+    is_canonical_state_vault,
 )
 from learnloop.services.mastery import display_mastery
 from learnloop.services.probes import apply_facet_observation
@@ -95,6 +98,132 @@ def scope_facets(
     return facets
 
 
+#: How much of a cell's measurement debt an INFERRED value relieves
+#: (spec_measurement_efficiency_v1 §5.2: "the floor is relieved by inference as
+#: well as direct touch, at the Part II discount").  An inferred cell is not a
+#: measured cell, but it is also not an unexamined one, and the variance floor
+#: should say so.  Part II's inference rules (B1 dominance, B3 entailment) are
+#: Stage 8; until one supplies inferred cells this term is inert, which is
+#: deliberate — the seam exists so the discount is decided once, in the open,
+#: rather than invented by whichever inference rule ships first.
+INFERRED_CELL_COVERAGE_DISCOUNT = 0.5
+
+#: The coverage denominator's SEMANTICS version (migration 138).  Bump it when the
+#: denominator's meaning changes — never for a bug fix that leaves the meaning
+#: intact.  On its own it is not what gets recorded: see
+#: :func:`coverage_denominator_version`.
+COVERAGE_DENOMINATOR_SEMANTICS = "coverage_contract_frontier_v1"
+
+#: Back-compat alias. Readers that only need the semantics tag keep working.
+COVERAGE_DENOMINATOR_VERSION = COVERAGE_DENOMINATOR_SEMANTICS
+
+
+def coverage_denominator_version(
+    vault: LoadedVault, repository: Repository | None = None
+) -> str:
+    """The version stamped on a rebuild: semantics tag + effective-frontier hash.
+
+    Recorded on every derived-state rebuild so a change in the coverage
+    denominator surfaces as exactly ONE honest recalibration entry — "estimates
+    recomputed, your evidence unchanged" — instead of a silent jump in displayed
+    mastery.
+
+    **Why the hash is over the effective frontier and not over the YAML.**  What
+    moves displayed mastery is the set of `(LO, facet, capability)` cells the
+    denominator actually counts.  Hashing the authored files instead would be
+    wrong in both directions: a comment or `updated_at` touch would mint a
+    phantom boundary and narrate a recalibration that did not happen, while a
+    facet alias/merge that changes which canonical cells resolve would move the
+    denominator without changing any file.  Hashing the resolved cell set makes
+    the version a function of the thing being versioned.
+
+    Two properties this buys, both load-bearing (§5.2 / A6):
+
+    * **Idempotence.** Re-running a backfill, or any later ordinary rebuild,
+      recomputes the same frontier and therefore the same version, so no second
+      recalibration entry is emitted for one change.
+    * **One entry per real change.** A vault-content edit that genuinely adds or
+      removes cells changes the hash exactly once.
+
+    Legacy vaults with no authored blueprint components contribute no cells and
+    hash to the empty frontier, which is correct: their denominator is the
+    unchanged legacy item-derived one, so they must never emit a boundary.
+    """
+
+    cells: set[tuple[str, str]] = set()
+    frontier_by_lo: list[tuple[str, str, str]] = []
+    for learning_object_id in sorted(vault.learning_objects):
+        cells, authored = contract_frontier(vault, learning_object_id, repository)
+        if not (cells and authored):
+            # Only LOs whose denominator IS the frontier can move it.
+            continue
+        frontier_by_lo.extend(
+            (learning_object_id, facet, capability)
+            for facet, capability in sorted(cells)
+        )
+    digest = hashlib.sha256(
+        json.dumps(sorted(frontier_by_lo), separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    return f"{COVERAGE_DENOMINATOR_SEMANTICS}:{digest}"
+
+
+def contract_frontier(
+    vault: LoadedVault,
+    learning_object_id: str,
+    repository: Repository | None = None,
+) -> tuple[set[tuple[str, str]], bool]:
+    """The ``(facet, capability)`` cells this LO's contract actually requires.
+
+    Returns ``(cells, authored)``.  ``authored`` is False when the cells were
+    derived from the legacy item-mode fallback rather than from blueprint recipe
+    components, which is what lets callers keep legacy vaults on their existing
+    behaviour instead of silently re-basing them onto a denominator their content
+    never declared.
+
+    §5.2: the coverage denominator becomes the contract frontier instead of the
+    union of active items' ``evidence_facets``.  The variance floor is right in
+    principle — you should be less certain about what you have not measured — but
+    an item-derived denominator is an artifact of AUTHORING HISTORY, not an
+    obligation, so the floor was punishing the learner for the system's authoring
+    activity.  A cell nobody's goal requires is not a measurement debt.
+
+    The frontier is the UNION over the LO's blueprint recipes, not the
+    best-covered single recipe.  That deliberately overstates debt where recipes
+    are genuine alternatives, and it is the conservative direction for a variance
+    floor (it errs toward less confidence).  It also keeps one definition of
+    "required cell" in the vault: ``goal_certification.required_capabilities_for_facet``
+    already reads the same components, and a second, subtly different frontier
+    would be a worse defect than a slightly wide one.  Per-recipe routing belongs
+    with the certification substitution rule (§5.3), which owns "for SOME
+    blueprint".
+    """
+
+    from learnloop.services.goal_certification import required_capabilities_for_facet
+
+    learning_object = vault.learning_objects.get(learning_object_id)
+    if learning_object is None:
+        return set(), False
+    cells: set[tuple[str, str]] = set()
+    authored_any = False
+    legacy_any = False
+    for facet in learning_object_facet_union(learning_object) or sorted(
+        required_facets(vault, learning_object_id, repository)
+    ):
+        canonical = vault.canonical_facet_id(str(facet))
+        capabilities, from_legacy_default = required_capabilities_for_facet(
+            vault, learning_object, canonical
+        )
+        if not capabilities:
+            continue
+        if from_legacy_default:
+            legacy_any = True
+        else:
+            authored_any = True
+        for capability in capabilities:
+            cells.add((canonical, str(capability)))
+    return cells, (authored_any and not legacy_any)
+
+
 def lo_relative_coverage(
     vault: LoadedVault,
     repository: Repository,
@@ -153,7 +282,42 @@ def covered_required_fraction(
     *,
     learning_object_id: str,
     aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None = None,
+    inferred_cells: Mapping[tuple[str, str], float] | None = None,
 ) -> tuple[float, dict[str, Any]]:
+    """Fraction of the contract frontier that carries evidence (§5.2).
+
+    Two denominators live here, and which one applies is a property of the vault:
+
+    * **Contract frontier** — the ``(facet, capability)`` cells the LO's blueprint
+      recipes require. This is the §5.2 denominator, and it is per-CELL: a facet
+      measured at ``retrieval`` when the contract requires ``transfer`` is not a
+      covered obligation, which is the 72%-of-attempts mismatch Step 0 measured.
+    * **Legacy item-derived facets** — vaults with no authored blueprint
+      components keep the previous behaviour exactly, including its "nothing
+      required ⇒ 1.0". §5.2 is strictly additive.
+
+    The vacuous case §5.2 names is the first branch's: an LO that DECLARES a
+    frontier but has no instruments used to report 1.0 — full coverage from zero
+    measurement — because the item-derived ``required`` set was empty. It now
+    reports 0.0, which is the honest reading and (correctly) raises the variance
+    floor rather than lowering it.
+
+    ``inferred_cells`` maps a cell to its inference confidence and relieves the
+    denominator at :data:`INFERRED_CELL_COVERAGE_DISCOUNT`. No caller supplies it
+    yet (Part II is Stage 8); the parameter exists so the discount is decided in
+    one place rather than by whichever inference rule ships first.
+    """
+
+    frontier, authored = contract_frontier(vault, learning_object_id, repository)
+    if frontier and authored:
+        return _covered_frontier_fraction(
+            vault,
+            repository,
+            learning_object_id=learning_object_id,
+            frontier=frontier,
+            aggregate_facet_recall=aggregate_facet_recall,
+            inferred_cells=inferred_cells,
+        )
     required = required_facets(vault, learning_object_id, repository)
     if not required:
         return 1.0, {
@@ -161,6 +325,7 @@ def covered_required_fraction(
             "covered_required_facets": [],
             "min_facet_evidence_mass": vault.config.recall_coverage.min_facet_evidence_mass,
             "covered_required_fraction": 1.0,
+            "denominator_basis": "legacy_item_facets",
         }
     state_by_facet: dict[str, Any] = {
         state.facet_id: state
@@ -187,6 +352,106 @@ def covered_required_fraction(
         "required_facets": sorted(required),
         "covered_required_facets": covered,
         "min_facet_evidence_mass": threshold,
+        "covered_required_fraction": value,
+        "denominator_basis": "legacy_item_facets",
+    }
+
+
+def _covered_frontier_fraction(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    learning_object_id: str,
+    frontier: set[tuple[str, str]],
+    aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None,
+    inferred_cells: Mapping[tuple[str, str], float] | None,
+) -> tuple[float, dict[str, Any]]:
+    """Per-cell coverage over the contract frontier."""
+
+    threshold = vault.config.recall_coverage.min_facet_evidence_mass
+    facets = sorted({facet for facet, _capability in frontier})
+
+    # Per-cell direct evidence, from the capability ledger. A facet whose only
+    # evidence sits at another capability leaves this cell untouched — that
+    # distinction is the entire point of the capability axis, and it is invisible
+    # to the facet-level `independent_evidence_mass` the legacy branch reads.
+    cell_mass: dict[tuple[str, str], float] = {}
+    for facet in facets:
+        for cell in repository.facet_capability_evidence_for_facet(facet):
+            key = (facet, str(cell.capability))
+            cell_mass[key] = max(0.0, float(cell.direct_positive_mass)) + max(
+                0.0, float(cell.direct_negative_mass)
+            )
+
+    # A vault that predates the capability ledger cannot answer per-cell, and
+    # answering per-facet while CLAIMING per-cell would be the fabrication this
+    # item exists to remove. Fall back to the facet-level mass, recorded as such.
+    #
+    # The fallback is gated on whether the vault SUPPORTS the ledger, not on
+    # whether these facets happen to have rows in it. Keying on row presence
+    # would silently credit a `transfer` cell from facet-level mass earned at
+    # `retrieval` on any canonical vault that simply has no evidence for this LO
+    # yet — the precise error the capability axis exists to stop.
+    ledger_available = is_canonical_state_vault(vault)
+    facet_mass: dict[str, float] = {}
+    for state in facet_recall_states_for_lo(vault, repository, learning_object_id):
+        if state.practice_item_id is not None:
+            continue
+        facet_mass[vault.canonical_facet_id(state.facet_id)] = float(
+            state.independent_evidence_mass
+        )
+    for facet, state in dict(aggregate_facet_recall or {}).items():
+        if state is None:
+            continue
+        value = (
+            float(state.get("independent_evidence_mass", 0.0))
+            if isinstance(state, Mapping)
+            else float(getattr(state, "independent_evidence_mass", 0.0))
+        )
+        facet_mass[vault.canonical_facet_id(str(facet))] = value
+
+    inferred = {
+        (str(key[0]), str(key[1])): float(value)
+        for key, value in dict(inferred_cells or {}).items()
+    }
+    measured: list[dict[str, str]] = []
+    inferred_covered: list[dict[str, str]] = []
+    uncovered: list[dict[str, str]] = []
+    credit = 0.0
+    for facet, capability in sorted(frontier):
+        cell = {"facet": facet, "capability": capability}
+        observed = (
+            cell_mass.get((facet, capability), 0.0)
+            if ledger_available
+            else facet_mass.get(facet, 0.0)
+        )
+        if observed > threshold:
+            measured.append(cell)
+            credit += 1.0
+        elif (facet, capability) in inferred:
+            inferred_covered.append(cell)
+            credit += INFERRED_CELL_COVERAGE_DISCOUNT
+        else:
+            uncovered.append(cell)
+    value = clamp(credit / len(frontier))
+    return value, {
+        "denominator_basis": (
+            "contract_frontier" if ledger_available else "contract_frontier_facet_mass"
+        ),
+        "frontier_cells": [
+            {"facet": facet, "capability": capability}
+            for facet, capability in sorted(frontier)
+        ],
+        "measured_cells": measured,
+        "inferred_cells": inferred_covered,
+        "uncovered_cells": uncovered,
+        "inferred_discount": INFERRED_CELL_COVERAGE_DISCOUNT,
+        "min_facet_evidence_mass": threshold,
+        # Kept for readers written against the legacy trace shape.
+        "required_facets": facets,
+        "covered_required_facets": sorted(
+            {entry["facet"] for entry in measured}
+        ),
         "covered_required_fraction": value,
     }
 

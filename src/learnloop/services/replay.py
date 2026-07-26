@@ -131,6 +131,13 @@ def rebuild_derived_state(
     # deliberate recalibration boundary rather than silently.
     from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
 
+    # Measurement §5.2: the coverage denominator is a third, independent
+    # recalibration boundary — it moves DISPLAYED mastery (through the variance
+    # floor) without touching the evidence or the projection. The version is
+    # content-addressed on the effective frontier, so an ordinary rebuild that
+    # changes no cells re-stamps the same value and emits no entry.
+    from learnloop.services.facet_diagnostics import coverage_denominator_version
+
     marker_id = repository.record_derived_state_rebuild(
         scope=scope,
         learning_object_ids=rebuilt,
@@ -138,6 +145,7 @@ def rebuild_derived_state(
         rebuilt_learning_objects=len(rebuilt),
         replayed_attempts=replayed_attempts,
         canonical_projection_version=CANONICAL_PROJECTION_VERSION,
+        coverage_denominator_version=coverage_denominator_version(vault, repository),
         clock=clock,
     )
     return RebuildResult(

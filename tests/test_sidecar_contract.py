@@ -337,6 +337,59 @@ def test_sidecar_submit_attempt_persists_feedback_bundle(tmp_path):
     assert isinstance(tau, (int, float)) and tau > 0
 
 
+def test_sidecar_submission_schedules_certification_cold_probe(tmp_path, monkeypatch):
+    import learnloop.services.certification_cold_probe as cold_probe
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    scheduled: list[str | None] = []
+
+    def capture_schedule(
+        _vault,
+        _repository,
+        *,
+        learning_object_id=None,
+        clock=None,
+    ):
+        scheduled.append(learning_object_id)
+
+    monkeypatch.setattr(
+        cold_probe,
+        "schedule_certification_cold_probes",
+        capture_schedule,
+    )
+    session_id = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}},
+        ]
+    )[1]["result"]["sessionId"]
+
+    _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "submit_attempt",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": "pi_svd_define_001",
+                    "answerMd": "SVD is U Sigma V transpose.",
+                    "attemptType": "independent_attempt",
+                    "selfGrade": {
+                        "criterionPoints": {"correctness": 4},
+                        "confidence": 5,
+                    },
+                },
+            },
+        ]
+    )
+
+    assert "lo_svd_definition" in scheduled
+
+
 def test_sidecar_submission_retry_returns_one_attempt_and_one_response(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)

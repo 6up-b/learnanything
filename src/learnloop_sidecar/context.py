@@ -53,6 +53,14 @@ class SidecarContext:
         # immediately show their historical attempts in the knowledge field.
         # This is a no-op for legacy vaults and idempotent for current ones.
         project_canonical_facet_state(self.vault, self.repository)
+        # Self-heal certificates earned before the live attempt hook existed.
+        # The §5.7 scheduler is idempotent per content-addressed certificate and
+        # reports unmeasurable certificates rather than inventing a probe.
+        from learnloop.services.certification_cold_probe import (
+            schedule_certification_cold_probes,
+        )
+
+        schedule_certification_cold_probes(self.vault, self.repository)
         # Startup maintenance probes the Codex runtime, which (for the HTTP provider)
         # can launch the server and block up to startup_timeout_seconds. Skip it on
         # refreshes that only need fresh vault/DB state, not a runtime health pass.

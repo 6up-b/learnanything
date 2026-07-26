@@ -25,6 +25,7 @@ from learnloop.db.repositories import (
     Repository,
 )
 from learnloop.ids import new_ulid
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.fsrs import (
     FSRS6_DEFAULT_WEIGHTS,
@@ -349,6 +350,16 @@ class AttemptValidationError(ValueError):
     pass
 
 
+#: Delayed follow-up lanes whose defining claim is an UNASSISTED attempt: the
+#: repair-scoped cold retry (causal §6.2, migration 058) and the certification
+#: cold probe (measurement §5.7, migration 139). Named here rather than importing
+#: from either service, because this is the shared attempt validator and it must
+#: not depend on which lane happens to be loaded.
+COLD_FOLLOWUP_TASK_KINDS: frozenset[str] = frozenset(
+    {"cold_retry", "certification_cold_probe"}
+)
+
+
 def complete_attempt_with_codex_fallback(
     vault: LoadedVault,
     repository: Repository,
@@ -456,10 +467,16 @@ def _complete_attempt_with_agent_fallback(
             clock=clock,
         )
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        # A7: a grade that fell back to self-grading still paid for the model
+        # call it could not use; C3's cost ratio needs those tokens in the
+        # numerator or the augmented loop looks cheaper than it is.
+        finish_agent_run(
+            repository, agent_run_id, ai_client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         result = complete_self_graded_attempt(vault, repository, draft, fallback_grade, clock=clock)
         return _with_fallback(result, f"{failure_prefix}:{type(exc).__name__}", agent_run_id=agent_run_id)
-    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
     return _with_source(result, grading_source=grading_source, agent_run_id=agent_run_id)
 
 
@@ -601,9 +618,12 @@ def _complete_attempt_with_agent_required(
             clock=clock,
         )
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        finish_agent_run(
+            repository, agent_run_id, ai_client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
-    repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
     return _with_source(result, grading_source=grading_source, agent_run_id=agent_run_id)
 
 
@@ -919,7 +939,12 @@ def _resolve_attempt_target(
         cold_task = repository.active_followup_task_for_item(
             draft.practice_item_id, at=utc_now_iso(clock)
         )
-        if cold_task is not None and cold_task.get("kind") == "cold_retry":
+        # Both delayed lanes are COLD by definition: the repair-scoped
+        # `cold_retry` (§6.2) and the §5.7 certification probe, whose whole claim
+        # is "unassisted performance on a held-out surface two-to-three weeks
+        # later". A primed or hinted attempt cannot make that claim, so the guard
+        # is on the lane class, not on one kind.
+        if cold_task is not None and cold_task.get("kind") in COLD_FOLLOWUP_TASK_KINDS:
             if draft.primed or draft.hints_used > 0 or draft.attempt_type == "hinted_attempt":
                 raise AttemptValidationError("a cold retry must be unassisted and unprimed")
     return item, learning_object, rubric
@@ -1071,6 +1096,25 @@ def apply_attempt(
     from learnloop.services.remediation import record_remediation_attempt
 
     record_remediation_attempt(repository, application.attempt_record, clock=clock)
+    # Measurement §5.7: the delayed cold probe's ground-truth label. Sits here,
+    # beside the repair-scoped cold retry and deliberately BEFORE
+    # `_project_canonical_belief` below, because the certificate state it records
+    # must be the one the probe was administered against — not the one this
+    # attempt's own evidence produces. After projection, a failing probe would
+    # have already withdrawn the certificate it just falsified, and the label
+    # would abstain instead of recording the false certification.
+    from learnloop.services.certification_cold_probe import (
+        record_certification_cold_probe_attempt,
+    )
+
+    record_certification_cold_probe_attempt(
+        vault,
+        repository,
+        application.attempt_record,
+        grading_source=application.result.grading_source,
+        grading_agent_run_id=application.result.agent_run_id,
+        clock=clock,
+    )
     if attempt.draft.primed:
         # Priming IS the intervention, so the attempt is a repair activity
         # (§7). A primed *probe* is also a diagnostic administration; both

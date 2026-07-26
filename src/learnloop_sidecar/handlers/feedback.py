@@ -89,6 +89,23 @@ def report_unresolved_cause(
         )
     except ValueError as exc:
         raise SidecarError("invalid_unresolved_cause_report", str(exc)) from exc
+    # §5.6 arm (c): "I believed one of these" is the learner-confirmation half of
+    # durable promotion. It promotes only in conjunction with a deterministic
+    # proof that the response necessarily instantiates that same rule, so this
+    # call is a no-op unless the episode's selected repair was verifier-proved.
+    # Run here rather than inside the recorder because the confirmation must be
+    # persisted first — a promotion is downstream of the evidence, never a
+    # precondition for storing it.
+    from learnloop.services.durable_promotion import (
+        apply_proved_and_confirmed_promotion,
+    )
+
+    factor = repository.unresolved_cause_factor(params.factor_id)
+    attempt_id = str((factor or {}).get("attempt_id") or "")
+    if attempt_id:
+        apply_proved_and_confirmed_promotion(
+            vault, repository, attempt_id=attempt_id
+        )
     return result
 
 

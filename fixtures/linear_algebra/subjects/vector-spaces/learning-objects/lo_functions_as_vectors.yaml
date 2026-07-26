@@ -29,9 +29,6 @@ blueprints:
             modality: facilitating
         any_of: []
         integration:
-          facet: facet_for_functions_with_a_common_domain_and_scalar_va
-          capability: coordination
-          modality: hard
 difficulty_prior:
 difficulty_source:
 tags: []
@@ -78,4 +75,4 @@ provenance:
       source_id: src_01KY3VM8YECG2R5KEJQB14SBJY
       span_hash:
 created_at: '2026-07-22T03:48:21Z'
-updated_at: '2026-07-22T03:49:03Z'
+updated_at: '2026-07-26T18:41:58Z'

@@ -16,7 +16,7 @@ import type {
   UnresolvedCauseDto,
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
-import { BlockBar, COLOR, Dim, Faint, FONT_MONO, Pill, SectionHeader, type PillColor } from "./term";
+import { BlockBar, COLOR, Dim, Faint, FONT_MONO, measurementStateColor, measurementStateLabel, Pill, SectionHeader, type PillColor } from "./term";
 import { CommandOverlayFrame, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
 
 const pct = (value: number | null | undefined): string =>
@@ -312,7 +312,21 @@ export function RecipeTree({ readiness }: { readiness: LoReadinessDto }) {
 
 // -- Capability grid (facet × capability heatmap) -----------------------------
 
-function GridCell({ demonstrated, ready, tested }: { demonstrated: boolean; ready: number; tested: boolean }) {
+// `measurementState` (Meas §B2) qualifies the Ready bar, which this grid renders
+// even for untested cells — the spec names this surface as the place an inference
+// reads as a measurement. The marker/label row above it stays the certification
+// axis (demonstrated / tested / untested); the two are never blended.
+function GridCell({
+  demonstrated,
+  ready,
+  tested,
+  measurementState
+}: {
+  demonstrated: boolean;
+  ready: number;
+  tested: boolean;
+  measurementState?: string;
+}) {
   const marker = demonstrated ? "●" : tested ? "◌" : "·";
   const label = demonstrated ? "demonstrated" : tested ? "tested" : "untested";
   const tone = demonstrated ? COLOR.green : tested ? COLOR.cyan : COLOR.textFaint;
@@ -332,6 +346,9 @@ function GridCell({ demonstrated, ready, tested }: { demonstrated: boolean; read
       <div style={{ marginTop: 3, display: "flex", alignItems: "center", gap: 6, color: COLOR.textDim, fontSize: 11 }}>
         <BlockBar value={ready} width={5} color={COLOR.cyan} />
         <span>{pct(ready)}</span>
+      </div>
+      <div style={{ marginTop: 2, color: measurementStateColor(measurementState), fontSize: 10, whiteSpace: "nowrap" }}>
+        {measurementStateLabel(measurementState)}
       </div>
     </td>
   );
@@ -410,7 +427,15 @@ export function CapabilityGridView({ result }: { result: CapabilityGridResult })
                       </td>
                     );
                   }
-                  return <GridCell key={cap} demonstrated={cell.demonstrated} ready={cell.ready} tested={cell.tested} />;
+                  return (
+                    <GridCell
+                      key={cap}
+                      demonstrated={cell.demonstrated}
+                      ready={cell.ready}
+                      tested={cell.tested}
+                      measurementState={cell.measurementState}
+                    />
+                  );
                 })}
               </tr>
             ))}
@@ -423,6 +448,7 @@ export function CapabilityGridView({ result }: { result: CapabilityGridResult })
         <span style={{ color: COLOR.textFaint }}>· required, untested</span>
         <span style={{ color: COLOR.textFaint }}>— not required</span>
         <Faint>bar = predicted recall</Faint>
+        <Faint>under the bar = where that prediction came from (measured / inferred / claimed / unmeasured)</Faint>
       </div>
       {readiness && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${COLOR.border}` }}>

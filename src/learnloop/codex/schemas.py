@@ -627,9 +627,15 @@ class RepairedTrace(BaseModel):
 
 
 class RepairVerificationRequest(BaseModel):
-    """A request for a backend verifier, never a model-supplied verdict."""
+    """A request for a backend verifier, never a model-supplied verdict.
 
-    kind: Literal["symbolic_equality", "exact_match"]
+    ``test_execution`` is requestable but carries no result field: the outcome
+    reaches ``validate_repair_candidate`` through its ``execution_result``
+    parameter, from a trusted caller. A model that could attach its own
+    ``returncode`` would be issuing itself a deterministic verdict.
+    """
+
+    kind: Literal["symbolic_equality", "exact_match", "test_execution"]
     assumptions: list[str] = Field(default_factory=list)
     required_assumptions: list[str] = Field(default_factory=list)
 

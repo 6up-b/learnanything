@@ -328,6 +328,8 @@ def test_blind_bundles_diff_audit_and_review_ladder(tmp_path):
     )
     assert seen_inputs
     assert "learner_answer" not in str(seen_inputs[0])
+    assert "postdictive_claims" not in str(seen_inputs[0])
+    assert seen_inputs[0]["hypothesis"]["target_ref"] is not None
     assert first_bundle["generated_without_observation"]
     classified = classify_against_blind_bundles(
         repository,

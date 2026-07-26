@@ -26,9 +26,6 @@ blueprints:
             modality: hard
         any_of: []
         integration:
-          facet: facet_two_lists_are_equal_exactly_when_they_have_the_s
-          capability: coordination
-          modality: hard
 difficulty_prior:
 difficulty_source:
 tags: []
@@ -62,4 +59,4 @@ provenance:
       source_id: src_01KY2YG27G1SDWA4FN939ZBB34
       span_hash:
 created_at: '2026-07-22T03:48:06Z'
-updated_at: '2026-07-22T03:48:46Z'
+updated_at: '2026-07-26T18:41:58Z'

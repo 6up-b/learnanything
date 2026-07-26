@@ -31,9 +31,6 @@ blueprints:
             modality: hard
         any_of: []
         integration:
-          facet: facet_multiply_complex_numbers_by_distributing_replaci
-          capability: coordination
-          modality: hard
 difficulty_prior:
 difficulty_source:
 tags: []
@@ -80,4 +77,4 @@ provenance:
       source_id: src_01KY2YG27G1SDWA4FN939ZBB34
       span_hash:
 created_at: '2026-07-22T03:47:54Z'
-updated_at: '2026-07-22T03:48:32Z'
+updated_at: '2026-07-26T18:41:58Z'

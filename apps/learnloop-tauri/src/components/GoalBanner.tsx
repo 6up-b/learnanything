@@ -14,7 +14,7 @@ import type { ClaimCandidateDto, ExamStatusSnapshot, GoalAtRiskFacetDto, GoalDto
 import { GoalTrajectoryChart } from "./GoalTrajectoryChart";
 import { mintVisitId } from "./ClaimSurface";
 import { TrackRecordView } from "./TrackRecordView";
-import { BlockBar, COLOR, Faint, FONT_MONO, Pill } from "./term";
+import { BlockBar, COLOR, Faint, FONT_MONO, measurementStateLabel, Pill } from "./term";
 
 function daysUntil(dueAt: string | null): number | null {
   if (!dueAt) return null;
@@ -679,8 +679,14 @@ export function GoalBanner({
                           {f.evidenceMass != null ? (
                             <BlockBar value={Math.min(f.evidenceMass / 0.5, 1)} width={6} color={f.certified ? COLOR.green : COLOR.amber} />
                           ) : null}
+                          {/* Meas §B2: the Ready number is a pooled prediction,
+                              and it used to render here indistinguishable from
+                              directly measured recall. The provenance label says
+                              which it is; it gates nothing. */}
                           <Faint style={{ fontFamily: FONT_MONO, fontSize: 11, whiteSpace: "nowrap" }}>
-                            {(f.ready ?? f.predictedAtHorizon) != null ? `ready ${pct(f.ready ?? f.predictedAtHorizon)}` : f.label}
+                            {(f.ready ?? f.predictedAtHorizon) != null
+                              ? `${measurementStateLabel(f.measurementState)} ready ${pct(f.ready ?? f.predictedAtHorizon)}`
+                              : f.label}
                           </Faint>
                           <Faint style={{ fontFamily: FONT_MONO, fontSize: 11, whiteSpace: "nowrap" }}>
                             {f.attemptsToCertify == null

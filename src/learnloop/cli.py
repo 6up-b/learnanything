@@ -3196,6 +3196,319 @@ def doctor(
     raise typer.Exit(code=1)
 
 
+@app.command("contract-reachability")
+def contract_reachability_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+    all_cells: Annotated[
+        bool,
+        typer.Option("--all", help="List REACHABLE cells too, not just the commissioning queue."),
+    ] = False,
+) -> None:
+    """Contract-cell reachability report (spec_measurement_efficiency §5.8.2).
+
+    Pure static analysis: for every ``(learning object, facet, required
+    capability)`` cell a blueprint recipe names, can any authored item observe it
+    at that capability? ``REACHABLE`` / ``MISMATCH_ABOVE`` / ``MISMATCH_BELOW`` /
+    ``NO_INSTRUMENT``. Reads no attempts and no learner state, and doubles as the
+    instrument commissioning queue. Always exits 0 — this is a report, not a gate;
+    ``learnloop doctor`` carries the same finding as review warnings.
+    """
+
+    from learnloop.services.contract_reachability import (
+        ReachabilityVerdict,
+        analyze_contract_reachability,
+    )
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    report = analyze_contract_reachability(loaded)
+    if json_output:
+        payload = report.as_dict() if all_cells else {
+            "version": 1,
+            "summary": report.summary(),
+            "cells": [row.as_dict() for row in report.commissioning_queue()],
+        }
+        typer.echo(_dump(payload))
+        return
+
+    summary = report.summary()
+    if not report.cells:
+        typer.echo(
+            f"No contract cells: none of {summary['learning_objects_total']} learning "
+            "object(s) declare blueprint recipes, so there is nothing to certify "
+            "(not a clean bill)."
+        )
+        return
+    share = summary["reachable_share"]
+    typer.echo(
+        f"{summary['cell_count']} contract cell(s) across {summary['learning_object_count']} "
+        f"learning object(s); {summary['instrument_count']} instrument(s)."
+    )
+    for verdict in ReachabilityVerdict:
+        typer.echo(f"  {str(verdict):<16}{summary['counts'][str(verdict)]:>5}")
+    typer.echo(
+        f"reachable {summary['reachable_count']}/{summary['cell_count']} "
+        f"({share:.0%}); unreachable {summary['unreachable_count']}"
+    )
+    integration_share = summary["integration_reachable_share"]
+    if summary["integration_cell_count"]:
+        typer.echo(
+            f"integration cells {summary['integration_cell_count']}, reachable "
+            f"{summary['integration_counts']['REACHABLE']} ({integration_share:.0%})"
+        )
+    typer.echo(
+        f"facets instrumented {summary['facets_instrumented']}/{summary['facets_declared']}"
+    )
+    queue = report.commissioning_queue() if not all_cells else report.cells
+    if queue:
+        typer.echo(f"Commissioning queue ({len(queue)} cell(s)):")
+    for row in queue:
+        observed = ",".join(row.observed_capabilities) or "-"
+        typer.echo(
+            f"  {str(row.verdict):<15} {row.cell.learning_object_id} "
+            f"facet={row.cell.facet_id} required={row.cell.capability} "
+            f"observed=[{observed}] remedy={row.remedy}"
+        )
+
+
+@app.command("contract-hit-rate")
+def contract_hit_rate_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    since: Annotated[
+        str | None,
+        typer.Option("--since", help="Only attempts created at/after this ISO-8601 timestamp."),
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Contract-cell hit rate of recorded attempts (spec_measurement_efficiency §5.8.2).
+
+    Step 0's most actionable number, recomputable: of the attempts on LOs that
+    declare a contract, what share landed in a ``(facet, capability)`` cell that
+    contract requires? On ``fixtures/linear_algebra`` this reproduces its measured
+    28%, with the miss split into the rung loss (right facet, wrong capability —
+    the only part rung-correct generation can move) and off-contract attempts.
+    ``--since`` scopes it to attempts recorded after a change, which is what plan
+    item 5.1's hypothesis is stated over. Always exits 0: a report, not a gate.
+    """
+
+    from learnloop.services.contract_commissioning import contract_cell_hit_rate
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    metric = contract_cell_hit_rate(loaded, repository, since=since)
+    if json_output:
+        typer.echo(_dump(metric.as_dict()))
+        return
+    if metric.attempts_scored == 0:
+        typer.echo(
+            f"No scorable attempts ({metric.attempts_total} total; "
+            f"{metric.attempts_without_contract} on learning objects with no contract, "
+            f"{metric.attempts_missing_item} on missing items, "
+            f"{metric.attempts_unrubricked} unrubricked) - no hit rate, not a clean bill."
+        )
+        return
+    typer.echo(f"{metric.attempts_scored} scorable attempt(s) of {metric.attempts_total}.")
+    typer.echo(
+        f"  contract-cell hits   {metric.cell_hits:>5}  ({metric.cell_hit_rate:.0%})"
+    )
+    typer.echo(
+        f"  rung loss            {metric.facet_only_hits:>5}  ({metric.rung_loss_share:.0%})"
+        "  contract facet, wrong capability"
+    )
+    typer.echo(f"  off contract         {metric.off_contract:>5}")
+    typer.echo(f"  facet hit rate       {metric.facet_hit_rate:>5.0%}")
+
+
+@app.command("integration-backfill")
+def integration_backfill_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    learning_object: Annotated[
+        list[str] | None,
+        typer.Option("--learning-object", help="Restrict to these LO ids (the pilot seam)."),
+    ] = None,
+    capability: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--capability",
+            help="Restrict to integration components declaring these capabilities "
+            "(default: coordination, plan item 5.2's stated scope).",
+        ),
+    ] = None,
+    apply_changes: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the edits. Without this, diffs only."),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """D3's integration gate applied to persisted blueprints (plan item 5.2).
+
+    D3 shipped at ingest; §5.8.3 recorded that it cannot repair the components
+    already written, because blueprints are vault content and no rebuild touches
+    them. This applies the same criterion retroactively: DROP when no separately
+    repairable assembly failure is nameable, LOWER when the assembly is real but
+    ``coordination`` is unobservable and a shallower authorable rung is still
+    deeper than every part, KEEP otherwise (flagged when it is owed an A1
+    whole-task capstone). Diff-only unless ``--apply`` — these are hand-authored
+    files and the edit is not regenerable.
+    """
+
+    from learnloop.services.integration_backfill import (
+        COORDINATION,
+        apply_integration_backfill_and_recalibrate,
+        plan_integration_backfill,
+    )
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    report = plan_integration_backfill(
+        loaded,
+        learning_object_ids=learning_object or None,
+        capabilities=capability or [COORDINATION],
+    )
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    # Dropping cells shrinks 3.3's coverage denominator, so displayed mastery
+    # moves with no new evidence. `--apply` therefore rebuilds the affected LOs
+    # and writes ONE recalibration boundary (§5.2 / A6); a dry run writes nothing.
+    applied = apply_integration_backfill_and_recalibrate(
+        loaded, repository, report.verdicts, dry_run=not apply_changes
+    )
+    edits = applied.edits
+    if json_output:
+        typer.echo(
+            _dump(
+                {
+                    **report.as_dict(),
+                    "applied": apply_changes,
+                    **applied.as_dict(),
+                }
+            )
+        )
+        return
+    summary = report.summary()
+    typer.echo(
+        f"{summary['integration_component_count']} integration component(s) across "
+        f"{summary['learning_objects']} learning object(s); "
+        f"coordination observed by some instrument: {summary['coordination_observed']}."
+    )
+    for disposition, count in summary["dispositions"].items():
+        typer.echo(f"  {disposition:<8}{count:>5}")
+    for verdict in report.verdicts:
+        target = f" -> {verdict.lowered_capability}" if verdict.lowered_capability else ""
+        typer.echo(
+            f"  {str(verdict.disposition):<6} {verdict.learning_object_id} "
+            f"{verdict.blueprint_id}:{verdict.recipe_id} {verdict.capability}{target} "
+            f"reason={verdict.reason}"
+        )
+    if summary["owed_capstones"]:
+        typer.echo(
+            "Owed an A1 whole-task capstone (kept, flagged): "
+            + ", ".join(summary["owed_capstones"])
+        )
+    for edit in edits:
+        typer.echo(f"--- {edit.path}")
+        typer.echo(edit.diff)
+    typer.echo(
+        f"{len(edits)} file(s) {'written' if apply_changes else 'would change (diff only)'}."
+    )
+    if applied.rebuild_marker_id:
+        typer.echo(
+            f"Rebuilt {len(applied.rebuilt_learning_object_ids)} learning object(s) and "
+            "wrote ONE recalibration boundary — displayed mastery moves with no new "
+            "evidence, and the learner is told so exactly once.\n"
+            f"  coverage_denominator_version={applied.coverage_denominator_version}"
+        )
+
+
+@app.command("facet-mint-gate")
+def facet_mint_gate_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """D2's mint gate re-run over the facets already registered (plan item 5.4).
+
+    Read-only and writes nothing: it re-asks the mint question of every facet in
+    the registry, in id order, as if each were arriving at ingest with the ones
+    before it already present. That answers "what would D2 have admitted?" on a
+    vault whose facets predate the gate, which is the backlog 3.4's
+    ``measurement_rank`` measures the consequence of.
+
+    Judged live at ingest by ``source_set_synthesis``; this command is the same
+    pure function pointed at history.
+    """
+
+    from learnloop.services.facet_mint_gate import MintDisposition, judge_facet_mints
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    payloads = [
+        facet.model_dump(mode="json")
+        for _fid, facet in sorted(loaded.evidence_facets.items())
+    ]
+    report = judge_facet_mints(payloads)
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+        return
+    summary = report.summary()
+    typer.echo(f"{summary['candidate_count']} registered facet(s) re-judged under D2.")
+    for disposition, count in summary["dispositions"].items():
+        typer.echo(f"  {disposition:<8}{count:>5}")
+    for reason, count in summary["reasons"].items():
+        if count:
+            typer.echo(f"    {reason:<36}{count:>5}")
+    for verdict in report.verdicts:
+        if verdict.disposition is MintDisposition.MINT:
+            continue
+        target = f" -> {verdict.alias_of}" if verdict.alias_of else ""
+        typer.echo(
+            f"  {str(verdict.disposition):<8}{verdict.candidate_id}{target} "
+            f"reason={verdict.reason} neighbours={len(verdict.neighbours)}"
+        )
+
+
+@app.command("persona-gate-precision")
+def persona_gate_precision_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    since: Annotated[
+        str | None,
+        typer.Option("--since", help="Only count gate outcomes recorded at/after this ISO timestamp."),
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """§3.0 gate precision, tracked from day one (plan item 5.3).
+
+    Of the items the planted-persona gate blocked or flagged, how many were
+    genuinely bad. The denominator is countable today; the numerator needs a
+    BLINDED "genuinely bad" label, which only Aug B2's realism matcher / B1's
+    planted side can supply — so this reports ``no_producer`` rather than a proxy
+    computed from reviewer decisions, which the gate's own reason string causes.
+    """
+
+    from learnloop.services.persona_gate import gate_precision
+
+    repository = _repository(_root(vault))
+    metric = gate_precision(repository, since=since)
+    if json_output:
+        typer.echo(_dump(metric.as_dict()))
+        return
+    value = "n/a" if metric.value is None else f"{metric.value:.0%}"
+    typer.echo(f"{metric.name}: {value}  [{metric.availability}]")
+    typer.echo(f"  {metric.numerator if metric.numerator is not None else '-'} / {metric.denominator} {metric.denominator_label}")
+    typer.echo(f"  {metric.note}")
+    detail = metric.detail
+    typer.echo(f"  items judged        {detail.get('items_judged', 0)}")
+    for name, tally in (
+        ("decisions", detail.get("decisions") or {}),
+        ("gated reasons", detail.get("reasons") or {}),
+        ("gated classes", detail.get("instrument_classes") or {}),
+        ("reviewer decisions", detail.get("reviewer_decisions") or {}),
+    ):
+        for key, count in sorted(tally.items()):
+            if count:
+                typer.echo(f"  {name:<19} {key:<34}{count:>5}")
+
+
 @app.command("facet-candidates")
 def facet_candidates_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
@@ -5431,6 +5744,85 @@ def probe_instances_command(
             )
 
 
+@app.command("scoreboard")
+def scoreboard_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    replay: Annotated[
+        bool,
+        typer.Option(
+            "--replay",
+            help=(
+                "Compute questions_to_certification / certification_regret via "
+                "the §5.8.1 prefix replay. Copies the sqlite file per cutoff and "
+                "mutates only the copy; costs ~1.5-3s per cutoff, bisected."
+            ),
+        ),
+    ] = False,
+    replay_budget: Annotated[
+        int,
+        typer.Option(
+            "--replay-budget",
+            min=1,
+            help="Maximum prefix-replay evaluations. Exhausting it leaves the two certification metrics unavailable rather than guessed.",
+        ),
+    ] = None,  # type: ignore[assignment]
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+) -> None:
+    """The frozen §3 B5 scoreboard (spec_diagnostic_augmentation_v1 §3 B5, Meas §5.7).
+
+    Printed in B5's frozen order, `problems_to_cold_success` and
+    `harmful_write_rate` first — B5: "a system can raise anchor accuracy while
+    becoming slower and more interrogative, and every remaining metric on this
+    list would report success."
+
+    A metric with no data prints `unavailable` with the reason. It never prints
+    0.0: `harmful_write_rate`'s target IS ~0, so an unproduced metric rendered as
+    zero is indistinguishable from a solved problem.
+    """
+
+    from learnloop.services.scoreboard import DEFAULT_REPLAY_BUDGET, scoreboard
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = scoreboard(
+        loaded,
+        repository,
+        replay=replay,
+        replay_budget=(
+            DEFAULT_REPLAY_BUDGET if replay_budget is None else int(replay_budget)
+        ),
+    )
+    _write_or_echo_report(report, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    for metric in report["metrics"]:
+        # The companion is indented under its primary so the pair B5 requires
+        # reads as a pair rather than as two independent rows.
+        lead = "  " if metric["companion_of"] else ""
+        if metric["available"]:
+            value = f"{metric['value']:.4g}"
+        else:
+            value = f"unavailable ({metric['availability']})"
+        denominator = metric["denominator"]
+        over = (
+            f" [{metric['numerator']}/{denominator} {metric['denominator_label']}]"
+            if denominator is not None
+            else ""
+        )
+        typer.echo(f"{lead}{metric['name']}: {value}{over}")
+        if not metric["available"]:
+            typer.echo(f"{lead}    {metric['note']}")
+    counts = report["availability_counts"]
+    typer.echo(
+        f"{report['available']}/{len(report['metrics'])} metrics available · "
+        + " · ".join(
+            f"{arm}={counts[arm]}" for arm in counts if arm != "available" and counts[arm]
+        )
+    )
+
+
 @app.command("probe-audit")
 def probe_audit_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
@@ -5515,9 +5907,27 @@ def graph_identifiability_command(
         f"{totals['scheduled_probes']} discriminating probe(s) scheduled."
     )
     for subject_report in report["subjects"]:
-        if not subject_report["findings"]:
-            continue
-        typer.echo(f"  {subject_report['subject_id']}: {subject_report['counts']['findings']} finding(s)")
+        # Meas §D1 measurement_rank (plan 3.4) is reported for every subject,
+        # including one with no findings — an uninstrumented facet costs a
+        # dimension without tripping any of the seven checks (§5.8.2). Analysis
+        # only: nothing here merges a facet; collapse candidates go to review.
+        rank = subject_report.get("measurement_rank") or {}
+        head = f"  {subject_report['subject_id']}: {subject_report['counts']['findings']} finding(s)"
+        if rank:
+            ratio = rank.get("rank_ratio")
+            head += (
+                f"; measurement rank {rank['independent_dimensions']}/{rank['facets_declared']} facets"
+                + (f" ({ratio:.2f})" if isinstance(ratio, float) else "")
+            )
+        typer.echo(head)
+        if rank.get("deficit"):
+            typer.echo(
+                f"    rank deficit {rank['deficit']}: "
+                f"{rank['deficit_from_unobserved']} facet(s) observed by nothing, "
+                f"{rank['deficit_from_collapse']} lost to shared measurement signatures"
+            )
+            for group in rank["collapsed_groups"]:
+                typer.echo(f"    indistinguishable (review, never auto-merge): {', '.join(group)}")
         for bundle in subject_report["unresolved_bundles"]:
             typer.echo(f"    [check {bundle['check']}] {bundle['message']}")
 
@@ -5637,20 +6047,37 @@ def causal_attribution_audit_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
 ) -> None:
-    """Show P0 attribution fill, abstention, and firewall telemetry."""
+    """Show P0 attribution fill, abstention, and firewall telemetry.
 
+    Also reports the A5 missing-vocabulary capture and the two-tailed causal-lane
+    fill/abstention rates: standing constraint 2 requires watching BOTH tails,
+    and an abstention rate nobody reads is not a signal.
+    """
+
+    from learnloop.services.causal_health import causal_lane_health
     from learnloop.services.grading import causal_attribution_audit_report
+    from learnloop.services.missing_vocabulary import missing_vocabulary_report
 
     root = _root(vault)
     loaded = load_vault(root)
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     report = causal_attribution_audit_report(repository)
+    vocabulary = missing_vocabulary_report(repository)
+    lane_health = causal_lane_health(repository)
     if json_output:
-        typer.echo(_dump({"version": 1, "report": report}))
+        typer.echo(
+            _dump(
+                {
+                    "version": 2,
+                    "report": report,
+                    "missing_vocabulary": vocabulary,
+                    "lane_health": lane_health,
+                }
+            )
+        )
         return
     if not report["groups"]:
         typer.echo("No causal-attribution telemetry has been recorded.")
-        return
     for group in report["groups"]:
         typer.echo(
             f"{group['prompt_version']} · {group['model']}: "
@@ -5660,6 +6087,308 @@ def causal_attribution_audit_command(
             f"abstained={group['resolution_counts']['abstained']}, "
             f"firewall={group['firewall_trigger_count']}"
         )
+    typer.echo(
+        f"vocabulary · abstention_rate={vocabulary['abstention_rate']:.3f} "
+        f"({vocabulary['abstentions']}/{vocabulary['attributions']} attributions) · "
+        f"{vocabulary['notes']} missing-vocabulary notes"
+    )
+    for source, count in sorted((vocabulary["by_source"] or {}).items()):
+        reasons = ", ".join(
+            f"{reason}={value}"
+            for reason, value in sorted(
+                (vocabulary["by_reason"].get(source) or {}).items()
+            )
+        )
+        typer.echo(f"  {source}: {count} · {reasons}")
+    if vocabulary["uncaptured_diagnostic_abstentions"]:
+        # The one hole this store cannot heal after the fact.
+        typer.echo(
+            "  WARNING: "
+            f"{vocabulary['uncaptured_diagnostic_abstentions']} diagnostic "
+            "abstention(s) predate the note store and cannot be backfilled"
+        )
+    for channel in lane_health["channels"]:
+        typer.echo(
+            f"lane · {channel['channel']}: {channel['tail']} · "
+            f"fill={channel['fill_rate']:.3f} · "
+            f"abstain={channel['abstention_rate']:.3f} · "
+            f"missing={channel['missing']}/{channel['total']}"
+        )
+
+
+@app.command("cold-probe-schedule")
+def cold_probe_schedule_command(
+    learning_object: Annotated[
+        str | None,
+        typer.Option("--lo", help="Schedule one Learning Object instead of the whole vault."),
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Queue the delayed cold probe for each certified LO (measurement §5.7).
+
+    One held-out-surface item per certified LO, due at the fitted horizon after
+    certification (default: +2 weeks, expiring at +3 weeks). Idempotent — a
+    certificate that already has a probe, consumed or expired, is not re-probed.
+    A certificate that has since been withdrawn schedules nothing and has any
+    queued probe cancelled.
+    """
+
+    from learnloop.services.certification_cold_probe import (
+        schedule_certification_cold_probes,
+    )
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = schedule_certification_cold_probes(
+        loaded, repository, learning_object_id=learning_object
+    )
+    payload = report.as_dict()
+    _write_or_echo_report(payload, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    counts = payload["counts"]
+    typer.echo(
+        f"Cold probes: {counts['scheduled']} scheduled, "
+        f"{counts['already_scheduled']} already queued, "
+        f"{counts['not_certified']} LO(s) not certified, "
+        f"{counts['withdrawn_probe_cancelled']} cancelled on withdrawal"
+    )
+    unmeasurable = counts["no_held_out_surface"] + counts["no_candidate_item"]
+    if unmeasurable:
+        # Louder than a count in a table: a certificate with no held-out surface
+        # is UNMEASURABLE, which is worse news than unmeasured (§5.7 has no other
+        # external validity check to fall back on).
+        typer.echo(
+            f"  WARNING: {unmeasurable} certificate(s) have no held-out surface "
+            "to probe with — false_certification_rate cannot see them"
+        )
+    for decision in payload["decisions"]:
+        if decision["decision"] in {"not_certified", "already_scheduled"}:
+            continue
+        suffix = (
+            f" -> {decision['practice_item_id']} due {decision['not_before']}"
+            if decision["practice_item_id"]
+            else ""
+        )
+        typer.echo(f"  {decision['learning_object_id']}: {decision['decision']}{suffix}")
+
+
+@app.command("cold-probe-audit")
+def cold_probe_audit_command(
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the full JSON report.")] = False,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write the full JSON report to a file.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """`false_certification_rate` and the coverage of the probe lane (§5.7).
+
+    "The alpha actually being run at, and the only number that licenses any
+    speed claim." Over zero scored probes it reports UNAVAILABLE, never 0.0: a
+    rate of zero with an empty denominator reads as "no certificate has ever been
+    false" when the truth is "no certificate has ever been checked".
+    """
+
+    from learnloop.services.certification_cold_probe import (
+        certification_cold_probe_report,
+    )
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = certification_cold_probe_report(loaded, repository)
+    _write_or_echo_report(report, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    metric = report["false_certification_rate"]
+    arms = metric["arms"]
+    if metric["status"] == "unavailable":
+        typer.echo(
+            "false_certification_rate: UNAVAILABLE "
+            f"({metric['unavailable_reason']}) — denominator 0; "
+            f"{arms['awaiting_probe']} probe(s) awaiting, "
+            f"{arms['probe_expired']} expired, "
+            f"{arms['indeterminate']} indeterminate"
+        )
+    else:
+        typer.echo(
+            f"false_certification_rate: {metric['value']:.3f} "
+            f"= {metric['numerator']}/{metric['denominator']} "
+            f"(held {arms['held']}, failed {arms['failed']}); "
+            f"{arms['awaiting_probe']} awaiting, "
+            f"{arms['probe_expired']} expired, "
+            f"{arms['indeterminate']} indeterminate"
+        )
+    for reason, count in sorted((metric["indeterminate_reasons"] or {}).items()):
+        typer.echo(f"  indeterminate · {reason}: {count}")
+    coverage = report["coverage"]
+    typer.echo(
+        f"Coverage: {coverage['certificates_active']} active certificate(s), "
+        f"{coverage['certificates_unscheduled']} unscheduled, "
+        f"{coverage['certificates_unmeasurable']} unmeasurable"
+    )
+    for row in report["certificates"]:
+        detail = row["verdict"] or row["probe_status"]
+        if row["unschedulable_reason"]:
+            detail = f"{detail} ({row['unschedulable_reason']})"
+        typer.echo(
+            f"  {row['learning_object_id']}: {detail} "
+            f"[{row['certified_cells']} cell(s), certified {row['certified_at']}]"
+        )
+    typer.echo(f"Cold-outcome labels available to causal P4: {report['cold_outcome_labels']}")
+
+
+@app.command("commission-causal-probes")
+def commission_causal_probes_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    factor: Annotated[
+        str | None,
+        typer.Option("--factor", help="Commission one factor instead of draining the queue."),
+    ] = None,
+    item: Annotated[
+        str | None,
+        typer.Option("--item", help="Force a candidate PracticeItem id as the instrument."),
+    ] = None,
+    reviewer_verdict: Annotated[
+        Path | None,
+        typer.Option(
+            "--adversarial-review",
+            help=(
+                "JSON file with the independent manipulation review "
+                "(contract_consistent, measurement_target_independence, "
+                "undeclared_differences). Without it the audit lands "
+                "pending_adversarial_review and nothing is minted."
+            ),
+        ),
+    ] = None,
+    reviewer_id: Annotated[
+        str | None,
+        typer.Option("--reviewer-id", help="Reviewer identity for the audit (must differ from the generator)."),
+    ] = None,
+    limit: Annotated[
+        int, typer.Option("--limit", min=1, help="Maximum factors to commission in one run.")
+    ] = 4,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
+) -> None:
+    """Commission discriminating probe instruments for divergent causal factors.
+
+    Drains the `causal_probe_instrument_commissioning` machine-check queue (Stage
+    2.1). The blind prediction bundles map each hypothesis's typed target onto
+    the fresh candidate item's authored criterion targets and run no model;
+    observation-conditioned postdictive claims are excluded per causal §5.1.
+    Commissioning stops at `registered`:
+    reviewing and activating an instrument is a separate, deliberate act — see
+    `review-causal-probe`.
+    """
+
+    from learnloop.services.causal_orchestrator import (
+        MACHINE_CHECK_INSTRUMENT_COMMISSIONING,
+        resolve_machine_check,
+    )
+    from learnloop.services.causal_probe_commissioning import (
+        COMMISSIONING_POLICY_VERSION,
+        commission_probe_instrument,
+    )
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    review = None
+    if reviewer_verdict is not None:
+        review = jsonlib.loads(reviewer_verdict.read_text(encoding="utf-8"))
+    queued: list[tuple[str, str | None]] = []
+    if factor:
+        queued = [(factor, None)]
+    else:
+        queued = [
+            (str(check["factor_id"]), str(check["id"]))
+            for check in repository.causal_machine_checks(status="pending")
+            if str(check["kind"]) == MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+            and check.get("factor_id")
+        ][:limit]
+    results: list[dict[str, Any]] = []
+    for factor_id, check_id in queued:
+        result = commission_probe_instrument(
+            loaded,
+            repository,
+            factor_id=factor_id,
+            candidate_practice_item_id=item,
+            adversarial_review=review,
+            reviewer_agent_run_id=reviewer_id,
+            generation_agent_run_id="learnloop_commission_cli",
+        )
+        if check_id and result["outcome"] in {"commissioned", "already_available"}:
+            # Discharge the obligation explicitly, with grounds. The sweep would
+            # eventually close it as "obligation_no_longer_present", which says
+            # nothing about what satisfied it.
+            resolve_machine_check(
+                repository,
+                check_id,
+                resolution={
+                    "basis": "instrument_commissioned",
+                    "candidate_id": result.get("candidate_id"),
+                    "practice_item_id": result.get("practice_item_id"),
+                    "policy_version": COMMISSIONING_POLICY_VERSION,
+                },
+            )
+        results.append({"factor_id": factor_id, **result})
+    if json_output:
+        typer.echo(_dump({"version": 1, "results": results}))
+        return
+    if not results:
+        typer.echo("No factor owes a discriminating instrument.")
+        return
+    for result in results:
+        detail = result.get("candidate_id") or result.get("manipulation_audit_id") or ""
+        typer.echo(
+            f"{result['factor_id']} · {result['outcome']}"
+            + (f" · {detail}" if detail else "")
+            + (
+                f" · item={result['practice_item_id']}"
+                if result.get("practice_item_id")
+                else ""
+            )
+        )
+
+
+@app.command("review-causal-probe")
+def review_causal_probe_command(
+    candidate_id: Annotated[str, typer.Argument(help="Causal probe candidate id.")],
+    to_status: Annotated[
+        str,
+        typer.Option("--to", help="registered | reviewed | active | rejected."),
+    ],
+    reviewer: Annotated[
+        str | None, typer.Option("--reviewer", help="Reviewer identity (required to review or reject).")
+    ] = None,
+    reason: Annotated[str | None, typer.Option("--reason", help="Audit reason for the transition.")] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Walk a commissioned probe up the register → review → activate ladder.
+
+    Only an ACTIVE candidate is servable, and only a reviewer may move one past
+    `registered` — the gate exists because a blind bundle's complement
+    declarations are pre-registered commitments a human should see before the
+    instrument buys learner time.
+    """
+
+    from learnloop.services.causal_probe_coherence import transition_probe_candidate
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    updated = transition_probe_candidate(
+        repository,
+        candidate_id,
+        to_status=to_status,
+        reviewer=reviewer,
+        reason=reason,
+    )
+    typer.echo(
+        f"{updated['id']} · {updated['status']} · item={updated['practice_item_id']}"
+        + (f" · reviewer={updated['reviewer']}" if updated.get("reviewer") else "")
+    )
 
 
 @app.command("build-causal-taxonomy")
@@ -5672,7 +6401,10 @@ def build_causal_taxonomy_command(
         typer.Option(
             "--min-cluster-size",
             min=2,
-            help="Minimum recurring operations required to mint a mechanism.",
+            help=(
+                "Minimum observations sharing a repair equivalence and "
+                "discrimination profile required to mint a mechanism."
+            ),
         ),
     ] = 2,
     activate: Annotated[
@@ -5700,14 +6432,43 @@ def build_causal_taxonomy_command(
         min_cluster_size=min_cluster_size,
         activate=activate,
     )
+    retired = repository.retired_causal_mechanism_taxonomy_versions()
     if json_output:
-        typer.echo(_dump({"version": 1, "taxonomy": taxonomy}))
+        typer.echo(
+            _dump(
+                {
+                    "version": 1,
+                    "taxonomy": taxonomy,
+                    "retired_versions": retired,
+                }
+            )
+        )
         return
     typer.echo(
         f"{taxonomy['id']} · {taxonomy['status']} · "
         f"{len(taxonomy['taxonomy'].get('clusters') or [])} mechanisms · "
         f"{len(taxonomy.get('assignments') or [])} assignments"
     )
+    for cluster in taxonomy["taxonomy"].get("clusters") or []:
+        typer.echo(
+            f"  {cluster['id']} · {cluster.get('label') or '(unlabelled)'} · "
+            f"support={cluster['support']} · scope={cluster['cause_scope']} · "
+            f"probe={','.join(cluster.get('discrimination_profile') or []) or 'none'}"
+        )
+    # Aug A2 / standing constraint 2: an abstention rate nobody reads is not a
+    # signal. Each reason names a different remedy, so report them separately
+    # instead of one "did not cluster" total.
+    by_reason: dict[str, int] = {}
+    for entry in taxonomy["taxonomy"].get("abstained") or []:
+        reason = str(entry.get("reason") or "unknown")
+        by_reason[reason] = by_reason.get(reason, 0) + int(entry.get("support") or 0)
+    for reason, support in sorted(by_reason.items()):
+        typer.echo(f"  abstained · {reason} · {support} observations")
+    if retired:
+        typer.echo(
+            f"{len(retired)} earlier taxonomy version(s) retired "
+            "(string-keyed, migration 133); pinned receipts still resolve them."
+        )
 
 
 @app.command("correct-measurement")

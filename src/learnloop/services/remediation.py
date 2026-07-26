@@ -233,10 +233,16 @@ def record_remediation_attempt(
         )
         return
 
+    # Ask for the repair lane by name (migration 139 added a second `kind` to the
+    # same table). An unfiltered read returns whichever row sorts first, so a
+    # queued §5.7 certification probe on the same item could shadow the cold
+    # retry this function exists to consume.
     task = repository.active_followup_task_for_item(
-        str(attempt["practice_item_id"]), at=str(attempt.get("created_at") or "")
+        str(attempt["practice_item_id"]),
+        kind="cold_retry",
+        at=str(attempt.get("created_at") or ""),
     )
-    if task is None or task.get("kind") != "cold_retry":
+    if task is None:
         return
     consumed = repository.consume_followup_task(task["id"], attempt["id"], clock=clock)
     if consumed is None or consumed.get("status") != "consumed":

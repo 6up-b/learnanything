@@ -116,6 +116,7 @@ from learnloop.services.causal_attribution import (
 from learnloop.services.causal_probe_coherence import (
     ProbeDecision,
     bundle_feature_row_report,
+    candidate_has_current_blind_input_contract,
     classify_against_blind_bundles,
     decide_probe,
     repair_class_need_for_factor,
@@ -152,6 +153,30 @@ LEARNER_PREFERENCES = ("allow", "decline", "teach_now", "no_more_diagnostics")
 EVSI_PROVENANCE = ("deterministic", "model_reported", "heuristic_default")
 
 MACHINE_CHECK_REPAIR_MAPPING = "repair_class_mapping_backfill"
+
+#: The machine owes this factor an INSTRUMENT: its causes need different repairs,
+#: and no probe candidate exists that could tell them apart.  Queued by
+#: ``sweep_machine_checks`` and drained by
+#: ``services/causal_probe_commissioning.commission_probe_instrument``.
+MACHINE_CHECK_INSTRUMENT_COMMISSIONING = "causal_probe_instrument_commissioning"
+
+#: Which pending checks may hold a learner probe.  `decide_probe`'s
+#: ``defer_machine_checks`` arm means "the machine can still resolve this
+#: uncertainty itself, so do not buy learner effort yet" — which is true of a
+#: repair-mapping backfill and false of instrument commissioning: commissioning
+#: does not resolve the uncertainty, it BUILDS the thing that would.  A factor
+#: with no instrument is already reported honestly as
+#: ``no_discriminating_instrument``, and folding commissioning into
+#: ``defer_machine_checks`` would relabel a missing instrument as a resolvable
+#: check and hide the instrument-pool bottleneck behind a softer verb.
+PROBE_BLOCKING_MACHINE_CHECK_KINDS = frozenset({MACHINE_CHECK_REPAIR_MAPPING})
+
+#: Kinds `sweep_machine_checks` owns, and therefore may auto-close when their
+#: obligation stops being emitted. A kind absent here is somebody else's queue
+#: entry and must not be closed by the sweep.
+SWEPT_MACHINE_CHECK_KINDS = frozenset(
+    {MACHINE_CHECK_REPAIR_MAPPING, MACHINE_CHECK_INSTRUMENT_COMMISSIONING}
+)
 
 #: The §7 evidence basis a blind-bundle classification carries.  It is a key of
 #: `causal_attribution.SUPPORT_BASIS_AUTHORITY`, which is also what
@@ -438,6 +463,34 @@ def backfill_obligation(targeting: Any) -> dict[str, Any]:
     }
 
 
+def instrument_commissioning_obligation(targeting: Any) -> dict[str, Any]:
+    """The typed obligation for a divergent factor with no instrument.
+
+    This is the queue entry the P2 lane never had.  Its causes need different
+    repairs, so the branch-specific repair is held; discriminating them needs an
+    instrument, and until one is commissioned the orchestrator can only report
+    ``no_discriminating_instrument``.  Recording the debt makes it drainable
+    instead of a state the system re-derives and forgets on every attempt.
+    """
+
+    return {
+        "kind": MACHINE_CHECK_INSTRUMENT_COMMISSIONING,
+        "state": targeting.state,
+        "coherence_gate_state": targeting.coherence_gate_state,
+        "factor_id": targeting.factor_id,
+        "attempt_id": targeting.attempt_id,
+        "hypothesis_ids": [
+            str(cause.get("hypothesis_id"))
+            for cause in targeting.causes
+            if isinstance(cause, Mapping) and cause.get("hypothesis_id")
+        ],
+        "repair_class_ids": list(targeting.repair_class_ids),
+        "reason": targeting.reason,
+        # Nothing for the learner to do: an instrument is machine-side work.
+        "learner_actionable": False,
+    }
+
+
 def enqueue_backfill_obligation(
     repository: Repository,
     obligation: Mapping[str, Any],
@@ -512,17 +565,40 @@ def sweep_machine_checks(
             attempt_id=str(factor.get("attempt_id") or "") or None,
             memo=memo,
         )
-        if not targeting.needs_machine_backfill:
+        if targeting.needs_machine_backfill:
+            obligation = backfill_obligation(targeting)
+            live.add(_machine_check_id(obligation))
+            enqueue_backfill_obligation(
+                repository,
+                obligation,
+                learning_object_id=learning_object_id,
+                source=source,
+                clock=clock,
+            )
             continue
-        obligation = backfill_obligation(targeting)
-        live.add(_machine_check_id(obligation))
-        enqueue_backfill_obligation(
-            repository,
-            obligation,
-            learning_object_id=learning_object_id,
-            source=source,
-            clock=clock,
-        )
+        # Stage 2.1: the mapping is complete and the causes still diverge, so what
+        # is missing is an INSTRUMENT. Queue that debt rather than re-deriving
+        # "no_discriminating_instrument" on every attempt and forgetting it.
+        # Commissioning itself is not run here: it locks a hypothesis set and
+        # writes prediction bundles per factor, which is not post-attempt work.
+        if targeting.probe_worthy and len(targeting.repair_class_ids) > 1:
+            if any(
+                value.get("status") != "rejected"
+                and candidate_has_current_blind_input_contract(value)
+                for value in repository.causal_probe_candidates_for_factor(
+                    str(factor["id"])
+                )
+            ):
+                continue
+            obligation = instrument_commissioning_obligation(targeting)
+            live.add(_machine_check_id(obligation))
+            enqueue_backfill_obligation(
+                repository,
+                obligation,
+                learning_object_id=learning_object_id,
+                source=source,
+                clock=clock,
+            )
     return _close_orphan_checks(repository, learning_object_id, live, clock=clock)
 
 
@@ -536,7 +612,7 @@ def _close_orphan_checks(
     for check in repository.causal_machine_checks(
         status="pending", learning_object_id=learning_object_id
     ):
-        if str(check["kind"]) != MACHINE_CHECK_REPAIR_MAPPING:
+        if str(check["kind"]) not in SWEPT_MACHINE_CHECK_KINDS:
             continue
         if str(check["id"]) in live:
             continue
@@ -607,18 +683,27 @@ def pending_machine_checks_for_factor(
 ) -> list[dict[str, Any]]:
     """Checks that must discharge before this factor may buy learner effort.
 
-    Factor-scoped checks plus learning-object-wide checks that name no factor.
+    Factor-scoped checks plus learning-object-wide checks that name no factor,
+    restricted to :data:`PROBE_BLOCKING_MACHINE_CHECK_KINDS` — an instrument
+    commissioning obligation is real machine-side debt but it does not make
+    ``defer_machine_checks`` the honest answer (see that constant).
     """
 
-    checks = repository.causal_machine_checks(
-        status="pending", factor_id=factor_id
-    )
+    checks = [
+        check
+        for check in repository.causal_machine_checks(
+            status="pending", factor_id=factor_id
+        )
+        if str(check["kind"]) in PROBE_BLOCKING_MACHINE_CHECK_KINDS
+    ]
     seen = {str(check["id"]) for check in checks}
     if learning_object_id is not None:
         for check in repository.causal_machine_checks(
             status="pending", learning_object_id=learning_object_id
         ):
             if check.get("factor_id") or str(check["id"]) in seen:
+                continue
+            if str(check["kind"]) not in PROBE_BLOCKING_MACHINE_CHECK_KINDS:
                 continue
             checks.append(check)
     return checks
@@ -1272,7 +1357,11 @@ def _status_for_factor(
         repository, factor_id=factor_id, learning_object_id=learning_object_id
     )
 
-    candidates = repository.causal_probe_candidates_for_factor(factor_id)
+    candidates = [
+        value
+        for value in repository.causal_probe_candidates_for_factor(factor_id)
+        if candidate_has_current_blind_input_contract(value)
+    ]
     active = [value for value in candidates if value.get("status") == "active"]
     # Only a reviewed-ACTIVE candidate is servable; an unreviewed one still
     # tells us how much information the instrument WOULD carry, which is what
@@ -1604,6 +1693,11 @@ def accept_probe_offer(
     candidates = repository.causal_probe_candidates_for_factor(
         factor_id, statuses=("active",)
     )
+    candidates = [
+        value
+        for value in candidates
+        if candidate_has_current_blind_input_contract(value)
+    ]
     if not candidates:
         return ProbeOffer(
             accepted=False,
@@ -1838,6 +1932,17 @@ def classify_probe_response(
     if pinned is None:
         raise CausalRepairError(
             "presentation carries no pinned causal probe candidate"
+        )
+    candidate = repository.causal_probe_candidate(
+        str(pinned.get("causal_probe_candidate_id") or "")
+    )
+    if (
+        candidate is None
+        or not candidate_has_current_blind_input_contract(candidate)
+    ):
+        raise CausalRepairError(
+            "pinned causal probe uses an obsolete observation-exposed blind "
+            "input contract"
         )
     presentation = repository.probe_presentation(presentation_id)
     assert presentation is not None
@@ -2227,6 +2332,14 @@ def auto_classify_pinned_probe(
     pinned = pinned_causal_probe(repository, str(presentation_id))
     if not pinned or not pinned.get("blind_bundle_ids"):
         return None
+    candidate = repository.causal_probe_candidate(
+        str(pinned.get("causal_probe_candidate_id") or "")
+    )
+    if (
+        candidate is None
+        or not candidate_has_current_blind_input_contract(candidate)
+    ):
+        return None
     if repository.causal_discriminating_observations(
         presentation_id=str(presentation_id)
     ):
@@ -2308,6 +2421,11 @@ def cold_verification_context(
                 | set(hypothesis_ids)
             )
             candidates = repository.causal_probe_candidates_for_factor(factor_id)
+            candidates = [
+                value
+                for value in candidates
+                if candidate_has_current_blind_input_contract(value)
+            ]
             if candidates:
                 hypothesis_set_id = str(candidates[0]["hypothesis_set_id"])
     if repair_class_id is None:
@@ -2420,8 +2538,10 @@ __all__ = [
     "EPISODE_CONFLICT_MESSAGE",
     "EPISODE_CONFLICT_REASON",
     "LEARNER_PREFERENCES",
+    "MACHINE_CHECK_INSTRUMENT_COMMISSIONING",
     "MACHINE_CHECK_REPAIR_MAPPING",
     "NEEDS_DISAMBIGUATION_MESSAGE",
+    "PROBE_BLOCKING_MACHINE_CHECK_KINDS",
     "ProbeOffer",
     "REPAIR_STATUSES",
     "RepairAction",
@@ -2429,6 +2549,7 @@ __all__ = [
     "accept_probe_offer",
     "auto_classify_pinned_probe",
     "backfill_obligation",
+    "instrument_commissioning_obligation",
     "causal_repair_status",
     "classify_probe_response",
     "close_satisfied_backfills",

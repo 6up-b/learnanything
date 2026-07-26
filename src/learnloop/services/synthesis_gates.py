@@ -676,6 +676,8 @@ def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[Ga
                 )
             continue
         if item.operation in {"update", "deactivate"}:
+            if _is_alias_only_facet_append(item, ctx):
+                continue
             if item.reconciliation_intent != "restructure_unlocked":
                 out.append(
                     GateDiagnostic(
@@ -690,6 +692,40 @@ def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[Ga
                     )
                 )
     return out
+
+
+def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
+    """Is this a D2 alias registration — provably additive, so append-legal?
+
+    The D2 mint gate (Meas D2, ``services/facet_mint_gate``) refuses to mint a
+    candidate facet that collapses into an existing one and instead appends the
+    candidate id to that facet's ``aliases``. On the append path that arrives as a
+    ``facet`` ``update``, which this gate would otherwise reject.
+
+    Verified, never trusted from an intent label (this gate's own discipline): the
+    payload must touch ``aliases`` and nothing else, and the new alias list must be
+    a strict superset of the target's current one. An update that renames, retires,
+    or edits any part of the semantic contract fails all three checks and still
+    hard-fails, so §10.2's additivity invariant is unchanged — a facet's claim,
+    repairs and status remain untouchable on an append.
+    """
+
+    if item.item_type != "facet" or item.operation != "update":
+        return False
+    if set(item.payload) - {"id", "aliases"}:
+        return False
+    proposed = {str(alias) for alias in (item.payload.get("aliases") or [])}
+    if not proposed:
+        return False
+    vault = ctx.vault
+    facets = getattr(vault, "evidence_facets", None) if vault is not None else None
+    existing_facet = facets.get(item.entity_id) if isinstance(facets, dict) else None
+    existing = (
+        {str(alias) for alias in (getattr(existing_facet, "aliases", None) or [])}
+        if existing_facet is not None
+        else set()
+    )
+    return existing < proposed
 
 
 def _default_identifiability(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
@@ -797,6 +833,17 @@ def _jaccard(left: set[str], right: set[str]) -> float:
     if not union:
         return 0.0
     return len(left & right) / len(union)
+
+
+#: Public aliases. The D2 mint gate (``services/facet_mint_gate``) discovers its
+#: "nearest existing neighbours" with the SAME lexical hint the §8.7
+#: near-duplicate review surface above uses, so the review queue and the mint gate
+#: can never disagree about which facets are neighbours. The hint only *proposes* a
+#: pair; the admission decision is §3.0's harness — Meas D1: "the existing lexical
+#: MinHash review ... stays as a hint for the review surface and is never promoted
+#: to a merge criterion."
+facet_tokens = _facet_tokens
+jaccard = _jaccard
 
 
 def _first_cycle(graph: dict[str, Iterable[str]]) -> list[str] | None:

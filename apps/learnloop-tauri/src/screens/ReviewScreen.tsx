@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type {
+  BeliefWithdrawalReason,
   ClaimCandidateDto,
   KnowledgeHistoryAttempt,
   ReviewChangelogEntryDto,
@@ -96,10 +97,22 @@ function FacetRef({
 }
 
 function changelogFacetToneLabel(entry: ReviewChangelogEntryDto): string {
+  if (entry.kind === "belief_withdrawn") return "facets the withdrawn claim named";
   return entry.kind === "regrade"
     ? "item facets · direction not apportioned"
     : "touched facets · movement is aggregate";
 }
+
+// A6 (spec_diagnostic_augmentation_v1.md §2 A6). The reason is TYPED server-side;
+// this is only its short label. The full sentence lives in `entry.statement`,
+// which always leads with the withdrawal — a softened restatement must never be
+// able to stand in for the retraction.
+const WITHDRAWAL_REASON_LABEL: Record<BeliefWithdrawalReason, string> = {
+  contradicted_by_trace: "contradicted by your work",
+  superseded: "superseded",
+  adjudicated: "adjudicated wrong",
+  retired_misdiagnosed: "retired as a misdiagnosis"
+};
 
 function attemptsBySession(
   changelog: ReviewChangelogEntryDto[],
@@ -142,6 +155,7 @@ function ChangelogEntry({
 }) {
   const isRecalibration = entry.kind === "recalibration";
   const isRegrade = entry.kind === "regrade";
+  const isWithdrawal = entry.kind === "belief_withdrawn";
   const moved = entry.predictionsMoved;
   const touched = entry.misconceptionsTouched;
   const badges: Array<{ glyph: string; label: string; color: string }> = [];
@@ -181,18 +195,76 @@ function ChangelogEntry({
     });
   }
 
-  const markerColor = isRecalibration ? COLOR.textFaint : isRegrade ? COLOR.amber : COLOR.cyan;
+  const markerColor = isRecalibration
+    ? COLOR.textFaint
+    : isRegrade
+      ? COLOR.amber
+      : isWithdrawal
+        ? COLOR.red
+        : COLOR.cyan;
   const facetTone = COLOR.textDim;
 
   return (
     <article style={timelineEntryStyle}>
       <span aria-hidden style={{ ...timelineMarkerStyle, borderColor: markerColor }} />
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Pill color={isRecalibration ? "slate" : isRegrade ? "amber" : "cyan"}>{entry.kind}</Pill>
+        <Pill color={isRecalibration ? "slate" : isRegrade ? "amber" : isWithdrawal ? "red" : "cyan"}>
+          {isWithdrawal ? "withdrawn" : entry.kind}
+        </Pill>
+        {isWithdrawal && entry.withdrawalReason ? (
+          <Faint style={{ fontSize: 10 }}>{WITHDRAWAL_REASON_LABEL[entry.withdrawalReason]}</Faint>
+        ) : null}
         <time dateTime={entry.at} style={{ color: COLOR.textFaint, fontSize: 11 }}>{fmtDate(entry.at)}</time>
       </div>
 
-      {isRecalibration ? (
+      {isWithdrawal ? (
+        // A6: name the claim in the words the learner was shown, say it is
+        // withdrawn and why, and — when a successor exists — keep the successor
+        // visually subordinate so it can never read as a softened restatement.
+        <div style={{ marginTop: 7 }}>
+          <div style={{ color: COLOR.textDim, fontSize: 11, lineHeight: 1.55 }}>
+            We told you:
+          </div>
+          <blockquote
+            style={{
+              margin: "4px 0 0",
+              padding: "0 0 0 9px",
+              borderLeft: `2px solid ${COLOR.red}`,
+              color: COLOR.text,
+              fontSize: 12,
+              lineHeight: 1.55,
+              textDecoration: "line-through",
+              textDecorationColor: COLOR.textFaint
+            }}
+          >
+            {entry.withdrawnClaimText}
+          </blockquote>
+          <div style={{ marginTop: 6, color: COLOR.red, fontSize: 12, lineHeight: 1.55 }}>
+            That is withdrawn
+            {entry.withdrawalReason ? ` — ${WITHDRAWAL_REASON_LABEL[entry.withdrawalReason]}.` : "."}
+          </div>
+          {entry.replacementStatement ? (
+            <div style={{ marginTop: 6, color: COLOR.textDim, fontSize: 11, lineHeight: 1.55 }}>
+              <span style={eyebrowInlineStyle}>in its place</span> {entry.replacementStatement}
+              <div style={{ color: COLOR.textFaint, fontSize: 10, marginTop: 2 }}>
+                a separate claim · the one above stays withdrawn
+              </div>
+            </div>
+          ) : null}
+          {entry.claimTextSource === "current_statement" ? (
+            <div style={{ marginTop: 5, color: COLOR.textFaint, fontSize: 10 }}>
+              quoted from the current record — the original presentation predates
+              wording capture
+            </div>
+          ) : null}
+          {entry.surfacedOn ? (
+            <div style={{ marginTop: 5, color: COLOR.textFaint, fontSize: 10 }}>
+              shown on {entry.surfacedOn}
+              {entry.surfacedAt ? ` · ${fmtDate(entry.surfacedAt)}` : ""}
+            </div>
+          ) : null}
+        </div>
+      ) : isRecalibration ? (
         <div style={{ marginTop: 7, color: COLOR.textDim, fontSize: 12, lineHeight: 1.55 }}>
           Estimates recomputed; your underlying evidence did not change.
           {entry.previousAlgorithmVersion && entry.algorithmVersion ? (

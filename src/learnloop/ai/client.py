@@ -12,12 +12,26 @@ from learnloop.codex.client import (
     TeachBackAuthoringContext,
 )
 from learnloop.codex.schemas import AuthoringProposal, GradingProposal, TeachBackAuthoring
+from learnloop.token_usage import TokenUsage
 
 
 class AIProviderClient(Protocol):
     provider_name: str
     provider_type: str
     model: str | None
+
+    def consume_usage(self) -> TokenUsage:
+        """Read-and-reset this client's accumulated provider-reported usage.
+
+        Part of the seam A7 (spec_diagnostic_augmentation_v1.md §2) needs: one
+        agent run is several model calls, so cost is accumulated per client and
+        drained once when the run is finalized (see
+        `learnloop.services.agent_runs.finish_agent_run`). Every concrete client
+        inherits it from `learnloop.token_usage.TokenUsageAccounting`; service
+        code that may hold a stub should go through `consume_client_usage`
+        rather than calling this directly.
+        """
+        ...
 
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
         ...

@@ -2437,6 +2437,23 @@ export interface IdentifiabilityWarningDto {
   status: string;
 }
 
+/** Meas §D1: independent measurement dimensions the pool can resolve, against
+ *  facets declared. Two facets observed by exactly the same set of criteria and
+ *  items are ONE dimension; a facet observed by nothing is none at all — hence
+ *  the deficit split. Analysis only: publishing it merges nothing, the
+ *  `collapsedGroups` are review candidates for `proposeFacetMerge`. */
+export interface MeasurementRankDto {
+  facetsDeclared: number;
+  independentDimensions: number;
+  measurementRank: number;
+  rankRatio: number | null;
+  deficit: number;
+  deficitFromUnobserved: number;
+  deficitFromCollapse: number;
+  unobservedFacets: string[];
+  collapsedGroups: string[][];
+}
+
 export interface SubjectRegistryDto {
   version?: number;
   subjectId: string;
@@ -2444,6 +2461,7 @@ export interface SubjectRegistryDto {
   identifiabilityWarnings: IdentifiabilityWarningDto[];
   facetCount: number;
   lockedCount: number;
+  measurementRank?: MeasurementRankDto;
 }
 
 export interface FacetMergeResultDto {
@@ -2833,6 +2851,14 @@ export interface GoalReportSummaryDto {
   };
 }
 
+/** Meas §B2/§E2 provenance of a displayed facet number — how we came to believe
+ *  it, orthogonal to the `unexamined | uncertain | known_gap | solid` bucket
+ *  (which is *what* we believe, and the axis certification reads).
+ *  `measured` = direct evidence over the mass gate; `inferred` = a pooled
+ *  prediction with something real to pool from; `claimed` = learner-asserted and
+ *  unverified; `unknown` = absence. Display only — never gate anything on it. */
+export type MeasurementStateDto = "measured" | "inferred" | "claimed" | "unknown";
+
 export interface GoalAtRiskFacetDto {
   learningObjectId: string;
   learningObjectTitle: string;
@@ -2842,6 +2868,8 @@ export interface GoalAtRiskFacetDto {
   projectedRecall: number | null;
   predictedCurrent?: number;
   predictedAtHorizon?: number;
+  /** Provenance of `predictedCurrent` / `predictedAtHorizon` / `ready`. */
+  measurementState?: MeasurementStateDto;
   evidenceMass?: number;
   certified?: boolean;
   attemptsToCertify?: number | null;
@@ -2973,6 +3001,8 @@ export interface CapabilityGridCellDto {
   directNegativeMass: number;
   ready: number;
   tested: boolean;
+  /** Meas §B2 provenance of `ready` (facet-level, exactly as `ready` is). */
+  measurementState?: MeasurementStateDto;
 }
 
 export interface CapabilityGridDto {
@@ -3374,6 +3404,137 @@ export interface MaintenanceFeedSnapshot {
   notices: MaintenanceNoticeDto[];
 }
 
+// Stage 0–5 measurement / causal operational surface. Metric payloads keep
+// availability explicit so the UI never renders "no data" as a zero.
+export interface MeasurementMetricDto {
+  name: string;
+  availability: "available" | "no_data" | "no_producer" | "requires_replay" | "unmeasured";
+  available: boolean;
+  value: number | null;
+  unit: string;
+  numerator: number | null;
+  denominator: number | null;
+  denominatorLabel: string;
+  note: string;
+  detail: Record<string, unknown>;
+}
+
+export interface ReachabilityCellDto {
+  learningObjectId: string;
+  facetId: string;
+  requiredCapability: string;
+  verdict: string;
+  remedy: string;
+  integration: boolean;
+}
+
+export interface MeasurementHealthDto {
+  version: number;
+  scoreboard: {
+    scoreboardVersion: string;
+    metrics: MeasurementMetricDto[];
+    available: number;
+    availabilityCounts: Record<string, number>;
+  };
+  reachability: {
+    version: number;
+    summary: {
+      cellCount: number;
+      reachableCount: number;
+      unreachableCount: number;
+      reachableShare: number | null;
+      counts: Record<string, number>;
+      integrationCellCount: number;
+      integrationReachableShare: number | null;
+      facetsDeclared: number;
+      facetsInstrumented: number;
+    };
+    cells: ReachabilityCellDto[];
+  };
+  coldProbes: {
+    coverage: {
+      certificatesActive: number;
+      certificatesUnmeasurable: number;
+      certificatesUnscheduled: number;
+    };
+    falseCertificationRate: Record<string, unknown>;
+    certificates: Array<{
+      learningObjectId: string;
+      probeStatus: string;
+      unschedulableReason: string | null;
+      verdict: string | null;
+    }>;
+  };
+  missingVocabulary: {
+    notes: number;
+    attributions: number;
+    abstentions: number;
+    abstentionRate: number;
+    uncapturedDiagnosticAbstentions: number;
+    bySource: Record<string, number>;
+  };
+  causalHealth: {
+    attempts: number;
+    channels: Array<{
+      channel: string;
+      filled: number;
+      missing: number;
+      abstained: number;
+      fillRate: number;
+      tail: string;
+    }>;
+  };
+  personaGate: MeasurementMetricDto;
+  facetMintGate: {
+    implementationStatus: "structural_proxy";
+    originalSpecComplete: false;
+    limitation: string;
+    summary: {
+      candidateCount: number;
+      dispositions: Record<string, number>;
+      reasons: Record<string, number>;
+      aliases: Record<string, string[]>;
+    };
+    verdicts: Array<Record<string, unknown>>;
+  };
+  integrationBackfill: {
+    summary: {
+      integrationComponentCount: number;
+      coordinationObserved: boolean;
+      dispositions: Record<string, number>;
+      learningObjects: number;
+      owedCapstones: string[];
+    };
+    verdicts: Array<Record<string, unknown>>;
+    previewEdits: Array<{
+      learningObjectId: string;
+      path: string;
+      diff: string;
+      applied: Array<Record<string, unknown>>;
+    }>;
+  };
+  causalProbeReview: {
+    openFactors: Array<{
+      id: string;
+      attemptId: string;
+      candidateCauseCount: number;
+      probeCandidateCount: number;
+    }>;
+    candidates: Array<{
+      id: string;
+      factorId: string;
+      practiceItemId: string;
+      status: string;
+      blindInputContractValid: boolean;
+      distinguishable: boolean;
+      minimumMargin: number | null;
+      reviewer: string | null;
+      reviewReason: string | null;
+    }>;
+    pendingMachineChecks: Array<Record<string, unknown>>;
+  };
+}
+
 export type ConflictResolutionKind =
   | "prefer_for_context"
   | "keep_both_scoped"
@@ -3493,9 +3654,15 @@ export interface HypothesisEventDto {
   visitId: string | null;
 }
 
+export type BeliefWithdrawalReason =
+  | "contradicted_by_trace"
+  | "superseded"
+  | "adjudicated"
+  | "retired_misdiagnosed";
+
 export interface ReviewChangelogEntryDto {
   id: string;
-  kind: "session" | "recalibration" | "regrade";
+  kind: "session" | "recalibration" | "regrade" | "belief_withdrawn";
   at: string;
   attemptsRecorded: number;
   itemsReviewed: number;
@@ -3513,6 +3680,25 @@ export interface ReviewChangelogEntryDto {
   // triggered the recompute (learner evidence unchanged).
   algorithmVersion?: string;
   previousAlgorithmVersion?: string;
+  // Present only on `belief_withdrawn` entries (spec_diagnostic_augmentation_v1
+  // §2 A6 — "the system must be able to say it was wrong"): a diagnosis the
+  // learner was actually shown has been retired, and this names it in the words
+  // they read. `claimTextSource` is an honesty marker: `as_shown` means the quote
+  // came off the presentation record, `current_statement` means that record
+  // predates capture and the live statement is standing in.
+  beliefKind?: "misconception";
+  beliefId?: string;
+  learningObjectId?: string;
+  withdrawnClaimText?: string;
+  claimTextSource?: "as_shown" | "current_statement";
+  withdrawalReason?: BeliefWithdrawalReason;
+  statement?: string;
+  disposition?: "demoted" | "superseded";
+  surfacedAt?: string | null;
+  surfacedOn?: string | null;
+  // A successor belief is reported ALONGSIDE the withdrawal, never instead of it.
+  replacementBeliefId?: string | null;
+  replacementStatement?: string | null;
 }
 
 export interface WorkingHypothesisDto {

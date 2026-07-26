@@ -49,6 +49,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.vault.models import LoadedVault
 
 
 ADJUDICATION_STORE_VERSION = "diagnosis_adjudication_v1"
@@ -554,6 +555,7 @@ def append_diagnosis_adjudication(
     rationale: str | None = None,
     learner_report_id: str | None = None,
     supersedes_id: str | None = None,
+    vault: LoadedVault | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Append one verdict on one diagnosis. Never overwrites a prior verdict.
@@ -564,6 +566,15 @@ def append_diagnosis_adjudication(
     adjudicated anchor and repair are taken from the system's own choice,
     because that is exactly what `correct` asserts. `wrong_repair` likewise
     inherits the anchor, because it asserts the anchor was right.
+
+    ``vault`` is optional and changes nothing about what is recorded — this store
+    stays the ground truth of what was judged, not a belief mutator. Supplying it
+    additionally applies §5.6 arm (d) immediately
+    (``services/durable_promotion``): an affirming verdict promotes the asserted
+    cause to a durable belief, and an overturning verdict retracts it and owes
+    the learner an A6 correction. Without a vault the verdict is still recorded
+    and the effect is picked up by the next normalization sweep on that learning
+    object, so no verdict is ever silently inert.
     """
 
     if verdict not in VERDICTS:
@@ -674,6 +685,17 @@ def append_diagnosis_adjudication(
         },
         clock=clock,
     )
+    if vault is not None:
+        # §5.6 arm (d). Runs AFTER the verdict is durable, so a failure to move
+        # belief state can never lose the eval record — the verdict is the
+        # ground truth this store exists for, the belief effect is downstream.
+        from learnloop.services.durable_promotion import (
+            apply_adjudicated_belief_effects,
+        )
+
+        apply_adjudicated_belief_effects(
+            vault, repository, attempt_id=attempt_id, clock=clock
+        )
     return repository.diagnosis_adjudication(adjudication_id) or {}
 
 

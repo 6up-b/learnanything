@@ -123,6 +123,12 @@ DEFAULT_TRAJECTORY: tuple[Waypoint, ...] = (
 
 _WAYPOINT_BY_SLUG = {w.slug: w for w in DEFAULT_TRAJECTORY}
 
+# Inverse index: which waypoint authors AT a given capability. The trajectory has
+# exactly one waypoint per capability, and `coordination` is deliberately ABSENT
+# (see the comment on DEFAULT_TRAJECTORY) — the default trajectory refuses to
+# generate whole-task work without a learner-reviewed depth envelope.
+_WAYPOINT_SLUG_BY_CAPABILITY: dict[str, str] = {w.capability: w.slug for w in DEFAULT_TRAJECTORY}
+
 # Retired slugs -> their replacement, so stored rung-variant requests and item
 # annotations written before the selected-response waypoint was removed still
 # resolve instead of raising.
@@ -163,6 +169,37 @@ def waypoint_rung(repository: Repository, slug: str) -> RungTarget:
     if waypoint is None:
         raise ValueError(f"unknown waypoint slug: {slug!r}")
     return _waypoint_target(waypoint, ensure_builtin_task_feature_schema(repository))
+
+
+def waypoint_slug_for_capability(capability: str) -> str | None:
+    """The default-trajectory waypoint that authors AT ``capability``, or ``None``.
+
+    ``None`` is the honest answer, not a lookup miss, for ``coordination``: the
+    built-in trajectory deliberately stops before whole-task work, so there is no
+    waypoint at which the default authoring path may target it (spec
+    _measurement_efficiency_v1 D3 criterion 2 — "``coordination`` satisfies this
+    only behind a reviewed depth envelope"). A caller that wants a coordination
+    instrument must come through the milestone/envelope path
+    (:func:`_milestone_rung`) or author an A1 conjunctive capstone.
+    """
+
+    return _WAYPOINT_SLUG_BY_CAPABILITY.get(capability)
+
+
+def capability_rung(repository: Repository, capability: str) -> RungTarget | None:
+    """A RungTarget authoring AT ``capability``, or ``None`` when none exists.
+
+    The seam plan item 5.1 needs: a blueprint component names a capability, and
+    rung-correct generation has to turn that capability into the waypoint an item
+    is authored at. Returns ``None`` for ``coordination`` and for anything outside
+    the closed vocabulary — never a nearest-neighbour guess, because silently
+    authoring one rung off the contract is the defect 5.1 exists to remove.
+    """
+
+    slug = waypoint_slug_for_capability(capability)
+    if slug is None:
+        return None
+    return waypoint_rung(repository, slug)
 
 
 def _default_bounds(features: Mapping[str, Any]) -> dict[str, dict[str, Any]]:

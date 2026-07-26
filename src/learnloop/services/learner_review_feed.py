@@ -7,6 +7,7 @@ from typing import Any
 from learnloop.db.repositories import Repository
 from learnloop.services.remediation import misconception_status_history
 from learnloop.services.session_learning_diff import session_learning_diffs
+from learnloop.services.surfaced_beliefs import surfaced_belief_corrections
 from learnloop.vault.models import LoadedVault
 
 
@@ -130,6 +131,59 @@ def build_learner_review_feed(
                 "previous_algorithm_version": change[
                     "previous_algorithm_version"
                 ],
+                # Measurement §5.2: name WHICH boundary recomputed the estimates.
+                # A coverage-denominator change moves displayed mastery without
+                # touching the evidence or the projection, and an entry that could
+                # not say so would be indistinguishable from an algorithm rewrite.
+                "canonical_projection_version": change.get(
+                    "canonical_projection_version"
+                ),
+                "coverage_denominator_version": change.get(
+                    "coverage_denominator_version"
+                ),
+                "previous_coverage_denominator_version": change.get(
+                    "previous_coverage_denominator_version"
+                ),
+            }
+        )
+
+    # A6 (spec_diagnostic_augmentation_v1.md §2 A6): a belief the learner was
+    # SHOWN and that has since been withdrawn gets an explicit retraction. This
+    # is the counterpart of the §5.6 contest affordance — the learner could
+    # already object, and now the system can apologise. Three properties are
+    # load-bearing and all three live in the producer:
+    #   * scope — only beliefs with a `surfaced_to_learner` presentation; retiring
+    #     an internal provisional hypothesis nobody saw stays housekeeping;
+    #   * wording — the claim is quoted as it was shown, not as the (mutable)
+    #     belief statement reads now;
+    #   * idempotency — the entry id is keyed on the disposition EVENT, so
+    #     rebuilding the feed re-derives the same entry and a belief shown five
+    #     times is withdrawn once.
+    for withdrawal in surfaced_belief_corrections(repository):
+        changelog.append(
+            {
+                **_empty_belief_change(),
+                "id": withdrawal.entry_id,
+                "kind": "belief_withdrawn",
+                "at": withdrawal.at,
+                "facet_ids": list(withdrawal.facet_ids),
+                "belief_kind": withdrawal.belief_kind,
+                "belief_id": withdrawal.belief_id,
+                "learning_object_id": withdrawal.learning_object_id,
+                # The claim in the learner's own reading, plus an honesty marker
+                # saying whether that is literally the string they were shown.
+                "withdrawn_claim_text": withdrawal.withdrawn_claim_text,
+                "claim_text_source": withdrawal.claim_text_source,
+                "withdrawal_reason": withdrawal.withdrawal_reason,
+                "statement": withdrawal.statement,
+                "disposition": withdrawal.disposition,
+                "surfaced_at": withdrawal.surfaced_at,
+                "surfaced_on": withdrawal.surfaced_on,
+                # A successor is reported ALONGSIDE the retraction, never instead
+                # of it — A6 forbids quietly re-stating a withdrawn claim as a
+                # weaker belief.
+                "replacement_belief_id": withdrawal.replacement_belief_id,
+                "replacement_statement": withdrawal.replacement_statement,
             }
         )
 

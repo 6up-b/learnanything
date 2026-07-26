@@ -15,7 +15,13 @@ import sys
 import types
 
 
-def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions=()):
+def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions=(), usages=()):
+    """``usages`` optionally supplies one usage object per queued response, in
+    order, attached to the returned completion as ``.usage`` (A7 token
+    accounting). Entries may be dicts or objects; when the list runs out the
+    response carries no ``usage`` attribute at all, which is the shape a
+    provider that reports nothing produces."""
+
     module = types.SimpleNamespace(instances=[])
 
     class FakeOpenAI:
@@ -25,6 +31,7 @@ def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions
             self.transcription_requests = []
             self._responses = list(responses)
             self._transcriptions = list(transcriptions)
+            self._usages = list(usages)
             self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=self._create))
             self.audio = types.SimpleNamespace(transcriptions=types.SimpleNamespace(create=self._transcribe))
             module.instances.append(self)
@@ -36,6 +43,8 @@ def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions
                 raise content
             message = types.SimpleNamespace(content=content)
             choice = types.SimpleNamespace(message=message)
+            if self._usages:
+                return types.SimpleNamespace(choices=[choice], usage=self._usages.pop(0))
             return types.SimpleNamespace(choices=[choice])
 
         def _transcribe(self, **kwargs):

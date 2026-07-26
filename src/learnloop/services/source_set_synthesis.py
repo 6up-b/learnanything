@@ -35,8 +35,14 @@ from learnloop.codex.client import SourceSetSynthesisContext
 from learnloop.codex.prompts import SOURCE_SET_SYNTHESIS_PROMPT_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
+from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.brief import validate_brief
 from learnloop.services.exam_profile import ExamUnitEntry, aggregate_exam_profile
+from learnloop.services.facet_mint_gate import (
+    MintDisposition,
+    judge_facet_mints,
+    mint_diagnostic,
+)
 from learnloop.services.learner_profile import read_learner_profile
 from learnloop.services.identifiability import analyze_identifiability, build_proposal_view
 from learnloop.services.role_authority import role_authority
@@ -55,6 +61,7 @@ from learnloop.services.synthesis_manifests import (
     build_manifest,
     persist_manifest,
 )
+from learnloop.token_usage import TokenUsage, consume_client_usage
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, SourceSet
 from learnloop.vault.paths import VaultPaths
@@ -460,6 +467,11 @@ def _normalize(
     concept_client_for_id: dict[str, str] = {}
     concept_reference_index: dict[str, set[str]] = {}
     facet_client_to_id: dict[str, str] = {}
+    # candidate client key -> the client id of the row that materializes its facet.
+    # Distinct from `facet_client_to_id` because the D2 mint gate can resolve a
+    # candidate to a facet whose row is a DIFFERENT item (an earlier candidate it
+    # aliased into) or to no row at all (an already-registered facet).
+    facet_dep_client: dict[str, str] = {}
     lo_client_to_id: dict[str, str] = {}
 
     used_ids: set[str] = set()
@@ -589,14 +601,17 @@ def _normalize(
         )
         return cid, cid
 
-    # facets
+    # facets — normalized first, then judged by the D2 mint gate (Meas D2, plan
+    # item 5.4). The two passes are the point: D2's criterion is *relative* ("
+    # separable from its nearest existing neighbours"), so no candidate can be
+    # judged until every candidate in the batch has a payload to be compared with.
+    candidate_facets: list[dict[str, Any]] = []
     for facet in getattr(synth, "facets", []) or []:
         f = d(facet)
         client = f.get("client_item_id") or ""
         fid = f.get("id") or _slug("facet", f.get("claim", ""), new_ulid()[:8])
         fid = unique(str(fid))
         fkey = client or fid
-        facet_client_to_id[fkey] = fid
         concept_client = f.get("concept_client_id") or ""
         concept_id = concept_ids.get(concept_client) or f.get("concept_id") or ""
         gate_refs, yaml_refs, _spans = _span_refs(f.get("provenance", []), inputs, default_relation="primary")
@@ -614,11 +629,67 @@ def _normalize(
             "error_signatures": f.get("error_signatures") or [],
             "instructional_repairs": f.get("instructional_repairs") or [],
             "aliases": f.get("aliases") or [],
+            # D2: "Today source_set_synthesis mints one facet per extracted claim
+            # at status: 'reviewed' ... nothing structural preventing a
+            # near-duplicate." The mint gate below decides this value now; the
+            # literal here is only the pre-gate default.
             "status": "reviewed",
             "provenance": {"origin": "sourceset_synthesis", "source_refs": yaml_refs},
         }
+        candidate_facets.append(
+            {
+                "fkey": fkey,
+                "fid": fid,
+                "payload": payload,
+                "deps": [concept_client] if concept_client and concept_client in concept_ids else [],
+                "gate_refs": gate_refs,
+            }
+        )
+
+    mint_report = judge_facet_mints(
+        [candidate["payload"] for candidate in candidate_facets],
+        registered=[
+            facet.model_dump(mode="json") for facet in vault.evidence_facets.values()
+        ],
+    )
+    # target facet id -> candidate ids that collapsed into it (alias-not-mint).
+    alias_additions: dict[str, list[str]] = {}
+    minted_payload_by_id: dict[str, dict[str, Any]] = {}
+    minted_client_by_id: dict[str, str] = {}
+    for candidate, verdict in zip(candidate_facets, mint_report.verdicts):
+        fkey = str(candidate["fkey"])
+        fid = str(candidate["fid"])
+        payload = candidate["payload"]
+        diagnostic = mint_diagnostic(verdict)
+        if diagnostic is not None:
+            dropped_diagnostics.append(diagnostic)
+        if verdict.disposition is MintDisposition.ALIAS:
+            target = str(verdict.alias_of or "")
+            # ALIAS-NOT-MINT: no facet row is emitted; every downstream reference
+            # to this candidate (recipe components, criterion targets, LO scope)
+            # resolves to the neighbour through `facet_client_to_id`, and the
+            # candidate id is appended to the neighbour's `aliases` so the id keeps
+            # resolving after the batch is applied (`loader._facet_aliases`).
+            facet_client_to_id[fkey] = target
+            # Dependency rewiring: an item that depended on this candidate's row
+            # must now depend on whatever row materializes the TARGET, or on
+            # nothing at all when the target is already in the registry. Left
+            # pointing at the aliased candidate it would be a dangling requirement
+            # (`_gate_dependency_closure`), because no row with that client id
+            # exists any more.
+            target_client = minted_client_by_id.get(target)
+            if target_client is not None:
+                facet_dep_client[fkey] = target_client
+            if fid != target:
+                alias_additions.setdefault(target, []).append(fid)
+            continue
+        payload["status"] = verdict.minted_status or payload["status"]
+        facet_client_to_id[fkey] = fid
+        facet_dep_client[fkey] = fkey
+        minted_payload_by_id[fid] = payload
+        minted_client_by_id[fid] = fkey
         facet_payloads.append(payload)
-        deps = [concept_client] if concept_client and concept_client in concept_ids else []
+        deps = list(candidate["deps"])
         rows.append(_row("facet", fid, payload, deps, client_id=fkey, now=now))
         gate_items.append(
             GateItem(
@@ -627,8 +698,63 @@ def _normalize(
                 entity_id=fid,
                 payload=payload,
                 depends_on=deps,
-                provenance=gate_refs,
+                provenance=candidate["gate_refs"],
                 establishes_semantic=True,
+            )
+        )
+
+    # Register the aliases. An in-batch target is edited in place (its create row
+    # holds this very dict); an already-registered target earns an `update` row.
+    for target in sorted(alias_additions):
+        new_aliases = [
+            alias
+            for alias in sorted(dict.fromkeys(alias_additions[target]))
+            # Never shadow a real facet id: `loader._facet_aliases` maps aliases
+            # and ids into one namespace, so an alias equal to some facet's id
+            # would silently reroute that facet's evidence.
+            if alias not in minted_payload_by_id and alias not in vault.evidence_facets
+        ]
+        if not new_aliases:
+            continue
+        in_batch = minted_payload_by_id.get(target)
+        if in_batch is not None:
+            in_batch["aliases"] = list(
+                dict.fromkeys([*(in_batch.get("aliases") or []), *new_aliases])
+            )
+            continue
+        registered_facet = vault.evidence_facets.get(target)
+        if registered_facet is None:
+            continue
+        alias_row = _row(
+            "facet",
+            target,
+            {
+                "id": target,
+                "aliases": list(
+                    dict.fromkeys([*(registered_facet.aliases or []), *new_aliases])
+                ),
+            },
+            [],
+            client_id=f"facet_alias_{target}",
+            now=now,
+        )
+        alias_row["operation"] = "update"
+        rows.append(alias_row)
+        gate_items.append(
+            GateItem(
+                client_item_id=str(alias_row["client_item_id"]),
+                item_type="facet",
+                operation="update",
+                entity_id=target,
+                payload=alias_row["payload"],
+                # An alias registration asserts no new semantic claim — it
+                # WITHDRAWS one, by declining to mint a facet — and it is additive
+                # in the §10.2 sense: it appends a synonym and rewrites no part of
+                # the target's semantic contract. So it is neither a semantic
+                # establishment (no provenance authority owed) nor destructive (no
+                # identity lock to clear).
+                establishes_semantic=False,
+                destructive=False,
             )
         )
 
@@ -730,8 +856,11 @@ def _normalize(
                     comps_out.append({"facet": facet_id, "capability": capability, "modality": cm.get("modality") or "hard", "_slot": slot})
                     flat_facets.append(facet_id)
                     recipe_components.append({"facet": facet_id, "capability": capability})
-                    if fclient in facet_client_to_id and fclient not in facet_deps:
-                        facet_deps.append(fclient)
+                    # D2: depend on the row that materializes the facet, which the
+                    # mint gate may have redirected to an earlier candidate (alias).
+                    fdep = facet_dep_client.get(fclient)
+                    if fdep is not None and fdep not in facet_deps:
+                        facet_deps.append(fdep)
             integration = r.get("integration")
             integ_out = None
             if integration:
@@ -790,8 +919,11 @@ def _normalize(
                     integ_out = {"facet": facet_id, "capability": declared_capability, "modality": "hard"}
                     flat_facets.append(facet_id)
                     recipe_components.append({"facet": facet_id, "capability": declared_capability})
-                    if fclient in facet_client_to_id and fclient not in facet_deps:
-                        facet_deps.append(fclient)
+                    # D2: depend on the row that materializes the facet, which the
+                    # mint gate may have redirected to an earlier candidate (alias).
+                    fdep = facet_dep_client.get(fclient)
+                    if fdep is not None and fdep not in facet_deps:
+                        facet_deps.append(fdep)
             recipe_row = {
                 "id": r.get("id") or f"recipe_{new_ulid()[:8]}",
                 "composition": r.get("composition") or "conjunctive",
@@ -902,8 +1034,9 @@ def _normalize(
         }
         deps = ([lo_client] if lo_client in lo_client_to_id else [])
         for fc in pi.get("evidence_facet_client_ids") or []:
-            if fc in facet_client_to_id and fc not in deps:
-                deps.append(fc)
+            fdep = facet_dep_client.get(fc)
+            if fdep is not None and fdep not in deps:
+                deps.append(fdep)
         extra = list(pi.get("depends_on_client_item_ids") or [])
         for dep in extra:
             if dep not in deps:
@@ -1080,7 +1213,7 @@ def _normalize(
         facet_payloads=facet_payloads,
         criterion_targets=criterion_targets,
         recipe_components=recipe_components,
-        facet_ids=list(facet_client_to_id.values()),
+        facet_ids=list(dict.fromkeys(facet_client_to_id.values())),
         edge_diagnostics=edge_diagnostics + dropped_diagnostics,
     )
 
@@ -1305,6 +1438,11 @@ def _create_study_map(
 
     candidate_preserved = False
     usage: dict[str, Any] | None = None
+    # A7: drained ONCE, into a local threaded down to every arm that finalizes
+    # the run. `_gate_and_persist` completes the agent run from a frame with no
+    # client, and a gate failure there completes it again out here — a second
+    # drain would return zeros and erase the cost already recorded.
+    token_usage = TokenUsage()
     try:
         merged, span_request_count, resolved_hashes, usage = _run_synthesis(
             run_method, repository, inputs, vault, source_set, brief, budgets, clock=clock,
@@ -1312,6 +1450,7 @@ def _create_study_map(
             manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
             progress=progress,
         )
+        token_usage = consume_client_usage(client)
         repository.save_synthesis_candidate(
             synthesis_run_id,
             merged.model_dump(mode="json") if hasattr(merged, "model_dump") else dict(merged),
@@ -1323,6 +1462,7 @@ def _create_study_map(
             agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
             now=now, usage=usage, resolved_hashes=resolved_hashes,
             clock=clock, progress=progress, items_off=items_off,
+            token_usage=token_usage,
         )
     except StudyMapError as exc:
         if candidate_preserved:
@@ -1334,8 +1474,13 @@ def _create_study_map(
             coverage_decisions={"gate_diagnostics": exc.diagnostics} if exc.diagnostics else None,
             actual_usage=usage,
         )
-        repository.complete_agent_run(
+        # Zero unless the failure came from _run_synthesis itself (before the
+        # drain above); a sharded run that died mid-flight still spent tokens.
+        token_usage += consume_client_usage(client)
+        finish_agent_run(
+            repository,
             agent_run_id,
+            usage=token_usage,
             status="failed",
             error_message=f"{exc.code}: {exc}",
             clock=clock,
@@ -1343,7 +1488,11 @@ def _create_study_map(
         raise
     except Exception as exc:  # pragma: no cover - defensive
         repository.complete_synthesis_run(synthesis_run_id, status="failed")
-        repository.complete_agent_run(agent_run_id, status="failed", error_message=str(exc), clock=clock)
+        token_usage += consume_client_usage(client)
+        finish_agent_run(
+            repository, agent_run_id, usage=token_usage,
+            status="failed", error_message=str(exc), clock=clock,
+        )
         raise
 
     result = StudyMapResult(
@@ -1383,22 +1532,29 @@ def _gate_and_persist(
     clock: Clock | None,
     progress: ProgressFn | None = None,
     items_off: bool = False,
+    token_usage: TokenUsage | None = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]:
     """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
 
     Shared by the live synthesis path and candidate revalidation (which re-runs
     exactly this stage over a preserved candidate with zero model calls). On any
     failure the synthesis run and agent run are finalized as failed before the
-    typed error propagates."""
+    typed error propagates.
+
+    ``token_usage`` is the provider-reported cost of the model calls that
+    produced ``merged``, already drained by the caller (A7 / migration 131): this
+    frame holds no client, and revalidation legitimately has none — its whole
+    point is finishing without paying again, so it passes None and leaves the
+    original run's recorded cost alone."""
 
     def _fail(error_message: str, coverage: Any = None) -> None:
         repository.complete_synthesis_run(
             synthesis_run_id, status="failed", coverage_decisions=coverage, actual_usage=usage
         )
-        if agent_run_id:
-            repository.complete_agent_run(
-                agent_run_id, status="failed", error_message=error_message, clock=clock
-            )
+        finish_agent_run(
+            repository, agent_run_id, usage=token_usage,
+            status="failed", error_message=error_message, clock=clock,
+        )
 
     _notify(progress, "validation", "Validating candidate structure")
     normalized = _normalize(merged, inputs, vault, now, subject_id=subject_id, items_off=items_off)
@@ -1467,8 +1623,7 @@ def _gate_and_persist(
         coverage_decisions={"gate_diagnostics": diagnostics},
         actual_usage=usage,
     )
-    if agent_run_id:
-        repository.complete_agent_run(agent_run_id, status="completed", clock=clock)
+    finish_agent_run(repository, agent_run_id, usage=token_usage, clock=clock)
     return patch_id, diagnostics, generation_needs, normalized
 
 

@@ -404,6 +404,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         )
     except (AttemptValidationError, ValueError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    _schedule_certification_probe(vault, repository, result.learning_object_id)
     _persist_feedback_metadata(repository, result, self_grade)
     _evaluate_followup(
         vault, repository, params.session_id, result, ai_client=client if runtime.ready else None
@@ -445,6 +446,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         result = complete_self_graded_attempt(vault, repository, draft, grade)
     except (AttemptValidationError, ValueError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    _schedule_certification_probe(vault, repository, result.learning_object_id)
     _persist_feedback_metadata(repository, result, None)
     _evaluate_followup(vault, repository, params.session_id, result)
     repository.clear_session_checkpoint(params.session_id)
@@ -453,6 +455,25 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     payload = _attempt_result(result, repository)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
+
+
+def _schedule_certification_probe(vault, repository, learning_object_id: str) -> None:
+    """Queue §5.7 verification as part of the desktop's live attempt path.
+
+    The service is certificate-idempotent. Keeping this at the sidecar
+    submission boundary also preserves the CLI's explicit schedule/report
+    command and keeps deterministic replay free of future-work writes.
+    """
+
+    from learnloop.services.certification_cold_probe import (
+        schedule_certification_cold_probes,
+    )
+
+    schedule_certification_cold_probes(
+        vault,
+        repository,
+        learning_object_id=learning_object_id,
+    )
 
 
 def _submission_id(client_id: str | None, presentation_id: str | None) -> str | None:
