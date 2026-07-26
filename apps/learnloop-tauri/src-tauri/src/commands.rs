@@ -24,6 +24,41 @@ async fn blocking_select_vault(
         .map_err(|err| CommandError::internal(format!("Sidecar task failed: {err}")))?
 }
 
+async fn blocking_isolated_cli_call(
+    sidecar: State<'_, SidecarManager>,
+    input: Value,
+) -> Result<Value, CommandError> {
+    let sidecar = sidecar.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = sidecar.call_isolated("run_cli_command", input)?;
+        if cli_command_succeeded(&result) {
+            // The isolated sidecar reloads only its own in-memory vault after a
+            // successful CLI mutation. Refresh the primary sidecar so the rest
+            // of the app sees the newly populated practice items.
+            sidecar.call("reload_vault", json!({}))?;
+        }
+        Ok(result)
+    })
+    .await
+    .map_err(|err| CommandError::internal(format!("Sidecar task failed: {err}")))?
+}
+
+fn is_populate_goal_command(input: &Value) -> bool {
+    input
+        .get("argv")
+        .and_then(Value::as_array)
+        .and_then(|argv| {
+            argv.iter()
+                .filter_map(Value::as_str)
+                .find(|arg| !arg.is_empty() && *arg != "learnloop")
+        })
+        == Some("populate-goal")
+}
+
+fn cli_command_succeeded(result: &Value) -> bool {
+    result.get("exitCode").and_then(Value::as_i64) == Some(0)
+}
+
 #[tauri::command]
 pub async fn select_vault(
     path: Option<String>,
@@ -827,7 +862,11 @@ pub async fn run_cli_command(
     input: Value,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "run_cli_command", input).await
+    if is_populate_goal_command(&input) {
+        blocking_isolated_cli_call(sidecar, input).await
+    } else {
+        blocking_sidecar_call(sidecar, "run_cli_command", input).await
+    }
 }
 
 #[tauri::command]
@@ -1546,3 +1585,35 @@ p2_passthrough!(reader_pause_arc, "reader.pause_arc");
 p2_passthrough!(reader_shrink_envelope, "reader.shrink_envelope");
 p2_passthrough!(reader_prime, "reader.prime");
 p2_passthrough!(reader_restore, "reader.restore");
+
+#[cfg(test)]
+mod tests {
+    use super::{cli_command_succeeded, is_populate_goal_command};
+    use serde_json::json;
+
+    #[test]
+    fn populate_goal_cli_calls_are_classified_as_isolated() {
+        assert!(is_populate_goal_command(
+            &json!({"argv": ["populate-goal", "goal_linear_algebra_ml"]})
+        ));
+        assert!(is_populate_goal_command(
+            &json!({"argv": ["learnloop", "populate-goal", "goal_linear_algebra_ml", "--json"]})
+        ));
+    }
+
+    #[test]
+    fn other_cli_calls_stay_on_the_primary_sidecar() {
+        assert!(!is_populate_goal_command(
+            &json!({"argv": ["generate-practice", "--json"]})
+        ));
+        assert!(!is_populate_goal_command(&json!({"argv": []})));
+        assert!(!is_populate_goal_command(&json!({})));
+    }
+
+    #[test]
+    fn successful_cli_results_are_detected_from_the_camel_case_contract() {
+        assert!(cli_command_succeeded(&json!({"exitCode": 0})));
+        assert!(!cli_command_succeeded(&json!({"exitCode": 1})));
+        assert!(!cli_command_succeeded(&json!({"exit_code": 0})));
+    }
+}

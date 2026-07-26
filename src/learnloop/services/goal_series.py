@@ -33,6 +33,11 @@ from learnloop.vault.models import Goal, LoadedVault
 DEFAULT_INTERVAL_DAYS = 7
 DEFAULT_MAX_POINTS = 26
 
+# Guards against an unexpected reference cycle in the schema while pruning.
+_MAX_PRUNE_DEPTH = 8
+# Well under SQLite's bound-parameter limit, for chunked ``IN (...)`` filters.
+_PRUNE_CHUNK = 400
+
 
 @dataclass(frozen=True)
 class GoalSeriesPoint:
@@ -103,19 +108,20 @@ def goal_report_series(
     now = (clock or SystemClock()).now().astimezone(UTC)
     created = parse_utc(goal.created_at) or now
     checkpoints = _checkpoints(created, now, interval_days=interval_days, max_points=max_points)
-    scope_los = sorted(resolve_goal_scope(vault, goal, repository))
     points: list[GoalSeriesPoint] = []
-    for checkpoint in checkpoints[:-1]:
-        points.append(_historical_point(vault, repository, goal, scope_los, checkpoint))
-    live = goal_report(vault, repository, goal, clock=FrozenClock(checkpoints[-1]))
-    points.append(_point_from_report(checkpoints[-1], live))
-    due = parse_utc(goal.due_at)
-    if due is not None and due > now:
-        cursor = now + timedelta(days=1)
-        while cursor < due:
-            points.append(_decay_point(vault, repository, goal, live, cursor, now))
-            cursor += timedelta(days=1)
-        points.append(_decay_point(vault, repository, goal, live, due, now))
+    # Hundreds of small reads per checkpoint: pin one connection for the walk.
+    with repository.pinned():
+        scope_los = sorted(resolve_goal_scope(vault, goal, repository))
+        points.extend(_historical_points(vault, repository, goal, scope_los, checkpoints[:-1]))
+        live = goal_report(vault, repository, goal, clock=FrozenClock(checkpoints[-1]))
+        points.append(_point_from_report(checkpoints[-1], live))
+        due = parse_utc(goal.due_at)
+        if due is not None and due > now:
+            cursor = now + timedelta(days=1)
+            while cursor < due:
+                points.append(_decay_point(vault, repository, goal, live, cursor, now))
+                cursor += timedelta(days=1)
+            points.append(_decay_point(vault, repository, goal, live, due, now))
     return points
 
 
@@ -158,31 +164,174 @@ def _checkpoints(
     return checkpoints[-max_points:]
 
 
-def _historical_point(
+def _chunked(values: list[Any]) -> list[list[Any]]:
+    return [values[start : start + _PRUNE_CHUNK] for start in range(0, len(values), _PRUNE_CHUNK)]
+
+
+def _referencing_columns(connection, table: str) -> list[tuple[str, str, str, str]]:
+    """``(child_table, child_column, parent_column, on_delete)`` refs into ``table``."""
+
+    refs: list[tuple[str, str, str, str]] = []
+    child_tables = [
+        row[0]
+        for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    ]
+    for child in child_tables:
+        for fk in connection.execute(f'PRAGMA foreign_key_list("{child}")'):
+            _, _, parent_table, child_column, parent_column, _, on_delete, *_ = fk
+            if parent_table == table:
+                refs.append((child, child_column, parent_column or "rowid", on_delete))
+    return refs
+
+
+def _distinct_column(connection, table: str, column: str, key: str, values: list[Any]) -> list[Any]:
+    found: list[Any] = []
+    seen: set[Any] = set()
+    for chunk in _chunked(values):
+        placeholders = ",".join("?" * len(chunk))
+        rows = connection.execute(
+            f'SELECT DISTINCT "{column}" FROM "{table}" WHERE "{key}" IN ({placeholders})', chunk
+        )
+        for (value,) in rows:
+            if value is not None and value not in seen:
+                seen.add(value)
+                found.append(value)
+    return found
+
+
+def _prune_rows(
+    connection,
+    table: str,
+    column: str,
+    values: list[Any],
+    *,
+    delete_rows: bool = True,
+    depth: int = 0,
+) -> None:
+    """Delete ``table`` rows matching ``values``, clearing non-cascading referrers first.
+
+    SQLite cascades most attempt-derived rows for us, but a handful of tables
+    reference attempts (or their children) with NO ACTION / SET NULL, and those
+    rows trip a FOREIGN KEY violation unless they are cleared by hand. Rows that
+    SQLite will cascade away are still walked with ``delete_rows=False`` so their
+    own non-cascading referrers are handled.
+    """
+
+    if not values or depth > _MAX_PRUNE_DEPTH:
+        return
+    for child, child_column, parent_column, on_delete in _referencing_columns(connection, table):
+        keys = _distinct_column(connection, table, parent_column, column, values)
+        if not keys:
+            continue
+        if on_delete == "SET NULL":
+            for chunk in _chunked(keys):
+                placeholders = ",".join("?" * len(chunk))
+                connection.execute(
+                    f'UPDATE "{child}" SET "{child_column}" = NULL '
+                    f'WHERE "{child_column}" IN ({placeholders})',
+                    chunk,
+                )
+            continue
+        _prune_rows(
+            connection,
+            child,
+            child_column,
+            keys,
+            delete_rows=on_delete != "CASCADE",
+            depth=depth + 1,
+        )
+    if not delete_rows:
+        return
+    for chunk in _chunked(values):
+        placeholders = ",".join("?" * len(chunk))
+        connection.execute(
+            f'DELETE FROM "{table}" WHERE "{column}" IN ({placeholders})', chunk
+        )
+
+
+def _historical_points(
     vault: LoadedVault,
     repository: Repository,
     goal: Goal,
     scope_los: list[str],
-    checkpoint: datetime,
-) -> GoalSeriesPoint:
-    checkpoint_iso = checkpoint.strftime("%Y-%m-%dT%H:%M:%SZ")
+    checkpoints: list[datetime],
+) -> list[GoalSeriesPoint]:
+    """Replay-backed points, sharing one replay across checkpoints that match.
+
+    Attempts only ever accumulate, so two checkpoints that survive the same
+    *number* of attempts survive the same *set* of them, and the derived state a
+    replay produces is identical (replay clocks off each attempt, not off the
+    checkpoint). Consecutive matches — an idle stretch with no practice — are
+    therefore replayed once and reported per checkpoint clock.
+    """
+
+    counts = _attempt_counts(repository, checkpoints)
+    points: list[GoalSeriesPoint] = []
+    start = 0
+    while start < len(checkpoints):
+        end = start
+        while end + 1 < len(checkpoints) and counts[end + 1] == counts[start]:
+            end += 1
+        run = checkpoints[start : end + 1]
+        points.extend(_replayed_run(vault, repository, goal, scope_los, run))
+        start = end + 1
+    return points
+
+
+def _attempt_counts(repository: Repository, checkpoints: list[datetime]) -> list[int]:
+    with repository.connection() as connection:
+        return [
+            connection.execute(
+                "SELECT COUNT(*) FROM practice_attempts WHERE created_at <= ?",
+                (checkpoint.strftime("%Y-%m-%dT%H:%M:%SZ"),),
+            ).fetchone()[0]
+            for checkpoint in checkpoints
+        ]
+
+
+def _replayed_run(
+    vault: LoadedVault,
+    repository: Repository,
+    goal: Goal,
+    scope_los: list[str],
+    checkpoints: list[datetime],
+) -> list[GoalSeriesPoint]:
     with tempfile.TemporaryDirectory(prefix="learnloop-goal-series-") as scratch:
         scratch_path = Path(scratch) / "state.sqlite"
         shutil.copyfile(repository.sqlite_path, scratch_path)
         scratch_repo = Repository(scratch_path)
-        with scratch_repo.connection() as connection:
-            # Attempts are the raw log; everything else the report reads is
-            # derived and rebuilt below. Rows referencing dropped attempts are
-            # cleared by reset_learning_object_derived_state during replay.
-            connection.execute(
-                "DELETE FROM practice_attempts WHERE created_at > ?", (checkpoint_iso,)
+        with scratch_repo.pinned():
+            return _replay_and_report(vault, scratch_repo, goal, scope_los, checkpoints)
+
+
+def _replay_and_report(
+    vault: LoadedVault,
+    scratch_repo: Repository,
+    goal: Goal,
+    scope_los: list[str],
+    checkpoints: list[datetime],
+) -> list[GoalSeriesPoint]:
+    checkpoint = checkpoints[0]
+    checkpoint_iso = checkpoint.strftime("%Y-%m-%dT%H:%M:%SZ")
+    with scratch_repo.connection() as connection:
+        # Attempts are the raw log; everything else the report reads is derived
+        # and rebuilt below. Rows referencing dropped attempts are cleared by
+        # reset_learning_object_derived_state during replay.
+        doomed = [
+            row[0]
+            for row in connection.execute(
+                "SELECT id FROM practice_attempts WHERE created_at > ?", (checkpoint_iso,)
             )
-            connection.commit()
-        rebuild_derived_state(
-            vault,
-            scratch_repo,
-            learning_object_ids=scope_los,
-            clock=FrozenClock(checkpoint),
-        )
-        report = goal_report(vault, scratch_repo, goal, clock=FrozenClock(checkpoint))
-        return _point_from_report(checkpoint, report)
+        ]
+        _prune_rows(connection, "practice_attempts", "id", doomed)
+        connection.commit()
+    rebuild_derived_state(
+        vault,
+        scratch_repo,
+        learning_object_ids=scope_los,
+        clock=FrozenClock(checkpoint),
+    )
+    return [
+        _point_from_report(at, goal_report(vault, scratch_repo, goal, clock=FrozenClock(at)))
+        for at in checkpoints
+    ]

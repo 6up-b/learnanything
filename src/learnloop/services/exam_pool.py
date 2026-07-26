@@ -58,6 +58,18 @@ class _Candidate:
     stratum: str
     surface_family: str | None
     novel_surface: bool         # surface_family unseen among practiced items
+    # (facet, capability) blueprint components this item can testify to. An exam
+    # that covers every scope facet at ONE capability still cannot demonstrate an
+    # LO whose readiness conjoins several capabilities, so coverage is tracked
+    # over components rather than bare facets.
+    components: frozenset[tuple[str, str]] = frozenset()
+
+
+#: Practice items that must remain unreserved for a reservation to be worth
+#: making. Holding out an exam from a pool that barely covers it leaves the
+#: learner with a measurement and nothing to prepare on — the failure the goal
+#: wizard's "starter practice" checkbox existed to paper over.
+PRACTICE_FLOOR = 5
 
 
 @dataclass(frozen=True)
@@ -69,6 +81,12 @@ class ExamPoolReport:
     requested_item_count: int
     strata: dict[str, int]
     already_reserved: bool
+    #: True when reservation was declined because the pool is too thin to hold
+    #: an exam out of. Not an error and not terminal: every call site is
+    #: idempotent, so the pool forms by itself once material accrues.
+    deferred: bool = False
+    deferred_reason: str | None = None
+    candidate_count: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -79,6 +97,9 @@ class ExamPoolReport:
             "requested_item_count": self.requested_item_count,
             "strata": dict(self.strata),
             "already_reserved": self.already_reserved,
+            "deferred": self.deferred,
+            "deferred_reason": self.deferred_reason,
+            "candidate_count": self.candidate_count,
         }
 
 
@@ -108,12 +129,27 @@ def reserve_exam_pool(
     goal: Goal,
     *,
     item_count: int | None = None,
+    defer_if_insufficient: bool = False,
+    practice_floor: int = PRACTICE_FLOOR,
     clock: Clock | None = None,
 ) -> ExamPoolReport:
     """Reserve up to ``item_count`` held-out items covering the goal's scope.
 
     Idempotent per goal: if the goal already has an unreleased reservation, the
     existing reservation is returned unchanged (``already_reserved=True``).
+
+    ``defer_if_insufficient`` declines to reserve at all while fewer than
+    ``item_count + practice_floor`` candidates exist, reporting ``deferred=True``
+    instead. Reserving from a thin pool is worse than waiting: the first
+    reservation is frozen by the idempotence guard above, so a goal that reserved
+    3 items on day one would still hold a 3-item exam after its pool grew to 40,
+    and would have had nothing to practise in the meantime.
+
+    It is opt-in because deferral is a property of the AUTOMATIC call site, not
+    of reservation itself. ``get_exam_status`` — the background hook that now
+    forms the pool, since ``create_goal`` no longer reserves eagerly — passes
+    ``True``. Anything acting on an explicit request (``start_exam``, ``learnloop
+    exam reserve``, a caller naming its own ``item_count``) reserves what exists.
     """
 
     clock = clock or SystemClock()
@@ -148,6 +184,21 @@ def reserve_exam_pool(
             requested_item_count=requested,
             strata=strata,
             already_reserved=True,
+            candidate_count=len(candidates),
+        )
+
+    if defer_if_insufficient and len(candidates) < requested + max(practice_floor, 0):
+        return ExamPoolReport(
+            goal_id=goal.id,
+            reserved_item_ids=[],
+            covered_facets=[],
+            uncovered_facets=uncovered,
+            requested_item_count=requested,
+            strata={},
+            already_reserved=False,
+            deferred=True,
+            deferred_reason="insufficient_pool",
+            candidate_count=len(candidates),
         )
 
     selected = _select(candidates, requested)
@@ -229,6 +280,7 @@ def reserve_exam_pool(
         requested_item_count=requested,
         strata=strata,
         already_reserved=False,
+        candidate_count=len(candidates),
     )
 
 
@@ -282,9 +334,29 @@ def _candidates(
                 surface_family=item.surface_family,
                 novel_surface=item.surface_family is not None
                 and item.surface_family not in practiced_surfaces,
+                components=_item_components(vault, item, covered),
             )
         )
     return candidates
+
+
+def _item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]:
+    """The (facet, capability) blueprint components ``item`` can testify to.
+
+    An item observes its facets at the capability it was authored at, so the same
+    facet probed at two capabilities is two distinct pieces of evidence toward a
+    blueprint that conjoins them.
+    """
+
+    from learnloop.services.capability_mapping import default_capability_for, is_valid_capability
+
+    declared = getattr(item, "capability", None)
+    capability = (
+        str(declared)
+        if declared and is_valid_capability(str(declared))
+        else default_capability_for(item.practice_mode)
+    )
+    return frozenset((facet, capability) for facet in covered)
 
 
 def _practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]:
@@ -297,11 +369,17 @@ def _practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[
 
 
 def _select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]:
-    """Greedy scope-coverage selection with stratification + surface novelty.
+    """Greedy blueprint-coverage selection with stratification + surface novelty.
 
-    Deterministic: each pick maximizes newly covered scope facets; ties break to
-    a novel surface family, then an under-represented difficulty stratum, then a
-    novel surface family value, then item id.
+    Deterministic: each pick maximizes newly covered (facet, capability) blueprint
+    components, then newly covered scope facets; ties break to a novel surface
+    family, then an under-represented difficulty stratum, then a novel surface
+    family value, then item id.
+
+    Components lead facets because readiness conjoins them: an exam that touches
+    every scope facet at a single capability leaves the rest of each blueprint
+    unexamined, which is how a 15-item sitting could be answered near-perfectly
+    and still move nothing.
     """
 
     if item_count <= 0:
@@ -309,16 +387,19 @@ def _select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]:
     remaining = list(candidates)
     selected: list[_Candidate] = []
     covered: set[str] = set()
+    covered_components: set[tuple[str, str]] = set()
     stratum_counts: dict[str, int] = {}
     used_surfaces: set[str] = set()
 
     while remaining and len(selected) < item_count:
         def sort_key(candidate: _Candidate) -> tuple:
+            new_components = len(candidate.components - covered_components)
             new_facets = len(candidate.facets - covered)
             surface_new = (
                 candidate.surface_family is not None and candidate.surface_family not in used_surfaces
             )
             return (
+                -new_components,
                 -new_facets,
                 0 if candidate.novel_surface else 1,
                 stratum_counts.get(candidate.stratum, 0),
@@ -330,6 +411,7 @@ def _select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]:
         pick = remaining.pop(0)
         selected.append(pick)
         covered |= pick.facets
+        covered_components |= pick.components
         stratum_counts[pick.stratum] = stratum_counts.get(pick.stratum, 0) + 1
         if pick.surface_family is not None:
             used_surfaces.add(pick.surface_family)

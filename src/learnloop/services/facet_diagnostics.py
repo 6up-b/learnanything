@@ -16,7 +16,12 @@ from learnloop.services.mastery import display_mastery
 from learnloop.services.probes import apply_facet_observation
 from learnloop.numeric import clamp
 from learnloop.services.recall_coverage import criterion_facet_weights_for_item
-from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
+from learnloop.vault.models import (
+    LoadedVault,
+    PracticeItem,
+    Rubric,
+    learning_object_facet_union,
+)
 
 
 def entropy(distribution: Mapping[str, float]) -> float:
@@ -40,6 +45,14 @@ def required_facets(
     learning_object_id: str,
     repository: Repository | None = None,
 ) -> set[str]:
+    """Facets the LO's ACTIVE authored practice items actually measure.
+
+    This is a statement about instruments, not about curriculum: an LO with no
+    items measures nothing, and callers doing coverage / probe-target / tutor-
+    context math genuinely want that reading. Callers asking "what is this LO
+    responsible for" want :func:`scope_facets` instead.
+    """
+
     facets: set[str] = set()
     item_states = repository.practice_item_states() if repository is not None else {}
     for item in vault.practice_items.values():
@@ -49,6 +62,36 @@ def required_facets(
         if state is not None and not state.active:
             continue
         facets.update(str(facet) for facet in item.evidence_facets)
+    return facets
+
+
+def scope_facets(
+    vault: LoadedVault,
+    learning_object_id: str,
+    repository: Repository | None = None,
+) -> set[str]:
+    """Facets an LO is RESPONSIBLE for: blueprint declarations ∪ measured facets.
+
+    ``required_facets`` derives everything from authored practice items, so an
+    LO whose items have not been generated yet reports the empty set and
+    disappears from any consumer that treats "no facets" as "not real" — most
+    consequentially ``resolve_goal_scope``, which drops it outright. The
+    blueprints (§7.2 requirement recipes) already declare those facets; nothing
+    was reading them here, so a goal over freshly synthesized material resolved
+    to nothing and was created inert.
+
+    The union is deliberate and makes this strictly additive: every LO that
+    resolved before still resolves (items keep contributing), legacy LOs with no
+    blueprints keep their item-derived facets, and item drift outside the
+    blueprint is not silently dropped. Nothing loses scope by this change.
+    """
+
+    facets = required_facets(vault, learning_object_id, repository)
+    learning_object = vault.learning_objects.get(learning_object_id)
+    if learning_object is not None:
+        facets = facets | {
+            str(facet) for facet in learning_object_facet_union(learning_object)
+        }
     return facets
 
 

@@ -38,7 +38,7 @@ from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemState, Repository
 from learnloop.numeric import clamp
 from learnloop.services.blueprint_projection import LoReadiness, project_lo_readiness
-from learnloop.services.facet_diagnostics import facet_state_label, required_facets
+from learnloop.services.facet_diagnostics import facet_state_label, scope_facets
 from learnloop.services.facet_state_reader import (
     facet_states_by_lo as read_facet_states_by_lo,
 )
@@ -197,10 +197,16 @@ def resolve_goal_scope(
     """``lo_id -> set of canonical facet ids`` in the goal's scope.
 
     An active LO whose concept is in ``goal.facet_scope.concepts`` contributes
-    all of its (canonicalized) required facets. Each explicit facet id in
+    all of its (canonicalized) :func:`scope_facets`. Each explicit facet id in
     ``goal.facet_scope.facets`` is additionally attached to any active LO whose
-    required facets already contain it. LOs that end up with no facets are
+    scope facets already contain it. LOs that end up with no facets are
     omitted.
+
+    Scope reads ``scope_facets`` (blueprint ∪ measured), NOT ``required_facets``
+    (measured only). A goal is normally set over the material the learner has
+    not practiced yet — which is exactly the material with no authored items —
+    so keying scope on authored items made the modal goal resolve to nothing and
+    be created inert.
     """
 
     concept_scope = set(goal.facet_scope.concepts)
@@ -211,7 +217,7 @@ def resolve_goal_scope(
             continue
         required = {
             vault.canonical_facet_id(str(facet))
-            for facet in required_facets(vault, learning_object_id, repository)
+            for facet in scope_facets(vault, learning_object_id, repository)
         }
         if not required:
             continue
@@ -222,6 +228,50 @@ def resolve_goal_scope(
         if facets:
             scope[learning_object_id] = facets
     return scope
+
+
+def goal_material_gaps(
+    vault: LoadedVault,
+    goal: Goal,
+    repository: Repository,
+) -> list[dict[str, Any]]:
+    """In-scope learning objects with no ACTIVE practice item to serve.
+
+    Distinct from an uncovered concept: the learning object is real, active,
+    blueprinted, and inside the goal's scope — there is simply nothing authored
+    to practice on it yet. That makes it a *fillable gap* rather than a void,
+    and it is the signal the wizard turns into a generate action (the named-LO,
+    probe-gate-waived expansion path is the only one that works from zero).
+
+    Returned in stable id order so a UI list does not reshuffle between polls.
+    """
+
+    scope = resolve_goal_scope(vault, goal, repository)
+    item_states = repository.practice_item_states()
+    active_counts: dict[str, int] = {}
+    for item in vault.practice_items.values():
+        state = item_states.get(item.id)
+        if state is not None and not state.active:
+            continue
+        active_counts[item.learning_object_id] = (
+            active_counts.get(item.learning_object_id, 0) + 1
+        )
+    gaps: list[dict[str, Any]] = []
+    for learning_object_id in sorted(scope):
+        if active_counts.get(learning_object_id):
+            continue
+        learning_object = vault.learning_objects.get(learning_object_id)
+        if learning_object is None:
+            continue
+        gaps.append(
+            {
+                "learning_object_id": learning_object_id,
+                "title": learning_object.title,
+                "concept_id": learning_object.concept,
+                "scope_facet_count": len(scope[learning_object_id]),
+            }
+        )
+    return gaps
 
 
 def _supporting_weight(vault: LoadedVault, item, facet_id: str) -> float:

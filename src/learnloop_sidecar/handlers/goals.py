@@ -16,7 +16,12 @@ from learnloop.db.repositories import Repository
 from learnloop.services.forecast_ledger import active_forecasts
 from learnloop.services.goal_intent import resolve_goal_quest
 from learnloop.services.goal_pace import compute_goal_pace
-from learnloop.services.goal_projection import GoalReport, goal_report, resolve_goal_scope
+from learnloop.services.goal_projection import (
+    GoalReport,
+    goal_material_gaps,
+    goal_report,
+    resolve_goal_scope,
+)
 from learnloop.services.goal_series import goal_report_series
 from learnloop.vault.models import Goal, LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -31,6 +36,12 @@ _GOAL_STATUSES = ("active", "paused", "completed", "expired")
 # goal_report_series replays history (checkpoints x per-LO replay); cache per
 # (goal, params) and invalidate on any new attempt for the vault.
 _series_cache: dict[tuple, list[dict[str, Any]]] = {}
+
+# Keys carry the vault, goal and attempt count, so entries self-invalidate; the
+# bound is only there to stop a long-lived process from growing without limit.
+# It must exceed the goal count, or switching goals evicts the entry we just
+# computed and every switch pays the replay again.
+_SERIES_CACHE_MAX = 32
 
 # Bump when GoalSeriesPoint.as_dict gains/loses keys so a hot-reloaded process
 # can never serve a stale-shape cached payload.
@@ -65,6 +76,9 @@ class CreateGoalInput(ParamsModel):
     exam_enabled: bool = False
     exam_item_count: int = 20
     populate_practice: bool = False
+    #: Opt out of the resolved-scope guard. Creating a goal that tracks nothing
+    #: stays possible, but only as a stated intent, never as a silent default.
+    allow_empty_scope: bool = False
 
 
 class UpdateGoalStatusInput(ParamsModel):
@@ -197,6 +211,44 @@ def _report_dto(
     return payload
 
 
+def _practicable_item_count(
+    vault: LoadedVault, goal: Goal, repository: Repository | None
+) -> int | None:
+    """Active, non-exam-reserved Practice Items inside the goal's scope.
+
+    The same supply definition ``build_goal_practice_plan`` sizes generation
+    against: reserved items are quarantined from the scheduler, so they cannot
+    be practised and do not count. ``None`` when it cannot be computed (no
+    repository), which callers must not read as "no supply".
+
+    Exposed so the UI can tell "this goal has nothing to practise" from "a
+    population job once failed" — a failed job whose goal since acquired supply
+    describes a condition that no longer holds.
+    """
+
+    if repository is None:
+        return None
+    try:
+        scope = resolve_goal_scope(vault, goal, repository)
+        if not scope:
+            return 0
+        reserved = repository.reserved_exam_pool_item_ids()
+        states = repository.practice_item_states()
+        count = 0
+        for item in vault.practice_items.values():
+            if item.learning_object_id not in scope or item.status != "active":
+                continue
+            if item.id in reserved:
+                continue
+            state = states.get(item.id)
+            if state is not None and not state.active:
+                continue
+            count += 1
+        return count
+    except Exception:  # noqa: BLE001 - a derived read never breaks the goal list
+        return None
+
+
 def _goal_dto(
     vault: LoadedVault,
     goal: Goal,
@@ -220,6 +272,7 @@ def _goal_dto(
             "facets": list(goal.facet_scope.facets),
         },
         "exam": {"enabled": goal.exam.enabled, "item_count": goal.exam.item_count},
+        "practicable_item_count": _practicable_item_count(vault, goal, repository),
         "created_at": goal.created_at,
         "updated_at": goal.updated_at,
         "report": (
@@ -247,7 +300,7 @@ def get_goal_report(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
     report = goal_report(vault, repository, goal)
     return versioned(
         {
-            "goal": _goal_dto(vault, goal, None),
+            "goal": _goal_dto(vault, goal, None, repository),
             "report": _report_dto(
                 vault, report, include_facets=True, repository=repository, goal=goal
             ),
@@ -281,7 +334,8 @@ def get_goal_report_series(ctx: SidecarContext, params: GoalSeriesInput) -> dict
             interval_days=params.interval_days,
             max_points=params.max_points,
         )
-        _series_cache.clear()  # one vault per process; keep only current shape
+        while len(_series_cache) >= _SERIES_CACHE_MAX:
+            _series_cache.pop(next(iter(_series_cache)))  # oldest insertion first
         _series_cache[cache_key] = [point.as_dict() for point in series]
     return versioned({"goal_id": goal.id, "series": _series_cache[cache_key]})
 
@@ -321,6 +375,10 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
                 report.on_track_count / report.total if report.total else None
             ),
             "uncovered_concepts": uncovered,
+            # Fillable gaps: in scope, blueprinted, nothing authored to practice.
+            # Separate from `uncovered_concepts`, which means "contributes no
+            # learning object at all" and has no generate action.
+            "material_gaps": goal_material_gaps(vault, transient, repository),
             "resolved_quest_sentence": (
                 quest.sentence if quest is not None else None
             ),
@@ -402,6 +460,54 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
         raise SidecarError("goal_scope_empty", "A goal needs at least one concept or facet.")
     if not (0.0 < params.target_recall <= 1.0):
         raise SidecarError("goal_invalid_target", "target_recall must be in (0, 1].")
+    now = utc_now_iso()
+    # A non-empty concepts list is not the same thing as a non-empty SCOPE. Two
+    # distinct ways a goal ends up tracking less than it appears to, both silent
+    # before this guard:
+    #
+    #   1. a named concept contributes NO active learning object, so it is not
+    #      measurable and nothing — not practice generation, not the exam, not
+    #      the queue — can ever act on it. Carrying it in `facet_scope` only
+    #      makes the goal permanently report coverage it will never reach;
+    #   2. nothing resolves at all, producing an inert goal: "0 of 0 facets on
+    #      track", an exam over nothing, zero queue contribution, no error.
+    #
+    # Both refuse by default. `allow_empty_scope` remains the deliberate escape
+    # hatch, so an empty goal stays possible as a stated intent.
+    if not params.allow_empty_scope:
+        measurable = {
+            learning_object.concept
+            for learning_object in vault.learning_objects.values()
+            if learning_object.status == "active"
+        }
+        unmeasurable = [
+            concept for concept in params.concepts if concept not in measurable
+        ]
+        if unmeasurable:
+            raise SidecarError(
+                "goal_concepts_without_learning_objects",
+                "These concepts have no active learning object, so a goal cannot "
+                f"measure them: {', '.join(unmeasurable)}. Remove them, or build "
+                "learning objects for them first.",
+                details={"concepts_without_learning_objects": unmeasurable},
+            )
+    probe = Goal(
+        id="goal_transient_scope_check",
+        title=params.title.strip() or "(scope probe)",
+        creation_source="learner",
+        target_recall=params.target_recall,
+        due_at=params.due_at,
+        facet_scope={"concepts": list(params.concepts), "facets": list(params.facets)},
+        created_at=now,
+        updated_at=now,
+    )
+    if not params.allow_empty_scope and not resolve_goal_scope(vault, probe, repository):
+        raise SidecarError(
+            "goal_scope_unresolved",
+            "This scope resolves to nothing measurable, so the goal would track "
+            "no facets.",
+            details={"concepts": list(params.concepts), "facets": list(params.facets)},
+        )
     paths = VaultPaths(vault.root, vault.config)
     goals_data = read_yaml(paths.goals_path) if paths.goals_path.exists() else {"schema_version": 2, "goals": []}
     goals = goals_data.setdefault("goals", [])
@@ -412,7 +518,6 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
     while goal_id in existing_ids:
         goal_id = f"{base}_{suffix}"
         suffix += 1
-    now = utc_now_iso()
     entry = {
         "id": goal_id,
         "title": params.title.strip(),
@@ -434,12 +539,14 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
     ctx.reload(maintenance=False)
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, goal_id)
-    if goal.exam.enabled:
-        # Reserve the held-out pool on day one so practice can never
-        # contaminate the exam items (coverage gaps surface via exam status).
-        from learnloop.services.exam_pool import reserve_exam_pool
-
-        reserve_exam_pool(vault, repository, goal)
+    # Reservation is deliberately NOT done here. Quarantining on day one takes
+    # its items from whatever pool exists at creation, which for a goal over
+    # freshly synthesized material is empty or smaller than the exam itself —
+    # the learner ends up with an exam and nothing to practice. `get_exam_status`
+    # and `start_exam` both reserve idempotently, and `reserve_exam_pool` now
+    # defers while the pool is too thin, so the pool forms on its own once there
+    # is enough material to hold one out. Contamination is still impossible: an
+    # item already practised was never eligible to be held out.
     report = goal_report(vault, repository, goal)
     population_batch = None
     if params.populate_practice:
@@ -449,6 +556,56 @@ def create_goal(ctx: SidecarContext, params: CreateGoalInput) -> dict[str, Any]:
         {
             "goal": _goal_dto(vault, goal, report, repository),
             "population_batch": population_batch,
+        }
+    )
+
+
+class GenerateStarterPracticeInput(ParamsModel):
+    learning_object_ids: list[str]
+    reason: str | None = None
+
+
+@method("generate_starter_practice", GenerateStarterPracticeInput)
+def generate_starter_practice(
+    ctx: SidecarContext, params: GenerateStarterPracticeInput
+) -> dict[str, Any]:
+    """Author practice for named learning objects that have none yet.
+
+    This is the only expansion path that works from zero. ``generate-practice``
+    keeps the completed-probe gate (which needs attempts, which need items) and
+    ``populate-goal`` resolves through goal scope, so neither can bootstrap an
+    empty learning object. The reader's section-completion trigger uses this
+    same job; here the trigger is the learner pointing at the gap instead.
+    """
+
+    vault, _repository = ctx.require_vault()
+    requested = [str(value).strip() for value in params.learning_object_ids if str(value).strip()]
+    if not requested:
+        raise SidecarError(
+            "invalid_request", "generate_starter_practice needs at least one learning object id."
+        )
+    unknown = [value for value in requested if value not in vault.learning_objects]
+    if unknown:
+        raise SidecarError(
+            "not_found",
+            f"Unknown learning object(s): {', '.join(sorted(unknown))}.",
+            details={"learning_object_ids": sorted(unknown)},
+        )
+    subjects = {
+        subject
+        for value in requested
+        for subject in vault.learning_objects[value].subjects
+    }
+    batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
+        learning_object_ids=requested,
+        subject_id=next(iter(sorted(subjects))) if len(subjects) == 1 else None,
+        reason=params.reason or "learner_requested_starter_practice",
+    )
+    return versioned(
+        {
+            "batch_id": batch_id,
+            "batch": ctx.ingest_jobs.get_batch(batch_id),
+            "learning_object_ids": requested,
         }
     )
 

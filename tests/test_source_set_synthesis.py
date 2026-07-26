@@ -26,6 +26,7 @@ from learnloop.codex.schemas import (
     SynthLearningObject,
     SynthPracticeItem,
     SynthRecipe,
+    SynthIntegrationComponent,
     SynthRecipeComponent,
     SynthSpanRef,
 )
@@ -975,3 +976,85 @@ def test_synthesis_progress_reports_shard_and_stage_messages(tmp_path):
     assert "Applying the study map" in messages
     assert stages.index("validation") > stages.index("synthesis")
     assert stages.index("apply") > stages.index("persistence")
+
+
+def _payload_with_integration(capability):
+    """Default payload, with an `integration` component on the sole recipe.
+
+    ``capability=None`` exercises the undeclared arm (the case that used to be
+    silently defaulted to ``coordination``).
+    """
+
+    def builder(context, _call_index):
+        payload = _default_payload(context)
+        recipe = payload.blueprints[0].recipes[0]
+        recipe.integration = SynthIntegrationComponent(
+            facet_client_id="f_spectral", capability=capability
+        )
+        return payload
+
+    return builder
+
+
+def _integration_diagnostics(result):
+    return [d for d in result.gate_diagnostics if d.get("gate") == "blueprint_integration"]
+
+
+def test_integration_without_capability_is_dropped_not_defaulted(tmp_path):
+    """An undeclared integration capability is an authoring gap, not `coordination`.
+
+    The old `or "coordination"` fallback minted the one capability the default
+    rung trajectory refuses to author, so the objective was born uncertifiable.
+    """
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient(builder=_payload_with_integration(None))
+    result = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK, apply=True)
+
+    assert result.applied is True
+    recipe = load_vault(root).learning_objects["lo_diagonalize_symmetric"].blueprints[0].recipes[0]
+    assert recipe.integration is None          # dropped, not defaulted
+    assert recipe.all_of                       # the recipe itself survives
+
+    diagnostics = _integration_diagnostics(result)
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["severity"] == "review"
+    assert "no capability" in diagnostics[0]["message"]
+
+
+def test_integration_at_coordination_is_kept_but_flagged(tmp_path):
+    """`coordination` stays authorable -- and announces the obligation it creates."""
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient(builder=_payload_with_integration("coordination"))
+    result = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK, apply=True)
+
+    recipe = load_vault(root).learning_objects["lo_diagonalize_symmetric"].blueprints[0].recipes[0]
+    assert recipe.integration is not None
+    assert recipe.integration.capability == "coordination"
+
+    diagnostics = _integration_diagnostics(result)
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["severity"] == "review"
+    assert "cannot be certified" in diagnostics[0]["message"]
+
+
+def test_integration_below_coordination_is_kept_silently(tmp_path):
+    """An integration component the item pool can actually observe is unremarkable."""
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient(builder=_payload_with_integration("procedure_execution"))
+    result = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK, apply=True)
+
+    recipe = load_vault(root).learning_objects["lo_diagonalize_symmetric"].blueprints[0].recipes[0]
+    assert recipe.integration is not None
+    assert recipe.integration.capability == "procedure_execution"
+    assert _integration_diagnostics(result) == []
+
+
+def test_integration_capability_has_no_schema_default():
+    """Absence must be representable: an all_of component may default, this may not."""
+    assert SynthIntegrationComponent().capability is None
+    assert SynthRecipeComponent().capability == "retrieval"
+    with pytest.raises(ValueError):
+        SynthIntegrationComponent(capability="assemble the whole proof")

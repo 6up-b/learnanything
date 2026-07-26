@@ -1,0 +1,195 @@
+schema_version: 1
+id: pi_orient_compute_operation_packages_04
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: structured_calculation
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - reconstruction_after_walkthrough
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  criterion_evaluates_addition_rules:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+  criterion_evaluates_scalar_rules:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+  criterion_infers_distinct_structures:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_execute_operation_package_comparison
+      checkpoints:
+        - identify_shared_data
+        - identify_changed_data
+        - evaluate_addition_rules
+        - evaluate_scalar_rules
+        - infer_distinct_structures
+      dependencies:
+        evaluate_addition_rules:
+          - identify_changed_data
+        evaluate_scalar_rules:
+          - identify_changed_data
+        identify_changed_data: []
+        identify_shared_data: []
+        infer_distinct_structures:
+          - identify_shared_data
+          - identify_changed_data
+          - evaluate_addition_rules
+          - evaluate_scalar_rules
+variant_contract:
+  variant_kind: harder
+  intended_manipulations:
+    - axis: difficulty
+      direction: increase
+      rationale: Raises the estimate from 0.23 to 0.29 within the execute 
+        waypoint's recommended band.
+    - axis: response
+      direction: increase
+      rationale: Changes a prose explanation into structured calculations 
+        followed by a conclusion.
+    - axis: span
+      direction: increase
+      rationale: Requires multiple dependent steps rather than a single 
+        interpretive step.
+  incidental_changes:
+    - surface_family
+    - concrete_underlying_set
+    - operation_symbols
+    - numerical_inputs
+  held_constant:
+    - target learning object
+    - underlying knowledge claim
+    - complexity
+    - near transfer
+    - no scaffolding
+    - verbal and symbolic presentation
+    - closed-book tool condition
+  preserves_checkpoints:
+    - identify_shared_data
+    - identify_changed_data
+    - infer_distinct_structures
+  deepens_checkpoints:
+    - evaluate_addition_rules
+    - evaluate_scalar_rules
+  drops_checkpoints: []
+teach_back_source:
+prompt: "Let V=R and let the scalar field be R. Two vector-space structures are proposed
+  on this same set.\n\nPackage A: x⊕y=x+y and a⊙x=ax.\nPackage B: x⊞y=x+y+1 and a⊛x=ax+a−1.\n\
+  \nShow your work in this order:\n1. Compute 1⊕2 and 1⊞2.\n2. Compute 3⊙2 and 3⊛2.\n\
+  3. Use your results to explain why Packages A and B specify different structures
+  on the same underlying set."
+expected_answer: "1. Under Package A, 1⊕2=1+2=3. Under Package B, 1⊞2=1+2+1=4.\n2.
+  Under Package A, 3⊙2=3·2=6. Under Package B, 3⊛2=3·2+3−1=8.\n3. Both packages use
+  the same set V=R and field R, but their addition rules give different sums and their
+  scalar-multiplication rules give different scalar multiples for the displayed inputs.
+  Since the operations are part of a vector-space structure, the two operation packages
+  specify different structures."
+difficulty: 0.29
+difficulty_source: llm_estimate
+tags:
+  - execute-waypoint
+  - harder-variant
+  - operation-package
+  - rung_variant
+  - vector-space-structure
+hints:
+  - Substitute the given inputs separately into each package's addition rule.
+  - Then substitute a=3 and x=2 separately into each scalar-multiplication rule.
+  - Ask whether sharing the set is enough when the operations produce different 
+    outputs.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.68
+transfer_distance: 0.32
+scaffold_level: 0.08
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: dual_operation_computation
+evidence_fingerprint:
+  source_family: operation_package_comparison
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: The structures are the same because both use 
+  V=R and the scalar field R.
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_evaluates_addition_rules
+      points: 1.0
+      description: Correctly computes 1⊕2=3 and 1⊞2=4 with substitutions into 
+        the stated rules.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: supporting
+    - id: criterion_evaluates_scalar_rules
+      points: 1.0
+      description: Correctly computes 3⊙2=6 and 3⊛2=8 with substitutions into 
+        the stated rules.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: supporting
+    - id: criterion_infers_distinct_structures
+      points: 2.0
+      description: Concludes that the structures differ because operations are 
+        part of the structure and the two packages produce different results 
+        despite sharing the set and field.
+      tier: transfer
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: retired
+status_reason: duplicate_surface
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: existing_entity
+      ref_id: pi_orient_same_set_03
+      path:
+      locator:
+      quote: Two authors use the same underlying set V and the same field F, but
+        define different rules for adding elements and multiplying them by 
+        scalars.
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids:
+        - lo_orient_to_the_vector_space_idea
+created_at: '2026-07-26T00:30:22Z'
+updated_at: '2026-07-26T12:59:47Z'

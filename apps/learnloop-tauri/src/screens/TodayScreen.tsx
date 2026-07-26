@@ -396,6 +396,31 @@ export function TodayScreen({
     });
   }, [items, onPaletteEntities]);
 
+  // The goal-population strip describes the state of a goal's practice supply,
+  // but `listIngestBatches` has no recency bound — so the newest population
+  // batch stays on screen indefinitely, and a FAILED one keeps asserting a
+  // condition that may have been resolved hours ago (observed: a batch that
+  // failed at 14:23Z still claiming "no active learning objects in scope" that
+  // evening, long after the goal had 15 practicable items).
+  //
+  // Once the goal has practicable supply the strip has nothing left to say, so
+  // retire it. Two deliberate narrowings:
+  //   * a still-running batch keeps its strip — that is live progress about
+  //     work in flight, not a stale claim about finished work;
+  //   * with several active goals this clears only when they ALL have supply,
+  //     since the batch payload does not identify its goal here. Conservative
+  //     by construction: a goal that still has nothing keeps the strip visible.
+  const populationStripStale = useMemo(() => {
+    if (!goalPopulation) return false;
+    const running =
+      goalPopulation.status === "queued" || goalPopulation.status === "running";
+    if (running) return false;
+    if (activeGoals.length === 0) return false;
+    // `null` means the sidecar could not compute supply — never treat that as
+    // "has supply", or an uncomputable read would silently hide a real failure.
+    return activeGoals.every((goal) => (goal.practicableItemCount ?? 0) > 0);
+  }, [goalPopulation, activeGoals]);
+
   useEffect(() => {
     if (!focusedItem) {
       setDetail(null);
@@ -581,7 +606,7 @@ export function TodayScreen({
         ) : null
       ) : null}
 
-      {goalPopulation ? (
+      {goalPopulation && !populationStripStale ? (
         <GoalPopulationStrip
           batch={goalPopulation}
           onDismiss={() => {

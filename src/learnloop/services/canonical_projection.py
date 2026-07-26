@@ -79,7 +79,13 @@ ASSISTED_ATTEMPT_TYPES = _ASSISTED_ATTEMPT_TYPES
 #       excluded the very cause under test. Rebuilding an affected vault changes
 #       the projected cause set (one extra arm per affected factor), which is
 #       why it is a versioned boundary rather than a silent correction.
-CANONICAL_PROJECTION_VERSION = "canonical_projection_v3_open_cause_union"
+#   v4  compiled criterion targets follow the ITEM's declared capability instead
+#       of the practice-mode default (``capability_mapping._observed_capability``).
+#       Before v4 every rung-targeted ``constructed_response`` item filed its
+#       evidence under ``procedure_execution`` whatever capability it was
+#       authored at, so blueprint components declared at other capabilities could
+#       never be retired. Rebuilding moves mass between (facet, capability) cells.
+CANONICAL_PROJECTION_VERSION = "canonical_projection_v4_item_declared_capability"
 
 
 def surface_group_id(item: PracticeItem) -> str:

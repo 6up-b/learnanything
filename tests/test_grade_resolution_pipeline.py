@@ -540,7 +540,7 @@ def test_practice_attempt_dual_writes_raw_event_and_interpretation(env):
 def test_exam_answer_dual_writes_assessment_grade(tmp_path):
     from learnloop.services.attempts import ResolvedGrade
     from learnloop.services.exam_pool import reserve_exam_pool
-    from learnloop.services.exam_session import record_exam_answer, start_exam
+    from learnloop.services.exam_session import finish_exam, record_exam_answer, start_exam
     from learnloop.vault.writer import upsert_practice_item
     from tests.helpers import NOW_ISO, create_basic_vault, seed_due_item
 
@@ -581,7 +581,14 @@ def test_exam_answer_dual_writes_assessment_grade(tmp_path):
         vault, repo, session["session_id"], item_id, answer_md="my exam answer", resolved_grade=grade,
         clock=CLOCK,
     )
-    observation = repo.observation_by_attempt(f"exam::{session['session_id']}::{item_id}")
+    # The interpretation is written at finish time under the SAME attempt id the
+    # answer is applied with. Keyed any other way, the canonical projection cannot
+    # join the two and every exam answer certifies nothing (effective_mass 0.0).
+    finish_exam(vault, repo, session["session_id"], clock=CLOCK)
+    applied_attempt_id = repo.exam_answers(session["session_id"])[0]["attempt_id"]
+    assert applied_attempt_id is not None
+
+    observation = repo.observation_by_attempt(applied_attempt_id)
     assert observation is not None
     raw = repo.raw_grade_events_for_observation(observation["id"])
     assert len(raw) == 1

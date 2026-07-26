@@ -1671,28 +1671,71 @@ def _runtime_for_provider(vault_root: Path, config, provider_name: str):
     return check_ai_runtime(vault_root, config, provider_name=provider_name)
 
 
-def _client_for_provider(vault_root: Path, config, provider_name: str):
+def _client_for_provider(
+    vault_root: Path,
+    config,
+    provider_name: str,
+    *,
+    codex_timeout_seconds: int | None = None,
+):
     if provider_name == "codex":
-        return make_codex_client(config.codex, vault_root)
+        codex_config = config.codex
+        if codex_timeout_seconds is not None and codex_config.provider.lower() == "sdk":
+            codex_config = codex_config.model_copy(
+                update={"timeout_seconds": codex_timeout_seconds}
+            )
+        return make_codex_client(codex_config, vault_root)
     if provider_name in {CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER}:
         effort = "low" if provider_name == CODEX_LOW_PROVIDER else "medium"
-        codex_config = config.codex.model_copy(
-            update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": effort}
-        )
+        updates: dict[str, object] = {
+            "model": DEFAULT_CODEX_MODEL,
+            "reasoning_effort": effort,
+        }
+        if codex_timeout_seconds is not None and config.codex.provider.lower() == "sdk":
+            updates["timeout_seconds"] = codex_timeout_seconds
+        codex_config = config.codex.model_copy(update=updates)
         return make_codex_client(codex_config, vault_root)
-    return make_ai_provider_client(config, vault_root, provider_name=provider_name)
+    profile = config.ai.providers.get(provider_name)
+    sdk_timeout = (
+        codex_timeout_seconds
+        if profile is not None and profile.type.lower() == "codex_sdk"
+        else None
+    )
+    return make_ai_provider_client(
+        config,
+        vault_root,
+        provider_name=provider_name,
+        timeout_seconds=sdk_timeout,
+    )
 
 
-def _ready_provider_for_task(vault_root: Path, config, task: str, explicit: str | None = None):
+def _ready_provider_for_task(
+    vault_root: Path,
+    config,
+    task: str,
+    explicit: str | None = None,
+    *,
+    codex_timeout_seconds: int | None = None,
+):
     provider_name = _provider_for_task(config, task, explicit)
     runtime = _runtime_for_provider(vault_root, config, provider_name)
     if runtime.ready:
-        return provider_name, runtime, _client_for_provider(vault_root, config, provider_name)
+        return provider_name, runtime, _client_for_provider(
+            vault_root,
+            config,
+            provider_name,
+            codex_timeout_seconds=codex_timeout_seconds,
+        )
     fallback = _fallback_provider_for_task(config, task, explicit)
     if fallback:
         fallback_runtime = _runtime_for_provider(vault_root, config, fallback)
         if fallback_runtime.ready:
-            return fallback, fallback_runtime, _client_for_provider(vault_root, config, fallback)
+            return fallback, fallback_runtime, _client_for_provider(
+                vault_root,
+                config,
+                fallback,
+                codex_timeout_seconds=codex_timeout_seconds,
+            )
     return provider_name, runtime, None
 
 
@@ -4306,7 +4349,13 @@ def populate_goal(
             f"Goal {goal_id}'s learning objects already have enough practicable items.",
             plan=plan.as_dict(),
         )
-    provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "authoring", ai_provider)
+    provider_name, runtime, client = _ready_provider_for_task(
+        vault_root,
+        loaded.config,
+        "authoring",
+        ai_provider,
+        codex_timeout_seconds=15 * 60,
+    )
     if not runtime.ready:
         runtime_label = "Codex runtime" if provider_name == "codex" else "AI provider"
         _fail(runtime.status, runtime.message or f"{runtime_label} is {runtime.status}.", plan=plan.as_dict())
@@ -4926,6 +4975,8 @@ def exam_reserve_command(
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     sync_vault_state(loaded, repository)
     goal_obj = _goal_or_exit(loaded, goal, json_output=json_output)
+    # An explicit `exam reserve` reserves whatever the pool can give; only the
+    # automatic hook in `get_exam_status` defers on a thin pool.
     report = reserve_exam_pool(loaded, repository, goal_obj, item_count=item_count)
     if json_output:
         typer.echo(_dump({"version": 1, "exam_pool": report.as_dict()}))

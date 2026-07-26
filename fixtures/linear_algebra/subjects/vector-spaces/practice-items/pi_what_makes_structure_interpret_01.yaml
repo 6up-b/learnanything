@@ -1,0 +1,111 @@
+schema_version: 1
+id: pi_what_makes_structure_interpret_01
+learning_object_id: lo_what_makes_a_vector_space
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_equipped_with_addition_a
+evidence_weights:
+  facet_a_vector_space_is_a_set_equipped_with_addition_a: 1.0
+criterion_facet_weights:
+  criterion_what_makes_identifies_operations:
+    facet_a_vector_space_is_a_set_equipped_with_addition_a: 1.0
+  criterion_what_makes_requires_axioms:
+    facet_a_vector_space_is_a_set_equipped_with_addition_a: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_candidate_structure_diagnosis
+      checkpoints:
+        - interpret_first_mapping
+        - interpret_second_mapping
+        - distinguish_data_from_axioms
+      dependencies:
+        distinguish_data_from_axioms:
+          - interpret_first_mapping
+          - interpret_second_mapping
+        interpret_first_mapping: []
+        interpret_second_mapping: []
+variant_contract:
+teach_back_source:
+prompt: A set U has rules U×U→U and F×U→U. Explain what these rules represent 
+  and why their stated input-output types alone do not yet prove that U is a 
+  vector space over F.
+expected_answer: The rules are candidate vector addition and scalar 
+  multiplication, and their types state closure in U. U is a vector space only 
+  if these operations also satisfy every vector-space axiom, including the 
+  addition, identity, inverse, distributive, and scalar compatibility laws.
+difficulty: 0.23
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - blueprint_bp_01KY3YXS_15
+hints:
+  - Separate the data defining the operations from the laws those operations 
+    must obey.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.75
+transfer_distance: 0.3
+scaffold_level: 0.04
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: mapping_data_diagnosis
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: The mapping types alone prove that U is a 
+  vector space.
+repair_targets:
+  - facet_a_vector_space_is_a_set_equipped_with_addition_a
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_what_makes_identifies_operations
+      points: 2.0
+      description: Interprets the two mappings as vector addition and scalar 
+        multiplication.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_what_makes_requires_axioms
+      points: 2.0
+      description: Explains that closure signatures alone are insufficient and 
+        the axioms must hold.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: supporting
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-25T23:50:47Z'
+updated_at: '2026-07-25T23:50:47Z'

@@ -355,6 +355,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [authoringSections, setAuthoringSections] = useState<string[]>([]);
   const authorRequestedRef = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const railRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
   const watchRef = useRef<WatchPanelHandle | null>(null);
   const askFindInputRef = useRef<HTMLInputElement | null>(null);
@@ -364,6 +365,28 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   useEffect(() => {
     api.readerPromptContract().then(setContract).catch((error) => onError((error as CommandError).message));
   }, [onError]);
+
+  // The rail's content can lose a lot of height in one frame (a quick check is
+  // answered and collapses to one line, a card is dismissed, a tab switches).
+  // WebKitGTK does not always pull the scroll offset back to the new maximum
+  // when that happens: the offset stays where the tall content left it while
+  // scrollHeight now reports there is nothing to scroll, so the wheel is dead
+  // and the rail is stuck below its own content with no way back up. Clamp the
+  // offset ourselves whenever a rail panel changes size.
+  useEffect(() => {
+    const scroller = railRef.current;
+    if (!scroller || typeof ResizeObserver === "undefined") return;
+    const clamp = () => {
+      const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      if (scroller.scrollTop > max) scroller.scrollTop = max;
+    };
+    const observer = new ResizeObserver(clamp);
+    // The rail's direct children (sticky header + one div per tab) are static
+    // for the life of an open source, so observing them once covers every
+    // panel's growth and collapse.
+    for (const child of Array.from(scroller.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [render]);
 
   // Debounced across-source search (library screen only; deterministic, local).
   useEffect(() => {
@@ -641,26 +664,33 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     setStickyQuestionSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
   }, [boundaryChecksAvailable, currentGuideSection, currentQuestionDue, dismissedSections, completedSections]);
 
-  const openQuestionSections = useMemo(
-    () =>
-      stickyQuestionSections
-        .map((id) => guidePlan?.sections.find((section) => section.id === id))
-        .filter(
-          (section): section is ReaderGuideSectionDto =>
-            !!section
-            && section.question !== null
-            && !dismissedSections.includes(section.id)
-            && !completedSections.includes(section.id),
-        ),
-    [stickyQuestionSections, guidePlan, dismissedSections, completedSections],
-  );
-  const pendingQuickCheckCount = useMemo(
-    () => (guidePlan?.sections ?? []).filter(
-      (section) => section.question !== null
+  // A quick check is open once it has been *earned*, not only while the
+  // learner stands in its section: pinned when due (above), or already behind
+  // the reading position, or auto-authored — the producer only writes those
+  // after ~60% of the section, so their phase gate is spent by construction.
+  // Without the latter two, a video (one IR unit for the whole transcript, so
+  // one 200+ span section) counted a check in the rail badge that the Guide
+  // tab refused to render until 70% of playback; passed-over sections in a PDF
+  // failed the same way. The rail badge counts exactly what the tab renders.
+  const openQuestionSections = useMemo(() => {
+    const sections = guidePlan?.sections ?? [];
+    const currentIndex = sections.findIndex((section) => section.id === currentGuideSection?.id);
+    return sections.filter(
+      (section, index) =>
+        section.question !== null
         && !dismissedSections.includes(section.id)
-        && !completedSections.includes(section.id),
-    ).length,
-    [guidePlan, dismissedSections, completedSections],
+        && !completedSections.includes(section.id)
+        && (
+          section.question.placement === "auto_authored"
+          || stickyQuestionSections.includes(section.id)
+          || (currentIndex >= 0 && index < currentIndex)
+        ),
+    );
+  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections]);
+  const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.length : 0;
+  const currentQuestionOpen = useMemo(
+    () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
+    [openQuestionSections, currentGuideSection],
   );
   const readingProgress = useMemo(() => {
     const at = blocks.findIndex((block) => block.spanId === (readingSpan ?? activeSpan));
@@ -1832,6 +1862,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
 
         {/* Right rail: annotation margin + capture + Ask */}
         <div
+          ref={railRef}
           style={{
             width: 360,
             height: "100%",
@@ -1908,12 +1939,14 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                   <div style={{ height: "100%", width: `${currentSectionProgress * 100}%`, background: COLOR.cyan }} />
                 </div>
                 <Faint style={{ fontSize: 10 }}>
-                  {boundaryChecksAvailable && currentGuideSection.question && currentQuestionDue
-                    ? currentGuideSection.question.readingPhase === "before_section"
-                      ? "There’s an optional question before you begin this section."
-                      : currentGuideSection.question.readingPhase === "during_section"
-                        ? "There’s an optional question at this point in the section."
-                        : "You’re near the section break. Take a quick check or keep reading."
+                  {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
+                    ? currentGuideSection.question.placement === "auto_authored"
+                      ? "A quick check from this section is waiting below."
+                      : currentGuideSection.question.readingPhase === "before_section"
+                        ? "There’s an optional question before you begin this section."
+                        : currentGuideSection.question.readingPhase === "during_section"
+                          ? "There’s an optional question at this point in the section."
+                          : "You’re near the section break. Take a quick check or keep reading."
                     : authoringSections.includes(currentGuideSection.id)
                       ? "◐ writing a quick check for this section…"
                       : currentSectionProgress >= 0.7

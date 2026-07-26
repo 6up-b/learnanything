@@ -21,6 +21,17 @@ through prospective validation, but never become causal states, mastery evidence
 or learner types. Filename stays `spec_causal_attribution_v1.md` deliberately —
 external references point here; the heading is the version of record.
 
+**Successor documents.** `spec_diagnostic_augmentation_v1.md` supersedes the
+forward sequencing of §8/§8.5/§9 and owns diagnostic-quality measurement.
+`spec_measurement_efficiency_v1.md` owns the instruments this document's
+diagnostician reads, the inference that makes measurement unnecessary, and the
+certification decision rule. Two clauses here are amended by it and nothing else
+is: principle 8 below (machine-resident vs learner-resident uncertainty, its
+§3.A8) and the authored fatal-error→misconception link
+(`RubricFatalError.misconception_id`), which its A5 extends into a full per-item
+discrimination profile feeding §5.1's candidate causes. Every firewall in this
+document survives both successors unchanged.
+
 Derived from the post-mortem of attempt `01KY64FZE7ZVJ79YJFWAYZH53Q`
 (fixtures/linear_algebra). Counterfactual framing from arXiv:2402.01607 (natural
 counterfactuals / necessary backtracking) and arXiv:2505.02435 (BRACE): we import
@@ -129,9 +140,25 @@ scored 0.007 and asked nothing; `unresolved_cause_factors` stayed empty.
    repair insertion point. They often coincide; they are not definitional
    synonyms.
 8. **Probe only when it changes the action** — and prefer no probe when a
-   low-cost repair covers the plausible cause set. Machine-side uncertainty
-   (grader, item contract, symbolic correctness) is resolved with machine effort,
-   never learner effort.
+   low-cost repair covers the plausible cause set. **Machine-resident**
+   uncertainty (grader flakiness, a missing item contract, symbolic correctness
+   the CAS could settle, an unmapped repair class) is resolved with machine
+   effort, never learner effort: the machine holds everything needed, and buying
+   it with learner effort is a tax on the learner for the system's own debt.
+   **Learner-resident** uncertainty is a different thing and is not covered by
+   that prohibition — what the learner meant by an ambiguous notation, whether a
+   skipped step was fluency or a gap, which of two methods they believed they
+   were using. That information exists only in the learner's head; no machine
+   effort recovers it, and the alternatives are to guess (a harmful write) or to
+   discard the measurement (a wasted attempt). One bounded question is strictly
+   better than both, and making abstention repairable this way is what removes
+   the standing pressure to over-fill that §0 diagnoses. Bounded below: at most
+   one question, only against a criterion the grader has flagged hedged or
+   abstained-with-reason, never against a confident grade. See
+   `spec_measurement_efficiency_v1.md` §3.A8. A clarification rate above a small
+   fraction of attempts is evidence of machine-resident uncertainty
+   misclassified as learner-resident, and must be fixed machine-side under the
+   first half of this principle.
 9. **Historical evidence is immutable.** Contracts version append-only; demotion
    and correction never delete audit history; replay reproduces state.
 10. **A recurring predictive pattern is not a causal state.** Residual slices and

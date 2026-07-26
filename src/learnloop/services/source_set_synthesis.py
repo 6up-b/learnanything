@@ -738,11 +738,60 @@ def _normalize(
                 im = integration if isinstance(integration, dict) else integration.model_dump()
                 fclient = im.get("facet_client_id") or ""
                 facet_id = facet_client_to_id.get(fclient) or im.get("facet") or ""
-                integ_out = {"facet": facet_id, "capability": im.get("capability") or "coordination", "modality": "hard"}
-                flat_facets.append(facet_id)
-                recipe_components.append({"facet": facet_id, "capability": im.get("capability") or "coordination"})
-                if fclient in facet_client_to_id and fclient not in facet_deps:
-                    facet_deps.append(fclient)
+                # KM §7.2: the integration component is OPTIONAL and is authored only
+                # when component competence can coexist with a repeatable, observable,
+                # separately repairable assembly failure. An undeclared capability is
+                # therefore an authoring gap, not a licence to mint `coordination` --
+                # the previous `or "coordination"` fallback silently stamped the one
+                # capability the default rung trajectory deliberately refuses to author
+                # (documentation.md: "the built-in trajectory deliberately stops before
+                # ... coordination"), so every LO was born with a certification
+                # requirement generation is designed never to satisfy. Drop instead:
+                # absence of an integration component is the honest default, and
+                # `lo_certification` only demands integration evidence when one exists.
+                declared_capability = str(im.get("capability") or "").strip()
+                if not declared_capability:
+                    dropped_diagnostics.append(
+                        {
+                            "gate": "blueprint_integration",
+                            "severity": "review",
+                            "entity_refs": [lo_id, facet_id],
+                            "message": (
+                                f"recipe {r.get('id') or '<unnamed>'} declared an integration "
+                                "component with no capability; dropped rather than defaulted"
+                            ),
+                            "suggested_action": (
+                                "re-author with an explicit capability if this recipe has a real "
+                                "assembly failure mode, otherwise leave it absent"
+                            ),
+                        }
+                    )
+                else:
+                    if declared_capability == "coordination":
+                        # Legitimate, but it is an obligation: nothing certifies this LO
+                        # until a whole-task instrument exists at this rung, and the
+                        # default generation trajectory will not author one.
+                        dropped_diagnostics.append(
+                            {
+                                "gate": "blueprint_integration",
+                                "severity": "review",
+                                "entity_refs": [lo_id, facet_id],
+                                "message": (
+                                    f"recipe {r.get('id') or '<unnamed>'} requires integration at "
+                                    "`coordination`: this LO cannot be certified until a whole-task "
+                                    "instrument is authored at that rung"
+                                ),
+                                "suggested_action": (
+                                    "confirm a real assembly failure mode exists, or lower the "
+                                    "integration capability to one the item pool can observe"
+                                ),
+                            }
+                        )
+                    integ_out = {"facet": facet_id, "capability": declared_capability, "modality": "hard"}
+                    flat_facets.append(facet_id)
+                    recipe_components.append({"facet": facet_id, "capability": declared_capability})
+                    if fclient in facet_client_to_id and fclient not in facet_deps:
+                        facet_deps.append(fclient)
             recipe_row = {
                 "id": r.get("id") or f"recipe_{new_ulid()[:8]}",
                 "composition": r.get("composition") or "conjunctive",

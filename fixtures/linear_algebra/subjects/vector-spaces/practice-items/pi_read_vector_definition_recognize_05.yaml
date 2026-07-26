@@ -1,0 +1,82 @@
+schema_version: 1
+id: pi_read_vector_definition_recognize_05
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: recognition
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+evidence_weights:
+  facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+criterion_facet_weights:
+  criterion_recognize_vector_terminology:
+    facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: In the phrase “let u be a vector in V,” what does this assert about u? 
+  A. u is an axiom of V. B. u is an element of the vector space V. C. u must 
+  belong to the scalar field F. Reply with the letter.
+expected_answer: B
+difficulty: 0.0
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - recognition
+hints:
+  - Distinguish elements of V from elements of the scalar field F.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.05
+scaffold_level: 0.3
+capability: retrieval
+task_features:
+  complexity: 0
+  representation:
+    - verbal
+  response: recognize
+  scaffolding: cue
+  span: atomic
+  tools:
+    - closed_book
+  transfer: same_context
+task_feature_schema: p1_launch@1
+surface_family: terminology_option_recognition
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: C
+repair_targets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+grading_rubric:
+  max_points: 1
+  criteria:
+    - id: criterion_recognize_vector_terminology
+      points: 1.0
+      description: Selects B, recognizing a vector as an element of the vector 
+        space.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: retired
+status_reason: retired selected-response recognition item; superseded by constructed-response generation
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-25T19:38:34Z'
+updated_at: '2026-07-25T19:38:34Z'

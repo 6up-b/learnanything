@@ -13,7 +13,7 @@ from dataclasses import asdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from typing import Literal, Mapping, Protocol
+from typing import Iterator, Literal, Mapping, Protocol
 
 from pydantic import BaseModel, ValidationError
 
@@ -1986,6 +1986,11 @@ def _sdk_reasoning_summary(reasoning_summary_type: Any, value: str | None) -> An
 
 _UNSUPPORTED_STRICT_SCHEMA_KEYS = {
     "default",
+    # Tagged unions (`Field(discriminator=...)`) emit `discriminator` + `oneOf`.
+    # Strict structured output permits neither; Pydantic still routes on the
+    # `kind` literal when the response is validated, so dropping the hint is
+    # free. `oneOf` is renamed rather than dropped -- see _strict_json_schema.
+    "discriminator",
     "exclusiveMaximum",
     "exclusiveMinimum",
     "format",
@@ -2023,7 +2028,21 @@ def _strict_json_schema(value: Any) -> Any:
             continue
         if key == "additionalProperties":
             continue
+        if key == "oneOf":
+            # Tagged unions are `anyOf` for our purposes: the variants are
+            # mutually exclusive on their `kind` literal anyway, so nothing
+            # ambiguous can match twice.
+            key = "anyOf"
+            if "anyOf" in value:  # pragma: no cover - Pydantic never emits both
+                raise ValueError("cannot normalize a schema carrying both anyOf and oneOf")
+        if key == "const":
+            # `const` is outside the strict-output keyword allowlist; a
+            # single-member `enum` is inside it and validates identically.
+            normalized["enum"] = [child]
+            continue
         normalized[key] = _strict_json_schema(child)
+
+    _flatten_nested_any_of(normalized)
 
     if _is_object_schema(normalized):
         properties = normalized.get("properties")
@@ -2034,6 +2053,56 @@ def _strict_json_schema(value: Any) -> Any:
         normalized["additionalProperties"] = False
 
     return normalized
+
+
+def _flatten_nested_any_of(schema: dict[str, Any]) -> None:
+    """Splice ``anyOf`` members that are themselves a bare ``anyOf`` wrapper.
+
+    An optional tagged union arrives as ``anyOf: [{oneOf: [...]}, {null}]``;
+    once the inner ``oneOf`` is renamed that leaves a pointless nesting level.
+    """
+
+    members = schema.get("anyOf")
+    if not isinstance(members, list):
+        return
+    flattened: list[Any] = []
+    for member in members:
+        if isinstance(member, dict) and set(member) == {"anyOf"} and isinstance(member["anyOf"], list):
+            flattened.extend(member["anyOf"])
+            continue
+        flattened.append(member)
+    schema["anyOf"] = flattened
+
+
+def map_typed_schema_paths(model: type[BaseModel]) -> list[str]:
+    """Locate ``dict[str, X]`` fields, which strict output cannot express.
+
+    Strict structured output requires ``additionalProperties: false`` on every
+    object and has no open-keyed map form, so sanitizing one yields an object
+    the provider is forbidden to populate: the field always arrives empty
+    instead of erroring. The fields that already ship this way are pinned by a
+    test so a new one cannot be added without noticing the limitation. Modeling
+    such a field as a list of key/value objects is the way to make it fillable.
+    """
+
+    def walk(node: Any, path: str) -> Iterator[str]:
+        if isinstance(node, list):
+            for index, item in enumerate(node):
+                yield from walk(item, f"{path}[{index}]")
+            return
+        if not isinstance(node, dict):
+            return
+        extra = node.get("additionalProperties")
+        if isinstance(extra, dict) and extra and "properties" not in node:
+            yield path
+        for key, child in node.items():
+            if key in {"$defs", "properties"} and isinstance(child, dict):
+                for name, schema in child.items():
+                    yield from walk(schema, f"{path}/{key}/{name}")
+                continue
+            yield from walk(child, f"{path}/{key}")
+
+    return sorted(set(walk(model.model_json_schema(), "")))
 
 
 def _is_object_schema(schema: dict[str, Any]) -> bool:

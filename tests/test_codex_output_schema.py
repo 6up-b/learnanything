@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import sys
@@ -10,7 +11,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from learnloop.codex.client import (
     AuthoringContext,
@@ -21,13 +22,18 @@ from learnloop.codex.client import (
     TeachBackAuthoringContext,
     _codex_output_schema,
     _resolved_sdk_codex_bin,
+    map_typed_schema_paths,
 )
+from learnloop.codex import schemas as codex_schemas
 from learnloop.codex.schemas import (
     AuthoringProposal,
+    ErrorAttribution,
     GradingProposal,
     PracticeItemPatchPayload,
     ReaderPresetSynthesis,
     TeachBackAuthoring,
+    TraceContractPayload,
+    TraceRecipePayload,
 )
 from learnloop.config import CodexConfig
 
@@ -385,6 +391,168 @@ def test_authoring_payload_rejects_unknown_attempt_type():
                 "expected_answer": "U Sigma V transpose.",
             }
         )
+
+
+def _public_schema_models() -> list[type[BaseModel]]:
+    return sorted(
+        (
+            obj
+            for obj in vars(codex_schemas).values()
+            if inspect.isclass(obj)
+            and issubclass(obj, BaseModel)
+            and obj.__module__ == codex_schemas.__name__
+        ),
+        key=lambda model: model.__name__,
+    )
+
+
+# Everything strict structured output accepts. Anything outside this set is a
+# 400 from the provider before a single token is generated, so the sanitizer
+# has to normalize or drop it -- see _strict_json_schema.
+_STRICT_SUPPORTED_KEYWORDS = {
+    "$defs",
+    "$ref",
+    "additionalProperties",
+    "anyOf",
+    "description",
+    "enum",
+    "items",
+    "properties",
+    "required",
+    "type",
+}
+
+
+@pytest.mark.parametrize("model", _public_schema_models(), ids=lambda model: model.__name__)
+def test_every_codex_schema_uses_only_strict_supported_keywords(model):
+    """Guard every schema, not the three that happened to get hand-written tests.
+
+    A discriminated union shipped `oneOf`/`discriminator` into GradingProposal
+    and broke every grading call at request time; the per-model tests below all
+    passed because none of them looked for composition keywords.
+    """
+
+    schema = _codex_output_schema(model)
+
+    assert _schema_keys(schema) <= _STRICT_SUPPORTED_KEYWORDS
+    assert not _non_strict_objects(schema)
+
+
+def test_discriminated_target_ref_is_a_flat_nullable_any_of():
+    schema = _codex_output_schema(GradingProposal)
+
+    target_ref = schema["$defs"]["ErrorAttribution"]["properties"]["target_ref"]
+    assert target_ref == {
+        "anyOf": [
+            {"$ref": "#/$defs/FacetCapabilityTargetRef"},
+            {"$ref": "#/$defs/CriterionTargetRef"},
+            {"$ref": "#/$defs/ItemStepTargetRef"},
+            {"$ref": "#/$defs/AnswerSpanTargetRef"},
+            {"$ref": "#/$defs/NoTargetRef"},
+            {"type": "null"},
+        ]
+    }
+    # The discriminator survives as the variant's own literal, so Pydantic can
+    # still route the response back onto the right member on validation.
+    assert schema["$defs"]["NoTargetRef"]["properties"]["kind"] == {
+        "enum": ["none"],
+        "type": "string",
+    }
+
+
+def test_discriminated_target_ref_still_round_trips_after_sanitizing():
+    attribution = ErrorAttribution.model_validate(
+        {
+            "error_type": "sign_error",
+            "evidence": "Dropped the minus sign in step 2.",
+            "target_ref": {"kind": "criterion", "criterion_id": "solve"},
+        }
+    )
+
+    assert attribution.target_ref is not None
+    assert attribution.target_ref.kind == "criterion"
+
+
+# `dict[str, X]` fields cannot be expressed under strict structured output, so
+# they sanitize into objects the provider is forbidden to populate and always
+# arrive empty -- silently, with no error from either side. Keep this empty:
+# carry an open-keyed field on the wire as a list of key/value pairs, the way
+# EvidenceWeightMap and friends do, so the provider can actually fill it.
+_KNOWN_UNFILLABLE_MAP_FIELDS: set[str] = set()
+
+
+def _map_field_identity(model: type[BaseModel], path: str) -> str:
+    """Collapse a schema path to ``Owner.field``, ignoring where it was reached.
+
+    The same field surfaces under every model that nests it via ``$defs``, and a
+    ``dict[str, dict[str, X]]`` surfaces twice within one path.
+    """
+
+    _, defs_marker, tail = path.rpartition("/$defs/")
+    if not defs_marker:
+        tail = f"{model.__name__}{path}"
+    name, _, rest = tail.partition("/properties/")
+    return f"{name}.{rest.split('/')[0].split('[')[0]}"
+
+
+def test_weight_maps_travel_as_pairs_and_land_as_maps():
+    payload = PracticeItemPatchPayload.model_validate(
+        {
+            "evidence_facets": ["recall", "numeric"],
+            "evidence_weights": [
+                {"facet_id": "recall", "weight": 0.6},
+                {"facet_id": "numeric", "weight": 0.4},
+            ],
+            "criterion_facet_weights": [
+                {"criterion_id": "solve", "weights": [{"facet_id": "numeric", "weight": 1.0}]}
+            ],
+        }
+    )
+
+    assert payload.evidence_weights == {"recall": 0.6, "numeric": 0.4}
+    assert payload.criterion_facet_weights == {"solve": {"numeric": 1.0}}
+    # Consumers read the dumped payload, so the map form has to survive the dump.
+    assert payload.model_dump(exclude_none=True)["evidence_weights"] == {
+        "recall": 0.6,
+        "numeric": 0.4,
+    }
+
+
+def test_weight_maps_still_accept_the_legacy_map_form():
+    payload = PracticeItemPatchPayload.model_validate(
+        {
+            "evidence_weights": {"recall": 1.0},
+            "criterion_facet_weights": {"solve": {"numeric": 1.0}},
+        }
+    )
+
+    assert payload.evidence_weights == {"recall": 1.0}
+    assert payload.criterion_facet_weights == {"solve": {"numeric": 1.0}}
+
+
+def test_trace_recipe_dependencies_travel_as_pairs():
+    recipe = TraceRecipePayload.model_validate(
+        {
+            "id": "recipe_1",
+            "checkpoints": ["setup", "solve"],
+            "dependencies": [{"checkpoint_id": "solve", "depends_on": ["setup"]}],
+        }
+    )
+
+    assert recipe.dependencies == {"solve": ["setup"]}
+    # The contract validator walks dependencies as a map; pairs must reach it
+    # already converted or every generated trace contract would fail.
+    TraceContractPayload.model_validate({"status": "available", "recipes": [recipe.model_dump()]})
+
+
+def test_no_new_open_keyed_map_fields_are_introduced():
+    found = {
+        _map_field_identity(model, path)
+        for model in _public_schema_models()
+        for path in map_typed_schema_paths(model)
+    }
+
+    assert found == _KNOWN_UNFILLABLE_MAP_FIELDS
 
 
 def _schema_keys(value: Any) -> set[str]:

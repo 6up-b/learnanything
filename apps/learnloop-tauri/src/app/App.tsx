@@ -32,6 +32,7 @@ import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
+import { isTypingTarget } from "./keyboard";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 
 type OpenSourceTarget = {
@@ -174,8 +175,7 @@ export function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
-      const textTarget = tag === "input" || tag === "textarea";
+      const textTarget = isTypingTarget(event.target);
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
         event.preventDefault();
         setPaletteOpen(true);

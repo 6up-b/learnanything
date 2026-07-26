@@ -67,12 +67,20 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
     goal = _find_goal(vault, params.goal_id)
     uncovered: list[str] = []
     pool_count = 0
+    deferred = False
+    candidate_count = 0
     if goal.exam.enabled and goal.status == "active":
         # Idempotent: reserves on first ask (covers goals created before the
         # exam feature or via hand-edited YAML), returns the existing pool after.
-        report = reserve_exam_pool(vault, repository, goal)
+        # This read IS the lazy reservation hook — `create_goal` no longer
+        # reserves eagerly, so the pool forms here once the material exists.
+        # The only caller that defers: everywhere else a reservation is an
+        # explicit ask and takes whatever the pool can give.
+        report = reserve_exam_pool(vault, repository, goal, defer_if_insufficient=True)
         uncovered = list(report.uncovered_facets)
         pool_count = len(report.reserved_item_ids)
+        deferred = report.deferred
+        candidate_count = report.candidate_count
     availability = exam_availability(vault, repository, goal)
     return versioned(
         {
@@ -83,6 +91,10 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
             "existing_session_id": availability["existing_session_id"],
             "pool_item_count": pool_count or availability["pool_item_count"],
             "uncovered_facets": uncovered,
+            # The pool has not been held out yet because there is not enough
+            # material to hold one out of. Self-healing: this read retries.
+            "reservation_deferred": deferred,
+            "reservable_candidate_count": candidate_count,
         }
     )
 
@@ -123,6 +135,8 @@ def start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str,
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, params.goal_id)
     if goal.exam.enabled and goal.status == "active":
+        # The learner asked for the exam: reserve whatever is reservable rather
+        # than deferring. A short exam beats a blocked one.
         reserve_exam_pool(vault, repository, goal)
     try:
         view = start_exam(vault, repository, params.goal_id)

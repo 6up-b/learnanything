@@ -114,6 +114,7 @@ import type {
   ExamReportSnapshot,
   ExamSessionSnapshot,
   ExamStatusSnapshot,
+  GenerateStarterPracticeResult,
   GoalDto,
   GoalFeasibilityInput,
   GoalFeasibilityResult,
@@ -627,6 +628,12 @@ export const api = {
   getDecayPressure: (goalId?: string | null) =>
     call<DecayPressureSnapshot>("get_decay_pressure", { input: { goalId: goalId ?? null } }),
   createGoal: (input: CreateGoalInput) => call<CreateGoalResult>("create_goal", { input }),
+  // Authors practice for named learning objects with the completed-probe gate
+  // waived — the only expansion path that works from zero items.
+  generateStarterPractice: (learningObjectIds: string[], reason?: string) =>
+    call<GenerateStarterPracticeResult>("generate_starter_practice", {
+      input: { learningObjectIds, reason: reason ?? null }
+    }),
   updateGoalStatus: (goalId: string, status: GoalDto["status"]) =>
     call<CreateGoalResult>("update_goal_status", { input: { goalId, status } }),
   updateGoalIntent: (goalId: string, intentSentence: string | null) =>

@@ -86,16 +86,23 @@ class Waypoint:
 # supersedes it). Deliberately stops before novel_combination / whole_task /
 # coordination: deeper regions require a learner-reviewed depth envelope
 # (spec v2 "depth is a learner-authorized program, not a scalar").
+#
+# There is deliberately NO selected-response (`response: "recognize"`) waypoint.
+# A generation target of "recognize" forces the authoring model to write
+# multiple-choice/true-false surfaces, which for anything but rote vocabulary
+# measure option elimination rather than the capability the LO is about — a goal
+# like "get good at proofs" was being populated entirely with "which outline
+# describes a coordinate proof? A/B/C" items. They also carry near-zero
+# information: authored easy, the model already predicts ~0.75 success, so a
+# correct answer moves the posterior by ~0.002 nats. The entry rung is instead a
+# *cued* constructed response — low demand, but the learner still produces the
+# answer. `recognize` remains in the task-feature vocabulary for classifying
+# imported items and for discrimination patterns; it is just never a target.
 DEFAULT_TRAJECTORY: tuple[Waypoint, ...] = (
-    Waypoint(
-        "recognize",
-        "retrieval",
-        {"complexity": 0, "transfer": "same_context", "response": "recognize", "scaffolding": "cue", "span": "atomic"},
-    ),
     Waypoint(
         "recall",
         "retrieval",
-        {"complexity": 1, "transfer": "same_context", "response": "short_constructed", "scaffolding": "none", "span": "atomic"},
+        {"complexity": 0, "transfer": "same_context", "response": "short_constructed", "scaffolding": "cue", "span": "atomic"},
     ),
     Waypoint(
         "interpret",
@@ -116,6 +123,17 @@ DEFAULT_TRAJECTORY: tuple[Waypoint, ...] = (
 
 _WAYPOINT_BY_SLUG = {w.slug: w for w in DEFAULT_TRAJECTORY}
 
+# Retired slugs -> their replacement, so stored rung-variant requests and item
+# annotations written before the selected-response waypoint was removed still
+# resolve instead of raising.
+_RETIRED_WAYPOINT_SLUGS = {"recognize": "recall"}
+
+
+def resolve_waypoint_slug(slug: str) -> str:
+    """Canonical slug for ``slug``, mapping retired waypoints forward."""
+
+    return _RETIRED_WAYPOINT_SLUGS.get(slug, slug)
+
 
 def trajectory_slugs() -> tuple[str, ...]:
     """Ordered waypoint slugs of the built-in trajectory (easiest first)."""
@@ -128,6 +146,7 @@ def adjacent_slug(slug: str, direction: str) -> str | None:
     at the trajectory bounds (deeper than select_method needs an envelope)."""
 
     slugs = trajectory_slugs()
+    slug = resolve_waypoint_slug(slug)
     if slug not in slugs:
         return None
     index = slugs.index(slug) + (1 if direction == "harder" else -1)
@@ -140,7 +159,7 @@ def waypoint_rung(repository: Repository, slug: str) -> RungTarget:
     """A RungTarget for one default-trajectory waypoint (public seam for
     rung_variants and other callers; keeps them off module-private names)."""
 
-    waypoint = _WAYPOINT_BY_SLUG.get(slug)
+    waypoint = _WAYPOINT_BY_SLUG.get(resolve_waypoint_slug(slug))
     if waypoint is None:
         raise ValueError(f"unknown waypoint slug: {slug!r}")
     return _waypoint_target(waypoint, ensure_builtin_task_feature_schema(repository))
@@ -213,27 +232,63 @@ def select_rung(
     developing = float(vault.config.mastery.display_developing_threshold)
     strong = float(vault.config.mastery.display_strong_threshold)
 
+    # Thin evidence -> probe ABOVE the point estimate, not at it. With few
+    # observations the mean is barely distinguishable from the prior, and keying
+    # the rung to it is self-confirming: a low estimate picks a low rung, whose
+    # items are so easy their outcome is already predicted, so nothing that comes
+    # back can raise the estimate. An optimistic step under uncertainty is the
+    # information-maximizing choice — an item one rung too hard is a far more
+    # informative observation than one three rungs too easy, and `request_rung_
+    # variant`'s "easier" path is the cheap correction if it lands wrong.
+    optimism_steps = _uncertainty_optimism(evidence_count)
+
     # Band-keyed entry with NO evidence-count gates: counts measured exposure,
     # not capability, and pinned claim-seeded learners at the bottom rungs
     # regardless of how their evidence looked (the verified too-easy trap).
+    #
+    # The ladder is monotone and climbs fast on purpose. `recall` is a floor to
+    # leave, not a place to sit: an unmeasured learner is only *assumed* novice,
+    # and the cheapest way to find out is to ask a question that can actually
+    # discriminate. Parking a cold learner on low-demand items produces
+    # confidently-wrong low mastery — the items are so easy that success is
+    # already predicted, so no amount of correct answering moves the posterior.
     if ability is None or ability < developing:
-        slug = "recognize"
-    elif ability < strong:
         slug = "recall"
-    elif ability >= 0.75:
-        slug = "select_method"
-    else:
+    elif ability < strong:
         slug = "interpret"
+    elif ability < 0.75:
+        slug = "execute"
+    else:
+        slug = "select_method"
+
+    for _ in range(optimism_steps):
+        harder = adjacent_slug(slug, "harder")
+        if harder is None:
+            break
+        slug = harder
 
     reason = "commitment_projection_failed" if commitment_id is not None else None
     return _waypoint_target(_WAYPOINT_BY_SLUG[slug], schema_version_id, fallback_reason=reason)
+
+
+#: Observations below which the ability estimate is treated as unconfident, and
+#: how many waypoints to climb past the band-keyed entry at that confidence.
+#: Deliberately small: one step is a probe, not a promotion.
+UNCERTAIN_EVIDENCE_COUNT = 3
+UNCERTAIN_OPTIMISM_STEPS = 1
+
+
+def _uncertainty_optimism(evidence_count: int) -> int:
+    """Waypoints to climb past the point estimate when evidence is thin."""
+
+    return UNCERTAIN_OPTIMISM_STEPS if evidence_count < UNCERTAIN_EVIDENCE_COUNT else 0
 
 
 # Hypothesis label -> the rung whose practice repairs that gap. Labels missing
 # here (open-set, dynamic confuses_with:/misconception: labels) fall back to
 # the mastery band — a belief fault needs contrast work, not a rung change.
 _RUNG_BY_HYPOTHESIS = {
-    "unfamiliar": "recognize",
+    "unfamiliar": "recall",
     "surface_only": "recall",
     "recall_without_mechanism": "interpret",
     "procedure_without_selection": "select_method",

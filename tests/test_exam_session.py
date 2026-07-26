@@ -182,3 +182,62 @@ def test_availability_in_window_near_due_date(tmp_path):
     assert availability["in_window"] is True
     assert availability["past_due_grace"] is False
     assert availability["days_until_due"] == pytest.approx(3.0, abs=0.01)
+
+
+def test_exam_answers_certify_facet_evidence_on_canonical_vault(tmp_path):
+    """A passed exam must leave real certification credit behind (regression).
+
+    The P0.2 grade interpretation used to be dual-written under a synthetic
+    ``exam::<session>::<item>`` attempt id while the answer was applied under a
+    fresh ULID. The canonical projection joins interpretations to attempts by
+    that id, so it found none, ``build_effective_observation`` fell to its
+    missing-interpretation branch (``effective_mass`` 0.0), and a 100% exam
+    produced zero facet mass and zero certification credit — every scope facet
+    stayed ``unexamined`` no matter how well the learner did.
+    """
+
+    from learnloop.db.repositories import Repository
+    from learnloop.services.state_sync import sync_vault_state
+    from tests.helpers import create_basic_vault, set_algorithm_version
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    set_algorithm_version(paths, "mvp-0.8")
+    _add_item(vault_root, "pi_exam_a", facets=["recall"], difficulty=0.5)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+
+    reserve_exam_pool(vault, repository, vault.goals[0], item_count=1, clock=FrozenClock(NOW))
+    session = start_exam(vault, repository, GOAL_ID, clock=FrozenClock(NOW))
+    item_id = session["item_order"][0]
+    graded = _grade(4)
+    graded.evidence_rows.append(
+        {
+            "id": "ge_exam_regression",
+            "criterion_id": "correctness",
+            "points_awarded": 4.0,
+            "evidence": "Fully correct.",
+            "grader_tier": 3,
+            "created_at": NOW_ISO,
+        }
+    )
+    record_exam_answer(
+        vault,
+        repository,
+        session["session_id"],
+        item_id,
+        answer_md="A full and correct exam answer.",
+        resolved_grade=graded,
+        clock=FrozenClock(NOW),
+    )
+    finish_exam(vault, repository, session["session_id"], clock=FrozenClock(NOW))
+
+    attempt_id = repository.exam_answers(session["session_id"])[0]["attempt_id"]
+    observation = repository.observation_by_attempt(attempt_id)
+    assert observation is not None, "interpretation must key on the applied attempt id"
+
+    cells = repository.facet_capability_evidence_all()
+    assert cells, "a graded exam answer must write facet-capability evidence"
+    assert any(cell.direct_positive_mass > 0 for cell in cells)
+    assert any(cell.certification_credit > 0 for cell in cells)

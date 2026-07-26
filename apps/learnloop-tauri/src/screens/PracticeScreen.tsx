@@ -19,6 +19,7 @@ import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui"
 import { CardControls } from "../components/CardControls";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
 import { masteryTone } from "../app/algoConfig";
+import { isTypingTarget } from "../app/keyboard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
 
@@ -1056,16 +1057,6 @@ function CriterionErrorPicker({
 
 // Keep only attributions whose criterion is still below full credit (or that
 // aren't tied to a criterion), so a restored score never ships a stale tag.
-// "?" must never fire while the learner is typing an answer: guard plain
-// inputs, textareas, the MathLive editor's <math-field>, and contenteditables.
-function isTypingTarget(target: EventTarget | null): boolean {
-  const element = target as HTMLElement | null;
-  if (!element) return false;
-  const tag = element.tagName?.toLowerCase();
-  if (tag === "input" || tag === "textarea" || tag === "math-field") return true;
-  return Boolean(element.isContentEditable);
-}
-
 function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[] {
   const docked = new Set(
     (item.rubric?.criteria ?? [])

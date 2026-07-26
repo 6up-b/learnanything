@@ -210,17 +210,12 @@ def record_exam_answer(
         },
         clock=clock,
     )
-    _dual_write_exam_grade(
-        vault,
-        repository,
-        item=item,
-        rubric=rubric,
-        max_points=max_points,
-        answer_md=answer_md,
-        resolved_grade=resolved_grade,
-        session_id=session_id,
-        clock=clock,
-    )
+    # The P0.2 dual-write is deliberately NOT done here: it must carry the SAME
+    # attempt id the answer is later applied under, and that id is only minted at
+    # ``finish_exam``. Writing it here under a synthetic ``exam::session::item``
+    # key left the canonical projection unable to join the interpretation to the
+    # attempt, so ``build_effective_observation`` fell to its missing-interpretation
+    # branch (effective_mass 0.0) and every exam answer certified nothing.
     return {
         "session_id": session_id,
         "practice_item_id": practice_item_id,
@@ -238,12 +233,15 @@ def _dual_write_exam_grade(
     max_points: int,
     answer_md: str,
     resolved_grade: ResolvedGrade,
-    session_id: str,
+    attempt_id: str,
     clock: Clock | None = None,
 ) -> None:
     """P0.2 dual-write for exam answers (§4.1, §7.2). Fail-safe (§7.3): appends a
     raw grade event + interpretation on an assessment-purpose administration
-    alongside the legacy exam_answer summary; never raises into the legacy path."""
+    alongside the legacy exam_answer summary; never raises into the legacy path.
+
+    ``attempt_id`` MUST be the id the answer is applied under in ``finish_exam``:
+    the canonical projection joins interpretations to attempts by that id."""
 
     try:
         from learnloop.services.grade_resolution import record_grade_dual_write
@@ -257,7 +255,7 @@ def _dual_write_exam_grade(
             item=item,
             purpose="assessment",
             grading_source="codex",
-            attempt_id=f"exam::{session_id}::{item.id}",
+            attempt_id=attempt_id,
             response_text=answer_md,
             rubric_score=resolved_grade.rubric_score,
             max_points=max_points,
@@ -309,13 +307,32 @@ def finish_exam(
         item_id = answer["practice_item_id"]
         attempt_clock = FrozenClock(base_instant + timedelta(seconds=index))
         grade = _grade_from_dict(answer["grade"])
+        answer_md = answer.get("answer_md") or ""
         draft = AttemptDraft(
             practice_item_id=item_id,
-            learner_answer_md=answer.get("answer_md") or "",
+            learner_answer_md=answer_md,
             attempt_type="exam_attempt",
             hints_used=0,
         )
         attempt_id = new_ulid()
+        # Dual-write BEFORE applying: ``apply_attempt`` ends by running the
+        # canonical projection, which joins the grade interpretation to the
+        # attempt by attempt id. An interpretation written afterwards — or under
+        # a different id — is invisible to that fold and certifies nothing.
+        item = vault.practice_items.get(item_id)
+        if item is not None:
+            rubric = vault.rubric_for_item(item)
+            _dual_write_exam_grade(
+                vault,
+                repository,
+                item=item,
+                rubric=rubric,
+                max_points=rubric.max_points if rubric is not None else 4,
+                answer_md=answer_md,
+                resolved_grade=grade,
+                attempt_id=attempt_id,
+                clock=attempt_clock,
+            )
         apply_attempt(
             vault,
             repository,

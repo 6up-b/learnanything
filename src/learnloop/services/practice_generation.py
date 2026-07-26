@@ -49,6 +49,14 @@ class PracticeExpansionTarget:
     # task-feature space new items must be authored AT. Difficulty (above) is
     # calibrated WITHIN this rung, never by changing the rung.
     rung: RungTarget | None = None
+    # The LO's assessment blueprint, decomposed into the distinct components an
+    # item can probe (facet × capability × role). Without this the authoring
+    # model sees only a flat facet list and permutes ONE surface across the whole
+    # batch; readiness is a conjunction over these components, so a batch that
+    # misses most of them cannot move the projection however well it is answered.
+    blueprint_components: list[dict[str, Any]] = field(default_factory=list)
+    # Surface families already used for this LO — the batch must not repeat them.
+    existing_surface_families: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -63,6 +71,8 @@ class PracticeExpansionTarget:
             "mastery_mean": self.mastery_mean,
             "recommended_difficulty_band": list(self.recommended_difficulty_band),
             "existing_evidence_facets": self.existing_evidence_facets,
+            "blueprint_components": self.blueprint_components,
+            "existing_surface_families": self.existing_surface_families,
         }
         if self.rung is not None:
             from learnloop.services.depth_rungs import rung_float_proxies
@@ -221,6 +231,7 @@ def build_practice_expansion_plan(
     concept_filter = set(focus_concepts or [])
     item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids)
     facet_unions = _active_evidence_facet_unions(vault, repository)
+    surface_families = _active_surface_families(vault, repository)
     irt = vault.config.mastery.irt
     mode_mix_items = sum(mode_mix.values()) if mode_mix else None
     targets: list[PracticeExpansionTarget] = []
@@ -283,9 +294,13 @@ def build_practice_expansion_plan(
                     vault.config.practice_generation.practice_success_band,
                     discrimination=irt.discrimination_default,
                     difficulty_scale=irt.difficulty_prior_scale,
+                    difficulty_floor=vault.config.practice_generation.difficulty_floor,
+                    min_band_width=vault.config.practice_generation.min_band_width,
                 ),
                 existing_evidence_facets=facet_unions.get(learning_object.id, []),
                 rung=rung,
+                blueprint_components=_blueprint_components(learning_object),
+                existing_surface_families=surface_families.get(learning_object.id, []),
             )
         )
     if max_los is not None:
@@ -358,6 +373,10 @@ def build_diagnostic_practice_plan(
                 mastery_mean=mastery_mean,
                 facet_recall_mean_by_facet=facet_means,
                 facet_recall_variance_by_facet=facet_variances,
+                # No floor/min-width here: the probe band is deliberately narrow
+                # and centred on the learner's boundary, where outcome variance
+                # (and so diagnostic information) is already maximal. Widening or
+                # raising it would blunt the very thing a probe is for.
                 recommended_difficulty_band=_success_band_difficulty(
                     _ability_logit(_ability_estimate(facet_means, mastery_mean)),
                     vault.config.practice_generation.probe_success_band,
@@ -568,6 +587,7 @@ def generate_post_probe_practice_proposal(
     if not plan.targets:
         raise PracticeExpansionError("No completed probe Learning Objects need more Practice Items.")
     rung_gate = _RungGate(repository, plan)
+    surface_gate = _SelectedResponseGate()
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -583,7 +603,7 @@ def generate_post_probe_practice_proposal(
         source_refs=source_refs,
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
-        row_transform=rung_gate,
+        row_transform=_chain_gates(surface_gate, rung_gate),
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -594,7 +614,7 @@ def generate_post_probe_practice_proposal(
         plan=plan,
         mode_mix_violations=violations,
         mode_mix_warnings=warnings,
-        rung_violations=rung_gate.violations,
+        rung_violations=rung_gate.violations + surface_gate.violations,
         rung_warnings=rung_gate.warnings,
     )
 
@@ -683,6 +703,7 @@ def generate_goal_practice_proposal(
         f"{goal_preamble} {extra_instructions}" if extra_instructions else goal_preamble
     )
     rung_gate = _RungGate(repository, plan)
+    surface_gate = _SelectedResponseGate()
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -695,12 +716,12 @@ def generate_goal_practice_proposal(
         focus_concepts=list(goal.facet_scope.concepts) or None,
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
-        row_transform=rung_gate,
+        row_transform=_chain_gates(surface_gate, rung_gate),
     )
     return PracticeExpansionResult(
         patch_id=patch_id,
         plan=plan,
-        rung_violations=rung_gate.violations,
+        rung_violations=rung_gate.violations + surface_gate.violations,
         rung_warnings=rung_gate.warnings,
     )
 
@@ -796,6 +817,8 @@ def _cross_source_instructions(
         "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
         "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. Difficulty varies WITHIN "
         "the waypoint - never change the waypoint to change difficulty.",
+        _CONSTRUCTED_RESPONSE_RULE,
+        _BLUEPRINT_SPREAD_RULE,
         f"Targets: {[target.as_dict() for target in plan.targets]}",
         f"CROSS_SOURCE_CONTEXT: {json.dumps(context_by_lo, sort_keys=True, separators=(",", ":"))}",
         f"BLUEPRINT_SHAPING: {json.dumps(shaping_by_lo, sort_keys=True, separators=(",", ":"))}",
@@ -900,9 +923,11 @@ def generate_cross_source_practice_proposal(
             )
 
     rung_gate = _RungGate(repository, plan)
+    surface_gate = _SelectedResponseGate()
 
     def _combined_gate(rows: list[dict[str, Any]]) -> None:
         _leakage_gate(rows)
+        surface_gate(rows)
         rung_gate(rows)
 
     patch_id = generate_authoring_proposal(
@@ -970,6 +995,67 @@ def _validate_named_learning_objects(
             )
 
 
+#: Surfaces that mean "pick one of these" rather than "produce an answer".
+_SELECTED_RESPONSE_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"\breply with the letter\b", "asks the learner to reply with a letter"),
+    (r"\bselect the (?:correct|right)\b", "asks the learner to select an option"),
+    (r"\bwhich of the following\b", "poses a which-of-the-following option list"),
+    (r"\bchoose the (?:correct|right|best)\b", "asks the learner to choose an option"),
+    (r"\btrue or false\b", "is a true/false item"),
+    # Two or more lettered options: "A. ... B. ..." / "A) ... B) ...".
+    (r"(?:(?<=\s)|^)[A-D][.)]\s+\S.*?(?:(?<=\s)|^)[B-E][.)]\s+\S", "lists lettered answer options"),
+)
+
+
+def _chain_gates(*gates):
+    """Run several row_transform gates over one proposal batch, in order."""
+
+    def _run(rows: list[dict[str, Any]]) -> None:
+        for gate in gates:
+            gate(rows)
+
+    return _run
+
+
+class _SelectedResponseGate:
+    """Deterministic ban on selected-response surfaces (multiple choice / T-F).
+
+    A prompt rule alone does not hold: the authoring model reliably falls back to
+    option lists when asked for an easy item. Selected-response items measure
+    option elimination rather than the capability the Learning Object names, and
+    they are near-worthless as evidence, so an item that ships one is forced off
+    the auto-apply route and marked invalid for review.
+    """
+
+    def __init__(self) -> None:
+        self.violations: list[str] = []
+
+    def __call__(self, rows: list[dict[str, Any]]) -> None:
+        import re
+
+        for row in rows:
+            if row.get("item_type") != "practice_item" or row.get("operation") != "create":
+                continue
+            payload = row.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            prompt = str(payload.get("prompt") or "")
+            reasons = [
+                reason
+                for pattern, reason in _SELECTED_RESPONSE_PATTERNS
+                if re.search(pattern, prompt, flags=re.IGNORECASE | re.DOTALL)
+            ]
+            if not reasons:
+                continue
+            ref = str(row.get("client_item_id") or payload.get("id") or "item")
+            message = f"{ref}: selected-response surface ({'; '.join(reasons)})"
+            self.violations.append(message)
+            row["_auto_apply"] = False
+            row["validation_status"] = "invalid"
+            errors = list(row.get("validation_errors") or [])
+            row["validation_errors"] = ["selected_response_surface", *errors]
+
+
 class _RungGate:
     """Deterministic rung admission over persisted proposal rows (row_transform
     seam): a generated item that overshoots or contradicts its target waypoint is
@@ -986,6 +1072,10 @@ class _RungGate:
             for target in plan.targets
             if target.rung is not None
         }
+        self._band_by_lo: dict[str, tuple[float, float]] = {
+            target.learning_object_id: target.recommended_difficulty_band
+            for target in plan.targets
+        }
         self.violations: list[str] = []
         self.warnings: list[str] = []
 
@@ -996,13 +1086,15 @@ class _RungGate:
             payload = row.get("payload")
             if not isinstance(payload, dict):
                 continue
-            rung = self._rung_by_lo.get(str(payload.get("learning_object_id") or ""))
+            learning_object_id = str(payload.get("learning_object_id") or "")
+            ref = str(row.get("client_item_id") or payload.get("id") or "item")
+            self._check_difficulty_band(row, payload, learning_object_id, ref)
+            rung = self._rung_by_lo.get(learning_object_id)
             if rung is None:
                 continue
             diagnostics = validate_item_against_rung(self._repository, payload=payload, rung=rung)
             hard = [d for d in diagnostics if d.severity == "hard_fail"]
             soft = [d for d in diagnostics if d.severity != "hard_fail"]
-            ref = str(row.get("client_item_id") or payload.get("id") or "item")
             self.violations.extend(f"{ref}: {d.message}" for d in hard)
             self.warnings.extend(f"{ref}: {d.message}" for d in soft)
             if hard:
@@ -1013,6 +1105,49 @@ class _RungGate:
                 row["validation_errors"] = errors
             if isinstance(payload.get("task_features"), dict):
                 payload["task_feature_schema"] = TASK_FEATURE_SCHEMA_SLUG
+
+    #: How far outside its band an item's difficulty may sit before the batch is
+    #: held for review. One deliberately-harder transfer item per target is
+    #: allowed by the instructions, so this only catches systematic drift.
+    _DIFFICULTY_BAND_TOLERANCE = 0.10
+
+    def _check_difficulty_band(
+        self,
+        row: dict[str, Any],
+        payload: dict[str, Any],
+        learning_object_id: str,
+        ref: str,
+    ) -> None:
+        """Flag items authored well outside their recommended difficulty band.
+
+        Nothing used to check this, and the model reliably pinned every item to
+        ``difficulty: 0.0`` against bands like (0.15, 0.33). A floored difficulty
+        is not cosmetic: it sets the IRT ``b`` the mastery EKF predicts against,
+        so success is expected in advance and the observation carries almost no
+        information — and it collapses the exam pool's difficulty stratification,
+        which files every item in the same stratum.
+        """
+
+        band = self._band_by_lo.get(learning_object_id)
+        declared = payload.get("difficulty")
+        if band is None or declared is None:
+            return
+        try:
+            value = float(declared)
+        except (TypeError, ValueError):
+            return
+        low, high = min(band), max(band)
+        if low - self._DIFFICULTY_BAND_TOLERANCE <= value <= high + self._DIFFICULTY_BAND_TOLERANCE:
+            return
+        message = (
+            f"difficulty {value:g} is outside the recommended band "
+            f"[{low:g}, {high:g}] (tolerance {self._DIFFICULTY_BAND_TOLERANCE:g})"
+        )
+        self.warnings.append(f"{ref}: {message}")
+        row["_auto_apply"] = False
+        errors = list(row.get("validation_errors") or [])
+        errors.append(f"difficulty_band: {message}")
+        row["validation_errors"] = errors
 
 
 def _mode_mix_compliance(
@@ -1074,6 +1209,62 @@ def _active_practice_item_counts(
     return counts
 
 
+def _blueprint_components(learning_object) -> list[dict[str, Any]]:
+    """The distinct (facet, capability, role) requirements of an LO's blueprints.
+
+    Readiness is a conjunction over these components (``blueprint_projection``),
+    so an item batch that probes only one of them cannot raise the LO's projected
+    readiness however well the learner answers. Handing the decomposition to the
+    authoring model lets one batch spread across the requirement set instead of
+    permuting a single surface.
+    """
+
+    components: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add(blueprint, component, role: str) -> None:
+        key = (str(component.facet), str(component.capability), role)
+        if key in seen:
+            return
+        seen.add(key)
+        components.append(
+            {
+                "task_family": blueprint.id,
+                "blueprint_weight": round(blueprint.weight, 4),
+                "facet": component.facet,
+                "capability": component.capability,
+                "modality": component.modality,
+                "role": role,
+            }
+        )
+
+    for blueprint in learning_object.blueprints or []:
+        for recipe in blueprint.recipes or []:
+            for component in recipe.all_of or []:
+                add(blueprint, component, "required")
+            for component in recipe.any_of or []:
+                add(blueprint, component, "alternative")
+            if recipe.integration is not None:
+                add(blueprint, recipe.integration, "integration")
+    return components
+
+
+def _active_surface_families(
+    vault: LoadedVault, repository: Repository
+) -> dict[str, list[str]]:
+    """Surface families already in use per LO, so a batch cannot re-run them."""
+
+    states = repository.practice_item_states()
+    families: dict[str, set[str]] = {}
+    for item in vault.practice_items.values():
+        state = states.get(item.id)
+        if state is not None and not state.active:
+            continue
+        if item.surface_family:
+            families.setdefault(item.learning_object_id, set()).add(str(item.surface_family))
+    return {lo_id: sorted(values) for lo_id, values in families.items()}
+
+
 def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) -> dict[str, list[str]]:
     """Canonical facet vocabulary available to each Learning Object.
 
@@ -1108,6 +1299,38 @@ def _target_subjects(plan: PracticeExpansionPlan, subjects: list[str] | None) ->
     return sorted({subject for target in plan.targets for subject in target.subjects})
 
 
+#: Hard ban on selected-response surfaces. Enforced downstream by
+#: ``_SelectedResponseGate``; stated here so the model does not author them at all.
+_CONSTRUCTED_RESPONSE_RULE = (
+    "NEVER author a selected-response item. The learner must PRODUCE the answer, never pick it. "
+    "Forbidden surfaces: lettered or numbered option lists (\"A. ... B. ... C. ...\"), "
+    "\"reply with the letter\", \"select the correct option\", \"which of the following\", and "
+    "true/false questions. This holds at EVERY depth waypoint including the easiest: a low-demand "
+    "item is made easy by narrowing scope and adding a cue, NOT by supplying candidate answers. "
+    "Multiple choice measures option elimination rather than the capability the Learning Object "
+    "names, and it is near-worthless as evidence - an easy recognition item's success is already "
+    "predicted, so answering it correctly moves the learner model by almost nothing. "
+    "To make an item easier: ask for one specific step, name the object to work with, or give a "
+    "worked analogue first - then ask the learner to state, compute, derive, or explain."
+)
+
+#: Blueprint coverage. Readiness is a conjunction over blueprint components, so a
+#: batch that probes one component cannot move the projection (see
+#: ``_blueprint_components``).
+_BLUEPRINT_SPREAD_RULE = (
+    "COVER THE BLUEPRINT, do not permute one surface. Each target lists blueprint_components: the "
+    "distinct (facet, capability, role) requirements its assessment blueprint is built from. The "
+    "Learning Object's readiness is a CONJUNCTION over those components, so a batch that probes "
+    "only one of them cannot demonstrate the Learning Object however well the learner answers. "
+    "Spread the target's requested_new_items across as many DISTINCT blueprint_components as the "
+    "count allows - prefer a new component over a second item on one already covered, weighting by "
+    "blueprint_weight - and set each item's evidence_facets to the component(s) it actually probes. "
+    "Within a batch no two items may share a surface_family, reuse a surface_family listed in the "
+    "target's existing_surface_families, or differ only in wording, numbers, or which option is "
+    "correct. Vary the representation (symbolic / verbal / worked / counterexample / applied) and "
+    "the answer's shape. Each item must state in its rationale which blueprint component it probes."
+)
+
 _TEACH_BACK_GENERATION_GUIDANCE = (
     "teach_back item format: the learner teaches the concept to an AI that plays a curious naive student; "
     "the learner writes an opening explanation and then answers the student's follow-up questions. "
@@ -1119,7 +1342,7 @@ _TEACH_BACK_GENERATION_GUIDANCE = (
     "per facet in the item's evidence_facets (each core criterion probes that one facet), plus 2-3 "
     "tier='transfer' criteria that stress-test edge cases, what-if scenarios, or transfer to new situations "
     "(each transfer criterion also mapped to the facet(s) it stresses). "
-    "criterion_facet_weights MUST map every rubric criterion (core and transfer) to its facet(s), "
+    "criterion_facet_weights MUST carry one entry per rubric criterion (core and transfer) naming its facet(s), "
     "evidence_facets/evidence_weights must be set, and criterion points must sum to max_points (4 or less)."
 )
 
@@ -1142,6 +1365,8 @@ def _practice_expansion_instructions(
         "Calibrate each item's difficulty to its target's recommended_difficulty_band (~70-85% expected success - effortful but usually successful, the desirable-difficulty band), and set difficulty and difficulty_source='llm_estimate' accordingly. At most one item per target may be a harder transfer item above the band, and only when corrective feedback makes the challenge productive.",
         "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). Author every item AT that waypoint: set the item's `capability` to the target capability exactly, and set every dimension in `task_features` to the target's value (a deterministic gate rejects items that overshoot the waypoint). Keep retrieval_demand/transfer_distance/scaffold_level inside the target's float_proxy_bands.",
         "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty.",
+        _CONSTRUCTED_RESPONSE_RULE,
+        _BLUEPRINT_SPREAD_RULE,
         "For each target, create exactly requested_new_items Practice Items.",
         f"Targets: {[target.as_dict() for target in plan.targets]}",
     ]
@@ -1180,7 +1405,7 @@ def _diagnostic_practice_instructions(
         "When diagnostic_focus.target_facet_marginals is present, it is the belief state per target facet (facet_solid vs facet_absent vs misconception:*). Design the probe so a learner holding each hypothesis would produce visibly different answers - the item should discriminate between those hypotheses, not just detect generic failure.",
         "Set difficulty within the recommended_difficulty_band: it lies on the learner's boundary (~50% expected success) so the probe is maximally diagnostic. Do not soften the probe toward an easy item, even on recall_failure - a boundary item that the learner can only sometimes answer is what discriminates the target facets.",
         "Use evidence_facets exactly equal to target_facets, evidence_weights normalized across target_facets, and repair_targets equal to target_facets.",
-        "The grading_rubric must include at least one criterion per target facet and criterion_facet_weights must map each criterion to its facet.",
+        "The grading_rubric must include at least one criterion per target facet and criterion_facet_weights must carry one entry per criterion naming its facet.",
         "Set retrieval_demand high (0.75-0.95), transfer_distance low-to-moderate (0.05-0.35), scaffold_level no higher than 0.35, and difficulty_source='llm_estimate'.",
         "Use only the supplied context.source_refs for source refs. Each item.source_ref_ids should include its target need_id and, when relevant, the target learning_object_id or source_practice_item_id. Do not invent source refs.",
         "Use review_route='review_required'; generated diagnostic probes must be reviewed before writing vault content.",
@@ -1352,11 +1577,19 @@ def _success_band_difficulty(
     *,
     discrimination: float,
     difficulty_scale: float,
+    difficulty_floor: float = 0.0,
+    min_band_width: float = 0.0,
 ) -> tuple[float, float]:
     """``(easier, harder)`` authored-difficulty band spanning a target success interval.
 
     The *higher* success bound yields the *lower* (easier) difficulty edge, so the
     band is returned low-to-high in difficulty.
+
+    ``difficulty_floor`` / ``min_band_width`` keep the band from collapsing onto
+    0.0 at a low ability estimate. Without them the band degenerates to
+    ``[0.0, 0.0]`` — "author the easiest item expressible" — whose outcome the
+    model already predicts, so it yields no information and cannot correct the
+    pessimistic estimate that produced it.
     """
 
     success_low, success_high = min(success_band), max(success_band)
@@ -1366,4 +1599,6 @@ def _success_band_difficulty(
     high = _difficulty_for_success(
         ability_logit, success_low, discrimination=discrimination, difficulty_scale=difficulty_scale
     )
-    return (low, high)
+    low = max(low, difficulty_floor)
+    high = max(high, low + min_band_width)
+    return (round(min(low, 1.0), 2), round(min(high, 1.0), 2))

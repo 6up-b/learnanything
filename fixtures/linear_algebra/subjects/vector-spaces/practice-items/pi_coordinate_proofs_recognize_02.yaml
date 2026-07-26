@@ -1,0 +1,82 @@
+schema_version: 1
+id: pi_coordinate_proofs_recognize_02
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+evidence_weights:
+  facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+criterion_facet_weights:
+  criterion_correct_selection:
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: Which scalar law over R or C justifies x_k+y_k=y_k+x_k? A. Associativity
+  of multiplication B. Commutativity of addition C. Distributivity. Reply with 
+  the letter and law.
+expected_answer: B. Commutativity of scalar addition.
+difficulty: 0.0
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - recognition
+  - scalar-laws
+hints:
+  - The two addends switch order.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.0
+scaffold_level: 0.3
+capability: retrieval
+task_features:
+  complexity: 0
+  representation:
+    - symbolic
+  response: recognize
+  scaffolding: cue
+  span: atomic
+  tools:
+    - closed_book
+  transfer: same_context
+task_feature_schema: p1_launch@1
+surface_family: scalar_law_option_recognition
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: C. Distributivity.
+repair_targets:
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_correct_selection
+      points: 4.0
+      description: Selects B and identifies commutativity of scalar addition.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: retired
+status_reason: retired selected-response recognition item; superseded by constructed-response generation
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-25T19:25:12Z'
+updated_at: '2026-07-25T19:25:12Z'

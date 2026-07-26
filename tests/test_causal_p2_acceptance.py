@@ -1225,7 +1225,11 @@ def test_projection_version_names_the_open_cause_union(tmp_path):
     from learnloop.services.learner_review_feed import build_learner_review_feed
     from learnloop.services.replay import rebuild_derived_state
 
-    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v3_open_cause_union"
+    # Pinned deliberately so changing what the fold derives is always a conscious
+    # bump. v4 supersedes v3 without replacing it: the open-cause UNION semantics
+    # remain in force, and v4 adds item-declared capability for compiled criterion
+    # targets. Update this literal whenever the projection semantics move.
+    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v4_item_declared_capability"
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     _single_cause_failure(vault, repository)

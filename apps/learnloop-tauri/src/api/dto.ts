@@ -2903,6 +2903,10 @@ export interface GoalDto {
   dueAt: string | null;
   facetScope: { concepts: string[]; facets: string[] };
   exam: { enabled: boolean; itemCount: number };
+  /** Active, non-exam-reserved Practice Items in the goal's scope — the supply
+   * the learner can actually practise. `null` when the sidecar could not
+   * compute it; never read null as "no supply". */
+  practicableItemCount: number | null;
   createdAt: string;
   updatedAt: string;
   report: GoalReportSummaryDto | null;
@@ -3079,14 +3083,32 @@ export interface GoalFeasibilityInput {
   facets: string[];
 }
 
+/** An in-scope learning object with nothing authored to practise on it yet.
+ *  Distinct from an uncovered concept: this one is fillable, and
+ *  `generateStarterPractice` is the action that fills it. */
+export interface GoalMaterialGap {
+  learningObjectId: string;
+  title: string;
+  conceptId: string;
+  scopeFacetCount: number;
+}
+
 export interface GoalFeasibilityResult {
   version: number;
   scopeFacetCount: number;
   onTrackCount: number;
   projectedOnTrackFraction: number | null;
   uncoveredConcepts: string[];
+  materialGaps: GoalMaterialGap[];
   resolvedQuestSentence: string | null;
   questBasis: GoalDto["questBasis"];
+}
+
+export interface GenerateStarterPracticeResult {
+  version: number;
+  batchId: string;
+  batch: IngestBatchDto | null;
+  learningObjectIds: string[];
 }
 
 export interface CreateGoalInput {
@@ -3099,6 +3121,9 @@ export interface CreateGoalInput {
   examEnabled: boolean;
   examItemCount?: number;
   populatePractice?: boolean;
+  /** Opt out of the resolved-scope guard: create a goal that tracks nothing,
+   *  as a stated intent rather than a silent default. */
+  allowEmptyScope?: boolean;
 }
 
 export interface CreateGoalResult {

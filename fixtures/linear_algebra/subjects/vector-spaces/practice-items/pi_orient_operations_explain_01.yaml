@@ -1,0 +1,109 @@
+schema_version: 1
+id: pi_orient_operations_explain_01
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  criterion_orient_interprets_maps:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+  criterion_orient_names_data:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_interpret_vector_space_data
+      checkpoints:
+        - identify_underlying_data
+        - interpret_addition
+        - interpret_scalar_multiplication
+      dependencies:
+        identify_underlying_data: []
+        interpret_addition:
+          - identify_underlying_data
+        interpret_scalar_multiplication:
+          - identify_underlying_data
+variant_contract:
+teach_back_source:
+prompt: A text says, “Let W be a vector space over F,” and then uses f+g and af.
+  Explain what mathematical data this phrase commits us to having, including 
+  what kind of inputs and outputs the two operations use.
+expected_answer: It commits us to a set W, a scalar field F, an addition W×W→W, 
+  and a scalar multiplication F×W→W. Thus f+g is again in W for f,g∈W, and af is
+  in W for a∈F and f∈W; the operations must also satisfy the vector-space 
+  axioms.
+difficulty: 0.22
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - blueprint_bp_01KY3YXS
+hints:
+  - Account separately for f+g and af.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.28
+scaffold_level: 0.05
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: notation_commitment_explanation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: It commits us only to the set W.
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_orient_names_data
+      points: 2.0
+      description: Names the set, scalar field, vector addition, and scalar 
+        multiplication.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_orient_interprets_maps
+      points: 2.0
+      description: Correctly explains the inputs and vector-valued outputs of 
+        both operations.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: retired
+status_reason: dont_care_enough_to_retain
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-25T23:50:23Z'
+updated_at: '2026-07-26T01:27:26Z'

@@ -5,6 +5,7 @@ from typing import Any
 from learnloop.services.proposals import queue_accepted_diagnostic_followups
 from learnloop.services.scheduler import SchedulerSession, build_due_queue, explain_practice_item
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.ingest_jobs import _APPLYING_JOB_TYPES
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import (
@@ -29,18 +30,15 @@ class PracticeItemInput(ParamsModel):
     practice_item_id: str
 
 
-_QUEUE_RELOAD_JOB_TYPES = frozenset(
-    {
-        "legacy_ingest",
-        "exam_ingest",
-        "bootstrap_synthesis",
-        "append_synthesis",
-        "practice_expansion",
-        "rung_variant",
-        "question_promotion",
-        "reader_exercise_import",
-    }
-)
+#: Job types whose completion must invalidate the sidecar's in-memory vault.
+#:
+#: This MUST stay in sync with ``ingest_jobs._APPLYING_JOB_TYPES`` — that tuple
+#: is the authority on which jobs change vault content, and any job listed there
+#: but missing here applies items the Today queue then cannot see, because
+#: ``get_today_queue`` reads the cached snapshot. The two drifted once already
+#: (``goal_population`` was added to the applying list and not to this one), so
+#: the set is derived rather than restated.
+_QUEUE_RELOAD_JOB_TYPES = frozenset(_APPLYING_JOB_TYPES)
 
 
 @method("get_queue_revision", ParamsModel)

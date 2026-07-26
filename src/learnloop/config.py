@@ -1067,6 +1067,17 @@ class PracticeGenerationConfig(BaseModel):
 
     practice_success_band: tuple[float, float] = (0.70, 0.85)
     probe_success_band: tuple[float, float] = (0.45, 0.55)
+    #: Floor on authored difficulty, and the minimum width of a recommended band.
+    #:
+    #: Inverting the success band at a low ability estimate asks for an item
+    #: easier than the difficulty scale can express, so the band collapses onto
+    #: 0.0 and every generated item is authored at the very bottom. Those items
+    #: certify nothing: the model already predicts success, so a correct answer
+    #: carries almost no information and the ability estimate that produced the
+    #: floor never gets the evidence that would lift it. The floor keeps items
+    #: informative even when the learner model is (possibly wrongly) pessimistic.
+    difficulty_floor: float = 0.15
+    min_band_width: float = 0.10
 
 
 class SeverityExampleConfig(BaseModel):

@@ -1,0 +1,81 @@
+schema_version: 1
+id: pi_definition_vector_term_recall_03
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+evidence_weights:
+  facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+criterion_facet_weights:
+  criterion_definition_vector_term:
+    facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: If V is a vector space and v∈V, translate this membership statement into
+  the standard one-word mathematical name for v.
+expected_answer: v is a vector (an element of the vector space V).
+difficulty: 0.15
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - blueprint_bp_01KY3YXS_14
+hints:
+  - What are the elements of a vector space called?
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.0
+scaffold_level: 0.36
+capability: retrieval
+task_features:
+  complexity: 0
+  representation:
+    - symbolic
+    - verbal
+  response: short_constructed
+  scaffolding: cue
+  span: atomic
+  tools:
+    - closed_book
+  transfer: same_context
+task_feature_schema: p1_launch@1
+surface_family: membership_terminology_translation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: v is a scalar field.
+repair_targets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_definition_vector_term
+      points: 4.0
+      description: Identifies an element of V as a vector.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-25T23:50:14Z'
+updated_at: '2026-07-25T23:50:14Z'

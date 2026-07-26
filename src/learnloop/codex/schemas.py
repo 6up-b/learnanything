@@ -1,14 +1,144 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema, model_validator
 
 from learnloop.attempt_types import AttemptType
 
 EntityType = Literal["learning_object", "practice_item", "concept", "concept_edge", "rubric", "error_type"]
 ProposalOperation = Literal["create", "update", "deactivate"]
 ReviewRoute = Literal["auto_apply", "review_required", "reject"]
+
+
+# --- open-keyed maps on the wire -------------------------------------------
+#
+# Strict structured output requires ``additionalProperties: false`` on every
+# object and cannot express an open-keyed map, so a `dict[str, X]` field
+# sanitizes into an object the provider is forbidden to put keys into: the
+# field silently arrives empty every time, with no error from either side.
+#
+# These fields therefore travel as a list of explicit key/value pairs, which
+# strict output *can* express, while keeping their map representation in
+# memory so every consumer, fixture, and stored payload is unaffected. The
+# before-validator also still accepts the map form, so hand-written fixtures
+# and older providers keep validating.
+
+
+class FacetWeightPayload(BaseModel):
+    """One facet-weight pair (strict-schema-safe map entry)."""
+
+    facet_id: str = ""
+    weight: float = 0.0
+
+
+class CriterionFacetWeightsPayload(BaseModel):
+    """Facet weights for one rubric criterion (strict-schema-safe map entry)."""
+
+    criterion_id: str = ""
+    weights: list[FacetWeightPayload] = Field(default_factory=list)
+
+
+class CheckpointDependencyPayload(BaseModel):
+    """One checkpoint's prerequisites (strict-schema-safe map entry)."""
+
+    checkpoint_id: str = ""
+    depends_on: list[str] = Field(default_factory=list)
+
+
+def _inlined_json_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """Return ``model``'s schema with every ``$ref`` resolved in place.
+
+    ``WithJsonSchema`` splices its value in verbatim, so a surviving
+    ``#/$defs/...`` pointer would dangle against the enclosing document.
+    """
+
+    schema = model.model_json_schema()
+    defs = schema.pop("$defs", {})
+
+    def inline(node: Any) -> Any:
+        if isinstance(node, list):
+            return [inline(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            return inline(defs[ref.removeprefix("#/$defs/")])
+        return {key: inline(child) for key, child in node.items()}
+
+    return inline(schema)
+
+
+def _pair_list_schema(model: type[BaseModel]) -> WithJsonSchema:
+    return WithJsonSchema({"type": "array", "items": _inlined_json_schema(model)})
+
+
+def _facet_weight_map(value: Any) -> Any:
+    """Accept ``[{facet_id, weight}, ...]`` as well as ``{facet_id: weight}``."""
+
+    if not isinstance(value, list):
+        return value
+    weights: dict[str, float] = {}
+    for entry in value:
+        if isinstance(entry, FacetWeightPayload):
+            entry = entry.model_dump()
+        if not isinstance(entry, dict):
+            continue
+        facet_id = str(entry.get("facet_id") or "")
+        if facet_id:
+            weights[facet_id] = entry.get("weight", 0.0)
+    return weights
+
+
+def _criterion_facet_weight_map(value: Any) -> Any:
+    """Accept ``[{criterion_id, weights}, ...]`` as well as the nested map."""
+
+    if not isinstance(value, list):
+        return value
+    mapped: dict[str, Any] = {}
+    for entry in value:
+        if isinstance(entry, CriterionFacetWeightsPayload):
+            entry = entry.model_dump()
+        if not isinstance(entry, dict):
+            continue
+        criterion_id = str(entry.get("criterion_id") or "")
+        if criterion_id:
+            mapped[criterion_id] = _facet_weight_map(entry.get("weights") or [])
+    return mapped
+
+
+def _checkpoint_dependency_map(value: Any) -> Any:
+    """Accept ``[{checkpoint_id, depends_on}, ...]`` as well as the map form."""
+
+    if not isinstance(value, list):
+        return value
+    mapped: dict[str, Any] = {}
+    for entry in value:
+        if isinstance(entry, CheckpointDependencyPayload):
+            entry = entry.model_dump()
+        if not isinstance(entry, dict):
+            continue
+        checkpoint_id = str(entry.get("checkpoint_id") or "")
+        if checkpoint_id:
+            mapped[checkpoint_id] = entry.get("depends_on") or []
+    return mapped
+
+
+EvidenceWeightMap = Annotated[
+    dict[str, float],
+    BeforeValidator(_facet_weight_map),
+    _pair_list_schema(FacetWeightPayload),
+]
+CriterionFacetWeightMap = Annotated[
+    dict[str, dict[str, float]],
+    BeforeValidator(_criterion_facet_weight_map),
+    _pair_list_schema(CriterionFacetWeightsPayload),
+]
+CheckpointDependencyMap = Annotated[
+    dict[str, list[str]],
+    BeforeValidator(_checkpoint_dependency_map),
+    _pair_list_schema(CheckpointDependencyPayload),
+]
 
 
 class SourceRef(BaseModel):
@@ -121,7 +251,7 @@ class TaskFeaturesPayload(BaseModel):
 class TraceRecipePayload(BaseModel):
     id: str
     checkpoints: list[str] = Field(default_factory=list)
-    dependencies: dict[str, list[str]] = Field(default_factory=dict)
+    dependencies: CheckpointDependencyMap = Field(default_factory=dict)
 
 
 class TraceContractPayload(BaseModel):
@@ -182,18 +312,18 @@ class PracticeItemPatchPayload(BaseModel):
     expected_answer: str | dict | None = None
     grading_rubric: RubricPatchPayload | None = None
     evidence_facets: list[str] | None = None
-    evidence_weights: dict[str, float] | None = Field(
+    evidence_weights: EvidenceWeightMap | None = Field(
         default=None,
         description=(
-            "REQUIRED whenever evidence_facets is set: map EVERY listed facet id to "
-            "its weight (weights should sum to 1.0). An empty object is invalid."
+            "REQUIRED whenever evidence_facets is set: one entry per listed facet id "
+            "with its weight (weights should sum to 1.0). An empty list is invalid."
         ),
     )
-    criterion_facet_weights: dict[str, dict[str, float]] | None = Field(
+    criterion_facet_weights: CriterionFacetWeightMap | None = Field(
         default=None,
         description=(
-            "Map only rubric criteria that genuinely measure a canonical facet. "
-            "An empty map is valid when the criterion declares item_local or "
+            "One entry per rubric criterion that genuinely measures a canonical facet. "
+            "An empty list is valid when the criterion declares item_local or "
             "no_canonical_facet measurement_status."
         ),
     )
@@ -663,23 +793,6 @@ class RungBackfillClassification(BaseModel):
     items: list[RungBackfillItem] = Field(default_factory=list)
 
 
-class FacetWeightPayload(BaseModel):
-    """One facet-weight pair. Strict structured-output schemas cannot express
-    free-form maps (``additionalProperties`` is stripped, which degrades a
-    ``dict`` field into an object no key can satisfy — and the API rejects the
-    schema), so weights ride as explicit pairs."""
-
-    facet_id: str = ""
-    weight: float = 0.0
-
-
-class CriterionFacetWeightsPayload(BaseModel):
-    """Facet weights for one rubric criterion (strict-schema-safe map entry)."""
-
-    criterion_id: str = ""
-    weights: list[FacetWeightPayload] = Field(default_factory=list)
-
-
 class ExerciseAuthoredItem(BaseModel):
     """One selected textbook exercise completed into a full PracticeItem
     contract (reader exercise import).
@@ -1105,12 +1218,36 @@ class SynthRecipeComponent(BaseModel):
     modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
 
 
+class SynthIntegrationComponent(BaseModel):
+    """The optional `integration` component of a recipe (knowledge-model §7.2).
+
+    Distinct from :class:`SynthRecipeComponent` in exactly one way: `capability`
+    is nullable with no default. An `all_of`/`any_of` component always observes
+    *something*, so a default is harmless there; the integration slot is optional
+    and its capability decides whether the LO is certifiable at all, so "the
+    model did not choose" must be representable rather than silently becoming a
+    requirement nobody authored. Absence is dropped with a review diagnostic at
+    normalization, never defaulted.
+    """
+
+    facet_client_id: str = ""
+    facet: str = ""
+    capability: Literal[
+        "retrieval",
+        "schema_interpretation",
+        "procedure_execution",
+        "method_selection",
+        "coordination",
+    ] | None = None
+    modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
+
+
 class SynthRecipe(BaseModel):
     id: str = ""
     composition: Literal["conjunctive"] = "conjunctive"
     all_of: list[SynthRecipeComponent] = Field(default_factory=list)
     any_of: list[SynthRecipeComponent] = Field(default_factory=list)
-    integration: SynthRecipeComponent | None = None
+    integration: SynthIntegrationComponent | None = None
 
 
 class SynthBlueprint(BaseModel):

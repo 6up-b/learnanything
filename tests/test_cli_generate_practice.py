@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
+import learnloop.cli as cli_module
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
+from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.services.proposals import queue_accepted_diagnostic_followups
 from learnloop.services.scheduler import build_due_queue
@@ -627,6 +630,49 @@ def test_populate_goal_dry_run_waives_probe_gate_and_ignores_reserved_supply(tmp
     assert targets[0]["existing_practice_items"] == 0
     assert targets[0]["requested_new_items"] == 3
     assert "recall" in payload["at_risk_facets"]
+
+
+def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    _reserve_goal_exam_pool(vault_root, paths.sqlite_path)
+    observed: dict[str, int | None] = {}
+
+    def fake_ready_provider(
+        vault_root,
+        config,
+        task,
+        explicit=None,
+        *,
+        codex_timeout_seconds=None,
+    ):
+        observed["timeout_seconds"] = codex_timeout_seconds
+        return (
+            "codex_medium",
+            SimpleNamespace(ready=False, status="test_stop", message="stop after timeout check"),
+            None,
+        )
+
+    monkeypatch.setattr(cli_module, "_ready_provider_for_task", fake_ready_provider)
+
+    result = CliRunner().invoke(
+        app,
+        ["populate-goal", "goal_linear_algebra_ml", "--vault", str(vault_root), "--json"],
+    )
+
+    assert result.exit_code == 1
+    assert observed["timeout_seconds"] == 15 * 60
+
+
+def test_provider_timeout_override_reaches_codex_sdk_client(tmp_path):
+    client = cli_module._client_for_provider(
+        tmp_path,
+        LearnLoopConfig(),
+        "codex_medium",
+        codex_timeout_seconds=15 * 60,
+    )
+
+    assert client.config.timeout_seconds == 15 * 60
 
 
 def test_populate_goal_generates_and_auto_accepts(tmp_path):

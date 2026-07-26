@@ -1,0 +1,108 @@
+schema_version: 1
+id: pi_what_makes_addition_laws_interpret_02
+learning_object_id: lo_what_makes_a_vector_space
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_vector_addition_must_be_commutative_and_associat
+evidence_weights:
+  facet_vector_addition_must_be_commutative_and_associat: 1.0
+criterion_facet_weights:
+  criterion_what_makes_interprets_laws:
+    facet_vector_addition_must_be_commutative_and_associat: 1.0
+  criterion_what_makes_writes_laws:
+    facet_vector_addition_must_be_commutative_and_associat: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_contrast_addition_laws
+      checkpoints:
+        - state_commutative_law
+        - state_associative_law
+        - contrast_order_and_grouping
+      dependencies:
+        contrast_order_and_grouping:
+          - state_commutative_law
+          - state_associative_law
+        state_associative_law: []
+        state_commutative_law: []
+variant_contract:
+teach_back_source:
+prompt: Write the commutative and associative laws required of vector addition 
+  on V, then explain in words the different feature of a sum that each law 
+  allows you to change.
+expected_answer: For all u,v,w∈V, u+v=v+u and (u+v)+w=u+(v+w). Commutativity 
+  changes the order of addends; associativity changes their grouping without 
+  changing their order.
+difficulty: 0.22
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - blueprint_bp_01KY3YXS_15
+hints:
+  - One law moves symbols; the other only moves parentheses.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.22
+scaffold_level: 0.02
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: law_meaning_contrast
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer: Both laws merely say that addends may be 
+  reordered.
+repair_targets:
+  - facet_vector_addition_must_be_commutative_and_associat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_what_makes_writes_laws
+      points: 2.0
+      description: Writes both commutative and associative addition identities 
+        correctly.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_what_makes_interprets_laws
+      points: 2.0
+      description: Distinguishes changing order from changing grouping.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-25T23:50:37Z'
+updated_at: '2026-07-25T23:50:37Z'

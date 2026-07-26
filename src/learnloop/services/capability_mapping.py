@@ -67,6 +67,21 @@ def default_capability_for(practice_mode: str, *, tier: str = "core") -> str:
     return MODE_CAPABILITY_DEFAULTS.get(practice_mode, DEFAULT_CAPABILITY)
 
 
+def _observed_capability(item: PracticeItem, tier: str) -> str:
+    """Capability a criterion of ``tier`` observes on ``item``.
+
+    A ``transfer``-tier criterion deliberately probes past the item's own
+    waypoint (§5.1), so it keeps the tier default; every other criterion follows
+    the item's authored capability when it names one in the closed vocabulary.
+    """
+
+    if tier != "transfer":
+        declared = getattr(item, "capability", None)
+        if declared and is_valid_capability(str(declared)):
+            return str(declared)
+    return default_capability_for(item.practice_mode, tier=tier)
+
+
 def compile_criterion_targets(
     item: PracticeItem,
     criterion,
@@ -78,7 +93,16 @@ def compile_criterion_targets(
     Authored ``criterion.targets`` win verbatim. Otherwise legacy content is
     compiled: each evidence facet the criterion is mapped to (via
     ``criterion_facet_weights`` when present, else the item's whole-item facet
-    set) becomes a ``primary`` target at the mode/tier default capability.
+    set) becomes a ``primary`` target at the item's declared capability, falling
+    back to the mode/tier default.
+
+    The item's own ``capability`` outranks the practice-mode default because it
+    is the depth-rung annotation the item was authored AT, while the mode default
+    is a coarse guess from a free-text mode string. Ignoring it filed every
+    rung-targeted ``constructed_response`` item's evidence under
+    ``procedure_execution`` regardless of the capability it actually probed, so
+    blueprint components declared at other capabilities stayed ``unexamined`` no
+    matter how much practice landed on them.
     """
 
     if criterion.targets:
@@ -87,7 +111,8 @@ def compile_criterion_targets(
     measurement_status = getattr(criterion, "measurement_status", None)
     if measurement_status in {"item_local", "no_canonical_facet"}:
         return []
-    capability = default_capability_for(item.practice_mode, tier=getattr(criterion, "tier", "core"))
+    tier = getattr(criterion, "tier", "core")
+    capability = _observed_capability(item, tier)
     mapped = item.criterion_facet_weights.get(criterion.id)
     # Once an author explicitly declares measurement status, an empty mapping
     # is an honest abstention. The whole-item fallback remains only for legacy

@@ -43,6 +43,11 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Starter practice for in-scope learning objects that have no items yet.
+  const [generatingPractice, setGeneratingPractice] = useState(false);
+  const [starterBatchId, setStarterBatchId] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
   const facetIds = useMemo(
     () => facetIdsRaw.split(",").map((s) => s.trim()).filter(Boolean),
     [facetIdsRaw]
@@ -115,6 +120,24 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
       void create();
     }
   };
+
+  async function generateStarterPractice() {
+    const gaps = feasibility?.materialGaps ?? [];
+    if (generatingPractice || gaps.length === 0) return;
+    setGeneratingPractice(true);
+    setGenerateError(null);
+    try {
+      const result = await api.generateStarterPractice(
+        gaps.map((gap) => gap.learningObjectId),
+        "goal_wizard_material_gap"
+      );
+      setStarterBatchId(result.batchId);
+    } catch (e) {
+      setGenerateError((e as Error).message);
+    } finally {
+      setGeneratingPractice(false);
+    }
+  }
 
   async function create() {
     if (submitting) return;
@@ -249,6 +272,11 @@ export function GoalWizard({ onClose, onCreated, onError }: { onClose: () => voi
               onDueDate={setDueDate}
               feasibility={feasibility}
               loading={feasibilityLoading}
+              stepValid={stepValid}
+              onGenerateStarterPractice={() => void generateStarterPractice()}
+              generating={generatingPractice}
+              generatedBatch={starterBatchId}
+              generateError={generateError}
             />
           ) : (
             <StepExam
@@ -335,15 +363,39 @@ function StepWhat({
         ) : (
           concepts.map((c) => {
             const on = selected.has(c.id);
+            // A concept with no learning object carries nothing measurable, so
+            // a goal over it can never move: no facets, no queue work, no exam
+            // coverage. These are organizing nodes (part_of / prerequisite
+            // structure) whose material lives under their neighbours — shown
+            // rather than hidden, so the graph still reads as complete.
+            const measurable = c.learningObjects.length > 0;
             return (
               <div
                 key={c.id}
-                onClick={() => onToggle(c.id)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", cursor: "pointer", background: on ? COLOR.bgElev : "transparent", borderBottom: `1px solid ${COLOR.border}` }}
+                onClick={() => (measurable ? onToggle(c.id) : undefined)}
+                title={
+                  measurable
+                    ? undefined
+                    : "No learning objects — this concept organizes the graph; its material sits under related concepts. Ingest source material covering it to make it measurable."
+                }
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "7px 12px",
+                  cursor: measurable ? "pointer" : "not-allowed",
+                  background: on ? COLOR.bgElev : "transparent",
+                  borderBottom: `1px solid ${COLOR.border}`,
+                  opacity: measurable ? 1 : 0.45
+                }}
               >
-                <span style={{ fontFamily: FONT_MONO, color: on ? COLOR.amber : COLOR.textFaint }}>{on ? "▣" : "▢"}</span>
+                <span style={{ fontFamily: FONT_MONO, color: on ? COLOR.amber : COLOR.textFaint }}>
+                  {measurable ? (on ? "▣" : "▢") : "—"}
+                </span>
                 <span style={{ fontSize: 13, color: COLOR.text, flex: 1 }}>{c.title}</span>
-                <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>{c.practiceItemCount} items</Faint>
+                <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>
+                  {measurable ? `${c.practiceItemCount} items` : "no learning objects"}
+                </Faint>
               </div>
             );
           })
@@ -381,7 +433,12 @@ function StepByWhen({
   dueDate,
   onDueDate,
   feasibility,
-  loading
+  loading,
+  stepValid,
+  onGenerateStarterPractice,
+  generating,
+  generatedBatch,
+  generateError
 }: {
   openEnded: boolean;
   onOpenEnded: (v: boolean) => void;
@@ -389,7 +446,13 @@ function StepByWhen({
   onDueDate: (v: string) => void;
   feasibility: GoalFeasibilityResult | null;
   loading: boolean;
+  stepValid: boolean;
+  onGenerateStarterPractice: () => void;
+  generating: boolean;
+  generatedBatch: string | null;
+  generateError: string | null;
 }) {
+  const gaps = feasibility?.materialGaps ?? [];
   return (
     <div>
       <Label>due date</Label>
@@ -402,6 +465,14 @@ function StepByWhen({
           <span onClick={() => onOpenEnded(!openEnded)}>open-ended (no deadline)</span>
         </label>
       </div>
+      {/* The ONLY thing gating next on this step. It lives against the control
+          it is about: the coverage panel below is advisory, and reading a
+          greyed button as its consequence is the mistake this prevents. */}
+      {!stepValid ? (
+        <div style={{ marginTop: 8, fontSize: 12, color: COLOR.amber }}>
+          pick a date, or tick open-ended, to continue.
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 18, padding: "12px 14px", border: `1px solid ${COLOR.border}`, background: COLOR.bgInput, fontSize: 13, color: COLOR.textDim, lineHeight: 1.65 }}>
         {loading ? (
@@ -418,9 +489,47 @@ function StepByWhen({
               facets on track{openEnded ? "" : " by this date"}
               {feasibility.projectedOnTrackFraction != null ? ` (${Math.round(feasibility.projectedOnTrackFraction * 100)}%)` : ""}.
             </div>
+
+            {/* Fillable: these learning objects are in scope and blueprinted,
+                they just have nothing authored to practise on yet. */}
+            {gaps.length > 0 ? (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ color: COLOR.textDim }}>
+                  {gaps.length} learning object{gaps.length === 1 ? "" : "s"} in this goal ha
+                  {gaps.length === 1 ? "s" : "ve"} no practice questions yet:
+                </div>
+                <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 12, color: COLOR.textFaint }}>
+                  {gaps.slice(0, 5).map((gap) => (
+                    <li key={gap.learningObjectId}>{gap.title}</li>
+                  ))}
+                  {gaps.length > 5 ? <li>…and {gaps.length - 5} more</li> : null}
+                </ul>
+                {generatedBatch ? (
+                  <div style={{ marginTop: 8, color: COLOR.green, fontSize: 12 }}>
+                    ✓ generating in the background — they'll appear in Today as they land.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onGenerateStarterPractice}
+                    disabled={generating}
+                    style={{ ...ghostBtn, marginTop: 8, opacity: generating ? 0.5 : 1, cursor: generating ? "default" : "pointer" }}
+                  >
+                    {generating ? "queueing…" : `generate starter questions for ${gaps.length === 1 ? "it" : "them"} →`}
+                  </button>
+                )}
+                {generateError ? (
+                  <div style={{ marginTop: 6, color: COLOR.red, fontSize: 12 }}>{generateError}</div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* Not fillable from here: these concepts contribute no learning
+                object at all, so there is nothing to generate against. */}
             {feasibility.uncoveredConcepts.length > 0 ? (
-              <div style={{ marginTop: 8, color: COLOR.pink }}>
-                no practice material yet for: {feasibility.uncoveredConcepts.join(", ")}
+              <div style={{ marginTop: 10, color: COLOR.pink }}>
+                no learning objects at all for: {feasibility.uncoveredConcepts.join(", ")} — this
+                goal will not track {feasibility.uncoveredConcepts.length === 1 ? "it" : "them"}.
               </div>
             ) : null}
           </>

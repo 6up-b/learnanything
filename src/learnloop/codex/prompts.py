@@ -519,14 +519,28 @@ least one `blueprint`, and every blueprint MUST contain at least one recipe with
 at least one component — NEVER emit a blueprint with an empty `recipes` array or
 a recipe with no components. Recipe shape: `composition` is `"conjunctive"`;
 `all_of` is the list of components ALL jointly required to demonstrate the
-objective; `any_of` is substitutable components where any one suffices; the
-optional `integration` is the single component that coordinates them. Each
+objective; `any_of` is substitutable components where any one suffices. Each
 component sets EITHER `facet_client_id` (a facet you propose in this response's
 `facets`) OR `facet` (a canonical id from `registry_index`), plus a `capability`
 from the closed vocabulary in constraint 10. A blueprint whose recipes are empty
 is invalid and will be rejected — author a real recipe or drop the blueprint (and
 its learning object). This holds in `as_you_read` mode too: recipes are authored
 now even though practice items are deferred.
+14. INTEGRATION IS THE EXCEPTION, NOT THE DEFAULT: `integration` is OPTIONAL and
+most recipes should OMIT it. Author one only when a learner could hold every
+`all_of` component and STILL fail the task in a repeatable, observable,
+separately repairable way — a genuine assembly failure, not "the task has several
+steps." If you cannot name that failure, leave `integration` absent; an omitted
+integration component is the correct and expected output. When you do author one,
+choose its `capability` on the same evidence as any other component and state it
+explicitly — there is no default, and an integration component with no capability
+is dropped. In particular `coordination` is NOT the automatic capability for an
+integration component: it means whole-task assembly that fails even when every
+part is present, it is the only capability ordinary practice items are not
+authored at, and naming it makes the objective uncertifiable until a whole-task
+instrument is authored for it. Use it only when the assembly failure genuinely
+requires the whole task to observe; otherwise pick the capability at which the
+coordinating step can actually be seen.
 """
 
 

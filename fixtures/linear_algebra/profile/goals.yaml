@@ -1,2 +1,21 @@
-schema_version: 1
-goals: []
+schema_version: 2
+goals:
+  - id: goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+    title: Get good at proofs and gain intuition on abstract vector spaces
+    intent_sentence:
+    creation_source: learner
+    status: active
+    priority: 0.5
+    target_recall: 0.85
+    facet_scope:
+      concepts:
+        - concept_coordinate_proofs_in_f_n
+        - concept_vector_space_axioms
+        - concept_vector_space
+      facets: []
+    due_at:
+    exam:
+      enabled: true
+      item_count: 15
+    created_at: '2026-07-25T14:23:08Z'
+    updated_at: '2026-07-25T14:23:08Z'

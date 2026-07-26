@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, date, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
@@ -604,13 +606,83 @@ class _InjectedLineageFault(RuntimeError):
     prove the raw-event transaction rolls back as one unit (§7.4 fault injection)."""
 
 
+class _PinnedConnection:
+    """Proxy that hands the same SQLite connection to every repository call.
+
+    Opening a connection is cheap; the *first* prepared statement on it is not,
+    because SQLite parses the whole schema then (~900 objects here, ~10ms). Paths
+    that make hundreds of small repository calls — replay, the goal series — pay
+    that once per call, which dominates their runtime. ``Repository.pinned()``
+    keeps one connection alive for the block and hands out this proxy, which
+    mimics a raw connection's context-manager semantics (commit on clean exit,
+    rollback on error) without closing the underlying handle.
+    """
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._connection, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Callers that drive their own transactions assign isolation_level; that
+        # has to reach the real connection, not shadow it on the proxy.
+        if name == "_connection":
+            super().__setattr__(name, value)
+        else:
+            setattr(self._connection, name, value)
+
+    def __enter__(self) -> sqlite3.Connection:
+        return self._connection
+
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        if exc_type is None:
+            self._connection.commit()
+        else:
+            self._connection.rollback()
+        return False
+
+    def close(self) -> None:
+        # Call sites that drive their own transactions (isolation_level = None,
+        # explicit BEGIN) close the connection when done. Under a pin it outlives
+        # them, so closing only restores the default transaction handling.
+        self._connection.isolation_level = ""
+
+
 class Repository:
     def __init__(self, sqlite_path: Path):
         self.sqlite_path = sqlite_path
+        self._pin = threading.local()
         apply_migrations(sqlite_path)
 
     def connection(self) -> sqlite3.Connection:
+        pinned = getattr(self._pin, "connection", None)
+        if pinned is not None:
+            return pinned
         return connect(self.sqlite_path)
+
+    @contextmanager
+    def pinned(self) -> Iterator[None]:
+        """Reuse one connection for the block, on this thread only.
+
+        Purely a performance measure: repository calls behave as they do
+        unpinned, they just skip the per-call schema parse. Nested pins reuse the
+        outermost connection; other threads keep opening their own.
+        """
+
+        if getattr(self._pin, "connection", None) is not None:
+            yield
+            return
+        raw = connect(self.sqlite_path)
+        self._pin.connection = _PinnedConnection(raw)
+        try:
+            yield
+        finally:
+            self._pin.connection = None
+            try:
+                raw.commit()
+            finally:
+                raw.close()
 
     def practice_item_state(self, practice_item_id: str) -> PracticeItemState | None:
         with self.connection() as connection:

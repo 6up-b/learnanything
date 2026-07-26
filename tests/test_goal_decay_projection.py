@@ -18,7 +18,10 @@ from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
 
-FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+# The golden below is pinned to the FROZEN vault, not the live one. Pointing it
+# at `fixtures/linear_algebra` made the suite fail the moment anyone practised
+# or created a goal in the working vault — which is what that vault is for.
+FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra_legacy"
 
 
 def _add_application_item(root) -> None:

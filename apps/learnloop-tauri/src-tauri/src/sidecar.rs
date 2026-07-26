@@ -8,9 +8,10 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
-// Longest legitimate sidecar call is AI grading (backend request timeout 180s);
-// anything slower means the Python process is hung and the client is replaced.
-const DEFAULT_RESPONSE_TIMEOUT_SECS: u64 = 240;
+// Goal population may legitimately use the Codex SDK's 15-minute turn
+// deadline. Keep a one-minute envelope for launch, validation, and persistence
+// before treating the Python process as hung and replacing the client.
+const DEFAULT_RESPONSE_TIMEOUT_SECS: u64 = 16 * 60;
 pub const TIMEOUT_ERROR_CODE: &str = "sidecar_timeout";
 
 fn response_timeout() -> Duration {
@@ -133,6 +134,41 @@ impl SidecarManager {
         }
         result
     }
+
+    /// Run one call on a fresh sidecar initialized against the selected vault.
+    ///
+    /// Long-running CLI commands must not occupy the primary client's mutex:
+    /// that client serves every interactive desktop request. The isolated
+    /// process has its own stdin/stdout protocol and is always reaped after the
+    /// call, whether the RPC succeeds, fails, or times out.
+    pub fn call_isolated(&self, method: &str, params: Value) -> Result<Value, CommandError> {
+        let vault = self.resolved_vault_path();
+        let mut client = SidecarClient::spawn()?;
+        let initialized = client.call(
+            "initialize",
+            json!({"vaultPath": vault, "clientVersion": env!("CARGO_PKG_VERSION")}),
+        );
+        if let Err(error) = initialized {
+            stop_isolated_client(&mut client, error.code != TIMEOUT_ERROR_CODE);
+            return Err(error);
+        }
+
+        let result = client.call(method, params);
+        let graceful = !matches!(&result, Err(error) if error.code == TIMEOUT_ERROR_CODE);
+        stop_isolated_client(&mut client, graceful);
+        result
+    }
+}
+
+fn stop_isolated_client(client: &mut SidecarClient, graceful: bool) {
+    if graceful {
+        let _ = client.call("shutdown", json!({}));
+    }
+    // `shutdown` responds before the Python server loop exits. Kill is a
+    // harmless fallback if it has not exited yet and guarantees that the child
+    // is reaped instead of becoming a zombie.
+    let _ = client.child.kill();
+    let _ = client.child.wait();
 }
 
 impl SidecarClient {
