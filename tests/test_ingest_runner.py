@@ -1536,3 +1536,42 @@ def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch)
 
     assert excinfo.value.code == "native_pdf_unavailable"
     assert excinfo.value.retryable is True
+
+
+def test_append_synthesis_forwards_budget_overrides(tmp_path, monkeypatch):
+    """`synthesis_budgets` on the job payload must reach `append_source` as
+    `budget_overrides`. The bootstrap handler already did this; the append
+    handler did not, so a per-run ceiling silently did nothing on the update
+    path — the one `mode="auto"` takes once a subject has a map."""
+
+    from learnloop.services import ingest_runner as ir
+
+    seen: dict[str, object] = {}
+
+    def fake_append_source(_root, source_set_id, **kwargs):
+        seen["source_set_id"] = source_set_id
+        seen["budget_overrides"] = kwargs.get("budget_overrides")
+        return SimpleNamespace(
+            as_dict=lambda: {"source_set_id": source_set_id},
+            reused=False,
+            auto_applied_item_ids=[],
+        )
+
+    monkeypatch.setattr("learnloop.services.source_append.append_source", fake_append_source)
+    runner = _runner(tmp_path)
+    runner.services = ir.RunnerServices(synthesis_client_factory=lambda ctx: object())
+    batch_id = runner.enqueue_batch(
+        "update_study_map",
+        [
+            JobSpec(
+                "append_synthesis",
+                {"source_set_id": "set_x", "synthesis_budgets": {"append_output_tokens": 7777}},
+            )
+        ],
+    )
+    runner.drain()
+
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed", job.get("error")
+    assert seen["source_set_id"] == "set_x"
+    assert seen["budget_overrides"] == {"append_output_tokens": 7777}

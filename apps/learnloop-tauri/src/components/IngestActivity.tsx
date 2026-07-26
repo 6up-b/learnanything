@@ -699,12 +699,15 @@ function CheckpointLadder({
   status: DurableIngestStatus;
 }) {
   const activeIndex = phase ? ladder.indexOf(phase) : -1;
-  const allDone = status === "completed";
+  // A completed job owns the rungs up to and INCLUDING the phase it last
+  // reported — never the whole ladder. An import-only batch reports `extracted`
+  // and stops there, so claiming every rung made it read as a finished build.
+  const finished = status === "completed";
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontFamily: FONT_MONO, fontSize: 10 }}>
       {ladder.map((step, index) => {
-        const done = allDone || (activeIndex >= 0 && index < activeIndex);
-        const current = !allDone && index === activeIndex;
+        const done = activeIndex >= 0 && (index < activeIndex || (finished && index === activeIndex));
+        const current = !finished && index === activeIndex;
         const failed = current && (status === "failed" || status === "blocked" || status === "cancelled");
         const color = failed ? COLOR.red : current ? COLOR.cyan : done ? COLOR.green : COLOR.textFaint;
         return (

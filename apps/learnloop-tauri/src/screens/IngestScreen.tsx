@@ -415,11 +415,10 @@ export function IngestScreen({
   guideActive?: boolean;
   onDismissGuide?: () => void;
 }) {
-  // The outline → build-plan → start-batch flow opens as a large modal OVER the
+  // The outline → build-plan → start-build flow opens as a large modal OVER the
   // ingest screen, which stays mounted underneath (§5.7).
   const [outlineTarget, setOutlineTarget] = useState<{
     sourceRef: string;
-    sourceUri: string | null;
     suggestedRole: string | null;
   } | null>(null);
   const [focusBatchId, setFocusBatchId] = useState<string | null>(null);
@@ -440,27 +439,22 @@ export function IngestScreen({
         libraryRefresh={libraryRefresh}
         onLibraryRefresh={() => setLibraryRefresh((n) => n + 1)}
         overlayActive={overlayActive}
-        onOpenOutline={(sourceRef, sourceUri, suggestedRole = null) => {
-          // The plan step re-imports by canonical URI to start the authoring
-          // batch — callers without one (the Activity CTA) resolve it from the
-          // library card before the flow opens, or "start batch" dead-ends. The
-          // suggested role rides along the same resolution so the modal can seed
-          // its role control.
-          if (sourceUri) {
-            setOutlineTarget({ sourceRef, sourceUri, suggestedRole });
+        onOpenOutline={(sourceRef, suggestedRole = null) => {
+          // The build runs against the collection the plan step pins, so the flow
+          // needs no canonical URI. Callers that already know the suggested role
+          // (library rows) open straight away; the Activity CTA doesn't, so it
+          // resolves one from the library card to seed the role control.
+          if (suggestedRole) {
+            setOutlineTarget({ sourceRef, suggestedRole });
             return;
           }
           void api
             .getSourceLibrary()
             .then((lib) => {
               const card = lib.sources.find((c) => c.sourceId === sourceRef);
-              setOutlineTarget({
-                sourceRef,
-                sourceUri: card?.canonicalUri ?? null,
-                suggestedRole: card?.suggestedRole ?? suggestedRole
-              });
+              setOutlineTarget({ sourceRef, suggestedRole: card?.suggestedRole ?? null });
             })
-            .catch(() => setOutlineTarget({ sourceRef, sourceUri: null, suggestedRole }));
+            .catch(() => setOutlineTarget({ sourceRef, suggestedRole: null }));
         }}
       />
 
@@ -494,12 +488,11 @@ export function IngestScreen({
           >
             <OutlinePlanFlow
               sourceRef={outlineTarget.sourceRef}
-              sourceUri={outlineTarget.sourceUri}
               subjectId={null}
               suggestedRole={outlineTarget.suggestedRole}
               onClose={() => setOutlineTarget(null)}
               onOpenBatch={(batchId) => {
-                // The authoring batch surfaces as an expanded Activity card in
+                // The build batch surfaces as an expanded Activity card in
                 // the ingest screen underneath; close the modal and focus it.
                 setOutlineTarget(null);
                 setFocusBatchId(batchId);
@@ -539,7 +532,7 @@ function IngestHome({
   libraryRefresh: number;
   onLibraryRefresh: () => void;
   overlayActive: boolean;
-  onOpenOutline: (sourceRef: string, sourceUri: string | null, suggestedRole?: string | null) => void;
+  onOpenOutline: (sourceRef: string, suggestedRole?: string | null) => void;
 }) {
   const [source, setSource] = useState("");
   const [mode, setMode] = useState<Mode>("canonical");
@@ -1022,7 +1015,7 @@ function IngestHome({
           <SourceLibrarySidebar
             refreshToken={libraryRefresh}
             onCreateStudyMap={onCreateStudyMap}
-            onOpenOutline={(card: SourceLibraryCard) => onOpenOutline(card.sourceId, card.canonicalUri, card.suggestedRole)}
+            onOpenOutline={(card: SourceLibraryCard) => onOpenOutline(card.sourceId, card.suggestedRole)}
             onFocusSource={() => {
               // No per-source batch mapping yet — bring the activity stack into view.
               activityRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -1461,7 +1454,7 @@ function IngestHome({
               onBatchSettled={() => onLibraryRefresh()}
               onOpenOutline={(sourceId) => {
                 onLibraryRefresh();
-                onOpenOutline(sourceId, null);
+                onOpenOutline(sourceId);
               }}
               onError={(message) => setLocalError(message)}
             />

@@ -9,7 +9,7 @@ import type { CommandError, QuickAddPlanDto, StudyMapBriefDto } from "../api/dto
 import { StudyMapBriefWizard } from "./StudyMapBriefWizard";
 import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox, TermSelect } from "./term";
 import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
-import { useSourceFileDrop } from "./useSourceFileDrop";
+import { pickSourceFile, useSourceFileDrop } from "./useSourceFileDrop";
 import { AsciiLoadingBar } from "./AsciiLoadingBar";
 
 const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"];
@@ -74,6 +74,20 @@ export function QuickAddDialog({
       mountedRef.current = false;
     };
   }, []);
+
+  // Same effect as dropping the file: replace the source and drop any page
+  // range that was scoped to the previous one. Cancelling leaves both alone.
+  async function browseForSource() {
+    try {
+      const picked = await pickSourceFile();
+      if (picked === null) return;
+      setSource(picked);
+      setRangeImported(false);
+      setError(null);
+    } catch (e) {
+      setError((e as CommandError).message || "Could not open the file browser.");
+    }
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -224,18 +238,38 @@ export function QuickAddDialog({
           {phase === "compose" ? (
             <div>
               <Label>source</Label>
-              <div style={{ border: `1px solid ${source.trim() ? COLOR.amber : COLOR.border}`, background: COLOR.bgInput, padding: "9px 12px 9px 30px", position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: 9, color: COLOR.amber, fontWeight: 700 }}>❯</span>
-                <input
-                  value={source}
-                  onChange={(e) => {
-                    setSource(e.target.value);
-                    setRangeImported(false);
+              {/* Three ways to name a source, all writing the same field: type
+                  it, browse for it, or drop it. */}
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0, border: `1px solid ${source.trim() ? COLOR.amber : COLOR.border}`, background: COLOR.bgInput, padding: "9px 12px 9px 30px", position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: 9, color: COLOR.amber, fontWeight: 700 }}>❯</span>
+                  <input
+                    value={source}
+                    onChange={(e) => {
+                      setSource(e.target.value);
+                      setRangeImported(false);
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    placeholder="paste a URL, arXiv id, PDF path, or .md/.txt/.vtt/.srt/.mp3/.wav"
+                    style={{ width: "100%", background: "transparent", color: COLOR.text, border: "none", outline: "none", fontFamily: FONT_MONO, fontSize: 13 }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void browseForSource()}
+                  disabled={busy}
+                  style={{
+                    border: `1px solid ${COLOR.border}`,
+                    background: "transparent",
+                    color: busy ? COLOR.textFaint : COLOR.textDim,
+                    fontFamily: FONT_MONO,
+                    fontSize: 12,
+                    padding: "0 14px",
+                    cursor: busy ? "default" : "pointer"
                   }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="paste a URL, arXiv id, PDF path, or .md/.txt/.vtt/.srt/.mp3/.wav"
-                  style={{ width: "100%", background: "transparent", color: COLOR.text, border: "none", outline: "none", fontFamily: FONT_MONO, fontSize: 13 }}
-                />
+                >
+                  browse…
+                </button>
               </div>
 
               <div style={{

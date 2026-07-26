@@ -16420,6 +16420,153 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_source_artifact(self, source_id: str) -> dict[str, int]:
+        """Remove a source artifact and everything derived from it, atomically.
+
+        Three policies, applied per table:
+
+        * DELETE — rows that exist only because this source was imported: the
+          Document IR, render views and their crosswalk, unit selections and
+          inventories, reader progress/requests/questions, annotations, source
+          objects, exposure events, and the provenance links citing it. Children
+          go before parents; the source layer uses restrictive foreign keys.
+        * DETACH — nullable pointers on records the learner keeps regardless
+          (a commitment arc, a notation mapping). Deleting those would destroy
+          learner work over a source that merely motivated it.
+        * LEAVE — append-only history (``interaction_events``,
+          ``synthesis_manifests``, the ingest queue). Those record what happened
+          at the time; rewriting them to hide a deleted source would falsify the
+          audit trail, and a stale id there is expected.
+
+        Returns per-table row counts. Callers are responsible for the vault-side
+        cleanup (collection membership, stored original bytes) — see
+        ``services.source_deletion``.
+        """
+
+        counts: dict[str, int] = {}
+        with self.connection() as connection:
+            revision_ids = [
+                row["id"]
+                for row in connection.execute(
+                    "SELECT id FROM source_revisions WHERE source_id = ?", (source_id,)
+                ).fetchall()
+            ]
+            extraction_ids: list[str] = []
+            if revision_ids:
+                revision_marks = ",".join("?" for _ in revision_ids)
+                extraction_ids = [
+                    row["id"]
+                    for row in connection.execute(
+                        f"SELECT id FROM source_extraction_runs WHERE revision_id IN ({revision_marks})",
+                        revision_ids,
+                    ).fetchall()
+                ]
+
+            def run(table: str, sql: str, params: Sequence[Any]) -> None:
+                cursor = connection.execute(sql, list(params))
+                counts[table] = counts.get(table, 0) + cursor.rowcount
+
+            def by_ids(table: str, column: str, ids: Sequence[str]) -> None:
+                if not ids:
+                    counts.setdefault(table, 0)
+                    return
+                marks = ",".join("?" for _ in ids)
+                run(table, f"DELETE FROM {table} WHERE {column} IN ({marks})", ids)
+
+            # --- rows keyed by extraction -----------------------------------
+            for table in (
+                "source_document_assets",
+                "source_document_blocks",
+                "source_document_units",
+                "source_block_health",
+                "reader_section_progress",
+            ):
+                by_ids(table, "extraction_id", extraction_ids)
+            if extraction_ids:
+                marks = ",".join("?" for _ in extraction_ids)
+                run(
+                    "source_span_reanchors",
+                    f"DELETE FROM source_span_reanchors WHERE from_extraction_id IN ({marks}) "
+                    f"OR to_extraction_id IN ({marks})",
+                    [*extraction_ids, *extraction_ids],
+                )
+            else:
+                counts.setdefault("source_span_reanchors", 0)
+            by_ids("source_unit_inventories", "extraction_id", extraction_ids)
+
+            # --- render views (crosswalk rows hang off the view) ------------
+            view_ids = [
+                row["id"]
+                for row in connection.execute(
+                    "SELECT id FROM source_render_views WHERE source_id = ?", (source_id,)
+                ).fetchall()
+            ]
+            by_ids("source_render_block_crosswalk", "render_view_id", view_ids)
+
+            # --- annotations and source objects (versions before parents) ---
+            annotation_ids = [
+                row["id"]
+                for row in connection.execute(
+                    "SELECT id FROM source_annotations WHERE source_id = ?", (source_id,)
+                ).fetchall()
+            ]
+            by_ids("source_annotation_versions", "annotation_id", annotation_ids)
+            by_ids("source_annotation_anchor_versions", "annotation_id", annotation_ids)
+
+            object_ids = [
+                row["id"]
+                for row in connection.execute(
+                    "SELECT id FROM source_objects WHERE source_id = ?", (source_id,)
+                ).fetchall()
+            ]
+            version_ids: list[str] = []
+            if object_ids:
+                object_marks = ",".join("?" for _ in object_ids)
+                version_ids = [
+                    row["id"]
+                    for row in connection.execute(
+                        f"SELECT id FROM source_object_versions WHERE source_object_id IN ({object_marks})",
+                        object_ids,
+                    ).fetchall()
+                ]
+            by_ids("source_object_citations", "source_object_version_id", version_ids)
+            by_ids("source_object_relations", "source_object_id", object_ids)
+            by_ids("source_object_versions", "source_object_id", object_ids)
+
+            # --- rows keyed directly by the source --------------------------
+            for table in (
+                "source_objects",
+                "source_annotations",
+                "source_render_views",
+                "source_exposure_events",
+                "source_unit_selections",
+                "reader_authored_questions",
+                "reader_background_requests",
+                "reader_capture_outbox",
+                "entity_source_links",
+            ):
+                run(table, f"DELETE FROM {table} WHERE source_id = ?", (source_id,))
+
+            # --- detach learner-owned records that outlive the source -------
+            run(
+                "commitment_arcs",
+                "UPDATE commitment_arcs SET source_id = NULL WHERE source_id = ?",
+                (source_id,),
+            )
+            run(
+                "notation_mappings",
+                "UPDATE notation_mappings SET source_id = NULL, revision_id = NULL "
+                "WHERE source_id = ?",
+                (source_id,),
+            )
+
+            # --- identity chain, children first -----------------------------
+            by_ids("source_extraction_runs", "id", extraction_ids)
+            by_ids("source_revisions", "id", revision_ids)
+            run("source_artifacts", "DELETE FROM source_artifacts WHERE id = ?", (source_id,))
+            connection.commit()
+        return counts
+
     def extraction_runs_for_revision(self, revision_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -17457,6 +17604,22 @@ class Repository:
             params.append(limit)
         with self.connection() as connection:
             rows = connection.execute(query, params).fetchall()
+        return [_decode_ingest_job(row) for row in rows]
+
+    def active_ingest_jobs(self) -> list[dict[str, Any]]:
+        """Every job that has not reached a terminal state.
+
+        Used to refuse destructive source edits while a worker could still be
+        writing rows for that source."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM ingest_jobs
+                 WHERE status IN ('queued', 'running', 'waiting_for_input')
+                 ORDER BY created_at, id
+                """
+            ).fetchall()
         return [_decode_ingest_job(row) for row in rows]
 
     def expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]:

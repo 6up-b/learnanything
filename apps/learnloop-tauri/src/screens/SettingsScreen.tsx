@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { RuntimeHealth, SettingsDto, UseCaseChoiceInput } from "../api/dto";
+import type {
+  IngestBudgetField,
+  IngestBudgetsDto,
+  RuntimeHealth,
+  SettingsDto,
+  UseCaseChoiceInput
+} from "../api/dto";
 import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
 import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
@@ -23,6 +29,16 @@ const TRANSCRIPTION_PROVIDERS = [
   { value: "openrouter", label: "openrouter" }
 ];
 const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash";
+
+// The vault's [ingest.budgets] ceilings the build plan charts, in stage order.
+// The build-plan screen overrides these per run; here they are the defaults.
+const BUDGET_ROWS: Array<{ field: IngestBudgetField; label: string; hint: string }> = [
+  { field: "inventoryInputTokens", label: "inventory input", hint: "per unit; larger units are split into windows at this size" },
+  { field: "inventoryOutputTokens", label: "inventory output", hint: "per unit inventory response" },
+  { field: "synthesisShardInputTokens", label: "synthesis shard in", hint: "units are sharded so no shard exceeds this" },
+  { field: "synthesisShardOutputTokens", label: "synthesis shard out", hint: "per shard response" },
+  { field: "synthesisTotalInputCeiling", label: "synthesis total in", hint: "whole synthesis refuses above this" }
+];
 
 export const PALETTE_STORAGE_KEY = "learnloop.palette";
 const PALETTES = [
@@ -111,6 +127,11 @@ export function SettingsScreen({
   const [transcriptionProviderDraft, setTranscriptionProviderDraft] = useState<string | null>(null);
   const [transcriptionModelDraft, setTranscriptionModelDraft] = useState<string | null>(null);
   const [transcriptionUrlDraft, setTranscriptionUrlDraft] = useState<string | null>(null);
+  // Ceiling edits are held per-field until "apply", like the transcription row —
+  // a half-typed number must not be persisted on every keystroke.
+  const [budgetDrafts, setBudgetDrafts] = useState<Partial<Record<IngestBudgetField, number>>>({});
+  const [contextDraft, setContextDraft] = useState<number | null>(null);
+  const [maxOutputDraft, setMaxOutputDraft] = useState<number | null>(null);
   const [palette, setPalette] = useState(() => localStorage.getItem(PALETTE_STORAGE_KEY) ?? "");
 
   const acceptSettings = useCallback((next: SettingsDto) => {
@@ -211,6 +232,31 @@ export function SettingsScreen({
     }
   };
 
+  const saveBudgets = async () => {
+    if (!settings) return;
+    const budgets: Partial<IngestBudgetsDto> = {};
+    for (const [field, value] of Object.entries(budgetDrafts)) {
+      if (value !== undefined) budgets[field as IngestBudgetField] = value;
+    }
+    setBusy("budgets");
+    try {
+      const result = await api.updateIngestSettings({
+        ...(Object.keys(budgets).length > 0 ? { budgets } : {}),
+        ...(contextDraft !== null ? { providerContextTokens: contextDraft } : {}),
+        ...(maxOutputDraft !== null ? { providerMaxOutputTokens: maxOutputDraft } : {})
+      });
+      acceptSettings(result);
+      setBudgetDrafts({});
+      setContextDraft(null);
+      setMaxOutputDraft(null);
+      onToast("token budgets saved");
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const rowStyle = {
     display: "flex",
     alignItems: "center",
@@ -252,6 +298,22 @@ export function SettingsScreen({
   }
 
   const envOverride = settings.ai.envProviderOverride;
+  const budgetsDirty =
+    BUDGET_ROWS.some(({ field }) => {
+      const draft = budgetDrafts[field];
+      return draft !== undefined && draft !== settings.ingest.budgets[field];
+    }) ||
+    (contextDraft !== null && contextDraft !== settings.ingest.providerLimits.contextTokens) ||
+    (maxOutputDraft !== null && maxOutputDraft !== settings.ingest.providerLimits.maxOutputTokens);
+  const budgetsInvalid =
+    BUDGET_ROWS.some(({ field }) => {
+      const draft = budgetDrafts[field];
+      if (draft === undefined) return false;
+      const { min, max } = settings.ingest.budgetBounds[field];
+      return !Number.isFinite(draft) || draft < min || draft > max;
+    }) ||
+    (contextDraft !== null && (!Number.isFinite(contextDraft) || contextDraft < 1)) ||
+    (maxOutputDraft !== null && (!Number.isFinite(maxOutputDraft) || maxOutputDraft < 1));
   const transcriptionProvider = transcriptionProviderDraft ?? settings.ingest.transcriptionProvider;
   const transcriptionDirty =
     (transcriptionProviderDraft !== null && transcriptionProviderDraft !== settings.ingest.transcriptionProvider) ||
@@ -544,6 +606,86 @@ export function SettingsScreen({
           </button>
         </div>
       )}
+
+      <SectionHeader>Token budgets</SectionHeader>
+      {BUDGET_ROWS.map(({ field, label, hint }) => {
+        const saved = settings.ingest.budgets[field];
+        const { min, max } = settings.ingest.budgetBounds[field];
+        const draft = budgetDrafts[field];
+        const value = draft ?? saved;
+        const invalid = !Number.isFinite(value) || value < min || value > max;
+        return (
+          <div key={field} style={rowStyle}>
+            <span style={labelStyle}>
+              {label}
+              <div style={hintStyle}>{hint}</div>
+            </span>
+            <input
+              type="number"
+              min={min}
+              max={max}
+              step={1000}
+              style={{
+                ...inputStyle,
+                width: 140,
+                borderColor: invalid ? COLOR.red : COLOR.border,
+                color: invalid ? COLOR.red : COLOR.text
+              }}
+              value={Number.isFinite(value) ? value : ""}
+              onChange={(event) =>
+                setBudgetDrafts((d) => ({ ...d, [field]: Number.parseInt(event.target.value, 10) }))
+              }
+            />
+            <span style={{ flex: 1, ...hintStyle }}>
+              {min.toLocaleString()}–{max.toLocaleString()} tokens
+              {draft !== undefined && draft !== saved ? ` · saved ${saved.toLocaleString()}` : ""}
+            </span>
+          </div>
+        );
+      })}
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          {settings.ingest.providerLimits.provider} limits
+          <div style={hintStyle}>
+            {settings.ingest.providerLimits.contextTokens == null
+              ? "not set — the build plan cannot check for context overflow"
+              : "the model's real context / output limits, used by preflight"}
+          </div>
+        </span>
+        <input
+          type="number"
+          min={1}
+          step={1000}
+          style={{ ...inputStyle, width: 140 }}
+          placeholder="context tokens"
+          value={contextDraft ?? settings.ingest.providerLimits.contextTokens ?? ""}
+          onChange={(event) => setContextDraft(Number.parseInt(event.target.value, 10))}
+        />
+        <input
+          type="number"
+          min={1}
+          step={1000}
+          style={{ ...inputStyle, width: 140 }}
+          placeholder="max output tokens"
+          value={maxOutputDraft ?? settings.ingest.providerLimits.maxOutputTokens ?? ""}
+          onChange={(event) => setMaxOutputDraft(Number.parseInt(event.target.value, 10))}
+        />
+        <span style={{ flex: 1 }} />
+      </div>
+      <div style={{ ...rowStyle, borderBottom: "none" }}>
+        <span style={{ ...hintStyle, fontSize: 10, flex: 1 }}>
+          Defaults for every build; the build-plan screen can override them for a single run. Persisted to
+          [ingest.budgets] in this vault's learnloop.toml.
+        </span>
+        <button
+          type="button"
+          style={buttonStyle(budgetsDirty && !budgetsInvalid && busy === null)}
+          disabled={!budgetsDirty || budgetsInvalid || busy !== null}
+          onClick={() => void saveBudgets()}
+        >
+          {busy === "budgets" ? "…" : "apply"}
+        </button>
+      </div>
 
       <SectionHeader>Appearance</SectionHeader>
       <div style={{ ...rowStyle, borderBottom: "none" }}>

@@ -133,6 +133,7 @@ def append_source(
     auto_apply: bool = True,
     repository: Repository | None = None,
     clock: Clock | None = None,
+    budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
 ) -> AppendResult:
     """Run bounded append reconciliation and (by policy) auto-apply routine items."""
@@ -145,6 +146,7 @@ def append_source(
         vault, repository, root, source_set_id,
         client=client, new_revision_ids=new_revision_ids, change_kind=change_kind,
         revision_diff=revision_diff or {}, brief=brief or {}, auto_apply=auto_apply, clock=clock,
+        budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
     )
 
@@ -162,6 +164,7 @@ def _append(
     brief: dict[str, Any],
     auto_apply: bool,
     clock: Clock | None,
+    budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
 ) -> AppendResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
@@ -177,7 +180,10 @@ def _append(
     revs = set(new_revision_ids or inputs.selected_revision_ids)
     new_inventories = [entry for entry in inputs.unit_inventories if entry["revision_id"] in revs]
     new_source_ids = {entry["source_id"] for entry in new_inventories}
-    budgets = vault.config.ingest.budgets
+    # Per-run ceilings layer over the vault defaults (same seam as bootstrap
+    # synthesis) and ride into the manifest's token_budget below, so an override
+    # is part of the run's identity rather than an invisible tweak.
+    budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
     # Deterministic bounded affected-neighborhood selection (§10.1/§3.2).
     neighborhood = select_neighborhood(

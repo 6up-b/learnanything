@@ -21,7 +21,7 @@ import { GoalWizard } from "./GoalWizard";
 import { QuickAddDialog } from "./QuickAddDialog";
 import { STARTING_LEVELS } from "./StudyMapBriefWizard";
 import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
-import { useSourceFileDrop } from "./useSourceFileDrop";
+import { pickSourceFile, useSourceFileDrop } from "./useSourceFileDrop";
 
 const STEP_LABELS = ["vault"];
 
@@ -148,6 +148,18 @@ export function NewVaultWizard({
       }
     } catch (err) {
       setCreateError(asCommandError(err));
+    }
+  }
+
+  // Same field the learner can type into or drop onto; cancelling changes nothing.
+  async function browseForSource() {
+    try {
+      const picked = await pickSourceFile();
+      if (picked === null) return;
+      setSource(picked);
+      setDropNote(null);
+    } catch (err) {
+      onError(asCommandError(err));
     }
   }
 
@@ -332,6 +344,7 @@ export function NewVaultWizard({
                 setSource(value);
                 setDropNote(null);
               }}
+              onBrowseSource={() => void browseForSource()}
               pageSelection={pageSelection}
               onPageSelection={setPageSelection}
               fileDragging={fileDragging}
@@ -525,6 +538,7 @@ function StepVault({
 function StepFirstSource({
   source,
   onSource,
+  onBrowseSource,
   pageSelection,
   onPageSelection,
   fileDragging,
@@ -544,6 +558,7 @@ function StepFirstSource({
 }: {
   source: string;
   onSource: (v: string) => void;
+  onBrowseSource: () => void;
   pageSelection: string;
   onPageSelection: (v: string) => void;
   fileDragging: boolean;
@@ -572,15 +587,22 @@ function StepFirstSource({
       </Prose>
 
       <Label style={{ marginTop: 18 }}>first source</Label>
-      <div style={{ border: `1px solid ${source.trim() ? COLOR.amber : COLOR.border}`, background: COLOR.bgInput, padding: "9px 12px 9px 30px", position: "relative" }}>
-        <span style={{ position: "absolute", left: 12, top: 9, color: COLOR.amber, fontWeight: 700 }}>❯</span>
-        <input
-          value={source}
-          onChange={(e) => onSource(e.target.value)}
-          placeholder="paste a URL, arXiv id, PDF path, YouTube link, or .md / .txt / .vtt / .srt path"
-          style={{ width: "100%", background: "transparent", color: COLOR.text, border: "none", outline: "none", fontFamily: FONT_MONO, fontSize: 13 }}
-          autoFocus
-        />
+      {/* Mirrors the vault-directory row on the previous step: typed path plus a
+          native picker, with drag-and-drop as the third way in. */}
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0, border: `1px solid ${source.trim() ? COLOR.amber : COLOR.border}`, background: COLOR.bgInput, padding: "9px 12px 9px 30px", position: "relative" }}>
+          <span style={{ position: "absolute", left: 12, top: 9, color: COLOR.amber, fontWeight: 700 }}>❯</span>
+          <input
+            value={source}
+            onChange={(e) => onSource(e.target.value)}
+            placeholder="paste a URL, arXiv id, PDF path, YouTube link, or .md / .txt / .vtt / .srt path"
+            style={{ width: "100%", background: "transparent", color: COLOR.text, border: "none", outline: "none", fontFamily: FONT_MONO, fontSize: 13 }}
+            autoFocus
+          />
+        </div>
+        <button type="button" onClick={onBrowseSource} style={ghostBtn}>
+          browse…
+        </button>
       </div>
       <div style={{ marginTop: 6, fontSize: 12, color: COLOR.textFaint }}>
         {source.trim()

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
@@ -49,6 +50,27 @@ function ensureNativeListener() {
 export function isSupportedSourceFile(path: string): boolean {
   const lower = path.toLowerCase();
   return SOURCE_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
+
+/** The native open dialog, filtered to exactly what a drop would accept.
+ *
+ * The third way to name a source, beside typing a path and dropping a file —
+ * driven by the same extension list, so the picker can never offer a file the
+ * ingest classifier would then reject. Resolves to the chosen absolute path or
+ * null when the learner cancels; a dialog that cannot open (denied permission,
+ * browser dev server) throws, so the caller can say so rather than leaving the
+ * button looking dead. */
+export async function pickSourceFile(): Promise<string | null> {
+  const selected = await openDialog({
+    multiple: false,
+    directory: false,
+    title: "Choose a source file",
+    filters: [
+      { name: "Source files", extensions: SOURCE_EXTENSIONS.map((ext) => ext.slice(1)) },
+      { name: "All files", extensions: ["*"] }
+    ]
+  });
+  return typeof selected === "string" ? selected : null;
 }
 
 export function useSourceFileDrop({

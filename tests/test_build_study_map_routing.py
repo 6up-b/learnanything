@@ -15,12 +15,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.services.source_append import subject_has_applied_study_map
 from learnloop.services.source_unit_inventory import run_unit_inventory
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.writer import upsert_source_set
+from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ingest import BuildStudyMapInput, build_study_map_rpc
 
 from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist, _register_revision
@@ -158,3 +161,58 @@ def test_existing_map_routes_to_append_over_new_members_only(tmp_path: Path, mon
     assert [m["extraction_id"] for m in kwargs["members"]] == ["ext_b"]
     assert kwargs["new_revision_ids"] == ["rev_b"]
     assert result["mode"] == "append"
+
+
+def test_per_run_ceilings_split_between_inventory_args_and_synthesis_budgets(tmp_path: Path) -> None:
+    """The build-plan screen sends one ceilings map; the RPC has to route each
+    entry to the stage that reads it — the inventory job takes its budgets as
+    explicit payload keys, everything else layers onto the synthesis budgets."""
+
+    root, repo = _seed(tmp_path)
+    jobs = _RecordingJobs()
+
+    build_study_map_rpc(
+        _ctx(root, repo, jobs),
+        BuildStudyMapInput(
+            source_set_id="set_x",
+            budget_overrides={
+                "inventory_input_tokens": 15_000,
+                "inventoryOutputTokens": 4_000,  # camel spelling round-trips too
+                "synthesis_total_input_ceiling": 120_000,
+            },
+        ),
+    )
+
+    _kind, kwargs = jobs.calls[0]
+    assert kwargs["input_budget_tokens"] == 15_000
+    assert kwargs["output_budget_tokens"] == 4_000
+    assert kwargs["synthesis_budgets"] == {"synthesis_total_input_ceiling": 120_000}
+
+
+def test_omitted_ceilings_fall_back_to_the_vault_defaults(tmp_path: Path) -> None:
+    root, repo = _seed(tmp_path)
+    jobs = _RecordingJobs()
+
+    build_study_map_rpc(_ctx(root, repo, jobs), BuildStudyMapInput(source_set_id="set_x"))
+
+    _kind, kwargs = jobs.calls[0]
+    assert kwargs["input_budget_tokens"] == load_vault(root).config.ingest.budgets.inventory_input_tokens
+    assert kwargs["synthesis_budgets"] is None
+
+
+def test_out_of_range_or_unknown_ceilings_are_refused(tmp_path: Path) -> None:
+    root, repo = _seed(tmp_path)
+    jobs = _RecordingJobs()
+
+    for overrides, code in (
+        ({"inventory_output_tokens": 10}, "invalid_inventory_budget"),
+        ({"synthesis_total_input_ceiling": 5_000_000}, "invalid_synthesis_budget"),
+        ({"window_char_cap": 1000}, "invalid_budget_override"),
+    ):
+        with pytest.raises(SidecarError) as excinfo:
+            build_study_map_rpc(
+                _ctx(root, repo, jobs),
+                BuildStudyMapInput(source_set_id="set_x", budget_overrides=overrides),
+            )
+        assert excinfo.value.code == code
+    assert jobs.calls == []
