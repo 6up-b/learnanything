@@ -122,12 +122,13 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
 
 def test_grader_prompt_version_bumped():
     # Pinned to force a conscious bump whenever the grading contract moves. The
-    # literal is now mvp-1.2: Stage 7 adds repair-before-structure ordering,
-    # verifier observations, independent diagnosis sampling, and bounded
-    # same-facet/surface history. What this test is really asserting is that the
-    # version is not one of the pre-augmentation strings whose grades carry a
-    # different meaning.
-    assert GRADING_PROMPT_VERSION.startswith("mvp-1.2-")
+    # literal is now mvp-1.3: anchors became server-side (the quote is the
+    # authority; char offsets are recomputed, never model-counted), on top of
+    # mvp-1.2's Stage 7 additions (repair-before-structure ordering, verifier
+    # observations, independent diagnosis sampling, bounded history). What this
+    # test is really asserting is that the version is not one of the
+    # pre-augmentation strings whose grades carry a different meaning.
+    assert GRADING_PROMPT_VERSION.startswith("mvp-1.3-")
     assert GRADING_PROMPT_VERSION != "mvp-0.5-misconception-statements"
     assert GRADING_PROMPT_VERSION != "mvp-0.9-causal-structural-repair"
 

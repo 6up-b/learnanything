@@ -20,6 +20,7 @@ from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.exam_grading import ExamGradingManager
 from learnloop_sidecar.ingest_jobs import IngestJobManager
 
 
@@ -34,6 +35,9 @@ class SidecarContext:
     # Never persisted to learnloop.toml; survives vault reloads within this process.
     grading_provider_override: str | None = None
     ingest_jobs: IngestJobManager = field(default_factory=IngestJobManager, repr=False)
+    exam_grading: ExamGradingManager = field(
+        default_factory=ExamGradingManager, repr=False
+    )
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         self.vault_root = Path(vault_path).resolve()

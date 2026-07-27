@@ -112,8 +112,13 @@ def p0_effective_evidence_mass(
     """THE mvp-0.8 response-level evidence-mass discount (P0.3 §4.3), shared by
     both evidence folds.
 
-    The calibrated channel scales evidence authority/mass only — directional
-    criterion outcomes always remain their raw fractions. Direction no longer
+    The calibrated channel scales evidence authority/mass only — direction is
+    owned by the non-superseded ``grading_evidence`` revisions (ruling A,
+    2026-07-27): the ledger is the single directional authority, and the
+    interpretation channel carries confidence, never direction. A correction
+    that changes what happened (regrade, A8 clarification, grade-points
+    adjudication) enters as a superseding evidence revision; the interpretation
+    chain may only change how much the observation weighs. Direction no longer
     comes from the response posterior, so its aleatoric certainty moves to the
     authority term: combined with ``EffectiveObservation``'s epistemic factor
     this yields the shared certainty LCB as the total response-level mass
@@ -427,12 +432,15 @@ def _adjudicated_score_fraction(
     """Observed-outcome override when an adjudication heads the interpretation
     chain.
 
-    Adjudication rewrites the authoritative outcome without touching the raw
-    per-criterion points (append-only, §3.3/§4.4), so the observed-failure gate
-    must read the adjudicated class: the argmax of the head posterior, so a
-    bounded-trust blend that fails to flip the leading class also leaves the
-    observed outcome unchanged. Returns None when no adjudication heads the
-    active chain — the raw criterion fraction stands.
+    Under ruling A (2026-07-27) a direction-flipping adjudication ALSO writes a
+    superseding ``grading_evidence`` revision, so for post-ruling adjudications
+    this override agrees with the ledger by construction. It is kept for the
+    adjudications recorded BEFORE the ruling, whose direction lives only in the
+    interpretation chain: the observed-failure gate reads the adjudicated class
+    (the argmax of the head posterior, so a bounded-trust blend that fails to
+    flip the leading class also leaves the observed outcome unchanged). Returns
+    None when no adjudication heads the active chain — the ledger fraction
+    stands.
     """
 
     if not adjudication or not interpretation:
@@ -564,8 +572,10 @@ def project_canonical_facet_state(
         rubric_total = rubric_total or 1.0
         emass = attempt_evidence_mass(attempt["attempt_type"], vault.config.evidence)
         # The response-level calibrated channel scales evidence authority/mass
-        # only. Directional criterion outcomes always remain their raw fractions
-        # (rationale in the shared helper's docstring).
+        # only. Direction reads the non-superseded grading_evidence revisions —
+        # the ledger is the directional authority (ruling A; rationale in the
+        # shared helper's docstring). Corrections arrive as superseding
+        # revisions, so the fraction below is always the corrected direction.
         if use_p0:
             emass = p0_effective_evidence_mass(
                 repository,

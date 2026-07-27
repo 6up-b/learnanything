@@ -174,6 +174,68 @@ def start_exam(
 # ----------------------------------------------------------------------
 
 
+def queue_exam_answer(
+    vault: LoadedVault,
+    repository: Repository,
+    session_id: str,
+    practice_item_id: str,
+    *,
+    answer_md: str,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Persist a final learner answer before its grade exists.
+
+    The ungraded row is the durable background-work receipt. Repeating the same
+    submission is idempotent; replacing it is forbidden because exam answers
+    are final once the learner advances.
+    """
+
+    session = repository.exam_session(session_id)
+    if session is None:
+        raise ExamSessionError(f"Unknown exam session {session_id}")
+    if session["status"] != "in_progress":
+        raise ExamSessionError(
+            f"Exam session {session_id} is {session['status']}, not in_progress"
+        )
+    if practice_item_id not in session["item_order"]:
+        raise ExamSessionError(
+            f"{practice_item_id} is not in exam session {session_id}"
+        )
+    if practice_item_id not in vault.practice_items:
+        raise ExamSessionError(f"Unknown practice item {practice_item_id}")
+
+    existing = repository.exam_answer(session_id, practice_item_id)
+    if existing is not None:
+        if str(existing.get("answer_md") or "") != answer_md:
+            raise ExamSessionError(
+                f"Exam answer {practice_item_id} was already submitted and cannot be replaced"
+            )
+        return {
+            "session_id": session_id,
+            "practice_item_id": practice_item_id,
+            "already_submitted": True,
+            "graded": existing.get("grade") is not None,
+        }
+
+    repository.upsert_exam_answer(
+        {
+            "session_id": session_id,
+            "practice_item_id": practice_item_id,
+            "answer_md": answer_md,
+            "rubric_score": None,
+            "correctness": None,
+            "grade": None,
+        },
+        clock=clock,
+    )
+    return {
+        "session_id": session_id,
+        "practice_item_id": practice_item_id,
+        "already_submitted": False,
+        "graded": False,
+    }
+
+
 def record_exam_answer(
     vault: LoadedVault,
     repository: Repository,
@@ -196,6 +258,14 @@ def record_exam_answer(
     item = vault.practice_items.get(practice_item_id)
     if item is None:
         raise ExamSessionError(f"Unknown practice item {practice_item_id}")
+    existing = repository.exam_answer(session_id, practice_item_id)
+    if (
+        existing is not None
+        and str(existing.get("answer_md") or "") != answer_md
+    ):
+        raise ExamSessionError(
+            f"Exam answer {practice_item_id} was already submitted and cannot be replaced"
+        )
     rubric = vault.rubric_for_item(item)
     max_points = rubric.max_points if rubric is not None else 4
     correctness = resolved_grade.rubric_score / max(max_points, 1)
@@ -296,7 +366,24 @@ def finish_exam(
         return session["report"]
 
     goal = _goal(vault, session["goal_id"])
-    answers = [answer for answer in repository.exam_answers(session_id) if answer.get("grade") is not None]
+    submitted = repository.exam_answers(session_id)
+    submitted_by_item = {
+        answer["practice_item_id"]: answer for answer in submitted
+    }
+    pending = [
+        item_id
+        for item_id, answer in submitted_by_item.items()
+        if answer.get("grade") is None
+    ]
+    if pending:
+        raise ExamSessionError(
+            "Exam grading is still pending for: " + ", ".join(pending)
+        )
+    answers = [
+        submitted_by_item[item_id]
+        for item_id in session["item_order"]
+        if item_id in submitted_by_item
+    ]
 
     # Apply answered items as exam_attempts, spaced seconds apart at finish time
     # (same deterministic backdating shape exam_seeding uses).
@@ -437,7 +524,10 @@ def exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> 
         return session["report"]
     view = _session_view(repository, session_id, already_started=True)
     answers = repository.exam_answers(session_id)
-    view["answered"] = [row["practice_item_id"] for row in answers if row.get("grade") is not None]
+    view["answered"] = [row["practice_item_id"] for row in answers]
+    view["graded"] = [
+        row["practice_item_id"] for row in answers if row.get("grade") is not None
+    ]
     return view
 
 

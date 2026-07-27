@@ -632,6 +632,44 @@ def test_populate_goal_dry_run_waives_probe_gate_and_ignores_reserved_supply(tmp
     assert "recall" in payload["at_risk_facets"]
 
 
+def test_populate_goal_stops_when_supply_and_contract_are_complete(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    runner = CliRunner()
+
+    dry_run = runner.invoke(
+        app,
+        [
+            "populate-goal",
+            "goal_linear_algebra_ml",
+            "--vault",
+            str(vault_root),
+            "--target-items-per-lo",
+            "1",
+            "--dry-run",
+            "--json",
+        ],
+    )
+
+    assert dry_run.exit_code == 0, dry_run.output
+    assert json.loads(dry_run.output)["plan"]["targets"] == []
+
+    populate = runner.invoke(
+        app,
+        [
+            "populate-goal",
+            "goal_linear_algebra_ml",
+            "--vault",
+            str(vault_root),
+            "--target-items-per-lo",
+            "1",
+            "--json",
+        ],
+    )
+    assert populate.exit_code == 1
+    assert json.loads(populate.output)["error"] == "no_targets"
+
+
 def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)

@@ -19,6 +19,7 @@ from learnloop.services.exam_session import (
     exam_availability,
     exam_report,
     finish_exam,
+    queue_exam_answer,
     record_exam_answer,
     start_exam,
 )
@@ -103,11 +104,12 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
 def _session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     item_order: list[str] = list(view["item_order"])
-    answered = [
-        row["practice_item_id"]
-        for row in repository.exam_answers(view["session_id"])
-        if row.get("grade") is not None
+    answer_rows = repository.exam_answers(view["session_id"])
+    answered = [row["practice_item_id"] for row in answer_rows]
+    graded = [
+        row["practice_item_id"] for row in answer_rows if row.get("grade") is not None
     ]
+    graded_set = set(graded)
     items = []
     for index, item_id in enumerate(item_order):
         item = vault.practice_items.get(item_id)
@@ -146,8 +148,126 @@ def _session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, An
             "status": view["status"],
             "items": items,
             "answered_item_ids": answered,
+            "graded_item_ids": graded,
+            "pending_item_ids": [
+                item_id for item_id in answered if item_id not in graded_set
+            ],
         }
     )
+
+
+def _grade_and_record_exam_answer(
+    vault,
+    repository,
+    client,
+    *,
+    session_id: str,
+    practice_item_id: str,
+    answer_md: str,
+) -> None:
+    """Resolve one persisted answer and attach its grade idempotently."""
+
+    existing = repository.exam_answer(session_id, practice_item_id)
+    if existing is not None and existing.get("grade") is not None:
+        return
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        raise ExamSessionError(f"Unknown practice item {practice_item_id}")
+    grading_attempt_id = new_ulid()
+    context = build_grading_context(
+        vault,
+        item,
+        attempt_id=grading_attempt_id,
+        learner_answer_md=answer_md,
+    )
+    proposal = client.run_grading_proposal(context)
+    validated = validate_codex_grading_proposal(
+        proposal,
+        attempt_id=grading_attempt_id,
+        item=item,
+        vault=vault,
+        learner_answer_md=answer_md,
+    )
+    resolved = _resolved_codex_grade(validated, agent_run_id=None, clock=None)
+    record_exam_answer(
+        vault,
+        repository,
+        session_id,
+        practice_item_id,
+        answer_md=answer_md,
+        resolved_grade=resolved,
+    )
+
+
+def _schedule_exam_answer_grading(
+    ctx: SidecarContext,
+    *,
+    vault,
+    repository,
+    session_id: str,
+    practice_item_id: str,
+    answer_md: str,
+) -> None:
+    def grade() -> None:
+        provider_name, runtime, client = ready_grading_provider(
+            vault, override=ctx.grading_provider_override
+        )
+        if provider_name == "manual" or not runtime.ready or client is None:
+            raise ExamSessionError(
+                "Exam answers need an AI grading provider; retry when one is available"
+            )
+        _grade_and_record_exam_answer(
+            vault,
+            repository,
+            client,
+            session_id=session_id,
+            practice_item_id=practice_item_id,
+            answer_md=answer_md,
+        )
+
+    ctx.exam_grading.submit(
+        session_id,
+        practice_item_id,
+        grade,
+    )
+
+
+def _schedule_pending_exam_grading(
+    ctx: SidecarContext, session_id: str
+) -> None:
+    """Resume durable ungraded rows without delaying the exam snapshot."""
+
+    vault, repository = ctx.require_vault()
+    for answer in repository.exam_answers(session_id):
+        if answer.get("grade") is not None:
+            continue
+        _schedule_exam_answer_grading(
+            ctx,
+            vault=vault,
+            repository=repository,
+            session_id=session_id,
+            practice_item_id=answer["practice_item_id"],
+            answer_md=str(answer.get("answer_md") or ""),
+        )
+
+
+def _raise_exam_grading_error(exc: Exception) -> None:
+    if isinstance(exc, GradingValidationError):
+        raise SidecarError(
+            "exam_grading_failed",
+            "Grading this answer hit an internal validation problem on our "
+            "side — your answer was not lost. Retry finishing the exam; if this "
+            "repeats, the item needs review.",
+            retryable=True,
+            details={"validation_error": str(exc)},
+        ) from exc
+    if isinstance(exc, ExamSessionError):
+        raise SidecarError("exam_answer_failed", str(exc)) from exc
+    raise SidecarError(
+        "exam_grading_unavailable",
+        f"AI grading failed: {exc}. Retry when the provider is available.",
+        retryable=True,
+    ) from exc
 
 
 @method("start_exam", StartExamInput)
@@ -162,81 +282,53 @@ def start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str,
         view = start_exam(vault, repository, params.goal_id)
     except ExamSessionError as exc:
         raise SidecarError("exam_start_failed", str(exc)) from exc
+    _schedule_pending_exam_grading(ctx, view["session_id"])
     return _session_snapshot(ctx, view)
 
 
 @method("submit_exam_answer", SubmitExamAnswerInput)
-def submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> dict[str, Any]:
+def submit_exam_answer(
+    ctx: SidecarContext, params: SubmitExamAnswerInput
+) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     item = vault.practice_items.get(params.practice_item_id)
     if item is None:
-        raise SidecarError("validation_error", f"Unknown practice item {params.practice_item_id}")
-    provider_name, runtime, client = ready_grading_provider(
-        vault, override=ctx.grading_provider_override
-    )
-    if provider_name == "manual" or not runtime.ready or client is None:
+        raise SidecarError(
+            "validation_error",
+            f"Unknown practice item {params.practice_item_id}",
+        )
+    if ctx.grading_provider_override == "manual":
         raise SidecarError(
             "exam_grading_unavailable",
             "Exam answers need an AI grading provider (self-grading a held-out exam "
             "would not be a measurement). Configure a provider and retry.",
             retryable=True,
         )
-    grading_attempt_id = new_ulid()
-    context = build_grading_context(
-        vault,
-        item,
-        attempt_id=grading_attempt_id,
-        learner_answer_md=params.answer_md,
-    )
     try:
-        proposal = client.run_grading_proposal(context)
-        validated = validate_codex_grading_proposal(
-            proposal,
-            attempt_id=grading_attempt_id,
-            item=item,
-            vault=vault,
-            learner_answer_md=params.answer_md,
-        )
-    except GradingValidationError as exc:
-        # Internal validation detail goes in `details` for the inspector; the
-        # learner-facing message never surfaces raw grader internals, and the
-        # answer is retryable because the failure is ours, not theirs.
-        raise SidecarError(
-            "exam_grading_failed",
-            "Grading this answer hit an internal validation problem on our "
-            "side — your answer was not lost. Submit it again; if this "
-            "repeats, the item needs review.",
-            retryable=True,
-            details={"validation_error": str(exc)},
-        ) from exc
-    except (TimeoutError, Exception) as exc:  # provider transport failures
-        if isinstance(exc, SidecarError):
-            raise
-        raise SidecarError(
-            "exam_grading_unavailable",
-            f"AI grading failed: {exc}. Retry when the provider is available.",
-            retryable=True,
-        ) from exc
-    resolved = _resolved_codex_grade(validated, agent_run_id=None, clock=None)
-    try:
-        result = record_exam_answer(
+        result = queue_exam_answer(
             vault,
             repository,
             params.session_id,
             params.practice_item_id,
             answer_md=params.answer_md,
-            resolved_grade=resolved,
         )
     except ExamSessionError as exc:
         raise SidecarError("exam_answer_failed", str(exc)) from exc
-    rubric = vault.rubric_for_item(item)
+    if not result["graded"]:
+        _schedule_exam_answer_grading(
+            ctx,
+            vault=vault,
+            repository=repository,
+            session_id=params.session_id,
+            practice_item_id=params.practice_item_id,
+            answer_md=params.answer_md,
+        )
     return versioned(
         {
             "session_id": result["session_id"],
             "practice_item_id": result["practice_item_id"],
-            "correctness": result["correctness"],
-            "score": result["rubric_score"],
-            "max_points": rubric.max_points if rubric is not None else 4,
+            "accepted": True,
+            "grading_status": "completed" if result["graded"] else "pending",
         }
     )
 
@@ -244,6 +336,43 @@ def submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> di
 @method("finish_exam", FinishExamInput)
 def finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    # Earlier answers have normally finished while the learner worked on later
+    # items. The final screen may still wait for the tail of the last call, but
+    # there is no grading pause between questions.
+    ctx.exam_grading.wait_for_session(params.session_id)
+    pending = [
+        answer
+        for answer in repository.exam_answers(params.session_id)
+        if answer.get("grade") is None
+    ]
+    if pending:
+        provider_name, runtime, client = ready_grading_provider(
+            vault, override=ctx.grading_provider_override
+        )
+        if provider_name == "manual" or not runtime.ready or client is None:
+            raise SidecarError(
+                "exam_grading_unavailable",
+                "The exam is saved, but its remaining answers need an AI grading "
+                "provider. Retry finishing when the provider is available.",
+                retryable=True,
+            )
+        for answer in pending:
+            # Drop the retained background error: this foreground retry is the
+            # authoritative outcome surfaced to the learner.
+            ctx.exam_grading.pop_error(
+                params.session_id, answer["practice_item_id"]
+            )
+            try:
+                _grade_and_record_exam_answer(
+                    vault,
+                    repository,
+                    client,
+                    session_id=params.session_id,
+                    practice_item_id=answer["practice_item_id"],
+                    answer_md=str(answer.get("answer_md") or ""),
+                )
+            except Exception as exc:  # noqa: BLE001 - mapped to stable RPC error
+                _raise_exam_grading_error(exc)
     try:
         report = finish_exam(vault, repository, params.session_id)
     except ExamSessionError as exc:

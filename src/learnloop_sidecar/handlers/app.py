@@ -41,6 +41,7 @@ def initialize(ctx: SidecarContext, params: InitializeParams) -> dict[str, Any]:
 
 @method("shutdown")
 def shutdown(ctx: SidecarContext, _params) -> dict[str, Any]:
+    ctx.exam_grading.shutdown()
     ctx.ingest_jobs.shutdown()
     ctx.shutdown_requested = True
     return {"ok": True}

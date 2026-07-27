@@ -40,9 +40,15 @@ def test_goals_list_includes_report_for_active_goals(ctx):
         "predictedRecallMean",
         "attemptsRemaining",
         "attemptsRemainingIsPartial",
+        "attemptsRemainingDetail",
         "pace",
         "latestExam",
     } <= set(report)
+    assert set(report["attemptsRemainingDetail"]) == {
+        "unreachable",
+        "noSupply",
+        "lowerBound",
+    }
     assert report["attainmentFraction"] is None or 0.0 <= report["attainmentFraction"] <= 1.0
     assert {
         "attemptsPerDay",
@@ -72,6 +78,8 @@ def test_goal_report_lists_at_risk_facets(ctx):
         "evidenceMass",
         "certified",
         "attemptsToCertify",
+        "certificationReachable",
+        "attemptsIsLowerBound",
     } <= set(entry)
     # Sorted worst-first: uncertified before certified, low predictions first.
     keys = [(f["certified"], f["predictedAtHorizon"]) for f in report["atRisk"]]

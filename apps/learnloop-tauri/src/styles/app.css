@@ -1036,6 +1036,26 @@ button { color: inherit; }
   50% { opacity: 0; }
 }
 
+/* High-mastery easter egg: the word (and its trailing sigil) decrypts out of
+   glyph noise in JS (useGlitchText); while a scramble burst is running the
+   `is-glitching` class layers on a subtle chromatic-aberration channel split —
+   then everything snaps clean. */
+.start-god-glitch {
+  display: inline-block;
+  will-change: text-shadow;
+}
+
+.start-god-glitch.is-glitching {
+  text-shadow: -0.022em 0 color-mix(in srgb, var(--cyan) 55%, transparent),
+    0.022em 0 color-mix(in srgb, var(--pink) 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-god-glitch.is-glitching {
+    text-shadow: none;
+  }
+}
+
 /* ── session finish · ASCII/unicode HUD ── */
 .sfin-overlay {
   position: fixed;

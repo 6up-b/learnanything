@@ -685,6 +685,160 @@ def quarantine_observation(
     return new_id
 
 
+def _leading_class(posterior: Mapping[str, float]) -> str | None:
+    """The unique argmax of a class posterior; ``None`` on empty or tied.
+
+    A tie is deliberately not broken: dict/set iteration order would decide the
+    winner nondeterministically, and ruling A only moves the directional ledger
+    on an unambiguous flip."""
+
+    if not posterior:
+        return None
+    best = max(posterior.values())
+    leaders = [z for z, p in posterior.items() if p == best]
+    return leaders[0] if len(leaders) == 1 else None
+
+
+# Ruling A (2026-07-27): grader_tier for adjudication-sourced grading_evidence
+# revisions. Tiers 1 (self) and 3 (AI) are the existing occupants of the 0-4
+# CHECK range; 4 is the human/deterministic-authority slot, so an adjudicated
+# revision outranks every machine grade in the tier vocabulary without a new
+# provenance scheme.
+ADJUDICATION_GRADER_TIER = 4
+
+
+def append_adjudication_evidence_revision(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    resolved_fraction: float,
+    adjudication_id: str,
+    adjudicator_source: str,
+    rationale: str | None,
+    vault: "LoadedVault | None" = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Ruling A (2026-07-27): write the adjudicated DIRECTION into the ledger.
+
+    ``grading_evidence`` (non-superseded revisions) is the single directional
+    authority for criterion outcomes; the interpretation channel carries
+    confidence/mass only. An adjudication that flips the response class must
+    therefore land as a superseding evidence revision through the same door the
+    regrade and A8-clarification paths use — otherwise the certainty channel
+    says "we are now sure" while the ledger still says "full credit", and
+    banked credit RISES on an adjudication that lowered the grade.
+
+    Response-level semantics, matching ``_adjudicated_score_fraction``'s
+    existing contract: the adjudication is observation-scoped, so one resolved
+    fraction applies to every criterion of the attempt. Returns a typed status
+    dict; every skip arm is named rather than silent."""
+
+    from learnloop.ids import new_ulid
+    from learnloop.clock import utc_now_iso
+
+    live_rows = repository.fetch_grading_evidence(attempt_id)
+    if not live_rows:
+        return {"status": "skipped_no_evidence_rows", "evidence_ids": []}
+
+    # Criterion max points: the immutable assessment contract first (repository
+    # -only, present on every mvp-0.8 grading), the live vault rubric as the
+    # legacy fallback. All-or-nothing: a revision that rescaled only some
+    # criteria would leave the attempt's direction incoherent.
+    points_by_criterion: dict[str, float] = {}
+    version_ids = {
+        row.assessment_contract_version_id
+        for row in live_rows
+        if row.assessment_contract_version_id
+    }
+    if len(version_ids) == 1:
+        from learnloop.services.assessment_contracts import P0_ALGORITHM_VERSION
+
+        stored = repository.effective_assessment_contract_version(
+            next(iter(version_ids)), projection_version=P0_ALGORITHM_VERSION
+        )
+        contract = stored.get("contract") if stored is not None else None
+        for criterion in (contract or {}).get("criteria", []) or []:
+            cid = str(criterion.get("id"))
+            if cid:
+                # Contract criteria carry ``max_points`` (see
+                # canonical_projection._contract_criteria) — mirror it exactly.
+                points_by_criterion[cid] = float(criterion.get("max_points") or 0.0)
+    if not points_by_criterion and vault is not None:
+        attempt = repository.fetch_practice_attempt(attempt_id)
+        item = (
+            vault.practice_items.get(str(attempt.get("practice_item_id")))
+            if attempt is not None
+            else None
+        )
+        rubric = vault.rubric_for_item(item) if item is not None else None
+        if rubric is not None:
+            points_by_criterion = {c.id: float(c.points) for c in rubric.criteria}
+    missing = [r.criterion_id for r in live_rows if r.criterion_id not in points_by_criterion]
+    if not points_by_criterion or missing:
+        return {
+            "status": "skipped_no_criterion_points",
+            "evidence_ids": [],
+            "missing_criteria": missing,
+        }
+
+    now = utc_now_iso(clock)
+    fraction = max(0.0, min(1.0, float(resolved_fraction)))
+    seen: set[str] = set()
+    new_rows: list[dict[str, Any]] = []
+    for row in live_rows:
+        if row.criterion_id in seen:
+            continue
+        seen.add(row.criterion_id)
+        new_rows.append(
+            {
+                "id": new_ulid(),
+                "criterion_id": row.criterion_id,
+                "points_awarded": fraction * points_by_criterion[row.criterion_id],
+                "evidence": f"adjudicated:{adjudication_id}",
+                "notes": rationale,
+                "agent_run_id": None,
+                "local_grader_id": f"adjudication:{adjudicator_source}",
+                "grader_tier": ADJUDICATION_GRADER_TIER,
+                "created_at": now,
+                # Contract lineage rides forward so the projection resolves the
+                # same historical criteria; attribution is deliberately None (a
+                # response-level verdict asserts no per-facet structure) and
+                # observation_id is None (UNIQUE index; lineage lives on the
+                # adjudication row).
+                "assessment_contract_version_id": row.assessment_contract_version_id,
+                "recipe_id": row.recipe_id,
+                "correlation_group": row.correlation_group,
+                "grading_revision": (max((r.grading_revision or 0) for r in live_rows)) + 1,
+            }
+        )
+    repository.insert_regrade_evidence(
+        attempt_id=attempt_id,
+        new_evidence_rows=new_rows,
+        superseded_by_evidence_id=str(new_rows[0]["id"]),
+        # Supersede every live tier: an adjudication is the response-level
+        # authority, including over a prior adjudication (re-adjudication).
+        supersede_tiers=(0, 1, 2, 3, 4),
+        clock=clock,
+    )
+    # Mirror the regrade door's cache refresh so the attempt summary agrees
+    # with the ledger. Review state is preserved: a grade-class adjudication
+    # does not answer a pending clarification or manual-review obligation.
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    if attempt is not None:
+        rubric_total = sum(points_by_criterion.values()) or 1.0
+        repository.update_attempt_grade(
+            attempt_id,
+            rubric_score=min(4, max(0, round(fraction * rubric_total))),
+            correctness=fraction,
+            grader_confidence=float(attempt.get("grader_confidence") or 0.0),
+            manual_review=bool(attempt.get("manual_review")),
+            manual_review_reason=attempt.get("manual_review_reason"),
+            error_type=attempt.get("error_type"),
+            clock=clock,
+        )
+    return {"status": "revised", "evidence_ids": [str(r["id"]) for r in new_rows]}
+
+
 def append_adjudication(
     repository: Repository,
     *,
@@ -697,13 +851,21 @@ def append_adjudication(
     rationale: str | None = None,
     bounded_trust_weight: float | None = None,
     superseded_adjudication_id: str | None = None,
+    vault: "LoadedVault | None" = None,
     clock: Clock | None = None,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
 
     Adjudicated anchors carry authority: they narrow the credible interval (a
     deterministic/human anchor to a point). ``learner_clarification`` carries a
-    bounded-trust weight < 1. Never overwrites prior rows."""
+    bounded-trust weight < 1. Never overwrites prior rows.
+
+    Ruling A (2026-07-27): when the adjudicated leading class FLIPS the
+    response-level direction, this also writes a superseding
+    ``grading_evidence`` revision (see
+    :func:`append_adjudication_evidence_revision`), because the ledger — not
+    the interpretation chain — is the directional authority. The returned dict
+    carries the typed outcome under ``evidence_revision``."""
 
     head = repository.active_interpretation_for_observation(observation_id)
     reviewed = list(reviewed_raw_event_ids)
@@ -826,4 +988,51 @@ def append_adjudication(
         payload_json=_json({"interpretation_id": interpretation_id}),
         clock=clock,
     )
-    return {"adjudication_id": adjudication_id, "interpretation_id": interpretation_id}
+
+    # Ruling A: a direction flip lands in the ledger. Fractions come from the
+    # same COARSE_RESPONSE score map the projection reads, so the ledger and
+    # the unresolved-cause override can never disagree about what a class is
+    # worth. Ties and unknown classes skip with a typed status — bounded-trust
+    # blends that fail to flip the leading class leave the ledger alone.
+    from learnloop.services.outcome_schemas import (
+        COARSE_RESPONSE_SLUG,
+        ensure_builtin_schemas,
+    )
+    import json as _json_mod
+
+    evidence_revision: dict[str, Any] = {"status": "skipped_direction_unchanged", "evidence_ids": []}
+    ensure_builtin_schemas(repository, clock=clock)
+    schema_row = repository.fetch_outcome_schema_version(slug=COARSE_RESPONSE_SLUG)
+    score_fraction: dict[str, float] = (
+        _json_mod.loads(schema_row["score_fraction_json"]) if schema_row is not None else {}
+    )
+    leading_new = _leading_class(posterior)
+    leading_old = _leading_class(base)
+    fraction_new = score_fraction.get(str(leading_new)) if leading_new is not None else None
+    fraction_old = score_fraction.get(str(leading_old)) if leading_old is not None else None
+    if leading_new is None:
+        evidence_revision = {"status": "skipped_ambiguous_leading_class", "evidence_ids": []}
+    elif fraction_new is None:
+        evidence_revision = {"status": "skipped_class_without_score_fraction", "evidence_ids": []}
+    elif fraction_old is not None and fraction_new == fraction_old:
+        evidence_revision = {"status": "skipped_direction_unchanged", "evidence_ids": []}
+    else:
+        attempt_id = repository.observation_attempt_id(observation_id)
+        if attempt_id is None:
+            evidence_revision = {"status": "skipped_no_attempt", "evidence_ids": []}
+        else:
+            evidence_revision = append_adjudication_evidence_revision(
+                repository,
+                attempt_id=attempt_id,
+                resolved_fraction=float(fraction_new),
+                adjudication_id=adjudication_id,
+                adjudicator_source=adjudicator_source,
+                rationale=rationale,
+                vault=vault,
+                clock=clock,
+            )
+    return {
+        "adjudication_id": adjudication_id,
+        "interpretation_id": interpretation_id,
+        "evidence_revision": evidence_revision,
+    }

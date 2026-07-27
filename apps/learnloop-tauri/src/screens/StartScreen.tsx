@@ -37,6 +37,86 @@ const HIGH_MASTERY_WORDS = [
   "an expert", "masterful", "brilliant", "advanced", "independent",
   "intelligent", "unstoppable", "god"
 ];
+const GOD_WORD_HOLD_MS = 10_000;
+const GLITCH_CHARS = "!<>-_\\/[]{}=+*^?#$%&░▒▓█◙◇╳";
+
+// Scramble-decrypt hook for the high-mastery easter egg: the text first
+// resolves left-to-right out of glyph noise, then re-glitches in short random
+// bursts for as long as the component stays mounted. `active` is true while a
+// burst is running so the CSS RGB-split/jitter class can track it.
+function useGlitchText(text: string) {
+  const [display, setDisplay] = useState(text);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      setDisplay(text);
+      setActive(false);
+      return;
+    }
+    let dead = false;
+    const timers: number[] = [];
+    const randChar = () => GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+
+    const burst = (durationMs: number, decrypt: boolean, done?: () => void) => {
+      const start = performance.now();
+      setActive(true);
+      const id = window.setInterval(() => {
+        if (dead) { window.clearInterval(id); return; }
+        const t = (performance.now() - start) / durationMs;
+        if (t >= 1) {
+          window.clearInterval(id);
+          setDisplay(text);
+          setActive(false);
+          done?.();
+          return;
+        }
+        setDisplay(
+          text
+            .split("")
+            .map((ch, i) => {
+              if (ch === " ") return ch;
+              const settled = decrypt
+                ? t * text.length > i + Math.random() * 0.9
+                : Math.random() > 0.5;
+              return settled ? ch : randChar();
+            })
+            .join("")
+        );
+      }, 42);
+      timers.push(id);
+    };
+
+    const loop = () => {
+      if (dead) return;
+      const id = window.setTimeout(
+        () => burst(140 + Math.random() * 240, false, loop),
+        1100 + Math.random() * 1900
+      );
+      timers.push(id);
+    };
+    burst(950, true, loop);
+
+    return () => {
+      dead = true;
+      timers.forEach((id) => {
+        window.clearTimeout(id);
+        window.clearInterval(id);
+      });
+    };
+  }, [text]);
+
+  return { display, active };
+}
+
+function GlitchText({ text, className }: { text: string; className?: string }) {
+  const { display, active } = useGlitchText(text);
+  return (
+    <span className={`${className ?? ""}${active ? " is-glitching" : ""}`}>
+      {display}
+    </span>
+  );
+}
 
 function CyclingTypewriterText({ prefix, words, wordColor, speed = 50, untypeSpeed = 32, holdMs = 2500 }: {
   prefix?: string;
@@ -51,6 +131,9 @@ function CyclingTypewriterText({ prefix, words, wordColor, speed = 50, untypeSpe
   const [phase, setPhase] = useState<"typing" | "holding" | "untyping">("typing");
 
   const word = words[idx % words.length];
+  const isGodWord = word.toLowerCase() === "god";
+  const isGodRevealed = isGodWord && phase === "holding" && displayed === word;
+  const currentHoldMs = isGodWord ? GOD_WORD_HOLD_MS : holdMs;
 
   useEffect(() => {
     setDisplayed("");
@@ -64,20 +147,38 @@ function CyclingTypewriterText({ prefix, words, wordColor, speed = 50, untypeSpe
       return () => clearTimeout(id);
     }
     if (phase === "holding") {
-      const id = setTimeout(() => setPhase("untyping"), holdMs);
+      const id = setTimeout(() => setPhase("untyping"), currentHoldMs);
       return () => clearTimeout(id);
     }
     // untyping
     if (displayed.length === 0) { setIdx((i) => i + 1); return; }
     const id = setTimeout(() => setDisplayed(displayed.slice(0, -1)), untypeSpeed);
     return () => clearTimeout(id);
-  }, [phase, displayed, word, speed, untypeSpeed, holdMs]);
+  }, [phase, displayed, word, speed, untypeSpeed, currentHoldMs]);
 
   const cursorColor = wordColor ?? "var(--text)";
   return (
     <span>
       {prefix ? <span style={{ opacity: 0.82 }}>{prefix}</span> : null}
-      <span style={{ color: wordColor ?? "var(--text)" }}>{displayed}</span>
+      <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+        <span style={{ color: wordColor ?? "var(--text)" }}>
+          {isGodRevealed ? <GlitchText text={word} className="start-god-glitch" /> : displayed}
+        </span>
+        {isGodRevealed ? (
+          <span
+            aria-hidden="true"
+            style={{
+              marginLeft: "0.45em",
+              color: wordColor ?? "var(--text)",
+              fontFamily: FONT_MONO,
+              fontSize: "0.72em",
+              letterSpacing: "0.04em"
+            }}
+          >
+            <GlitchText text="(◙::✤)" className="start-god-glitch" />
+          </span>
+        ) : null}
+      </span>
       <span
         style={{
           display: "inline-block",

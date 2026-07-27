@@ -280,6 +280,7 @@ def build_practice_expansion_plan(
     mode_mix: dict[str, int] | None = None,
     require_completed_probe: bool = True,
     exclude_item_ids: set[str] | None = None,
+    force_named_targets: bool = True,
 ) -> PracticeExpansionPlan:
     if target_items_per_lo <= 0:
         raise PracticeExpansionError("target_items_per_lo must be positive")
@@ -342,7 +343,12 @@ def build_practice_expansion_plan(
         existing_count = item_counts.get(learning_object.id, 0)
         needed = target_items_per_lo - existing_count
         named = learning_object.id in named_lo_ids
-        if needed <= 0 and not named:
+        # Explicit --los generation intentionally requests another item even
+        # after the count target. Goal population also supplies named LOs, but
+        # only as a scope filter: repeated populate-goal calls must stop once
+        # both the count deficit and any contract commission are gone.
+        forced_named_target = named and force_named_targets
+        if needed <= 0 and not forced_named_target and not commissioned:
             continue
         if mode_mix_items is not None:
             # --mode-mix is a hard per-LO constraint; it overrides the deficit sizing.
@@ -350,7 +356,8 @@ def build_practice_expansion_plan(
         elif needed > 0:
             requested = min(needed, max_new_per_lo)
         else:
-            # Named LO past its deficit target: still request at least one item.
+            # An explicitly forced LO or an unresolved contract commission past
+            # the count target still needs one focused item.
             requested = 1
         mastery = repository.mastery_state(learning_object.id)
         mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
@@ -869,6 +876,7 @@ def build_goal_practice_plan(
         learning_object_ids=sorted(scope),
         require_completed_probe=False,
         exclude_item_ids=reserved,
+        force_named_targets=False,
     )
     report = goal_report(vault, repository, goal)
     at_risk_facets = sorted({facet.facet_id for facet in report.facets if not facet.on_track})

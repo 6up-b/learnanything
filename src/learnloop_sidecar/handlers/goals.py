@@ -165,6 +165,25 @@ def _report_dto(
         },
         "attempts_remaining": report.attempts_remaining,
         "attempts_remaining_is_partial": report.attempts_remaining_is_partial,
+        "attempts_remaining_detail": {
+            "unreachable": sum(
+                1
+                for facet in report.facets
+                if facet.at_risk and not facet.certification_reachable
+            ),
+            "no_supply": sum(
+                1
+                for facet in report.facets
+                if facet.at_risk
+                and facet.certification_reachable
+                and facet.attempts_to_certify is None
+            ),
+            "lower_bound": sum(
+                1
+                for facet in report.facets
+                if facet.at_risk and facet.attempts_is_lower_bound
+            ),
+        },
     }
     if repository is not None and goal is not None:
         payload["pace"] = compute_goal_pace(vault, repository, goal, report).as_dict()
@@ -201,6 +220,8 @@ def _report_dto(
                 "evidence_mass": facet.evidence_mass,
                 "certified": facet.certified,
                 "attempts_to_certify": facet.attempts_to_certify,
+                "certification_reachable": facet.certification_reachable,
+                "attempts_is_lower_bound": facet.attempts_is_lower_bound,
                 # KM3 §9.5 dual-axis split (additive): Ready = predicted ability;
                 # Demonstrated = capability-matched direct evidence. KM3b's UI
                 # leads ambient surfaces with Ready, goal surfaces with

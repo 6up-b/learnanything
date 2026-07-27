@@ -6,8 +6,10 @@ from learnloop.clock import FrozenClock
 from learnloop.services.attempts import GradeAttribution, ResolvedGrade
 from learnloop.services.exam_pool import reserve_exam_pool, reserved_item_ids
 from learnloop.services.exam_session import (
+    ExamSessionError,
     exam_availability,
     finish_exam,
+    queue_exam_answer,
     record_exam_answer,
     start_exam,
 )
@@ -97,6 +99,44 @@ def test_start_is_idempotent(tmp_path):
     assert again["already_started"] is True
     # No duplicate predictions were frozen.
     assert len(repository.exam_predictions(session["session_id"])) == 2
+
+
+def test_ungraded_answer_is_durable_and_blocks_finish(tmp_path):
+    vault, repository, session = _reserved_and_started(tmp_path)
+    session_id = session["session_id"]
+
+    queued = queue_exam_answer(
+        vault,
+        repository,
+        session_id,
+        "pi_exam_a",
+        answer_md="A response waiting for its grader.",
+    )
+
+    assert queued["graded"] is False
+    stored = repository.exam_answer(session_id, "pi_exam_a")
+    assert stored is not None
+    assert stored["answer_md"] == "A response waiting for its grader."
+    assert stored["grade"] is None
+    with pytest.raises(ExamSessionError, match="grading is still pending"):
+        finish_exam(vault, repository, session_id, clock=FrozenClock(NOW))
+
+
+def test_exam_answer_submission_is_final_but_idempotent(tmp_path):
+    vault, repository, session = _reserved_and_started(tmp_path)
+    session_id = session["session_id"]
+    queue_exam_answer(
+        vault, repository, session_id, "pi_exam_a", answer_md="Final answer."
+    )
+
+    repeated = queue_exam_answer(
+        vault, repository, session_id, "pi_exam_a", answer_md="Final answer."
+    )
+    assert repeated["already_submitted"] is True
+    with pytest.raises(ExamSessionError, match="cannot be replaced"):
+        queue_exam_answer(
+            vault, repository, session_id, "pi_exam_a", answer_md="Changed answer."
+        )
 
 
 def test_finish_lands_exam_attempt_evidence_with_full_mass(tmp_path):

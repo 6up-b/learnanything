@@ -558,15 +558,54 @@ export function GoalBanner({
             </div>
           ) : null}
 
-          {/* content-gap callout (spec §4.2 / §4.11). Goal summary DTO exposes only the
-              boolean attemptsRemainingIsPartial — no per-facet no-supply count — so we
-              use the at-risk list (once loaded) as a lower bound and otherwise qualify. */}
+          {/* An under-count has three distinct causes. Do not render all three as
+              "no practice items": that sent repeated populate-goal calls at an
+              already well-populated goal whenever retention was below target. */}
           {hasDualAxis && report?.attemptsRemainingIsPartial ? (
             (() => {
-              const noSupply = atRisk ? atRisk.filter((f) => f.attemptsToCertify == null).length : null;
+              const detail = report.attemptsRemainingDetail;
+              const unreachable =
+                detail?.unreachable ??
+                (atRisk
+                  ? atRisk.filter((f) => f.certificationReachable === false).length
+                  : null);
+              const noSupply =
+                detail?.noSupply ??
+                (atRisk
+                  ? atRisk.filter(
+                      (f) =>
+                        f.attemptsToCertify == null &&
+                        f.certificationReachable !== false
+                    ).length
+                  : null);
+              const lowerBound =
+                detail?.lowerBound ??
+                (atRisk
+                  ? atRisk.filter((f) => f.attemptsIsLowerBound === true).length
+                  : null);
+              const causes: string[] = [];
+              if (unreachable != null && unreachable > 0) {
+                causes.push(
+                  `${unreachable} facet${unreachable === 1 ? "" : "s"} cannot yet be certified at the capability the goal requires`
+                );
+              }
+              if (noSupply != null && noSupply > 0) {
+                causes.push(
+                  `${noSupply} facet${noSupply === 1 ? "" : "s"} have no usable practice items yet — create practice so they can count`
+                );
+              }
+              if (lowerBound != null && lowerBound > 0) {
+                causes.push(
+                  `${lowerBound} facet${lowerBound === 1 ? "" : "s"} have enough evidence mass but remain below target`
+                );
+              }
+              const message =
+                causes.length > 0
+                  ? `${causes.join("; ")}.`
+                  : "Remaining practice is only a lower bound; open the at-risk facets for details.";
               return (
                 <div style={{ marginTop: 6, fontSize: 11, color: COLOR.pink, fontFamily: FONT_MONO }}>
-                  ⚠ {noSupply != null && noSupply > 0 ? `${noSupply}+ ` : "some "}facets have no practice items yet — create practice so they can count.
+                  ⚠ {message}
                 </div>
               );
             })()

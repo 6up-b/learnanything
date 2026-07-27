@@ -522,6 +522,9 @@ class GradingEvidenceRecord:
     learner_confidence: str | None
     created_at: str
     superseded_at: str | None
+    # Ruling A: the supersession pointer is the ledger's audit trail — which
+    # revision replaced this row as the directional authority.
+    superseded_by_evidence_id: str | None = None
     # KM1 observation lineage (§5.2); NULL on legacy rows and under mvp-0.6.
     observation_id: str | None = None
     grading_revision: int | None = None
@@ -12760,6 +12763,20 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def observation_attempt_id(self, observation_id: str) -> str | None:
+        """Reverse of :meth:`observation_by_attempt` — the practice attempt an
+        activity observation was minted for (ruling A: the grade-points
+        adjudication lane needs the attempt to write its superseding
+        ``grading_evidence`` revision). ``None`` for observations with no
+        practice-attempt source (e.g. probe/exam-only administrations)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT attempt_id FROM activity_observations WHERE id = ?",
+                (observation_id,),
+            ).fetchone()
+        return str(row["attempt_id"]) if row is not None and row["attempt_id"] else None
+
     def mark_surface_unverifiable(self, surface_id: str) -> None:
         with self.connection() as connection:
             connection.execute(
@@ -16238,6 +16255,19 @@ class Repository:
                 (attempt_id, session_id, practice_item_id),
             )
             connection.commit()
+
+    def exam_answer(
+        self, session_id: str, practice_item_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM exam_answers
+                WHERE session_id = ? AND practice_item_id = ?
+                """,
+                (session_id, practice_item_id),
+            ).fetchone()
+        return _decode_exam_answer(row) if row is not None else None
 
     def exam_answers(self, session_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
@@ -23879,6 +23909,11 @@ def _grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord:
         learner_confidence=row["learner_confidence"] if "learner_confidence" in row.keys() else None,
         created_at=row["created_at"],
         superseded_at=row["superseded_at"],
+        superseded_by_evidence_id=(
+            row["superseded_by_evidence_id"]
+            if "superseded_by_evidence_id" in row.keys()
+            else None
+        ),
         observation_id=row["observation_id"] if "observation_id" in row.keys() else None,
         grading_revision=row["grading_revision"] if "grading_revision" in row.keys() else None,
         assessment_contract_version_id=(

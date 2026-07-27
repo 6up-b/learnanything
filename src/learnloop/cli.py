@@ -1078,6 +1078,7 @@ def grading_adjudicate(
 
     from learnloop.services.grade_resolution import append_adjudication
     from learnloop.services.p0_projection import record_reinterpretation_if_changed
+    from learnloop.vault.loader import load_vault
 
     root = _root(vault)
     repository = _repository(root)
@@ -1096,6 +1097,10 @@ def grading_adjudicate(
         adjudicator_source=source,
         resolved_class=resolved_class,
         rationale=rationale,
+        # Ruling A: a direction flip must land as a superseding grading_evidence
+        # revision; the vault supplies rubric points where contract lineage is
+        # absent (legacy attempts).
+        vault=load_vault(root),
     )
     new_head = repository.grade_interpretation(adj["interpretation_id"])
     event_id = record_reinterpretation_if_changed(

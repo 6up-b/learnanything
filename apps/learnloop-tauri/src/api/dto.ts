@@ -3013,6 +3013,11 @@ export interface GoalReportSummaryDto {
   modelCoverage?: { decayEstimated: number; heldFlat: number };
   attemptsRemaining?: number;
   attemptsRemainingIsPartial?: boolean;
+  attemptsRemainingDetail?: {
+    unreachable: number;
+    noSupply: number;
+    lowerBound: number;
+  };
   pace?: GoalPaceDto | null;
   latestExam?: GoalLatestExamDto | null;
   // Spec §4.1/§6.3: ids of the current open issued forecast rows for this goal
@@ -3047,6 +3052,10 @@ export interface GoalAtRiskFacetDto {
   evidenceMass?: number;
   certified?: boolean;
   attemptsToCertify?: number | null;
+  /** False means items may exist, but none observes the required capability. */
+  certificationReachable?: boolean;
+  /** The count is "at least this many", usually because retention is below target. */
+  attemptsIsLowerBound?: boolean;
   // KM3 §9.5 dual-axis split. Ready = predicted ability (leads ambient
   // surfaces); Demonstrated = capability-matched direct evidence (leads goal /
   // certification surfaces). Never blended into one number.
@@ -3489,16 +3498,18 @@ export interface ExamSessionSnapshot {
   goalId: string;
   status: "in_progress" | "completed" | "abandoned";
   items: ExamItemDto[];
+  /** Submitted answers advance the cursor immediately, before grading finishes. */
   answeredItemIds: string[];
+  gradedItemIds: string[];
+  pendingItemIds: string[];
 }
 
 export interface ExamAnswerResult {
   version: number;
   sessionId: string;
   practiceItemId: string;
-  correctness: number;
-  score: number;
-  maxPoints: number;
+  accepted: boolean;
+  gradingStatus: "pending" | "completed";
 }
 
 export interface ExamFacetOutcomeDto {
