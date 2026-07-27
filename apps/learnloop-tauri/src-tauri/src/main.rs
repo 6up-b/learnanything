@@ -1,9 +1,11 @@
 mod commands;
 mod errors;
 mod sidecar;
+mod vault_watcher;
 
 use commands::*;
 use sidecar::SidecarManager;
+use vault_watcher::VaultWatcher;
 use std::borrow::Cow;
 use tauri::Manager;
 
@@ -152,10 +154,12 @@ fn main() {
     if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
+    let sidecar = SidecarManager::new();
+    let watcher_sidecar = sidecar.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(SidecarManager::new())
+        .manage(sidecar)
         .register_uri_scheme_protocol("llpdf", |ctx, request| {
             let manager = ctx.app_handle().state::<SidecarManager>();
             serve_llpdf(&manager, request.uri().path())
@@ -169,7 +173,11 @@ fn main() {
                 .map(|value| value.to_string());
             serve_llmedia(&manager, request.uri().path(), range.as_deref())
         })
-        .setup(|app| {
+        .setup(move |app| {
+            app.manage(VaultWatcher::start(
+                app.handle().clone(),
+                watcher_sidecar.clone(),
+            ));
             let main_window = app
                 .config()
                 .app
@@ -212,6 +220,9 @@ fn main() {
             skip_practice_item,
             get_feedback,
             get_attempt,
+            get_attempt_trace_evidence,
+            get_grading_clarification,
+            answer_grading_clarification,
             trigger_regrade,
             add_error_event,
             trigger_followup,
@@ -337,6 +348,7 @@ fn main() {
             get_decay_pressure,
             start_overconfidence_probe,
             create_goal,
+            generate_starter_practice,
             update_goal_status,
             update_goal_intent,
             get_exam_status,
@@ -402,6 +414,7 @@ fn main() {
             practice_pool_seed_for_run,
             practice_pool_admit_anchor,
             reader_ask,
+            reader_ask_history,
             reader_set_answer_mode,
             reader_present_question,
             reader_submit_question,

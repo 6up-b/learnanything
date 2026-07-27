@@ -78,6 +78,12 @@ def test_assess_restore_and_depth_invitation_over_rpc(tmp_path):
 
     opened = _call(vault_root, "golden_path.assess_open", {"runId": run_id})["result"]
     admin_id = opened["administrationId"]
+    # Meas §3.A2/§3.A3: the cold assessment is a THIRD surface that asks a
+    # learner to answer a Practice Item, and it carried the prompt alone. It now
+    # reads the same presentation payload practice and exams do, so an error
+    # hunt reserved onto a golden-path surface cannot be served solution-less.
+    assert [block["kind"] for block in opened["presentation"]["blocks"]] == ["prompt"]
+    assert opened["presentation"]["blocks"][0]["markdown"] == opened["prompt"]
 
     result = _call(vault_root, "golden_path.assess_submit", {
         "runId": run_id, "administrationId": admin_id, "surfaceId": surface_id,

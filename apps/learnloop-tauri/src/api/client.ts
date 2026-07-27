@@ -28,6 +28,9 @@ import type {
   CapabilityGridResult,
   FacetEvidenceTimelineDto,
   FeedbackBundle,
+  AttemptTraceEvidenceDto,
+  GradingClarificationResultDto,
+  AnswerGradingClarificationResultDto,
   UnresolvedCauseSelfReportResponse,
   UnresolvedCauseSelfReportResultDto,
   CausalProbeDeferResultDto,
@@ -281,7 +284,11 @@ export const api = {
   explainPracticeItem: (practiceItemId: string) =>
     call<SchedulerExplanationDto>("explain_practice_item", { practiceItemId }),
   openQueueItem: (practiceItemId: string) => call<PracticeItemDetail>("open_queue_item", { practiceItemId }),
-  getPracticeItem: (practiceItemId: string) => call<PracticeItemDetail>("get_practice_item", { practiceItemId }),
+  // `sessionId` marks this as a serve rather than a read: it is what lets the
+  // sidecar spend (and bound) the Meas §3.A6 per-session elicitation budget.
+  // Omit it for read-only opens — the detail then carries `elicitation: null`.
+  getPracticeItem: (practiceItemId: string, sessionId?: string | null) =>
+    call<PracticeItemDetail>("get_practice_item", { practiceItemId, sessionId: sessionId ?? null }),
   getProbeContract: (practiceItemId: string, sessionId?: string) =>
     call<ProbeContractDto>("get_probe_contract", { practiceItemId, sessionId: sessionId ?? null }),
   stopProbeDiagnosing: (practiceItemId: string) =>
@@ -309,6 +316,17 @@ export const api = {
     call<QueueSnapshot>("skip_practice_item", { input }),
   getFeedback: (attemptId: string) => call<FeedbackBundle>("get_feedback", { attemptId }),
   getAttempt: (attemptId: string) => call<unknown>("get_attempt", { attemptId }),
+  // Meas §3.A6/§3.A8 — the two post-grade reads the feedback surface owes the
+  // learner: what a volunteered explanation bought, and the one question that
+  // can still move a provisional grade.
+  getAttemptTraceEvidence: (attemptId: string) =>
+    call<AttemptTraceEvidenceDto>("get_attempt_trace_evidence", { attemptId }),
+  getGradingClarification: (attemptId: string) =>
+    call<GradingClarificationResultDto>("get_grading_clarification", { attemptId }),
+  answerGradingClarification: (attemptId: string, answerMd: string) =>
+    call<AnswerGradingClarificationResultDto>("answer_grading_clarification", {
+      input: { attemptId, answerMd }
+    }),
   triggerRegrade: (attemptId: string) => call<FeedbackBundle>("trigger_regrade", { input: { attemptId } }),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } }),
@@ -623,7 +641,7 @@ export const api = {
   editPracticeItem: (input: { practiceItemId: string; prompt?: string; expectedAnswer?: string; hints?: string[]; reason?: string }) =>
     call<{ practiceItemId: string; changed: string[] }>("edit_practice_item", { input }),
   retirePracticeItem: (input: { practiceItemId: string; reason: RetirementReason; note?: string }) =>
-    call<{ practiceItemId: string; status: string }>("retire_practice_item", { input }),
+    call<{ practiceItemId: string; status: string; queueRevision: number }>("retire_practice_item", { input }),
   splitPracticeItem: (input: { practiceItemId: string; parts: Array<{ prompt: string; expectedAnswer: string }>; reason?: string }) =>
     call<{ practiceItemId: string; created: string[] }>("split_practice_item", { input }),
   resolveQuestionEvent: (eventId: string, resolution: QuestionResolution) =>

@@ -692,6 +692,33 @@ def _reject_unregistered_facets(vault: LoadedVault, entity_id: str, data: dict[s
     from learnloop.services.capability_mapping import unregistered_facet_errors
 
     facet_ids = [vault.canonical_facet_id(str(facet)) for facet in data.get("evidence_facets") or []]
+    # Meas §3.A1: authored criterion targets are a second facet-reference channel
+    # on the same item, and a `supporting` target names a facet that is by design
+    # NOT in `evidence_facets` (it is what the step consumes, not what the item
+    # is about). Leaving it out of this gate would let the one channel that can
+    # credit a facet the item never declares reference an unregistered id.
+    for criterion in (data.get("grading_rubric") or {}).get("criteria") or []:
+        if not isinstance(criterion, dict):
+            continue
+        for target in criterion.get("targets") or []:
+            if isinstance(target, dict) and target.get("facet"):
+                facet_ids.append(vault.canonical_facet_id(str(target["facet"])))
+    # Meas §3.A3/§3.A4/§3.A5: three more channels on the same item that name a
+    # facet the item's `evidence_facets` need not contain — a plant's facet, the
+    # requirement a contrast pair differs on, and the facet a discrimination
+    # profile's hypothesis contradicts. Each is read by a downstream consumer
+    # (the persona gate's plant resolution, A4's structural analysis, A4's
+    # commissioning), so an unregistered id here fails silently rather than
+    # loudly: the consumer simply finds nothing and abstains.
+    for profile in data.get("discrimination_profiles") or []:
+        if isinstance(profile, dict) and profile.get("facet_id"):
+            facet_ids.append(vault.canonical_facet_id(str(profile["facet_id"])))
+    for plant in (data.get("error_hunt") or {}).get("planted_errors") or []:
+        if isinstance(plant, dict) and plant.get("facet_id"):
+            facet_ids.append(vault.canonical_facet_id(str(plant["facet_id"])))
+    differing = data.get("differing_component")
+    if isinstance(differing, dict) and differing.get("facet"):
+        facet_ids.append(vault.canonical_facet_id(str(differing["facet"])))
     errors = unregistered_facet_errors(set(vault.evidence_facets), facet_ids)
     if errors:
         raise PatchApplicationError(

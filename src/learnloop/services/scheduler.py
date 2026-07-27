@@ -10,6 +10,7 @@ from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repository
 from learnloop.services.fitted_params import resolve_fsrs_weights
+from learnloop.services.instrument_serving import unservable_reason
 from learnloop.services.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve
 from learnloop.services.probe_episodes import (
     EligibleInstrument,
@@ -160,6 +161,11 @@ def build_due_queue(
         # Ephemeral dialogue-turn instances (§8.1) exist only to carry their one
         # committed diagnostic attempt; they are never ordinary practice.
         if item.practice_mode == "diagnostic_microprobe":
+            continue
+        # Meas §3.A2/§3.A3: an item whose stimulus the practice surface cannot
+        # render is not schedulable. Serving one produces a silent harmful write
+        # rather than a visible failure -- see `services/instrument_serving`.
+        if unservable_reason(item) is not None:
             continue
         learning_object = vault.learning_object_for_item(item)
         if learning_object is None:
@@ -368,6 +374,7 @@ def build_due_queue(
     )
     queue = _rotate_same_day_frontier_repeats(queue, item_states, now)
     queue = _insert_pending_followups(vault, queue, pending_followups, readiness_factor)
+    queue = _apply_contrast_pair_order(vault, repository, queue, session, clock=clock)
     active_session_presentation = (
         repository.active_probe_presentation_for_session(session.session_id)
         if session.session_id is not None
@@ -520,9 +527,26 @@ def _insert_pending_followups(
         practice_item_id = pending["practice_item_id"]
         if practice_item_id in inserted_ids:
             continue
+        # Meas §3.A2/§3.A3, second door. `build_due_queue`'s loop refuses an item
+        # whose stimulus the practice surface cannot render, and this function
+        # then RESURRECTS it: a follow-up task naming that id rebuilds a
+        # `ScheduledItem` from the vault and pushes it above every ordinary pick.
+        # So the cold retry of a repair, or the held-out check on a certified
+        # skill, could serve the exact instrument the queue had just excluded --
+        # and at maximum priority. Checked here rather than only in the
+        # reconstruct branch below so a future refactor that widens `by_id`
+        # cannot reopen it.
+        candidate_item = vault.practice_items.get(practice_item_id)
+        # The main queue loop rejects retired items, but this second door can
+        # reconstruct one by id after that loop. Retirement is terminal even
+        # when a stale delayed task still names the card.
+        if candidate_item is None or candidate_item.status != "active":
+            continue
+        if candidate_item is not None and unservable_reason(candidate_item) is not None:
+            continue
         scheduled = by_id.get(practice_item_id)
         if scheduled is None:
-            practice_item = vault.practice_items.get(practice_item_id)
+            practice_item = candidate_item
             learning_object = vault.learning_object_for_item(practice_item) if practice_item is not None else None
             if practice_item is None or learning_object is None:
                 continue
@@ -578,6 +602,86 @@ _TEACH_BACK_PRIORITY_FLOOR = 0.05
 # just enough to survive the zero-priority filter; the requested reorder floor
 # and the selection reward decide actual placement.
 _REQUESTED_PRIORITY_FLOOR = 0.05
+
+
+def _apply_contrast_pair_order(
+    vault: LoadedVault,
+    repository: Repository,
+    queue: list[ScheduledItem],
+    session: SchedulerSession,
+    *,
+    clock: Clock | None = None,
+) -> list[ScheduledItem]:
+    """Meas §3.A4: randomize which member of a contrast pair is served first.
+
+    "*Revert if:* within-pair outcome differences are dominated by order effects —
+    check by randomizing which member is served first." The randomization has to
+    happen HERE, because this is the only place the order exists: by the time the
+    attempts are read back, the order they show is the order the learner chose to
+    work in, which is a different quantity.
+
+    Three properties, all of them load-bearing:
+
+    * **Reorder only, and only within the pair.** The two members swap SLOTS, so
+      every other item keeps its position and the selection reward's ordering
+      survives. A control that reshuffled the queue would confound the nuisance
+      parameter it exists to remove.
+    * **Deterministic per session.** ``build_due_queue`` is called repeatedly for
+      one session and must produce the same slate; the draw is seeded on
+      ``(session_id, pair_key)``, so it varies across sessions — where the
+      balance accumulates — and never within one.
+    * **Recorded, including the adjacency basis.** §3.A4 also forbids serving the
+      two adjacent "unless the surfaces differ enough that the manipulation is
+      not salient". Whether that held is a property of the realized queue, so it
+      is observed and stored rather than assumed.
+
+    A session with no session id (an ad-hoc queue build) is left untouched and
+    unrecorded: there is nothing to key an idempotent serving record on, and a
+    serving record that duplicated on every call would poison the balance audit
+    the metric depends on.
+
+    PLACEMENT. This runs before the ``limit`` truncation and before the probe
+    presentation pin, both deliberately. Ahead of the pin, because a committed
+    probe presentation is a durable assignment and must keep the front of the
+    queue whatever this does. Ahead of truncation, because the draw has to be
+    independent of how many slots the session happens to have — a pair whose
+    second member falls outside the limit is simply never *completed*, and
+    ``contrast_pair_order_effect`` requires attempts on both members before it
+    counts a pair at all.
+    """
+
+    from learnloop.services.contrast_pairs import (
+        apply_serving_decisions,
+        plan_contrast_pair_serving,
+        record_contrast_pair_servings,
+    )
+
+    if session.session_id is None or not queue:
+        return queue
+    ordered_ids = [item.practice_item_id for item in queue]
+    decisions = plan_contrast_pair_serving(
+        vault, ordered_ids, session_id=session.session_id
+    )
+    if not decisions:
+        return queue
+    reordered_ids = apply_serving_decisions(ordered_ids, decisions)
+    by_id = {item.practice_item_id: item for item in queue}
+    try:
+        record_contrast_pair_servings(
+            repository, decisions, session_id=session.session_id, clock=clock
+        )
+    except Exception:  # pragma: no cover - defensive
+        # The order still changes; only the audit is lost. Failing the whole queue
+        # build over a measurement record would trade the learner's session for a
+        # metric, which is the wrong direction on standing constraint 10.
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "failed to record contrast pair servings for session %s",
+            session.session_id,
+            exc_info=True,
+        )
+    return [by_id[item_id] for item_id in reordered_ids]
 
 
 def _rotate_same_day_frontier_repeats(

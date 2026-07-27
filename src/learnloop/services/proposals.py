@@ -33,7 +33,12 @@ from learnloop.ids import new_ulid
 from learnloop.token_usage import consume_client_usage
 from learnloop.services.patches import PatchApplyResult, apply_accepted_items, reject_applied_items
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
+from learnloop.vault.models import (
+    CAPABILITY_VOCABULARY,
+    LoadedVault,
+    PracticeItem,
+    learning_object_facet_union,
+)
 from learnloop.vault.paths import VaultPaths
 
 
@@ -1693,6 +1698,10 @@ def _required_create_payload_errors(
 # so proposal validation stays import-light.
 _TEACH_BACK_PRACTICE_MODE = "teach_back"
 _RUBRIC_CRITERION_TIERS = {"core", "transfer"}
+#: Meas §3.A1 observation roles. Deliberately NOT the blueprint component roles
+#: (required / alternative / integration) — the two vocabularies are disjoint and
+#: conflating them is the obvious authoring failure mode.
+_CRITERION_TARGET_ROLES = {"primary", "supporting"}
 
 
 def _missing(value: Any) -> bool:
@@ -1805,6 +1814,63 @@ def _teach_back_rubric_errors(
     return errors
 
 
+def _criterion_target_errors(
+    criterion: dict[str, Any],
+    *,
+    criterion_ids: set[str],
+    single_criterion: bool,
+) -> list[str]:
+    """Structural checks on A1's authored criterion targets (Meas §3.A1).
+
+    Facet *registration* is not checked here — that gate already exists at
+    ``patches._reject_unregistered_facets`` and applies to targets too. These are
+    the checks the vocabulary alone cannot make:
+
+    * capability and role must be in the closed vocabularies (a bad value would
+      otherwise file evidence into a cell nothing reads);
+    * a criterion may own at most one ``primary`` target, because "the step this
+      criterion owns" is singular by construction and two primaries would split
+      full credit between cells that each claim to be the whole step;
+    * a single-criterion item may not author ``supporting`` targets at all. With
+      no other step to consume anything, a supporting target is the item's own
+      facet restated at a 0.3 discount — free credit for the same observation,
+      which is exactly the positive smearing guard 2 exists to bound;
+    * ``depends_on`` must name criteria that exist in this rubric, or first-error
+      localization silently treats the step as independent and one divergence is
+      scored as failure at every later step.
+    """
+
+    errors: list[str] = []
+    label = str(criterion.get("id") or "unknown")
+    targets = criterion.get("targets")
+    primaries = 0
+    if isinstance(targets, list):
+        for target in targets:
+            if not isinstance(target, dict):
+                errors.append(f"invalid_criterion_target:not_an_object:{label}")
+                continue
+            if not str(target.get("facet") or "").strip():
+                errors.append(f"invalid_criterion_target:missing_facet:{label}")
+            capability = target.get("capability")
+            if capability is not None and str(capability) not in CAPABILITY_VOCABULARY:
+                errors.append(f"invalid_criterion_target:capability:{label}:{capability}")
+            role = str(target.get("role") or "primary")
+            if role not in _CRITERION_TARGET_ROLES:
+                errors.append(f"invalid_criterion_target:role:{label}:{role}")
+            elif role == "primary":
+                primaries += 1
+            elif single_criterion:
+                errors.append(f"invalid_criterion_target:supporting_on_single_criterion:{label}")
+    if primaries > 1:
+        errors.append(f"invalid_criterion_target:multiple_primary:{label}")
+    depends_on = criterion.get("depends_on")
+    if isinstance(depends_on, list):
+        for dependency in depends_on:
+            if str(dependency) not in criterion_ids:
+                errors.append(f"invalid_criterion_depends_on:{label}:{dependency}")
+    return errors
+
+
 def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
     rubric = payload.get("grading_rubric")
     if not isinstance(rubric, dict):
@@ -1822,6 +1888,12 @@ def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
 
     total_points = 0.0
     criteria = rubric.get("criteria")
+    criterion_ids = {
+        str(criterion.get("id"))
+        for criterion in (criteria or [])
+        if isinstance(criterion, dict) and criterion.get("id")
+    }
+    single_criterion = len(criterion_ids) <= 1
     if isinstance(criteria, list):
         for criterion in criteria:
             if not isinstance(criterion, dict):
@@ -1836,6 +1908,11 @@ def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
             tier = criterion.get("tier")
             if tier is not None and tier not in _RUBRIC_CRITERION_TIERS:
                 errors.append(f"invalid_grading_rubric:criterion_tier:{criterion.get('id') or 'unknown'}")
+            errors.extend(
+                _criterion_target_errors(
+                    criterion, criterion_ids=criterion_ids, single_criterion=single_criterion
+                )
+            )
             total_points += max(points, 0.0)
     if criteria and total_points > max_points + 1e-6:
         errors.append("invalid_grading_rubric:criteria_points_exceed_max_points")

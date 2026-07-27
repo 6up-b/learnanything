@@ -131,7 +131,28 @@ def prescribe_remediation(
     ) or episode
 
 
-def _rank_items(vault: LoadedVault, repository: Repository, misconception) -> list[Any]:
+def _rank_items(
+    vault: LoadedVault, repository: Repository, misconception
+) -> tuple[list[Any], list[dict[str, Any]]]:
+    """The repair's candidate items best-first, plus the servability skips.
+
+    Meas §3.A2/§3.A3: an item whose stimulus the practice surface cannot render
+    is not schedulable, and a repair episode is the worst place to break that
+    rule. The primed/cold pair is the *measurement* of whether the repair took;
+    serving an error hunt whose worked solution never reaches the surface means
+    the learner cannot answer, the grader (which does receive the solution) marks
+    every plant missed, and the episode records a failed repair the learner was
+    never shown the material to make — a harmful write manufactured by the
+    serving path, on the one attempt pair the repair is judged by.
+
+    Skips are returned rather than dropped because this is a selection path: the
+    ranking simply picks another item, and an invisible skip leaves
+    "no practice item is available for this repair" as the only trace of a
+    learning object that demonstrably has items.
+    """
+
+    from learnloop.services.instrument_serving import unservable_refusal
+
     target_facets = {
         vault.canonical_facet_id(facet)
         for facet in (
@@ -141,11 +162,16 @@ def _rank_items(vault: LoadedVault, repository: Repository, misconception) -> li
         if facet
     }
     ranked = []
+    skipped: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
         if item.learning_object_id != _case_value(misconception, "learning_object_id"):
             continue
         state = repository.practice_item_state(item.id)
         if state is not None and not state.active:
+            continue
+        refusal = unservable_refusal(item)
+        if refusal is not None:
+            skipped.append(refusal)
             continue
         overlap = len(
             target_facets
@@ -158,7 +184,7 @@ def _rank_items(vault: LoadedVault, repository: Repository, misconception) -> li
         # ordering this rank wants (least recently practiced first).
         last_attempt_at = (state.last_attempt_at or "") if state else ""
         ranked.append((-overlap, last_attempt_at, item.id, item))
-    return [entry[3] for entry in sorted(ranked)]
+    return [entry[3] for entry in sorted(ranked)], skipped
 
 
 def start_remediation_treatment(
@@ -174,8 +200,18 @@ def start_remediation_treatment(
     misconception = _episode_case(repository, episode)
     if misconception is None:
         raise RemediationError("remediation case no longer exists")
-    ranked = _rank_items(vault, repository, misconception)
+    ranked, unservable_skips = _rank_items(vault, repository, misconception)
     if not ranked:
+        if unservable_skips:
+            # Name the rule that emptied the ranking. The bare message sends a
+            # reader looking for an authoring failure when the items exist, are
+            # active, and were refused by a known serving limit with a known
+            # remedy.
+            raise RemediationError(
+                "no practice item is available for this repair: "
+                f"{len(unservable_skips)} item(s) are not servable — "
+                f"{unservable_skips[0]['remedy']}"
+            )
         raise RemediationError("no practice item is available for this repair")
     primed = ranked[0]
     cold = ranked[1] if len(ranked) > 1 else ranked[0]
@@ -187,7 +223,15 @@ def start_remediation_treatment(
         clock=clock,
     )
     assert updated is not None
-    return {"episode": updated, "primed_item_id": primed.id, "cold_item_id": cold.id}
+    return {
+        "episode": updated,
+        "primed_item_id": primed.id,
+        "cold_item_id": cold.id,
+        # Travels on the success result too, and the handler spreads it onto the
+        # wire: the pair the learner gets is not the pair the ranking would have
+        # chosen, and this is the only record of why.
+        "unservable_skips": unservable_skips,
+    }
 
 
 def record_remediation_attempt(

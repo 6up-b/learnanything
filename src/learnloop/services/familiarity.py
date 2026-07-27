@@ -379,20 +379,73 @@ def _pairwise_warmth(
     return warmth_score(combined)
 
 
+#: A surface's laddered-stem identity: ``(stem_id, capability)``. Meas §3.A2.
+StemColumn = tuple[str, str]
+
+
+def _stem_edge(a: StemColumn | None, b: StemColumn | None) -> bool | None:
+    """Does A2's stem rule decide this edge, and how?
+
+    ``True`` co-cluster, ``False`` never co-cluster, ``None`` the rule has no
+    opinion and warmth decides. Total over the four cases, and deliberately
+    silent (``None``) whenever either surface is not a stem part or the two
+    belong to different stems — A2 is a statement about parts of ONE stimulus
+    and has nothing to say about anything else.
+    """
+
+    if a is None or b is None:
+        return None
+    if a[0] != b[0]:
+        return None
+    return a[1] == b[1]
+
+
 def tight_kinship_clusters(
     repository: Repository,
     *,
     surface_ids: Sequence[str],
     threshold: float | None = None,
+    stem_columns: Mapping[str, StemColumn] | None = None,
 ) -> list[list[str]]:
     """Single-linkage threshold clustering (A.4). Two surfaces co-cluster iff
     pairwise warmth >= ``threshold`` (default the registered
     ``TIGHT_KINSHIP_THRESHOLD``). Surfaces are iterated in ULID order for
     determinism; the caller scopes ``surface_ids`` to one target x capability x
     angle neighborhood (§4.3). Returns clusters as sorted id lists.
+
+    MEAS §3.A2 — LADDERED STEMS, IN THIS RULE AND NOWHERE ELSE
+    ----------------------------------------------------------
+    ``stem_columns`` maps a surface to its ``(stem_id, capability)`` when the
+    surface is one part of a laddered stem (``services/laddered_stems`` builds
+    it). §3.A2's honest treatment: "parts of one stem are **correlated within a
+    cell** (two ``procedure_execution`` parts on one stimulus are close to one
+    observation) and **independent across columns** (retrieval and coordination
+    on one stimulus are genuinely different measurements). One rule, in the
+    existing implementation, per augmentation §8's 'one code path' requirement —
+    not a parallel notion of kinship."
+
+    So it is two edge rules inside this one union-find pass, not a second
+    clustering:
+
+    * **same stem, same capability -> ALWAYS co-cluster**, whatever the warmth
+      features say. The parts share a stimulus by construction; a soft-feature
+      score that failed to notice would mint independent evidence for one context
+      load, which is the entire cost argument for the instrument turned into an
+      overcount.
+    * **same stem, different capability -> NEVER co-cluster**, whatever the
+      warmth features say. This is the edge that would otherwise fire: parts of
+      one stem share a stimulus, a source and usually a facet, so warmth is high
+      between them, and the pre-A2 implementation would correctly-by-its-own-
+      lights collapse a whole capability row into one observation.
+
+    Both rules apply ONLY to surfaces present in ``stem_columns``. With the
+    argument omitted — every caller before A2 — this function is byte-identical
+    to what it was, which is what makes the change additive rather than a
+    reinterpretation of existing evidence.
     """
 
     cut = TIGHT_KINSHIP_THRESHOLD if threshold is None else threshold
+    columns = dict(stem_columns or {})
     ordered = sorted(surface_ids)
     # Union-find over the neighborhood.
     parent: dict[str, str] = {s: s for s in ordered}
@@ -415,6 +468,12 @@ def tight_kinship_clusters(
 
     for i, a in enumerate(ordered):
         for b in ordered[i + 1 :]:
+            stem_edge = _stem_edge(columns.get(a), columns.get(b))
+            if stem_edge is True:
+                union(a, b)
+                continue
+            if stem_edge is False:
+                continue
             if _pairwise_warmth(repository, a, b) >= cut:
                 union(a, b)
 
@@ -441,13 +500,26 @@ def evidence_cap_grouping(
     *,
     surface_ids: Sequence[str],
     threshold: float | None = None,
+    stem_columns: Mapping[str, StemColumn] | None = None,
 ) -> EvidenceCapGrouping:
     """Independent-group count for the family evidence cap (§4.3): one tight
     soft-kinship cluster contributes exactly ONE independent group, no matter how
     many variant surfaces it holds. Additional administrations in a cluster add
-    diminishing mass and ZERO new independent-group count."""
+    diminishing mass and ZERO new independent-group count.
 
-    clusters = tight_kinship_clusters(repository, surface_ids=surface_ids, threshold=threshold)
+    ``stem_columns`` is Meas §3.A2's laddered-stem identity, passed straight
+    through to :func:`tight_kinship_clusters` — the one implementation of
+    kinship — so "two parts of one stem at the same capability count as ~one
+    independent group; two parts at different capabilities count as two" is a
+    consequence of the existing rule rather than a second one layered on top.
+    """
+
+    clusters = tight_kinship_clusters(
+        repository,
+        surface_ids=surface_ids,
+        threshold=threshold,
+        stem_columns=stem_columns,
+    )
     return EvidenceCapGrouping(
         clusters=tuple(tuple(c) for c in clusters),
         independent_group_count=len(clusters),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -85,6 +85,13 @@ class InterventionSelection:
     misconception_gate_blocked: bool = False
     active_misconception_ids: list[str] | None = None
     eligible_slate_size: int = 0
+    # Meas §3.A2/§3.A3: candidates dropped before ranking because the practice
+    # surface cannot render their stimulus. A sibling of the existing "why this
+    # item was not chosen" fields, not a parallel channel: like
+    # ``misconception_gate_blocked`` it explains an empty or thinned slate, and
+    # without it "no_suitable_item" is recorded for a learning object that
+    # visibly has suitable items.
+    unservable_skips: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -1169,11 +1176,25 @@ def _choose_intervention_item(
     tau_severe_error: float = 0.0,
     clock: Clock | None = None,
 ) -> InterventionSelection:
-    candidates = [
-        item
-        for item in vault.practice_items.values()
-        if item.learning_object_id == learning_object_id and item.id != exclude_practice_item_id
-    ]
+    # Meas §3.A2/§3.A3: the follow-up after a failed attempt is a selection path,
+    # so an item whose stimulus the practice surface cannot render is skipped and
+    # another is chosen. Skipping every candidate leaves `candidate=None`, which
+    # this function's caller already handles correctly — it records an
+    # intervention need and the generation lane authors a servable item — so the
+    # only thing that could go missing is the REASON, which rides on the
+    # selection below.
+    from learnloop.services.instrument_serving import unservable_refusal
+
+    candidates = []
+    unservable_skips: list[dict[str, Any]] = []
+    for item in vault.practice_items.values():
+        if item.learning_object_id != learning_object_id or item.id == exclude_practice_item_id:
+            continue
+        refusal = unservable_refusal(item)
+        if refusal is not None:
+            unservable_skips.append(refusal)
+            continue
+        candidates.append(item)
     # Tutor-question evidence (question_signal): substantive unresolved
     # questions update the marginals BEFORE gating/EIG, so questioned facets
     # carry more entropy (higher facet-EIG for items probing them) and
@@ -1284,6 +1305,7 @@ def _choose_intervention_item(
             misconception_gate_blocked=False,
             active_misconception_ids=active_misconception_ids,
             eligible_slate_size=0,
+            unservable_skips=unservable_skips,
         )
 
     gate_applies = bool(diagnostic_states) and dominant_target_facet is not None
@@ -1456,6 +1478,7 @@ def _choose_intervention_item(
         misconception_gate_blocked=misconception_gate_blocked,
         active_misconception_ids=active_misconception_ids,
         eligible_slate_size=len(eligible),
+        unservable_skips=unservable_skips,
     )
 
 
@@ -1793,6 +1816,14 @@ def _record_followup_decision_features(
             ),
             "diagnostic_focus": selection.diagnostic_focus,
             "manual_trigger": manual_trigger,
+            # Meas §3.A2/§3.A3: present only when something was actually refused,
+            # so every pre-existing decision record is byte-identical and a
+            # non-empty key is a real signal rather than noise on every row.
+            **(
+                {"unservable_skips": selection.unservable_skips}
+                if selection.unservable_skips
+                else {}
+            ),
             # spec §4.2: surface a thin eligible slate (pool-of-one silently zeroes
             # predictive_eig) and the active-misconception context when routing gated.
             **(

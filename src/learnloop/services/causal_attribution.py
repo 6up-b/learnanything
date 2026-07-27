@@ -154,14 +154,23 @@ DIAGNOSIS_RECEIPT_SCHEMA_VERSION = 3
 # may PROMOTE a route; an unapproved authority may still veto (§2).
 SUPPORT_AUTHORITIES = (
     "unavailable_single_attempt",
+    # Aug C3: agreement across independent samples from one diagnostician is a
+    # real provisional support score, but not independent evidence about the
+    # learner and therefore never a durable-promotion authority.
+    "sample_agreement",
     "validator_owned",
     "learner_confirmed",
     "adjudicated",
     "fingerprint_distinct_recurrence",
 )
-APPROVED_SUPPORT_AUTHORITIES = frozenset(SUPPORT_AUTHORITIES) - {
-    "unavailable_single_attempt"
-}
+APPROVED_SUPPORT_AUTHORITIES = frozenset(
+    {
+        "validator_owned",
+        "learner_confirmed",
+        "adjudicated",
+        "fingerprint_distinct_recurrence",
+    }
+)
 DEFAULT_SUPPORT_AUTHORITY = "unavailable_single_attempt"
 
 # The independent-evidence channels that may move DIAGNOSIS support (§7).  A
@@ -1603,6 +1612,9 @@ def _hypothesis_specs(
                     "model_reported_causal_confidence": plan.get(
                         "model_reported_causal_confidence"
                     ),
+                    "diagnostic_sample_support": plan.get(
+                        "diagnostic_sample_support"
+                    ),
                     "observed_signature": event.get(
                         "misconception_consistent_answer"
                     ),
@@ -2048,11 +2060,30 @@ def materialize_causal_episode(
         )
         for value in concrete
     }
-    # A single attempt does not produce validator-owned causal support or an
-    # ordinal posterior. Preserve model proposals as provenance, not rank.
-    support_scores = {
-        str(value["id"]): None for value in concrete
+    # C3 independent diagnosis calls produce a real *provisional* support score.
+    # It remains an unapproved authority: repeated readings of one trace are not
+    # independent evidence about the learner and cannot promote a belief.
+    sample_support = {
+        str(value["id"]): (
+            (value.get("evidence") or {}).get("diagnostic_sample_support")
+            if isinstance(value.get("evidence"), dict)
+            else None
+        )
+        for value in concrete
     }
+    support_scores = {
+        hypothesis_id: (
+            max(0.0, min(1.0, float(score)))
+            if isinstance(score, (int, float))
+            else None
+        )
+        for hypothesis_id, score in sample_support.items()
+    }
+    support_authority = (
+        "sample_agreement"
+        if any(score is not None for score in support_scores.values())
+        else DEFAULT_SUPPORT_AUTHORITY
+    )
     mapped_repair_ids = {
         str(value["repair_class_id"])
         for value in concrete
@@ -2196,7 +2227,7 @@ def materialize_causal_episode(
         # A single attempt earns no approved authority.  The honest value is the
         # one that keeps `failure_triage` from PROMOTING on it (§2); it may still
         # veto.
-        "support_authority": DEFAULT_SUPPORT_AUTHORITY,
+        "support_authority": support_authority,
         "trace_consistency": trace_consistency,
         "trace_consistency_detail": trace_consistency_detail,
         # DEPRECATED: receipt-level alias retained for the P1 claim-check

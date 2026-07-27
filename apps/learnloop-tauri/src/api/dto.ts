@@ -449,10 +449,34 @@ export interface QueueSnapshot {
   totalItems: number;
 }
 
+/** Knowledge-model §5.1: what a rubric criterion actually observes. `role`
+ *  compiles deterministically into certification credit (primary 1.0,
+ *  supporting 0.3) — it is an allocation rule, not a claim of causal certainty. */
+export interface CriterionTargetDto {
+  facet: string;
+  capability: string;
+  role: "primary" | "supporting";
+}
+
 export interface RubricCriterionDto {
   id: string;
   points: number;
   description: string;
+  tier?: "core" | "transfer";
+  /** A1's authored observation contract. The backend has always serialized the
+   *  whole criterion model; these were missing from the type, which made an
+   *  item's authored measurement claims inspectable only by reading YAML. */
+  targets?: CriterionTargetDto[];
+  dependsOn?: string[];
+  correlationGroup?: string | null;
+  recipeIds?: string[];
+  measurementStatus?:
+    | "direct"
+    | "supporting"
+    | "composite"
+    | "item_local"
+    | "no_canonical_facet"
+    | null;
 }
 
 export interface RubricFatalErrorDto {
@@ -477,6 +501,51 @@ export interface CandidateErrorTypeDto {
   relevant: boolean;
 }
 
+// Meas §3.A6 — whether this serve offers the optional one-line justification,
+// and (when it does not) which of the four "we did not ask" arms applies. Null
+// when the item was opened without a session: a read-only open is not a serve,
+// so no decision was made rather than a negative one being fabricated.
+export interface ElicitationDecisionDto {
+  elicit: boolean;
+  reason:
+    | "answer_underdetermines_reasoning"
+    | "self_documenting_trace"
+    | "capability_shows_its_work"
+    | "session_budget_exhausted"
+    | "disabled";
+  prompt: string | null;
+}
+
+// ── Meas §3.A2/§3.A3 item presentation ──────────────────────────────────────
+// What the learner must SEE to answer an item, as one ordered structure shared
+// by every serving surface. Before this, `prompt` was the only thing a surface
+// carried, so an error hunt was served with no worked solution to repair and a
+// laddered-stem part with no stimulus to climb — a silent failure, because the
+// grader DID receive the material and marked every miss against the learner.
+//
+// Render `blocks` in order and in full. Do not switch on `kind` to decide
+// whether to show a block: an unknown kind is a stimulus this build has not
+// heard of, and dropping it reproduces exactly the defect this type exists to
+// close. `kind` is for labelling and styling only.
+export type PresentationBlockKind =
+  | "prompt"
+  | "error_hunt_worked_solution"
+  | "laddered_stem_stimulus";
+
+export interface PresentationBlockDto {
+  kind: PresentationBlockKind | string;
+  markdown: string;
+  /** Caption above the block, or null for the prompt (which needs no chrome). */
+  label: string | null;
+  /** Present on `laddered_stem_stimulus`: the stem whose parts share this text. */
+  stemId?: string;
+}
+
+export interface ItemPresentationDto {
+  practiceItemId: string;
+  blocks: PresentationBlockDto[];
+}
+
 export interface PracticeItemDetail {
   version: number;
   id: string;
@@ -498,7 +567,10 @@ export interface PracticeItemDetail {
   } | null;
   evidenceFacets: string[];
   evidenceWeights: Record<string, number>;
+  /** The question text alone. Fine for previews and controls; anything asking
+   *  the learner to ANSWER must render `presentation` instead. */
   prompt: string;
+  presentation: ItemPresentationDto;
   expectedAnswer: string | Record<string, unknown>;
   difficulty: number | null;
   hints: string[];
@@ -516,6 +588,70 @@ export interface PracticeItemDetail {
   scheduler: SchedulerExplanationDto | null;
   attempts: AttemptHistoryRowDto[];
   assessmentContractVersionId: string | null;
+  elicitation: ElicitationDecisionDto | null;
+}
+
+// ── Meas §3.A6 opportunistic trace evidence ─────────────────────────────────
+// `reward` is the sentence the feedback surface says when a volunteered
+// explanation demonstrated facets beyond the item's declared set — the visible
+// half of "voluntary and visibly rewarded". Null, never zero, when it did not.
+export interface TraceExercisedFacetDto {
+  facetId: string;
+  observationScope: "declared" | "opportunistic" | string;
+  criterionId: string | null;
+  evidence: string;
+  source: string | null;
+}
+
+export interface AttemptTraceEvidenceDto {
+  version: number;
+  attemptId: string;
+  observations: TraceExercisedFacetDto[];
+  reward: string | null;
+}
+
+// ── Meas §3.A8 clarification channel ────────────────────────────────────────
+// One question per attempt, asked only when the grade was hedged or abstained.
+// While it is pending the attempt carries manual_review_reason
+// `provisional_pending_clarification`: the grade is not final.
+export interface GradingClarificationDto {
+  id: string;
+  attemptId: string;
+  criterionId: string | null;
+  reason:
+    | "ambiguous_notation"
+    | "skipped_step"
+    | "correct_answer_possibly_invalid_reasoning"
+    | "method_ambiguity"
+    | "other";
+  trigger: "hedged_criterion" | "abstained_attribution" | "low_grader_confidence";
+  questionMd: string;
+  expiresAt: IsoTimestamp;
+  createdAt: IsoTimestamp;
+  answerMd: string | null;
+  answeredAt: IsoTimestamp | null;
+  outcome: ClarificationOutcome | null;
+  status: "pending" | "answered" | "timed_out";
+}
+
+export interface GradingClarificationResultDto {
+  version: number;
+  clarification: GradingClarificationDto | null;
+}
+
+/** `abstained` is first-class: the learner answered and the grader still could
+ *  not name a cause. Null means the answer is recorded but no re-grade ran. */
+export type ClarificationOutcome = "resolved" | "abstained" | "regrade_failed";
+
+export interface AnswerGradingClarificationResultDto {
+  version: number;
+  clarificationId: string | null;
+  outcome: ClarificationOutcome | null;
+  regraded: boolean;
+  /** Why the grade did not move, when it did not (provider outage, failed
+   *  re-grade). The answer itself is persisted regardless. */
+  error: string | null;
+  feedback: FeedbackBundle;
 }
 
 export interface AttemptHistoryRowDto {
@@ -587,7 +723,14 @@ export interface SelfGradeInputDto {
 export interface SubmitAttemptInput {
   sessionId: string;
   practiceItemId: string;
+  /** The answer, and nothing but the answer. */
   answerMd: string;
+  /** Meas §3.A6: the volunteered one-line justification, as its own field. The
+   *  sidecar joins it to the answer into the single trace the grader reads —
+   *  the client neither knows nor reproduces the heading that delimits it, so
+   *  there is no constant to keep synchronized across the language boundary.
+   *  Blank/omitted is submitted as nothing at all: not a decline, not a skip. */
+  explanationMd?: string | null;
   attemptType: AttemptType;
   hintsUsed: number;
   latencySeconds?: number | null;
@@ -3258,6 +3401,11 @@ export interface ExamStatusSnapshot {
   existingSessionId: string | null;
   poolItemCount: number;
   uncoveredFacets: string[];
+  /** The held-out pool could not be reserved yet — there is not enough material
+   *  to hold one out of. The read self-heals: it retries the reservation. */
+  reservationDeferred: boolean;
+  /** How many items *could* be reserved once coverage exists. */
+  reservableCandidateCount: number;
 }
 
 export interface ExamItemDto {
@@ -3265,6 +3413,10 @@ export interface ExamItemDto {
   index: number;
   total: number;
   prompt: string;
+  /** The SAME payload `PracticeItemDetail` carries, from the same serializer.
+   *  Exams had their own prompt-only shape, which is why an error hunt served in
+   *  exam mode would have stayed solution-less even after practice was fixed. */
+  presentation: ItemPresentationDto;
   practiceMode: string;
 }
 
@@ -3404,7 +3556,8 @@ export interface MaintenanceFeedSnapshot {
   notices: MaintenanceNoticeDto[];
 }
 
-// Stage 0–5 measurement / causal operational surface. Metric payloads keep
+// Stage 0–6 measurement / causal operational surface plus Stage 8.1's static
+// inference precheck. Metric payloads keep
 // availability explicit so the UI never renders "no data" as a zero.
 export interface MeasurementMetricDto {
   name: string;
@@ -3450,6 +3603,49 @@ export interface MeasurementHealthDto {
       facetsInstrumented: number;
     };
     cells: ReachabilityCellDto[];
+  };
+  /** Plan 8.1's read-only counterfactual. `cellsConverted` is the guaranteed
+   *  static count; path-specific candidates stay separate until their path is
+   *  actually exercised. */
+  inferencePrecheck: {
+    version: number;
+    summary: {
+      baseline: Record<string, unknown>;
+      capabilityDominance: {
+        cellsConverted: number;
+        movesCount: boolean;
+        shareOfUnreachable: number | null;
+        shareOfAllCells: number | null;
+        substitutableCells: number;
+        integrationPredictionOnlyCells: number;
+      };
+      prerequisiteEntailment: {
+        cellsConverted: number;
+        movesCount: boolean;
+        shareOfUnreachable: number | null;
+        shareOfAllCells: number | null;
+        substitutableCells: number;
+        integrationPredictionOnlyCells: number;
+        conditionalCells: number;
+        maximumCellsConverted: number;
+        maximumShareOfUnreachable: number | null;
+        prerequisiteDeclarationCount: number;
+        prerequisiteGraphEdgeCount: number;
+        prerequisiteGraphEdgesUnreferenced: number;
+        modalityCounts: Record<string, number>;
+        dispositionCounts: Record<string, number>;
+      };
+      combined: {
+        cellsConverted: number;
+        maximumCellsConverted: number;
+        movesCount: boolean;
+        shareOfUnreachable: number | null;
+        maximumShareOfUnreachable: number | null;
+      };
+    };
+    dominanceCells: Array<Record<string, unknown>>;
+    entailmentCells: Array<Record<string, unknown>>;
+    prerequisiteAudit: Array<Record<string, unknown>>;
   };
   coldProbes: {
     coverage: {
@@ -3532,6 +3728,112 @@ export interface MeasurementHealthDto {
       reviewReason: string | null;
     }>;
     pendingMachineChecks: Array<Record<string, unknown>>;
+  };
+  /** §3.A6 revert criterion: opportunistic credit concentrating on a handful of
+   *  facets means the grader is pattern-matching the vocabulary rather than
+   *  reading the work. `opportunisticConcentration` abstains (null) below a
+   *  handful of observations rather than reporting 1.0 from a single row. */
+  traceEvidence: {
+    attemptsWithObservations: number;
+    declaredObservations: number;
+    opportunisticObservations: number;
+    distinctOpportunisticFacets: number;
+    opportunisticConcentration: number | null;
+    topOpportunisticFacets: Array<{ facetId: string; count: number }>;
+    unexercisedSupportingCells: Array<{
+      facetId: string;
+      capability: string;
+      unexercisedSupportingMass: number;
+      embeddedCertificationCredit: number;
+      directCertificationCredit: number;
+    }>;
+    unexercisedSupportingCellCount: number;
+  };
+  /** §3.A8 revert criterion. `available: false` below the minimum denominator —
+   *  a rate from a handful of attempts is noise, and must not render as 0%.
+   *  `overThreshold` means machine-resident uncertainty is being misclassified
+   *  as learner-resident and must be fixed machine-side. */
+  clarificationRate: {
+    available: boolean;
+    unavailableReason?: string;
+    rate?: number;
+    gradeableAttempts: number;
+    clarifications: number;
+    answered?: number;
+    threshold: number;
+    overThreshold?: boolean;
+  };
+  instrumentAudit: InstrumentAuditDto;
+}
+
+/** Plan item 6.4: every Meas §3 instrument class's REVERT criterion, read by the
+ *  same producers as `learnloop instrument-audit`. Each metric keeps its own
+ *  availability arm — a rate over too little data is `no_data` with the counts
+ *  visible, and must never render as 0. The companions travel alongside because
+ *  a rejection rate of 0.4 over three profiled items says almost nothing, and a
+ *  reader who cannot see the pool will read it as though it did. */
+export interface InstrumentAuditDto {
+  /** In fixed order: A2 laddered stems, A3 error hunts, A4 contrast pairs,
+   *  A5 discrimination profiles. `detail.verdict` names the revert condition. */
+  metrics: MeasurementMetricDto[];
+  discriminationProfileCoverage: {
+    practiceItems: number;
+    itemsWithProfiles: number;
+    profiles: number;
+    profilesBySource: Record<string, number>;
+    /** `authored` profiles are legitimate, but this is the arm A4 commissioning
+     *  exists to replace: a registry-linked profile can be corroborated from
+     *  evidence elsewhere in the vault, a freehand one cannot. */
+    unlinkedAuthoredProfiles: number;
+  };
+  errorHuntOutcomes: {
+    attempts: number;
+    cleanSolutionAttempts: number;
+    /** Null, not zero, with no attempts: §3.A3's "there is always an error"
+     *  strategy returns the moment clean solutions stop being served, and a
+     *  fabricated 0% would read as that failure rather than as no data. */
+    cleanRotationShare: number | null;
+    plantedTotal: number;
+    plantedRepaired: number;
+    plantedFoundNotRepaired: number;
+    plantedMissed: number;
+    falsePositiveReports: number;
+    misconceptionCandidatesWritten: number;
+    facetFailuresSuppressed: number;
+  };
+  /** A "stem" whose parts all sit at one capability is NOT a ladder — it is a
+   *  set of near-clones on one stimulus, which is the instrument's failure mode
+   *  and looks identical to success in an item count. Hence `isLadder`. */
+  ladderedStems: Array<{
+    stemId: string;
+    partIds: string[];
+    capabilities: string[];
+    unplacedParts: string[];
+    columnsFilled: number;
+    isLadder: boolean;
+  }>;
+  /** A4 commissioning queue: identifiability findings turned into authoring
+   *  requests. Deferred findings stay IN the queue with a typed reason. */
+  contrastPairCommissioning: {
+    version: number;
+    summary: {
+      queueLength: number;
+      commissioned: number;
+      deferred: number;
+      dispositions: Record<string, number>;
+    };
+    requests: Array<{
+      targetKey: string;
+      check: string;
+      detail: string;
+      facetIds: string[];
+      capability: string | null;
+      disposition: string;
+      queueRank: number;
+      subjectId: string | null;
+      why: string;
+      reason?: string;
+    }>;
   };
 }
 
@@ -4371,6 +4673,9 @@ export interface AssessOpenDto {
    *  hidden until after submission). Absent when the surface has no legacy item. */
   practiceItemId?: string;
   prompt?: string;
+  /** The full §3.A2/§3.A3 stimulus, from the same serializer practice and exams
+   *  read. Absent when the surface has no legacy item. */
+  presentation?: ItemPresentationDto;
   maxPoints?: number;
 }
 

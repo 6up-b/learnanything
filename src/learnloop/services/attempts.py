@@ -139,6 +139,15 @@ class AttemptDraft:
     # A diagnostic presentation keeps its measurement attempt type while this
     # flag records the learner's explicit "I don't know" outcome.
     declared_dont_know: bool = False
+    # Meas §3.A6: the one line the learner volunteered at a decision point, as
+    # its OWN field rather than as text a client appended under an agreed
+    # heading. `learner_answer_md` above still carries the composed trace — the
+    # grader has to read one narrative, not two fields — but it is composed by
+    # `trace_evidence.compose_learner_trace` on the way in, so no surface and no
+    # consumer has to know the delimiter to write or detect a volunteered line.
+    # None when nothing was volunteered; there is deliberately no value meaning
+    # "offered and declined" (rule 3).
+    elicited_explanation_md: str | None = None
 
 
 @dataclass(frozen=True)
@@ -189,10 +198,15 @@ class GradeAttribution:
     first_divergence: dict[str, Any] | None = None
     model_reported_localization_confidence: float | None = None
     model_reported_causal_confidence: float | None = None
+    # Aug C3 harness-owned agreement, attached after proposal validation.
+    diagnostic_sample_support: float | None = None
     facet_contrast: dict[str, Any] | None = None
     candidate_causes: list[dict[str, Any]] = field(default_factory=list)
     postdictive_claims: list[dict[str, Any]] = field(default_factory=list)
     soft_postdictive_claims: list[str] = field(default_factory=list)
+    # Meas §3.A3 / §10: a typed reason the facet targets were cleared, carried to
+    # the observation ledger so an emptied list cannot be read as an unfilled one.
+    facet_write_blocked: str | None = None
 
 
 @dataclass(frozen=True)
@@ -209,6 +223,18 @@ class ResolvedGrade:
     fatal_errors: list[str] = field(default_factory=list)
     diagnosis_md: str | None = None
     attribution_audit_events: list[dict[str, Any]] = field(default_factory=list)
+    # Meas §3.A6: facets the grader saw exercised in the trace. Carried on the
+    # resolved grade rather than written from the validator so the whole attempt
+    # commits or none of it does, like every other grading side effect.
+    exercised_facets: list[dict[str, Any]] = field(default_factory=list)
+    # Meas §3.A8: an accepted clarification request, if the grader made one.
+    clarification: dict[str, Any] | None = None
+    # Meas §3.A5: the typed profile judgement, including the `no_profile_applies`
+    # and `no_profiles_offered` arms. Carried rather than re-derived so the
+    # recorded outcome is the one the grade was validated with.
+    discrimination_profile_match: dict[str, Any] | None = None
+    # Meas §3.A3: the resolved error-hunt outcome, `None` off that instrument.
+    error_hunt: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -237,6 +263,17 @@ class AttemptResult:
     # IRT picture of the mastery update (spec §7.1); debug-only, excluded from as_dict.
     mastery_trace: MasteryObservationTrace | None = None
     debug_payload: dict[str, object] | None = None
+    # Meas §3.A6: carried to the write site in `apply_attempt`. Empty on every
+    # non-model grading path (self, deterministic, replay) — a channel whose
+    # whole premise is "the grader read the trace" has nothing to report when
+    # no grader ran.
+    exercised_facets: list[dict[str, Any]] = field(default_factory=list)
+    # Meas §3.A8: the accepted clarification request, carried to the same site.
+    clarification: dict[str, Any] | None = None
+    # Meas §3.A5 / §3.A3: carried to the same write site as A6 and A8, for the
+    # same reason — the whole attempt commits or none of it does.
+    discrimination_profile_match: dict[str, Any] | None = None
+    error_hunt: dict[str, Any] | None = None
     # §5.7 block-end hook payload when this attempt closed a diagnostic block:
     # released feedback, open-set/completion outcome, and the route.
     probe_block_end: dict[str, Any] | None = None
@@ -440,6 +477,7 @@ def _complete_attempt_with_agent_fallback(
         rubric=rubric,
         assessment_contract=contract,
     )
+    context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -455,7 +493,8 @@ def _complete_attempt_with_agent_fallback(
         }
     )
     try:
-        proposal = ai_client.run_grading_proposal(context)
+        consensus = _run_augmented_diagnosis(vault, ai_client, context)
+        proposal = consensus.proposal
         result = complete_codex_graded_attempt(
             vault,
             repository,
@@ -464,6 +503,15 @@ def _complete_attempt_with_agent_fallback(
             attempt_id=attempt_id,
             agent_run_id=agent_run_id,
             grading_source=grading_source,
+            diagnostic_sample_support=consensus.agreement_support,
+            clock=clock,
+        )
+        _record_diagnostic_augmentation(
+            repository,
+            attempt_id=attempt_id,
+            context=context,
+            consensus=consensus,
+            client=ai_client,
             clock=clock,
         )
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
@@ -591,6 +639,7 @@ def _complete_attempt_with_agent_required(
         rubric=rubric,
         assessment_contract=contract,
     )
+    context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -606,7 +655,8 @@ def _complete_attempt_with_agent_required(
         }
     )
     try:
-        proposal = ai_client.run_grading_proposal(context)
+        consensus = _run_augmented_diagnosis(vault, ai_client, context)
+        proposal = consensus.proposal
         result = complete_codex_graded_attempt(
             vault,
             repository,
@@ -615,6 +665,15 @@ def _complete_attempt_with_agent_required(
             attempt_id=attempt_id,
             agent_run_id=agent_run_id,
             grading_source=grading_source,
+            diagnostic_sample_support=consensus.agreement_support,
+            clock=clock,
+        )
+        _record_diagnostic_augmentation(
+            repository,
+            attempt_id=attempt_id,
+            context=context,
+            consensus=consensus,
+            client=ai_client,
             clock=clock,
         )
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
@@ -715,6 +774,7 @@ def complete_codex_graded_attempt(
     attempt_id: str | None = None,
     agent_run_id: str | None = None,
     grading_source: str = "codex",
+    diagnostic_sample_support: float | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
     item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
@@ -730,6 +790,15 @@ def complete_codex_graded_attempt(
         )
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
+    if diagnostic_sample_support is not None:
+        support = max(0.0, min(1.0, float(diagnostic_sample_support)))
+        validated = replace(
+            validated,
+            error_attributions=[
+                replace(attribution, diagnostic_sample_support=support)
+                for attribution in validated.error_attributions
+            ],
+        )
     result = apply_attempt(
         vault,
         repository,
@@ -841,6 +910,119 @@ def _agent_run_provider_fields(client: AIProviderClient | CodexClient, runtime) 
     if provider == "codex" or provider_type == "codex_sdk":
         fields["codex_revision"] = provider_revision
     return fields
+
+
+def _diagnostic_augmentation_setting(
+    vault: LoadedVault,
+    key: str,
+    default: int | bool,
+) -> int | bool:
+    """Read the optional forward-compatible config block.
+
+    ``LearnLoopConfig`` permits extra blocks so a vault can temporarily step
+    C3 back to one sample while a revert is investigated without teaching the
+    core config model a permanent experiment flag.  The shipped default is the
+    active rung (k=3).
+    """
+
+    settings = getattr(vault.config, "diagnostic_augmentation", None)
+    if isinstance(settings, Mapping):
+        value = settings.get(key, default)
+    else:
+        value = getattr(settings, key, default) if settings is not None else default
+    if isinstance(default, bool):
+        return bool(value)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _augmented_grading_context(
+    vault: LoadedVault,
+    repository: Repository,
+    item: PracticeItem,
+    context: Any,
+) -> Any:
+    from learnloop.services.diagnostic_augmentation import (
+        DEFAULT_HISTORY_LIMIT,
+        augment_grading_context,
+    )
+
+    history_limit = max(
+        0,
+        int(
+            _diagnostic_augmentation_setting(
+                vault, "history_limit", DEFAULT_HISTORY_LIMIT
+            )
+        ),
+    )
+    return augment_grading_context(
+        vault,
+        repository,
+        item,
+        context,
+        history_limit=history_limit,
+    )
+
+
+def _run_augmented_diagnosis(
+    vault: LoadedVault,
+    client: AIProviderClient | CodexClient,
+    context: Any,
+) -> Any:
+    from learnloop.services.diagnostic_augmentation import (
+        DEFAULT_DIAGNOSIS_SAMPLES,
+        run_diagnosis_samples,
+    )
+
+    enabled = bool(
+        _diagnostic_augmentation_setting(vault, "sampling_enabled", True)
+    )
+    sample_count = (
+        max(
+            1,
+            int(
+                _diagnostic_augmentation_setting(
+                    vault, "sample_count", DEFAULT_DIAGNOSIS_SAMPLES
+                )
+            ),
+        )
+        if enabled
+        else 1
+    )
+    return run_diagnosis_samples(client, context, sample_count=sample_count)
+
+
+def _record_diagnostic_augmentation(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    context: Any,
+    consensus: Any,
+    client: AIProviderClient | CodexClient,
+    clock: Clock | None,
+) -> None:
+    """Telemetry must not be able to turn a committed grade into a failure."""
+
+    from learnloop.services.diagnostic_augmentation import record_phase_c_receipt
+
+    try:
+        record_phase_c_receipt(
+            repository,
+            attempt_id=attempt_id,
+            context=context,
+            consensus=consensus,
+            grader_provider=getattr(client, "provider_name", None),
+            grader_model=getattr(client, "model", None),
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - defensive side-channel boundary
+        logging.getLogger(__name__).warning(
+            "failed to record diagnostic augmentation receipt for attempt %s",
+            attempt_id,
+            exc_info=True,
+        )
 
 
 def _with_source(result: AttemptResult, *, grading_source: str, agent_run_id: str | None = None) -> AttemptResult:
@@ -1092,6 +1274,20 @@ def apply_attempt(
         write_legacy_facet_state=not is_canonical_state_vault(vault),
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
+    # Meas §3.A6: append the grader's trace observations. After persistence
+    # because the FK needs the attempt row, and before `_project_canonical_belief`
+    # below because A1 guard 1 reads them to decide which supporting targets earn
+    # anything — an observation written after the projection would first take
+    # effect a rebuild later, silently.
+    _record_exercised_facets(repository, application, clock=clock)
+    _record_grading_clarification(repository, application, clock=clock)
+    # Meas §3.A5 / §3.A3 (migration 143). Same position and same reasoning as the
+    # two writers above: after persistence because both stores hold an
+    # `attempt_id` foreign key, and before the canonical projection because the
+    # A3 clean-solution path may have suppressed a facet write whose absence the
+    # projection is about to observe.
+    _record_discrimination_profile_match(repository, application, clock=clock)
+    _record_error_hunt_outcome(repository, application, vault=vault, clock=clock)
 
     from learnloop.services.remediation import record_remediation_attempt
 
@@ -1362,6 +1558,7 @@ def _stamp_observation_lineage(
             }
             selected: set[tuple[str, str]] = set()
             machine_review_blocked = False
+            blocked_reason = "machine_review_scope"
             for event in application.error_events:
                 repair_plan = (
                     event.get("repair_plan")
@@ -1385,6 +1582,12 @@ def _stamp_observation_lineage(
                     "item_contract",
                     "grader_interpretation",
                 }
+                # A deliberately cleared facet target list is a BLOCK, not an
+                # absence. Without this the emptied attribution falls through to
+                # `attribution_json = NULL`, and the projection's single-target
+                # fallback then attributes the whole failure to the criterion's
+                # own target — banking the facet failure the guard just removed.
+                facet_write_blocked = repair_plan.get("facet_write_blocked")
                 event_has_target = bool(
                     target_families
                     or target_criteria
@@ -1413,8 +1616,13 @@ def _stamp_observation_lineage(
                         in {facet for facet, _capability in target_keys}
                     )
                 )
-                if machine_review_scope and event_matches_criterion:
+                if (machine_review_scope or facet_write_blocked) and event_matches_criterion:
                     machine_review_blocked = True
+                    blocked_reason = (
+                        str(facet_write_blocked)
+                        if facet_write_blocked
+                        else "machine_review_scope"
+                    )
                     continue
                 resolution_status = repair_plan.get("resolution_status")
                 if resolution_status is None:
@@ -1453,7 +1661,7 @@ def _stamp_observation_lineage(
                 row["attribution_json"] = json.dumps(
                     {
                         "targets": [],
-                        "negative_evidence_blocked": "machine_review_scope",
+                        "negative_evidence_blocked": blocked_reason,
                     },
                     sort_keys=True,
                     separators=(",", ":"),
@@ -1514,6 +1722,224 @@ def _persist_attempt_application(
             attempt_debug_payload=application.attempt_debug_payload,
             item_parameter_state=application.item_parameter_state,
         )
+
+
+def _discrimination_profile_telemetry(match) -> dict[str, Any]:
+    """A5's per-attempt tally, from the ONE implementation of the arm vocabulary.
+
+    Imported lazily rather than at module scope because
+    ``discrimination_profiles`` reaches back into grading, and a top-level import
+    here closes the cycle.
+    """
+
+    from learnloop.services.discrimination_profiles import profile_match_telemetry
+
+    return profile_match_telemetry(match)
+
+
+def _record_discrimination_profile_match(
+    repository: Repository,
+    application: AttemptApplication,
+    *,
+    clock: Clock | None = None,
+) -> str | None:
+    """Persist the attempt's A5 judgement (Meas §3.A5, migration 143).
+
+    Written for every arm including ``no_profiles_offered``, because §3.A5's
+    revert criterion is a RATE and a rate needs the cases where the question was
+    not asked to be distinguishable from the cases where it was asked and
+    declined.
+
+    ``attempt_failed`` is stamped here rather than recomputed later: the
+    rejection rate is only meaningful over failures (a profile describes a wrong
+    answer), and a later recomputation would key on a `rubric_score` a regrade
+    can move — which would silently re-weight history.
+
+    Nothing is written for a SELF-graded or replayed attempt: no diagnostician
+    ran, so it was offered no candidate set, and recording
+    ``no_profiles_offered`` there would pad the denominator with attempts that
+    never asked the question. The arm means "the diagnostician was offered no
+    profiles", not "no diagnostician ran".
+
+    Failures are swallowed with a log line, matching the A5-note/A6/A8 writers: a
+    diagnostic side channel must never be able to take a graded attempt down.
+    """
+
+    match = getattr(application.result, "discrimination_profile_match", None)
+    if not match:
+        return None
+    from learnloop.codex.prompts import GRADING_PROMPT_VERSION
+
+    try:
+        return repository.insert_discrimination_profile_match(
+            attempt_id=application.result.attempt_id,
+            practice_item_id=application.result.practice_item_id,
+            outcome=str(match.get("outcome") or ""),
+            profile_id=match.get("profile_id"),
+            misconception_id=match.get("misconception_id"),
+            evidence=match.get("evidence") or None,
+            attempt_failed=float(application.result.correctness or 0.0) < 0.5,
+            grading_prompt_version=GRADING_PROMPT_VERSION,
+            agent_run_id=application.result.agent_run_id,
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - defensive, mirrors the A6 writer
+        logging.getLogger(__name__).warning(
+            "failed to record discrimination profile match for attempt %s",
+            application.result.attempt_id,
+            exc_info=True,
+        )
+        return None
+
+
+def _record_error_hunt_outcome(
+    repository: Repository,
+    application: AttemptApplication,
+    *,
+    vault: LoadedVault | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Persist the attempt's A3 outcome and mint the §10 misconception candidate.
+
+    The candidate write lives inside ``error_hunt.record_error_hunt_outcome``
+    rather than here, so the two halves of §10's line — "writes a misconception
+    candidate" and "not a facet failure" — are decided by the same module that
+    suppressed the facet write, instead of one in the validator and one in the
+    attempt pipeline.
+    """
+
+    payload = getattr(application.result, "error_hunt", None)
+    if not payload:
+        return None
+    from learnloop.codex.prompts import GRADING_PROMPT_VERSION
+    from learnloop.services.error_hunt import (
+        FalsePositiveReport,
+        PlantOutcome,
+        PlantResult,
+        ValidatedErrorHunt,
+        record_error_hunt_outcome,
+    )
+
+    hunt = ValidatedErrorHunt(
+        practice_item_id=str(payload.get("practice_item_id") or ""),
+        clean_solution=bool(payload.get("clean_solution")),
+        plants=tuple(
+            PlantResult(
+                planted_error_id=str(row.get("planted_error_id") or ""),
+                outcome=PlantOutcome(str(row.get("outcome") or PlantOutcome.MISSED)),
+                facet_id=row.get("facet_id"),
+                misconception_id=row.get("misconception_id"),
+                report_index=row.get("report_index"),
+            )
+            for row in (payload.get("plants") or [])
+        ),
+        false_positives=tuple(
+            FalsePositiveReport(
+                report_index=int(row.get("report_index") or 0),
+                location=str(row.get("location") or ""),
+                claim_md=str(row.get("claim_md") or ""),
+                repair_md=str(row.get("repair_md") or ""),
+            )
+            for row in (payload.get("false_positives") or [])
+        ),
+        facet_failure_suppressed=bool(payload.get("facet_failure_suppressed")),
+    )
+    try:
+        return record_error_hunt_outcome(
+            repository,
+            hunt,
+            attempt_id=application.result.attempt_id,
+            learning_object_id=application.result.learning_object_id,
+            grading_prompt_version=GRADING_PROMPT_VERSION,
+            vault=vault,
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - defensive, mirrors the A6 writer
+        logging.getLogger(__name__).warning(
+            "failed to record error hunt outcome for attempt %s",
+            application.result.attempt_id,
+            exc_info=True,
+        )
+        return None
+
+
+def _record_exercised_facets(
+    repository: Repository,
+    application: AttemptApplication,
+    *,
+    clock: Clock | None = None,
+) -> int:
+    """Append the attempt's A6 trace observations (Meas §3.A6, migration 141).
+
+    Idempotent by the store's ``(attempt_id, facet_id, source)`` key, so a
+    regrade re-reporting the same trace adds nothing and the first run's wording
+    survives — the observation is a record of what the grader said it saw, and a
+    record that can be rewritten afterwards is not evidence.
+
+    Failures are swallowed with a log line for the same reason the A5 note
+    writer swallows them: a bonus evidence channel must never be able to take a
+    graded attempt down.
+    """
+
+    rows = list(getattr(application.result, "exercised_facets", None) or [])
+    if not rows:
+        return 0
+    agent_run_id = application.result.agent_run_id
+    from learnloop.codex.prompts import GRADING_PROMPT_VERSION
+
+    payload = [
+        {**row, "agent_run_id": agent_run_id, "grading_prompt_version": GRADING_PROMPT_VERSION}
+        for row in rows
+    ]
+    try:
+        return repository.insert_trace_exercised_facets(
+            application.result.attempt_id, payload, clock=clock
+        )
+    except Exception:  # pragma: no cover - defensive, mirrors the A5 note writer
+        logging.getLogger(__name__).warning(
+            "failed to record trace-exercised facets for attempt %s",
+            application.result.attempt_id,
+            exc_info=True,
+        )
+        return 0
+
+
+def _record_grading_clarification(
+    repository: Repository,
+    application: AttemptApplication,
+    *,
+    clock: Clock | None = None,
+) -> str | None:
+    """Persist the grader's clarification request, if it made a licensed one.
+
+    The grade is already recorded as `provisional_pending_clarification` by the
+    validator (it sets `manual_review_reason`), so this only stores the question.
+    Swallowing failures is deliberate and matches the A5/A6 writers: a channel
+    that exists to make abstention cheap must never make a graded attempt fail.
+    """
+
+    clarification = getattr(application.result, "clarification", None)
+    if not clarification:
+        return None
+    from learnloop.codex.prompts import GRADING_PROMPT_VERSION
+    from learnloop.services.clarification import record_clarification
+
+    try:
+        return record_clarification(
+            repository,
+            attempt_id=application.result.attempt_id,
+            clarification=clarification,
+            agent_run_id=application.result.agent_run_id,
+            grading_prompt_version=GRADING_PROMPT_VERSION,
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - defensive, mirrors the A5 note writer
+        logging.getLogger(__name__).warning(
+            "failed to record grading clarification for attempt %s",
+            application.result.attempt_id,
+            exc_info=True,
+        )
+        return None
 
 
 def _auto_resolve_clean_error_events(
@@ -2135,6 +2561,23 @@ def _compute_resolved_grade_application(
             },
             "firewall_events": attribution_audit_events,
         },
+        # Meas §3.A5: the profile channel's per-attempt tally, in the same debug
+        # payload `causal_attribution_audit_report` already reads, so the
+        # two-tailed fill telemetry covers it without a second traversal of the
+        # attempt ledger. Written for EVERY attempt, including the
+        # `no_profiles_offered` arm — a fill rate whose denominator excluded the
+        # unprofiled items would measure authoring coverage instead of the
+        # diagnostician's willingness to reject.
+        "discrimination_profile": _discrimination_profile_telemetry(
+            getattr(grade, "discrimination_profile_match", None)
+        ),
+        # Meas §3.A3: the resolved plant outcomes. Absent (not empty) on every
+        # item that is not an error hunt, so the A3 population is countable.
+        **(
+            {"error_hunt": dict(getattr(grade, "error_hunt", None) or {})}
+            if getattr(grade, "error_hunt", None)
+            else {}
+        ),
         "max_error_severity": max_event_severity,
         "primary_error_type": primary_error_type,
         "prior_bad_item_suspicion": prior_bad_item_suspicion,
@@ -2186,6 +2629,10 @@ def _compute_resolved_grade_application(
         fatal_errors=list(grade.fatal_errors),
         mastery_trace=mastery_trace,
         debug_payload=debug_payload,
+        exercised_facets=list(getattr(grade, "exercised_facets", None) or []),
+        clarification=getattr(grade, "clarification", None),
+        discrimination_profile_match=getattr(grade, "discrimination_profile_match", None),
+        error_hunt=getattr(grade, "error_hunt", None),
     )
     return AttemptApplication(
         attempt_record=attempt_record,
@@ -2345,6 +2792,7 @@ def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) 
         "operation",
         "first_divergence",
         "facet_contrast",
+        "facet_write_blocked",
     ):
         value = getattr(attribution, key)
         if value is not None:
@@ -2356,6 +2804,10 @@ def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) 
     if attribution.model_reported_causal_confidence is not None:
         repair_plan["model_reported_causal_confidence"] = (
             attribution.model_reported_causal_confidence
+        )
+    if attribution.diagnostic_sample_support is not None:
+        repair_plan["diagnostic_sample_support"] = (
+            attribution.diagnostic_sample_support
         )
     if attribution.candidate_causes:
         repair_plan["candidate_causes"] = list(attribution.candidate_causes)
@@ -2418,6 +2870,9 @@ def _replay_error_attributions(
                     ),
                     model_reported_causal_confidence=repair_plan.get(
                         "model_reported_causal_confidence"
+                    ),
+                    diagnostic_sample_support=repair_plan.get(
+                        "diagnostic_sample_support"
                     ),
                     facet_contrast=(
                         dict(repair_plan["facet_contrast"])
@@ -2503,10 +2958,12 @@ def _resolved_codex_grade(
                     attribution.model_reported_localization_confidence
                 ),
                 model_reported_causal_confidence=attribution.model_reported_causal_confidence,
+                diagnostic_sample_support=attribution.diagnostic_sample_support,
                 facet_contrast=attribution.facet_contrast,
                 candidate_causes=list(attribution.candidate_causes or []),
                 postdictive_claims=list(attribution.postdictive_claims or []),
                 soft_postdictive_claims=list(attribution.soft_postdictive_claims or []),
+                facet_write_blocked=getattr(attribution, "facet_write_blocked", None),
             )
             for attribution in validated.error_attributions
         ],
@@ -2518,6 +2975,18 @@ def _resolved_codex_grade(
         fatal_errors=list(validated.fatal_errors),
         diagnosis_md=validated.diagnosis_md,
         attribution_audit_events=list(validated.attribution_audit_events or []),
+        exercised_facets=[
+            {
+                "facet_id": observation.facet,
+                "evidence": observation.evidence,
+                "observation_scope": observation.observation_scope,
+                "criterion_id": observation.criterion_id,
+            }
+            for observation in (validated.exercised_facets or [])
+        ],
+        clarification=validated.clarification,
+        discrimination_profile_match=validated.discrimination_profile_match,
+        error_hunt=validated.error_hunt,
     )
 
 

@@ -37,6 +37,10 @@ from typing import Any, Iterable
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
+from learnloop.services.conjunctive_items import (
+    cap_embedded_credit,
+    supporting_unexercised,
+)
 from learnloop.services.capability_mapping import (
     CriterionOutcome,
     allocate_success_mass,
@@ -100,6 +104,12 @@ class ObservationEvent:
     assisted: bool
     # positive pseudo-mass allocated to the facet in this epoch, per capability
     per_capability_positive: dict[str, float] = field(default_factory=dict)
+    # Meas §3.A1 guard 2: how much of this epoch's banked credit came through the
+    # embedded (supporting-role) channel, per capability. The fold needs the split
+    # because the cap is a statement about the CELL's whole history — an
+    # attempt-local cap could pass on every attempt while the cell still ends up
+    # entirely embedded.
+    per_capability_embedded: dict[str, float] = field(default_factory=dict)
     # Repository-derived events already contain final capped credit. The false
     # default preserves the small DB-free fold fixture API.
     authoritative: bool = False
@@ -153,6 +163,12 @@ class FacetTimelineSnapshot:
     grading_by_attempt: dict[str, tuple[GradingEvidenceRecord, ...]]
     contracts_by_id: dict[str, dict[str, Any]]
     merge_map: dict[str, str]
+    # Meas §3.A1 guard 1 / §3.A6: the trace observations that license supporting
+    # credit, per attempt. The timeline is a SECOND fold over the same ledger the
+    # canonical projection banks, and the receipt-exactness invariant
+    # (`test_receipt_exactness`) is that the two agree to the float — so any input
+    # the projection reads, this one must read too.
+    exercised_by_attempt: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
 def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot:
@@ -160,6 +176,7 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
 
     grading_by_attempt: dict[str, list[GradingEvidenceRecord]] = defaultdict(list)
     contract_ids: set[str] = set()
+    merge_map = repository.facet_merge_map()
     for record in repository.list_grading_evidence_history(include_superseded=True):
         grading_by_attempt[record.attempt_id].append(record)
         if record.assessment_contract_version_id:
@@ -171,30 +188,83 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
             for attempt_id, records in grading_by_attempt.items()
         },
         contracts_by_id=repository.fetch_assessment_contract_versions(contract_ids),
-        merge_map=repository.facet_merge_map(),
+        merge_map=merge_map,
+        exercised_by_attempt=_resolved_exercised_facets(
+            repository.all_trace_exercised_facets(), merge_map
+        ),
     )
+
+
+def _resolved_exercised_facets(
+    observations: dict[str, list[dict[str, Any]]], merge_map: dict[str, str]
+) -> dict[str, frozenset[str]]:
+    """A6 observations with their facet ids merge-resolved (Meas §3.A1 guard 1).
+
+    The projection resolves these ids through the same transitive merge map
+    before comparing them against a target's facet; reading them RAW here would
+    make the two folds disagree the moment a facet is merged — an observation
+    recorded under a retired id would read as exercised in the projection and
+    unexercised in the timeline, so the guard would confer credit in one fold and
+    withhold it in the other, and `test_receipt_exactness`'s float-exact
+    invariant would break with the learner-facing curve understating the ledger.
+    Sharing the predicate is not enough; the two folds have to share its INPUT.
+    """
+
+    def resolve(facet_id: str) -> str:
+        current = str(facet_id)
+        seen: set[str] = set()
+        while current in merge_map and current not in seen:
+            seen.add(current)
+            current = merge_map[current]
+        return current
+
+    return {
+        attempt_id: frozenset(resolve(str(row["facet_id"])) for row in rows)
+        for attempt_id, rows in observations.items()
+    }
 
 
 def fold_demonstrated_timeline(
     events: list[ObservationEvent],
     *,
     repeat_surface_discount: float = DEFAULT_REPEAT_SURFACE_DISCOUNT,
+    max_embedded_credit_share: float = 1.0,
 ) -> list[TimelinePoint]:
     """Fold ordered observation events into the Demonstrated curve (pure).
 
     Events MUST already be in stable chronological order. The result is a
     deterministic function of the input alone — folding prefixes incrementally
     yields the identical series (the §16 replay invariant).
+
+    ``max_embedded_credit_share`` is A1 guard 2 (Meas §3.A1), applied here rather
+    than per event because the cap is a statement about a CELL's whole history:
+    an attempt-local cap could pass on every attempt while the cell still ends up
+    entirely embedded. The plotted number therefore stays exactly what the ledger
+    banks — which is the invariant ``test_receipt_exactness`` exists to hold. The
+    1.0 default keeps the DB-free fold fixture API (and any caller predating A1)
+    byte-identical.
     """
 
     seen_groups: set[str] = set()
     contribution_by_attempt: dict[str, float] = {}
     per_capability_total: dict[str, float] = {}
+    per_capability_embedded_total: dict[str, float] = {}
     # per-attempt latest epoch's per-capability contribution, so a correction
     # replaces (not stacks on) the attempt's previous capability credit.
     attempt_capability: dict[str, dict[str, float]] = {}
+    attempt_capability_embedded: dict[str, dict[str, float]] = {}
     cumulative = 0.0
     series: list[TimelinePoint] = []
+
+    def _capped_total() -> float:
+        return sum(
+            cap_embedded_credit(
+                total - per_capability_embedded_total.get(capability, 0.0),
+                per_capability_embedded_total.get(capability, 0.0),
+                max_embedded_share=max_embedded_credit_share,
+            )
+            for capability, total in per_capability_total.items()
+        )
 
     for event in events:
         is_new_group = event.surface_group not in seen_groups
@@ -216,19 +286,45 @@ def fold_demonstrated_timeline(
                 if credit > 0.0:
                     new_caps[capability] = credit
         new_contrib = sum(new_caps.values())
+        new_embedded = (
+            {
+                capability: max(float(credit), 0.0)
+                for capability, credit in event.per_capability_embedded.items()
+                if credit > 0.0 and capability in new_caps
+            }
+            if event.authoritative
+            else {}
+        )
 
         old_contrib = contribution_by_attempt.get(event.attempt_id, 0.0)
         old_caps = attempt_capability.get(event.attempt_id, {})
+        old_embedded = attempt_capability_embedded.get(event.attempt_id, {})
         # Replace this attempt's capability credit with the latest epoch's.
         for capability, value in old_caps.items():
             per_capability_total[capability] = per_capability_total.get(capability, 0.0) - value
         for capability, value in new_caps.items():
             per_capability_total[capability] = per_capability_total.get(capability, 0.0) + value
+        for capability, value in old_embedded.items():
+            per_capability_embedded_total[capability] = (
+                per_capability_embedded_total.get(capability, 0.0) - value
+            )
+        for capability, value in new_embedded.items():
+            per_capability_embedded_total[capability] = (
+                per_capability_embedded_total.get(capability, 0.0) + value
+            )
         attempt_capability[event.attempt_id] = new_caps
+        attempt_capability_embedded[event.attempt_id] = new_embedded
         contribution_by_attempt[event.attempt_id] = new_contrib
 
-        delta = new_contrib - old_contrib
-        cumulative += delta
+        # `delta` stays the signed change in the PLOTTED quantity, so guard 2's
+        # cap moves the curve rather than sitting beside it. Uncapped, the two
+        # agree exactly, and `old_contrib`/`new_contrib` remain the per-attempt
+        # bookkeeping the correction logic needs.
+        previous = cumulative
+        cumulative = _capped_total() if max_embedded_credit_share < 1.0 else (
+            cumulative + new_contrib - old_contrib
+        )
+        delta = cumulative - previous
         demonstrated_caps = tuple(
             sorted(cap for cap, value in per_capability_total.items() if value > 1e-9)
         )
@@ -261,11 +357,13 @@ def _epoch_certification_credit(
     assisted: bool,
     seen_groups_by_cell: dict[tuple[str, str], set[str]],
     resolve,
+    exercised_facets: frozenset[str] = frozenset(),
 ) -> tuple[
     dict[tuple[str, str], float],
     dict[tuple[str, str], set[str]],
     list,
     dict[tuple[str, str], str],
+    dict[tuple[str, str], float],
 ]:
     """Final capped certification credit for every cell in one grading epoch.
 
@@ -301,6 +399,9 @@ def _epoch_certification_credit(
     staged: dict[str, dict[tuple[str, str], float]] = defaultdict(
         lambda: defaultdict(float)
     )
+    staged_embedded: dict[str, dict[tuple[str, str], float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
     marked: dict[tuple[str, str], set[str]] = defaultdict(set)
     # Channel per cell for the §5.1 receipt: a cell that ever earns primary
     # (direct) credit renders as direct; supporting-only credit as embedded.
@@ -325,13 +426,20 @@ def _epoch_certification_credit(
             fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
         # Assessment contracts always carry compiled targets. `item` is only
         # needed for pre-contract legacy evidence whose criterion had none.
-        targets = (
+        authored_targets = (
             list(criterion.targets)
             if criterion.targets
             else compile_criterion_targets(item, criterion, resolved_rubric=rubric)
             if item is not None
             else []
         )
+        # Meas §3.A1 guard 1, identical to the projection's split (see there for
+        # why it is a split rather than a filter at each write site).
+        targets = [
+            target
+            for target in authored_targets
+            if not supporting_unexercised(target, exercised_facets, resolve=resolve)
+        ]
         if not targets:
             continue
         pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
@@ -353,13 +461,15 @@ def _epoch_certification_credit(
             positive = alloc.pseudo_mass * discount * fraction
             if positive <= 0:
                 continue
+            relationship = "embedded" if alloc.role == "supporting" else "direct"
             if is_new_group:
                 marked[cell].add(surface_group)
-            relationship = "embedded" if alloc.role == "supporting" else "direct"
             credit = certification_credit(
                 positive, relationship=relationship, assistance=assistance
             )
             staged[correlation_group][cell] += credit
+            if relationship == "embedded":
+                staged_embedded[correlation_group][cell] += credit
             if relationship == "direct" or cell not in relationship_by_cell:
                 relationship_by_cell[cell] = relationship
         # Negative mass certifies nothing, but the projection marks the surface
@@ -387,7 +497,15 @@ def _epoch_certification_credit(
         group_budget_overrides=dict(cert_cfg.group_budgets),
         max_groups_per_attempt=cert_cfg.max_groups_per_attempt,
     )
-    return capped, dict(marked), itemization, dict(relationship_by_cell)
+    # Guard 2 is a per-CELL cap over the whole history, so it cannot be applied
+    # here; what this epoch owes the fold is how much of its banked credit was
+    # embedded, using the same exact `group_scale` the projection uses.
+    embedded_banked: dict[tuple[str, str], float] = defaultdict(float)
+    for contribution in itemization:
+        staged_here = staged_embedded[contribution.group].get(contribution.cell, 0.0)
+        if staged_here > 0:
+            embedded_banked[contribution.cell] += staged_here * contribution.group_scale
+    return capped, dict(marked), itemization, dict(relationship_by_cell), dict(embedded_banked)
 
 
 def _decoded_attribution(raw: str | None) -> object:
@@ -471,7 +589,7 @@ def _observation_events_by_facet(
             rubric = vault.rubric_for_item(item) if item is not None else None
             if rubric is not None and rubric.criteria:
                 group = surface_group_id(item)
-                _, marked, _items, _rel = _epoch_certification_credit(
+                _, marked, _items, _rel, _emb = _epoch_certification_credit(
                     vault,
                     item,
                     rubric,
@@ -481,6 +599,9 @@ def _observation_events_by_facet(
                     assisted=assisted,
                     seen_groups_by_cell=prior_seen,
                     resolve=resolve,
+                    exercised_facets=snapshot.exercised_by_attempt.get(
+                        str(attempt["id"]), frozenset()
+                    ),
                 )
                 marked_by_latest_epoch = marked
         for index, ((epoch_at, _revision_key), records) in enumerate(epoch_items):
@@ -516,7 +637,13 @@ def _observation_events_by_facet(
                     "points_awarded": record.points_awarded,
                     "attribution": _decoded_attribution(record.attribution_json),
                 }
-            credits, marked, itemization, relationship_by_cell = _epoch_certification_credit(
+            (
+                credits,
+                marked,
+                itemization,
+                relationship_by_cell,
+                embedded_banked,
+            ) = _epoch_certification_credit(
                 vault,
                 item,
                 rubric,
@@ -526,6 +653,9 @@ def _observation_events_by_facet(
                 assisted=assisted,
                 seen_groups_by_cell=prior_seen,
                 resolve=resolve,
+                exercised_facets=snapshot.exercised_by_attempt.get(
+                    str(attempt["id"]), frozenset()
+                ),
             )
             marked_by_latest_epoch = marked
             # Avoid an event for a facet this historical epoch never targeted.
@@ -540,6 +670,11 @@ def _observation_events_by_facet(
                     capability: credit
                     for (facet, capability), credit in credits.items()
                     if facet == canonical_facet
+                }
+                per_capability_embedded = {
+                    capability: credit
+                    for (facet, capability), credit in embedded_banked.items()
+                    if facet == canonical_facet and credit > 0.0
                 }
                 # §5.1 per-observation receipt for this facet's cells: raw vs
                 # capped credit and the binding cap rule, one entry per
@@ -571,6 +706,7 @@ def _observation_events_by_facet(
                         surface_group=group,
                         assisted=assisted,
                         per_capability_positive=per_capability,
+                        per_capability_embedded=per_capability_embedded,
                         authoritative=True,
                         primed=bool(attempt.get("primed")),
                         derivation=derivation,
@@ -619,6 +755,13 @@ def facet_evidence_timelines(
         facet_id: fold_demonstrated_timeline(
             events_by_facet.get(facet_id, []),
             repeat_surface_discount=repeat_discount,
+            max_embedded_credit_share=float(
+                getattr(
+                    vault.config.evidence.certification,
+                    "max_embedded_credit_share",
+                    1.0,
+                )
+            ),
         )
         for facet_id in canonical
     }

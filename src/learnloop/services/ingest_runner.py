@@ -32,7 +32,9 @@ this same object.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import queue
 import re
 import threading
 from dataclasses import dataclass, field
@@ -57,6 +59,7 @@ CHECKPOINT_LADDER: tuple[str, ...] = (
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _UNFINISHED_STATUSES = frozenset({"failed", "blocked", "cancelled"})
+_MAX_INVENTORY_WORKERS = 2
 
 
 def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
@@ -168,6 +171,7 @@ class RunnerServices:
     describe_extraction: Callable[[FetchedBytes, str, "JobContext"], Mapping[str, Any]] | None = None
     run_legacy_ingest: Callable[..., Any] | None = None
     inventory_client_factory: Callable[["JobContext"], Any] | None = None
+    inventory_identity_factory: Callable[["JobContext"], tuple[str, str] | None] | None = None
     synthesis_client_factory: Callable[["JobContext"], Any] | None = None
     quick_check_client_factory: Callable[["JobContext"], Any] | None = None
     rung_variant_client_factory: Callable[["JobContext"], Any] | None = None
@@ -176,6 +180,9 @@ class RunnerServices:
     exercise_import_client_factory: Callable[["JobContext"], Any] | None = None
     animation_client_factory: Callable[["JobContext"], Any] | None = None
     animation_renderer: Callable[..., Any] | None = None
+    _inventory_identity_cache: tuple[str, str] | None = field(
+        default=None, init=False, repr=False
+    )
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
         return (self.fetch or default_fetch)(source, category, ctx)
@@ -191,9 +198,22 @@ class RunnerServices:
     def legacy_ingest(self, **kwargs: Any) -> Any:
         return (self.run_legacy_ingest or default_run_legacy_ingest)(**kwargs)
 
-    def inventory_client(self, ctx: "JobContext") -> Any:
+    def inventory_identity(self, ctx: "JobContext") -> tuple[str, str] | None:
+        """Return cache identity without initializing a provider when possible."""
+
+        if self.inventory_identity_factory is not None:
+            return self.inventory_identity_factory(ctx)
+        if self.inventory_client_factory is None:
+            return default_inventory_identity(ctx)
+        return self._inventory_identity_cache
+
+    def inventory_client(
+        self, ctx: "JobContext", *, bind_interruptible: bool = True
+    ) -> Any:
         client = (self.inventory_client_factory or default_inventory_client)(ctx)
-        ctx.bind_interruptible(client)
+        self._inventory_identity_cache = _inventory_client_identity(client)
+        if bind_interruptible:
+            ctx.bind_interruptible(client)
         return client
 
     def synthesis_client(self, ctx: "JobContext") -> Any:
@@ -1014,6 +1034,38 @@ def default_run_legacy_ingest(
     )
 
 
+def _inventory_client_identity(client: Any) -> tuple[str, str]:
+    return (
+        str(getattr(client, "provider_type", None) or "codex"),
+        str(getattr(client, "model", None) or "unknown"),
+    )
+
+
+def default_inventory_identity(ctx: JobContext) -> tuple[str, str] | None:
+    """Resolve the primary inventory cache key without a runtime probe.
+
+    A miss still validates runtime readiness before executing. If that selects a
+    fallback provider, ``handle_inventory`` rechecks the miss under the actual
+    client's identity before making a model call.
+    """
+
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.config import CODEX_LOW_PROVIDER, CODEX_PROVIDER_NAMES
+    from learnloop.vault.loader import load_vault
+
+    config = load_vault(ctx.vault_root).config
+    provider_name = provider_for_task(config, "canonical_ingest").provider_name
+    if provider_name in CODEX_PROVIDER_NAMES:
+        provider_name = CODEX_LOW_PROVIDER
+    profile = config.ai.providers.get(provider_name)
+    if profile is None:
+        return None
+    provider_type = profile.type.strip().lower()
+    if provider_type in {"http", "http_adapter"}:
+        provider_type = "http_adapter"
+    return provider_type, str(profile.model or "unknown")
+
+
 def default_inventory_client(ctx: JobContext) -> Any:
     """Resolve the unit-inventory/quick-check client through ai routing (§7).
 
@@ -1165,6 +1217,45 @@ def _routed_task_client(ctx: JobContext, task: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
+class _InventoryInterruptGroup:
+    """One job-scoped interrupt hook covering its active inventory clients."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._clients: dict[int, tuple[Any, int]] = {}
+
+    def add(self, client: Any) -> None:
+        with self._lock:
+            existing = self._clients.get(id(client))
+            self._clients[id(client)] = (
+                client,
+                1 if existing is None else existing[1] + 1,
+            )
+
+    def discard(self, client: Any) -> None:
+        with self._lock:
+            existing = self._clients.get(id(client))
+            if existing is None:
+                return
+            if existing[1] <= 1:
+                self._clients.pop(id(client), None)
+            else:
+                self._clients[id(client)] = (existing[0], existing[1] - 1)
+
+    def interrupt(self) -> None:
+        with self._lock:
+            clients = [entry[0] for entry in self._clients.values()]
+        for client in clients:
+            interrupt = getattr(client, "interrupt", None)
+            if callable(interrupt):
+                try:
+                    interrupt()
+                except Exception:
+                    # Cancellation is best-effort per provider; continue through
+                    # the group so one broken hook cannot strand another call.
+                    pass
+
+
 def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     """inventory: role-aware per-unit inventories for the selected units (§7).
 
@@ -1174,7 +1265,14 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     (``run_unit_inventory`` returns ``cache_hit``), and only semantic-hash-changed
     units are ever re-inventoried across collections/revisions (§3.2)."""
 
-    from learnloop.services.source_unit_inventory import run_unit_inventory
+    from learnloop.services.source_unit_inventory import (
+        InventoryExecution,
+        InventoryResult,
+        PreparedInventory,
+        execute_prepared_inventory,
+        persist_prepared_inventory,
+        prepare_unit_inventory,
+    )
 
     payload = ctx.payload
     extraction_id, units = _inventory_inputs(ctx, payload)
@@ -1182,6 +1280,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("inventory job requires an 'extraction_id'.")
     if not units:
         raise IngestRunnerError("inventory job requires at least one unit.")
+    units = _effective_inventory_inputs(ctx.repo, extraction_id, units)
     budgets = _ingest_budgets(ctx)
     budget = _optional_int(payload.get("input_budget_tokens")) or budgets.inventory_input_tokens
     unlimited_token_budget = bool(payload.get("unlimited_token_budget", False))
@@ -1191,36 +1290,196 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         else _optional_int(payload.get("output_budget_tokens")) or budgets.inventory_output_tokens
     )
 
-    ctx.report("extracted", message="Preparing unit inventories")
-    client = ctx.services.inventory_client(ctx)
-
-    results: list[dict[str, Any]] = []
-    total = len(units)
-    for index, spec in enumerate(units):
+    specs: list[dict[str, Any]] = []
+    for spec in units:
         unit_id = str(spec.get("unit_id") or "").strip()
         if not unit_id:
             raise IngestRunnerError("every inventory unit needs a 'unit_id'.")
-        ctx.report(
-            "inventoried",
-            message=f"Inventorying unit {index + 1} of {total}",
-            current_window=index + 1,
-            total_windows=total,
+        specs.append(
+            {
+                **dict(spec),
+                "unit_id": unit_id,
+                "unit_ids": [
+                    str(value) for value in spec.get("unit_ids") or [unit_id]
+                ],
+            }
         )
-        result = run_unit_inventory(
+
+    ctx.report("extracted", message="Checking unit inventory cache")
+    warm_client: Any = None
+    identity = ctx.services.inventory_identity(ctx)
+    if identity is None:
+        # Custom factories may not expose a cheap identity resolver on their
+        # first job. Retain this client for the first execution lane.
+        warm_client = ctx.services.inventory_client(
+            ctx, bind_interruptible=False
+        )
+        identity = _inventory_client_identity(warm_client)
+
+    results_by_index: dict[int, InventoryResult] = {}
+    work_by_index: dict[int, PreparedInventory] = {}
+
+    def prepare(index: int, provider_identity: tuple[str, str]) -> None:
+        spec = specs[index]
+        resolved = prepare_unit_inventory(
             ctx.repo,
             extraction_id,
-            unit_id,
+            spec["unit_id"],
+            unit_ids=spec["unit_ids"],
             role=str(spec.get("role") or "reference"),
             profile=spec.get("profile"),
-            client=client,
+            provider=provider_identity[0],
+            model=provider_identity[1],
             input_budget_tokens=budget,
             output_budget_tokens=output_budget,
             clock=ctx.clock,
         )
-        ctx.record_usage(dict(result.usage or {}))
+        if isinstance(resolved, InventoryResult):
+            results_by_index[index] = resolved
+            work_by_index.pop(index, None)
+        else:
+            work_by_index[index] = resolved
+            results_by_index.pop(index, None)
+
+    for index in range(len(specs)):
+        prepare(index, identity)
+
+    if work_by_index:
+        if warm_client is None:
+            warm_client = ctx.services.inventory_client(
+                ctx, bind_interruptible=False
+            )
+        actual_identity = _inventory_client_identity(warm_client)
+        if actual_identity != identity:
+            # Runtime routing may have selected the configured fallback. Recheck
+            # those misses under the identity that will actually produce them.
+            for index in list(work_by_index):
+                prepare(index, actual_identity)
+            identity = actual_identity
+
+    if work_by_index:
+        worker_count = min(_MAX_INVENTORY_WORKERS, len(work_by_index))
+        clients = [warm_client]
+        for _ in range(1, worker_count):
+            client = ctx.services.inventory_client(
+                ctx, bind_interruptible=False
+            )
+            if _inventory_client_identity(client) != identity:
+                raise IngestRunnerError(
+                    "Inventory provider routing changed while preparing parallel workers."
+                )
+            clients.append(client)
+
+        lanes: list[list[tuple[int, PreparedInventory]]] = [
+            [] for _ in range(worker_count)
+        ]
+        for ordinal, item in enumerate(sorted(work_by_index.items())):
+            lanes[ordinal % worker_count].append(item)
+
+        interrupt_group = _InventoryInterruptGroup()
+        ctx.bind_interruptible(interrupt_group)
+        progress_events: queue.SimpleQueue[tuple[str, int, int]] = queue.SimpleQueue()
+        total_model_windows = sum(
+            len(prepared.windows) for prepared in work_by_index.values()
+        )
+        completed_model_windows = 0
+        ctx.report(
+            "inventoried",
+            message=(
+                f"Inventorying {len(work_by_index)} uncached unit"
+                f"{'' if len(work_by_index) == 1 else 's'} "
+                f"across {total_model_windows} model window"
+                f"{'' if total_model_windows == 1 else 's'}"
+            ),
+            current_window=0,
+            total_windows=total_model_windows,
+        )
+
+        def run_lane(
+            client: Any,
+            lane: list[tuple[int, PreparedInventory]],
+        ) -> list[tuple[int, PreparedInventory, InventoryExecution]]:
+            completed: list[
+                tuple[int, PreparedInventory, InventoryExecution]
+            ] = []
+            interrupt_group.add(client)
+            try:
+                for index, prepared in lane:
+                    def report_window(
+                        current: int,
+                        total: int,
+                        unit: str = prepared.unit_id,
+                    ) -> None:
+                        progress_events.put((unit, current, total))
+
+                    execution = execute_prepared_inventory(
+                        prepared,
+                        client,
+                        progress=report_window,
+                    )
+                    completed.append((index, prepared, execution))
+                return completed
+            finally:
+                interrupt_group.discard(client)
+
+        executions: dict[int, tuple[PreparedInventory, InventoryExecution]] = {}
+        try:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=worker_count,
+                thread_name_prefix="learnloop-inventory",
+            ) as executor:
+                pending = {
+                    executor.submit(run_lane, client, lane)
+                    for client, lane in zip(clients, lanes)
+                    if lane
+                }
+                while pending:
+                    done, pending = concurrent.futures.wait(
+                        pending,
+                        timeout=0.25,
+                        return_when=concurrent.futures.FIRST_COMPLETED,
+                    )
+                    while not progress_events.empty():
+                        unit_id, unit_window, unit_total = progress_events.get_nowait()
+                        completed_model_windows += 1
+                        ctx.report(
+                            "inventoried",
+                            message=(
+                                f"Inventoried {unit_id} window "
+                                f"{unit_window} of {unit_total}"
+                            ),
+                            current_window=completed_model_windows,
+                            total_windows=total_model_windows,
+                        )
+                    if ctx.cancelled():
+                        interrupt_group.interrupt()
+                        for future in pending:
+                            future.cancel()
+                        raise JobCancelled()
+                    for future in done:
+                        for index, prepared, execution in future.result():
+                            executions[index] = (prepared, execution)
+        except Exception:
+            interrupt_group.interrupt()
+            raise
+
+        # Provider workers never touch SQLite. Persist their validated output in
+        # payload order on the runner thread.
+        for index in sorted(executions):
+            prepared, execution = executions[index]
+            result = persist_prepared_inventory(
+                ctx.repo, prepared, execution, clock=ctx.clock
+            )
+            ctx.record_usage(dict(result.usage or {}))
+            results_by_index[index] = result
+
+    results: list[dict[str, Any]] = []
+    for index, spec in enumerate(specs):
+        result = results_by_index[index]
         results.append(
             {
-                "unit_id": unit_id,
+                "unit_id": result.inventory.unit_id,
+                "unit_ids": spec["unit_ids"],
                 "inventory_id": result.inventory_id,
                 "profile": result.profile,
                 "cache_hit": result.cache_hit,
@@ -1228,11 +1487,19 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             }
         )
 
-    ctx.report("inventoried", message="Unit inventories ready")
+    cache_hits = sum(1 for row in results if row["cache_hit"])
+    ctx.report(
+        "inventoried",
+        message=(
+            "Unit inventories ready"
+            if cache_hits == 0
+            else f"Unit inventories ready · reused {cache_hits} cached"
+        ),
+    )
     return {
         "extraction_id": extraction_id,
         "units": results,
-        "cache_hits": sum(1 for row in results if row["cache_hit"]),
+        "cache_hits": cache_hits,
     }
 
 
@@ -1269,6 +1536,80 @@ def _inventory_inputs(
         role = str(payload.get("role") or "reference")
         units = [{"unit_id": unit.unit_id, "role": role} for unit in (ir.units if ir else [])]
     return extraction_id, units
+
+
+def _effective_inventory_inputs(
+    repo: Repository,
+    extraction_id: str,
+    units: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Fold explicit same-role ``merge_with_next`` groups into one model input.
+
+    Boundary overrides describe the learner-confirmed semantic unit shape, not a
+    presentation-only grouping.  A merge is honored only when every source member
+    is selected with the same effective role/profile.  Exam units remain separate
+    because held-out and paper-level accounting is member-scoped.
+    """
+
+    selection = repo.get_unit_selection(extraction_id)
+    ir = repo.load_document_ir(extraction_id)
+    if ir is None or not selection or not selection.get("boundary_overrides"):
+        return units
+
+    from learnloop.services.role_authority import default_inventory_profile
+    from learnloop.services.source_unit_inventory import normalize_profile
+    from learnloop.services.source_unit_selection import effective_scope_groups
+
+    requested: dict[str, dict[str, Any]] = {}
+    input_order: list[str] = []
+    for spec in units:
+        source_id = str(spec.get("unit_id") or "").strip()
+        if not source_id or source_id in requested:
+            continue
+        requested[source_id] = dict(spec)
+        input_order.append(source_id)
+
+    effective_specs: list[dict[str, Any]] = []
+    role_by_unit = {
+        source_id: str(spec.get("role") or "reference")
+        for source_id, spec in requested.items()
+    }
+    groups = effective_scope_groups(
+        ir,
+        selection.get("boundary_overrides") or [],
+        input_order,
+        role_by_unit=role_by_unit,
+    )
+    for group in groups:
+        source_ids = [str(value) for value in group["unit_ids"]]
+        member_specs = [requested[source_id] for source_id in source_ids]
+        if group["merged"]:
+            profiles = {
+                normalize_profile(
+                    spec.get("profile")
+                    or default_inventory_profile(
+                        str(spec.get("role") or "reference")
+                    )
+                )
+                for spec in member_specs
+            }
+        else:
+            profiles = set()
+        if group["merged"] and len(profiles) == 1:
+            role = str(group["role"])
+            profile = next(iter(profiles))
+            effective_specs.append(
+                {
+                    "unit_id": str(group["unit_id"]),
+                    "unit_ids": source_ids,
+                    "role": role,
+                    "profile": profile,
+                }
+            )
+            continue
+        for source_id in source_ids:
+            effective_specs.append(requested[source_id])
+    return effective_specs
 
 
 def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:

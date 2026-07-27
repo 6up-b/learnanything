@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Mapping
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -209,6 +210,78 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
         index += 1
 
     return effective
+
+
+def effective_scope_groups(
+    ir: DocumentIR,
+    boundary_overrides: list[dict] | None,
+    selected_unit_ids: list[str],
+    *,
+    role_by_unit: Mapping[str, str] | None = None,
+    default_role: str = "reference",
+) -> list[dict]:
+    """Project a selected scope through the canonical effective-unit shape.
+
+    Explicit merged units survive only when every member is selected with one
+    role. Exam members intentionally remain separate because held-out and
+    paper-level accounting is member-scoped. Consumers may impose additional
+    constraints (for example, inventory profiles) without reimplementing boundary
+    traversal or ordering.
+    """
+
+    wanted = set(selected_unit_ids)
+    roles = dict(role_by_unit or {})
+    emitted: set[str] = set()
+    groups: list[dict] = []
+    for effective in compute_effective_units(ir, boundary_overrides):
+        source_ids = [str(value) for value in effective["source_unit_ids"]]
+        effective_id = str(effective["effective_id"])
+        selected_whole_group = all(source_id in wanted for source_id in source_ids)
+        if effective_id in wanted:
+            selected_whole_group = True
+            wanted.update(source_ids)
+        member_roles = {
+            roles.get(source_id, default_role) for source_id in source_ids
+        }
+        if (
+            effective.get("kind") == "merged"
+            and selected_whole_group
+            and len(source_ids) > 1
+            and len(member_roles) == 1
+            and "exam" not in member_roles
+        ):
+            groups.append(
+                {
+                    "unit_id": effective_id,
+                    "unit_ids": source_ids,
+                    "role": next(iter(member_roles)),
+                    "merged": True,
+                }
+            )
+            emitted.update(source_ids)
+            continue
+        for source_id in source_ids:
+            if source_id in wanted and source_id not in emitted:
+                groups.append(
+                    {
+                        "unit_id": source_id,
+                        "unit_ids": [source_id],
+                        "role": roles.get(source_id, default_role),
+                        "merged": False,
+                    }
+                )
+                emitted.add(source_id)
+    for source_id in selected_unit_ids:
+        if source_id not in emitted:
+            groups.append(
+                {
+                    "unit_id": source_id,
+                    "unit_ids": [source_id],
+                    "role": roles.get(source_id, default_role),
+                    "merged": False,
+                }
+            )
+    return groups
 
 
 def validate_unit_selection(

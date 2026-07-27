@@ -288,7 +288,9 @@ def _postdictive_trace_consistent(
     return True
 
 
-def _promotion_reason(candidate: dict, attempt: dict | None) -> str | None:
+def _promotion_reason(
+    vault: LoadedVault, candidate: dict, attempt: dict | None
+) -> str | None:
     """Which §10.3 condition (if any) promotes ``candidate`` to a durable belief.
 
     A one-off ambiguous failure stays a candidate distribution. Promotion needs
@@ -304,13 +306,116 @@ def _promotion_reason(candidate: dict, attempt: dict | None) -> str | None:
     arrives days later. They live in ``services/durable_promotion.py``, which
     re-drives ``_promote_candidate`` for the same holding-pen candidate. Adding
     them as branches here would make them permanently unreachable.
+
+    **Arm (b) counts independent groups with the one primitive, and recomputes
+    them.** It used to count distinct ``surface_family`` strings, which is the
+    parallel notion augmentation §8 forbids in as many words: "do not grow 'item
+    fingerprint family' as a parallel notion. Six errors on six near-clones of
+    one item are one observation, everywhere, from one code path."
+    ``surface_group_id`` is that code path — it collapses a shared stimulus, a
+    source-example family and a solution-template family before falling back to
+    ``surface_family`` — and its own docstring already says a clone must not be
+    able to mint a fresh independent group. Promotion was the one boundary not
+    reading it.
+
+    Two consequences the raw-string version got wrong, both of which promote a
+    DURABLE learner-wide belief from what is really one observation:
+
+    * a laddered stem (Meas §3.A2) authors several parts over ONE stimulus, each
+      a separate item free to carry its own ``surface_family`` — so a single stem
+      could promote on its own, by design rather than by accident;
+    * any two near-clones sharing a source or solution family could, whenever
+      their authored family strings happened to differ.
+
+    Groups are **recomputed from ``item_ids``** rather than read from the stored
+    ``surface_families`` list: that list is a legacy denormalization written by
+    several producers, and trusting it would leave the boundary exactly as
+    trustworthy as its least careful writer. An item id that no longer resolves
+    in the vault **fails the arm** rather than being skipped — a candidate whose
+    provenance cannot be checked is not evidence of independence, and the
+    conservative direction here is the one that declines to write a durable
+    belief about the learner.
     """
 
-    if len(set(candidate.get("surface_families") or [])) >= 2:
+    if _independent_group_count(vault, candidate) >= 2:
         return "independent_surface"
     if _probe_signature_reproduced(candidate, attempt):
         return "probe_reproduction"
     return None
+
+
+def _independent_group_count(vault: LoadedVault, candidate: dict) -> int:
+    """Distinct independent evidence groups behind ``candidate`` (augmentation §8).
+
+    Returns 0 when any recorded item id is unresolvable, which makes every
+    caller's ``>= 2`` test fail closed. Returning a partial count would let a
+    candidate whose history is half-missing look independent on the surviving
+    half.
+    """
+
+    item_ids = [str(item_id) for item_id in (candidate.get("item_ids") or [])]
+    if not item_ids:
+        return 0
+    from learnloop.services.canonical_projection import surface_group_id
+
+    groups: set[str] = set()
+    for item_id in item_ids:
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            return 0
+        groups.add(surface_group_id(item))
+    return len(groups)
+
+
+def promote_candidate_if_independent(
+    vault: LoadedVault,
+    repository: Repository,
+    candidate_id: str,
+    *,
+    clock: Clock | None = None,
+) -> str | None:
+    """Promote ``candidate_id`` if §5.6 arm (b) is now satisfied; else None.
+
+    The re-entry point for candidate producers that live OUTSIDE the attempt
+    normalization loop. Meas §3.A3's error hunts are the first: a clean-solution
+    false positive mints (or increments) a misconception candidate at grading
+    time, but nothing there ever consulted ``_promotion_reason``, so repeated
+    independent error-hunt evidence could accumulate forever without completing
+    the candidate -> durable belief lifecycle. The occurrence count went up and
+    the belief never became one.
+
+    Deliberately NOT a second promotion rule. It reads the same
+    ``_promotion_reason`` (so independence is counted with the one primitive,
+    augmentation §8) and writes through the same ``_promote_candidate`` door, so
+    a belief promoted from an error hunt is indistinguishable downstream from one
+    promoted from a constructed response — which is the point of A3 minting into
+    the existing store rather than a parallel one.
+
+    ``attempt`` is None because the probe-signature arm (a) is not available from
+    this entry point: an error hunt is not a diagnostic probe administration, so
+    only arm (b) can fire here. Passing a fabricated attempt to reach arm (a)
+    would be inventing a probe that did not happen.
+    """
+
+    candidate = repository.misconception_candidate_by_id(candidate_id)
+    if candidate is None or str(candidate.get("status") or "") != "candidate":
+        return None
+    learning_object = vault.learning_objects.get(
+        str(candidate.get("learning_object_id") or "")
+    )
+    if learning_object is None:
+        return None
+    reason = _promotion_reason(vault, candidate, None)
+    if reason is None:
+        return None
+    return _promote_candidate(
+        vault,
+        repository,
+        candidate,
+        learning_object=learning_object,
+        reason=reason,
+        clock=clock,
+    )
 
 
 def _promote_candidate(
@@ -506,7 +611,7 @@ def _normalize_compositional(
             None
             if open_unresolved
             or not _postdictive_trace_consistent(vault, repository, event, attempt)
-            else _promotion_reason(promotion_candidate, attempt)
+            else _promotion_reason(vault, promotion_candidate, attempt)
         )
         if reason is None:
             continue

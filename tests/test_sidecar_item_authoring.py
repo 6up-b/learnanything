@@ -8,6 +8,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
+from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.server import serve
 
 from tests.helpers import create_basic_vault, seed_due_item
@@ -80,3 +81,48 @@ def test_split_flow(tmp_path: Path) -> None:
     assert reloaded.practice_items[ITEM].status == "retired"
     for new_id in created:
         assert reloaded.practice_items[new_id].status == "active"
+
+
+def test_retire_rpc_updates_cached_vault_without_global_reload(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    repository = seed_due_item(paths)
+    session_id = repository.create_session(energy="medium", available_minutes=25)
+
+    def unexpected_reload(*_args, **_kwargs):
+        raise AssertionError("retirement must not trigger a global vault reload")
+
+    monkeypatch.setattr(SidecarContext, "reload", unexpected_reload)
+    out = _rpc(
+        root,
+        [
+            (
+                "retire_practice_item",
+                {"practiceItemId": ITEM, "reason": "no_longer_relevant"},
+            ),
+            ("get_today_queue", {"availableMinutes": 25}),
+            ("open_queue_item", {"practiceItemId": ITEM}),
+            (
+                "save_practice_draft",
+                {
+                    "sessionId": session_id,
+                    "practiceItemId": ITEM,
+                    "answerMd": "late autosave",
+                },
+            ),
+            (
+                "submit_dont_know",
+                {"sessionId": session_id, "practiceItemId": ITEM},
+            ),
+        ],
+    )
+
+    assert out[1]["result"]["status"] == "retired"
+    assert isinstance(out[1]["result"]["queueRevision"], int)
+    assert out[2]["result"]["totalItems"] == 0
+    assert out[3]["error"]["data"]["code"] == "item_retired"
+    assert out[4]["error"]["data"]["code"] == "item_retired"
+    assert out[5]["error"]["data"]["code"] == "item_retired"
+    assert repository.fetch_session_checkpoint(session_id) is None

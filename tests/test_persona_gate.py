@@ -302,6 +302,39 @@ def test_live_plain_practice_item_is_flagged_but_shipped(tmp_path):
     assert result.persona_gate_warnings and not result.persona_gate_violations
 
 
+def test_b2_license_promotes_plain_practice_advisory_failure_to_hard(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository, need_id = _setup(root, with_facet_registry=True)
+    repository.insert_persona_realism_run(
+        {
+            "matcher_version": "test",
+            "corpus_hash": "b" * 64,
+            "persona_source": "authored_signature",
+            "persona_count": 8,
+            "real_count": 8,
+            "folds": 16,
+            "matcher_correct": 8,
+            "matcher_total": 16,
+            "balanced_accuracy": 0.5,
+            "separation_threshold": 0.7,
+            "verdict": "indistinguishable",
+            "feature_manifest": {},
+        }
+    )
+
+    result = generate_diagnostic_practice_proposal(
+        root, _FakeClient(_proposal(_item_payload()))
+    )
+
+    item = repository.proposal_items(result.patch_id)[0]
+    audit = item["audit"]["persona_gate"]
+    assert audit["persona_realism_validated"] is True
+    assert audit["tier"] == str(GateTier.HARD)
+    assert audit["decision"] == str(GateDecision.BLOCK)
+    assert item["validation_status"] == "invalid"
+    assert repository.intervention_need(need_id)["status"] == "pending"
+
+
 def test_live_route_abstains_when_there_is_nothing_to_plant(tmp_path):
     """No persona material -> UNTESTED, recorded, and no route change.
 
@@ -450,15 +483,35 @@ def test_contrast_pair_must_fail_exactly_one_member(tmp_path):
     assert {o.reason for o in gate.outcomes} == {PersonaGateReason.CONTRAST_PAIR_SEPARATES}
     assert {o.decision for o in gate.outcomes} == {GateDecision.PASS}
 
+    # "Fails both" is only a VERDICT when a semantic oracle judged it. The
+    # deterministic fallback compares one authored signature against each
+    # member's expected answer, and a signature written as what a believer would
+    # actually produce differs from both — so without an oracle this arm would
+    # block every honestly-authored pair, enforcing "the signature is a verbatim
+    # copy of one expected answer" rather than anything about the instrument.
     both = _pair_rows(
         expected_a="Qx is the coordinate vector",
         expected_b="Qx is also the coordinate vector",
         belief="Q^T x is the coordinate vector",
     )
-    gate = _gate(root)
+
+    class _SemanticOracle:
+        """Judges every member as failed — the real 'fails both' case."""
+
+        @staticmethod
+        def grade_diagnostic_fire(**_kwargs) -> bool:
+            return True
+
+    gate = _gate(root, grading_client=_SemanticOracle())
     gate(both)
     assert {o.reason for o in gate.outcomes} == {PersonaGateReason.CONTRAST_PAIR_FAILS_BOTH}
     assert {o.decision for o in gate.outcomes} == {GateDecision.BLOCK}
+
+    # Same pair, no oracle: an abstention that ships to review, not a block.
+    gate = _gate(root)
+    gate(both)
+    assert {o.reason for o in gate.outcomes} == {PersonaGateReason.CONTRAST_PAIR_UNJUDGED}
+    assert {o.decision for o in gate.outcomes} == {GateDecision.FLAG_FOR_REVIEW}
 
     neither = _pair_rows(
         expected_a="Q^T x is the coordinate vector",
@@ -472,7 +525,14 @@ def test_contrast_pair_must_fail_exactly_one_member(tmp_path):
 
 
 def test_every_typed_reason_is_reachable_is_asserted_by_this_module():
-    """Guard: a new reason arm must arrive with a test that reaches it."""
+    """Guard: a new reason arm must arrive with a test that reaches it.
+
+    Split across two modules since Meas §3.A3 landed (plan item 6.4). The A3 arms
+    invert the question this gate normally asks — a belief-holder passes an error
+    hunt by *not* seeing the plant — so their coverage lives beside the rest of
+    A3 in ``tests/test_error_hunt_items``, and the guard names them here rather
+    than losing the completeness check.
+    """
 
     covered = {
         PersonaGateReason.PERSONAS_SEPARATE,
@@ -480,12 +540,78 @@ def test_every_typed_reason_is_reachable_is_asserted_by_this_module():
         PersonaGateReason.BELIEF_HOLDER_PASSES,
         PersonaGateReason.FACET_HOLDER_FAILS,
         PersonaGateReason.CONTRAST_PAIR_FAILS_BOTH,
+        PersonaGateReason.CONTRAST_PAIR_UNJUDGED,
         PersonaGateReason.CONTRAST_PAIR_FAILS_NEITHER,
         PersonaGateReason.NO_KEYED_DETECTOR,
         PersonaGateReason.INSUFFICIENT_PERSONA_PAYLOAD,
         PersonaGateReason.NOT_AN_INSTRUMENT,
+        PersonaGateReason.PERSONA_REALISM_SEPARABLE,
     }
-    assert covered == set(PersonaGateReason)
+    #: Reached in `tests/test_error_hunt_items.py`, one test per arm.
+    covered_by_error_hunt_tests = {
+        PersonaGateReason.ERROR_HUNT_PLANTS_INVISIBLE,
+        PersonaGateReason.ERROR_HUNT_CLEAN_CONTROL,
+        PersonaGateReason.ERROR_HUNT_PLANT_VISIBLE_TO_BELIEF_HOLDER,
+        PersonaGateReason.ERROR_HUNT_PLANT_NOT_FROM_REGISTRY,
+        PersonaGateReason.ERROR_HUNT_NO_REPAIR_REQUIRED,
+        PersonaGateReason.ERROR_HUNT_DECLARES_ERROR_COUNT,
+        PersonaGateReason.ERROR_HUNT_PLANT_MATCHES_REPAIR,
+    }
+    assert covered | covered_by_error_hunt_tests == set(PersonaGateReason)
+
+
+def test_b2_separable_corpus_invalidates_an_otherwise_passing_hard_gate(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    repository.insert_persona_realism_run(
+        {
+            "matcher_version": "test",
+            "corpus_hash": "a" * 64,
+            "persona_source": "authored_signature",
+            "generator_family": "test:generator",
+            "persona_count": 8,
+            "real_count": 8,
+            "folds": 16,
+            "matcher_correct": 16,
+            "matcher_total": 16,
+            "balanced_accuracy": 1.0,
+            "separation_threshold": 0.7,
+            "verdict": "separable",
+            "feature_manifest": {},
+        }
+    )
+    payload = _item_payload(
+        misconception_consistent_answer="V transpose is unnecessary",
+        grading_rubric={
+            "max_points": 4,
+            "criteria": [{"id": "c1", "points": 4, "description": "correct"}],
+            "fatal_errors": [
+                {
+                    "id": "fatal_vt",
+                    "description": "omits V transpose",
+                    "max_grade": 1,
+                    "misconception_id": "mc_vt",
+                }
+            ],
+        },
+    )
+    row = {
+        "client_item_id": "candidate",
+        "item_type": "practice_item",
+        "operation": "create",
+        "validation_status": "valid",
+        "payload": payload,
+    }
+    gate = PersonaGate(vault, repository)
+    gate([row])
+
+    assert gate.outcomes[0].decision is GateDecision.BLOCK
+    assert (
+        gate.outcomes[0].reason
+        is PersonaGateReason.PERSONA_REALISM_SEPARABLE
+    )
+    assert row["audit"]["persona_gate"]["persona_realism_validated"] is False
 
 
 # --- gate precision --------------------------------------------------------

@@ -21,7 +21,7 @@ from learnloop.services.scheduler import build_due_queue
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_basic_vault, seed_due_item
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
 
 CLOCK = FrozenClock(NOW)
 ITEM = "pi_svd_define_001"
@@ -94,14 +94,70 @@ def test_retire_item_stops_all_serving(env) -> None:
     assert item.status_reason == "knew_prompt_not_concept: just parroting"
     # Immediately excluded from the queue (independent of sync ordering) ...
     assert not any(e.practice_item_id == ITEM for e in build_due_queue(reloaded, repo, clock=CLOCK))
-    # ... and the scheduler state deactivates on the next sync, staying deactivated.
-    sync_vault_state(reloaded, repo, clock=CLOCK)
+    # ... and the narrow write deactivates scheduler state immediately without
+    # waiting for a global replay.
     assert not repo.practice_item_states()[ITEM].active
     sync_vault_state(reloaded, repo, clock=CLOCK)
     assert not repo.practice_item_states()[ITEM].active
 
     with pytest.raises(ItemAuthoringError):
         retire_item(root, repo, practice_item_id=ITEM, reason="because")
+
+
+def test_retire_item_reuses_loaded_vault_and_clears_serving_backdoors(
+    env, monkeypatch
+) -> None:
+    root, repo = env
+    vault = load_vault(root)
+    session_id = repo.create_session(energy="medium", available_minutes=25, clock=CLOCK)
+    repo.update_session_checkpoint(
+        session_id,
+        current_practice_item_id=ITEM,
+        current_answer="unfinished answer",
+        clock=CLOCK,
+    )
+    task = repo.create_followup_task(
+        kind="cold_retry",
+        case_kind="diagnosis",
+        case_ref="diagnosis_1",
+        not_before=NOW_ISO,
+        selected_item_id=ITEM,
+        clock=CLOCK,
+    )
+    assert repo.surfaces_for_legacy_practice_item(ITEM) == []
+
+    # The latency seam is contractual: an interactive caller that already owns
+    # a validated snapshot must not reparse the vault in either service layer.
+    import learnloop.services.item_authoring as authoring_module
+    import learnloop.vault.writer as writer_module
+
+    monkeypatch.setattr(
+        authoring_module,
+        "load_vault",
+        lambda _root: pytest.fail("retirement reparsed the vault"),
+    )
+    monkeypatch.setattr(
+        writer_module,
+        "load_vault",
+        lambda _root: pytest.fail("writer reparsed the vault"),
+    )
+
+    result = retire_item(
+        root,
+        repo,
+        practice_item_id=ITEM,
+        reason="no_longer_relevant",
+        loaded_vault=vault,
+        clock=CLOCK,
+    )
+
+    assert result["item"].status == "retired"
+    assert repo.practice_item_state(ITEM).active is False
+    assert repo.fetch_session_checkpoint(session_id) is None
+    assert repo.followup_task(task["id"])["status"] == "expired"
+    # Retirement mirrors existing substrate state; it must never mint a surface
+    # just so there is something to retire.
+    assert repo.surfaces_for_legacy_practice_item(ITEM) == []
 
 
 def test_split_item_retires_original_and_links_parts(env) -> None:

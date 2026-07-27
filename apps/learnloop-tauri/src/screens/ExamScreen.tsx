@@ -8,8 +8,8 @@ import type {
 } from "../api/dto";
 import { COLOR, FONT_MONO, Faint, KeyBar } from "../components/term";
 import { Card, SectionHeader } from "../components/ui";
+import { ItemPresentation } from "../components/ItemPresentation";
 import { masteryTone } from "../app/algoConfig";
-import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
 
 type Phase = "loading" | "error" | "exam" | "finishing" | "report";
@@ -196,9 +196,15 @@ export function ExamScreen({
           </div>
           {current ? (
             <>
-              <div className="markdown" style={{ marginTop: 10 }}>
-                <MarkdownMath value={current.prompt} />
-              </div>
+              {/* Meas §3.A2/§3.A3: the same presentation payload and the same
+                  renderer the practice surface mounts. Exams carried their own
+                  prompt-only shape, so an error hunt reserved into a pool would
+                  have been served here with no worked solution even after
+                  practice was fixed — and an exam answer is held-out
+                  measurement, which makes an unanswerable item worse here than
+                  anywhere else. */}
+              <ItemPresentation presentation={current.presentation} />
+
               <div style={{ marginTop: 12 }}>
                 <MathLiveEditor
                   value={answer}

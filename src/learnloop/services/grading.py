@@ -15,8 +15,22 @@ from learnloop.services.error_taxonomy_map import (
     map_legacy_error_type,
 )
 from learnloop.services.capability_mapping import CriterionOutcome, localize_criterion_outcomes
+from learnloop.services.discrimination_profiles import (
+    item_profiles,
+    profile_prior_payload,
+    validate_profile_match,
+)
+from learnloop.services.error_hunt import (
+    suppress_facet_failures_on_clean_solution,
+    validate_error_hunt_report,
+)
 from learnloop.services.recall_coverage import criterion_facet_weights_for_item, resolve_coverage
-from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
+from learnloop.vault.models import (
+    LoadedVault,
+    PracticeItem,
+    Rubric,
+    learning_object_facet_union,
+)
 
 
 def is_canonical_state_vault(vault: LoadedVault) -> bool:
@@ -209,10 +223,39 @@ class ValidatedErrorAttribution:
     first_divergence: dict[str, Any] | None = None
     model_reported_localization_confidence: float | None = None
     model_reported_causal_confidence: float | None = None
+    # Aug C3: harness-owned agreement across independent diagnosis calls.
+    # This is never a GradingProposal field, so the model cannot award itself
+    # support.  The attempt service attaches it after proposal validation.
+    diagnostic_sample_support: float | None = None
     facet_contrast: dict[str, Any] | None = None
     candidate_causes: list[dict[str, Any]] | None = None
     postdictive_claims: list[dict[str, Any]] | None = None
     soft_postdictive_claims: list[str] | None = None
+    # Meas §3.A3 / §10: why this attribution's facet targets were cleared, when
+    # they were. An emptied target list is indistinguishable from a list the
+    # grader never filled, and the projection's single-target fallback reads that
+    # silence as "attribute the whole failure to the criterion's own target" —
+    # which is exactly the facet failure the clean-solution guard exists to
+    # prevent. The reason has to travel with the attribution or the guard stops
+    # at the attribution channel and never reaches the ledger.
+    facet_write_blocked: str | None = None
+
+
+@dataclass(frozen=True)
+class ValidatedExercisedFacet:
+    """One accepted A6 trace observation (Meas §3.A6).
+
+    ``observation_scope`` is derived, never reported: ``declared`` when the facet
+    is already in the item's contract (the grader confirming what the item meant
+    to measure) and ``opportunistic`` when it is not. A6's revert criterion —
+    "opportunistic credit concentrates on a few facets" — is a statement about
+    the second population only, so the two must stay separable.
+    """
+
+    facet: str
+    evidence: str
+    observation_scope: str
+    criterion_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -227,6 +270,17 @@ class ValidatedCodexGrade:
     repair_suggestions: list[dict[str, Any]] | None = None
     diagnosis_md: str | None = None
     attribution_audit_events: list[dict[str, Any]] | None = None
+    exercised_facets: list[ValidatedExercisedFacet] | None = None
+    clarification: dict[str, Any] | None = None
+    # Meas §3.A5: which authored candidate profile the trace matched, or the
+    # first-class rejection. Always present on a graded attempt (the harness
+    # supplies the `no_profiles_offered` arm itself), because the revert
+    # criterion needs a denominator that includes the items nobody profiled.
+    discrimination_profile_match: dict[str, Any] | None = None
+    # Meas §3.A3: what the learner repaired in a worked solution, and — on the
+    # clean rotation — whether a facet write was suppressed. `None` on every item
+    # that is not an error hunt, so the A3 population stays countable.
+    error_hunt: dict[str, Any] | None = None
 
 
 # Deliberately stricter than canonical_projection.FAILURE_THRESHOLD (0.40).
@@ -499,7 +553,48 @@ def build_grading_context(
             else None
         ),
         error_taxonomy=_grading_error_taxonomy(vault),
+        facet_registry=_grading_facet_registry(vault, item),
+        # Meas §3.A5: the item's authored candidate causes, as a PRIOR. Empty for
+        # an item that authors none, and the prompt's profile paragraph is
+        # conditioned on the list being non-empty, so a grader is never shown a
+        # candidate set that does not exist.
+        discrimination_profiles=profile_prior_payload(item_profiles(item)),
+        # Meas §3.A3: the worked solution the learner was asked to repair. The
+        # plants are deliberately withheld — see the field's note on
+        # `codex.client.GradingContext`.
+        error_hunt_solution=(
+            item.error_hunt.worked_solution_md if item.error_hunt is not None else None
+        ),
     )
+
+
+def _grading_facet_registry(vault: LoadedVault, item: PracticeItem) -> list[dict[str, str]]:
+    """Facets A6 may report as exercised, with the claim each one names.
+
+    Scoped to the item's learning object: the union of every facet its
+    blueprints reference, which is the set whose cells the LO's contract can
+    actually close. Offering the grader the whole subject vocabulary would be
+    unbounded token cost per grading call and an invitation to pattern-match,
+    which is exactly the behaviour A6's revert criterion watches for.
+
+    The claim text travels with the id because a bare slug is not enough to
+    decide whether a trace exercises a facet — the whole point of the channel is
+    that the model is reading work against a claim, not matching a name.
+    """
+
+    learning_object = vault.learning_objects.get(item.learning_object_id)
+    if learning_object is None:
+        return []
+    registry: list[dict[str, str]] = []
+    for facet_id in learning_object_facet_union(learning_object):
+        canonical = vault.canonical_facet_id(str(facet_id))
+        facet = (vault.evidence_facets or {}).get(canonical)
+        if facet is None:
+            continue
+        registry.append(
+            {"id": canonical, "claim": str(getattr(facet, "claim", "") or "")}
+        )
+    return registry
 
 
 def evidence_coverage(
@@ -543,6 +638,12 @@ def grading_context_hash(context: GradingContext) -> str:
         "criterion_facet_weights": context.criterion_facet_weights,
         "trace_contract": context.trace_contract,
         "error_taxonomy": context.error_taxonomy,
+        "facet_registry": context.facet_registry,
+        "discrimination_profiles": context.discrimination_profiles,
+        "clarification_exchange": context.clarification_exchange,
+        "error_hunt_solution": context.error_hunt_solution,
+        "verifier_observations": context.verifier_observations,
+        "diagnostic_history": context.diagnostic_history,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
@@ -1038,6 +1139,46 @@ def validate_codex_grading_proposal(
     if unknown_error_types:
         manual_review_reason = "unknown_error_type:" + ",".join(unknown_error_types)
 
+    validated_exercised = _validated_exercised_facets(vault, item, rubric, proposal)
+    clarification = _validated_clarification(
+        proposal, validated_evidence, validated_errors, rubric
+    )
+    if clarification is not None and manual_review_reason is None:
+        # Meas §3.A8: the grade is `provisional_pending_clarification` until the
+        # learner answers or the question times out. There is no separate grade
+        # -state column and adding one would put the state where the existing
+        # review surfaces cannot see it; `manual_review_reason` is already how
+        # every other "this grade is not final" state is expressed
+        # (`codex_manual_review`, `low_grader_confidence`, `attribution_scope:*`),
+        # so this joins that vocabulary rather than starting a second one.
+        # Deliberately does NOT override an existing reason: a grade that already
+        # needs a human is not made less so by also asking the learner.
+        manual_review_reason = PROVISIONAL_PENDING_CLARIFICATION
+
+    # Meas §3.A5. Always resolved, never conditional on the item authoring
+    # profiles: the harness supplies the `no_profiles_offered` arm itself, and a
+    # rejection rate whose denominator silently excluded unprofiled items would
+    # be measuring authoring coverage rather than the diagnostician's behaviour.
+    profile_match = validate_profile_match(item, proposal)
+    # Meas §3.A3. `None` for every item that is not an error hunt.
+    hunt = validate_error_hunt_report(item, proposal)
+    # §10: "a clean-solution error-hunt on which the learner reports an error
+    # writes a misconception candidate, not a facet failure." Runs AFTER the
+    # passed-facet firewall above, deliberately: the two guards block different
+    # writes for different reasons (that one protects a facet the learner
+    # demonstrated; this one protects a facet they were never observed
+    # exercising), and running this first would leave the firewall auditing
+    # attributions this had already emptied.
+    validated_errors, validated_repair_suggestions, hunt = (
+        suppress_facet_failures_on_clean_solution(
+            hunt, validated_errors, validated_repair_suggestions
+        )
+    )
+    if hunt is not None:
+        attribution_audit_events = list(attribution_audit_events or []) + [
+            dict(event) for event in hunt.suppression_events
+        ]
+
     return ValidatedCodexGrade(
         rubric_score=proposal.rubric_score,
         criterion_evidence=validated_evidence,
@@ -1049,7 +1190,191 @@ def validate_codex_grading_proposal(
         repair_suggestions=validated_repair_suggestions,
         diagnosis_md=proposal.diagnosis_md,
         attribution_audit_events=attribution_audit_events,
+        exercised_facets=validated_exercised,
+        clarification=clarification,
+        discrimination_profile_match=profile_match.as_dict(),
+        error_hunt=hunt.as_dict() if hunt is not None else None,
     )
+
+
+#: Meas §3.A6 revert criterion: "opportunistic credit concentrates on a few
+#: facets, which indicates the grader is pattern-matching the vocabulary rather
+#: than reading the work." A per-attempt cap is the cheap half of that watch —
+#: an attempt reporting a dozen exercised facets is describing the syllabus, not
+#: the trace. Excess observations are dropped in the grader's own order, which
+#: is the only ranking available; the drop is not recorded, because the standing
+#: watch is `trace_evidence_report`'s concentration statistic over what WAS
+#: accepted, and a grader that reports a dozen facets an attempt shows up there
+#: regardless of where the list was cut.
+MAX_EXERCISED_FACETS_PER_ATTEMPT = 6
+
+
+def _validated_exercised_facets(
+    vault: LoadedVault,
+    item: PracticeItem,
+    rubric: Rubric,
+    proposal: Any,
+) -> list[ValidatedExercisedFacet]:
+    """Accept A6 trace observations that name a registered facet with a citation.
+
+    Deliberately *stricter* than the attribution channel's known-facet set. An
+    attribution target must already be in the item's contract; an A6 observation
+    is by definition allowed to name a facet the item never declared — that is
+    the whole channel. The gate that replaces it is registry membership: the
+    facet must exist in the vault's canonical vocabulary, because crediting an
+    id nothing else in the system knows about would file evidence into a cell no
+    contract, report or grid ever reads.
+
+    An observation naming an unregistered facet is dropped rather than raised,
+    and deliberately leaves no record. It is a *bonus* channel — taking a graded
+    attempt down because the grader invented a facet id would trade a real
+    measurement for a cosmetic one — and it is not a missing-vocabulary signal
+    either: the grader is handed ``context.facet_registry`` and told to pick from
+    it, so naming something outside is a model error against a closed list, not
+    the vocabulary failing to name what the learner did. A5's note store exists
+    for the latter and would be diluted by the former.
+    """
+
+    raw = list(getattr(proposal, "exercised_facets", None) or [])
+    if not raw:
+        return []
+    declared = {vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets}
+    declared.update(
+        vault.canonical_facet_id(str(target.facet))
+        for criterion in rubric.criteria
+        for target in criterion.targets
+    )
+    registered = set(vault.evidence_facets or ())
+    criterion_ids = {criterion.id for criterion in rubric.criteria}
+    accepted: list[ValidatedExercisedFacet] = []
+    seen: set[str] = set()
+    for observation in raw:
+        facet = vault.canonical_facet_id(str(getattr(observation, "facet", "") or ""))
+        evidence = str(getattr(observation, "evidence", "") or "").strip()
+        if not facet or not evidence:
+            continue
+        # On a vault with no facet registry at all (legacy content) there is
+        # nothing to check against, so registry membership cannot be required —
+        # the same abstention `unregistered_facet_errors` callers already make.
+        if registered and facet not in registered:
+            continue
+        if facet in seen:
+            continue
+        seen.add(facet)
+        criterion_id = getattr(observation, "criterion_id", None)
+        accepted.append(
+            ValidatedExercisedFacet(
+                facet=facet,
+                evidence=evidence,
+                observation_scope="declared" if facet in declared else "opportunistic",
+                criterion_id=(
+                    str(criterion_id) if criterion_id and str(criterion_id) in criterion_ids else None
+                ),
+            )
+        )
+    return accepted[:MAX_EXERCISED_FACETS_PER_ATTEMPT]
+
+
+#: The `manual_review_reason` tag that means "this grade is provisional until a
+#: clarification resolves or times out" (Meas §3.A8's `provisional_pending_clarification`
+#: grade state). Joins the existing string vocabulary in that field rather than
+#: introducing a second state channel the review surfaces cannot see.
+PROVISIONAL_PENDING_CLARIFICATION = "provisional_pending_clarification"
+
+#: Grader confidence at or above which no clarification may be asked. Shares the
+#: 0.40 hedge threshold every other surface uses (`grade_resolution`,
+#: `grade_classifier`, the `low_grader_confidence` review tag) so "hedged" means
+#: one thing in this vault.
+CLARIFICATION_CONFIDENCE_CEILING = 0.40
+
+
+def _validated_clarification(
+    proposal: Any,
+    validated_evidence: list[ValidatedCriterionEvidence],
+    validated_errors: list[ValidatedErrorAttribution],
+    rubric: Rubric | None = None,
+) -> dict[str, Any] | None:
+    """Accept a clarification request only against a grade that is already unsure.
+
+    §3.A8's bound, and the one that keeps the channel from becoming an
+    interrogation: *never on a confident grade*. Three licensing signals, each
+    recorded as the ``trigger`` so the rate can later be decomposed by which kind
+    of uncertainty is actually driving it:
+
+    * ``hedged_criterion`` — the named criterion carries
+      ``learner_confidence='hedged'`` **and the grade on it is not confident**.
+      That conjunction is §10's line ("a confidently-graded criterion never
+      triggers a clarification") and it is not redundant:
+      ``learner_confidence`` describes how confident the *learner* sounded, not
+      how sure the *grader* is, so on its own it would license a question about
+      a criterion awarded full credit at grader confidence 0.99 — an
+      interrogation, which is exactly what §3.A8's bound forbids. "Not
+      confident" is read two ways, either of which suffices: overall grader
+      confidence below the shared hedge threshold, or the criterion itself short
+      of full credit (a partially-credited step is a grade with something left
+      unresolved, which is the "correct answer possibly reached by invalid
+      reasoning" shape A8 exists for);
+    * ``abstained_attribution`` — some attribution is ``abstained`` with a
+      reason (the case A8 exists for: an abstention repairable by one question);
+    * ``low_grader_confidence`` — overall grader confidence below the shared
+      0.40 hedge threshold.
+
+    A request with none of these is dropped, silently and deliberately: raising
+    would fail an otherwise valid grade over a bonus channel, and the model
+    asking an unlicensed question is a prompt problem, not a data problem. The
+    drop is observable — ``clarification_rate`` counts what was *accepted*, so a
+    model that over-asks shows up as a flat rate rather than an inflated one.
+    """
+
+    request = getattr(proposal, "clarification_request", None)
+    if request is None:
+        return None
+    question = str(getattr(request, "question_md", "") or "").strip()
+    if not question:
+        return None
+    criterion_id = getattr(request, "criterion_id", None)
+    criterion_id = str(criterion_id) if criterion_id else None
+    grader_confidence = float(getattr(proposal, "grader_confidence", 1.0))
+    max_points = {
+        criterion.id: float(criterion.points)
+        for criterion in (rubric.criteria if rubric is not None else ())
+    }
+
+    def _grade_is_unsure(evidence: ValidatedCriterionEvidence) -> bool:
+        if grader_confidence < CLARIFICATION_CONFIDENCE_CEILING:
+            return True
+        ceiling = max_points.get(evidence.criterion_id)
+        return ceiling is not None and evidence.points_awarded < ceiling - 1e-9
+
+    hedged = {
+        evidence.criterion_id
+        for evidence in validated_evidence
+        if evidence.learner_confidence == "hedged" and _grade_is_unsure(evidence)
+    }
+    abstained = any(
+        attribution.resolution_status == "abstained" and attribution.abstention_reason
+        for attribution in validated_errors
+    )
+    if criterion_id is not None and criterion_id in hedged:
+        trigger = "hedged_criterion"
+    elif abstained:
+        trigger = "abstained_attribution"
+        # An attribution-level abstention is not scoped to one criterion, so a
+        # criterion id offered alongside it is dropped rather than trusted:
+        # attaching the question to a criterion the grader did not hedge would
+        # invent the scope.
+        if criterion_id is not None and criterion_id not in hedged:
+            criterion_id = None
+    elif grader_confidence < CLARIFICATION_CONFIDENCE_CEILING:
+        trigger = "low_grader_confidence"
+    else:
+        return None
+    return {
+        "question_md": question,
+        "reason": str(getattr(request, "reason", "other") or "other"),
+        "criterion_id": criterion_id,
+        "trigger": trigger,
+    }
 
 
 def resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
@@ -1109,6 +1434,15 @@ def causal_attribution_audit_report(repository: Any) -> dict[str, Any]:
                 "criterion_target_fill_count": 0,
                 "firewall_trigger_count": 0,
                 "judgment_fill_counts": {},
+                # Meas §3.A5. The profile channel is a fill/abstention channel of
+                # exactly the kind this report already watches, so it is grouped
+                # by the same (prompt_version, model) key rather than reported
+                # somewhere else — `no_profile_applies` is this channel's
+                # abstention arm, and standing constraint 2 says watch both tails
+                # of it. `discrimination_profile_rejection_rate` computes the rate
+                # itself off the durable store; these are the raw counts, visible
+                # from the CLI a reader already runs.
+                "discrimination_profile_counts": {},
             },
         )
         group["attempts"] += 1
@@ -1127,6 +1461,26 @@ def causal_attribution_audit_report(repository: Any) -> dict[str, Any]:
         for field, count in (telemetry.get("judgment_fill_counts") or {}).items():
             fills = group["judgment_fill_counts"]
             fills[str(field)] = int(fills.get(str(field)) or 0) + int(count or 0)
+        # Read from the DURABLE store, not from the debug payload beside it.
+        # `rebuild-derived-state` re-derives the payload from the persisted grade,
+        # which carries no profile report (there is no provider on the replay
+        # path), so a payload-sourced count would silently zero itself on the next
+        # rebuild — exactly the failure migration 141 called out for A6's raw log.
+        # The debug payload keeps its per-attempt copy for readability; this is
+        # the one that has to survive.
+        profile_row = repository.discrimination_profile_match(str(attempt["id"]))
+        if profile_row is not None:
+            tally = group["discrimination_profile_counts"]
+            arm = str(profile_row.get("outcome") or "")
+            tally[arm] = int(tally.get(arm) or 0) + 1
+    # Present every arm on every group, at zero when unseen: a tail that vanishes
+    # from the report when it is empty cannot be watched, and "collapsed toward
+    # zero" is precisely the tail §3.A5 asks readers to watch.
+    from learnloop.services.discrimination_profiles import ProfileMatchOutcome
+
+    for group in groups.values():
+        for arm in ProfileMatchOutcome:
+            group["discrimination_profile_counts"].setdefault(str(arm), 0)
     return {"groups": [groups[key] for key in sorted(groups)]}
 
 

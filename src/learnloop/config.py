@@ -1729,12 +1729,23 @@ class EvidenceCertificationConfig(BaseModel):
     overrides the per-``(attempt_type, group)`` budget, which otherwise defaults
     to ``evidence_mass(attempt_type)``. KM1 ships this table as data; the write
     path that consumes it lands with KM2.
+
+    ``max_embedded_credit_share`` is A1 guard 2 (``spec_measurement_efficiency_v1``
+    §3.A1): no ``(facet, capability)`` cell may take more than this fraction of
+    its certification credit from *embedded* (supporting-role) observations. A1
+    lets one conjunctive item credit several cells at once, and the passed-facet
+    firewall only protects the negative direction — positive smearing has no
+    firewall and nobody contests being told they know something. At the default
+    0.5 a cell needs at least as much direct as embedded credit, so a cell whose
+    entire history is supporting credit reads as *inferred* (Part II's honest
+    label), never as demonstrated. Set to 1.0 to disable the cap.
     """
 
     model_config = ConfigDict(extra="allow")
 
     max_groups_per_attempt: int = 3
     group_budgets: dict[str, float] = Field(default_factory=dict)
+    max_embedded_credit_share: float = 0.5
 
 
 class EvidenceBlueprintsConfig(BaseModel):
@@ -1807,6 +1818,43 @@ class CapabilitiesConfig(BaseModel):
     residual_shrinkage_pseudo_count: float = Field(default=4.0, ge=0.0)
 
 
+class TraceEvidenceConfig(BaseModel):
+    """A6 opportunistic trace evidence and its elicitation budget (Meas §3.A6).
+
+    Two knobs, and the second is the one that matters. ``max_elicitations_per_session``
+    is the hard budget on asking the learner for a one-line justification: "more
+    explanation is more evidence, so there is a standing temptation to demand it
+    everywhere. Do not." A system that makes people narrate their arithmetic has
+    traded a measurement problem for a retention problem (§11 non-goals), and
+    standing constraint 10 makes annoyance a first-class regression.
+
+    ``elicitation_enabled`` exists because the *reporting* half of A6 (the grader
+    naming facets it saw) has no learner cost and should not be revertible by the
+    same switch as the half that does.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    elicitation_enabled: bool = True
+    max_elicitations_per_session: int = 2
+
+
+class DiagnosticAugmentationConfig(BaseModel):
+    """Stage 7 live diagnosis rungs.
+
+    ``sample_count`` is C3's k and therefore both a support and cost decision.
+    ``history_limit`` is C4's anchoring/exposure bound.  They are explicit
+    registry parameters rather than module constants so a revert can restore
+    the one-sample/no-history baseline without changing historical receipts.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    sampling_enabled: bool = True
+    sample_count: int = Field(default=3, ge=1, le=9)
+    history_limit: int = Field(default=4, ge=0, le=20)
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1838,6 +1886,10 @@ class LearnLoopConfig(BaseModel):
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)
     cross_lo_propagation: CrossLoPropagationConfig = Field(default_factory=CrossLoPropagationConfig)
     fitting: FittingConfig = Field(default_factory=FittingConfig)
+    trace_evidence: TraceEvidenceConfig = Field(default_factory=TraceEvidenceConfig)
+    diagnostic_augmentation: DiagnosticAugmentationConfig = Field(
+        default_factory=DiagnosticAugmentationConfig
+    )
 
     @model_validator(mode="before")
     @classmethod

@@ -417,12 +417,13 @@ function MeasurementHealthPanel({
   if (!health) {
     return (
       <div style={panel}>
-        <Faint>Measurement & causal health · loading authoritative Stage 0–5 producers…</Faint>
+        <Faint>Measurement & causal health · loading authoritative producers…</Faint>
       </div>
     );
   }
 
   const reach = health.reachability.summary;
+  const inference = health.inferencePrecheck.summary;
   const cold = health.coldProbes.coverage;
   const backfill = health.integrationBackfill.summary;
   const backfillChanges =
@@ -436,7 +437,7 @@ function MeasurementHealthPanel({
   return (
     <div style={panel}>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <Faint>Measurement & causal health · Stage 0–5</Faint>
+        <Faint>Measurement & causal health · Stages 0–6 + inference precheck</Faint>
         <Pill color={reach.cellCount === 0 ? "slate" : reach.unreachableCount === 0 ? "green" : "amber"}>
           {reach.cellCount === 0
             ? "no contract cells declared"
@@ -481,6 +482,15 @@ function MeasurementHealthPanel({
 
       <Divider />
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: 14 }}>
+        <TraceEvidenceBlock traceEvidence={health.traceEvidence} />
+        <ClarificationRateBlock clarificationRate={health.clarificationRate} />
+      </div>
+
+      <Divider />
+      <InstrumentAuditBlock audit={health.instrumentAudit} />
+
+      <Divider />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: 14 }}>
         <div>
           <Faint>
             Contract reachability · {reach.facetsInstrumented}/{reach.facetsDeclared} facets instrumented
@@ -505,6 +515,28 @@ function MeasurementHealthPanel({
               first {queue.length} of {reach.unreachableCount} commissioning rows
             </Faint>
           ) : null}
+          <div style={{ marginTop: 12 }}>
+            <Faint>Wave 4 inference precheck · static cells converted, no credit applied</Faint>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
+              <Pill color={inference.capabilityDominance.movesCount ? "green" : "slate"}>
+                B1 dominance {inference.capabilityDominance.cellsConverted}
+              </Pill>
+              <Pill color={inference.prerequisiteEntailment.movesCount ? "green" : "slate"}>
+                B3 hard entailment {inference.prerequisiteEntailment.cellsConverted}
+              </Pill>
+              <Pill color={inference.prerequisiteEntailment.conditionalCells > 0 ? "amber" : "slate"}>
+                path-conditional {inference.prerequisiteEntailment.conditionalCells}
+              </Pill>
+              <Pill color={inference.combined.movesCount ? "green" : "slate"}>
+                combined {inference.combined.cellsConverted}
+              </Pill>
+            </div>
+            <Faint style={{ display: "block", marginTop: 5 }}>
+              prerequisite declarations: {inference.prerequisiteEntailment.prerequisiteDeclarationCount}
+              {" · "}untyped {inference.prerequisiteEntailment.modalityCounts.untyped ?? 0}
+              {" · "}instructional only {inference.prerequisiteEntailment.modalityCounts.instructional_order ?? 0}
+            </Faint>
+          </div>
         </div>
 
         <div>
@@ -617,6 +649,266 @@ function MeasurementHealthPanel({
             </div>
           );
         })
+      )}
+    </div>
+  );
+}
+
+// Meas §3.A6 revert criterion. Concentration is printed beside the counts it is
+// computed from and given NO verdict colour on purpose: the docstring's own
+// standard is that a reader can check it by hand, and inventing a threshold the
+// spec does not name would be the confident wrongness this panel exists to
+// catch. The abstaining arm stays visible and is never rendered as 0%.
+function TraceEvidenceBlock({
+  traceEvidence
+}: {
+  traceEvidence: MeasurementHealthDto["traceEvidence"];
+}) {
+  const t = traceEvidence;
+  return (
+    <div>
+      <Faint>A6 opportunistic trace evidence · §3.A6 revert criterion</Faint>
+      <div style={{ fontSize: 12, marginTop: 4 }}>
+        {t.opportunisticObservations} opportunistic · {t.declaredObservations} declared ·{" "}
+        across {t.attemptsWithObservations} attempt(s)
+      </div>
+      <div style={{ fontSize: 12, marginTop: 3 }}>
+        {t.opportunisticConcentration == null ? (
+          <span style={{ color: COLOR.amber }}>
+            concentration unmeasured · too few observations to report one
+          </span>
+        ) : (
+          <>
+            top facet holds{" "}
+            <span style={{ color: COLOR.text }}>
+              {(t.opportunisticConcentration * 100).toFixed(0)}%
+            </span>{" "}
+            of opportunistic credit across {t.distinctOpportunisticFacets} facet(s)
+          </>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
+        {t.topOpportunisticFacets.slice(0, 6).map((row) => (
+          <Pill key={row.facetId} color="slate">
+            {row.facetId.replace(/^facet_/, "")} ×{row.count}
+          </Pill>
+        ))}
+      </div>
+      <Faint style={{ display: "block", marginTop: 6 }}>
+        A1 guard 1 · {t.unexercisedSupportingCellCount} cell(s) accrued mass for a facet the trace
+        never showed exercised
+      </Faint>
+      {t.unexercisedSupportingCells.slice(0, 4).map((cell) => (
+        <div key={`${cell.facetId}:${cell.capability}`} style={{ fontSize: 11, marginTop: 3 }}>
+          <Pill color="amber">{cell.unexercisedSupportingMass.toFixed(2)}</Pill>{" "}
+          <span>{cell.facetId.replace(/^facet_/, "")}</span> <Faint>· {cell.capability}</Faint>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Plan item 6.4 — the four Meas §3 instrument classes' REVERT criteria, which
+// shipped as `learnloop instrument-audit` and nowhere else. A revert criterion
+// only a terminal can read is a rung kept on judgement, which §3 forbids; this
+// is the same four producers, in the same order, rendered.
+//
+// The screen's standing rule holds here exactly as it does above: an unavailable
+// arm STAYS VISIBLE and is never rendered as zero. A metric over too little data
+// prints its availability word and its counts — "no_data 1/3 paired facets" says
+// something true, "0.0%" says something false and alarming. Nothing here is
+// coloured against a threshold the spec does not name; the verdict string the
+// producer computed is the verdict shown.
+function InstrumentAuditBlock({ audit }: { audit: MeasurementHealthDto["instrumentAudit"] }) {
+  const hunts = audit.errorHuntOutcomes;
+  const coverage = audit.discriminationProfileCoverage;
+  const ladders = audit.ladderedStems.filter((stem) => stem.isLadder);
+  const commissioning = audit.contrastPairCommissioning.summary;
+  return (
+    <div>
+      <Faint>
+        Instrument revert criteria · §3.A2–§3.A5 · unavailable arms remain visible and are never
+        rendered as zero
+      </Faint>
+      <div style={{ overflowX: "auto", marginTop: 6 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
+          <thead>
+            <tr style={{ color: COLOR.textDim, textAlign: "left" }}>
+              <th style={th}>instrument</th>
+              <th style={th}>value / availability</th>
+              <th style={th}>verdict</th>
+              <th style={th}>denominator</th>
+            </tr>
+          </thead>
+          <tbody>
+            {audit.metrics.map((metric) => (
+              <tr key={metric.name} style={{ borderTop: `1px solid ${COLOR.border}` }}>
+                <td style={td}>{metric.name.replace(/_/g, " ")}</td>
+                <td style={{ ...td, color: metric.available ? COLOR.green : COLOR.amber }}>
+                  {metricValue(metric)}
+                </td>
+                <td style={{ ...td, color: COLOR.textDim }}>
+                  {String(metric.detail?.verdict ?? "—").replace(/_/g, " ")}
+                </td>
+                <td style={{ ...td, color: COLOR.textFaint }}>
+                  {metric.denominator ?? "—"} · {metric.denominatorLabel}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: 14, marginTop: 10 }}>
+        <div>
+          <Faint>A3 error hunts · outcomes and the clean rotation</Faint>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {hunts.attempts} attempt(s) · {hunts.plantedRepaired} plant(s) repaired ·{" "}
+            {hunts.plantedFoundNotRepaired} flagged not repaired · {hunts.plantedMissed} missed
+          </div>
+          <div style={{ fontSize: 12, marginTop: 3 }}>
+            {/* The rotation share is the one number an author can act on: the
+                "there is always an error" strategy returns the moment clean
+                solutions stop being served. Null with no attempts — a 0% here
+                would read as that failure rather than as no data. */}
+            {hunts.cleanRotationShare == null ? (
+              <span style={{ color: COLOR.amber }}>
+                clean rotation unmeasured · no error-hunt attempts recorded
+              </span>
+            ) : (
+              <>
+                clean rotation{" "}
+                <span style={{ color: COLOR.text }}>
+                  {(hunts.cleanRotationShare * 100).toFixed(0)}%
+                </span>{" "}
+                <Faint>
+                  · {hunts.cleanSolutionAttempts} of {hunts.attempts} solutions served correct
+                </Faint>
+              </>
+            )}
+          </div>
+          <Faint style={{ display: "block", marginTop: 4 }}>
+            {hunts.falsePositiveReports} false positive(s) · {hunts.misconceptionCandidatesWritten}{" "}
+            misconception candidate(s) written · {hunts.facetFailuresSuppressed} facet failure(s)
+            suppressed
+          </Faint>
+        </div>
+        <div>
+          <Faint>A2 laddered stems · a one-column "stem" is the failure mode</Faint>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {audit.ladderedStems.length === 0 ? (
+              <span style={{ color: COLOR.textDim }}>no stems authored</span>
+            ) : (
+              <>
+                {ladders.length} ladder(s) of {audit.ladderedStems.length} stem(s) ·{" "}
+                <Faint>
+                  the rest are near-clones on one stimulus, which kinship collapses to ~one
+                  observation
+                </Faint>
+              </>
+            )}
+          </div>
+          {audit.ladderedStems.slice(0, 4).map((stem) => (
+            <div key={stem.stemId} style={{ fontSize: 11, marginTop: 3 }}>
+              <Pill color={stem.isLadder ? "green" : "amber"}>
+                {stem.columnsFilled} column{stem.columnsFilled === 1 ? "" : "s"}
+              </Pill>{" "}
+              <span>{stem.stemId}</span>{" "}
+              <Faint>
+                · {stem.partIds.length} part(s)
+                {stem.unplacedParts.length > 0
+                  ? ` · ${stem.unplacedParts.length} declaring no capability`
+                  : ""}
+              </Faint>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)", gap: 14, marginTop: 10 }}>
+        <div>
+          <Faint>A5 discrimination profiles · the pool the rejection rate is read against</Faint>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {coverage.profiles} profile(s) on {coverage.itemsWithProfiles}/{coverage.practiceItems}{" "}
+            item(s)
+          </div>
+          <Faint style={{ display: "block", marginTop: 3 }}>
+            {coverage.unlinkedAuthoredProfiles} authored without a registry link — legitimate, but
+            the arm A4 commissioning exists to replace
+          </Faint>
+        </div>
+        <div>
+          <Faint>A4 contrast pairs · commissioning queue</Faint>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {commissioning.queueLength === 0 ? (
+              <span style={{ color: COLOR.textDim }}>
+                no identifiability findings to commission from
+              </span>
+            ) : (
+              <>
+                {commissioning.commissioned} commissioned · {commissioning.deferred} deferred · over{" "}
+                {commissioning.queueLength} finding(s)
+              </>
+            )}
+          </div>
+          {/* Deferred requests stay listed with their typed reason. A queue that
+              silently omits its uncommissionable rows is how an obligation goes
+              unnoticed for months. */}
+          {audit.contrastPairCommissioning.requests.slice(0, 4).map((request) => (
+            <div key={`${request.targetKey}:${request.queueRank}`} style={{ fontSize: 11, marginTop: 3 }}>
+              <Pill color={request.disposition === "COMMISSION" ? "green" : "slate"}>
+                {request.disposition.replace(/_/g, " ").toLowerCase()}
+              </Pill>{" "}
+              <span>{request.facetIds.join(" / ") || request.targetKey}</span>{" "}
+              <Faint>· {request.reason ?? request.check}</Faint>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Meas §3.A8 revert criterion. Over threshold is the loud state because of what
+// it means: machine-resident uncertainty (grader flakiness, a missing item
+// contract) misclassified as learner-resident, which principle 8 requires be
+// fixed machine-side rather than paid for in learner effort.
+function ClarificationRateBlock({
+  clarificationRate
+}: {
+  clarificationRate: MeasurementHealthDto["clarificationRate"];
+}) {
+  const c = clarificationRate;
+  return (
+    <div>
+      <Faint>A8 clarification rate · §3.A8 revert criterion</Faint>
+      {!c.available ? (
+        <>
+          <div style={{ fontSize: 12, marginTop: 4, color: COLOR.amber }}>
+            unavailable · {(c.unavailableReason ?? "no_data").replace(/_/g, " ")}
+          </div>
+          <Faint style={{ display: "block", marginTop: 3 }}>
+            {c.clarifications} question(s) over {c.gradeableAttempts} model-graded attempt(s) — too
+            few to state a rate, so none is stated
+          </Faint>
+        </>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+            <Pill color={c.overThreshold ? "red" : "green"}>
+              {((c.rate ?? 0) * 100).toFixed(1)}% of model-graded attempts
+            </Pill>
+            <Faint>threshold {(c.threshold * 100).toFixed(0)}%</Faint>
+          </div>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {c.clarifications} asked · {c.answered ?? 0} answered · {c.gradeableAttempts} model-graded
+            attempt(s)
+          </div>
+          {c.overThreshold ? (
+            <div style={{ color: COLOR.red, fontSize: 11, marginTop: 5, lineHeight: 1.5 }}>
+              Over threshold. This is machine-resident uncertainty being charged to the learner — a
+              grader or item-contract problem, and it must be fixed machine-side.
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

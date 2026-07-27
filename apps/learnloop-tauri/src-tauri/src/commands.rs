@@ -1,5 +1,6 @@
 use crate::errors::CommandError;
 use crate::sidecar::SidecarManager;
+use crate::vault_watcher::VaultWatcher;
 use serde_json::{json, Value};
 use tauri::State;
 
@@ -63,13 +64,23 @@ fn cli_command_succeeded(result: &Value) -> bool {
 pub async fn select_vault(
     path: Option<String>,
     sidecar: State<'_, SidecarManager>,
+    watcher: State<'_, VaultWatcher>,
 ) -> Result<Value, CommandError> {
-    blocking_select_vault(sidecar, path).await
+    let manager = sidecar.inner().clone();
+    let result = blocking_select_vault(sidecar, path).await?;
+    watcher.watch(manager.resolved_vault_path());
+    Ok(result)
 }
 
 #[tauri::command]
-pub async fn load_vault(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "load_vault", json!({})).await
+pub async fn load_vault(
+    sidecar: State<'_, SidecarManager>,
+    watcher: State<'_, VaultWatcher>,
+) -> Result<Value, CommandError> {
+    let manager = sidecar.inner().clone();
+    let result = blocking_sidecar_call(sidecar, "load_vault", json!({})).await?;
+    watcher.watch(manager.resolved_vault_path());
+    Ok(result)
 }
 
 #[tauri::command]
@@ -197,12 +208,13 @@ pub async fn open_queue_item(
 #[tauri::command]
 pub async fn get_practice_item(
     practice_item_id: String,
+    session_id: Option<String>,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(
         sidecar,
         "get_practice_item",
-        json!({"practiceItemId": practice_item_id}),
+        json!({"practiceItemId": practice_item_id, "sessionId": session_id}),
     )
     .await
 }
@@ -293,6 +305,40 @@ pub async fn get_attempt(
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_attempt", json!({"attemptId": attempt_id})).await
+}
+
+#[tauri::command]
+pub async fn get_attempt_trace_evidence(
+    attempt_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "get_attempt_trace_evidence",
+        json!({"attemptId": attempt_id}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn get_grading_clarification(
+    attempt_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "get_grading_clarification",
+        json!({"attemptId": attempt_id}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn answer_grading_clarification(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "answer_grading_clarification", input).await
 }
 
 #[tauri::command]
@@ -1241,6 +1287,14 @@ pub async fn create_goal(
 }
 
 #[tauri::command]
+pub async fn generate_starter_practice(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "generate_starter_practice", input).await
+}
+
+#[tauri::command]
 pub async fn update_goal_status(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -1556,6 +1610,7 @@ p2_passthrough!(practice_pool_admit_anchor, "practice_pool.admit_anchor");
 
 // reader.* (minimal bidirectional reader dialogue, U-033)
 p2_passthrough!(reader_ask, "reader.ask");
+p2_passthrough!(reader_ask_history, "reader.ask_history");
 p2_passthrough!(reader_set_answer_mode, "reader.set_answer_mode");
 p2_passthrough!(reader_present_question, "reader.present_question");
 p2_passthrough!(reader_submit_question, "reader.submit_question");

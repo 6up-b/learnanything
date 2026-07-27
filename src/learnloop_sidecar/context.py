@@ -14,7 +14,8 @@ from learnloop.services.facet_diagnostics import mastery_diagnostic_view
 from learnloop.services.mastery import display_mastery
 from learnloop.services.startup import run_startup_maintenance
 from learnloop.services.state_sync import sync_vault_state
-from learnloop.vault.loader import load_vault
+from learnloop.vault.hashes import practice_item_hash
+from learnloop.vault.loader import load_practice_item_file, load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop_sidecar.dto import to_camel, versioned
@@ -71,6 +72,184 @@ class SidecarContext:
         if self.vault_root is None:
             raise SidecarError("vault_not_loaded", "No vault has been initialized.")
         self.load(self.vault_root, maintenance=maintenance)
+
+    def refresh_vault_files(
+        self,
+        relative_paths: list[str],
+        *,
+        expected_root: str | Path | None = None,
+    ) -> dict[str, Any]:
+        """Incrementally refresh watcher-reported Practice Item files.
+
+        Other vault entities still take the conservative full-reload path. This
+        narrow first seam is intentional: Practice Items are the high-frequency
+        interactive files, and their scheduler-state impact already has one
+        canonical activatability rule in ``state_sync``.
+        """
+
+        vault, repository = self.require_vault()
+        root = vault.root.resolve()
+        if expected_root is not None and Path(expected_root).resolve() != root:
+            # A native event can already be queued when the learner switches
+            # vaults. The originating root travels with the event so an old
+            # relative path can never be applied to the newly selected vault.
+            return {
+                "mode": "stale",
+                "changed_practice_item_ids": [],
+                "practice_item_count": len(vault.practice_items),
+            }
+        resolved: list[tuple[Path, Path]] = []
+        for raw in sorted(set(relative_paths)):
+            candidate = (root / raw).resolve()
+            try:
+                relative = candidate.relative_to(root)
+            except ValueError as exc:
+                raise SidecarError(
+                    "invalid_path", f"Watched path escapes the vault: {raw!r}."
+                ) from exc
+            resolved.append((candidate, relative))
+        if not resolved:
+            return {
+                "mode": "noop",
+                "changed_practice_item_ids": [],
+                "practice_item_count": len(vault.practice_items),
+            }
+
+        practice_files = all(
+            path.suffix.lower() == ".yaml"
+            and len(relative.parts) == 4
+            and relative.parts[0] == "subjects"
+            and relative.parts[2] == "practice-items"
+            for path, relative in resolved
+        )
+        if not practice_files:
+            self.reload(maintenance=False)
+            repository = self.require_vault()[1]
+            revision = repository.bump_queue_revision()
+            return {
+                "mode": "full",
+                "changed_practice_item_ids": [],
+                "queue_revision": revision,
+                "practice_item_count": len(self.require_vault()[0].practice_items),
+                "snapshot": self.app_snapshot(),
+            }
+
+        from learnloop.services.probe_instance_generation import (
+            pending_review_instance_ids,
+        )
+        from learnloop.services.state_sync import practice_item_activatable
+
+        review_parked = pending_review_instance_ids(repository)
+        measurement_superseded = repository.superseded_measurement_item_ids()
+        changed: list[str] = []
+        try:
+            for path, relative in resolved:
+                item_id = path.stem
+                subjects_root = root / "subjects"
+                matching_paths = [
+                    subject_dir / "practice-items" / f"{item_id}.yaml"
+                    for subject_dir in subjects_root.iterdir()
+                    if subject_dir.is_dir()
+                    and (
+                        subject_dir / "practice-items" / f"{item_id}.yaml"
+                    ).exists()
+                ]
+                if path.exists():
+                    if len(matching_paths) != 1 or matching_paths[0].resolve() != path:
+                        raise ValueError(
+                            f"{relative} has a duplicate or non-canonical Practice Item path"
+                        )
+                    issues = []
+                    item = load_practice_item_file(path, vault, issues=issues)
+                    if item is None:
+                        message = issues[0].message if issues else f"{relative} could not be loaded"
+                        raise ValueError(message)
+                    if item.id != item_id:
+                        raise ValueError(
+                            f"{relative} declares id {item.id!r}, expected {item_id!r}"
+                        )
+                    existing = vault.practice_items.get(item.id)
+                    if existing is None:
+                        # A new/recovered item can change duplicate-id and issue
+                        # accounting; let the full loader own that transition.
+                        raise ValueError(f"{relative} adds a new Practice Item")
+                    if item.learning_object_id not in vault.learning_objects:
+                        raise ValueError(
+                            f"{relative} references missing Learning Object "
+                            f"{item.learning_object_id!r}"
+                        )
+                    rubric = vault.rubric_for_item(item)
+                    if rubric is not None and any(
+                        fatal_error.id not in vault.error_types
+                        for fatal_error in rubric.fatal_errors
+                    ):
+                        raise ValueError(f"{relative} has an unaligned fatal error")
+                    if existing == item:
+                        continue
+                    vault.practice_items[item.id] = item
+                    state = repository.practice_item_state(item.id)
+                    active = practice_item_activatable(
+                        item.id,
+                        item,
+                        review_parked=review_parked,
+                        measurement_superseded=measurement_superseded,
+                    )
+                    if state is None:
+                        repository.upsert_practice_item_state(
+                            item.id,
+                            active=active,
+                            content_hash=practice_item_hash(item),
+                        )
+                    else:
+                        repository.upsert_practice_item_state(
+                            item.id,
+                            difficulty=state.difficulty,
+                            stability=state.stability,
+                            retrievability=state.retrievability,
+                            due_at=state.due_at,
+                            active=active,
+                            content_hash=practice_item_hash(item),
+                            last_attempt_at=state.last_attempt_at,
+                        )
+                    if not active:
+                        repository.deactivate_practice_item_serving(item.id)
+                    changed.append(item.id)
+                    continue
+
+                if matching_paths:
+                    raise ValueError(
+                        f"{relative} was removed but another file still declares {item_id!r}"
+                    )
+                removed = vault.practice_items.pop(item_id, None)
+                if removed is not None:
+                    repository.deactivate_practice_item_serving(item_id)
+                    changed.append(item_id)
+        except (OSError, ValueError):
+            # Editors that rewrite in place can briefly expose an incomplete
+            # document. The full loader owns issue reporting and conservative
+            # recovery for malformed/cross-entity changes.
+            self.reload(maintenance=False)
+            repository = self.require_vault()[1]
+            revision = repository.bump_queue_revision()
+            return {
+                "mode": "full",
+                "changed_practice_item_ids": [],
+                "queue_revision": revision,
+                "practice_item_count": len(self.require_vault()[0].practice_items),
+                "snapshot": self.app_snapshot(),
+            }
+
+        revision = (
+            repository.bump_queue_revision()
+            if changed
+            else repository.queue_revision()["revision"]
+        )
+        return {
+            "mode": "incremental",
+            "changed_practice_item_ids": changed,
+            "queue_revision": revision,
+            "practice_item_count": len(vault.practice_items),
+        }
 
     def require_vault(self) -> tuple[LoadedVault, Repository]:
         if self.vault is None or self.repository is None:

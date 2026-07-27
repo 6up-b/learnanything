@@ -125,6 +125,32 @@ def _c_active(candidate, snapshot, block):
     return None
 
 
+def _c_stimulus_renderable(candidate, snapshot, block):
+    """Meas §3.A2/§3.A3: the administration surface cannot render this stimulus.
+
+    A separate constraint from ``active_status`` because it is a different fact
+    with a different remedy. An inactive or quarantined card is a decision ABOUT
+    the card; this is a limitation of the code that would present it — the item
+    is active, gate-passing and correct, and the surface simply drops the field
+    the whole instrument consists of (an error hunt's worked solution, a laddered
+    stem's shared setup).
+
+    Feasible-set shaping and never a rank trade: no score may buy an instrument
+    the learner cannot see. Serving one is not a degraded administration, it is a
+    fabricated one — the learner cannot answer, the grader (which DOES receive
+    the solution) marks every plant missed, and the observation that reaches the
+    controller reports a failure that never happened.
+
+    The reason code is the predicate's own arm verbatim, so the receipt names the
+    exact contract to render and this constraint dies with the arm.
+    """
+
+    reason = getattr(candidate, "unservable_reason", None)
+    if reason:
+        return ExclusionReason("stimulus_renderable", 1, str(reason))
+    return None
+
+
 def _c_purpose(candidate, snapshot, block):
     if block is None:
         return None
@@ -242,6 +268,7 @@ def _c_stage_interleaving(candidate, snapshot, block):
 
 CONSTRAINTS: tuple[Constraint, ...] = (
     Constraint("active_status", 1, (), _c_active),
+    Constraint("stimulus_renderable", 1, (), _c_stimulus_renderable),
     Constraint("purpose_compatibility", 1, (), _c_purpose),
     Constraint("hard_exposure_collision", 1, (), _c_hard_exposure),
     Constraint("assessment_reservation", 1, (), _c_assessment_reservation),

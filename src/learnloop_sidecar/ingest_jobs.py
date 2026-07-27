@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 import threading
-import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -80,6 +79,8 @@ class DurableIngestJobs:
         self._worker_thread: threading.Thread | None = None
         self._quick_check_threads: list[threading.Thread] = []
         self._stop = threading.Event()
+        self._work_available = threading.Event()
+        self._quick_check_work_available = threading.Event()
         # Demand-paged reader synthesis: the same worker thread drains queued
         # reader_background_requests with a real model client (spec §6.4 — the
         # drain was previously never invoked, so requests sat queued forever).
@@ -238,6 +239,9 @@ class DurableIngestJobs:
 
     def shutdown(self) -> None:
         self._stop.set()
+        # Wake idle workers so shutdown never waits for the poll timeout.
+        self._work_available.set()
+        self._quick_check_work_available.set()
         thread = self._worker_thread
         if thread is not None:
             thread.join(timeout=2)
@@ -823,6 +827,11 @@ class DurableIngestJobs:
             return
         with self._lock:
             self._stop.clear()
+            # An existing worker may be waiting between drain attempts. Signal
+            # before checking thread liveness so enqueue-to-claim has no polling
+            # delay; newly started workers simply consume the harmless signal.
+            self._work_available.set()
+            self._quick_check_work_available.set()
             if self._worker_thread is None or not self._worker_thread.is_alive():
                 self._worker_thread = threading.Thread(
                     target=self._worker_loop, name="learnloop-ingest-drain", daemon=True
@@ -846,6 +855,7 @@ class DurableIngestJobs:
             return
         idle_rounds = 0
         while not self._stop.is_set():
+            self._work_available.clear()
             try:
                 ran = runner.drain(
                     eligible_job_types=tuple(
@@ -864,7 +874,8 @@ class DurableIngestJobs:
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
             if idle_rounds >= 3 and self._active_job_locked(runner) is None:
                 break
-            time.sleep(self._poll_interval)
+            if ran == 0:
+                self._work_available.wait(timeout=self._poll_interval)
 
     def _quick_check_worker_loop(self) -> None:
         """Drain independent quick checks beside the serialized vault writer.
@@ -879,6 +890,7 @@ class DurableIngestJobs:
             return
         idle_rounds = 0
         while not self._stop.is_set():
+            self._quick_check_work_available.clear()
             try:
                 ran = runner.drain(
                     max_jobs=1,
@@ -894,7 +906,8 @@ class DurableIngestJobs:
                 job["status"] in _ACTIVE_STATUSES for job in active
             ):
                 break
-            time.sleep(self._poll_interval)
+            if ran == 0:
+                self._quick_check_work_available.wait(timeout=self._poll_interval)
 
     # -- demand-paged reader synthesis drain (spec §6.4) --------------------
 

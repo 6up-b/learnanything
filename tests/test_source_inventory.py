@@ -333,10 +333,146 @@ def test_changed_page_reinventories_only_that_unit(tmp_path):
     u1_again = run_unit_inventory(repo, "ext2", "u1", role="reference", client=client, clock=_CLOCK)
     assert u1_again.cache_hit
     assert len(client.calls) == baseline  # unchanged unit reused
+    rebound = repo.get_unit_inventory(u1_again.inventory_id)
+    assert rebound is not None
+    assert rebound["extraction_id"] == "ext2"
 
     u2_again = run_unit_inventory(repo, "ext2", "u2", role="reference", client=client, clock=_CLOCK)
     assert not u2_again.cache_hit
     assert len(client.calls) == baseline + 1  # only the changed unit re-inventoried
+
+
+def test_semantic_inventory_cache_rebinds_across_revisions(tmp_path):
+    repo = _repo(tmp_path)
+    _register_revision(repo)
+    first_ir = _ir(
+        [
+            (
+                "u1",
+                "Ch1",
+                [_block("s1", "Chapter one prose about eigenvectors.")],
+                "sha256:h1",
+                1,
+            )
+        ]
+    )
+    _persist(repo, first_ir, revision_id="rev1", extraction_id="ext1")
+    client = FakeInventoryClient()
+    first = run_unit_inventory(
+        repo,
+        "ext1",
+        "u1",
+        role="reference",
+        client=client,
+        clock=_CLOCK,
+    )
+    baseline = len(client.calls)
+
+    # The source acquired a new revision and extractor-local span id, but its
+    # normalized unit view is unchanged. The semantic artifact is re-anchored and
+    # bound to rev2 without another model call.
+    now = _CLOCK.now().isoformat()
+    with repo.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
+            ("rev2", "src1", "sha256:def", now),
+        )
+        connection.commit()
+    second_ir = _ir(
+        [
+            (
+                "u1",
+                "Ch1",
+                [_block("s2", "Chapter one prose about eigenvectors.")],
+                "sha256:h1",
+                1,
+            )
+        ]
+    )
+    _persist(repo, second_ir, revision_id="rev2", extraction_id="ext2")
+
+    rebound = run_unit_inventory(
+        repo,
+        "ext2",
+        "u1",
+        role="reference",
+        client=client,
+        clock=_CLOCK,
+    )
+
+    assert rebound.cache_hit
+    assert rebound.inventory_id != first.inventory_id
+    assert len(client.calls) == baseline
+    assert rebound.inventory.concept_mentions[0].span_ids == ["s2"]
+    rev2_rows = repo.unit_inventories_for_revision("rev2")
+    assert [row["id"] for row in rev2_rows] == [rebound.inventory_id]
+    assert rev2_rows[0]["usage"]["calls"] == 0
+    assert rev2_rows[0]["usage"]["rebound_from_inventory_id"] == first.inventory_id
+
+
+def test_composite_inventory_cache_rebinds_all_member_spans_across_revisions(tmp_path):
+    repo = _repo(tmp_path)
+    _register_revision(repo)
+    first_ir = _ir(
+        [
+            ("u1", "Ch1", [_block("s1", "Eigenvectors scale under A.")], "sha256:h1", 1),
+            (
+                "u2",
+                "Ch2",
+                [_block("s2", "Eigenvalues solve the characteristic equation.")],
+                "sha256:h2",
+                2,
+            ),
+        ]
+    )
+    _persist(repo, first_ir, revision_id="rev1", extraction_id="ext1")
+    client = FakeInventoryClient()
+    first = run_unit_inventory(
+        repo,
+        "ext1",
+        "u1+u2",
+        unit_ids=["u1", "u2"],
+        role="reference",
+        client=client,
+        clock=_CLOCK,
+    )
+    baseline = len(client.calls)
+
+    now = _CLOCK.now().isoformat()
+    with repo.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
+            ("rev2", "src1", "sha256:def", now),
+        )
+        connection.commit()
+    second_ir = _ir(
+        [
+            ("u1", "Ch1", [_block("s11", "Eigenvectors scale under A.")], "sha256:h1", 1),
+            (
+                "u2",
+                "Ch2",
+                [_block("s12", "Eigenvalues solve the characteristic equation.")],
+                "sha256:h2",
+                2,
+            ),
+        ]
+    )
+    _persist(repo, second_ir, revision_id="rev2", extraction_id="ext2")
+
+    rebound = run_unit_inventory(
+        repo,
+        "ext2",
+        "u1+u2",
+        unit_ids=["u1", "u2"],
+        role="reference",
+        client=client,
+        clock=_CLOCK,
+    )
+
+    assert rebound.cache_hit
+    assert rebound.inventory_id != first.inventory_id
+    assert len(client.calls) == baseline
+    assert rebound.inventory.claims[0].span_ids == ["s11", "s12"]
 
 
 def test_combined_satisfies_narrower_only_when_schema_allows():
@@ -402,6 +538,24 @@ def test_oversize_unit_splits_into_windows(tmp_path):
     windows = build_inventory_windows(ir, "u1", input_budget_tokens=1000)
     assert len(windows) >= 2  # split on the section boundary
     assert all(window["window_count"] == len(windows) for window in windows)
+
+    _register_revision(repo)
+    _persist(repo, ir, revision_id="rev1", extraction_id="ext1")
+    progress: list[tuple[int, int]] = []
+    result = run_unit_inventory(
+        repo,
+        "ext1",
+        "u1",
+        role="primary_textbook",
+        client=FakeInventoryClient(),
+        input_budget_tokens=1000,
+        progress=lambda current, total: progress.append((current, total)),
+        clock=_CLOCK,
+    )
+    assert result.usage["calls"] == len(windows)
+    assert progress == [
+        (current, len(windows)) for current in range(1, len(windows) + 1)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -561,4 +715,3 @@ def test_procedure_signal_span_ids_coercion_and_validation():
         procedure_signals=[proc],
     )
     validate_inventory(inv, {"s01", "s02"})
-

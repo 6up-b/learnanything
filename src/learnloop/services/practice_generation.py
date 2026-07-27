@@ -27,6 +27,7 @@ from learnloop.services.followups import (
 )
 from learnloop.services.facet_state_reader import facet_recall_states_for_lo
 from learnloop.services.mastery import covering_learner_claim, display_mastery
+from learnloop.services.contrast_pairs import ContrastPairGate
 from learnloop.services.persona_gate import PersonaGate
 from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -77,6 +78,12 @@ class PracticeExpansionTarget:
     # `coordination` integration is owed a reviewed depth envelope / A1 capstone,
     # not a quietly-lowered rung). Reported, never silently dropped.
     deferred_cells: list[dict[str, Any]] = field(default_factory=list)
+    # Meas §3.A4 (plan item 6.4): the facet pairs no instrument in this vault can
+    # separate, as authoring REQUESTS. §3.A4 is explicit that contrast pairs are
+    # "commissioned, not merely permitted" -- so the findings have to reach the
+    # authoring model as targets, exactly as `commissioned_cells` does, rather
+    # than sitting in a report a human might one day read.
+    contrast_pair_requests: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -98,6 +105,8 @@ class PracticeExpansionTarget:
             payload["commissioned_cells"] = self.commissioned_cells
         if self.contract_capabilities:
             payload["contract_capabilities"] = self.contract_capabilities
+        if self.contrast_pair_requests:
+            payload["contrast_pair_requests"] = self.contrast_pair_requests
         if self.rung is not None:
             from learnloop.services.depth_rungs import rung_float_proxies
 
@@ -287,6 +296,11 @@ def build_practice_expansion_plan(
     # it is what makes the contract — rather than the learner's mastery band — the
     # authority on the capability new items are authored at.
     commissions = commission_plan(vault, repository)
+    # Meas §3.A4: the identifiability findings a contrast pair can close, keyed by
+    # the facets they name. One static pass, no provider, and it reuses the SAME
+    # `analyze_identifiability` the doctor runs -- a request here and a finding
+    # there can never disagree about what is non-identifiable.
+    pair_requests_by_facet = _contrast_pair_requests_by_facet(vault, repository)
     irt = vault.config.mastery.irt
     mode_mix_items = sum(mode_mix.values()) if mode_mix else None
     targets: list[PracticeExpansionTarget] = []
@@ -371,6 +385,9 @@ def build_practice_expansion_plan(
                 commissioned_cells=[cell.as_dict() for cell in commissioned],
                 contract_capabilities=list(commissions.capabilities_for(learning_object.id)),
                 deferred_cells=[cell.as_dict() for cell in deferred],
+                contrast_pair_requests=_contrast_pair_requests_for(
+                    pair_requests_by_facet, learning_object
+                ),
             )
         )
     # Target order follows the commissioning queue: an LO whose best unreachable
@@ -619,6 +636,14 @@ def generate_diagnostic_practice_proposal(
     # authoring). Nothing about the tier is decided here — see `classify_instrument`.
     persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
     surface_gate = _SelectedResponseGate()
+    # Meas §3.A4 (plan item 6.4). Chained after the persona gate on every route,
+    # and separate from it: the persona gate asks whether the belief-holder fails
+    # exactly one member, which is a question about beliefs; this one asks whether
+    # the two payloads are a pair at all (band, structural manipulation, symmetric
+    # `differing_component`). The diagnostic route has no per-LO difficulty band,
+    # so the band clause abstains here and says so in the audit rather than
+    # inventing a band to check against.
+    pair_gate = ContrastPairGate(vault)
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -627,7 +652,7 @@ def generate_diagnostic_practice_proposal(
         instructions=_diagnostic_practice_instructions(plan, extra_instructions=extra_instructions),
         codex_revision=codex_revision,
         merge_context_source_refs=True,
-        row_transform=_chain_gates(surface_gate, persona_gate),
+        row_transform=_chain_gates(surface_gate, persona_gate, pair_gate),
     )
     fulfilled: list[str] = []
     persisted_items = repository.proposal_items(patch_id)
@@ -684,7 +709,7 @@ def generate_diagnostic_practice_proposal(
         plan=plan,
         fulfilled_need_ids=fulfilled,
         persona_gate=persona_gate.summary(),
-        persona_gate_violations=persona_gate.violations,
+        persona_gate_violations=persona_gate.violations + pair_gate.violations,
         persona_gate_warnings=persona_gate.warnings,
     )
 
@@ -730,6 +755,16 @@ def generate_post_probe_practice_proposal(
     # instrument is hard-gated even when produced here. The tier is never a
     # property of the route.
     persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
+    # Meas §3.A4: the pair gate holds both members to the SAME target band the
+    # rung gate already uses (`_success_band_difficulty`'s inversion), so "the
+    # target difficulty band" means one thing in this vault.
+    pair_gate = ContrastPairGate(
+        vault,
+        difficulty_band_by_lo={
+            target.learning_object_id: target.recommended_difficulty_band
+            for target in plan.targets
+        },
+    )
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -745,7 +780,7 @@ def generate_post_probe_practice_proposal(
         source_refs=source_refs,
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
-        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate),
+        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate, pair_gate),
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -756,7 +791,15 @@ def generate_post_probe_practice_proposal(
         plan=plan,
         mode_mix_violations=violations,
         mode_mix_warnings=warnings,
-        rung_violations=rung_gate.violations + surface_gate.violations + persona_gate.violations,
+        rung_violations=(
+            rung_gate.violations
+            + surface_gate.violations
+            + persona_gate.violations
+            # Meas §3.A4: a refused pair is a hard authoring failure like any
+            # other gate's, and it surfaces on the same list so a caller that
+            # already reports violations does not need to learn a new field.
+            + pair_gate.violations
+        ),
         rung_warnings=rung_gate.warnings + persona_gate.warnings,
     )
 
@@ -848,6 +891,16 @@ def generate_goal_practice_proposal(
     surface_gate = _SelectedResponseGate()
     # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note).
     persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
+    # Meas §3.A4: the pair gate holds both members to the SAME target band the
+    # rung gate already uses (`_success_band_difficulty`'s inversion), so "the
+    # target difficulty band" means one thing in this vault.
+    pair_gate = ContrastPairGate(
+        vault,
+        difficulty_band_by_lo={
+            target.learning_object_id: target.recommended_difficulty_band
+            for target in plan.targets
+        },
+    )
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -860,12 +913,20 @@ def generate_goal_practice_proposal(
         focus_concepts=list(goal.facet_scope.concepts) or None,
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
-        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate),
+        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate, pair_gate),
     )
     return PracticeExpansionResult(
         patch_id=patch_id,
         plan=plan,
-        rung_violations=rung_gate.violations + surface_gate.violations + persona_gate.violations,
+        rung_violations=(
+            rung_gate.violations
+            + surface_gate.violations
+            + persona_gate.violations
+            # Meas §3.A4: a refused pair is a hard authoring failure like any
+            # other gate's, and it surfaces on the same list so a caller that
+            # already reports violations does not need to learn a new field.
+            + pair_gate.violations
+        ),
         rung_warnings=rung_gate.warnings + persona_gate.warnings,
     )
 
@@ -963,6 +1024,14 @@ def _cross_source_instructions(
         "the waypoint - never change the waypoint to change difficulty.",
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
+        _CONJUNCTIVE_ITEM_RULE,
+        # Only A5 on this route. The cross-source path is already carrying a
+        # multi-source grounding contract and a hard leakage screen, and A2/A3/A4
+        # each add a second authoring contract on top of that; A5 adds a field to
+        # items the route was authoring anyway, and it is the producer Stage 7's
+        # planted-ground-truth harness consumes, so it is the one worth the
+        # tokens here.
+        _DISCRIMINATION_PROFILE_RULE,
     ]
     # Same rung-correct rule as the post-probe path: BLUEPRINT_SHAPING already
     # named the contract's capabilities as a *distribution*, which the model was
@@ -1077,12 +1146,23 @@ def generate_cross_source_practice_proposal(
     surface_gate = _SelectedResponseGate()
     # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note).
     persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
+    # Meas §3.A4: the pair gate holds both members to the SAME target band the
+    # rung gate already uses (`_success_band_difficulty`'s inversion), so "the
+    # target difficulty band" means one thing in this vault.
+    pair_gate = ContrastPairGate(
+        vault,
+        difficulty_band_by_lo={
+            target.learning_object_id: target.recommended_difficulty_band
+            for target in plan.targets
+        },
+    )
 
     def _combined_gate(rows: list[dict[str, Any]]) -> None:
         _leakage_gate(rows)
         surface_gate(rows)
         rung_gate(rows)
         persona_gate(rows)
+        pair_gate(rows)
 
     patch_id = generate_authoring_proposal(
         root,
@@ -1159,6 +1239,65 @@ _SELECTED_RESPONSE_PATTERNS: tuple[tuple[str, str], ...] = (
     # Two or more lettered options: "A. ... B. ..." / "A) ... B) ...".
     (r"(?:(?<=\s)|^)[A-D][.)]\s+\S.*?(?:(?<=\s)|^)[B-E][.)]\s+\S", "lists lettered answer options"),
 )
+
+
+def _contrast_pair_requests_by_facet(
+    vault: LoadedVault, repository: Repository
+) -> dict[str, list[dict[str, Any]]]:
+    """Canonical facet id -> the A4 authoring requests that name it (Meas §3.A4).
+
+    Indexed by facet rather than by learning object because an identifiability
+    finding is a statement about a FACET PAIR — it has no learning object, and
+    inventing one would attach the request to whichever LO happened to be
+    alphabetically first. The routing to targets happens in
+    :func:`_contrast_pair_requests_for`, off the LO's own facet union, so a
+    finding reaches every LO that could honestly discharge it.
+
+    Fail-soft: identifiability runs over the whole registry and a malformed
+    neighborhood should degrade authoring to "no pair requests", never abort a
+    generation the learner is waiting on.
+    """
+
+    from learnloop.services.contrast_pairs import commission_contrast_pairs
+
+    try:
+        plan = commission_contrast_pairs(vault, repository)
+    except Exception:  # pragma: no cover - defensive
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "contrast-pair commissioning failed; authoring proceeds without it",
+            exc_info=True,
+        )
+        return {}
+    by_facet: dict[str, list[dict[str, Any]]] = {}
+    for request in plan.commissioned:
+        payload = request.as_dict()
+        for facet in request.facet_ids:
+            by_facet.setdefault(vault.canonical_facet_id(str(facet)), []).append(payload)
+    return by_facet
+
+
+def _contrast_pair_requests_for(
+    by_facet: Mapping[str, list[dict[str, Any]]], learning_object: Any
+) -> list[dict[str, Any]]:
+    """The requests this LO can discharge: those naming a facet its blueprints use.
+
+    Deduplicated by ``target_key`` and ordered by the commissioning queue rank,
+    so an LO that could close two findings is told to close the higher-priority
+    one first — the same "consume a prioritized queue rather than invent a second
+    one" discipline ``commission_plan`` follows.
+    """
+
+    from learnloop.vault.models import learning_object_facet_union
+
+    if not by_facet:
+        return []
+    seen: dict[str, dict[str, Any]] = {}
+    for facet in learning_object_facet_union(learning_object):
+        for request in by_facet.get(str(facet), ()):  # type: ignore[arg-type]
+            seen.setdefault(str(request["target_key"]), request)
+    return sorted(seen.values(), key=lambda request: int(request["queue_rank"]))
 
 
 def _chain_gates(*gates):
@@ -1588,6 +1727,129 @@ _BLUEPRINT_SPREAD_RULE = (
     "the answer's shape. Each item must state in its rationale which blueprint component it probes."
 )
 
+#: Conjunctive instruments (Meas §3.A1, plan item 6.1). §2 F2/F3 measured the two
+#: reasons cells-per-question sits near 1: a generated criterion could not author
+#: ``targets`` at all, and the spread rule pushed one blueprint component per item
+#: by policy. The schema half is fixed (``CriterionTargetPayload``); this is the
+#: authoring half.
+#:
+#: The measurement spec asks for the spread rule to be *inverted*. The plan
+#: deliberately does not adopt that: a pool holding only capstones starves
+#: diagnosis, because a conjunctive failure localizes only when the learner got
+#: far enough to diverge somewhere specific, and a weak learner fails at step 1 of
+#: every capstone. So authoring produces BOTH shapes and selection picks between
+#: them from the posterior (``services/conjunctive_items.conjunctive_fit``).
+_CONJUNCTIVE_ITEM_RULE = (
+    "AUTHOR CAPSTONES ALONGSIDE THE DECOMPOSED ITEMS. Where a target's "
+    "blueprint_components (or commissioned_cells) can be honestly required by ONE task - a task a "
+    "learner cannot complete without genuinely using all of them - author that task as well, in "
+    "ADDITION to the decomposed items, not instead of them. Both shapes are wanted: the capstone "
+    "measures several cells in one question when the learner succeeds, the decomposed items say "
+    "WHICH cell broke when they do not, and the scheduler chooses between them from the learner's "
+    "current posterior. At most one capstone per target. "
+    "A capstone declares what it measures through per-criterion `targets`, a list of "
+    "{facet, capability, role}: `role='primary'` is the step that criterion OWNS - the thing it "
+    "is grading - and `role='supporting'` is a facet that step CONSUMES to get there. Give every "
+    "criterion of a capstone exactly one primary target, and set `depends_on` to the criterion ids "
+    "whose results that step builds on, so a divergence at step 2 is not scored as failure at "
+    "steps 3 and 4. "
+    "`role` here is NOT the blueprint component role (required / alternative / integration); they "
+    "are different vocabularies and a criterion target never uses the blueprint words. "
+    "Only claim a supporting target when the work the learner must WRITE DOWN exercises that facet. "
+    "A supporting target whose facet does not appear in the learner's trace earns nothing and is "
+    "recorded as an unexercised claim, so listing facets speculatively makes the item look worse, "
+    "not better. Never author supporting targets on an item with a single criterion: with nothing "
+    "to consume, they are the item's own facets restated at a discount."
+)
+
+#: Meas §3.A5 discrimination profiles (plan item 6.4). Today an item can author
+#: ONE link from a fatal error to a belief; the *shape* of the wrong answer — where
+#: the diagnostic information actually lives — is discarded. Authoring it is the
+#: change; it is then reused three times (the §3.0 gate's oracle, a grading prior,
+#: A4's commissioning input) rather than re-derived.
+_DISCRIMINATION_PROFILE_RULE = (
+    "WRITE DOWN WHAT A WRONG ANSWER LOOKS LIKE, not only that one is wrong. For an item "
+    "that can plausibly go wrong in a NAMED way, author `discrimination_profiles`: per "
+    "candidate hypothesis, `hypothesis` (the belief in learner-model terms - what the "
+    "learner thinks is TRUE, e.g. \"believes Q maps standard vectors to eigenbasis "
+    "coefficients\", never \"used Q instead of Q^T\") and `observable_signature` (what a "
+    "holder of that belief would actually WRITE on this item). "
+    "The signature must be categorically different from expected_answer: if a "
+    "belief-holder would produce the right answer anyway, the item is blind to that "
+    "belief and a deterministic gate rejects it. "
+    "Link `misconception_id` when the belief is already in the registry and `facet_id` "
+    "when it contradicts a specific facet's claim - a linked profile can be corroborated "
+    "elsewhere in the vault, an unlinked one cannot. "
+    "Two or three profiles is plenty. Do NOT enumerate every way to be wrong: a profile "
+    "set that covers everything gives the diagnostician nothing to reject, and rejecting "
+    "them all is a first-class outcome the system watches for."
+)
+
+#: Meas §3.A2 laddered stems. The instrument that fills a ROW of the capability
+#: grid rather than a cell, by amortizing the one cost that dominates assessment:
+#: loading the problem into the learner's head.
+_LADDERED_STEM_RULE = (
+    "AMORTIZE ONE STIMULUS ACROSS THE CAPABILITY LADDER. Where a target's "
+    "blueprint_components span two or more capabilities on the SAME facet, author a "
+    "laddered stem: several items over ONE stimulus, each asking for that facet at a "
+    "different capability - state it (retrieval), say which result applies "
+    "(method_selection), execute it (procedure_execution), handle the case where "
+    "coordinating the steps is the difficulty (coordination). "
+    "Every part sets `laddered_stem` with the SAME `stem_id`, its own `part_index`, the "
+    "shared `part_count`, and the stimulus text in `stimulus_md`; set "
+    "`evidence_fingerprint.shared_stimulus_id` to the same stem_id. Each part declares "
+    "its OWN `capability` - that is the whole point, and credit is filed per (facet, "
+    "capability) cell. "
+    "Parts at the same capability on one stimulus count as roughly ONE observation, so "
+    "never author two parts in the same column; parts at different capabilities count "
+    "separately. A 'stem' whose parts all sit at one capability is a set of near-clones."
+)
+
+#: Meas §3.A3 error hunts. Cheap per cell, and dangerous if authored casually:
+#: an error any careful reader catches measures carefulness.
+_ERROR_HUNT_RULE = (
+    "ERROR HUNTS ARE REPAIR TASKS, NOT PROOFREADING. To author one, set `error_hunt` "
+    "with a fully worked `worked_solution_md` and, in `planted_errors`, each error you "
+    "planted: `step_ref` (which step holds it), `error_signature` (the text you planted, "
+    "VERBATIM), `required_repair` (what a correct fix must produce), and `source`. "
+    "`source` must be `misconception_registry` (with `misconception_id`) or "
+    "`facet_error_signature` (with `facet_id`), and the signature must be the registry "
+    "text itself - never an error you invented, which is an untyped instrument. "
+    "The planted error must be INVISIBLE to a holder of that belief: it has to be what "
+    "they would have written, so that only a learner who holds the facet can see it. A "
+    "gate rejects a plant a belief-holder would catch. "
+    "Ask the learner to CORRECT the solution, never merely to flag what is wrong. "
+    "NEVER state how many errors there are, and NEVER hint that there is at least one. "
+    "Author some error hunts with an EMPTY planted_errors list over genuinely correct "
+    "work: a learner who 'finds' an error in a correct solution has told you what they "
+    "believe, and the rotation is what stops 'there is always an error' from working."
+)
+
+#: Meas §3.A4 contrast pairs. The one instrument that removes the learner's
+#: general ability as a nuisance parameter instead of averaging over it.
+_CONTRAST_PAIR_RULE = (
+    "A CONTRAST PAIR IS TWO PROMPTS DIFFERING IN EXACTLY ONE REQUIREMENT. Author both "
+    "members together, and set on BOTH: `contrast_of` (the other member's id) and "
+    "`differing_component` ({facet, capability, structural_change}) - the single "
+    "requirement they differ on. "
+    "The manipulation must change the STRUCTURE of the correct answer - whether a "
+    "precondition holds, whether a theorem applies, what shape the answer takes - never "
+    "only its numbers. Different numbers is a clone and is rejected. "
+    "Both members must sit INDEPENDENTLY in the target's recommended_difficulty_band, "
+    "and close to each other within it. Not 'one hard, one easy': a trivial member "
+    "measures nothing and wastes the contrast. "
+    "Give the two members DIFFERENT surface_family values where you honestly can, so the "
+    "manipulation is not salient when they are served near each other. "
+    "Give at least one member a `discrimination_profiles` entry describing the learner the pair "
+    "is meant to catch - the one who succeeds on one member and fails the other. The authoring "
+    "gate has to plant that learner to check the pair discriminates at all, and a pair it cannot "
+    "plant is rejected. "
+    "A target that lists contrast_pair_requests is telling you which facet pairs NO existing "
+    "instrument in this vault can separate, in priority order. Author a pair for the first "
+    "request the target's facets can honestly discharge; each request's `request` field says "
+    "exactly what the pair has to separate."
+)
+
 #: Rung-correct authoring (Stage 5.1, Meas §5.8.2). Step 0 measured that 100% of
 #: attempts hit a facet the contract requires and only 28% hit a required
 #: ``(facet, capability)`` cell — every attempt on-topic, nearly three quarters of
@@ -1626,6 +1888,27 @@ _TEACH_BACK_GENERATION_GUIDANCE = (
 )
 
 
+def _ladder_capabilities(target: "PracticeExpansionTarget") -> int:
+    """How many distinct capabilities this target's contract spans (Meas §3.A2).
+
+    A laddered stem fills a ROW of the capability grid, so a target whose
+    components all sit at one capability has no row to fill and is not told about
+    the instrument.
+    """
+
+    capabilities = {
+        str(component.get("capability") or "")
+        for component in target.blueprint_components
+        if component.get("capability")
+    }
+    capabilities.update(
+        str(cell.get("capability") or "")
+        for cell in target.commissioned_cells
+        if cell.get("capability")
+    )
+    return len(capabilities)
+
+
 def _practice_expansion_instructions(
     plan: PracticeExpansionPlan,
     *,
@@ -1646,8 +1929,27 @@ def _practice_expansion_instructions(
         "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty.",
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
+        _CONJUNCTIVE_ITEM_RULE,
+        # Meas §3.A3/§3.A5 (plan item 6.4). Unconditional: both are things ANY
+        # item can be, and an item that could plausibly go wrong in a named way
+        # is not a property of the target payload.
+        _ERROR_HUNT_RULE,
+        _DISCRIMINATION_PROFILE_RULE,
         "For each target, create exactly requested_new_items Practice Items.",
     ]
+    # A2 and A4 are stated only when a target can actually discharge them, on the
+    # same reasoning `_CONTRACT_CELL_RULE` uses below: a rule naming fields no
+    # target carries is noise the model has to read past on every call, and both
+    # of these have a precondition that is visible in the plan.
+    #
+    # A2's precondition is a capability LADDER to climb — a target whose
+    # blueprint components sit at one capability has no row to fill.
+    if any(_ladder_capabilities(target) >= 2 for target in plan.targets):
+        lines.append(_LADDERED_STEM_RULE)
+    # A4 is "commissioned, not merely permitted" (§3.A4), so the rule appears when
+    # identifiability has actually asked for a pair.
+    if any(target.contrast_pair_requests for target in plan.targets):
+        lines.append(_CONTRAST_PAIR_RULE)
     # Stated only when there is a contract to honour: on a legacy vault with no
     # authored blueprints the rule would name fields no target carries.
     if any(target.commissioned_cells for target in plan.targets):

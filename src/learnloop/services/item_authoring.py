@@ -10,9 +10,9 @@ straight to the vault YAML (the source of truth) and are recorded as
 interaction events for provenance.
 
 Retirement keeps every attempt/evidence row (nothing is deleted): the item's
-``status`` flips to ``retired``, state_sync deactivates its scheduler state, and
-the substrate surface (if one was ever minted) gets a lifecycle ``retire`` event
-so the P1 ledger agrees with the vault.
+``status`` flips to ``retired``, its derived serving doors close before the
+response returns, and any substrate surface that already exists gets a
+lifecycle ``retire`` event so the P1 ledger agrees with the vault.
 """
 
 from __future__ import annotations
@@ -196,6 +196,7 @@ def retire_item(
     reason: str,
     note: str | None = None,
     clock: Clock | None = None,
+    loaded_vault: LoadedVault | None = None,
 ) -> dict[str, Any]:
     """Retire a card: never served again, all history kept. ``reason`` is one of
     the typed ``RETIREMENT_REASONS``; ``note`` is optional free text."""
@@ -204,16 +205,24 @@ def retire_item(
         raise ItemAuthoringError(
             f"unknown retirement reason {reason!r}; one of: {', '.join(RETIREMENT_REASONS)}"
         )
-    vault = load_vault(root)
+    vault = loaded_vault or load_vault(root)
     item = _require_item(vault, practice_item_id)
     if item.status == "retired":
-        return {"id": practice_item_id, "status": "retired"}
+        # Self-heal derived serving state without repeating the durable
+        # retirement ledgers or bumping the queue for an idempotent request.
+        repository.deactivate_practice_item_serving(practice_item_id, clock=clock)
+        return {"id": practice_item_id, "status": "retired", "item": item}
     status_reason = reason if not (note or "").strip() else f"{reason}: {note.strip()}"  # type: ignore[union-attr]
     payload = item.model_dump(mode="json", exclude_none=False)
     payload.update(
         status="retired", status_reason=status_reason, updated_at=utc_now_iso(clock)
     )
-    upsert_practice_item(root, payload, clock=clock)
+    upsert_practice_item(root, payload, clock=clock, loaded_vault=vault)
+    retired_item = PracticeItem.model_validate(payload)
+    # The YAML status is authoritative and already makes every ordinary serving
+    # path reject the item. Bring the narrow derived state into agreement here;
+    # a global state_sync/reprojection is unrelated to this one-item mutation.
+    repository.deactivate_practice_item_serving(practice_item_id, clock=clock)
     _record(
         repository,
         kind="learner_item_retired",
@@ -221,9 +230,10 @@ def retire_item(
         detail={"reason": reason, "note": (note or "").strip() or None},
         clock=clock,
     )
-    _mirror_surface_retirement(vault, repository, item, reason=reason, clock=clock)
+    _mirror_surface_retirement(repository, item, reason=reason, clock=clock)
     _apply_difficulty_report(vault, repository, item, reason=reason, clock=clock)
-    return {"id": practice_item_id, "status": "retired"}
+    repository.bump_queue_revision(clock=clock)
+    return {"id": practice_item_id, "status": "retired", "item": retired_item}
 
 
 def _apply_difficulty_report(
@@ -331,28 +341,42 @@ def split_item(
 
 
 def _mirror_surface_retirement(
-    vault: LoadedVault,
     repository: Repository,
     item: PracticeItem,
     *,
     reason: str,
     clock: Clock | None,
 ) -> None:
-    """Keep the P1 substrate ledger in agreement: if this item ever minted a
-    surface, append its lifecycle ``retire``. Fail-safe -- the vault status flip
-    above is the authority and already stops all serving paths."""
+    """Retire existing substrate cards without minting anything on retirement.
+
+    Fail-safe: the vault status flip above is authoritative and already stops
+    serving. Every existing purpose adapter is retired, and queued rotating-
+    surface work is made obsolete so background minting cannot outlive the card.
+    """
 
     try:
-        from learnloop.services.activities import resolve_legacy_item, retire_with_reason
+        from learnloop.services.activities import retire_with_reason
+        from learnloop.services.surface_mint import (
+            obsolete_mint_work_for_card_versions,
+        )
 
-        resolved = resolve_legacy_item(vault, repository, item, purpose="practice", clock=clock)
-        retire_with_reason(
-            repository,
-            scope="surface",
-            reason=reason,
-            provenance="learner_action",
-            surface_id=resolved.surface_id,
-            clock=clock,
+        card_version_ids = sorted(
+            {
+                str(surface["card_version_id"])
+                for surface in repository.surfaces_for_legacy_practice_item(item.id)
+            }
+        )
+        for card_version_id in card_version_ids:
+            retire_with_reason(
+                repository,
+                scope="card",
+                reason=reason,
+                provenance="learner_action",
+                card_version_id=card_version_id,
+                clock=clock,
+            )
+        obsolete_mint_work_for_card_versions(
+            repository, card_version_ids, clock=clock
         )
     except Exception:  # noqa: BLE001 - substrate mirror only; vault status already flipped
         _LOGGER.warning("surface retirement mirror failed for %s", item.id, exc_info=True)

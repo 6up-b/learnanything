@@ -137,3 +137,33 @@ def beta_quantile(q: float, alpha: float, beta: float) -> float:
         if high - low < 1e-15:
             break
     return 0.5 * (low + high)
+
+
+def binomial_two_sided_p(successes: int, trials: int, p: float = 0.5) -> float:
+    """Exact two-sided binomial tail probability under ``p`` (small ``trials``).
+
+    Used where a rate's NULL value equals the threshold it is compared against —
+    a coin-flip control whose observed share is meaningless without asking how
+    surprising it is. Exact rather than normal-approximated because the counts
+    these callers work with are tens, not thousands, and an approximation is
+    least trustworthy exactly where the decision is closest.
+
+    Returns 1.0 for ``trials <= 0`` (nothing observed is not evidence of
+    anything), and is symmetric in the sense that it sums every outcome at most
+    as probable as the observed one.
+    """
+
+    from math import comb
+
+    if trials <= 0:
+        return 1.0
+    p = min(max(float(p), 0.0), 1.0)
+
+    def pmf(k: int) -> float:
+        return comb(trials, k) * (p**k) * ((1.0 - p) ** (trials - k))
+
+    observed = pmf(successes)
+    # Floating-point slack so an outcome exactly as probable as the observed one
+    # (the mirror image, under p=0.5) is included rather than dropped.
+    tolerance = observed * 1e-9
+    return min(1.0, sum(pmf(k) for k in range(trials + 1) if pmf(k) <= observed + tolerance))

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+
+from dataclasses import dataclass, replace
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
@@ -14,6 +16,7 @@ from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.attempts import GradeAttribution
 from learnloop.services.grading import (
     GradingValidationError,
+    ValidatedCodexGrade,
     build_grading_context,
     grading_context_hash,
     resolved_rubric,
@@ -28,6 +31,9 @@ from learnloop.services.teach_back import (
     restrict_grading_context_to_criteria,
 )
 from learnloop.vault.models import LoadedVault
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -135,7 +141,18 @@ def _regrade_attempt(
     client: CodexClient | AIProviderClient,
     grading_source: str,
     clock: Clock | None,
-) -> None:
+    clarification_exchange: dict[str, str] | None = None,
+    purpose: str = "grading_regrade",
+) -> "ValidatedCodexGrade":
+    """Re-grade one attempt, superseding its evidence and replaying the LO.
+
+    ``clarification_exchange`` is Meas §3.A8's resolution path: the question and
+    the learner's answer travel in the grading context (and therefore in
+    ``grading_context_hash``, so the resolved grade is attributable to the
+    exchange that produced it) rather than being spliced into the learner's
+    answer text. Everything else about the regrade is unchanged, deliberately —
+    A8 resolves a grade through the door that already exists rather than
+    building a second grading path whose semantics could drift."""
     item = vault.practice_items[attempt["practice_item_id"]]
     learning_object = vault.learning_objects[attempt["learning_object_id"]]
     rubric = resolved_rubric(vault, item)
@@ -146,6 +163,8 @@ def _regrade_attempt(
         attempt_id=attempt["id"],
         learner_answer_md=attempt.get("learner_answer_md") or "",
     )
+    if clarification_exchange:
+        context = replace(context, clarification_exchange=dict(clarification_exchange))
     # Teach-back attempts were graded on the ASKED criteria only (the asked
     # set is exactly the criterion ids carrying persisted evidence rows), so a
     # regrade must be restricted the same way — the full rubric would penalize
@@ -164,7 +183,7 @@ def _regrade_attempt(
     agent_run_id = repository.insert_agent_run(
         {
             "id": new_ulid(),
-            "purpose": "grading_regrade",
+            "purpose": purpose,
             **_agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
@@ -249,8 +268,14 @@ def _regrade_attempt(
         new_evidence_rows=new_evidence_rows,
         superseded_by_evidence_id=first_new_evidence_id,
         # Teach-back originals are tier-3 (AI-graded) rows; supersede them too
-        # or the replay log would carry both gradings of the same criteria.
-        supersede_tiers=(1, 3) if graded_criteria is not None else (1,),
+        # or the replay log would carry both gradings of the same criteria. A
+        # clarification resolution (Meas §3.A8) supersedes for the same reason:
+        # the grade it replaces was itself a model grade, and leaving it live
+        # would put two gradings of one criterion in the replay log — the
+        # provisional one the question existed to fix, and the resolved one.
+        supersede_tiers=(
+            (1, 3) if graded_criteria is not None or clarification_exchange else (1,)
+        ),
         clock=clock,
     )
     repository.update_attempt_grade(
@@ -291,7 +316,57 @@ def _regrade_attempt(
         related_concept_id=learning_object.concept,
         clock=clock,
     )
+    # Meas §3.A6/§3.A8: a re-grade reads the same trace and can see facets the
+    # first pass missed, and can ask a question the first pass did not. Neither
+    # is recorded by the attempt path here (that runs only inside `apply_attempt`),
+    # so without these two calls a re-grade's observations vanish and — worse — a
+    # re-grade's clarification request stamps `provisional_pending_clarification`
+    # on the attempt with no row behind it, leaving a question the learner can
+    # never be shown. Both writers are idempotent and swallow their own failures.
+    from learnloop.codex.prompts import GRADING_PROMPT_VERSION as _grading_version
+    from learnloop.services.clarification import record_clarification
+
+    if validated.exercised_facets:
+        try:
+            repository.insert_trace_exercised_facets(
+                attempt["id"],
+                [
+                    {
+                        "facet_id": observation.facet,
+                        "evidence": observation.evidence,
+                        "observation_scope": observation.observation_scope,
+                        "criterion_id": observation.criterion_id,
+                        "agent_run_id": agent_run_id,
+                        "grading_prompt_version": _grading_version,
+                    }
+                    for observation in validated.exercised_facets
+                ],
+                clock=clock,
+            )
+        except Exception:  # pragma: no cover - a bonus channel never fails a regrade
+            LOGGER.warning(
+                "failed to record trace-exercised facets on regrade of %s",
+                attempt["id"],
+                exc_info=True,
+            )
+    if validated.clarification:
+        try:
+            record_clarification(
+                repository,
+                attempt_id=attempt["id"],
+                clarification=validated.clarification,
+                agent_run_id=agent_run_id,
+                grading_prompt_version=_grading_version,
+                clock=clock,
+            )
+        except Exception:  # pragma: no cover - same discipline
+            LOGGER.warning(
+                "failed to record clarification on regrade of %s",
+                attempt["id"],
+                exc_info=True,
+            )
     finish_agent_run(repository, agent_run_id, client, clock=clock)
+    return validated
 
 
 def _agent_run_provider_fields(client: CodexClient | AIProviderClient, runtime) -> dict[str, str | None]:

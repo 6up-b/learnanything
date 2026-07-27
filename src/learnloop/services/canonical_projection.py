@@ -42,8 +42,9 @@ from learnloop.services.capability_mapping import (
     criterion_pseudo_mass,
     localize_criterion_outcomes,
 )
+from learnloop.services.conjunctive_items import cap_embedded_credit, supporting_unexercised
 from learnloop.services.evidence import attempt_evidence_mass
-from learnloop.services.receipt_contributions import cap_observation_contributions
+from learnloop.services.receipt_contributions import itemize_observation_contributions
 from learnloop.vault.models import CriterionTarget, LoadedVault, PracticeItem
 
 # Outcome fraction below which a criterion counts as failed (matches the legacy
@@ -85,7 +86,13 @@ ASSISTED_ATTEMPT_TYPES = _ASSISTED_ATTEMPT_TYPES
 #       evidence under ``procedure_execution`` whatever capability it was
 #       authored at, so blueprint components declared at other capabilities could
 #       never be retired. Rebuilding moves mass between (facet, capability) cells.
-CANONICAL_PROJECTION_VERSION = "canonical_projection_v4_item_declared_capability"
+# v5 (Meas §3.A1, plan 6.1): supporting targets confer credit only where A6
+# trace evidence shows the facet exercised, and each cell's certification credit
+# is capped at `max_embedded_credit_share` embedded. Both change stored belief
+# with no new learner evidence, so the version bump is what routes it through
+# 1.4's "estimates recomputed, your evidence unchanged" recalibration entry
+# instead of the numbers silently moving under the learner.
+CANONICAL_PROJECTION_VERSION = "canonical_projection_v5_supporting_requires_trace"
 
 
 def surface_group_id(item: PracticeItem) -> str:
@@ -127,7 +134,15 @@ class _CapAcc:
     direct_negative_mass: float = 0.0
     embedded_positive_mass: float = 0.0
     embedded_negative_mass: float = 0.0
-    certification_credit: float = 0.0
+    # Meas §3.A1 guard 2 (migration 141): certification credit is banked split by
+    # relationship so the embedded-share cap can be applied per cell at the end.
+    # ``certification_credit`` remains the one number Demonstrated reads; it is
+    # computed from these two, never accumulated directly.
+    direct_certification_credit: float = 0.0
+    embedded_certification_credit: float = 0.0
+    # Guard 1: mass a supporting target would have earned had the trace shown
+    # its facet exercised. "Recorded, not silent."
+    unexercised_supporting_mass: float = 0.0
     groups: set[str] = field(default_factory=set)
 
 
@@ -458,6 +473,13 @@ def project_canonical_facet_state(
         if use_p0
         else repository.canonical_observation_ledger()
     )
+    # Meas §3.A1 guard 1 / §3.A6: the trace observations that license supporting
+    # credit. Read once for the whole fold — this is a raw log, so a rebuild sees
+    # exactly what the grader reported at attempt time and never re-derives it
+    # (the replay path makes no provider call, so a recompute would silently drop
+    # every observation).
+    exercised_by_attempt = repository.all_trace_exercised_facets()
+    max_embedded_share = float(getattr(cert_cfg, "max_embedded_credit_share", 1.0))
     for attempt in ledger_rows:
         item = vault.practice_items.get(attempt["practice_item_id"])
         contract = _historical_contract(
@@ -555,6 +577,26 @@ def project_canonical_facet_state(
         staged_credit: dict[str, dict[tuple[str, str], float]] = defaultdict(
             lambda: defaultdict(float)
         )
+        # The embedded half of the same staging, so the per-group cap and the
+        # attempt ceiling can stay one calculation while guard 2 still knows how
+        # much of what survived them was embedded.
+        staged_embedded: dict[str, dict[tuple[str, str], float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+        # Guard 1: facets this attempt's trace actually showed exercised (A6).
+        # An attempt with no A6 observations yields an empty set, which is the
+        # correct reading of "no evidence the facet was exercised" — so before
+        # A6 has a producer every supporting target is unexercised and confers
+        # nothing, which is the direction the guard exists to fail in.
+        exercised_facets = {
+            resolve(str(row["facet_id"]))
+            for row in exercised_by_attempt.get(str(attempt["attempt_id"]), ())
+        }
+        # Matching is on the facet, never the ``(facet, capability)`` cell: A6
+        # reports "the trace shows this facet being used", and which capability
+        # that use counts at is decided by the criterion's authored target — a
+        # deterministic quantity — not by the grader's report. Deciding the cell
+        # from a model-reported field would invert standing constraint 8.
 
         for outcome in outcomes:
             local = localized[outcome.criterion_id]
@@ -568,11 +610,39 @@ def project_canonical_facet_state(
                     0.0, min(1.0, float(row["points_awarded"]) / criterion.points)
                 )
             fraction = raw_fraction
-            targets = list(criterion.targets)
-            if not targets:
+            authored_targets = list(criterion.targets)
+            if not authored_targets:
                 continue
+            # Meas §3.A1 guard 1: an unexercised supporting claim is not part of
+            # this criterion's observation contract for THIS attempt. Splitting
+            # the list here rather than filtering at each write site is what
+            # keeps the guard from *costing* measurement: `allocate_success_mass`
+            # normalizes across the targets it is given, so leaving a discarded
+            # supporting target in would dilute the primary's mass to 1/1.3 and
+            # authoring an honest supporting target would strictly reduce the
+            # evidence the item produces. Same argument for the unresolved-cause
+            # gate below, which counts candidate causes.
+            targets = [
+                target
+                for target in authored_targets
+                if not supporting_unexercised(target, exercised_facets, resolve=resolve)
+            ]
             pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
             corr_group = criterion.correlation_group or group_key
+            # The record guard 1 owes: what the discarded claims WOULD have
+            # earned, computed against the contract as authored. Written BEFORE
+            # the empty-target bail-out below, because a criterion whose targets
+            # are ALL unexercised supporting claims is precisely the case an
+            # author most needs to see — it measured nothing at all.
+            if len(targets) != len(authored_targets):
+                for alloc in allocate_success_mass(authored_targets, pmass):
+                    if not supporting_unexercised(alloc, exercised_facets, resolve=resolve):
+                        continue
+                    cap[(resolve(alloc.facet), alloc.capability)].unexercised_supporting_mass += (
+                        alloc.pseudo_mass * fraction
+                    )
+            if not targets:
+                continue
 
             raw_attribution = (
                 row.get("attribution_json") if row is not None else None
@@ -636,6 +706,8 @@ def project_canonical_facet_state(
                     positive, relationship=relationship, assistance=assistance
                 )
                 staged_credit[corr_group][key] += credit
+                if relationship == "embedded":
+                    staged_embedded[corr_group][key] += credit
 
                 for scope in (None, attempt["practice_item_id"]):
                     acc = recall[(facet, capability, scope)]
@@ -688,15 +760,29 @@ def project_canonical_facet_state(
                         acc.consecutive_failures = 0
 
         # Apply the shared receipt/projection caps, then bank the credit.
-        capped_cells = cap_observation_contributions(
+        # The itemizing form is used rather than the plain one because guard 2
+        # needs the direct/embedded split of what SURVIVED the caps, and the caps
+        # scale per correlation group: a cell staged in two groups with different
+        # embedded shares, only one of which is trimmed, would get the wrong
+        # split from an attempt-wide ratio. `group_scale` is the exact per-group
+        # survival factor, and it is the same calculation the receipts use, so
+        # the two cannot drift.
+        capped_cells, itemization = itemize_observation_contributions(
             staged_credit,
             attempt_type=attempt["attempt_type"],
             evidence_mass=emass,
             group_budget_overrides=overrides,
             max_groups_per_attempt=max_groups,
         )
+        embedded_banked: dict[tuple[str, str], float] = defaultdict(float)
+        for contribution in itemization:
+            staged_here = staged_embedded[contribution.group].get(contribution.cell, 0.0)
+            if staged_here > 0:
+                embedded_banked[contribution.cell] += staged_here * contribution.group_scale
         for key, credit in capped_cells.items():
-            cap[key].certification_credit += credit
+            embedded_credit = min(embedded_banked.get(key, 0.0), credit)
+            cap[key].embedded_certification_credit += embedded_credit
+            cap[key].direct_certification_credit += credit - embedded_credit
 
     recall_rows = []
     for (facet, capability, scope), acc in recall.items():
@@ -728,7 +814,19 @@ def project_canonical_facet_state(
             "direct_negative_mass": acc.direct_negative_mass,
             "embedded_positive_mass": acc.embedded_positive_mass,
             "embedded_negative_mass": acc.embedded_negative_mass,
-            "certification_credit": acc.certification_credit,
+            # Guard 2 (§3.A1): applied once, per cell, over the whole history —
+            # not per attempt, because "what fraction of this cell came from
+            # embedded evidence" is a statement about the cell, and an
+            # attempt-local cap could pass every attempt while the cell still
+            # ends up entirely embedded.
+            "certification_credit": cap_embedded_credit(
+                acc.direct_certification_credit,
+                acc.embedded_certification_credit,
+                max_embedded_share=max_embedded_share,
+            ),
+            "direct_certification_credit": acc.direct_certification_credit,
+            "embedded_certification_credit": acc.embedded_certification_credit,
+            "unexercised_supporting_mass": acc.unexercised_supporting_mass,
             "independent_surface_groups": sorted(acc.groups),
         }
         for (facet, capability), acc in cap.items()

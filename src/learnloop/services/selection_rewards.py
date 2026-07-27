@@ -8,6 +8,7 @@ from learnloop.db.repositories import ActiveErrorEvent, FacetRecallState, Master
 from learnloop.services.ability_transition import estimate_ability_transition
 from learnloop.numeric import clamp
 from learnloop.services.blueprint_projection import predict_item_success
+from learnloop.services.conjunctive_items import ItemShape, classify_item_shape, conjunctive_fit
 from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop.services.mastery import item_irt_params
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem
@@ -110,6 +111,29 @@ class SelectionReward:
         }
 
 
+#: Compiled item shapes, keyed by item id. `classify_item_shape` compiles every
+#: criterion's targets, and the scheduler scores EVERY candidate item on EVERY
+#: decision — an uncached call turns a rubric compile into hot-loop work. The
+#: shape is a pure function of vault content, which does not change within a
+#: process without a reload, so the cache is keyed on the loaded vault's identity
+#: and drops wholesale when a different vault object appears.
+_SHAPE_CACHE: dict[int, dict[str, ItemShape]] = {}
+
+
+def _item_shape(vault: LoadedVault, item: PracticeItem) -> ItemShape:
+    cache = _SHAPE_CACHE.get(id(vault))
+    if cache is None:
+        _SHAPE_CACHE.clear()
+        cache = _SHAPE_CACHE.setdefault(id(vault), {})
+    shape = cache.get(item.id)
+    if shape is None:
+        shape = classify_item_shape(
+            item, vault.rubric_for_item(item), canonical_facet_id=vault.canonical_facet_id
+        )
+        cache[item.id] = shape
+    return shape
+
+
 def score_selection_reward(
     vault: LoadedVault,
     item: PracticeItem,
@@ -153,6 +177,16 @@ def score_selection_reward(
     expected_skill_gain = float(expected_gain.get("expected_skill_gain") or 0.0)
     repetition_fatigue = 0.25 if demand.bad_item_suspicion >= 0.65 and intent != SchedulerIntent.REPAIR else 0.0
     overload_penalty = _overload_penalty(predicted, intent)
+    # Meas §3.A1 (plan 6.1): both shapes are authored; selection is what picks.
+    # A capstone clears several cells on a pass and localizes nothing on a
+    # failure, so it is the efficient instrument exactly when the learner is
+    # predicted to pass — and the decomposed item is exactly when they are not.
+    # An item observing one cell scores 0 here, so a pool with no conjunctive
+    # items is unaffected.
+    shape = _item_shape(vault, item)
+    shape_fit = conjunctive_fit(
+        shape, predicted, localizing=intent == SchedulerIntent.REPAIR
+    )
     is_teach_back = item.practice_mode == "teach_back"
     # Teach-back rides the PROBE intent without a hypothesis set, so a zero
     # hypothesis EIG is expected, not a duplicate probe.
@@ -185,6 +219,7 @@ def score_selection_reward(
             + 0.10 * clamp(base_components.get("recent_error", 0.0))
             # Repairing gaps on goal-relevant facets ranks above off-goal repairs.
             + 0.15 * clamp(base_components.get("goal_frontier", 0.0))
+            + 0.10 * shape_fit
             - overload_penalty
             - repetition_fatigue
         )
@@ -199,6 +234,7 @@ def score_selection_reward(
             + 0.15 * targeted_boundary_fit
             + 0.10 * expected_skill_gain / 0.08
             + 0.05 * clamp(demand.transfer_distance)
+            + 0.10 * shape_fit
             - overload_penalty
             - repetition_fatigue
         )
@@ -215,6 +251,8 @@ def score_selection_reward(
             "expected_skill_gain": expected_skill_gain,
             "overload_penalty": overload_penalty,
             "repetition_fatigue": repetition_fatigue,
+            "conjunctive_fit": shape_fit,
+            "conjunctive_strength": shape.conjunctive_strength,
             "duplicate_probe_penalty": duplicate_probe_penalty,
             "probe_eig_hypothesis": float(probe_eig_debug["hypothesis"]["reduction"]),
             "probe_eig_lo_mastery": float(probe_eig_debug["lo_mastery"]["reduction"]),

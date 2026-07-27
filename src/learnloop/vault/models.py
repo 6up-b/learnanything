@@ -415,6 +415,171 @@ class VariantAuthoringContract(VaultModel):
     drops_checkpoints: list[str] = Field(default_factory=list)
 
 
+class DiscriminationProfile(VaultModel):
+    """What a holder of one candidate hypothesis visibly produces (Meas §3.A5).
+
+    Today "a wrong answer mostly carries the information 'this criterion failed'.
+    The *shape* of the wrong answer is where the diagnostic information actually
+    lives, and it is discarded." A profile is the shape, authored once on the
+    item and reused by three consumers: §3.0's planted-persona gate (as its
+    oracle), the diagnostician at grading time (as a PRIOR over causes), and A4's
+    commissioning (as the thing a contrast pair must separate).
+
+    THE DISCIPLINE THAT KEEPS THIS FROM BECOMING THE DISEASE IT TREATS.
+    Causal §0 root cause 8 is an *authoring* failure: a contract demanded
+    structure in a vocabulary that had no name for what the learner did, so
+    authoring manufactured false structure at mint time. A discrimination profile
+    is also authored structure about causes, so it is the same shape of risk. The
+    guard is a semantic one and lives at the consumers, not here: a profile is a
+    candidate set the diagnostician *may* match and *must* be free to reject,
+    with ``no_profile_applies`` a first-class outcome (migration 143). This model
+    is therefore deliberately inert -- it carries no weight, no probability, and
+    no "expected" verdict a downstream reader could mistake for a posterior.
+
+    ``observable_signature`` is the load-bearing field: the answer a holder of
+    ``hypothesis`` would actually write **on this item**. It is what the persona
+    gate plants and what the grader matches a trace against. A profile without
+    one is an opinion about the learner, not an instrument.
+    """
+
+    id: str
+    #: The belief in learner-model terms -- what the learner thinks is TRUE, not
+    #: a description of the wrong answer. (spec §2.1 G1's distinction, which the
+    #: grading contract already enforces on ``misconception_statement``.)
+    hypothesis: str
+    #: What a holder of ``hypothesis`` writes on THIS item. Categorically
+    #: distinct from ``expected_answer``, or the item is blind to the belief it
+    #: claims to profile and §3.0's gate blocks it.
+    observable_signature: str
+    #: Registry link when the hypothesis is a known belief. Absent for a facet
+    #: error-signature profile or a genuinely novel candidate.
+    misconception_id: str | None = None
+    #: The facet whose claim the hypothesis contradicts, when it is facet-scoped.
+    facet_id: str | None = None
+    #: Rubric criteria a holder of this hypothesis loses points on. Analysis
+    #: input for A4 commissioning (two profiles with the same set are exactly
+    #: identifiability check 3's "equivalent planted profiles"); never a grading
+    #: constraint.
+    fails_criteria: list[str] = Field(default_factory=list)
+    #: Free-text cues that separate this profile from its neighbours in a trace.
+    distinguishing_features: list[str] = Field(default_factory=list)
+    #: Where the profile came from. ``authored`` is admitted (a novel candidate
+    #: is legitimate) but is the arm A4 commissioning prefers to replace, because
+    #: a registry-linked profile can be checked against evidence elsewhere.
+    source: Literal[
+        "misconception_registry", "facet_error_signature", "authored"
+    ] = "authored"
+
+
+class DifferingComponent(VaultModel):
+    """The ONE requirement an A4 contrast pair's members differ on (Meas §3.A4).
+
+    A ``(facet, capability)`` cell, in the same closed vocabularies
+    ``RecipeComponent`` and ``CriterionTarget`` use. Authored rather than
+    inferred so "the analysis is structural rather than inferred" -- a pair whose
+    manipulation has to be reverse-engineered from two prompts is a pair whose
+    manipulation cannot be trusted to be single.
+    """
+
+    facet: str
+    capability: str
+    #: Prose statement of what changes in the STRUCTURE of the correct answer --
+    #: does a precondition hold, is the theorem applicable. §3.A4 forbids a
+    #: manipulation that changes only values: "different numbers is a clone, and
+    #: kinship will correctly refuse to count it twice anyway."
+    structural_change: str | None = None
+
+
+class PlantedError(VaultModel):
+    """One error planted into an A3 worked solution (Meas §3.A3).
+
+    ``source`` is the typed statement of the rule that makes this instrument
+    honest: "Plant from the registry, never freehand -- from the misconception
+    registry and the facet payload's ``error_signatures``. A freehand error is an
+    untyped instrument." There is no ``freehand`` arm, so an unregistered plant
+    is unrepresentable rather than merely discouraged.
+
+    ``required_repair`` is the second rule in the same sentence: "Require the
+    repair, not the flag. Flagging is recognition; repairing is construction."
+    An empty ``required_repair`` makes the item a recognition screen, which §11
+    lists as a non-goal, so the §3.0 gate blocks it.
+    """
+
+    id: str
+    #: Where in the worked solution the error sits. Free text keyed to the
+    #: solution's own step labels; the planting LOCATION is what makes misses
+    #: localize for free.
+    step_ref: str
+    source: Literal["misconception_registry", "facet_error_signature"]
+    #: The registry text that was planted, verbatim. Persona planting and the
+    #: §3.0 invisibility check both compare against this exact string, so a
+    #: paraphrase here silently weakens the gate.
+    error_signature: str
+    #: What a correct repair must produce. Non-empty, always: see the class note.
+    required_repair: str
+    misconception_id: str | None = None
+    facet_id: str | None = None
+
+
+class ErrorHuntContract(VaultModel):
+    """A fully worked solution the learner must repair (Meas §3.A3).
+
+    "Every facet the solution touches yields evidence; misses localize for free,
+    because the planting location is known. Cost is a fraction of a full
+    derivation."
+
+    An EMPTY ``planted_errors`` list is not a broken item -- it is the **clean
+    rotation** §3.A3 requires: "Do not declare the error count, and rotate in
+    clean solutions. A rotation that sometimes presents *correct* work is
+    strictly more informative: a learner who 'finds' an error in a correct
+    solution has just handed you a misconception directly, and the rotation kills
+    the 'there is always an error' strategy." The two cases are distinguished by
+    ``is_clean``, and the grading path routes a false positive on a clean
+    solution to a misconception CANDIDATE rather than a facet failure (§10).
+    """
+
+    worked_solution_md: str
+    planted_errors: list[PlantedError] = Field(default_factory=list)
+
+    @property
+    def is_clean(self) -> bool:
+        return not self.planted_errors
+
+
+class LadderedStemContract(VaultModel):
+    """One part of a stimulus whose parts climb the capability ladder (Meas §3.A2).
+
+    "One stimulus; parts that walk the same facet up the capability vocabulary:
+    state it (``retrieval``) -> which theorem applies (``method_selection``) ->
+    execute (``procedure_execution``) -> the edge case where coordination is the
+    difficulty. One context-loading cost, four columns."
+
+    WHY PARTS ARE SEPARATE ITEMS AND NOT ONE ITEM WITH SUB-PARTS. Standing
+    constraint 8 files credit per ``(facet, capability)`` cell, and a
+    ``PracticeItem`` declares exactly one ``capability``. An item holding four
+    parts at four capabilities would have to pick one of them to file under,
+    which is the 72% rung loss §5.8.2 measured, reintroduced inside a single
+    item. So each part is its own item at its own rung, and ``stem_id`` (mirrored
+    into ``EvidenceFingerprint.shared_stimulus_id``, which already exists) is
+    what makes them one stimulus.
+
+    The kinship consequence is the load-bearing part and lives in ONE place --
+    ``familiarity.tight_kinship_clusters``, per augmentation §8's "one code path"
+    requirement: parts of one stem are correlated WITHIN a capability column
+    (~one independent group) and independent ACROSS columns. Nothing here is a
+    second notion of kinship; these fields are only the identity the one rule
+    reads.
+    """
+
+    stem_id: str
+    part_index: int = Field(ge=0)
+    part_count: int = Field(default=1, ge=1)
+    #: The shared stimulus, so a renderer can present it once for a run of parts
+    #: instead of repeating it -- amortizing the context load is the entire cost
+    #: argument for the instrument.
+    stimulus_md: str | None = None
+
+
 class TeachBackSourceContract(VaultModel):
     """Provenance for a teach-back transformed from one completed item."""
 
@@ -469,6 +634,26 @@ class PracticeItem(VaultModel):
     # holder of the targeted belief would give. Round-trips through patches so the
     # sim gate and review policy can read it off the applied item. None otherwise.
     misconception_consistent_answer: str | None = None
+    # Meas §3.A5: per plausible candidate hypothesis, what a holder of that
+    # hypothesis visibly produces. Extends the single authored link an item can
+    # carry today (`RubricFatalError.misconception_id`, one fatal error -> one
+    # belief) from a boolean detector to the *shape* of the wrong answer. Empty
+    # on every item authored before A5, which is why it is a list and not a
+    # required contract.
+    discrimination_profiles: list[DiscriminationProfile] = Field(default_factory=list)
+    # Meas §3.A4: the pair binding. `contrast_of` names the other member and
+    # `differing_component` names the ONE requirement they differ on, so the
+    # analysis is structural rather than inferred. Both are set on both members.
+    contrast_of: str | None = None
+    differing_component: DifferingComponent | None = None
+    # Meas §3.A3: the worked solution with its registry-planted errors, or the
+    # clean rotation. Present only on error-hunt items.
+    error_hunt: ErrorHuntContract | None = None
+    # Meas §3.A2: this item's place in a laddered stem. `laddered_stem.stem_id`
+    # mirrors `evidence_fingerprint.shared_stimulus_id`; the kinship rule reads
+    # the fingerprint, this carries the authoring intent (part order, count, and
+    # the stimulus text a renderer shows once).
+    laddered_stem: LadderedStemContract | None = None
     repair_targets: list[str] = Field(default_factory=list)
     grading_rubric: Rubric | None = None
     # Learner-owned lifecycle (Andy: readers control the prompts they collect).

@@ -106,11 +106,15 @@ function importedSourceId(batch: IngestBatchDto): string | null {
 // ── IngestActivityStack ──────────────────────────────────────────────────
 export function IngestActivityStack({
   focusBatchId,
+  initialBatch,
   onOpenOutline,
+  onBatchSettled,
   onError
 }: {
   focusBatchId: string | null;
+  initialBatch?: IngestBatchDto | null;
   onOpenOutline: (sourceId: string) => void;
+  onBatchSettled?: (batch: IngestBatchDto) => void;
   onError?: (message: string) => void;
 }): JSX.Element {
   const [batches, setBatches] = useState<IngestBatchDto[]>([]);
@@ -119,7 +123,51 @@ export function IngestActivityStack({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reportedError = useRef(false);
   const onErrorRef = useRef(onError);
+  const onBatchSettledRef = useRef(onBatchSettled);
+  const seededBatchRef = useRef<IngestBatchDto | null>(null);
+  const previousStatuses = useRef<Map<string, DurableIngestStatus>>(new Map());
   onErrorRef.current = onError;
+  onBatchSettledRef.current = onBatchSettled;
+
+  const upsertBatch = useCallback((next: IngestBatchDto) => {
+    if (seededBatchRef.current?.id === next.id) {
+      seededBatchRef.current = next;
+    }
+    setBatches((prev) => {
+      const index = prev.findIndex((batch) => batch.id === next.id);
+      if (index < 0) return [next, ...prev];
+      const updated = [...prev];
+      updated[index] = next;
+      return updated;
+    });
+  }, []);
+
+  // The enqueue mutation already returns the durable batch. Surface it without
+  // waiting for the activity-history poll to discover it.
+  useEffect(() => {
+    if (initialBatch) {
+      seededBatchRef.current = initialBatch;
+      upsertBatch(initialBatch);
+    }
+  }, [initialBatch, upsertBatch]);
+
+  // Other entry points (outline/build-plan) hand us only an id. Fetch that one
+  // cheap row immediately so focus never points at an invisible activity card.
+  useEffect(() => {
+    if (!focusBatchId || initialBatch?.id === focusBatchId) return;
+    let cancelled = false;
+    void api
+      .getIngestBatch(focusBatchId)
+      .then((batch) => {
+        if (!cancelled) upsertBatch(batch);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) onErrorRef.current?.((e as CommandError).message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [focusBatchId, initialBatch?.id, upsertBatch]);
 
   // ── Single poll: fast while anything is active, idle otherwise ──────────
   useEffect(() => {
@@ -129,10 +177,19 @@ export function IngestActivityStack({
       try {
         const snapshot = await api.listIngestBatches(30);
         if (cancelled) return;
-        setBatches(snapshot.batches);
+        const seed = seededBatchRef.current;
+        let visibleBatches = snapshot.batches;
+        if (seed && !snapshot.batches.some((batch) => batch.id === seed.id)) {
+          // A history request that began before enqueue can return after the
+          // optimistic row. Keep the row until one authoritative poll sees it.
+          visibleBatches = [seed, ...snapshot.batches];
+        } else {
+          if (seed) seededBatchRef.current = null;
+        }
+        setBatches(visibleBatches);
         setLoaded(true);
         reportedError.current = false;
-        const active = snapshot.batches.some((batch) => isActive(batch.status));
+        const active = visibleBatches.some((batch) => isActive(batch.status));
         timer = window.setTimeout(() => void poll(), active ? 1500 : 5000);
       } catch (e) {
         if (cancelled) return;
@@ -151,10 +208,23 @@ export function IngestActivityStack({
     };
   }, []);
 
-  // Optimistically replace one batch from a mutation's returned DTO.
+  // Refresh the source library exactly when active work becomes terminal.
+  useEffect(() => {
+    const nextStatuses = new Map(previousStatuses.current);
+    for (const batch of batches) {
+      const previous = previousStatuses.current.get(batch.id);
+      if (previous && isActive(previous) && !isActive(batch.status)) {
+        onBatchSettledRef.current?.(batch);
+      }
+      nextStatuses.set(batch.id, batch.status);
+    }
+    previousStatuses.current = nextStatuses;
+  }, [batches]);
+
+  // Optimistically upsert one batch from a mutation's returned DTO.
   const patchBatch = useCallback((next: IngestBatchDto) => {
-    setBatches((prev) => prev.map((batch) => (batch.id === next.id ? next : batch)));
-  }, []);
+    upsertBatch(next);
+  }, [upsertBatch]);
 
   const reportError = useCallback((message: string) => {
     onErrorRef.current?.(message);

@@ -42,6 +42,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ingest.hashing import normalize_semantic_text
 from learnloop.ingest.ir import DocumentIR
+from learnloop.ingest.reanchor import EXACT_HASH, reanchor_spans
 from learnloop.services.role_authority import default_inventory_profile
 
 # Bump when the inventory JSON shape changes (part of cache identity, §7).
@@ -123,28 +124,81 @@ def _section_key(block) -> tuple[str, ...]:
     return tuple(block.section_path or ())
 
 
+def _inventory_members(ir: DocumentIR, unit_ids: list[str]) -> list[Any]:
+    """Resolve an ordered effective inventory unit from its source members."""
+
+    by_id = {unit.unit_id: unit for unit in ir.units}
+    missing = [unit_id for unit_id in unit_ids if unit_id not in by_id]
+    if missing:
+        raise InventoryError(
+            "inventory unit member(s) are not in the extraction: "
+            + ", ".join(missing)
+        )
+    if len(set(unit_ids)) != len(unit_ids):
+        raise InventoryError("an effective inventory unit cannot repeat a source unit")
+    return [by_id[unit_id] for unit_id in unit_ids]
+
+
+def _effective_unit_id(unit_ids: list[str]) -> str:
+    return "+".join(unit_ids)
+
+
+def _effective_semantic_hash(members: list[Any]) -> str:
+    if len(members) == 1:
+        return str(members[0].semantic_hash)
+    payload = json.dumps(
+        {
+            "kind": "merged_inventory_unit_v1",
+            "member_semantic_hashes": [str(member.semantic_hash) for member in members],
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def build_inventory_windows(
     ir: DocumentIR,
     unit_id: str,
     *,
+    unit_ids: list[str] | None = None,
     input_budget_tokens: int,
 ) -> list[dict[str, Any]]:
-    """Deterministic inventory view for one unit, split into windows (§3, §7).
+    """Deterministic inventory view for one effective unit, split into windows.
 
     Splits on section boundaries first, packing sections into windows up to the
     budget; a single oversize section splits at block boundaries. Section heading
-    text appears once per window. Windows are stable for an unchanged unit."""
+    text appears once per window.  ``unit_ids`` is the ordered source membership
+    of an explicit ``merge_with_next`` group; its composite id and semantic hash
+    remain stable while every member remains semantically unchanged.
+    """
 
-    unit = next((candidate for candidate in ir.units if candidate.unit_id == unit_id), None)
-    if unit is None:
-        raise InventoryError(f"unit '{unit_id}' is not in the extraction.")
+    source_unit_ids = list(unit_ids or [unit_id])
+    members = _inventory_members(ir, source_unit_ids)
+    effective_id = _effective_unit_id(source_unit_ids)
+    if len(source_unit_ids) == 1 and unit_id != effective_id:
+        raise InventoryError(
+            f"unit '{unit_id}' does not match source member '{effective_id}'"
+        )
     by_span = {block.span_id: block for block in ir.blocks}
-    blocks = [by_span[span_id] for span_id in unit.span_ids if span_id in by_span]
-    view_blocks = [entry for entry in (_view_block(block) for block in blocks) if entry is not None]
-    kept_blocks = [block for block, entry in zip(blocks, [_view_block(b) for b in blocks]) if entry is not None]
+    blocks = []
+    seen_spans: set[str] = set()
+    for member in members:
+        for span_id in member.span_ids:
+            if span_id in by_span and span_id not in seen_spans:
+                blocks.append(by_span[span_id])
+                seen_spans.add(span_id)
+    kept_blocks = []
+    view_blocks = []
+    for block in blocks:
+        entry = _view_block(block)
+        if entry is not None:
+            kept_blocks.append(block)
+            view_blocks.append(entry)
 
     budget = max(int(input_budget_tokens), 1000)
-    heading = _unit_heading(unit, blocks)
+    heading = " + ".join(member.label for member in members)
+    semantic_hash = _effective_semantic_hash(members)
 
     windows: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
@@ -175,9 +229,9 @@ def build_inventory_windows(
     total = len(windows)
     return [
         {
-            "unit_id": unit.unit_id,
-            "semantic_hash": unit.semantic_hash,
-            "label": unit.label,
+            "unit_id": effective_id,
+            "semantic_hash": semantic_hash,
+            "label": heading,
             "section_heading": heading,
             "window_ordinal": ordinal,
             "window_count": total,
@@ -332,6 +386,86 @@ def merge_windows(inventories: list[SourceUnitInventory]) -> SourceUnitInventory
     return merged
 
 
+def _cited_span_ids(inventory: SourceUnitInventory) -> set[str]:
+    data = inventory.model_dump()
+    cited: set[str] = set()
+    for list_name, span_field in _SPAN_CITING_FIELDS:
+        for item in data.get(list_name, []):
+            cited.update(str(span) for span in (item.get(span_field) or []))
+    return cited
+
+
+def _rebind_inventory_spans(
+    inventory: SourceUnitInventory,
+    *,
+    span_aliases: Mapping[str, str],
+    unit_id: str,
+    semantic_hash: str,
+) -> SourceUnitInventory:
+    """Return the same semantic artifact bound to a new extraction's span ids."""
+
+    data = inventory.model_dump()
+    data["unit_id"] = unit_id
+    data["semantic_hash"] = semantic_hash
+    for list_name, span_field in _SPAN_CITING_FIELDS:
+        for item in data.get(list_name, []):
+            item[span_field] = [
+                span_aliases[str(span)] for span in (item.get(span_field) or [])
+            ]
+    return SourceUnitInventory.model_validate(data)
+
+
+def _reusable_inventory_for_extraction(
+    repo: Repository,
+    candidate: Mapping[str, Any],
+    *,
+    current_ir: DocumentIR,
+    current_extraction_id: str,
+    current_unit_id: str,
+    current_semantic_hash: str,
+    valid_span_ids: set[str],
+) -> SourceUnitInventory | None:
+    """Safely bind a cached semantic artifact to the current extraction.
+
+    A direct row is accepted after the same citation validation used for fresh
+    output.  A row from another extraction/revision must re-anchor every cited
+    span by an exact content-hash match; fuzzy/ambiguous aliases deliberately turn
+    the lookup into a miss.
+    """
+
+    cached = SourceUnitInventory.model_validate(candidate["inventory"])
+    if str(candidate.get("extraction_id") or "") == current_extraction_id:
+        try:
+            validate_inventory(cached, valid_span_ids)
+        except InventoryValidationError:
+            return None
+        return cached
+
+    previous_ir = repo.load_document_ir(str(candidate.get("extraction_id") or ""))
+    if previous_ir is None:
+        return None
+    reanchored = reanchor_spans(previous_ir, current_ir)
+    aliases = {
+        alias.from_span_id: alias.to_span_id
+        for alias in reanchored.aliases
+        if alias.match_kind == EXACT_HASH
+    }
+    cited = _cited_span_ids(cached)
+    if not cited.issubset(aliases):
+        return None
+    rebound = _rebind_inventory_spans(
+        cached,
+        span_aliases=aliases,
+        unit_id=current_unit_id,
+        semantic_hash=current_semantic_hash,
+    )
+    try:
+        validate_inventory(rebound, valid_span_ids)
+    except InventoryValidationError:
+        return None
+    return rebound
+
+
 @dataclass
 class InventoryResult:
     inventory: SourceUnitInventory
@@ -342,11 +476,44 @@ class InventoryResult:
     usage: dict[str, Any] = field(default_factory=dict)
 
 
-def run_unit_inventory(
+@dataclass(frozen=True)
+class PreparedInventory:
+    """Cache-missed inventory work with every database read already resolved.
+
+    Instances are safe to hand to a provider worker thread: the remaining
+    execution path is pure model I/O plus deterministic validation/merging.
+    """
+
+    extraction_id: str
+    revision_id: str
+    unit_id: str
+    source_unit_ids: tuple[str, ...]
+    semantic_hash: str
+    role: str
+    profile: str
+    provider: str
+    model: str
+    windows: tuple[dict[str, Any], ...]
+    valid_span_ids: frozenset[str]
+    output_budget_tokens: int | None
+    prompt_version: str
+    schema_version: int
+
+
+@dataclass(frozen=True)
+class InventoryExecution:
+    """Fresh provider output awaiting runner-thread persistence."""
+
+    inventory: SourceUnitInventory
+    usage: dict[str, Any]
+
+
+def prepare_unit_inventory(
     repo: Repository,
     extraction_id: str,
     unit_id: str,
     *,
+    unit_ids: list[str] | None = None,
     role: str,
     profile: str | None = None,
     client: Any = None,
@@ -357,11 +524,12 @@ def run_unit_inventory(
     clock: Clock | None = None,
     prompt_version: str = SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     schema_version: int = INVENTORY_SCHEMA_VERSION,
-) -> InventoryResult:
-    """Produce (or reuse) the inventory for one unit under a role/profile (§7).
+) -> InventoryResult | PreparedInventory:
+    """Resolve one inventory from cache or return provider-only work.
 
-    Cache hit → zero new tokens. Cache miss → windows, one codex call each,
-    deterministic ids, merge, validate, persist under the full UNIQUE key.
+    Cache lookup, cross-revision re-anchoring, and binding-row writes happen
+    here on the runner thread. A miss returns a self-contained object whose
+    execution requires no repository access.
     """
 
     requested_profile = normalize_profile(profile or default_inventory_profile(role))
@@ -372,32 +540,121 @@ def run_unit_inventory(
     ir = repo.load_document_ir(extraction_id)
     if ir is None:
         raise InventoryError(f"extraction '{extraction_id}' has no persisted IR.")
-    unit = next((candidate for candidate in ir.units if candidate.unit_id == unit_id), None)
-    if unit is None:
-        raise InventoryError(f"unit '{unit_id}' is not in the extraction.")
+    source_unit_ids = list(unit_ids or [unit_id])
+    members = _inventory_members(ir, source_unit_ids)
+    effective_id = _effective_unit_id(source_unit_ids)
+    semantic_hash = _effective_semantic_hash(members)
     provider_name = provider or getattr(client, "provider_type", None) or "codex"
     model_name = model or getattr(client, "model", None) or "unknown"
+    by_span = {block.span_id: block for block in ir.blocks}
+    valid_span_ids = frozenset(
+        span_id
+        for member in members
+        for span_id in member.span_ids
+        if span_id in by_span and _view_block(by_span[span_id]) is not None
+    )
 
     # Cache lookup (§3.2 reuse): any row with the same non-profile identity whose
-    # stored profile satisfies the request — even across collections/revisions is
-    # handled by the semantic-hash index; here we key on this revision's row.
+    # stored profile satisfies the request. Cross-revision candidates are rebound
+    # only after all cited spans re-anchor exactly, then materialized as a binding
+    # row for this revision/extraction.
     for candidate in repo.reusable_unit_inventories(
         source_revision_id=revision_id,
-        unit_id=unit_id,
-        unit_semantic_hash=unit.semantic_hash,
+        unit_id=effective_id,
+        unit_semantic_hash=semantic_hash,
         inventory_schema_version=schema_version,
         prompt_version=prompt_version,
         provider=provider_name,
         model=model_name,
     ):
-        if profile_satisfies(candidate["inventory_profile"], candidate["inventory_schema_version"], requested_profile):
-            return InventoryResult(
-                inventory=SourceUnitInventory.model_validate(candidate["inventory"]),
-                inventory_id=candidate["id"],
-                profile=requested_profile,
-                cache_hit=True,
-                reused_profile=candidate["inventory_profile"],
+        if not profile_satisfies(
+            candidate["inventory_profile"],
+            candidate["inventory_schema_version"],
+            requested_profile,
+        ):
+            continue
+        reusable = _reusable_inventory_for_extraction(
+            repo,
+            candidate,
+            current_ir=ir,
+            current_extraction_id=extraction_id,
+            current_unit_id=effective_id,
+            current_semantic_hash=semantic_hash,
+            valid_span_ids=set(valid_span_ids),
+        )
+        if reusable is None:
+            continue
+        inventory_id = str(candidate["id"])
+        if (
+            str(candidate.get("source_revision_id") or "") != revision_id
+            or str(candidate.get("extraction_id") or "") != extraction_id
+        ):
+            binding_id = f"inv_{new_ulid()}"
+            repo.insert_unit_inventory(
+                id=binding_id,
+                source_revision_id=revision_id,
+                extraction_id=extraction_id,
+                unit_id=effective_id,
+                unit_semantic_hash=semantic_hash,
+                inventory_profile=str(candidate["inventory_profile"]),
+                inventory_schema_version=schema_version,
+                prompt_version=prompt_version,
+                provider=provider_name,
+                model=model_name,
+                inventory=reusable.model_dump(),
+                usage={"calls": 0, "rebound_from_inventory_id": candidate["id"]},
+                clock=clock,
             )
+            # The table has one binding per semantic identity within a revision.
+            # Rebinding a repaired extraction therefore updates that existing row
+            # through its UNIQUE key and retains its id; a genuinely new revision
+            # inserts the fresh binding id.
+            inventory_id = (
+                str(candidate["id"])
+                if str(candidate.get("source_revision_id") or "") == revision_id
+                else binding_id
+            )
+        return InventoryResult(
+            inventory=reusable,
+            inventory_id=inventory_id,
+            profile=requested_profile,
+            cache_hit=True,
+            reused_profile=candidate["inventory_profile"],
+        )
+
+    # Window construction can be substantial for a large composite. Keep it
+    # strictly on the miss path so a cache hit performs no prompt preparation.
+    windows = build_inventory_windows(
+        ir,
+        effective_id,
+        unit_ids=source_unit_ids,
+        input_budget_tokens=input_budget_tokens,
+    )
+    return PreparedInventory(
+        extraction_id=extraction_id,
+        revision_id=revision_id,
+        unit_id=effective_id,
+        source_unit_ids=tuple(source_unit_ids),
+        semantic_hash=semantic_hash,
+        role=role,
+        profile=requested_profile,
+        provider=provider_name,
+        model=model_name,
+        windows=tuple(windows),
+        valid_span_ids=valid_span_ids,
+        output_budget_tokens=output_budget_tokens,
+        prompt_version=prompt_version,
+        schema_version=schema_version,
+    )
+
+
+def execute_prepared_inventory(
+    prepared: PreparedInventory,
+    client: Any,
+    *,
+    progress: Callable[[int, int], None] | None = None,
+) -> InventoryExecution:
+    """Run provider windows without touching SQLite."""
 
     run_inventory = getattr(client, "run_source_unit_inventory", None)
     if run_inventory is None:
@@ -407,68 +664,132 @@ def run_unit_inventory(
 
     from learnloop.codex.client import SourceUnitInventoryContext
 
-    windows = build_inventory_windows(ir, unit_id, input_budget_tokens=input_budget_tokens)
-    valid_span_ids = {block["span_id"] for window in windows for block in window["blocks"]}
     per_window: list[SourceUnitInventory] = []
     usage: dict[str, Any] = {
         "calls": 0,
         "input_tokens_estimate": sum(
             max(1, len(json.dumps(window, default=str)) // _CHARS_PER_TOKEN)
-            for window in windows
+            for window in prepared.windows
         ),
     }
-    for window in windows:
+    total_windows = len(prepared.windows)
+    for ordinal, window in enumerate(prepared.windows, start=1):
         context = SourceUnitInventoryContext(
-            unit_id=unit.unit_id,
-            semantic_hash=unit.semantic_hash,
-            role=role,
-            inventory_profile=requested_profile,
+            unit_id=prepared.unit_id,
+            semantic_hash=prepared.semantic_hash,
+            role=prepared.role,
+            inventory_profile=prepared.profile,
             unit_view=window,
         )
         raw = run_inventory(context)
-        assigned = assign_deterministic_ids(raw, unit_id=unit.unit_id, window_ordinal=window["window_ordinal"])
-        assigned.semantic_hash = unit.semantic_hash
-        validate_inventory(assigned, valid_span_ids)
+        assigned = assign_deterministic_ids(
+            raw,
+            unit_id=prepared.unit_id,
+            window_ordinal=window["window_ordinal"],
+        )
+        assigned.semantic_hash = prepared.semantic_hash
+        validate_inventory(assigned, set(prepared.valid_span_ids))
         per_window.append(assigned)
         usage["calls"] += 1
+        if progress is not None:
+            progress(ordinal, total_windows)
 
     merged = merge_windows(per_window)
-    merged.unit_id = unit.unit_id
-    merged.semantic_hash = unit.semantic_hash
+    merged.unit_id = prepared.unit_id
+    merged.semantic_hash = prepared.semantic_hash
     usage["output_tokens_estimate"] = max(
         1, len(merged.model_dump_json()) // _CHARS_PER_TOKEN
     )
     if (
-        output_budget_tokens is not None
-        and usage["output_tokens_estimate"] > output_budget_tokens
+        prepared.output_budget_tokens is not None
+        and usage["output_tokens_estimate"] > prepared.output_budget_tokens
     ):
         raise InventoryValidationError(
             "inventory output exceeded its configured token budget"
         )
+    return InventoryExecution(inventory=merged, usage=usage)
+
+
+def persist_prepared_inventory(
+    repo: Repository,
+    prepared: PreparedInventory,
+    execution: InventoryExecution,
+    *,
+    clock: Clock | None = None,
+) -> InventoryResult:
+    """Persist fresh provider output on the runner thread."""
 
     inventory_id = f"inv_{new_ulid()}"
     repo.insert_unit_inventory(
         id=inventory_id,
-        source_revision_id=revision_id,
-        extraction_id=extraction_id,
-        unit_id=unit_id,
-        unit_semantic_hash=unit.semantic_hash,
-        inventory_profile=requested_profile,
-        inventory_schema_version=schema_version,
-        prompt_version=prompt_version,
-        provider=provider_name,
-        model=model_name,
-        inventory=merged.model_dump(),
-        usage=usage,
+        source_revision_id=prepared.revision_id,
+        extraction_id=prepared.extraction_id,
+        unit_id=prepared.unit_id,
+        unit_semantic_hash=prepared.semantic_hash,
+        inventory_profile=prepared.profile,
+        inventory_schema_version=prepared.schema_version,
+        prompt_version=prepared.prompt_version,
+        provider=prepared.provider,
+        model=prepared.model,
+        inventory=execution.inventory.model_dump(),
+        usage=execution.usage,
         clock=clock,
     )
     return InventoryResult(
-        inventory=merged,
+        inventory=execution.inventory,
         inventory_id=inventory_id,
-        profile=requested_profile,
+        profile=prepared.profile,
         cache_hit=False,
-        usage=usage,
+        usage=execution.usage,
     )
+
+
+def run_unit_inventory(
+    repo: Repository,
+    extraction_id: str,
+    unit_id: str,
+    *,
+    unit_ids: list[str] | None = None,
+    role: str,
+    profile: str | None = None,
+    client: Any = None,
+    provider: str | None = None,
+    model: str | None = None,
+    input_budget_tokens: int = 20000,
+    output_budget_tokens: int | None = 3000,
+    clock: Clock | None = None,
+    prompt_version: str = SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
+    schema_version: int = INVENTORY_SCHEMA_VERSION,
+    progress: Callable[[int, int], None] | None = None,
+) -> InventoryResult:
+    """Produce or reuse one effective unit inventory under a role/profile (§7).
+
+    Cache hit → zero new tokens. Cache miss → windows, one codex call each,
+    deterministic ids, merge, validate, persist under the full UNIQUE key.
+    ``unit_ids`` carries the ordered source membership of an explicit
+    ``merge_with_next`` composite.
+    """
+
+    prepared = prepare_unit_inventory(
+        repo,
+        extraction_id,
+        unit_id,
+        unit_ids=unit_ids,
+        role=role,
+        profile=profile,
+        client=client,
+        provider=provider,
+        model=model,
+        input_budget_tokens=input_budget_tokens,
+        output_budget_tokens=output_budget_tokens,
+        clock=clock,
+        prompt_version=prompt_version,
+        schema_version=schema_version,
+    )
+    if isinstance(prepared, InventoryResult):
+        return prepared
+    execution = execute_prepared_inventory(prepared, client, progress=progress)
+    return persist_prepared_inventory(repo, prepared, execution, clock=clock)
 
 
 def inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]:
@@ -481,7 +802,27 @@ def inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict
     if run is None:
         return {"inventoried": False, "inventory_profile": None}
     rows = repo.unit_inventories_for_extraction(extraction_id)
-    profiles = sorted({row["inventory_profile"] for row in rows if row["unit_id"] == unit_id})
+    covering_ids = {unit_id}
+    ir = repo.load_document_ir(extraction_id)
+    selection = repo.get_unit_selection(extraction_id)
+    if ir is not None and selection is not None:
+        from learnloop.services.source_unit_selection import compute_effective_units
+
+        for effective in compute_effective_units(
+            ir, selection.get("boundary_overrides") or []
+        ):
+            source_ids = {
+                str(source_id) for source_id in effective["source_unit_ids"]
+            }
+            if unit_id == effective["effective_id"] or unit_id in source_ids:
+                covering_ids.add(str(effective["effective_id"]))
+    profiles = sorted(
+        {
+            row["inventory_profile"]
+            for row in rows
+            if row["unit_id"] in covering_ids
+        }
+    )
     if not profiles:
         return {"inventoried": False, "inventory_profile": None}
     best = "combined" if "combined" in profiles else profiles[0]

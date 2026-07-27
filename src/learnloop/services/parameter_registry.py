@@ -176,6 +176,21 @@ MODULE_INVENTORY: dict[str, str] = {
     # P4 §15 step 11 -- the §12 re-entry / short-session block-planner adapters.
     "short_session": "src/learnloop/services/short_session.py",
     "reentry_adapter": "src/learnloop/services/reentry_adapter.py",
+    # Meas §3.A2-§3.A5 (implementation plan item 6.4) -- the four instrument
+    # classes. Every numeric constant in these four modules is a threshold on a
+    # REVERT criterion: the number that decides whether an instrument class is
+    # still earning its place. §3 requires those criteria to be measurable rather
+    # than judged, which makes the thresholds decision parameters in the strict
+    # sense -- they are the judgement, written down.
+    "discrimination_profiles": "src/learnloop/services/discrimination_profiles.py",
+    "contrast_pairs": "src/learnloop/services/contrast_pairs.py",
+    "error_hunt": "src/learnloop/services/error_hunt.py",
+    "laddered_stems": "src/learnloop/services/laddered_stems.py",
+    # Meas §3.A1/§3.A8 (implementation plan items 6.1 and 6.3). Same argument as
+    # the four above: these constants ARE the judgement about when a channel is
+    # still honest, so they are decision parameters rather than magic numbers.
+    "conjunctive_items": "src/learnloop/services/conjunctive_items.py",
+    "clarification": "src/learnloop/services/clarification.py",
 }
 
 
@@ -342,6 +357,110 @@ _reg_const("surface_mint:ROTATION_CADENCE_ADMINISTRATIONS", "threshold", owner="
 _reg_const("surface_mint:SPARE_SURFACE_COUNT", "constraint", owner="surface_mint",
            rationale="§5.3 retain one admitted next surface + at most one spare by default; "
            "never spend minting work on an inactive/retired card.")
+
+# Meas §3.A2-§3.A5 instrument classes (implementation plan item 6.4). These are
+# the REVERT-criterion thresholds -- the line at which each instrument class stops
+# being worth its place in the pool. They are registered as decision parameters
+# rather than treated as constants because §3 is explicit that a rung kept on
+# judgement is what the spec forbids: the threshold IS the judgement, and it has
+# to be visible, owned and promotable like every other one.
+_reg_const("discrimination_profiles:NO_PROFILE_APPLIES_FLOOR", "threshold",
+           owner="discrimination_profiles",
+           rationale="§3.A5 revert direction 1: below this share of judged failures rejecting "
+           "every authored profile, the diagnostician is matching the nearest candidate rather "
+           "than reading the trace. A floor on honest disagreement, not a tuned quantity.")
+_reg_const("discrimination_profiles:PROFILE_SATURATION_CEILING", "threshold",
+           owner="discrimination_profiles",
+           rationale="§3.A5 revert direction 2 (standing constraint 2's other tail): above this "
+           "share of MATCHED failures on one profile, a candidate set of several is behaving as "
+           "one. Denominator is matches, not judged failures -- the literal reading is the same "
+           "event as the rejection rate collapsing and could never fire on its own.")
+_reg_const("discrimination_profiles:MIN_JUDGED_FOR_VERDICT", "threshold",
+           owner="discrimination_profiles",
+           rationale="§3.A5: judged failures below which neither tail is claimed. A ratio over "
+           "three attempts is not a rate, and reporting one is the confident-wrongness the "
+           "scoreboard's availability arms exist to prevent.")
+_reg_const("discrimination_profiles:MIN_MATCHES_FOR_SATURATION", "threshold",
+           owner="discrimination_profiles",
+           rationale="§3.A5: matched failures below which no saturation claim is made. Separate "
+           "from MIN_JUDGED_FOR_VERDICT because the concentration statistic has its own, smaller "
+           "denominator.")
+_reg_const("contrast_pairs:PAIR_BAND_TOLERANCE", "constraint", owner="contrast_pairs",
+           rationale="§3.A4 gate 1: how far outside the target difficulty band a pair member may "
+           "sit. Deliberately tighter than the rung gate's 0.10 -- that one tolerates a "
+           "deliberately-harder transfer item, and §3.A4 says 'not one hard, one easy'.")
+_reg_const("contrast_pairs:MAX_WITHIN_PAIR_DIFFICULTY_GAP", "constraint", owner="contrast_pairs",
+           rationale="§3.A4 gate 1, within-pair form: the band check alone admits a pair sitting "
+           "at opposite edges of a wide band, which is the same failure at a smaller scale.")
+_reg_const("contrast_pairs:MIN_COMPLETED_PAIRS", "threshold", owner="contrast_pairs",
+           rationale="§3.A4 revert criterion: completed pairs below which an order effect cannot "
+           "be distinguished from noise.")
+_reg_const("contrast_pairs:ORDER_EFFECT_ALPHA", "threshold", owner="contrast_pairs",
+           rationale="§3.A4 revert criterion, significance half: because order is randomized, a "
+           "pool driven ENTIRELY by the manipulation produces an order-win rate distributed "
+           "around 0.5 -- the metric's null value is its own ceiling. This is how surprising the "
+           "deviation must be before the verdict fires, without which the revert criterion is a "
+           "coin flip.")
+_reg_const("contrast_pairs:ORDER_DOMINANCE_CEILING", "threshold", owner="contrast_pairs",
+           rationale="§3.A4 revert direction: above this share of within-pair differences "
+           "explained by serving order alone, the pair measures order rather than the "
+           "manipulation it was authored for.")
+_reg_const("error_hunt:MIN_PAIRED_FACETS", "threshold", owner="error_hunt",
+           rationale="§3.A3 revert criterion: facets observed by BOTH an error hunt and a "
+           "constructed item, below which the agreement rate says nothing about proofreading.")
+_reg_const("error_hunt:AGREEMENT_FLOOR", "threshold", owner="error_hunt",
+           rationale="§3.A3 revert direction: agreement at or below chance between error-hunt and "
+           "constructed-response outcomes on one facet means the two instruments are measuring "
+           "different things -- carefulness, not the facet.")
+_reg_const("laddered_stems:MIN_PAIRS_PER_ARM", "threshold", owner="laddered_stems",
+           rationale="§3.A2 revert criterion: pairs of each kind (within-column, cross-column) "
+           "below which the independence claim cannot be checked. Applied per arm, because a "
+           "within-column rate over two pairs cannot license a statement about forty cross-column "
+           "ones.")
+_reg_const("laddered_stems:MIN_INDEPENDENCE_MARGIN", "threshold", owner="laddered_stems",
+           rationale="§3.A2: how much lower cross-column agreement must be than within-column "
+           "agreement before the independence claim is treated as holding. Zero would call a "
+           "one-point difference a success.")
+
+# Meas §3.A1 conjunctive instruments (implementation plan item 6.1).
+_reg_const("conjunctive_items:MIN_CONJUNCTIVE_CELLS", "constraint", owner="conjunctive_items",
+           rationale="§3.A1: distinct primary cells at which an item counts as conjunctive. Two "
+           "is the smallest number for which 'conjunction' means anything -- a definition, not a "
+           "tuned quantity, registered so a later change to it is visible as a decision.")
+_reg_const("conjunctive_items:CONJUNCTIVE_STRENGTH_CEILING", "constraint",
+           owner="conjunctive_items",
+           rationale="§3.A1 shape rule: distinct primary cells at which the selection preference "
+           "saturates. Beyond four conjuncts the marginal cell says little about whether an item "
+           "is a capstone, and an unbounded term would let shape dominate every other selection "
+           "component.")
+
+# Meas §3.A8 clarification channel (implementation plan item 6.3).
+_reg_const("clarification:DEFAULT_CLARIFICATION_TTL_HOURS", "constraint", owner="clarification",
+           rationale="§3.A8: how long a clarification stays askable. Long enough to survive a day "
+           "off, short enough that a grade does not sit provisional forever -- a stale question "
+           "about work the learner no longer remembers gets a reconstruction, not a report.")
+_reg_const("clarification:CLARIFICATION_RATE_WARN_THRESHOLD", "threshold", owner="clarification",
+           rationale="§3.A8 revert criterion, and causal §1 principle 8's standing watch: above "
+           "this share of gradeable attempts, the channel is being used for MACHINE-resident "
+           "uncertainty misclassified as learner-resident, which must be fixed machine-side. A "
+           "tripwire, never a cap -- throttling would hide the signal it exists to surface.")
+_reg_const("clarification:CLARIFICATION_RATE_MIN_ATTEMPTS", "threshold", owner="clarification",
+           rationale="§3.A8: gradeable attempts below which no rate is claimed. A ratio over a "
+           "handful of attempts is not a rate, and reporting one is the confident wrongness the "
+           "scoreboard's availability arms exist to prevent.")
+
+# Meas §3.A6 opportunistic trace evidence (implementation plan item 6.2). Lives on
+# the grading module because that is where the validator that applies it lives.
+_reg_const("grading:MAX_EXERCISED_FACETS_PER_ATTEMPT", "constraint", owner="grading",
+           rationale="§3.A6 revert direction, cheap half: an attempt reporting a dozen exercised "
+           "facets is describing the syllabus rather than the trace. The standing watch is "
+           "`trace_evidence_report`'s concentration statistic; this is the per-attempt bound that "
+           "keeps one run from swamping it.")
+_reg_const("grading:CLARIFICATION_CONFIDENCE_CEILING", "threshold", owner="grading",
+           rationale="§3.A8's licensing bound: grader confidence at or above which no "
+           "clarification may be asked, because 'never on a confident grade' is what separates "
+           "the channel from an interrogation. Shares the 0.40 hedge threshold every other "
+           "surface uses so 'hedged' means one thing in this vault.")
 
 # progression (P1 step 8, spec_p1_shared_substrate §4.3/§5.5, owner decision A.4).
 _reg_const("progression:MAX_EFFECTIVE_MASS_PER_CLUSTER", "constraint", owner="progression",
@@ -769,10 +888,33 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "recall_coverage.variance_floor_at_zero_coverage",
         "recall_coverage.variance_floor_at_full_coverage",
         "tutor_promotion.gap_need_ttl_days",
+        # Meas §3.A1 guard 2 (implementation plan item 6.1): the largest share of
+        # a cell's certification credit that may come from embedded (supporting-
+        # role) observations. A cap in the strict sense -- it binds only where
+        # conjunctive authoring has actually produced embedded credit, and it is
+        # what stops A1's throughput from arriving as positive smearing.
+        "evidence.certification.max_embedded_credit_share",
+        # Meas §3.A6 (item 6.2): the per-session ceiling on asking the learner for
+        # a one-line justification. Standing constraint 10 makes annoyance a
+        # first-class regression, so this is the guardrail that stops elicitation
+        # creeping, not a tuned throughput knob.
+        "trace_evidence.max_elicitations_per_session",
     ), "decision", "constraint",
         "cap/floor/clamp/membership guardrail; inert in the nominal scenario but binds under "
         "distribution shift -> dormant-with-monitoring (bind-event logging).",
         lifecycle="dormant", bind_site="config guardrail expression (min/max/clamp)"),
+    # Aug Stage 7 C3/C4. Both change diagnostic decisions and learner/model
+    # burden, so neither may hide as an unregistered operational constant.
+    _ConfigRule(
+        _exact(
+            "diagnostic_augmentation.sample_count",
+            "diagnostic_augmentation.history_limit",
+        ),
+        "decision",
+        "constraint",
+        "C3 independent diagnosis-call count and C4 same-surface history bound; "
+        "each rung has a persisted hypothesis and revert criterion.",
+    ),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

@@ -341,7 +341,16 @@ def test_grading_path_persists_actual_tokens(tmp_path):
     run = repository.agent_run(result.agent_run_id)
     assert run["purpose"] == "grading"
     assert run["status"] == "completed"
-    assert (run["actual_input_tokens"], run["actual_output_tokens"]) == (2400, 310)
+    # Aug C3 runs the live diagnostician three times.  One logical grading run
+    # owns all three calls, so A7 must record the full k-sample cost rather than
+    # making the augmented path look as cheap as its former one-sample baseline.
+    assert (run["actual_input_tokens"], run["actual_output_tokens"]) == (7200, 930)
+    receipts = repository.diagnostic_augmentation_receipt_rows()
+    assert len(receipts) == 1
+    assert receipts[0]["attempt_id"] == result.attempt_id
+    assert receipts[0]["c3_sample_count"] == 3
+    assert receipts[0]["c3_agreement_support"] == 1.0
+    assert receipts[0]["hypotheses"]["c3"].startswith("sample agreement")
     # Drained, so the next graded attempt on this client starts clean.
     assert client.consume_usage() == TokenUsage()
 

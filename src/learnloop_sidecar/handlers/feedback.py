@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from learnloop.clock import utc_now_iso
+from learnloop.services.instrument_serving import unservable_refusal
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel
+from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import attempt_detail, feedback_bundle, practice_item_detail
 from learnloop_sidecar.logging import log_event
@@ -12,6 +14,11 @@ from learnloop_sidecar.registry import method
 
 class AttemptInput(ParamsModel):
     attempt_id: str
+
+
+class AnswerClarificationInput(ParamsModel):
+    attempt_id: str
+    answer_md: str
 
 
 class TriggerRegradeInput(ParamsModel):
@@ -68,6 +75,167 @@ def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
 def get_attempt(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     return attempt_detail(vault, repository, params.attempt_id)
+
+
+@method("get_attempt_trace_evidence", AttemptInput)
+def get_attempt_trace_evidence(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
+    """A6 trace observations on one attempt, plus the sentence they earned.
+
+    Spec: ``spec_measurement_efficiency_v1.md`` §3.A6; plan item 6.2.
+
+    A separate read rather than another field on ``feedback_bundle``: that
+    bundle is shared by the CLI, the inspector and exam review, none of which
+    owe the learner the reward line, and A6's whole cost model rests on the
+    reward being a *visible* thing the feedback surface says rather than a
+    number every consumer has to know how to ignore.
+
+    ``reward`` is ``None`` — never a zero — when the grader saw nothing beyond
+    the item's declared facets. "Your explanation demonstrated 0 additional
+    facets" would be a punishment for volunteering, which is precisely the
+    incentive rule 3 exists to protect against.
+    """
+
+    from learnloop.services.trace_evidence import elicitation_reward
+
+    _vault, repository = ctx.require_vault()
+    attempt = repository.fetch_practice_attempt(params.attempt_id)
+    if attempt is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    observations = repository.trace_exercised_facets(params.attempt_id)
+    return versioned(
+        {
+            "attempt_id": params.attempt_id,
+            "observations": [
+                {
+                    "facet_id": row["facet_id"],
+                    "observation_scope": row["observation_scope"],
+                    "criterion_id": row.get("criterion_id"),
+                    "evidence": row.get("evidence") or "",
+                    "source": row.get("source"),
+                }
+                for row in observations
+            ],
+            # Gated on the learner's own answer text: `observation_scope` says
+            # whether the item declared the facet, not whether the learner
+            # volunteered an explanation. Ungated, an attempt that was never
+            # offered elicitation gets told "your explanation also demonstrated…"
+            # about an explanation it does not have.
+            "reward": elicitation_reward(
+                observations, learner_answer_md=attempt.get("learner_answer_md") or ""
+            ),
+        }
+    )
+
+
+@method("get_grading_clarification", AttemptInput)
+def get_grading_clarification(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
+    """The one A8 question this attempt is waiting on, or ``None``.
+
+    Spec: ``spec_measurement_efficiency_v1.md`` §3.A8; plan item 6.3.
+
+    Only a *pending* question is returned. A timed-out one is dropped by
+    ``pending_clarification`` because the grade it hedged has already resolved
+    to the abstention that triggered it, and re-offering the box would invite an
+    answer that can no longer change anything — a worse outcome than never
+    asking, since the learner would have spent the effort for nothing.
+    """
+
+    from learnloop.services.clarification import pending_clarification
+
+    _vault, repository = ctx.require_vault()
+    if repository.fetch_practice_attempt(params.attempt_id) is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    record = pending_clarification(repository, params.attempt_id)
+    return versioned(
+        {
+            "clarification": (
+                record.as_dict(now=utc_now_iso()) if record is not None else None
+            )
+        }
+    )
+
+
+@method("answer_grading_clarification", AnswerClarificationInput)
+def answer_grading_clarification(
+    ctx: SidecarContext, params: AnswerClarificationInput
+) -> dict[str, Any]:
+    """Record the learner's answer and re-grade the attempt with it in hand.
+
+    Spec: ``spec_measurement_efficiency_v1.md`` §3.A8; plan item 6.3.
+
+    An unavailable grading provider is deliberately not an error here. The
+    answer is the un-backfillable half of the exchange (standing constraint 6)
+    and the re-grade can always be re-run, so the service is called with
+    ``client=None`` and the words are persisted anyway; the response reports the
+    outage so the surface can say the grade is still provisional rather than
+    implying the question resolved it.
+
+    Every other terminal state is passed through untranslated — ``resolved``,
+    ``abstained``, ``regrade_failed``. ``abstained`` in particular must not be
+    smoothed into success: a learner may answer and the grader may still be
+    unable to name a cause, and that is a real result, not a failure of the
+    exchange.
+    """
+
+    from learnloop.services.clarification import answer_clarification
+    from learnloop_sidecar.handlers.ai_providers import (
+        grading_source_for_provider,
+        provider_label,
+        ready_grading_provider,
+    )
+
+    vault, repository = ctx.require_vault()
+    if repository.fetch_practice_attempt(params.attempt_id) is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    answer_md = params.answer_md.strip()
+    if not answer_md:
+        # Skipping is a first-class, cost-free choice made by *not calling this*.
+        # An empty submission is a client bug, and accepting it would burn the
+        # attempt's single question on nothing.
+        raise SidecarError(
+            "validation_error",
+            "A clarification answer cannot be empty — skipping leaves the grade as it stands.",
+        )
+    provider_name, runtime, client = ready_grading_provider(
+        vault, override=ctx.grading_provider_override
+    )
+    unavailable = (
+        None
+        if runtime.ready and client is not None
+        else f"{provider_label(provider_name)} is unavailable; your answer is saved and the grade stays provisional until it is re-graded."
+    )
+    try:
+        result = answer_clarification(
+            vault,
+            repository,
+            attempt_id=params.attempt_id,
+            answer_md=answer_md,
+            runtime=runtime,
+            client=client if unavailable is None else None,
+            grading_source=grading_source_for_provider(provider_name),
+        )
+    except ValueError as exc:
+        # Already answered, expired, or never asked — all three mean the window
+        # this box belongs to has closed, and all three must read differently
+        # from "the regrade failed".
+        raise SidecarError("clarification_unanswerable", str(exc)) from exc
+    log_event(
+        "grading_clarification_answered",
+        attempt_id=params.attempt_id,
+        clarification_id=result.get("clarification_id"),
+        outcome=result.get("outcome"),
+        regraded=result.get("regraded"),
+        grading_provider=provider_name,
+    )
+    return versioned(
+        {
+            "clarification_id": result.get("clarification_id"),
+            "outcome": result.get("outcome"),
+            "regraded": bool(result.get("regraded")),
+            "error": result.get("error") or unavailable,
+            "feedback": feedback_bundle(vault, repository, params.attempt_id),
+        }
+    )
 
 
 @method("report_unresolved_cause", ReportUnresolvedCauseInput)
@@ -269,12 +437,15 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
     need = repository.intervention_need_for_attempt(params.attempt_id)
     generated = False
 
-    sibling = _pick_primed_sibling(vault, repository, attempt, need)
+    sibling, unservable_skips = _pick_primed_sibling(vault, repository, attempt, need)
     if sibling is None:
         provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
         if not runtime.ready or client is None:
             return _primed_retry_unavailable(
-                params, attempt, f"{provider_label(provider_name)} is unavailable; no other item exists for this topic yet."
+                params,
+                attempt,
+                f"{provider_label(provider_name)} is unavailable; no other item exists for this topic yet.",
+                unservable_skips=unservable_skips,
             )
         try:
             if need is not None and need.get("status") == "pending":
@@ -288,15 +459,23 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
                 ).patch_id
             accept_items(vault.root, patch_id)
         except (PracticeExpansionError, PatchApplicationError, CodexUnavailable, TimeoutError) as exc:
-            return _primed_retry_unavailable(params, attempt, str(exc))
+            return _primed_retry_unavailable(params, attempt, str(exc), unservable_skips=unservable_skips)
         # Acceptance wrote vault files; refresh the in-memory vault (offline, no
         # Codex probe) and re-run selection over the now-larger item pool.
         ctx.reload(maintenance=False)
         vault, repository = ctx.require_vault()
         generated = True
-        sibling = _pick_primed_sibling(vault, repository, attempt, need)
+        # Re-selection sees the pre-generation siblings again, so its skip list
+        # supersedes the first one rather than adding to it — concatenating would
+        # report every refused sibling twice.
+        sibling, unservable_skips = _pick_primed_sibling(vault, repository, attempt, need)
         if sibling is None:
-            return _primed_retry_unavailable(params, attempt, "Generation produced no item for this learning object.")
+            return _primed_retry_unavailable(
+                params,
+                attempt,
+                "Generation produced no item for this learning object.",
+                unservable_skips=unservable_skips,
+            )
 
     log_event(
         "primed_retry_started",
@@ -306,44 +485,89 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
         source_practice_item_id=attempt["practice_item_id"],
         practice_item_id=sibling.id,
         generated=generated,
+        unservable_skips=unservable_skips,
     )
     return {
         "available": True,
         "generated": generated,
         "practice_item": practice_item_detail(vault, repository, sibling.id),
+        # Present on the SUCCESS response too: the retry the learner got is not
+        # the retry the picker would have chosen, and the record of what was
+        # refused is what makes that visible instead of silent.
+        "unservable_skips": unservable_skips,
     }
 
 
-def _pick_primed_sibling(vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None):
-    """Sibling items on the same LO, best-first: target-facet coverage, then freshness."""
+def _pick_primed_sibling(
+    vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None
+) -> tuple[Any | None, list[dict[str, Any]]]:
+    """Sibling items on the same LO, best-first: target-facet coverage, then freshness.
+
+    Returns the pick AND the servability skips, because a primed retry is a
+    selection path: the right response to an unrenderable sibling is to choose a
+    different one, not to fail. Meas §3.A2/§3.A3 — serving an error hunt whose
+    worked solution the surface drops asks the learner to repair work they cannot
+    see while the grader marks every plant missed, and a primed retry writes that
+    straight onto an attempt the learner already got wrong.
+
+    The skip list is returned rather than logged because this path already has a
+    learner-visible "why not" channel (``reason`` on the unavailable response),
+    and a skip nobody can see is indistinguishable from the picker being broken —
+    the LO has items, none is offered, and nothing says which rule ate them.
+    """
 
     target_facets = {
         vault.canonical_facet_id(facet) for facet in ((need or {}).get("target_facets") or [])
     }
     candidates = []
+    skipped: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
         if item.learning_object_id != attempt["learning_object_id"] or item.id == attempt["practice_item_id"]:
             continue
         state = repository.practice_item_state(item.id)
         if state is not None and not state.active:
             continue
+        refusal = unservable_refusal(item)
+        if refusal is not None:
+            skipped.append(refusal)
+            continue
         covers = bool(target_facets & {vault.canonical_facet_id(facet) for facet in item.evidence_facets})
         last_attempt_at = state.last_attempt_at if state is not None else None
         candidates.append((0 if covers else 1, last_attempt_at or "", item.id, item))
     if not candidates:
-        return None
-    return min(candidates)[3]
+        return None, skipped
+    return min(candidates)[3], skipped
 
 
-def _primed_retry_unavailable(params: StartPrimedRetryInput, attempt: dict[str, Any], reason: str) -> dict[str, Any]:
+def _primed_retry_unavailable(
+    params: StartPrimedRetryInput,
+    attempt: dict[str, Any],
+    reason: str,
+    *,
+    unservable_skips: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    skips = unservable_skips or []
+    if skips:
+        # The learner-facing reason must name the cause it actually had. "No
+        # other item exists for this topic yet" is false when siblings exist and
+        # were refused, and that false reason is what would send someone looking
+        # for an authoring bug instead of the missing renderer.
+        reason = f"{reason} ({len(skips)} item(s) skipped: {skips[0]['remedy']})"
     log_event(
         "primed_retry_unavailable",
         session_id=attempt.get("session_id"),
         attempt_id=params.attempt_id,
         learning_object_id=attempt["learning_object_id"],
         reason=reason,
+        unservable_skips=skips,
     )
-    return {"available": False, "generated": False, "reason": reason, "practice_item": None}
+    return {
+        "available": False,
+        "generated": False,
+        "reason": reason,
+        "practice_item": None,
+        "unservable_skips": skips,
+    }
 
 
 @method("rate_followup", RateFollowupInput)

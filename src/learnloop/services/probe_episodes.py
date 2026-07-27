@@ -25,6 +25,8 @@ from learnloop.db.repositories import (
     Repository,
 )
 from learnloop.ids import new_ulid
+from learnloop.services.canonical_projection import surface_group_id
+from learnloop.services.instrument_serving import unservable_reason
 from learnloop.services.probe_families import (
     APPROVED_DIAGNOSTIC_GRADING_SOURCES,
     SELECTION_POLICY_VERSION,
@@ -647,8 +649,18 @@ def eligible_instruments(
     item_states = repository.practice_item_states()
 
     # §5.4 exposure rule: an item already observed in this episode — or another
-    # item of an already-observed surface family — is a disallowed repeat.
+    # item of an already-observed surface group — is a disallowed repeat.
     # Family observation counts feed the Checkpoint 5.2 redundancy penalty.
+    #
+    # The group is `surface_group_id`, the ONE exact independence primitive
+    # (augmentation §8), not the raw `surface_family` string this rule used to
+    # read. The difference is the whole point of the exposure rule: a near-clone
+    # sharing a stimulus, a source example or a solution template is the same
+    # observation, and comparing authored family strings let it through whenever
+    # the two happened to be named differently. A laddered stem (Meas §3.A2) is
+    # the sharpest case — its parts share one stimulus by construction and each
+    # part is free to carry its own family string — so without this the probe
+    # could spend several administrations re-observing one setup.
     used_item_ids: set[str] = set()
     used_surfaces: set[str] = set()
     observed_family_counts: dict[str, int] = {}
@@ -656,8 +668,8 @@ def eligible_instruments(
         item_id = str(row["practice_item_id"])
         used_item_ids.add(item_id)
         observed_item = vault.practice_items.get(item_id)
-        if observed_item is not None and observed_item.surface_family:
-            used_surfaces.add(observed_item.surface_family)
+        if observed_item is not None:
+            used_surfaces.add(surface_group_id(observed_item))
         family_id = row.get("probe_family_template_id")
         if family_id:
             observed_family_counts[str(family_id)] = observed_family_counts.get(str(family_id), 0) + 1
@@ -672,10 +684,18 @@ def eligible_instruments(
             continue
         if item.id in used_item_ids:
             continue
-        if item.surface_family and item.surface_family in used_surfaces:
+        if surface_group_id(item) in used_surfaces:
             continue
         state = item_states.get(item.id)
         if state is not None and not state.active:
+            continue
+        # Meas §3.A2/§3.A3: an item whose stimulus the surface cannot render is
+        # not administrable. A probe is the worst place to miss this — its
+        # outcome updates a hypothesis posterior, so serving an unanswerable
+        # instrument does not merely waste an administration, it moves belief
+        # toward the hypothesis whose predicted failure the learner was
+        # structurally unable to avoid.
+        if unservable_reason(item) is not None:
             continue
         instrument_and_map = resolve_instrument(vault, repository, item, hypothesis_set)
         if instrument_and_map is None:
@@ -2249,10 +2269,25 @@ def _robust_completion_override(
 
 
 def _surface_key(vault: LoadedVault, practice_item_id: str) -> str:
+    """The independent-group key for a probe observation (augmentation §8).
+
+    ``surface_group_id`` rather than the raw ``surface_family``: this key decides
+    how many DISTINCT surfaces an episode has covered, so reading the authored
+    string let two near-clones sharing a stimulus, a source example or a solution
+    template count as two — the episode would then believe it had corroborated a
+    hypothesis across surfaces when it had asked one question twice.
+
+    An unresolvable item falls back to its own id, which is the conservative
+    direction here and the opposite of the promotion arm's: there, an unknown
+    item must not manufacture independence, so the arm fails closed; here, a
+    missing item that collapsed into some other group would make an episode look
+    MORE covered than it is. Distinct-by-default is the safe reading.
+    """
+
     item = vault.practice_items.get(practice_item_id)
     if item is None:
         return practice_item_id
-    return item.surface_family or item.id
+    return surface_group_id(item)
 
 
 def _complete(

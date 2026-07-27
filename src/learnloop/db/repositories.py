@@ -586,10 +586,19 @@ class FacetCapabilityEvidence:
     embedded_positive_mass: float
     embedded_negative_mass: float
     certification_credit: float
-    independent_surface_groups: list[str]
-    algorithm_version: str
-    created_at: str
-    updated_at: str
+    # A1 guard 2 (migration 141): the split ``certification_credit`` is capped
+    # from. ``certification_credit`` stays the ONE number Demonstrated reads;
+    # these say how it was earned, so the cap is auditable without re-running
+    # the projection.
+    direct_certification_credit: float = 0.0
+    embedded_certification_credit: float = 0.0
+    # A1 guard 1: mass a ``supporting`` target would have earned had the trace
+    # shown its facet exercised. Recorded, never silent.
+    unexercised_supporting_mass: float = 0.0
+    independent_surface_groups: list[str] = field(default_factory=list)
+    algorithm_version: str = ""
+    created_at: str = ""
+    updated_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -781,6 +790,52 @@ class Repository:
                     (practice_item_id, 1 if active else 0, now),
                 )
             connection.commit()
+
+    def deactivate_practice_item_serving(
+        self, practice_item_id: str, *, clock: Clock | None = None
+    ) -> dict[str, int]:
+        """Atomically close every serving door for one terminal item."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            state = connection.execute(
+                """
+                UPDATE practice_item_state
+                   SET active = 0, updated_at = ?
+                 WHERE practice_item_id = ?
+                """,
+                (now, practice_item_id),
+            )
+            if state.rowcount == 0:
+                connection.execute(
+                    """
+                    INSERT INTO practice_item_state(
+                      practice_item_id, active, updated_at
+                    ) VALUES (?, 0, ?)
+                    """,
+                    (practice_item_id, now),
+                )
+            followups = connection.execute(
+                """
+                UPDATE followup_tasks
+                   SET status = 'expired', updated_at = ?
+                 WHERE selected_item_id = ?
+                   AND status IN ('pending', 'served')
+                """,
+                (now, practice_item_id),
+            )
+            checkpoints = connection.execute(
+                """
+                DELETE FROM session_checkpoints
+                 WHERE current_practice_item_id = ?
+                """,
+                (practice_item_id,),
+            )
+            connection.commit()
+        return {
+            "expired_followups": int(followups.rowcount),
+            "cleared_checkpoints": int(checkpoints.rowcount),
+        }
 
     def mastery_state(self, learning_object_id: str) -> MasteryState | None:
         with self.connection() as connection:
@@ -1083,6 +1138,291 @@ class Repository:
                 (attempt_id,),
             ).fetchall()
         return [_grading_evidence(row) for row in rows]
+
+    # -- A8 clarification channel (migration 142) -------------------------------
+
+    def insert_grading_clarification(
+        self, row: Mapping[str, Any], *, clock: Clock | None = None
+    ) -> str | None:
+        """Append one clarification request; None when the attempt already has one.
+
+        ``INSERT OR IGNORE`` against ``UNIQUE(attempt_id)`` — §3.A8's "one
+        question per attempt" bound enforced by the schema rather than by a
+        check a second caller could forget.
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO grading_clarifications(
+                  id, attempt_id, criterion_id, reason, trigger, question_md,
+                  expires_at, grading_prompt_version, agent_run_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(row["id"]),
+                    str(row["attempt_id"]),
+                    row.get("criterion_id"),
+                    str(row["reason"]),
+                    str(row["trigger"]),
+                    str(row["question_md"]),
+                    str(row["expires_at"]),
+                    row.get("grading_prompt_version"),
+                    row.get("agent_run_id"),
+                    now,
+                ),
+            )
+            connection.commit()
+        return str(row["id"]) if cursor.rowcount else None
+
+    def grading_clarification_for_attempt(self, attempt_id: str) -> sqlite3.Row | None:
+        with self.connection() as connection:
+            return connection.execute(
+                """
+                SELECT c.*, r.answer_md, r.created_at AS answered_at, r.outcome,
+                       r.resolved_grading_revision
+                FROM grading_clarifications c
+                LEFT JOIN grading_clarification_responses r
+                  ON r.clarification_id = c.id
+                WHERE c.attempt_id = ?
+                """,
+                (attempt_id,),
+            ).fetchone()
+
+    def unanswered_grading_clarifications(self) -> list[sqlite3.Row]:
+        with self.connection() as connection:
+            return connection.execute(
+                """
+                SELECT c.*, NULL AS answer_md, NULL AS answered_at, NULL AS outcome,
+                       NULL AS resolved_grading_revision
+                FROM grading_clarifications c
+                LEFT JOIN grading_clarification_responses r
+                  ON r.clarification_id = c.id
+                WHERE r.id IS NULL
+                ORDER BY c.expires_at, c.id
+                """
+            ).fetchall()
+
+    def grading_clarifications_awaiting_regrade(
+        self, *, limit: int | None = None
+    ) -> list[sqlite3.Row]:
+        """Clarifications whose answer landed but whose re-grade has not resolved.
+
+        The retry queue for Meas §3.A8. ``outcome IS NULL`` covers the answer
+        that was recorded while no grader was reachable; ``'regrade_failed'``
+        covers the one whose re-grade was attempted and threw. Both are
+        recoverable, and neither is visible to a route that looks for *pending*
+        clarifications — which is precisely how a completed exchange came to sit
+        unconsumed.
+        """
+
+        clause = "LIMIT ?" if limit else ""
+        params: tuple[Any, ...] = (int(limit),) if limit else ()
+        with self.connection() as connection:
+            return connection.execute(
+                f"""
+                SELECT c.*, r.answer_md, r.created_at AS answered_at, r.outcome,
+                       r.resolved_grading_revision
+                FROM grading_clarifications c
+                JOIN grading_clarification_responses r
+                  ON r.clarification_id = c.id
+                WHERE r.outcome IS NULL OR r.outcome = 'regrade_failed'
+                ORDER BY r.created_at, c.id
+                {clause}
+                """,
+                params,
+            ).fetchall()
+
+    def insert_grading_clarification_response(
+        self, row: Mapping[str, Any], *, clock: Clock | None = None
+    ) -> str:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO grading_clarification_responses(
+                  id, clarification_id, answer_md, resolved_grading_revision,
+                  outcome, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(row["id"]),
+                    str(row["clarification_id"]),
+                    str(row["answer_md"]),
+                    row.get("resolved_grading_revision"),
+                    row.get("outcome"),
+                    now,
+                ),
+            )
+            connection.commit()
+        return str(row["id"])
+
+    def stamp_grading_clarification_outcome(
+        self,
+        clarification_id: str,
+        *,
+        outcome: str,
+        resolved_grading_revision: int | None,
+    ) -> None:
+        """Stamp the regrade result onto an already-recorded answer.
+
+        The answer text is never touched — only the two columns that describe
+        what the system then did with it. See migration 142 on why the answer is
+        written first and stamped afterwards.
+        """
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE grading_clarification_responses
+                SET outcome = ?, resolved_grading_revision = ?
+                WHERE clarification_id = ?
+                """,
+                (outcome, resolved_grading_revision, clarification_id),
+            )
+            connection.commit()
+
+    def attempts_pending_clarification_review(self) -> list[str]:
+        """Attempts whose grade advertises a pending clarification (Meas §3.A8)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id FROM practice_attempts
+                WHERE manual_review_reason = 'provisional_pending_clarification'
+                ORDER BY id
+                """
+            ).fetchall()
+        return [str(row["id"]) for row in rows]
+
+    def clarification_rate_counts(self) -> dict[str, int]:
+        """Counts for §3.A8's revert criterion.
+
+        The denominator is *model-graded* attempts (``grader_tier >= 2``): a
+        self-graded or deterministically graded attempt has no grader that could
+        have asked, and including it would dilute the rate toward zero — hiding
+        exactly the over-asking the criterion watches for.
+        """
+
+        # Numerator and denominator range over the SAME set, by construction:
+        # every attempt that could have been asked. Two arms, unioned —
+        #
+        #   * ever model-graded (`grader_tier >= 2`, INCLUDING superseded rows,
+        #     because an attempt whose model evidence a later regrade replaced
+        #     still went through a grader that could have asked); and
+        #   * carries a clarification at all, which is direct proof it did,
+        #     whatever tier its surviving evidence rows ended up at.
+        #
+        # The second arm is what makes the numerator a subset rather than a
+        # parallel count. Restricting the numerator to the first arm alone would
+        # have been the other way to make the two agree, and it is the wrong one:
+        # it hides real questions instead of counting the attempts that produced
+        # them.
+        gradeable_sql = """
+            SELECT attempt_id FROM grading_evidence WHERE grader_tier >= 2
+            UNION
+            SELECT attempt_id FROM grading_clarifications
+        """
+        with self.connection() as connection:
+            gradeable = connection.execute(
+                f"SELECT COUNT(*) AS n FROM ({gradeable_sql})"
+            ).fetchone()
+            asked = connection.execute(
+                "SELECT COUNT(*) AS n FROM grading_clarifications"
+            ).fetchone()
+            answered = connection.execute(
+                """
+                SELECT COUNT(*) AS n FROM grading_clarification_responses r
+                JOIN grading_clarifications c ON c.id = r.clarification_id
+                """
+            ).fetchone()
+        return {
+            "gradeable_attempts": int(gradeable["n"] if gradeable else 0),
+            "clarifications": int(asked["n"] if asked else 0),
+            "answered": int(answered["n"] if answered else 0),
+        }
+
+    # -- A6 opportunistic trace evidence (migration 141) ------------------------
+
+
+    def insert_trace_exercised_facets(
+        self,
+        attempt_id: str,
+        rows: Iterable[Mapping[str, Any]],
+        *,
+        clock: Clock | None = None,
+    ) -> int:
+        """Append A6 trace observations for one attempt; returns rows written.
+
+        ``INSERT OR IGNORE`` against the ``(attempt_id, facet_id, source)``
+        unique key, because the honest response to the grader naming a facet
+        twice is one observation, not two — and because a regrade re-reports the
+        same trace. Append-only by trigger, so a later re-report can never
+        overwrite what the first run said it saw.
+        """
+
+        now = utc_now_iso(clock)
+        written = 0
+        with self.connection() as connection:
+            for row in rows:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO trace_exercised_facets(
+                      id, attempt_id, facet_id, observation_scope, role, evidence,
+                      criterion_id, source, agent_run_id, grading_prompt_version, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(row.get("id") or new_ulid()),
+                        attempt_id,
+                        str(row["facet_id"]),
+                        # No default. `opportunistic` is the reward-eligible,
+                        # A6-revert-criterion-counted arm, so defaulting to it
+                        # would let a caller that forgot the field mint the
+                        # generous reading. The validator upstream always sets
+                        # it; a caller that does not has a bug, not a default.
+                        _required_observation_scope(row),
+                        "supporting",
+                        str(row.get("evidence") or ""),
+                        row.get("criterion_id"),
+                        str(row.get("source") or "grader_trace"),
+                        row.get("agent_run_id"),
+                        row.get("grading_prompt_version"),
+                        str(row.get("created_at") or now),
+                    ),
+                )
+                written += int(cursor.rowcount or 0)
+            connection.commit()
+        return written
+
+    def trace_exercised_facets(self, attempt_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM trace_exercised_facets
+                WHERE attempt_id = ?
+                ORDER BY facet_id, source
+                """,
+                (attempt_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def all_trace_exercised_facets(self) -> dict[str, list[dict[str, Any]]]:
+        """Every A6 observation, grouped by attempt.
+
+        The projection folds the whole ledger in one pass, so it must not issue
+        one query per attempt the way the per-attempt reader would force.
+        """
+
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM trace_exercised_facets ORDER BY attempt_id, facet_id, source"
+            ).fetchall()
+        for row in rows:
+            grouped.setdefault(str(row["attempt_id"]), []).append(dict(row))
+        return grouped
 
     def list_grading_evidence_history(
         self, *, include_superseded: bool = False
@@ -4508,8 +4848,10 @@ class Repository:
                     INSERT INTO facet_capability_evidence(
                       facet_id, capability, direct_positive_mass, direct_negative_mass,
                       embedded_positive_mass, embedded_negative_mass, certification_credit,
+                      direct_certification_credit, embedded_certification_credit,
+                      unexercised_supporting_mass,
                       independent_surface_groups_json, algorithm_version, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row["facet_id"],
@@ -4519,6 +4861,9 @@ class Repository:
                         row.get("embedded_positive_mass", 0.0),
                         row.get("embedded_negative_mass", 0.0),
                         row.get("certification_credit", 0.0),
+                        row.get("direct_certification_credit", 0.0),
+                        row.get("embedded_certification_credit", 0.0),
+                        row.get("unexercised_supporting_mass", 0.0),
                         _json(sorted(row.get("independent_surface_groups", []))),
                         algorithm_version,
                         row.get("created_at", now),
@@ -7804,6 +8149,29 @@ class Repository:
             row = connection.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
             connection.commit()
         return dict(row) if row is not None else None
+
+    def session_learner_answers(self, session_id: str) -> list[str]:
+        """Every answer body recorded against this session, in submission order.
+
+        Exists for Meas §3.A6's per-session elicitation budget, which has no
+        ledger of its own to count: an offer the learner declines is
+        deliberately never written down, so the submitted answers are the only
+        record of how many extra lines were actually volunteered. Scoped
+        strictly to ``session_id`` rather than the started/ended window
+        ``session_attempt_counts`` falls back to — a budget that leaked across
+        sessions through orphaned attempts would silently tighten itself.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT learner_answer_md FROM practice_attempts
+                WHERE session_id = ?
+                ORDER BY created_at, id
+                """,
+                (session_id,),
+            ).fetchall()
+        return [str(row["learner_answer_md"] or "") for row in rows]
 
     def session_attempt_counts(self, session_id: str) -> dict[str, int] | None:
         session = self.fetch_session(session_id)
@@ -12344,6 +12712,27 @@ class Repository:
             ).fetchall()
         return [_decode_surface(row) for row in rows]
 
+    def surfaces_for_legacy_practice_item(
+        self, practice_item_id: str
+    ) -> list[dict[str, Any]]:
+        """Existing substrate surfaces backed by one legacy Practice Item.
+
+        Resolving a legacy item can mint its family/card/surface. Retirement must
+        only mirror surfaces that already exist, never create a fresh substrate
+        object solely to retire it.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM activity_surfaces
+                 WHERE legacy_practice_item_id = ?
+                 ORDER BY created_at, id
+                """,
+                (practice_item_id,),
+            ).fetchall()
+        return [_decode_surface(row) for row in rows]
+
     def surfaces_for_family(self, family_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -16287,26 +16676,34 @@ class Repository:
         provider: str,
         model: str,
     ) -> list[dict[str, Any]]:
-        """Cached rows sharing the non-profile cache identity (§7). The service
-        picks one whose profile satisfies the request via profile_satisfies."""
+        """Cached rows sharing the non-profile semantic identity (§7).
+
+        ``source_revision_id`` is a binding preference, not part of the reusable
+        artifact identity.  An unchanged normalized unit may move to a new source
+        revision; the inventory service deterministically re-anchors its cited
+        spans and writes a binding row for the new revision before returning the
+        hit.  Same-revision rows sort first so the common path remains a direct
+        lookup.
+        """
 
         with self.connection() as connection:
             rows = connection.execute(
                 """
                 SELECT * FROM source_unit_inventories
-                 WHERE source_revision_id = ? AND unit_id = ? AND unit_semantic_hash = ?
+                 WHERE unit_id = ? AND unit_semantic_hash = ?
                    AND inventory_schema_version = ? AND prompt_version = ?
                    AND provider = ? AND model = ?
-                 ORDER BY created_at
+                 ORDER BY CASE WHEN source_revision_id = ? THEN 0 ELSE 1 END,
+                          created_at
                 """,
                 (
-                    source_revision_id,
                     unit_id,
                     unit_semantic_hash,
                     inventory_schema_version,
                     prompt_version,
                     provider,
                     model,
+                    source_revision_id,
                 ),
             ).fetchall()
         return [_decode_unit_inventory(row) for row in rows]
@@ -21930,6 +22327,556 @@ class Repository:
             ).fetchall()
         return [_decode_diagnosis_adjudication(row) for row in rows]
 
+    # -- Meas §3.A2-§3.A5 instrument classes (migration 143) ------------------
+    #
+    # All three stores are append-only by trigger and written with
+    # ``INSERT OR IGNORE`` against a per-attempt (or per-serving) unique key: a
+    # regrade re-reports the same judgement and must not multiply it, and the
+    # first record is the one that happened. Every reader returns plain dicts in
+    # insertion order, because the metrics over them are counts and shares, not
+    # joins.
+
+    def insert_discrimination_profile_match(
+        self,
+        *,
+        attempt_id: str,
+        practice_item_id: str,
+        outcome: str,
+        attempt_failed: bool,
+        profile_id: str | None = None,
+        misconception_id: str | None = None,
+        evidence: str | None = None,
+        grading_prompt_version: str | None = None,
+        agent_run_id: str | None = None,
+        id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str | None:
+        """Record A5's per-attempt profile judgement; ``None`` when one exists.
+
+        Returns ``None`` rather than raising on a duplicate so a regrade is a
+        no-op at the call site: the outcome is a record of what the grader said
+        the first time, and §3.A5's rejection rate would be silently re-weighted
+        by every re-run if later judgements overwrote earlier ones.
+        """
+
+        row_id = id or new_ulid()
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO discrimination_profile_matches(
+                  id, attempt_id, practice_item_id, outcome, profile_id,
+                  misconception_id, evidence, attempt_failed,
+                  grading_prompt_version, agent_run_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    attempt_id,
+                    practice_item_id,
+                    outcome,
+                    profile_id,
+                    misconception_id,
+                    evidence,
+                    1 if attempt_failed else 0,
+                    grading_prompt_version,
+                    agent_run_id,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id if cursor.rowcount else None
+
+    def discrimination_profile_match_rows(
+        self, *, since: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Every recorded A5 judgement, oldest first. ``since`` is ISO-8601."""
+
+        clause = "WHERE created_at >= ?" if since is not None else ""
+        values = (since,) if since is not None else ()
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM discrimination_profile_matches
+                {clause}
+                ORDER BY created_at, id
+                """,
+                values,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def discrimination_profile_match(self, attempt_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM discrimination_profile_matches WHERE attempt_id = ?",
+                (attempt_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def insert_contrast_pair_serving(
+        self,
+        *,
+        pair_key: str,
+        practice_item_id: str,
+        counterpart_item_id: str,
+        serve_position: int,
+        randomization_seed: str,
+        randomization_value: float,
+        separated: bool,
+        adjacency_basis: str,
+        session_id: str | None = None,
+        id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str | None:
+        """Record which member of an A4 pair this session's queue offered first.
+
+        ``None`` on a duplicate ``(practice_item_id, session_id)``:
+        ``build_due_queue`` re-plans the same session repeatedly, and the order
+        the learner actually saw is the one the first plan chose.
+        """
+
+        row_id = id or new_ulid()
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO contrast_pair_servings(
+                  id, pair_key, practice_item_id, serve_position, counterpart_item_id,
+                  session_id, randomization_seed, randomization_value, separated,
+                  adjacency_basis, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    pair_key,
+                    practice_item_id,
+                    int(serve_position),
+                    counterpart_item_id,
+                    session_id,
+                    randomization_seed,
+                    float(randomization_value),
+                    1 if separated else 0,
+                    adjacency_basis,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id if cursor.rowcount else None
+
+    def contrast_pair_serving_rows(
+        self, *, since: str | None = None, pair_key: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        values: list[Any] = []
+        if since is not None:
+            clauses.append("created_at >= ?")
+            values.append(since)
+        if pair_key is not None:
+            clauses.append("pair_key = ?")
+            values.append(pair_key)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM contrast_pair_servings
+                {where}
+                ORDER BY created_at, id
+                """,
+                tuple(values),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_error_hunt_outcome(
+        self,
+        *,
+        attempt_id: str,
+        practice_item_id: str,
+        clean_solution: bool,
+        planted_total: int,
+        planted_repaired: int,
+        planted_flagged_not_repaired: int,
+        planted_missed: int,
+        false_positive_reports: int,
+        misconception_candidate_id: str | None = None,
+        facet_failure_suppressed: bool = False,
+        grading_prompt_version: str | None = None,
+        id: str | None = None,
+        clock: Clock | None = None,
+    ) -> str | None:
+        """Record one A3 attempt's outcome; ``None`` when the attempt already has one."""
+
+        row_id = id or new_ulid()
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO error_hunt_outcomes(
+                  id, attempt_id, practice_item_id, clean_solution, planted_total,
+                  planted_repaired, planted_flagged_not_repaired, planted_missed,
+                  false_positive_reports, misconception_candidate_id,
+                  facet_failure_suppressed, grading_prompt_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    attempt_id,
+                    practice_item_id,
+                    1 if clean_solution else 0,
+                    int(planted_total),
+                    int(planted_repaired),
+                    int(planted_flagged_not_repaired),
+                    int(planted_missed),
+                    int(false_positive_reports),
+                    misconception_candidate_id,
+                    1 if facet_failure_suppressed else 0,
+                    grading_prompt_version,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id if cursor.rowcount else None
+
+    def error_hunt_outcome_rows(
+        self, *, since: str | None = None
+    ) -> list[dict[str, Any]]:
+        clause = "WHERE created_at >= ?" if since is not None else ""
+        values = (since,) if since is not None else ()
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM error_hunt_outcomes
+                {clause}
+                ORDER BY created_at, id
+                """,
+                values,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def error_hunt_outcome(self, attempt_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM error_hunt_outcomes WHERE attempt_id = ?",
+                (attempt_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    # --- Diagnostic augmentation Stage 7 (migration 144) -----------------
+
+    def insert_persona_realism_run(
+        self,
+        values: Mapping[str, Any],
+        *,
+        clock: Clock | None = None,
+    ) -> str:
+        """Append one blinded B2 matcher result.
+
+        The matcher consumes text only; labels and feature rows are deliberately
+        absent from this API so a persisted result cannot retain an accidental
+        copy of a learner trace.
+        """
+
+        row_id = str(values.get("id") or new_ulid())
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO persona_realism_runs(
+                  id, matcher_version, corpus_hash, persona_corpus_hash,
+                  real_corpus_hash, persona_source,
+                  generator_provider, generator_model, generator_family,
+                  persona_count, real_count, folds, matcher_correct,
+                  matcher_total, balanced_accuracy, separation_threshold,
+                  verdict, feature_manifest_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    values["matcher_version"],
+                    values["corpus_hash"],
+                    values.get("persona_corpus_hash") or values["corpus_hash"],
+                    values.get("real_corpus_hash") or values["corpus_hash"],
+                    values["persona_source"],
+                    values.get("generator_provider"),
+                    values.get("generator_model"),
+                    values.get("generator_family"),
+                    int(values.get("persona_count") or 0),
+                    int(values.get("real_count") or 0),
+                    int(values.get("folds") or 0),
+                    int(values.get("matcher_correct") or 0),
+                    int(values.get("matcher_total") or 0),
+                    values.get("balanced_accuracy"),
+                    float(values["separation_threshold"]),
+                    values["verdict"],
+                    _json(values.get("feature_manifest") or {}),
+                    values.get("created_at") or utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def persona_realism_run_rows(
+        self,
+        *,
+        generator_family: str | None = None,
+        persona_source: str | None = None,
+        persona_corpus_hash: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        args: list[Any] = []
+        if generator_family:
+            clauses.append("generator_family = ?")
+            args.append(generator_family)
+        if persona_source:
+            clauses.append("persona_source = ?")
+            args.append(persona_source)
+        if persona_corpus_hash:
+            clauses.append("persona_corpus_hash = ?")
+            args.append(persona_corpus_hash)
+        clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM persona_realism_runs
+                {clause}
+                ORDER BY created_at, id
+                """,
+                tuple(args),
+            ).fetchall()
+        return [_decode_persona_realism_run(row) for row in rows]
+
+    def latest_persona_realism_run(
+        self,
+        *,
+        generator_family: str | None = None,
+        persona_source: str | None = None,
+        persona_corpus_hash: str | None = None,
+    ) -> dict[str, Any] | None:
+        rows = self.persona_realism_run_rows(
+            generator_family=generator_family,
+            persona_source=persona_source,
+            persona_corpus_hash=persona_corpus_hash,
+        )
+        return rows[-1] if rows else None
+
+    def real_attempt_trace_rows(self, *, limit: int = 500) -> list[dict[str, Any]]:
+        """Recent non-empty real learner traces for B2, newest first.
+
+        No grades, diagnoses, or labels are returned.  B2 is a matcher over the
+        observable trace distribution, and handing it outcome metadata would
+        create an easier task than the blind matcher the spec requires.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id AS attempt_id, practice_item_id, learner_answer_md,
+                       created_at
+                FROM practice_attempts
+                WHERE learner_answer_md IS NOT NULL
+                  AND TRIM(learner_answer_md) != ''
+                  AND attempt_type NOT IN ('skip', 'dont_know')
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (max(0, int(limit)),),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_diagnostic_eval_run(
+        self,
+        values: Mapping[str, Any],
+        *,
+        clock: Clock | None = None,
+    ) -> str:
+        row_id = str(values.get("id") or new_ulid())
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO diagnostic_eval_runs(
+                  id, harness_version, grading_prompt_version,
+                  generator_provider, generator_model, generator_family,
+                  diagnostician_provider, diagnostician_model,
+                  diagnostician_family, cross_model_separated,
+                  persona_realism_run_id, realism_licensed, status,
+                  case_count, metrics_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    values["harness_version"],
+                    values["grading_prompt_version"],
+                    values.get("generator_provider"),
+                    values.get("generator_model"),
+                    values["generator_family"],
+                    values.get("diagnostician_provider"),
+                    values.get("diagnostician_model"),
+                    values["diagnostician_family"],
+                    1 if values.get("cross_model_separated") else 0,
+                    values.get("persona_realism_run_id"),
+                    1 if values.get("realism_licensed") else 0,
+                    values["status"],
+                    int(values.get("case_count") or 0),
+                    _json(values.get("metrics") or {}),
+                    values.get("created_at") or utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def insert_diagnostic_eval_case(
+        self,
+        values: Mapping[str, Any],
+        *,
+        clock: Clock | None = None,
+    ) -> str:
+        row_id = str(values.get("id") or new_ulid())
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO diagnostic_eval_cases(
+                  id, run_id, case_key, attempt_id, regression_shape, source,
+                  practice_item_id, profile_id, learner_trace_md,
+                  planted_should_abstain, planted_anchor_json,
+                  planted_anchor_key, planted_cause_key,
+                  planted_repair_class_id, planted_repair_equivalence_id,
+                  system_snapshot_json, system_abstained, system_anchor_key,
+                  system_cause_key, system_repair_class_id,
+                  system_repair_equivalence_id, anchor_correct, cause_correct,
+                  repair_correct, abstention_correct, created_at
+                ) VALUES (
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    row_id,
+                    values["run_id"],
+                    values["case_key"],
+                    values.get("attempt_id"),
+                    values["regression_shape"],
+                    values["source"],
+                    values["practice_item_id"],
+                    values.get("profile_id"),
+                    values["learner_trace_md"],
+                    1 if values.get("planted_should_abstain") else 0,
+                    (
+                        _json(values["planted_anchor"])
+                        if values.get("planted_anchor") is not None
+                        else None
+                    ),
+                    values["planted_anchor_key"],
+                    values.get("planted_cause_key"),
+                    values.get("planted_repair_class_id"),
+                    values.get("planted_repair_equivalence_id"),
+                    _json(values.get("system_snapshot") or {}),
+                    1 if values.get("system_abstained") else 0,
+                    values["system_anchor_key"],
+                    values.get("system_cause_key"),
+                    values.get("system_repair_class_id"),
+                    values.get("system_repair_equivalence_id"),
+                    1 if values.get("anchor_correct") else 0,
+                    (
+                        None
+                        if values.get("cause_correct") is None
+                        else (1 if values.get("cause_correct") else 0)
+                    ),
+                    (
+                        None
+                        if values.get("repair_correct") is None
+                        else (1 if values.get("repair_correct") else 0)
+                    ),
+                    1 if values.get("abstention_correct") else 0,
+                    values.get("created_at") or utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id
+
+    def diagnostic_eval_run_rows(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM diagnostic_eval_runs
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        return [_decode_diagnostic_eval_run(row) for row in rows]
+
+    def diagnostic_eval_case_rows(
+        self,
+        *,
+        run_id: str | None = None,
+        licensed_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        args: list[Any] = []
+        if run_id is not None:
+            clauses.append("c.run_id = ?")
+            args.append(run_id)
+        if licensed_only:
+            clauses.append("r.status = 'licensed'")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT c.*, r.status AS run_status,
+                       r.realism_licensed, r.cross_model_separated
+                FROM diagnostic_eval_cases c
+                JOIN diagnostic_eval_runs r ON r.id = c.run_id
+                {where}
+                ORDER BY c.created_at, c.id
+                """,
+                tuple(args),
+            ).fetchall()
+        return [_decode_diagnostic_eval_case(row) for row in rows]
+
+    def insert_diagnostic_augmentation_receipt(
+        self,
+        values: Mapping[str, Any],
+        *,
+        clock: Clock | None = None,
+    ) -> str | None:
+        """Append Phase-C provenance; idempotent for one live attempt."""
+
+        row_id = str(values.get("id") or new_ulid())
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO diagnostic_augmentation_receipts(
+                  id, attempt_id, grading_prompt_version, grader_provider,
+                  grader_model, c1_repair_before_structure,
+                  c2_verifier_observations_json, c3_sample_count,
+                  c3_agreement_support, c3_disagreement_causes_json,
+                  c4_history_attempt_ids_json, hypotheses_json,
+                  revert_criteria_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    values["attempt_id"],
+                    values["grading_prompt_version"],
+                    values.get("grader_provider"),
+                    values.get("grader_model"),
+                    1 if values.get("c1_repair_before_structure") else 0,
+                    _json(values.get("c2_verifier_observations") or []),
+                    int(values.get("c3_sample_count") or 1),
+                    float(values.get("c3_agreement_support") or 0.0),
+                    _json(values.get("c3_disagreement_causes") or []),
+                    _json(values.get("c4_history_attempt_ids") or []),
+                    _json(values.get("hypotheses") or {}),
+                    _json(values.get("revert_criteria") or {}),
+                    values.get("created_at") or utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return row_id if cursor.rowcount else None
+
+    def diagnostic_augmentation_receipt_rows(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM diagnostic_augmentation_receipts
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        return [_decode_diagnostic_augmentation_receipt(row) for row in rows]
+
 
 def _decode_diagnosis_adjudication(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
@@ -21938,6 +22885,58 @@ def _decode_diagnosis_adjudication(row: sqlite3.Row) -> dict[str, Any]:
     )
     data["system_snapshot"] = _loads(data.pop("system_snapshot_json"), {})
     data["system_abstained"] = bool(data["system_abstained"])
+    return data
+
+
+def _decode_persona_realism_run(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["feature_manifest"] = _loads(data.pop("feature_manifest_json"), {})
+    return data
+
+
+def _decode_diagnostic_eval_run(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["metrics"] = _loads(data.pop("metrics_json"), {})
+    data["cross_model_separated"] = bool(data["cross_model_separated"])
+    data["realism_licensed"] = bool(data["realism_licensed"])
+    return data
+
+
+def _decode_diagnostic_eval_case(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["planted_anchor"] = _loads(data.pop("planted_anchor_json"), None)
+    data["system_snapshot"] = _loads(data.pop("system_snapshot_json"), {})
+    for key in (
+        "planted_should_abstain",
+        "system_abstained",
+        "anchor_correct",
+        "abstention_correct",
+        "realism_licensed",
+        "cross_model_separated",
+    ):
+        if key in data:
+            data[key] = bool(data[key])
+    for key in ("cause_correct", "repair_correct"):
+        if data.get(key) is not None:
+            data[key] = bool(data[key])
+    return data
+
+
+def _decode_diagnostic_augmentation_receipt(
+    row: sqlite3.Row,
+) -> dict[str, Any]:
+    data = dict(row)
+    for key in (
+        "c2_verifier_observations",
+        "c3_disagreement_causes",
+        "c4_history_attempt_ids",
+    ):
+        data[key] = _loads(data.pop(f"{key}_json"), [])
+    for key in ("hypotheses", "revert_criteria"):
+        data[key] = _loads(data.pop(f"{key}_json"), {})
+    data["c1_repair_before_structure"] = bool(
+        data["c1_repair_before_structure"]
+    )
     return data
 
 
@@ -22095,6 +23094,18 @@ def _canonical_facet_recall_state(row: sqlite3.Row) -> CanonicalFacetRecallState
     )
 
 
+def _required_observation_scope(row: Mapping[str, Any]) -> str:
+    """An A6 observation's scope, which the caller must state (Meas §3.A6)."""
+
+    scope = row.get("observation_scope")
+    if scope not in ("declared", "opportunistic"):
+        raise ValueError(
+            "trace-exercised facet rows must declare observation_scope "
+            f"('declared' or 'opportunistic'); got {scope!r}"
+        )
+    return str(scope)
+
+
 def _facet_capability_evidence(row: sqlite3.Row) -> FacetCapabilityEvidence:
     return FacetCapabilityEvidence(
         facet_id=row["facet_id"],
@@ -22104,6 +23115,9 @@ def _facet_capability_evidence(row: sqlite3.Row) -> FacetCapabilityEvidence:
         embedded_positive_mass=row["embedded_positive_mass"],
         embedded_negative_mass=row["embedded_negative_mass"],
         certification_credit=row["certification_credit"],
+        direct_certification_credit=row["direct_certification_credit"],
+        embedded_certification_credit=row["embedded_certification_credit"],
+        unexercised_supporting_mass=row["unexercised_supporting_mass"],
         independent_surface_groups=[str(g) for g in _loads(row["independent_surface_groups_json"], [])],
         algorithm_version=row["algorithm_version"],
         created_at=row["created_at"],

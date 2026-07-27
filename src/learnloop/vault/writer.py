@@ -14,6 +14,7 @@ from learnloop.vault.models import (
     ErrorType,
     EvidenceFacet,
     LearningObject,
+    LoadedVault,
     PracticeItem,
     SourceSet,
 )
@@ -78,6 +79,15 @@ PRACTICE_ITEM_ORDER = [
     "trace_contract",
     "variant_contract",
     "teach_back_source",
+    # Meas §3.A2-§3.A5 instrument contracts. Placed before `prompt` because they
+    # are what the item IS, not decoration on it: an error-hunt's worked solution
+    # and a laddered stem's stimulus are read together with the prompt, and a
+    # contrast pair is unreadable without its counterpart id in view.
+    "laddered_stem",
+    "error_hunt",
+    "contrast_of",
+    "differing_component",
+    "discrimination_profiles",
     "prompt",
     "expected_answer",
     "difficulty",
@@ -230,8 +240,13 @@ def upsert_practice_item(
     payload: PracticeItem | dict[str, Any],
     *,
     clock: Clock | None = None,
+    loaded_vault: LoadedVault | None = None,
 ) -> Path:
-    vault = load_vault(root)
+    # Interactive mutations already hold the sidecar's validated vault snapshot.
+    # Reusing it avoids reparsing every vault file merely to resolve this item's
+    # Learning Object and target path. Callers without a snapshot retain the
+    # conservative full-load behavior.
+    vault = loaded_vault or load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
     raw = _payload(payload)
     practice_item_id = str(raw.get("id") or "")

@@ -2,13 +2,116 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    ValidationError,
+    WithJsonSchema,
+    model_validator,
+)
 
 from learnloop.attempt_types import AttemptType
 
 EntityType = Literal["learning_object", "practice_item", "concept", "concept_edge", "rubric", "error_type"]
 ProposalOperation = Literal["create", "update", "deactivate"]
 ReviewRoute = Literal["auto_apply", "review_required", "reject"]
+
+
+# --- the wire contract's runtime half ---------------------------------------
+#
+# ``codex/client._strict_json_schema`` stamps ``additionalProperties: false``
+# onto every object in the schema handed to the provider. That is one half of a
+# contract; ``WireModel`` is the other. Before it existed every model here ran
+# pydantic's default ``extra="ignore"``, so the two halves disagreed in the one
+# direction that is invisible: the provider was *forbidden* to emit an
+# undeclared field on the strict path, and if it emitted one anyway (chat/JSON
+# mode, a non-strict profile, a hand-written fixture, a stored payload from a
+# newer revision) validation **dropped it without a word**.
+#
+# ``spec_measurement_efficiency_v1.md`` §2 F2 is the measured cost of that
+# silence: ``RubricCriterionPayload`` had no ``targets`` field, models that
+# emitted one had it deleted at validation, and the resulting "an item can only
+# ever fill one column" defect read as a design decision for 43 attempts.
+# Implementation-plan item 6.1 added the field; this class removes the class of
+# defect, by making an undeclared field an error at the boundary that saw it.
+#
+# Every model in this module inherits it. There is deliberately no opt-out: a
+# model that legitimately carries open content declares a ``dict`` FIELD (whose
+# contents are unconstrained), never an open model. See
+# ``client.map_typed_schema_paths`` for why even that is not free.
+
+
+class WireModel(BaseModel):
+    """Base for every payload that crosses the provider boundary.
+
+    ``extra="forbid"`` mirrors the ``additionalProperties: false`` that
+    ``_codex_output_schema`` sends to the provider, so a field the schema does
+    not declare is rejected by name instead of being silently discarded.
+
+    Distinct on purpose from :class:`~learnloop.vault.models.VaultModel`, which
+    is ``extra="allow"``: a vault row is *our own* persisted state, read back by
+    a possibly-older binary, and dropping a field a newer writer added would
+    lose the learner's data. A wire payload is the opposite situation — it is
+    untrusted input arriving against a schema we just published, so an
+    unrecognized key means the contract and the sender have diverged and the
+    only safe report is a loud one.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+#: Pydantic's error ``type`` for a field rejected by ``extra="forbid"``.
+EXTRA_FORBIDDEN_ERROR_TYPE = "extra_forbidden"
+
+
+class UndeclaredWireFieldError(ValueError):
+    """A payload carried a field the wire contract does not declare.
+
+    Raised at the boundary that parsed the payload, naming the model and every
+    offending path, because "which field" is the entire actionable content of
+    the failure — for the human reading the log, and for the bounded repair
+    turn that is asked to drop it.
+    """
+
+    def __init__(self, model: type[BaseModel], fields: list[str]) -> None:
+        self.model_name = model.__name__
+        self.fields = list(fields)
+        super().__init__(
+            f"{self.model_name} does not declare "
+            + ", ".join(self.fields)
+            + "; the wire contract forbids undeclared fields "
+            "(add the field to codex/schemas.py or stop emitting it)."
+        )
+
+
+def undeclared_wire_fields(exc: ValidationError) -> list[str]:
+    """Dotted paths of every ``extra="forbid"`` rejection inside ``exc``.
+
+    Returns ``[]`` for an ordinary validation failure, so a caller can tell an
+    undeclared field (a contract divergence someone must resolve) apart from a
+    malformed value (which the repair turn can usually fix on its own).
+    """
+
+    paths: list[str] = []
+    for error in exc.errors():
+        if error.get("type") != EXTRA_FORBIDDEN_ERROR_TYPE:
+            continue
+        location = ".".join(str(part) for part in error.get("loc", ()))
+        if location and location not in paths:
+            paths.append(location)
+    return paths
+
+
+def describe_wire_validation_error(model: type[BaseModel], exc: BaseException) -> str:
+    """One actionable line for a failed wire parse, naming model and fields."""
+
+    if isinstance(exc, ValidationError):
+        undeclared = undeclared_wire_fields(exc)
+        if undeclared:
+            return str(UndeclaredWireFieldError(model, undeclared))
+    return f"{model.__name__} validation failed: {exc}"
 
 
 # --- open-keyed maps on the wire -------------------------------------------
@@ -25,21 +128,21 @@ ReviewRoute = Literal["auto_apply", "review_required", "reject"]
 # and older providers keep validating.
 
 
-class FacetWeightPayload(BaseModel):
+class FacetWeightPayload(WireModel):
     """One facet-weight pair (strict-schema-safe map entry)."""
 
     facet_id: str = ""
     weight: float = 0.0
 
 
-class CriterionFacetWeightsPayload(BaseModel):
+class CriterionFacetWeightsPayload(WireModel):
     """Facet weights for one rubric criterion (strict-schema-safe map entry)."""
 
     criterion_id: str = ""
     weights: list[FacetWeightPayload] = Field(default_factory=list)
 
 
-class CheckpointDependencyPayload(BaseModel):
+class CheckpointDependencyPayload(WireModel):
     """One checkpoint's prerequisites (strict-schema-safe map entry)."""
 
     checkpoint_id: str = ""
@@ -141,7 +244,7 @@ CheckpointDependencyMap = Annotated[
 ]
 
 
-class SourceRef(BaseModel):
+class SourceRef(WireModel):
     ref_type: Literal["note", "canonical_source", "existing_entity", "session", "manual_context"]
     ref_id: str
     path: str | None = None
@@ -160,12 +263,12 @@ class SourceRef(BaseModel):
     learning_object_ids: list[str] = Field(default_factory=list)
 
 
-class TargetEntity(BaseModel):
+class TargetEntity(WireModel):
     entity_type: EntityType
     entity_id: str
 
 
-class ProposalItemAudit(BaseModel):
+class ProposalItemAudit(WireModel):
     audit_type: Literal[
         "deterministic_validator",
         "lean",
@@ -187,7 +290,7 @@ class ProposalItemAudit(BaseModel):
     validator_version: str | None = None
 
 
-class LearningObjectPatchPayload(BaseModel):
+class LearningObjectPatchPayload(WireModel):
     id: str | None = None
     title: str | None = None
     concept_id: str | None = None
@@ -203,7 +306,41 @@ class LearningObjectPatchPayload(BaseModel):
     tags: list[str] | None = None
 
 
-class RubricCriterionPayload(BaseModel):
+class CriterionTargetPayload(WireModel):
+    """One ``(facet, capability, role)`` observation a criterion makes.
+
+    Mirrors :class:`SynthCriterionTarget` (the synthesis lane's equivalent) and
+    the vault-side ``CriterionTarget``, closing the asymmetry
+    ``spec_measurement_efficiency_v1.md`` F2 measured: the practice-generation
+    lane could not author targets at all, so ``compile_criterion_targets`` fell
+    back to every criterion -> ``primary`` at the item's single declared
+    capability, and the ``supporting`` role (weight 0.3, banked as *embedded*
+    credit) was structurally unreachable from generated practice.
+
+    ``role`` here is the **observation** role and has nothing to do with the
+    ``role`` on a blueprint component (``required`` / ``alternative`` /
+    ``integration``); the two vocabularies are disjoint and the prompt rules say
+    so, because conflating them is the obvious authoring failure mode.
+
+    * ``primary`` — the step this criterion owns; full weight.
+    * ``supporting`` — a facet that step *consumes*. Per §3.A1 guard 1 it earns
+      credit only where the graded trace shows the facet actually exercised;
+      absent that observation it is recorded as an
+      ``unexercised_supporting_target`` and confers nothing.
+    """
+
+    facet: str = ""
+    capability: Literal[
+        "retrieval",
+        "schema_interpretation",
+        "procedure_execution",
+        "method_selection",
+        "coordination",
+    ] = "retrieval"
+    role: Literal["primary", "supporting"] = "primary"
+
+
+class RubricCriterionPayload(WireModel):
     id: str
     points: float = Field(gt=0.0, le=4.0)
     description: str
@@ -215,9 +352,19 @@ class RubricCriterionPayload(BaseModel):
     measurement_status: Literal[
         "direct", "supporting", "composite", "item_local", "no_canonical_facet"
     ] | None = None
+    # Meas §3.A1: the conjunctive-item channel. Authored targets win verbatim in
+    # ``compile_criterion_targets``; an empty list keeps the legacy compile
+    # (every mapped facet -> primary at the item's declared capability), so this
+    # field is strictly additive for every item authored before it existed.
+    targets: list[CriterionTargetPayload] = Field(default_factory=list)
+    # Criterion dependency DAG: first-error localization (§5.3) treats a
+    # criterion whose dependency failed as unassessable rather than failed. A
+    # conjunctive item is exactly where this matters — without it, one early
+    # divergence reads as failure on every later step of the same task.
+    depends_on: list[str] = Field(default_factory=list)
 
 
-class RubricFatalErrorPayload(BaseModel):
+class RubricFatalErrorPayload(WireModel):
     id: str
     description: str
     max_grade: int = Field(ge=0, le=4)
@@ -225,14 +372,14 @@ class RubricFatalErrorPayload(BaseModel):
     misconception_id: str | None = None
 
 
-class RubricPatchPayload(BaseModel):
+class RubricPatchPayload(WireModel):
     target_practice_item_id: str | None = None
     max_points: int = Field(default=4, ge=1, le=4)
     criteria: list[RubricCriterionPayload]
     fatal_errors: list[RubricFatalErrorPayload] = Field(default_factory=list)
 
 
-class TaskFeaturesPayload(BaseModel):
+class TaskFeaturesPayload(WireModel):
     """Point TaskFeature vector (p1_launch schema, spec_p1 §3.4). Generated items
     declare where they sit in task-feature space so the deterministic rung gate
     can check them against the target waypoint."""
@@ -248,13 +395,13 @@ class TaskFeaturesPayload(BaseModel):
     tools: list[Literal["closed_book", "open_book", "calculator", "code", "references", "collaboration"]] | None = None
 
 
-class TraceRecipePayload(BaseModel):
+class TraceRecipePayload(WireModel):
     id: str
     checkpoints: list[str] = Field(default_factory=list)
     dependencies: CheckpointDependencyMap = Field(default_factory=dict)
 
 
-class TraceContractPayload(BaseModel):
+class TraceContractPayload(WireModel):
     status: Literal["available", "no_reliable_decomposition"] = "available"
     recipes: list[TraceRecipePayload] = Field(default_factory=list)
 
@@ -286,13 +433,127 @@ class TraceContractPayload(BaseModel):
         return self
 
 
-class VariantManipulationPayload(BaseModel):
+class DiscriminationProfilePayload(WireModel):
+    """A5's authored candidate shape (``spec_measurement_efficiency_v1`` §3.A5).
+
+    Mirrors the vault-side :class:`~learnloop.vault.models.DiscriminationProfile`
+    exactly. Today an item can author ONE link from a fatal error to a belief
+    (``RubricFatalErrorPayload.misconception_id``): a detector that fires or does
+    not. This is the shape behind the detector -- what a holder of the belief
+    actually writes -- authored once and reused by §3.0's persona gate, the
+    grading prior, and A4's commissioning.
+
+    There is deliberately no probability, weight, or ``expected`` field. A
+    profile is a candidate the diagnostician may reject (``no_profile_applies``
+    is a first-class outcome); a number here would read as a posterior, which is
+    exactly the causal §1 principle 4 violation §3.A5 warns the feature against.
+    """
+
+    id: str
+    hypothesis: str = Field(
+        description=(
+            "The belief in learner-model terms -- what the learner thinks is TRUE, "
+            "not a description of the wrong answer."
+        )
+    )
+    observable_signature: str = Field(
+        description=(
+            "What a holder of `hypothesis` would actually write ON THIS ITEM. Must "
+            "be categorically different from expected_answer, or the item is blind "
+            "to the belief it claims to profile and is rejected by the gate."
+        )
+    )
+    misconception_id: str | None = None
+    facet_id: str | None = None
+    fails_criteria: list[str] = Field(default_factory=list)
+    distinguishing_features: list[str] = Field(default_factory=list)
+    source: Literal["misconception_registry", "facet_error_signature", "authored"] = "authored"
+
+
+class DifferingComponentPayload(WireModel):
+    """The one ``(facet, capability)`` requirement an A4 pair differs on (§3.A4)."""
+
+    facet: str
+    capability: Literal[
+        "retrieval",
+        "schema_interpretation",
+        "procedure_execution",
+        "method_selection",
+        "coordination",
+    ]
+    structural_change: str | None = Field(
+        default=None,
+        description=(
+            "What changes in the STRUCTURE of the correct answer -- does a "
+            "precondition hold, is the theorem applicable. Never merely different "
+            "values: that is a clone, and kinship refuses to count it twice."
+        ),
+    )
+
+
+class PlantedErrorPayload(WireModel):
+    """One registry-sourced error planted in an A3 worked solution (§3.A3).
+
+    ``source`` has no ``freehand`` arm on purpose -- "a freehand error is an
+    untyped instrument" -- and ``required_repair`` is what keeps the item on the
+    construction side of the no-recognition-items gate.
+    """
+
+    id: str
+    step_ref: str = Field(
+        description="Which step of worked_solution_md carries the error."
+    )
+    source: Literal["misconception_registry", "facet_error_signature"]
+    error_signature: str = Field(
+        description=(
+            "The registry misconception signature or facet error_signature planted, "
+            "VERBATIM. The gate compares against this exact string."
+        )
+    )
+    required_repair: str = Field(
+        description=(
+            "What a correct repair must produce. Never empty: the learner must "
+            "REPAIR the error, not flag it."
+        )
+    )
+    misconception_id: str | None = None
+    facet_id: str | None = None
+
+
+class ErrorHuntPayload(WireModel):
+    """An A3 worked solution plus its plants, or the clean rotation (§3.A3).
+
+    An empty ``planted_errors`` list is the clean-solution rotation, not an
+    error: it is "strictly more informative", because a learner who finds an
+    error in correct work has handed the system a misconception directly.
+    """
+
+    worked_solution_md: str
+    planted_errors: list[PlantedErrorPayload] = Field(default_factory=list)
+
+
+class LadderedStemPayload(WireModel):
+    """One part of an A2 laddered stem (§3.A2).
+
+    Parts are separate items sharing ``stem_id`` (and
+    ``evidence_fingerprint.shared_stimulus_id``), each declaring its own
+    ``capability`` -- because credit is filed per ``(facet, capability)`` cell
+    and one item can only declare one.
+    """
+
+    stem_id: str
+    part_index: int = Field(ge=0)
+    part_count: int = Field(default=1, ge=1)
+    stimulus_md: str | None = None
+
+
+class VariantManipulationPayload(WireModel):
     axis: str
     direction: Literal["increase", "decrease", "hold"]
     rationale: str | None = None
 
 
-class VariantAuthoringContractPayload(BaseModel):
+class VariantAuthoringContractPayload(WireModel):
     variant_kind: Literal["easier", "harder", "rung_shift"]
     intended_manipulations: list[VariantManipulationPayload] = Field(default_factory=list)
     incidental_changes: list[str] = Field(default_factory=list)
@@ -302,7 +563,7 @@ class VariantAuthoringContractPayload(BaseModel):
     drops_checkpoints: list[str] = Field(default_factory=list)
 
 
-class PracticeItemPatchPayload(BaseModel):
+class PracticeItemPatchPayload(WireModel):
     id: str | None = None
     learning_object_id: str | None = None
     subjects: list[str] | None = None
@@ -383,6 +644,52 @@ class PracticeItemPatchPayload(BaseModel):
     # belief would give on a diagnostic item. Feeds the sim gate (§6) and the
     # §5.3 review check; None on ordinary (non-diagnostic) items.
     misconception_consistent_answer: str | None = None
+    # Meas §3.A5. Optional and empty by default: a plain practice item makes no
+    # discrimination claim and owes no profiles. Authoring ONE promotes the item
+    # to the §3.0 gate's hard tier, which is the intended trade -- a claim about
+    # causes has to be checkable.
+    discrimination_profiles: list[DiscriminationProfilePayload] | None = Field(
+        default=None,
+        description=(
+            "Meas A5: per plausible candidate hypothesis, what a holder of that "
+            "hypothesis visibly produces on THIS item. A prior over causes for the "
+            "diagnostician and the oracle for the authoring gate -- never a "
+            "constraint on diagnosis."
+        ),
+    )
+    # Meas §3.A4. Both fields are set on BOTH members of a pair; a one-sided
+    # `contrast_of` is a dangling reference the gate rejects.
+    contrast_of: str | None = Field(
+        default=None,
+        description=(
+            "Meas A4: the practice item id of this item's contrast-pair "
+            "counterpart. Two prompts differing in exactly ONE requirement."
+        ),
+    )
+    differing_component: DifferingComponentPayload | None = Field(
+        default=None,
+        description=(
+            "Meas A4: the single (facet, capability) requirement the pair differs "
+            "on. REQUIRED whenever contrast_of is set."
+        ),
+    )
+    error_hunt: ErrorHuntPayload | None = Field(
+        default=None,
+        description=(
+            "Meas A3: a fully worked solution the learner must find and REPAIR the "
+            "errors in. Plant only from the misconception registry or a facet's "
+            "error_signatures; never state how many errors there are; an empty "
+            "planted_errors list is the deliberate clean-solution rotation."
+        ),
+    )
+    laddered_stem: LadderedStemPayload | None = Field(
+        default=None,
+        description=(
+            "Meas A2: this item's part of a shared stimulus whose parts climb the "
+            "capability ladder. Every part of one stem shares stem_id and declares "
+            "its own capability."
+        ),
+    )
     repair_targets: list[str] | None = Field(
         default=None,
         description=(
@@ -396,7 +703,7 @@ class PracticeItemPatchPayload(BaseModel):
     tags: list[str] | None = None
 
 
-class ConceptPatchPayload(BaseModel):
+class ConceptPatchPayload(WireModel):
     id: str | None = None
     title: str | None = None
     type: Literal["concept", "procedure", "skill", "misconception"] | None = None
@@ -405,7 +712,7 @@ class ConceptPatchPayload(BaseModel):
     tags: list[str] | None = None
 
 
-class ConceptEdgePatchPayload(BaseModel):
+class ConceptEdgePatchPayload(WireModel):
     source_concept_id: str
     target_concept_id: str
     relation_type: Literal["prerequisite", "confusable_with", "part_of", "related"]
@@ -413,7 +720,7 @@ class ConceptEdgePatchPayload(BaseModel):
     rationale: str | None = None
 
 
-class ErrorTypePatchPayload(BaseModel):
+class ErrorTypePatchPayload(WireModel):
     id: str | None = None
     title: str | None = None
     description: str | None = None
@@ -433,7 +740,7 @@ AuthoringPayload = (
 )
 
 
-class AuthoringProposalItem(BaseModel):
+class AuthoringProposalItem(WireModel):
     client_item_id: str
     item_type: EntityType
     operation: ProposalOperation
@@ -462,7 +769,16 @@ class AuthoringProposalItem(BaseModel):
         if model is None:
             return data
         coerced = dict(data)
-        coerced["payload"] = model.model_validate(data["payload"])
+        try:
+            coerced["payload"] = model.model_validate(data["payload"])
+        except ValidationError as exc:
+            # Without this, a forbidden extra inside the payload is reported
+            # against the ``AuthoringPayload`` *union*: pydantic retries the
+            # payload against all six members and emits six failures, none of
+            # which names the model the item_type actually selected. Re-raising
+            # here pins the diagnosis to the one model that was supposed to
+            # accept it, which is the only form a repair turn can act on.
+            raise ValueError(describe_wire_validation_error(model, exc)) from exc
         return coerced
 
     @model_validator(mode="after")
@@ -478,13 +794,13 @@ class AuthoringProposalItem(BaseModel):
         return self
 
 
-class AuthoringProposal(BaseModel):
+class AuthoringProposal(WireModel):
     summary: str
     source_refs: list[SourceRef] = Field(default_factory=list)
     items: list[AuthoringProposalItem] = Field(default_factory=list)
 
 
-class CriterionEvidence(BaseModel):
+class CriterionEvidence(WireModel):
     criterion_id: str
     points_awarded: float
     evidence: str
@@ -492,24 +808,24 @@ class CriterionEvidence(BaseModel):
     learner_confidence: Literal["confident", "hedged", "absent", "unknown"] | None = None
 
 
-class FacetCapabilityTargetRef(BaseModel):
+class FacetCapabilityTargetRef(WireModel):
     kind: Literal["facet_capability"]
     facet_id: str
     capability: str | None = None
 
 
-class CriterionTargetRef(BaseModel):
+class CriterionTargetRef(WireModel):
     kind: Literal["criterion"]
     criterion_id: str
 
 
-class ItemStepTargetRef(BaseModel):
+class ItemStepTargetRef(WireModel):
     kind: Literal["item_step"]
     checkpoint_id: str
     recipe_id: str | None = None
 
 
-class AnswerSpanTargetRef(BaseModel):
+class AnswerSpanTargetRef(WireModel):
     kind: Literal["answer_span"]
     quote: str
     char_start: int | None = Field(default=None, ge=0)
@@ -528,7 +844,7 @@ class AnswerSpanTargetRef(BaseModel):
         return self
 
 
-class NoTargetRef(BaseModel):
+class NoTargetRef(WireModel):
     kind: Literal["none"]
 
 
@@ -541,7 +857,7 @@ AttributionTargetRef = (
 )
 
 
-class FirstDivergence(BaseModel):
+class FirstDivergence(WireModel):
     anchor_kind: Literal["span", "between_spans", "missing_required_step", "whole_answer"]
     criterion_id: str
     checkpoint_id: str | None = None
@@ -568,7 +884,7 @@ class FirstDivergence(BaseModel):
         return self
 
 
-class FacetContrast(BaseModel):
+class FacetContrast(WireModel):
     target_facet: str
     confused_with_facet: str
     justification: str
@@ -582,7 +898,7 @@ class FacetContrast(BaseModel):
         return self
 
 
-class CandidateCause(BaseModel):
+class CandidateCause(WireModel):
     statement: str
     cause_scope: Literal[
         "learner_state",
@@ -601,12 +917,12 @@ class CandidateCause(BaseModel):
         return self
 
 
-class PostdictiveClaim(BaseModel):
+class PostdictiveClaim(WireModel):
     criterion_id: str
     must: Literal["fail", "not_full_credit"]
 
 
-class RepairedTrace(BaseModel):
+class RepairedTrace(WireModel):
     """A minimal, auditable edit of the learner's displayed reasoning."""
 
     learner_work_prefix: str = ""
@@ -626,7 +942,7 @@ class RepairedTrace(BaseModel):
         return self
 
 
-class RepairVerificationRequest(BaseModel):
+class RepairVerificationRequest(WireModel):
     """A request for a backend verifier, never a model-supplied verdict.
 
     ``test_execution`` is requestable but carries no result field: the outcome
@@ -640,7 +956,11 @@ class RepairVerificationRequest(BaseModel):
     required_assumptions: list[str] = Field(default_factory=list)
 
 
-class ErrorAttribution(BaseModel):
+class ErrorAttribution(WireModel):
+    # Aug C1: checkable artifact before causal structure.  The top-level
+    # GradingProposal also places repair_suggestions immediately after prose;
+    # within the suggestion this field therefore precedes every causal label.
+    # (ErrorAttribution itself contains no repair artifact.)
     error_type: str
     severity: float | None = Field(default=None, ge=0.0, le=1.0)
     evidence: str
@@ -679,7 +999,11 @@ class ErrorAttribution(BaseModel):
         return self
 
 
-class RepairSuggestion(BaseModel):
+class RepairSuggestion(WireModel):
+    # Aug C1 field order is causal under autoregressive decoding: emit the
+    # checkable edit before inventing the causal story that explains it.
+    repaired_trace: RepairedTrace | None = None
+    verification_request: RepairVerificationRequest | None = None
     practice_mode: str
     learning_object_id: str | None = None
     rationale: str
@@ -692,14 +1016,155 @@ class RepairSuggestion(BaseModel):
     preserve_refs: list[AttributionTargetRef] = Field(default_factory=list)
     expected_minutes: float | None = Field(default=None, ge=0.0)
     answer_reveal_budget: float = Field(default=0.0, ge=0.0, le=1.0)
-    repaired_trace: RepairedTrace | None = None
-    verification_request: RepairVerificationRequest | None = None
 
 
-class GradingProposal(BaseModel):
+class ExercisedFacetObservation(WireModel):
+    """One facet the grader saw *exercised* in the trace (Meas §3.A6).
+
+    The most bitter-lesson-aligned field in the grading contract: the model
+    observes, the harness decides what the observation is worth. Three bounds,
+    and none of them is expressible as a field the model fills in — they are
+    enforced by what this schema omits.
+
+    * **Positive only.** There is no polarity. Opportunistic evidence may credit
+      a facet; it may never indict one. Indicting a facet the item did not
+      intend to measure is exactly the smearing causal §1 principle 5 forbids,
+      and there is no criterion to appeal to.
+    * **Supporting at most.** There is no ``role``. Everything from this channel
+      lands as embedded credit under A1's cap.
+    * **No capability.** Standing constraint 8: the rung an observation counts
+      at is a deterministic property of the criterion's authored target, never a
+      model-reported one.
+
+    ``evidence`` is required. An observation with no citation from the trace is
+    an assertion, and this channel exists precisely because the model is
+    reporting rather than deciding.
+    """
+
+    facet: str
+    evidence: str
+    criterion_id: str | None = None
+
+
+class ClarificationRequest(WireModel):
+    """One question to the learner that would resolve a hedged grade (Meas §3.A8).
+
+    Bounded below by the schema and above by the validator. The schema forbids
+    the shapes that would make it an interrogation:
+
+    * there is no ``answer`` and no ``expected_answer`` — the grader is asking,
+      not proposing what it expects to hear, which is the difference between a
+      question and a leading one;
+    * there is no ``points`` or ``grade`` — an answer never grades itself, it
+      triggers a re-grade through the ordinary regrade path;
+    * ``reason`` is closed to the three uncertainty shapes §3.A8 names plus a
+      method-ambiguity arm and an explicit ``other``.
+
+    The validator then drops any request against a *confident* grade
+    (``grading._validated_clarification``): the whole channel is licensed by the
+    grader having already said it is unsure.
+    """
+
+    question_md: str
+    reason: Literal[
+        "ambiguous_notation",
+        "skipped_step",
+        "correct_answer_possibly_invalid_reasoning",
+        "method_ambiguity",
+        "other",
+    ] = "other"
+    criterion_id: str | None = None
+
+
+class DiscriminationProfileMatch(WireModel):
+    """Which authored candidate profile the trace matches -- or none (Meas §3.A5).
+
+    THE REJECTION ARM IS THE POINT. §3.A5: a profile is "a candidate set the
+    diagnostician may match against and **must be free to reject**, with
+    ``no_profile_applies`` a first-class outcome carrying the same weight as any
+    named match." So the two arms are siblings in one closed vocabulary rather
+    than a nullable ``profile_id`` -- a null would make rejection
+    indistinguishable from a model that simply did not answer, and the revert
+    criterion ("``no_profile_applies`` rate collapses toward zero") would be
+    computed over a denominator that silently absorbed both.
+
+    There is no confidence and no ranking. A profile is a PRIOR over causes
+    (causal §1 principle 4), and a scored match would be a posterior the item's
+    author wrote before the learner arrived.
+    """
+
+    outcome: Literal["matched", "no_profile_applies"]
+    profile_id: str | None = Field(
+        default=None,
+        description="REQUIRED on `matched`; must be one of the item's authored profile ids.",
+    )
+    evidence: str = Field(
+        default="",
+        description=(
+            "The part of the learner's trace that shows the match. Required on "
+            "`matched`: a match with no citation is an assertion."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_match(self) -> "DiscriminationProfileMatch":
+        if self.outcome == "matched" and not (self.profile_id or "").strip():
+            raise ValueError("a matched discrimination profile requires a profile_id")
+        return self
+
+
+class ReportedError(WireModel):
+    """One error the learner claims to have found in an A3 worked solution.
+
+    ``repair_md`` is separate from ``claim_md`` because §3.A3 requires the
+    REPAIR, not the flag: "Flagging is recognition; repairing is construction."
+    A report with a claim and no repair is recorded as flagged-not-repaired and
+    earns no facet credit, which is what keeps A3 on the right side of §11's
+    no-recognition-items non-goal.
+    """
+
+    location: str = Field(
+        default="",
+        description="Where in the worked solution the learner says the error is.",
+    )
+    claim_md: str = Field(description="What the learner says is wrong there.")
+    repair_md: str = Field(
+        default="",
+        description=(
+            "The corrected work the learner produced. EMPTY when they only flagged "
+            "the error without repairing it."
+        ),
+    )
+    matches_planted_error_id: str | None = Field(
+        default=None,
+        description=(
+            "The item's planted-error id this report corresponds to, or null when "
+            "it corresponds to none. Null on a CLEAN solution is the informative "
+            "case, not an error."
+        ),
+    )
+
+
+class ErrorHuntReport(WireModel):
+    """What the learner found and repaired in an A3 item (Meas §3.A3).
+
+    Reported as observations, never as a score. The harness decides what each
+    report is worth -- in particular whether a report matching no plant is noise
+    (on a seeded solution) or a misconception handed over directly (on a clean
+    one), which is a fact about the ITEM the grader is not told and cannot infer.
+    """
+
+    reported_errors: list[ReportedError] = Field(default_factory=list)
+
+
+class GradingProposal(WireModel):
     # Intentionally first: autoregressive graders diagnose in prose before the
     # structured attribution contract can pressure them into a nearby label.
     diagnosis_md: str | None = None
+    # Aug C1 (plan amendment): prose remains first to preserve causal §5.1;
+    # the repaired trace comes next, inside these suggestions, and structured
+    # causal fields come later.  RepairSuggestion orders repaired_trace first.
+    repair_suggestions: list[RepairSuggestion] = Field(default_factory=list)
     attempt_id: str
     practice_item_id: str
     rubric_score: int = Field(ge=0, le=4)
@@ -709,13 +1174,33 @@ class GradingProposal(BaseModel):
     grader_confidence: float = Field(ge=0.0, le=1.0)
     manual_review_recommended: bool = False
     feedback_md: str | None = None
-    repair_suggestions: list[RepairSuggestion] = Field(default_factory=list)
+    # Meas §3.A6: facets the trace shows exercised, whether or not the item
+    # declared them. Deliberately last in the field order — it is an observation
+    # made *while* grading, and putting it ahead of the attribution contract
+    # would invite the model to author coverage before it has finished
+    # diagnosing (causal §5.1's field-order argument, applied in reverse).
+    exercised_facets: list[ExercisedFacetObservation] = Field(default_factory=list)
+    # Meas §3.A8: at most one, and only against a criterion this proposal has
+    # already hedged or abstained on. Nullable with no default question, because
+    # "I am sure enough" must stay the cheap answer.
+    clarification_request: ClarificationRequest | None = None
+    # Meas §3.A5: which of the item's authored candidate profiles the trace
+    # matches, or the first-class rejection. Placed AFTER the attribution
+    # contract for causal §5.1's reason: the profiles are a prior, and a model
+    # that reported the match first would be reasoning from the authored
+    # candidates back to the diagnosis instead of forward from the trace.
+    # Null when the item authored none -- the harness records that arm itself
+    # rather than asking the model to say "there was nothing to match".
+    discrimination_profile_match: DiscriminationProfileMatch | None = None
+    # Meas §3.A3: what the learner found and REPAIRED in a worked solution. Null
+    # on every item that is not an error hunt.
+    error_hunt_report: ErrorHuntReport | None = None
 
 
 QuestionType = Literal["clarification", "prerequisite", "mechanism", "strategy", "verification", "other"]
 
 
-class TeachBackQuestion(BaseModel):
+class TeachBackQuestion(WireModel):
     """One naive-student follow-up question in a teach-back conversation.
 
     The persona never corrects, confirms, or reveals; the service supplies the
@@ -726,7 +1211,7 @@ class TeachBackQuestion(BaseModel):
     question_md: str
 
 
-class TeachBackCriterionDraft(BaseModel):
+class TeachBackCriterionDraft(WireModel):
     """One criterion in an AI-authored, source-item-scoped teach-back.
 
     The model authors the learner-facing description and proposes an honest
@@ -742,7 +1227,7 @@ class TeachBackCriterionDraft(BaseModel):
     facet_ids: list[str] = Field(default_factory=list)
 
 
-class TeachBackAuthoring(BaseModel):
+class TeachBackAuthoring(WireModel):
     """AI-authored transformation of one completed Practice Item.
 
     Core criteria remain anchored to the source assessment. The single transfer
@@ -760,7 +1245,7 @@ class TeachBackAuthoring(BaseModel):
     trace_contract: TraceContractPayload | None = None
 
 
-class ReaderPresetSynthesis(BaseModel):
+class ReaderPresetSynthesis(WireModel):
     """One demand-paged reader preset result (spec §6, reader producer).
 
     Candidate-only: the service validates ``span_ids`` against the request
@@ -772,7 +1257,7 @@ class ReaderPresetSynthesis(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class ReadingQuickCheck(BaseModel):
+class ReadingQuickCheck(WireModel):
     """One AI-authored section-boundary quick check (reader producer slice).
 
     Candidate-only: the service validates ``span_ids`` against the section's
@@ -786,7 +1271,7 @@ class ReadingQuickCheck(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class RungBackfillItem(BaseModel):
+class RungBackfillItem(WireModel):
     """One legacy item's rung classification (candidate-only; deterministic
     validators admit or skip each entry)."""
 
@@ -795,11 +1280,11 @@ class RungBackfillItem(BaseModel):
     task_features: TaskFeaturesPayload | None = None
 
 
-class RungBackfillClassification(BaseModel):
+class RungBackfillClassification(WireModel):
     items: list[RungBackfillItem] = Field(default_factory=list)
 
 
-class ExerciseAuthoredItem(BaseModel):
+class ExerciseAuthoredItem(WireModel):
     """One selected textbook exercise completed into a full PracticeItem
     contract (reader exercise import).
 
@@ -835,7 +1320,7 @@ class ExerciseAuthoredItem(BaseModel):
     classification_reason: str = ""
 
 
-class ExerciseAuthoring(BaseModel):
+class ExerciseAuthoring(WireModel):
     """The full exercise-import response: one entry per distinct exercise
     found in the learner's selection (a selection sweeping exercises 3-5
     yields three items)."""
@@ -844,7 +1329,7 @@ class ExerciseAuthoring(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
-class DepthEdgeInstancePayload(BaseModel):
+class DepthEdgeInstancePayload(WireModel):
     """One LLM-authored depth-edge instance (candidate-only; spec v2 §depth).
 
     Instantiates an owner-reviewed edge TEMPLATE for one commitment. Every
@@ -871,11 +1356,11 @@ class DepthEdgeInstancePayload(BaseModel):
     rationale: str = ""
 
 
-class DepthEdgeInstanceBatch(BaseModel):
+class DepthEdgeInstanceBatch(WireModel):
     instances: list[DepthEdgeInstancePayload] = Field(default_factory=list)
 
 
-class TutorCitation(BaseModel):
+class TutorCitation(WireModel):
     """One source-span citation on a tutor answer (ING M8, §9.2).
 
     The model may cite ONLY spans supplied in ``context.source_spans``; the
@@ -888,7 +1373,7 @@ class TutorCitation(BaseModel):
     label: str | None = None
 
 
-class TutorAnswer(BaseModel):
+class TutorAnswer(WireModel):
     """Structured tutor Q&A output: the answer plus the question classification.
 
     ``facets`` must be a subset of the candidate facets supplied in the
@@ -909,7 +1394,7 @@ class TutorAnswer(BaseModel):
     citations: list[TutorCitation] = Field(default_factory=list)
 
 
-class MisconceptionMatch(BaseModel):
+class MisconceptionMatch(WireModel):
     """LLM verdict for registry normalization (spec §2.2.2).
 
     ``decision == "same"`` means the graded belief is the same as the registry
@@ -922,7 +1407,7 @@ class MisconceptionMatch(BaseModel):
     misconception_id: str | None = None
 
 
-class PromotionAnalysis(BaseModel):
+class PromotionAnalysis(WireModel):
     """Step-0 extraction for tutor-question promotion (spec_tutor_promotion.md §3).
 
     ``attributed_facets`` are the evidence facet ids the tutor's socratic question
@@ -945,7 +1430,7 @@ class PromotionAnalysis(BaseModel):
     covered_by_practice_item_id: str | None = None
 
 
-class ProbeInstanceSurface(BaseModel):
+class ProbeInstanceSurface(WireModel):
     """One LLM-generated Item Instance surface for an admitted family/card
     binding (probe redesign §9.2/§9.4).
 
@@ -961,13 +1446,13 @@ class ProbeInstanceSurface(BaseModel):
     expected_answer_md: str
 
 
-class ProbeInstanceSurfaces(BaseModel):
+class ProbeInstanceSurfaces(WireModel):
     """Batch of surface-varied instances for one family/card binding."""
 
     surfaces: list[ProbeInstanceSurface] = Field(default_factory=list)
 
 
-class ProbeDialogueTurn(BaseModel):
+class ProbeDialogueTurn(WireModel):
     """One adaptive dialogue microprobe turn surface (probe redesign §8.1).
 
     Generated conditioned on the learner's prior committed answers in the
@@ -982,7 +1467,7 @@ class ProbeDialogueTurn(BaseModel):
     expected_answer_md: str
 
 
-class ProbeFamilyTrial(BaseModel):
+class ProbeFamilyTrial(WireModel):
     """One simulated planted-state response for the family admission gate
     (probe redesign §9.6).
 
@@ -1000,13 +1485,13 @@ class ProbeFamilyTrial(BaseModel):
     non_applicable_control: bool = False
 
 
-class ProbeFamilyTrials(BaseModel):
+class ProbeFamilyTrials(WireModel):
     """All planted trials for one family admission gate run (one call)."""
 
     trials: list[ProbeFamilyTrial] = Field(default_factory=list)
 
 
-class DiagnosticTrialResult(BaseModel):
+class DiagnosticTrialResult(WireModel):
     """One simulated student's answer + whether the keyed fatal error fires.
 
     ``answer`` is the student's natural-language response (never verbatim the
@@ -1018,7 +1503,7 @@ class DiagnosticTrialResult(BaseModel):
     fires: bool
 
 
-class DiagnosticTrials(BaseModel):
+class DiagnosticTrials(WireModel):
     """Codex answers-under-belief for the sim discrimination gate (spec §6).
 
     ``planted`` are learners who genuinely HOLD the targeted belief; ``clean``
@@ -1042,7 +1527,7 @@ class DiagnosticTrials(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class InventoryConceptMention(BaseModel):
+class InventoryConceptMention(WireModel):
     mention_id: str = ""
     name: str = ""
     aliases: list[str] = Field(default_factory=list)
@@ -1050,7 +1535,7 @@ class InventoryConceptMention(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class InventoryClaim(BaseModel):
+class InventoryClaim(WireModel):
     claim_id: str = ""
     kind: Literal["definition", "theorem", "procedure", "assumption", "example"] = "definition"
     statement: str = ""
@@ -1065,7 +1550,7 @@ class InventoryClaim(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class InventoryProcedureSignal(BaseModel):
+class InventoryProcedureSignal(WireModel):
     procedure_id: str = ""
     contract: str = ""
     ordered_steps: list[str] = Field(default_factory=list)
@@ -1076,14 +1561,27 @@ class InventoryProcedureSignal(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def coerce_span_ids(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if not data.get("observable_step_span_ids") and data.get("span_ids"):
-                data["observable_step_span_ids"] = list(data["span_ids"])
-        return data
+        """Accept ``span_ids``, the name every other inventory row uses.
+
+        This is a deliberate alias, not an undeclared field: the §7 contract
+        calls the procedure row's citations ``observable_step_span_ids`` and
+        every sibling row calls its own ``span_ids``, so models transpose them
+        constantly. It is *consumed* here (popped, not merely copied) because
+        ``WireModel`` forbids extras — leaving the key behind would turn a
+        supported spelling into a rejection.
+        """
+
+        if not isinstance(data, dict) or "span_ids" not in data:
+            return data
+        coerced = dict(data)
+        span_ids = coerced.pop("span_ids")
+        if not coerced.get("observable_step_span_ids") and span_ids:
+            coerced["observable_step_span_ids"] = list(span_ids)
+        return coerced
 
 
 
-class InventoryPracticeSignal(BaseModel):
+class InventoryPracticeSignal(WireModel):
     signal_id: str = ""
     kind: Literal["exercise", "worked_example", "solution"] = "exercise"
     task_family: str = ""
@@ -1096,7 +1594,7 @@ class InventoryPracticeSignal(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class InventoryAssessmentSignal(BaseModel):
+class InventoryAssessmentSignal(WireModel):
     assessment_item_id: str = ""
     held_out: bool = False
     topic_mentions: list[str] = Field(default_factory=list)
@@ -1109,7 +1607,7 @@ class InventoryAssessmentSignal(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class InventoryMisconceptionSignal(BaseModel):
+class InventoryMisconceptionSignal(WireModel):
     statement: str = ""
     confused_concept_mentions: list[str] = Field(default_factory=list)
     trigger_conditions: list[str] = Field(default_factory=list)
@@ -1118,20 +1616,20 @@ class InventoryMisconceptionSignal(BaseModel):
     span_ids: list[str] = Field(default_factory=list)
 
 
-class InventoryCoverageClaim(BaseModel):
+class InventoryCoverageClaim(WireModel):
     concept_mention_id: str = ""
     depth: str = ""
     pedagogical_forms: list[str] = Field(default_factory=list)
     span_ids: list[str] = Field(default_factory=list)
 
 
-class InventoryWarning(BaseModel):
+class InventoryWarning(WireModel):
     kind: str = ""
     detail: str = ""
     span_ids: list[str] = Field(default_factory=list)
 
 
-class SourceUnitInventory(BaseModel):
+class SourceUnitInventory(WireModel):
     """The §7 unit-inventory contract. One envelope, role-aware profiles: a
     narrower profile may leave irrelevant sections empty (they are never forced
     through the most expensive prompt)."""
@@ -1159,7 +1657,7 @@ class SourceUnitInventory(BaseModel):
 # table. Provenance cites ONLY span ids supplied in the synthesis context.
 
 
-class SynthSpanRef(BaseModel):
+class SynthSpanRef(WireModel):
     """One span citation (§8.5). Cites provided extraction/unit/span ids only."""
 
     extraction_id: str = ""
@@ -1172,7 +1670,7 @@ class SynthSpanRef(BaseModel):
     role: str = "reference"
 
 
-class SynthSpanRequest(BaseModel):
+class SynthSpanRequest(WireModel):
     """A pass-1 evidence-view request (§8.5). Resolved for selected units only."""
 
     extraction_id: str = ""
@@ -1181,7 +1679,7 @@ class SynthSpanRequest(BaseModel):
     purpose: str = ""
 
 
-class SynthConcept(BaseModel):
+class SynthConcept(WireModel):
     client_item_id: str = ""
     id: str = ""
     title: str = ""
@@ -1190,7 +1688,7 @@ class SynthConcept(BaseModel):
     aliases: list[str] = Field(default_factory=list)
 
 
-class SynthFacet(BaseModel):
+class SynthFacet(WireModel):
     """A canonical facet registry entry (knowledge-model §3.2), span-cited."""
 
     client_item_id: str = ""
@@ -1211,7 +1709,7 @@ class SynthFacet(BaseModel):
     provenance: list[SynthSpanRef] = Field(default_factory=list)
 
 
-class SynthRecipeComponent(BaseModel):
+class SynthRecipeComponent(WireModel):
     facet_client_id: str = ""
     facet: str = ""
     capability: Literal[
@@ -1224,7 +1722,7 @@ class SynthRecipeComponent(BaseModel):
     modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
 
 
-class SynthIntegrationComponent(BaseModel):
+class SynthIntegrationComponent(WireModel):
     """The optional `integration` component of a recipe (knowledge-model §7.2).
 
     Distinct from :class:`SynthRecipeComponent` in exactly one way: `capability`
@@ -1248,7 +1746,7 @@ class SynthIntegrationComponent(BaseModel):
     modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
 
 
-class SynthRecipe(BaseModel):
+class SynthRecipe(WireModel):
     id: str = ""
     composition: Literal["conjunctive"] = "conjunctive"
     all_of: list[SynthRecipeComponent] = Field(default_factory=list)
@@ -1256,7 +1754,7 @@ class SynthRecipe(BaseModel):
     integration: SynthIntegrationComponent | None = None
 
 
-class SynthBlueprint(BaseModel):
+class SynthBlueprint(WireModel):
     """A performance blueprint (knowledge-model §7.2). Merged onto its LO."""
 
     client_item_id: str = ""
@@ -1273,7 +1771,7 @@ class SynthBlueprint(BaseModel):
     recipes: list[SynthRecipe] = Field(default_factory=list, min_length=1)
 
 
-class SynthLearningObject(BaseModel):
+class SynthLearningObject(WireModel):
     client_item_id: str = ""
     id: str = ""
     concept_client_id: str = ""
@@ -1288,7 +1786,7 @@ class SynthLearningObject(BaseModel):
     provenance: list[SynthSpanRef] = Field(default_factory=list)
 
 
-class SynthCriterionTarget(BaseModel):
+class SynthCriterionTarget(WireModel):
     facet_client_id: str = ""
     facet: str = ""
     capability: Literal[
@@ -1301,7 +1799,7 @@ class SynthCriterionTarget(BaseModel):
     role: Literal["primary", "supporting"] = "primary"
 
 
-class SynthCriterion(BaseModel):
+class SynthCriterion(WireModel):
     id: str = ""
     points: float = 1.0
     description: str = ""
@@ -1312,7 +1810,7 @@ class SynthCriterion(BaseModel):
     correlation_group: str = ""
 
 
-class SynthEvidenceFingerprint(BaseModel):
+class SynthEvidenceFingerprint(WireModel):
     source_family: str = ""
     shared_stimulus_id: str = ""
     representation: str = ""
@@ -1320,7 +1818,7 @@ class SynthEvidenceFingerprint(BaseModel):
     answer_structure: str = ""
 
 
-class SynthPracticeItem(BaseModel):
+class SynthPracticeItem(WireModel):
     client_item_id: str = ""
     id: str = ""
     learning_object_client_id: str = ""
@@ -1341,14 +1839,14 @@ class SynthPracticeItem(BaseModel):
     provenance: list[SynthSpanRef] = Field(default_factory=list)
 
 
-class SynthConflict(BaseModel):
+class SynthConflict(WireModel):
     entity_client_id: str = ""
     statement: str = ""
     left: SynthSpanRef = Field(default_factory=SynthSpanRef)
     right: SynthSpanRef = Field(default_factory=SynthSpanRef)
 
 
-class ConceptRelation(BaseModel):
+class ConceptRelation(WireModel):
     """One typed concept-graph edge (knowledge-model concept graph).
 
     ``source``/``target`` are concept ``client_item_id``s from this candidate OR
@@ -1365,7 +1863,7 @@ class ConceptRelation(BaseModel):
     strength: float = 1.0
 
 
-class SourceSetSynthesis(BaseModel):
+class SourceSetSynthesis(WireModel):
     """The §8.5 bootstrap synthesis contract (candidate-only, span-cited).
 
     Deliberately NOT on the CodexClient Protocol — discovered via getattr like
@@ -1389,7 +1887,7 @@ class SourceSetSynthesis(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
-class ConceptMergeGroup(BaseModel):
+class ConceptMergeGroup(WireModel):
     """One set of semantically-duplicate concepts to fold into a canonical one.
 
     ``canonical_client_id`` is the concept that survives; every concept in
@@ -1402,7 +1900,7 @@ class ConceptMergeGroup(BaseModel):
     rationale: str = ""
 
 
-class ConceptGraphStructuring(BaseModel):
+class ConceptGraphStructuring(WireModel):
     """The post-merge concept graph-structuring contract (§8.5).
 
     One bounded pass over the WHOLE merged candidate plus compact source
@@ -1424,7 +1922,7 @@ class ConceptGraphStructuring(BaseModel):
 # --- Append reconciliation (§10.2) ------------------------------------------
 
 
-class AppendProvenanceLink(BaseModel):
+class AppendProvenanceLink(WireModel):
     """A `provenance_link` additive item (span_attach / alternate_explanation /
     assessment_alignment, §10.2). Purely attaches an existing entity to a new span
     — it never mutates the target. The intent label is untrusted; the apply handler
@@ -1443,7 +1941,7 @@ class AppendProvenanceLink(BaseModel):
     span: SynthSpanRef = Field(default_factory=SynthSpanRef)
 
 
-class AppendNotationMapping(BaseModel):
+class AppendNotationMapping(WireModel):
     """A contextual notation equivalence (`notation_mapping`, review-required)."""
 
     client_item_id: str = ""
@@ -1455,7 +1953,7 @@ class AppendNotationMapping(BaseModel):
     span: SynthSpanRef = Field(default_factory=SynthSpanRef)
 
 
-class AppendConflict(BaseModel):
+class AppendConflict(WireModel):
     """A two-sided conflict (`source_conflict`, always reviewed). Accepting persists
     an OPEN conflict; it never applies either competing side."""
 
@@ -1467,7 +1965,7 @@ class AppendConflict(BaseModel):
     right: SynthSpanRef = Field(default_factory=SynthSpanRef)
 
 
-class AppendRestructure(BaseModel):
+class AppendRestructure(WireModel):
     """A semantic replacement/removal (`restructure_unlocked`; update/deactivate).
 
     Legal only when the touched identity is unlocked and the target hash matches;
@@ -1481,7 +1979,7 @@ class AppendRestructure(BaseModel):
     payload: dict = Field(default_factory=dict)
 
 
-class AppendReconciliation(BaseModel):
+class AppendReconciliation(WireModel):
     """The §10.2 append reconciliation contract (candidate-only, span-cited).
 
     Context = new/changed inventories + brief + the bounded affected neighborhood
@@ -1508,7 +2006,7 @@ class AppendReconciliation(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
-class ManimAnimation(BaseModel):
+class ManimAnimation(WireModel):
     """One LLM-authored Manim CE explainer scene (spec_fork_features §2).
 
     Candidate-only: the animation service AST-validates ``scene_code`` against

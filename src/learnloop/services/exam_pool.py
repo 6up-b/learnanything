@@ -17,7 +17,7 @@ Selection blueprint (``reserve_exam_pool``), all deterministic given DB state:
     is not reservable (enforced by a partial unique index too).
   * **Stratified across difficulty** — ties prefer a difficulty stratum not yet
     represented in the reservation, so the exam spans easy/medium/hard.
-  * **Novel surface families** — ties prefer a ``surface_family`` distinct from
+  * **Novel surface groups** — ties prefer a ``surface_group_id`` distinct from
     the items the learner has already practiced, so the exam is genuinely
     transfer, not a restatement of drilled surfaces.
 
@@ -34,6 +34,8 @@ from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.services.goal_projection import resolve_goal_scope
+from learnloop.services.canonical_projection import surface_group_id
+from learnloop.services.instrument_serving import unservable_reason
 from learnloop.vault.models import Goal, LoadedVault, PracticeItem
 
 # Difficulty strata for stratification (item.difficulty is a 0..1 prior).
@@ -56,8 +58,13 @@ class _Candidate:
     item_id: str
     facets: frozenset[str]      # canonical scope facets this item can test
     stratum: str
+    #: The item's independent-evidence group (``surface_group_id``), NOT its raw
+    #: authored ``surface_family``. Named for continuity; augmentation §8 makes
+    #: the group the one primitive, and dedup/novelty below both key on it, so a
+    #: near-clone sharing a stimulus or solution template can neither read as
+    #: novel nor be selected twice in one sitting.
     surface_family: str | None
-    novel_surface: bool         # surface_family unseen among practiced items
+    novel_surface: bool         # surface group unseen among practiced items
     # (facet, capability) blueprint components this item can testify to. An exam
     # that covers every scope facet at ONE capability still cannot demonstrate an
     # LO whose readiness conjoins several capabilities, so coverage is tracked
@@ -322,6 +329,10 @@ def _candidates(
         state = item_states.get(item.id)
         if state is not None and not state.active:
             continue
+        # Meas §3.A2/§3.A3: same servability rule as the practice queue. An exam
+        # is the last place to serve an item whose stimulus cannot be rendered.
+        if unservable_reason(item) is not None:
+            continue
         item_facets = {vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets}
         covered = item_facets & scope_facets
         if not covered:
@@ -331,9 +342,8 @@ def _candidates(
                 item_id=item.id,
                 facets=frozenset(covered),
                 stratum=_difficulty_stratum(item),
-                surface_family=item.surface_family,
-                novel_surface=item.surface_family is not None
-                and item.surface_family not in practiced_surfaces,
+                surface_family=surface_group_id(item),
+                novel_surface=surface_group_id(item) not in practiced_surfaces,
                 components=_item_components(vault, item, covered),
             )
         )
@@ -346,9 +356,27 @@ def _item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) 
     An item observes its facets at the capability it was authored at, so the same
     facet probed at two capabilities is two distinct pieces of evidence toward a
     blueprint that conjoins them.
+
+    Meas §3.A1: with authored criterion targets that is no longer one capability
+    per item — a laddered or conjunctive item observes different facets at
+    different rungs, and reading only ``item.capability`` would hide every cell
+    but one from the greedy selector, i.e. would price A1's whole gain at zero.
+    Authored targets are therefore read through the same compile path the ledger
+    uses (``compile_criterion_targets``, the authority per
+    ``contract_reachability``); an item whose rubric authors none falls back to
+    the declared-capability behaviour byte-for-byte.
+
+    ``supporting`` targets are excluded. This function answers "which contract
+    cells can this item *close*", and §5.3 says embedded credit never certifies a
+    component on its own — counting them here would let the exam pool believe a
+    cell is reachable when no instrument can actually close it.
     """
 
-    from learnloop.services.capability_mapping import default_capability_for, is_valid_capability
+    from learnloop.services.capability_mapping import (
+        compile_criterion_targets,
+        default_capability_for,
+        is_valid_capability,
+    )
 
     declared = getattr(item, "capability", None)
     capability = (
@@ -356,15 +384,53 @@ def _item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) 
         if declared and is_valid_capability(str(declared))
         else default_capability_for(item.practice_mode)
     )
-    return frozenset((facet, capability) for facet in covered)
+    rubric = vault.rubric_for_item(item)
+    authored: set[tuple[str, str]] = set()
+    # Every facet the rubric names, at any role. `targeted` and `authored` are
+    # deliberately different sets: a facet the rubric targets ONLY as
+    # `supporting` must appear in neither, or the untargeted fallback below
+    # would re-admit it at the item's declared capability and the exam pool
+    # would believe a cell is reachable that no instrument on this item can
+    # close.
+    targeted: set[str] = set()
+    if rubric is not None:
+        for criterion in rubric.criteria:
+            if not getattr(criterion, "targets", None):
+                continue
+            for target in compile_criterion_targets(item, criterion, resolved_rubric=rubric):
+                facet = vault.canonical_facet_id(str(target.facet))
+                targeted.add(facet)
+                if target.role == "primary" and facet in covered:
+                    authored.add((facet, str(target.capability)))
+    if not targeted:
+        return frozenset((facet, capability) for facet in covered)
+    # Facets the rubric never mentions still testify at the item's own rung: the
+    # authored targets are additive detail, not a replacement contract.
+    return frozenset(
+        authored | {(facet, capability) for facet in covered if facet not in targeted}
+    )
 
 
 def _practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]:
+    """Independent-evidence groups the learner has already been served.
+
+    ``surface_group_id`` rather than the raw ``surface_family`` string: this set
+    decides which exam candidates count as NOVEL, and an exam whose novelty test
+    reads authored family names will happily reserve a near-clone of an item the
+    learner already practised — the leakage the held-out pool exists to prevent.
+    One primitive, everywhere (augmentation §8: "six errors on six near-clones of
+    one item are one observation, everywhere, from one code path").
+
+    An unresolvable item contributes nothing, which is the conservative
+    direction: a group we cannot name must not silently mark unrelated
+    candidates as practised.
+    """
+
     families: set[str] = set()
     for item_id in attempted:
         item = vault.practice_items.get(item_id)
-        if item is not None and item.surface_family is not None:
-            families.add(item.surface_family)
+        if item is not None:
+            families.add(surface_group_id(item))
     return families
 
 

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from learnloop.services.instrument_serving import (
+    UNSERVABLE_ERROR_CODE,
+    unservable_refusal,
+)
 from learnloop.services.proposals import queue_accepted_diagnostic_followups
 from learnloop.services.scheduler import SchedulerSession, build_due_queue, explain_practice_item
 from learnloop_sidecar.context import SidecarContext
@@ -128,7 +132,40 @@ def explain_practice_item_handler(ctx: SidecarContext, params: PracticeItemInput
 
 @method("open_queue_item", PracticeItemInput)
 def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]:
+    """Open one item by id, or refuse with the reason it cannot be rendered.
+
+    Meas §3.A2/§3.A3. ``build_due_queue`` keeps unrenderable instruments out of
+    the queue, but this method takes an id, not a queue position: a deep link, a
+    restored session, an inspector jump or a stale client all reach an item the
+    queue would never have offered. Without the guard the learner gets the
+    error-hunt prompt ("correct the worked solution below") with no solution
+    under it, answers blind, and the grader — which DOES receive the solution —
+    marks every plant missed.
+
+    Refusing with ``not_found`` would be a lie the learner cannot act on: the
+    item exists, passed every authoring gate, and is in their vault. So this is a
+    distinct typed code carrying the arm and its remedy, and the item id, so the
+    surface can say what is missing and the learner can stop looking for a
+    mistake they did not make.
+    """
+
     vault, repository = ctx.require_vault()
+    item = vault.practice_items.get(params.practice_item_id)
+    if item is not None and item.status != "active":
+        raise SidecarError(
+            "item_retired",
+            f"{params.practice_item_id} has been retired and cannot be opened for practice.",
+            details={"practice_item_id": params.practice_item_id},
+        )
+    refusal = unservable_refusal(item) if item is not None else None
+    if refusal is not None:
+        raise SidecarError(
+            UNSERVABLE_ERROR_CODE,
+            f"{params.practice_item_id} cannot be opened yet: {refusal['remedy']}.",
+            details=refusal,
+        )
+    # An unknown id still belongs to `practice_item_detail`'s typed not_found;
+    # only a KNOWN-but-unrenderable item takes the branch above.
     return practice_item_detail(vault, repository, params.practice_item_id)
 
 

@@ -86,6 +86,113 @@ def latest_scheduler_explanation_dto(record: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+#: Kinds of block a serving surface may have to render. Closed on purpose: a new
+#: instrument class whose stimulus lives on a new contract has to be added HERE,
+#: which is the one edit that makes every consumer of :func:`item_presentation`
+#: render it — instead of each surface growing its own private list of fields to
+#: remember. Ordering within a served payload is the list's, not this tuple's.
+PRESENTATION_BLOCK_KINDS = (
+    "laddered_stem_stimulus",
+    "prompt",
+    "error_hunt_worked_solution",
+)
+
+
+def item_presentation(item: PracticeItem) -> dict[str, Any]:
+    """Everything the learner must SEE to answer ``item``, as ONE structure.
+
+    Spec: ``spec_measurement_efficiency_v1.md`` §3.A2/§3.A3, and the Stage 6
+    adversarial review that found two instrument classes shipped through the
+    vault, wire, service and persistence layers with no renderer at all.
+
+    WHY THIS IS A LIST OF TYPED BLOCKS AND NOT THREE MORE DTO FIELDS. The defect
+    ``services/instrument_serving`` exists to contain is a *presentation* gap:
+    ``prompt`` was the only thing any surface carried, so an error hunt served
+    its instruction ("repair the worked solution below") with no solution beneath
+    it and a laddered-stem part served a question about a setup the learner never
+    saw. Two independent renderers (practice and exams) each reading item fields
+    they happened to know about is exactly how that happened, and adding
+    ``workedSolutionMd`` beside ``prompt`` would reproduce it the next time an
+    instrument class arrives. A surface that renders ``blocks`` in order cannot
+    forget a member it has never heard of.
+
+    NONBLANK, OR A TYPED REFUSAL. ``laddered_stem.stimulus_md`` is Optional on
+    the model and ``worked_solution_md`` can be the empty string, so "renderable"
+    is not implied by "present". An empty stimulus rendered as an empty div is
+    the *silent* failure again — the learner cannot answer, the grader (which
+    receives the solution through its own path) marks every planted error missed,
+    and the projection banks negative facet mass for a repair nobody was shown
+    the material to make. Refusing here is louder than that and strictly safer:
+    the serve fails with a reason instead of manufacturing harmful evidence.
+
+    The refusal is a data-level check and stays after rendering support lands: it
+    is the arm ``instrument_serving.unservable_reason`` cannot make, because that
+    predicate answers "can the app render this class at all", not "does this item
+    carry the content".
+    """
+
+    blocks: list[dict[str, Any]] = []
+
+    stem = getattr(item, "laddered_stem", None)
+    if stem is not None:
+        stimulus = (getattr(stem, "stimulus_md", None) or "").strip()
+        if not stimulus:
+            raise SidecarError(
+                "item_stimulus_unrenderable",
+                f"Practice Item {item.id} is one part of laddered stem "
+                f"{stem.stem_id} but carries no stimulus, so the part cannot be "
+                "answered. Author `laddered_stem.stimulus_md` on this part.",
+                details={
+                    "reason": "laddered_stem_stimulus_blank",
+                    "practice_item_id": item.id,
+                    "stem_id": stem.stem_id,
+                },
+            )
+        blocks.append(
+            {
+                "kind": "laddered_stem_stimulus",
+                "markdown": stem.stimulus_md,
+                # Named as the SHARED setup so a learner meeting part 3 knows the
+                # text is the same one parts 1-2 climbed, not a new scenario.
+                "label": (
+                    f"Shared setup · part {stem.part_index + 1} of {stem.part_count}"
+                ),
+                "stem_id": stem.stem_id,
+            }
+        )
+
+    blocks.append({"kind": "prompt", "markdown": item.prompt, "label": None})
+
+    hunt = getattr(item, "error_hunt", None)
+    if hunt is not None:
+        solution = (getattr(hunt, "worked_solution_md", None) or "").strip()
+        if not solution:
+            raise SidecarError(
+                "item_stimulus_unrenderable",
+                f"Practice Item {item.id} is an error hunt with no worked "
+                "solution, so the learner would be asked to repair work they "
+                "cannot see. Author `error_hunt.worked_solution_md`.",
+                details={
+                    "reason": "error_hunt_worked_solution_blank",
+                    "practice_item_id": item.id,
+                },
+            )
+        blocks.append(
+            {
+                "kind": "error_hunt_worked_solution",
+                "markdown": hunt.worked_solution_md,
+                # Deliberately says nothing about how many errors are in it, or
+                # whether there are any: §3.A3 forbids declaring the error count,
+                # and the clean rotation ("a rotation that sometimes presents
+                # correct work") is what kills the "there is always an error"
+                # strategy. A label reading "find the mistakes" would leak both.
+                "label": "Worked solution",
+            }
+        )
+
+    return {"practice_item_id": item.id, "blocks": blocks}
+
+
 def practice_item_detail(vault: LoadedVault, repository: Repository, practice_item_id: str) -> dict[str, Any]:
     item = _require_item(vault, practice_item_id)
     learning_object = vault.learning_object_for_item(item)
@@ -121,6 +228,12 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             "evidence_facets": item.evidence_facets,
             "evidence_weights": item.evidence_weights,
             "prompt": item.prompt,
+            # The shared §3.A2/§3.A3 presentation payload. `prompt` above stays
+            # for the surfaces that legitimately want only the question text
+            # (the inspector's one-line preview, retire dialogs, card controls);
+            # anything ASKING the learner to answer must render `presentation`,
+            # which carries the prompt as one of its blocks.
+            "presentation": item_presentation(item),
             "expected_answer": item.expected_answer,
             "difficulty": item.difficulty,
             "hints": item.hints,
@@ -636,6 +749,15 @@ def practice_item_state_dto(repository: Repository, practice_item_id: str) -> di
 
 
 def rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None:
+    """The resolved rubric, criteria dumped WHOLE.
+
+    ``model_dump()`` already carries A1's authored observation contract —
+    ``targets`` (facet/capability/role) and ``depends_on`` — and the frontend
+    type is what was hiding them. Nothing is filtered here on purpose: a rubric
+    the app cannot fully inspect is one whose authored measurement claims can
+    only be checked by reading YAML.
+    """
+
     if rubric is None:
         return None
     return to_camel(

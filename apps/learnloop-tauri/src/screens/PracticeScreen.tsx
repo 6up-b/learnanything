@@ -17,6 +17,7 @@ import type {
 } from "../api/dto";
 import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui";
 import { CardControls } from "../components/CardControls";
+import { ItemPresentation } from "../components/ItemPresentation";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
 import { masteryTone } from "../app/algoConfig";
 import { isTypingTarget } from "../app/keyboard";
@@ -77,6 +78,11 @@ export function PracticeScreen({
 }) {
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [answer, setAnswer] = useState(restoredAnswer ?? "");
+  // Meas §3.A6: the optional one-line justification, when this serve elicits
+  // one. Held apart from `answer` on purpose — it must never reach the draft
+  // checkpoint, because a restored draft that silently contained a "[Why this
+  // approach]" block would make the learner's line un-retractable.
+  const [whyLine, setWhyLine] = useState("");
   const [hintsUsed, setHintsUsed] = useState(restoredHints ?? 0);
   const [submitting, setSubmitting] = useState(false);
   // Probe redesign §12: when the LO has an in-progress diagnostic episode, the
@@ -188,11 +194,14 @@ export function PracticeScreen({
     setHintsUsed(restoredHints ?? 0);
     setFallbackRequired(!gradingReady);
     setSelfGradeVisible(false);
+    setWhyLine("");
   }, [gradingReady, practiceItemId, restoredAnswer, restoredHints]);
 
   useEffect(() => {
     let cancelled = false;
-    api.getPracticeItem(practiceItemId)
+    // The session id makes this a *serve*: it is what lets the sidecar decide
+    // (and bound) the §3.A6 elicitation for this open rather than for the item.
+    api.getPracticeItem(practiceItemId, session.sessionId)
       .then((detail) => {
         if (cancelled) return;
         teachBackRef.current = detail.practiceMode === "teach_back";
@@ -397,6 +406,16 @@ export function PracticeScreen({
         sessionId: session.sessionId,
         practiceItemId: item.id,
         answerMd: answer,
+        // Meas §3.A6 rule 3 made structural, and made structural on the WIRE:
+        // the volunteered line is its own field, and the sidecar joins it into
+        // the single trace the grader reads. This client never learns the
+        // heading that delimits it — that used to be a constant duplicated here
+        // and in `trace_evidence.py`, kept equal by a comment, with the backend
+        // parsing for it to score the reward and count the session budget. A
+        // blank line is submitted as nothing at all; there is no representation
+        // for "declined", so nothing can turn an empty field into a hint, a
+        // skip, or a failure.
+        explanationMd: whyLine.trim() || null,
         // §12: an active diagnostic block forces the recording attempt type.
         attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
         hintsUsed,
@@ -528,7 +547,12 @@ export function PracticeScreen({
               <Faint>±{Math.sqrt(item.mastery.variance).toFixed(2)}</Faint>
             </div>
           ) : null}
-          <div className="markdown"><MarkdownMath value={item.prompt} /></div>
+          {/* Meas §3.A2/§3.A3: the whole stimulus, not just the prompt. An
+              error hunt's worked solution and a laddered-stem part's shared
+              setup are as load-bearing as the question itself, and this is the
+              renderer both practice and exams mount so a surface cannot carry
+              one and forget the other. */}
+          <ItemPresentation presentation={item.presentation} />
           {!probeActive ? (
             <CardControls
               key={`${item.id}:${item.prompt}`}
@@ -537,9 +561,16 @@ export function PracticeScreen({
               expectedAnswer={null}
               onError={onError}
               onChanged={() => {
-                api.getPracticeItem(item.id).then(setItem).catch(() => {});
+                api.getPracticeItem(item.id, session.sessionId).then(setItem).catch(() => {});
               }}
-              onRetired={onBack}
+              onRetired={() => {
+                // Retirement already clears the durable checkpoint server-side.
+                // Suppress the unmount flush so this screen cannot recreate a
+                // draft pointing at the card that was just retired.
+                suppressDraftFlush.current = true;
+                onCheckpointCleared();
+                onBack();
+              }}
               onTeachBack={isTeachBack ? undefined : onContinueDiagnostic}
             />
           ) : null}
@@ -624,6 +655,32 @@ export function PracticeScreen({
                     clear
                   </button>
                 ) : null}
+              </div>
+            ) : null}
+            {/* Meas §3.A6 elicitation — one line at a decision point, offered
+                only where the answer underdetermines the reasoning, and only
+                while the per-session budget lasts. It is a field, not a step:
+                it never gates Submit, it is never validated, and a blank one
+                is submitted as nothing at all (see withElicitedExplanation). */}
+            {item.elicitation?.elicit && item.elicitation.prompt ? (
+              <div style={{ marginTop: 10 }}>
+                <label
+                  htmlFor="elicitation-line"
+                  style={{ display: "block", fontSize: 11, marginBottom: 4, color: COLOR.textDim }}
+                >
+                  {item.elicitation.prompt}{" "}
+                  <Faint>· skipping this costs nothing</Faint>
+                </label>
+                <input
+                  id="elicitation-line"
+                  type="text"
+                  className="text-input"
+                  value={whyLine}
+                  onChange={(event) => setWhyLine(event.target.value)}
+                  disabled={submitting}
+                  placeholder="one line — or leave it blank"
+                  style={{ width: "100%", fontSize: 12 }}
+                />
               </div>
             ) : null}
             {item.hints.slice(0, hintsUsed).map((hint, index) => (

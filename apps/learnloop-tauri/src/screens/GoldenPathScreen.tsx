@@ -43,6 +43,7 @@ import {
   BoundaryView,
   type Checkpoint,
 } from "../components/goldenpath/shared";
+import { ItemPresentation } from "../components/ItemPresentation";
 import { TriageDecisionAid } from "../components/goldenpath/TriageDecisionAid";
 import { goldenPathFixtures } from "../fixtures/goldenpath";
 
@@ -626,9 +627,17 @@ function AssessmentWorkspace({
               <Meta>{opened.administrationId}</Meta>
               {opened.consumesUnseen ? <Pill color="pink">consumes unseen</Pill> : null}
             </div>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text, lineHeight: 1.7 }}>
-              {opened.prompt ?? "(no prompt available for this surface)"}
-            </div>
+            {/* Meas §3.A2/§3.A3: the whole stimulus, via the shared renderer.
+                A cold assessment served without an error hunt's worked solution
+                would be unanswerable in the one place the answer is supposed to
+                be cold — and the grade would be recorded anyway. */}
+            {opened.presentation ? (
+              <ItemPresentation presentation={opened.presentation} />
+            ) : (
+              <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text, lineHeight: 1.7 }}>
+                {opened.prompt ?? "(no prompt available for this surface)"}
+              </div>
+            )}
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}

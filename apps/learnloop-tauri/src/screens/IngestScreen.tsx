@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
-import type { AcquisitionPreviewItem, CommandError, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceLibraryCard, StartingLevel } from "../api/dto";
+import type { AcquisitionPreviewItem, CommandError, IngestBatchDto, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceLibraryCard, StartingLevel } from "../api/dto";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
 import { STARTING_LEVELS } from "../components/StudyMapBriefWizard";
 import { IngestActivityStack } from "../components/IngestActivity";
@@ -547,6 +547,7 @@ function IngestHome({
   const [subject, setSubject] = useState<string | null>(null);
   const [creatingSubject, setCreatingSubject] = useState(false);
   const [job, setJob] = useState<IngestJobDto | null>(null);
+  const [initialBatch, setInitialBatch] = useState<IngestBatchDto | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -826,7 +827,11 @@ function IngestHome({
       setStagedReaderOff({});
       setPageSelection("");
       setLocalError(null);
+      setInitialBatch(batch);
       onFocusBatch(batch.id);
+      // This catches imports that complete before the enqueue RPC returns; the
+      // terminal-transition callback below performs the authoritative refresh
+      // for normal background completion.
       onLibraryRefresh();
       activityRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     } catch (e) {
@@ -1452,6 +1457,8 @@ function IngestHome({
             </Faint>
             <IngestActivityStack
               focusBatchId={focusBatchId}
+              initialBatch={initialBatch}
+              onBatchSettled={() => onLibraryRefresh()}
               onOpenOutline={(sourceId) => {
                 onLibraryRefresh();
                 onOpenOutline(sourceId, null);

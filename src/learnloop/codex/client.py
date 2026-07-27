@@ -84,6 +84,8 @@ from learnloop.codex.schemas import (
     TeachBackAuthoring,
     TeachBackQuestion,
     TutorAnswer,
+    WireModel,
+    describe_wire_validation_error,
 )
 
 LOG = logging.getLogger(__name__)
@@ -182,6 +184,39 @@ class GradingContext:
     criterion_facet_weights: dict[str, dict[str, float]] = field(default_factory=dict)
     trace_contract: dict[str, Any] | None = None
     error_taxonomy: dict[str, Any] = field(default_factory=dict)
+    # Meas §3.A6: the vocabulary the grader may report trace observations
+    # against. Scoped to the item's own learning object rather than the whole
+    # vault, for two reasons: a vault-wide list is unbounded token cost on every
+    # grading call, and a grader offered every facet in the subject is being
+    # invited to pattern-match the vocabulary rather than read the work, which
+    # is A6's own revert criterion.
+    facet_registry: list[dict[str, str]] = field(default_factory=list)
+    # Meas §3.A5: the item's authored candidate hypotheses and what a holder of
+    # each visibly produces. A PRIOR over causes the grader may match the trace
+    # against and must be free to reject — never a posterior, never a constraint
+    # (causal §1 principle 4). Empty on every item that authors none, and the
+    # prompt says nothing about profiles when it is empty, so a grader is never
+    # shown a candidate set that does not exist.
+    discrimination_profiles: list[dict[str, Any]] = field(default_factory=list)
+    # Meas §3.A8: the clarification question and the learner's answer, present
+    # only on the re-grade that resolves it. Carried in the context (and so in
+    # `grading_context_hash`) rather than spliced into `learner_answer_md`,
+    # because the answer is a different artifact from the attempt: it arrived
+    # later, under a question, and a resolved grade must be able to say so.
+    clarification_exchange: dict[str, str] | None = None
+    # Meas §3.A3: the worked solution the learner was asked to repair. The
+    # planted errors themselves are deliberately NOT included — the grader
+    # reports what the learner claimed and repaired, and the harness (which knows
+    # where the plants are) decides what each report is worth. Handing the grader
+    # the answer key would make every report a confirmation.
+    error_hunt_solution: str | None = None
+    # Aug C2: deterministic observations available DURING diagnosis.  Every
+    # outcome is typed, and parse_failed/unsupported explicitly confer nothing.
+    verifier_observations: list[dict[str, Any]] = field(default_factory=list)
+    # Aug C4: bounded raw prior traces on the same facet and surface family.
+    # Prior diagnoses are omitted so history supplies evidence, not an answer to
+    # copy.  The cause-change control in B1 watches the resulting anchoring risk.
+    diagnostic_history: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -622,6 +657,11 @@ def make_codex_client(config: CodexConfig, vault_root: Path) -> CodexClient:
     raise CodexUnavailable(f"Unsupported Codex provider {config.provider!r}")
 
 
+#: Transport-level keys an app-server may report beside a flat proposal body.
+#: They belong to the response envelope, never to the wire contract.
+_HTTP_ENVELOPE_KEYS = frozenset({"usage"})
+
+
 class HttpCodexClient(TokenUsageAccounting):
     """Minimal local Codex app-server client.
 
@@ -638,7 +678,7 @@ class HttpCodexClient(TokenUsageAccounting):
 
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
         payload = self._post(self.config.authoring_path, {"context": asdict(context)}, purpose="authoring")
-        return AuthoringProposal.model_validate(payload.get("proposal", payload))
+        return self._validated(AuthoringProposal, payload, purpose="authoring")
 
     def run_canonical_ingest(self, context: CanonicalIngestContext) -> AuthoringProposal:
         payload = self._post(
@@ -646,19 +686,19 @@ class HttpCodexClient(TokenUsageAccounting):
             {"context": asdict(context)},
             purpose="canonical_ingest",
         )
-        return AuthoringProposal.model_validate(payload.get("proposal", payload))
+        return self._validated(AuthoringProposal, payload, purpose="canonical_ingest")
 
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
         payload = self._post(self.config.grading_path, {"context": asdict(context)}, purpose="grading")
-        return GradingProposal.model_validate(payload.get("proposal", payload))
+        return self._validated(GradingProposal, payload, purpose="grading")
 
     def run_tutor_qa(self, context: TutorQAContext) -> TutorAnswer:
         payload = self._post(self.config.tutor_qa_path, {"context": asdict(context)}, purpose="tutor_qa")
-        return TutorAnswer.model_validate(payload.get("proposal", payload))
+        return self._validated(TutorAnswer, payload, purpose="tutor_qa")
 
     def run_teach_back_question(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         payload = self._post(self.config.teach_back_path, {"context": asdict(context)}, purpose="teach_back")
-        return TeachBackQuestion.model_validate(payload.get("proposal", payload))
+        return self._validated(TeachBackQuestion, payload, purpose="teach_back")
 
     def run_teach_back_authoring(self, context: TeachBackAuthoringContext) -> TeachBackAuthoring:
         payload = self._post(
@@ -666,7 +706,7 @@ class HttpCodexClient(TokenUsageAccounting):
             {"context": asdict(context)},
             purpose="teach_back_authoring",
         )
-        return TeachBackAuthoring.model_validate(payload.get("proposal", payload))
+        return self._validated(TeachBackAuthoring, payload, purpose="teach_back_authoring")
 
     def run_misconception_match(self, context: Any) -> MisconceptionMatch:
         context_payload = context if isinstance(context, dict) else asdict(context)
@@ -675,7 +715,7 @@ class HttpCodexClient(TokenUsageAccounting):
             {"context": context_payload},
             purpose="misconception_match",
         )
-        return MisconceptionMatch.model_validate(payload.get("proposal", payload))
+        return self._validated(MisconceptionMatch, payload, purpose="misconception_match")
 
     def run_promotion_analysis(self, context: Any) -> PromotionAnalysis:
         context_payload = context if isinstance(context, dict) else asdict(context)
@@ -684,7 +724,33 @@ class HttpCodexClient(TokenUsageAccounting):
             {"context": context_payload},
             purpose="promotion_analysis",
         )
-        return PromotionAnalysis.model_validate(payload.get("proposal", payload))
+        return self._validated(PromotionAnalysis, payload, purpose="promotion_analysis")
+
+    def _validated(self, model_type: type[BaseModel], payload: dict, *, purpose: str) -> Any:
+        """Validate one app-server response body against its wire contract.
+
+        The transport envelope is stripped first. The adapter contract says the
+        server "may return the proposal directly or under a top-level
+        ``proposal`` key", and separately that it may report ``usage`` beside it
+        (see ``_post``) — so on the flat shape the metering object is part of
+        the envelope, not of the proposal, and stripping it is what keeps
+        ``WireModel``'s ban aimed at genuine contract divergence. Before that
+        ban, a flat-shaped body simply had its ``usage`` deleted here in
+        silence, which is the same failure mode from the other side: the model
+        was never wrong, it just never learned it was being ignored.
+        """
+
+        if "proposal" in payload:
+            body: Any = payload["proposal"]
+        else:
+            body = {key: value for key, value in payload.items() if key not in _HTTP_ENVELOPE_KEYS}
+        try:
+            return model_type.model_validate(body)
+        except ValidationError as exc:
+            raise CodexUnavailable(
+                f"Codex app-server returned an invalid {purpose} response: "
+                f"{describe_wire_validation_error(model_type, exc)}"
+            ) from exc
 
     def _post(self, path: str, payload: dict, *, purpose: str) -> dict:
         url = _url(self.config.base_url, path)
@@ -1140,6 +1206,7 @@ class SdkCodexClient(TokenUsageAccounting):
         try:
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError, json.JSONDecodeError) as first_exc:
+            reason = describe_wire_validation_error(model_type, first_exc)
             _log_codex_debug(
                 "codex.structured_output_repair",
                 provider="codex",
@@ -1147,17 +1214,23 @@ class SdkCodexClient(TokenUsageAccounting):
                 purpose=purpose,
                 model=self.config.model,
                 error=str(first_exc),
+                reason=reason,
             )
             repaired = self._run_structured(
-                _structured_output_repair_prompt(text, model_type),
+                _structured_output_repair_prompt(text, model_type, reason=reason),
                 output_schema,
                 purpose=f"{purpose}_json_repair",
             )
             try:
                 return model_type.model_validate_json(repaired)
             except (ValidationError, ValueError, json.JSONDecodeError) as second_exc:
+                # Name the model and the offending field. A forbidden extra is
+                # a contract divergence someone has to resolve in
+                # ``codex/schemas.py``; a raw pydantic dump buried in a generic
+                # "invalid JSON" is what let F2 hide for 43 attempts.
                 raise CodexUnavailable(
-                    f"Codex returned invalid {model_type.__name__} JSON after one repair attempt."
+                    f"Codex returned invalid {model_type.__name__} JSON after one repair "
+                    f"attempt: {describe_wire_validation_error(model_type, second_exc)}"
                 ) from second_exc
 
     def _run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
@@ -1399,9 +1472,18 @@ def _grading_prompt(context: GradingContext) -> str:
                 "Grade the learner answer against the prompt, expected answer, and "
                 "rubric. Return a LearnLoop GradingProposal as schema-valid JSON only. "
                 "Write `diagnosis_md` FIRST, before filling any structured field. "
-                "Diagnose the displayed work in ordinary prose without trying to fit "
-                "it to the supplied facet vocabulary; then structure only claims that "
-                "the prose actually establishes. A first_divergence span quote must "
+                "Next construct the smallest `repaired_trace` that preserves the "
+                "learner's valid prefix. Only AFTER that checkable repair, fill the "
+                "structured causal fields as explanations of the edit. Diagnose the "
+                "displayed work in ordinary prose without trying to fit it to the "
+                "supplied facet vocabulary; structure only claims that the prose and "
+                "repair actually establish. Treat `verifier_observations` as typed "
+                "instruments: verified/contradicted may localize a failure, while "
+                "parse_failed/unsupported/assumption_missing confer NO support and "
+                "must not attract the anchor merely because another part parsed. "
+                "`diagnostic_history` contains raw prior traces only. Use it to test "
+                "recurrence, but re-diagnose the current trace independently; a prior "
+                "cause may have changed. A first_divergence span quote must "
                 "be copied from the learner answer, and every named facet must also "
                 "appear in diagnosis_md. A missing_required_step divergence must name "
                 "a checkpoint_id from the item's trace contract. "
@@ -1455,7 +1537,57 @@ def _grading_prompt(context: GradingContext) -> str:
                 "Postdictive claims are deterministic implications only: if the "
                 "cause were true, the named criterion must fail or lose full credit. "
                 "Use the supplied `error_taxonomy.selection_policy` and "
-                "`error_taxonomy.targeting_policy` exactly."
+                "`error_taxonomy.targeting_policy` exactly. "
+                "LAST, fill `exercised_facets`: facets from "
+                "`context.facet_registry` that the learner's written work "
+                "actually EXERCISES, whether or not this item declares them. "
+                "Quote the part of the trace that shows it in `evidence` — an "
+                "observation with no citation is not one. This channel is "
+                "positive only: it says a facet was used, never that it was "
+                "used wrongly, and a facet that appears only in the item's "
+                "prompt rather than in the learner's own work was not "
+                "exercised. Report at most a handful, and leave it empty when "
+                "the work shows nothing beyond the criteria you already "
+                "graded; an empty list is the common and correct answer on a "
+                "short response. "
+                "`clarification_request`: leave it null unless you are "
+                "genuinely unsure what the LEARNER did and one question would "
+                "settle it - ambiguous notation, a skipped step that is either "
+                "fluency or a gap, a correct answer possibly reached by invalid "
+                "reasoning, or which of two methods they believed they were "
+                "using. Ask at most one, only against a criterion you marked "
+                "`learner_confidence='hedged'` or an attribution you marked "
+                "`abstained`. NEVER ask about something you could settle "
+                "yourself from the item, the expected answer, or the trace - "
+                "that is the system's debt, not the learner's. If "
+                "`context.clarification_exchange` is present, the learner has "
+                "already answered a question about this attempt: grade with "
+                "their answer in hand, do not ask again, and if it still does "
+                "not settle the matter, abstain rather than guess. "
+                "`discrimination_profile_match`: when "
+                "`context.discrimination_profiles` is non-empty, the item's "
+                "author has written down, per candidate hypothesis, what a "
+                "holder of it visibly produces. Treat that list as a PRIOR - a "
+                "set of candidates to check the trace against - never as a menu "
+                "you must choose from. Set outcome='matched' with the profile_id "
+                "and a quote from the learner's work ONLY when the work really "
+                "shows that hypothesis; otherwise set "
+                "outcome='no_profile_applies', which is a full answer and not a "
+                "failure to answer. Picking the closest profile when none fits "
+                "is worse than rejecting them all: it replaces what the learner "
+                "did with what the author guessed. Leave the field null when "
+                "the item lists no profiles. "
+                "`error_hunt_report`: when `context.error_hunt_solution` is "
+                "present the learner was shown that worked solution and asked "
+                "to find and REPAIR whatever is wrong with it. Report each "
+                "error they claimed, with where they say it is, what they say "
+                "is wrong, and the corrected work they produced - `repair_md` "
+                "empty when they only pointed at it without fixing it. You are "
+                "NOT told how many errors were planted or where; do not guess "
+                "at `matches_planted_error_id` unless the item names the plant "
+                "to you. The solution may contain no errors at all, and "
+                "reporting that the learner found one in correct work is the "
+                "informative outcome, not a mistake to smooth over."
             ),
             "context": asdict(context),
         },
@@ -1935,19 +2067,30 @@ def _json_prompt(title: str, prompt_version: str, payload: dict[str, Any]) -> st
     )
 
 
-def _structured_output_repair_prompt(text: str, model_type: type[BaseModel]) -> str:
-    """Bounded second pass for malformed or schema-invalid structured output."""
+def _structured_output_repair_prompt(
+    text: str, model_type: type[BaseModel], *, reason: str = ""
+) -> str:
+    """Bounded second pass for malformed or schema-invalid structured output.
+
+    ``reason`` carries the validator's own diagnosis. It matters most for an
+    undeclared field: the repair turn is the mechanism that keeps one bad key
+    from costing a whole batch, and it can only drop a field it is told about.
+    """
 
     schema = json.dumps(_codex_output_schema(model_type), sort_keys=True, ensure_ascii=False)
     # JSON-encode the prior output as data so its backslashes, control
     # characters, and any invalid-looking LaTeX escapes cannot become prompt
     # structure on the repair turn.
     encoded_output = json.dumps(text, ensure_ascii=True)
+    diagnosis = f"Validator diagnosis of the prior output:\n{reason}\n\n" if reason else ""
     return (
         "Repair the prior model output into one JSON object that validates against "
         "the schema below. Preserve its meaning. Return only JSON. In every JSON "
         "string, escape backslashes (including LaTeX commands) correctly, and replace "
-        "any lone Unicode surrogate with the intended Unicode scalar or U+FFFD.\n\n"
+        "any lone Unicode surrogate with the intended Unicode scalar or U+FFFD. Emit "
+        "only the fields the schema declares: drop any key it does not list rather "
+        "than renaming or inventing one.\n\n"
+        f"{diagnosis}"
         f"Schema:\n{schema}\n\nPrior output as a JSON string:\n{encoded_output}"
     )
 
@@ -2028,8 +2171,25 @@ _UNSUPPORTED_STRICT_SCHEMA_KEYS = {
 
 
 def _codex_output_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """Return a schema accepted by Codex's strict Responses API wrapper."""
+    """Return a schema accepted by Codex's strict Responses API wrapper.
 
+    The gate is the point. ``_strict_json_schema`` forbids undeclared fields on
+    the wire; :class:`~learnloop.codex.schemas.WireModel` forbids them at
+    validation. Those are two halves of one contract, and for most of this
+    module's life they agreed only by luck — a model outside the ``WireModel``
+    hierarchy runs ``extra="ignore"``, so the provider would be barred from
+    emitting a field that, had it arrived by any non-strict route, would have
+    been discarded in silence (``spec_measurement_efficiency_v1.md`` §2 F2).
+    Refusing to build a schema for such a model makes the two halves derive
+    from a single declaration instead.
+    """
+
+    if not (isinstance(model, type) and issubclass(model, WireModel)):
+        raise TypeError(
+            f"{model.__name__} is not a WireModel, so its strict output schema would "
+            "forbid extra fields that its validator silently drops. Inherit "
+            "learnloop.codex.schemas.WireModel."
+        )
     return _strict_json_schema(model.model_json_schema())
 
 
@@ -2095,7 +2255,7 @@ def _flatten_nested_any_of(schema: dict[str, Any]) -> None:
 
 
 def map_typed_schema_paths(model: type[BaseModel]) -> list[str]:
-    """Locate ``dict[str, X]`` fields, which strict output cannot express.
+    """Locate open-keyed object fields, which strict output cannot express.
 
     Strict structured output requires ``additionalProperties: false`` on every
     object and has no open-keyed map form, so sanitizing one yields an object
@@ -2103,6 +2263,18 @@ def map_typed_schema_paths(model: type[BaseModel]) -> list[str]:
     instead of erroring. The fields that already ship this way are pinned by a
     test so a new one cannot be added without noticing the limitation. Modeling
     such a field as a list of key/value objects is the way to make it fillable.
+
+    Two shapes qualify, and only the first was detected originally:
+
+    * ``dict[str, X]`` -> ``additionalProperties: {<schema of X>}``;
+    * a bare ``dict`` / ``dict[str, Any]`` -> ``additionalProperties: true``.
+
+    The second is the same defect wearing a different keyword — it sanitizes to
+    ``{"type": "object", "required": [], "additionalProperties": false}``, an
+    object with no declared properties and no permitted extras, so the only
+    value the provider can legally emit is ``{}``. ``WireModel``'s
+    ``extra="forbid"`` cannot help here: the ban lives on the *model*, and
+    these are untyped ``dict`` fields with no model behind them.
     """
 
     def walk(node: Any, path: str) -> Iterator[str]:
@@ -2113,7 +2285,7 @@ def map_typed_schema_paths(model: type[BaseModel]) -> list[str]:
         if not isinstance(node, dict):
             return
         extra = node.get("additionalProperties")
-        if isinstance(extra, dict) and extra and "properties" not in node:
+        if "properties" not in node and (extra is True or (isinstance(extra, dict) and extra)):
             yield path
         for key, child in node.items():
             if key in {"$defs", "properties"} and isinstance(child, dict):

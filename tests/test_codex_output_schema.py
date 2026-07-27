@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import json
+import re
+import textwrap
 import logging
 import sys
 import threading
@@ -401,6 +404,8 @@ def _public_schema_models() -> list[type[BaseModel]]:
             if inspect.isclass(obj)
             and issubclass(obj, BaseModel)
             and obj.__module__ == codex_schemas.__name__
+            # WireModel is the empty base, not a payload anyone sends.
+            and obj is not codex_schemas.WireModel
         ),
         key=lambda model: model.__name__,
     )
@@ -473,12 +478,42 @@ def test_discriminated_target_ref_still_round_trips_after_sanitizing():
     assert attribution.target_ref.kind == "criterion"
 
 
-# `dict[str, X]` fields cannot be expressed under strict structured output, so
-# they sanitize into objects the provider is forbidden to populate and always
-# arrive empty -- silently, with no error from either side. Keep this empty:
-# carry an open-keyed field on the wire as a list of key/value pairs, the way
-# EvidenceWeightMap and friends do, so the provider can actually fill it.
-_KNOWN_UNFILLABLE_MAP_FIELDS: set[str] = set()
+# Open-keyed object fields cannot be expressed under strict structured output,
+# so they sanitize into objects the provider is forbidden to populate and always
+# arrive empty -- silently, with no error from either side. Do not grow this
+# set: carry an open-keyed field on the wire as a list of key/value pairs, the
+# way EvidenceWeightMap and friends do, so the provider can actually fill it.
+#
+# Every entry below is an ALREADY-BROKEN field, recorded rather than hidden. The
+# `dict[str, X]` arm of the detector was clean; widening it to bare `dict`
+# fields (`additionalProperties: true`) exposed these, which are the same F2
+# defect -- a field the model is structurally unable to fill, failing closed
+# toward "empty" with no error from either side:
+#
+#   * DepthEdgeInstancePayload -- six of its ten authored fields, i.e. the
+#     entire task contract, evidence, freshness and burden of an LLM-authored
+#     depth edge. Every instance the provider returns has them empty, so the
+#     deterministic gates in services/depth_edge_authoring can only ever see a
+#     bare edge_id/milestone/rationale skeleton.
+#   * AppendRestructure.payload -- the whole body of a §10.2 restructure item.
+#   * PracticeItemPatchPayload.hint_policy, and the `dict` arm of
+#     expected_answer (its `str` arm still works, so a structured expected
+#     answer is unreachable while a prose one is not).
+#
+# Fixing them means giving each a declared shape (or an explicit pair-list);
+# that touches services outside this change's ownership, so they are pinned
+# here to keep the next one from being added silently.
+_KNOWN_UNFILLABLE_MAP_FIELDS: set[str] = {
+    "AppendRestructure.payload",
+    "DepthEdgeInstancePayload.activity_path",
+    "DepthEdgeInstancePayload.entry_evidence",
+    "DepthEdgeInstancePayload.exit_evidence",
+    "DepthEdgeInstancePayload.expected_burden",
+    "DepthEdgeInstancePayload.fresh_proof",
+    "DepthEdgeInstancePayload.successor_task_contract",
+    "PracticeItemPatchPayload.expected_answer",
+    "PracticeItemPatchPayload.hint_policy",
+}
 
 
 def _map_field_identity(model: type[BaseModel], path: str) -> str:
@@ -545,6 +580,111 @@ def test_trace_recipe_dependencies_travel_as_pairs():
     TraceContractPayload.model_validate({"status": "available", "recipes": [recipe.model_dump()]})
 
 
+def test_undeclared_wire_field_is_rejected_by_name():
+    """The regression that would have caught F2 at authoring time.
+
+    ``RubricCriterionPayload`` had no ``targets`` field; a provider that emitted
+    one had it deleted at validation with no error from either side, and the
+    resulting "an item can only ever fill one column" defect read as a design
+    decision for 43 attempts. An undeclared field must now name itself.
+    """
+
+    with pytest.raises(ValidationError) as excinfo:
+        codex_schemas.RubricCriterionPayload.model_validate(
+            {
+                "id": "solve",
+                "points": 2.0,
+                "description": "Solves both branches.",
+                "targets_v2": [{"facet": "complex_multiplication"}],
+            }
+        )
+
+    assert codex_schemas.undeclared_wire_fields(excinfo.value) == ["targets_v2"]
+    message = codex_schemas.describe_wire_validation_error(
+        codex_schemas.RubricCriterionPayload, excinfo.value
+    )
+    assert "RubricCriterionPayload" in message
+    assert "targets_v2" in message
+
+
+def test_undeclared_field_inside_a_proposal_item_names_the_payload_model():
+    """The union must not bury the diagnosis under six irrelevant failures."""
+
+    with pytest.raises(ValidationError) as excinfo:
+        codex_schemas.AuthoringProposalItem.model_validate(
+            {
+                "client_item_id": "c1",
+                "item_type": "practice_item",
+                "operation": "create",
+                "proposed_entity_id": "pi_1",
+                "rationale": "why",
+                "review_route": "review_required",
+                "payload": {
+                    "learning_object_id": "lo_1",
+                    "prompt": "Explain SVD.",
+                    "difficulty_prior": 0.4,
+                },
+            }
+        )
+
+    message = str(excinfo.value)
+    assert "PracticeItemPatchPayload does not declare difficulty_prior" in message
+
+
+@pytest.mark.parametrize("model", _public_schema_models(), ids=lambda model: model.__name__)
+def test_runtime_validation_and_strict_schema_agree_on_what_is_admissible(model):
+    """The two halves of one contract, checked against each other.
+
+    ``_strict_json_schema`` stamps ``additionalProperties: false`` onto every
+    object it sends the provider; ``WireModel`` forbids extras at validation.
+    Before this test the sanitizer *imposed* strictness the model did not
+    declare, so the runtime happily accepted-and-discarded a field the wire
+    schema forbade. Here every model-backed object must already forbid extras
+    on its own, i.e. the sanitizer adds nothing it was not given.
+    """
+
+    assert issubclass(model, codex_schemas.WireModel)
+    assert model.model_config.get("extra") == "forbid"
+
+    unstrict = [
+        path
+        for path, node in _object_nodes(model.model_json_schema(), "")
+        # `properties` marks a model-backed object; a bare `dict` field has none
+        # and is pinned separately by _KNOWN_UNFILLABLE_MAP_FIELDS.
+        if "properties" in node and node.get("additionalProperties") is not False
+    ]
+    assert unstrict == []
+
+
+def _object_nodes(value: Any, path: str) -> list[tuple[str, dict[str, Any]]]:
+    if isinstance(value, list):
+        return [
+            node for index, item in enumerate(value) for node in _object_nodes(item, f"{path}[{index}]")
+        ]
+    if not isinstance(value, dict):
+        return []
+    found: list[tuple[str, dict[str, Any]]] = []
+    if value.get("type") == "object" or "properties" in value:
+        found.append((path, value))
+    for key, child in value.items():
+        if key in {"$defs", "properties"} and isinstance(child, dict):
+            for name, schema in child.items():
+                found.extend(_object_nodes(schema, f"{path}/{key}/{name}"))
+            continue
+        found.extend(_object_nodes(child, f"{path}/{key}"))
+    return found
+
+
+def test_output_schema_refuses_a_model_outside_the_wire_hierarchy():
+    """A non-WireModel would forbid extras on the wire and drop them at runtime."""
+
+    class Loose(BaseModel):
+        summary: str = ""
+
+    with pytest.raises(TypeError, match="Loose is not a WireModel"):
+        _codex_output_schema(Loose)
+
+
 def test_no_new_open_keyed_map_fields_are_introduced():
     found = {
         _map_field_identity(model, path)
@@ -595,3 +735,92 @@ def _logged_event(records, event: str) -> dict:
             if isinstance(fields, dict):
                 return fields
     raise AssertionError(f"missing log event {event}")
+
+
+# --- outbound half of the same defect ---------------------------------------
+#
+# `WireModel` closes the INBOUND direction: a provider field the schema does not
+# declare is now an error instead of a silent drop. The prompt/context pair is
+# the same defect one level up and in the other direction. Every prompt builder
+# ships `asdict(context)` beside prose that names `context.<field>`; the prose
+# is a plain string, so a field removed from (or renamed on) the dataclass
+# leaves the instruction referring to a key that is no longer in the payload.
+# Nothing errors -- the model is simply told to consult something that is not
+# there, which is exactly how a dropped `clarification_exchange` desynchronises
+# the grading prompt from the grading contract without a single failing call.
+
+
+def _context_field_references(function) -> set[str]:
+    """Every ``context.<name>`` the builder mentions, prose included."""
+
+    source = textwrap.dedent(inspect.getsource(function))
+    return set(re.findall(r"context\.([a-z_][a-z0-9_]*)", source))
+
+
+def _prompt_builders_with_dataclass_contexts() -> list[tuple[str, Any, Any]]:
+    import learnloop.codex.client as client_module
+
+    builders = []
+    for name, function in vars(client_module).items():
+        if not (name.startswith("_") and name.endswith("_prompt") and inspect.isfunction(function)):
+            continue
+        annotation = inspect.signature(function).parameters.get("context")
+        if annotation is None:
+            continue
+        resolved = getattr(client_module, str(annotation.annotation).split(".")[-1], None)
+        if resolved is None or not dataclasses.is_dataclass(resolved):
+            continue
+        builders.append((name, function, resolved))
+    return sorted(builders)
+
+
+@pytest.mark.parametrize(
+    "name,function,context_type",
+    _prompt_builders_with_dataclass_contexts(),
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_prompt_prose_only_names_context_fields_that_exist(name, function, context_type):
+    declared = {f.name for f in dataclasses.fields(context_type)}
+    referenced = _context_field_references(function)
+
+    assert referenced <= declared, (
+        f"{name} instructs the model to read "
+        f"{sorted(referenced - declared)} from {context_type.__name__}, which does not "
+        "carry those fields; the prompt and the context have diverged."
+    )
+
+
+def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field():
+    """The one legitimate superset on this boundary, and only that one.
+
+    The adapter contract allows a flat response body *and* an opportunistic
+    top-level `usage` object, so on the flat shape `usage` is envelope, not
+    proposal. Before `extra="forbid"` it was simply deleted here in silence.
+    Any other unknown key is a genuine divergence and must say so.
+    """
+
+    from learnloop.codex.client import HttpCodexClient
+
+    client = HttpCodexClient(CodexConfig())
+
+    flat = client._validated(
+        codex_schemas.MisconceptionMatch,
+        {"decision": "new", "misconception_id": None, "usage": {"prompt_tokens": 12}},
+        purpose="misconception_match",
+    )
+    assert flat.decision == "new"
+
+    nested = client._validated(
+        codex_schemas.MisconceptionMatch,
+        {"proposal": {"decision": "same", "misconception_id": "mc_1"}, "usage": {}},
+        purpose="misconception_match",
+    )
+    assert nested.misconception_id == "mc_1"
+
+    with pytest.raises(CodexUnavailable) as excinfo:
+        client._validated(
+            codex_schemas.MisconceptionMatch,
+            {"decision": "new", "confidence": 0.9},
+            purpose="misconception_match",
+        )
+    assert "MisconceptionMatch does not declare confidence" in str(excinfo.value)

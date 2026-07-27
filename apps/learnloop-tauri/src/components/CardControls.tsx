@@ -204,6 +204,7 @@ export function CardControls({
   const [reason, setReason] = useState<RetirementReason>("knew_prompt_not_concept");
   const [note, setNote] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [retired, setRetired] = useState(false);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -239,6 +240,7 @@ export function CardControls({
         parts: parts.map((p) => ({ prompt: p.prompt.trim(), expectedAnswer: p.expectedAnswer.trim() }))
       });
       setNotice(`split into ${result.created.length} cards; this one retired`);
+      setRetired(true);
       setPanel(null);
       onRetired?.(result.created);
     });
@@ -247,6 +249,7 @@ export function CardControls({
     run(async () => {
       await api.retirePracticeItem({ practiceItemId, reason, note: note.trim() || undefined });
       setNotice("retired — history kept, never served again");
+      setRetired(true);
       setPanel(null);
       onRetired?.();
     });
@@ -311,16 +314,20 @@ export function CardControls({
     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>THIS CARD:</Faint>
-        {link("reword", "reword")}
-        {expectedAnswer !== null ? link("split in two", "split") : null}
-        {link("retire", "retire")}
-        <RungVariantActions
-          practiceItemId={practiceItemId}
-          disabled={busy}
-          onError={onError}
-          onApplied={() => onChanged?.()}
-        />
-        {onTeachBack ? (
+        {!retired ? (
+          <>
+            {link("reword", "reword")}
+            {expectedAnswer !== null ? link("split in two", "split") : null}
+            {link("retire", "retire")}
+            <RungVariantActions
+              practiceItemId={practiceItemId}
+              disabled={busy}
+              onError={onError}
+              onApplied={() => onChanged?.()}
+            />
+          </>
+        ) : null}
+        {!retired && onTeachBack ? (
           <TeachBackAction
             practiceItemId={practiceItemId}
             disabled={busy}
@@ -331,7 +338,7 @@ export function CardControls({
         {notice ? <Faint style={{ fontSize: 11 }}>{notice}</Faint> : null}
       </div>
 
-      {panel === "reword" ? (
+      {!retired && panel === "reword" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, border: `1px solid ${COLOR.border}`, padding: 8 }}>
           {textarea(promptDraft, setPromptDraft, "prompt…", 3)}
           {expectedAnswer !== null
@@ -341,7 +348,7 @@ export function CardControls({
         </div>
       ) : null}
 
-      {panel === "split" && expectedAnswer !== null ? (
+      {!retired && panel === "split" && expectedAnswer !== null ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, border: `1px solid ${COLOR.border}`, padding: 8 }}>
           <Faint style={{ fontSize: 11 }}>the original retires (history kept); each part becomes its own card.</Faint>
           {parts.map((part, i) => (
@@ -364,7 +371,7 @@ export function CardControls({
         </div>
       ) : null}
 
-      {panel === "retire" ? (
+      {!retired && panel === "retire" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, border: `1px solid ${COLOR.border}`, padding: 8 }}>
           <Faint style={{ fontSize: 11 }}>nothing is deleted — attempts and evidence stay; it is just never served again.</Faint>
           <TermSelect

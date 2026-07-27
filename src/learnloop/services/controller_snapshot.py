@@ -84,6 +84,13 @@ class Candidate:
     neighborhood_id: str | None = None
     is_lapse_retry: bool = False
     in_frozen_target: bool = True
+    #: Meas §3.A2/§3.A3: which arm of ``instrument_serving.unservable_reason``
+    #: this candidate trips, or None when the practice surface can render its
+    #: stimulus. Carried ON the candidate rather than looked up by the engine
+    #: because every constraint reads snapshot + candidate only (no per-candidate
+    #: DB or vault access, §5), and because it must ride into the decision
+    #: receipt: an exclusion the receipt cannot explain is not auditable.
+    unservable_reason: str | None = None
 
     def hashable(self) -> dict[str, Any]:
         return {
@@ -106,6 +113,7 @@ class Candidate:
             "neighborhood_id": self.neighborhood_id,
             "is_lapse_retry": self.is_lapse_retry,
             "in_frozen_target": self.in_frozen_target,
+            "unservable_reason": self.unservable_reason,
         }
 
 
@@ -221,6 +229,17 @@ def _commitment_summary(repository: Repository, commitment_id: str) -> Commitmen
 def _candidates_from_vault(
     vault: LoadedVault, states: Mapping[str, Any]
 ) -> list[Candidate]:
+    """Every practice item as a staged-controller candidate.
+
+    Unrenderable instruments are STAMPED here, not dropped: the staged path's
+    whole design is that exclusions are decided by the constraint engine and
+    written into the decision receipt, so filtering an item out of the snapshot
+    would make it vanish without a reason and defeat the audit. The refusal
+    itself is `constraint_engine._c_stimulus_renderable` (Meas §3.A2/§3.A3).
+    """
+
+    from learnloop.services.instrument_serving import unservable_reason
+
     candidates: list[Candidate] = []
     for item in vault.practice_items.values():
         state = states.get(item.id)
@@ -240,6 +259,7 @@ def _candidates_from_vault(
                 expected_minutes=None,
                 practice_mode=getattr(item, "practice_mode", None),
                 due_at=getattr(state, "due_at", None) if state is not None else None,
+                unservable_reason=unservable_reason(item),
             )
         )
     candidates.sort(key=lambda c: c.candidate_ref)

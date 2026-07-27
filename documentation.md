@@ -1,16 +1,19 @@
 # LearnLoop user and algorithm guide
 
-> Implementation snapshot: 2026-07-21 This guide describes the behavior present in the current codebase. It distinguishes supported behavior from legacy compatibility paths and work that is still in progress.
+> Implementation snapshot: 2026-07-27. This guide describes the behavior present in the current codebase. It distinguishes supported behavior from legacy compatibility paths and work that is still in progress. Stages 0–7 of `implementation_plan_v1.md` are shipped (section 1).
 
 LearnLoop is an adaptive learning system. A learner supplies trustworthy source material, LearnLoop turns it into a reviewable study map and practice bank, and each answer updates several deliberately separate models:
 
 - what the learner is likely able to do now;
 - what they have directly demonstrated without help;
 - when a particular item is becoming forgettable;
-- which misunderstanding best explains a pattern of answers; and
-- which eligible activity has the highest value right now.
+- which misunderstanding best explains a pattern of answers;
+- which eligible activity has the highest value right now; and
+- what the current question pool is structurally incapable of observing at all.
 
 The separation matters. A prediction is not a credential, a repeated near-clone is not independent evidence, a hint-assisted success is not the same as an unassisted success, and a wrong composite answer does not prove that every prerequisite is weak.
+
+The last model in that list is newer than the rest and is the reason several sections below read differently than they used to. LearnLoop measured its own instrument pool and found that 86% of the contract cells its learning objects declare could not be closed by any authored item, and that 72% of recorded attempts observed the right facet at the wrong capability. That finding — not the grader, not the scheduler — was the binding constraint, so the system now treats "which claims can this vault even test" as a first-class, standing, learner-visible question (sections 8.6, 21, and 23).
 
 New vaults use the `mvp-0.8` knowledge model — a strict superset of `mvp-0.7`'s canonical shared-facet model that adds the authority-propagation projection. The older `mvp-0.6` and `mvp-0.7` models remain readable so historical vaults and attempts can be migrated and replayed safely. Statements below about "`mvp-0.7`" semantics (canonical facets, the projection as sole writer of shared state) apply unchanged under `mvp-0.8`.
 
@@ -139,6 +142,8 @@ Use this table as the task-oriented index to the current product. In the desktop
 | Create a goal, reserve a held-out exam, inspect readiness/forecast/decay, or return after a hiatus | Today goal and exam overlays, Maintain | `exam`, `exam-readiness`, `overconfidence`, `reentry-summary`, `decay-pressure` | Section [16](#16-goals-exams-and-projections) |
 | Run the exemplar-driven certifying journey, including baseline, triage, pattern ladder, rotating surfaces, cold assessment, and a next-depth invitation | Golden Path | Golden Path setup and run controls | Section [17](#17-the-golden-path-run) |
 | Inspect replayable state, defaults, contracts, and algorithm behavior | Inspector, Review, Graph | `show`, `rebuild-derived-state`, `contracts`, `registry`, `surfaces audit` | Sections [8–14](#8-the-canonical-knowledge-model-mvp-07--mvp-08) and [19–20](#19-provenance-replay-and-debugging) |
+| Find out what this vault cannot measure, read the scoreboard, or audit an instrument class against its own revert criterion | Registry, Graph, `doctor` output | `contract-reachability`, `contract-hit-rate`, `scoreboard`, `instrument-audit`, `cold-probe-audit` | Sections [8.6](#86-contract-cells-and-reachability), [21](#21-instrument-classes), and [23](#23-measuring-the-measurement) |
+| Understand why a diagnosis was made, contest it, adjudicate it, or see a belief withdrawn | Feedback, Review overlay, Repair | `causal-attribution-audit`, `diagnosis queue`, `diagnosis adjudicate`, `commission-causal-probes` | Section [22](#22-causal-attribution-repair-and-correction) |
 
 ## 1. Product status and compatibility
 
@@ -178,20 +183,50 @@ The in-memory configuration fallback is intentionally still `mvp-0.6`. That fall
 
 There are no Errors or Doctor navigation tabs; the earlier placeholders were removed (CLI `learnloop doctor` remains the doctor surface). Claim telemetry still must not be treated as learner-model evidence — claims seed priors and route attention, never certification.
 
+### Shipped: causal attribution, instruments, and measurement instrumentation
+
+Stages 0–7 of `implementation_plan_v1.md` — spanning `spec_causal_attribution_v1.md`, `spec_diagnostic_augmentation_v1.md`, and `spec_measurement_efficiency_v1.md` — are implemented and wired to production paths:
+
+- **Causal attribution is complete.** Diagnoses are prose-first with typed structured fields behind them, repair candidates carry receipts with `permitted_uses` and are deterministically verified where possible, probe instruments are commissioned through a register → review → activate ladder, and adjudicated verdicts can promote *or withdraw* a belief. Missing-vocabulary notes record every abstention rather than forcing a guess (section 22).
+- **Static measurement analysis.** Contract-cell reachability is a standing `doctor` check, `measurement_rank` counts independently observable dimensions against declared facets, and the coverage denominator is the blueprint contract frontier rather than "items that happen to exist" (sections 8.6, 10).
+- **Contract-correct generation.** Practice generation authors at the capability the blueprint contract names, walking the reachability report as a prioritized commissioning queue (section 8.6).
+- **Authoring gates.** A planted-persona gate runs on every generation route and a facet mint gate runs at ingest, both with typed rejection reasons and an explicit abstention arm (section 21.6).
+- **The instrument wave.** Conjunctive capstones, opportunistic trace evidence, the learner clarification channel, discrimination profiles, contrast pairs, error hunts, and laddered stems (section 21).
+- **Metric producers.** Fifteen scoreboard metrics plus per-instrument-class revert criteria and a delayed cold probe over certified work (section 23).
+- **Blinded diagnostic validation.** Cross-model planted traces are diagnosed without their oracle labels, B2 licenses only the exact persona corpus it matched against real traces, and B4 compares licensed planted labels with real adjudications on their overlap. The live grader runs the C1–C4 repair-order, verifier, sampling, and bounded-history ladder with versioned hypothesis/revert receipts.
+- **The inference precheck** (plan item 8.1), shipped ahead of the inference rules it prices: a read-only counterfactual reporting how many currently unreachable contract cells capability dominance and prerequisite entailment would actually convert (section 23.5). It writes nothing and applies no inferred credit.
+
+Stage 7 does not manufacture evidence by existing. B1 numbers count only when
+the generator and diagnostician are different model families, B2 found the
+exact scored persona corpus indistinguishable from real traces, and the full
+regression matrix includes both open-vocabulary abstention and a mid-history
+cause change. Before those conditions hold, the stored run remains auditable
+but the scoreboard reports no licensed producer. Likewise, C3 sample agreement
+is provisional support from repeated readings of one trace, not an independent
+learner-evidence channel, so it cannot durably promote a belief by itself.
+
+Two further known gaps, stated because they are easy to misread as working: the A2 laddered-stem *kinship cap* (`apply_evidence_cap`) has no production caller yet — the canonical projection independently gets the same answer because it accumulates per `(facet, capability)`, so the code is harmless but is not a live guarantee — and literal D2 compliance for the facet mint gate is a structural proxy over error signatures rather than an authored-and-graded discriminating item.
+
 ## 2. Install and create a vault
 
-LearnLoop requires Python 3.12 or later. From a checkout:
+LearnLoop requires Python 3.12 or later and [uv](https://docs.astral.sh/uv/). Every Python entry point in this guide is run through `uv`; there is no expectation that a virtualenv is activated, and `uv run` is also what the Tauri desktop shell falls back to when locating the sidecar interpreter.
+
+From a checkout:
 
 ~~~bash
-python -m pip install -e '.[dev]'
-learnloop --help
+uv sync --extra dev
+uv run learnloop --help
 ~~~
 
-An alternative installation is:
+Optional extras: `--extra pdf` installs Marker for high-fidelity PDF extraction (heavy — it pulls in torch), and `--extra animation` installs Manim for explainer animations. Both are runtime-detected; without them the corresponding features report that they are missing rather than failing.
+
+To put `learnloop` on your PATH as a standalone tool instead:
 
 ~~~bash
 uv tool install --editable .
 ~~~
+
+The rest of this guide writes `learnloop <command>`; from a checkout, read that as `uv run learnloop <command>`.
 
 Create a vault, add a subject, and validate it:
 
@@ -738,7 +773,7 @@ Concept-graph edges are for navigation and authoring. `related`, `analogous_to`,
 A rubric criterion declares:
 
 - points;
-- facet-capability targets;
+- a list of facet-capability `targets`, each with its own role;
 - primary or supporting role;
 - dependencies on earlier criteria;
 - a correlation group; and
@@ -747,6 +782,13 @@ A rubric criterion declares:
 At presentation, LearnLoop freezes an assessment contract. A later edit to the live item cannot reinterpret what an old response actually assessed.
 
 For legacy items without explicit targets, the mode-to-capability compiler supplies a deterministic default. Authored targets always win.
+
+**One criterion can name several targets at different capabilities.** This is what makes a conjunctive capstone possible (section 21.1): a single criterion can declare that a step required the eigenvalue definition at `retrieval` *and* exercised the characteristic-polynomial procedure at `procedure_execution`. Two rules keep that from becoming a credit machine:
+
+- A **supporting** target claims the step *consumed* a facet. It confers nothing at all — not credit and not blame — unless a trace observation (section 21.2) actually shows the facet being used. An unexercised supporting claim is dropped from the contract before mass allocation, attribution weighting, and the ambiguity gate, so authoring an honest supporting target never removes measurement from the primary target and never manufactures a spurious unresolved cause.
+- Matching is on the **facet**, never on the `(facet, capability)` cell. A trace observation reports that a facet was used; which rung that counts at is the criterion's authored target, a deterministic quantity. Letting a grader's report choose the cell would let a model decide what rung its own observation certifies.
+
+The authoring schema previously dropped `targets` silently in both directions — the payload model ignored the extra field, and strict JSON schema mode actively forbade emitting it — so a model that tried to author a capstone had it discarded with no error from either side. Both directions failed closed toward "no targets", which is why the older behavior reads as accidental rather than as a decision.
 
 ### 8.5 Depth rungs, waypoints, and depth edges
 
@@ -850,6 +892,38 @@ Nothing crosses an envelope on its own. An eligible transition needs predecessor
 
 Golden Path also uses the word *rung* for a separate remediation sequence. Depth rungs describe the capability and task regime of generated work. Pattern-ladder rungs describe which teaching or repair activity should happen after triage. A pattern-ladder stage can use a depth-targeted item, but advancing that teaching sequence is not equivalent to demonstrating a deeper capability. Section 17.2 enumerates the pattern ladder and its evidence rules.
 
+### 8.6 Contract cells and reachability
+
+A blueprint recipe's binding components define a set of **contract cells**: the `(facet, capability)` pairs an LO's own authored contract says must be observed for that LO to be performable. This is a statement about *obligations*, derived from vault content, and it exists independently of whether any item can currently observe them.
+
+`learnloop contract-reachability` walks every declared cell and assigns one of five verdicts:
+
+| Verdict | Meaning |
+|---|---|
+| `REACHABLE` | Some active item observes this facet at this capability. |
+| `MISMATCH_BELOW` | Items observe the facet, but only at a shallower capability than the contract requires. |
+| `MISMATCH_ABOVE` | Items observe it only at a deeper capability. |
+| `NO_INSTRUMENT` | Nothing observes this facet at all. |
+| `INDETERMINATE` | The analysis abstains rather than guessing. |
+
+The report doubles as a **commissioning queue**. Its own ordering — not a second priority invented downstream — is what practice generation walks when deciding what to author next.
+
+This check exists because its absence was expensive. On the development vault, 55 of 64 contract cells were unreachable and 39 of them had no instrument at all, while 43 attempts had already been recorded against contracts that could never be closed. The contract-cell *hit rate* — the share of recorded attempts that landed in a cell their LO's contract actually declares — was 28%, with the 72% miss decomposing into 65% rung loss (right facet, wrong capability) and 7% off-contract entirely. `learnloop contract-hit-rate --since <date>` recomputes it over new attempts.
+
+#### Generation authors at the contract, not at the band
+
+The 65% rung loss was manufactured at generation time, and the mechanism is worth stating plainly because it is the kind of bug that looks like a tuning problem. Rung selection keyed the generation waypoint to the learner's mastery band — that is, to section 8.5's default-rung table — and therefore *independently of the blueprint*. The blueprint's declared capability reached the authoring model only as prose. Then the deterministic rung gate hard-failed any generated item whose capability differed from the band waypoint. So an item authored at the capability the contract asked for was actively rejected by the one gate in the path.
+
+For an LO that declares contract cells, the contract **is** the waypoint now. Commissioning resolves each `MISMATCH_BELOW` / `NO_INSTRUMENT` cell to the trajectory waypoint at *its* capability and hands the cells to the prompt in queue order. The rung gate's admission set becomes the set of capabilities the LO's contract names: an item at one of them is validated against that capability's waypoint, and an item outside them fails. There is no threshold and no new knob. An LO with **no** contract cells keeps the section 8.5 behavior byte-for-byte, which is why legacy vaults with no authored blueprints are untouched.
+
+#### Coordination cells are deferred, never re-aimed
+
+A `coordination` cell is deferred with the typed reason `coordination_requires_reviewed_depth_envelope`. It is never re-aimed one rung lower — that would be a blueprint edit disguised as generation — and never authored off-trajectory. Discharging a coordination obligation requires either a reviewed depth envelope (section 8.5) or a correction to the blueprint that declared it.
+
+That second path is real and was exercised. `learnloop integration-backfill` re-judges already-persisted `coordination` integration components against the criterion that should have gated them at authoring time: an integration component must describe an assembly that can *fail separately from its parts*. Two typed failures retire it — `no_assembly_to_fail` (fewer than two binding components, so there is nothing to assemble) and `facet_duplicates_component` (the integration names a facet the recipe already lists, so its failure is not separately repairable — the same part one rung harder). On the development vault, 18 of 19 integration components named a facet their recipe already declared; 17 were dropped, 1 was lowered to `method_selection`, and 0 survived as genuine coordination.
+
+That backfill removes contract cells, which shrinks the coverage denominator (section 10) and therefore moves displayed mastery **with no new evidence**. It is consequently narrated: the coverage denominator carries a content-addressed version — the algorithm name plus a hash of the effective sorted `(LO, facet, capability)` frontier — and a change to that hash emits exactly one learner-visible "estimates recomputed, your evidence unchanged" entry. Hashing the resolved cell set rather than the authored YAML is deliberate and buys two properties: an `updated_at` touch or a comment edit cannot mint a phantom recalibration, and a facet alias or merge that changes which canonical cells resolve *does* move it even though no file changed. Re-running the backfill, or any ordinary rebuild afterward, recomputes the same value and emits nothing.
+
 ## 9. What happens when an attempt is submitted
 
 The high-level pipeline is:
@@ -858,14 +932,19 @@ The high-level pipeline is:
 2. Validate the attempt type and any diagnostic presentation.
 3. Grade with the configured provider, or collect a structured self grade.
 4. Validate criterion points, fatal-error caps, facet targets, error types, and repair suggestions.
-5. Resolve surface coverage, observation reliability, familiarity/correlation discount, and evidence mass.
-6. Persist the attempt and criterion observations.
-7. Update the per-item FSRS memory state.
-8. Update the LO prediction-only EKF and optional item-difficulty posterior.
-9. Compute surprise, item-quality suspicion, error events, and follow-up needs.
-10. Recompute the canonical facet/capability projection from the immutable observation ledger.
-11. Update any open diagnostic episode and release block feedback when appropriate.
-12. Persist a debug payload and learner-facing feedback.
+5. Validate any opportunistic trace observations the grader reported (section 21.2) and any clarification request it raised (section 21.3).
+6. Drop unexercised supporting targets from the contract, before mass allocation (section 8.4).
+7. Resolve surface coverage, observation reliability, familiarity/correlation discount, and evidence mass.
+8. Persist the attempt and criterion observations.
+9. Consume any due certification cold probe this attempt satisfies (section 18), before the projection runs.
+10. Update the per-item FSRS memory state.
+11. Update the LO prediction-only EKF and optional item-difficulty posterior.
+12. Compute surprise, item-quality suspicion, error events, and follow-up needs.
+13. Recompute the canonical facet/capability projection from the immutable observation ledger.
+14. Update any open diagnostic episode, materialize a causal episode where one is warranted (section 22), and release block feedback when appropriate.
+15. Persist a debug payload and learner-facing feedback.
+
+Step 9 sits before the projection deliberately: a failing cold probe must be scored against the certificate it falsified, not against one its own evidence just withdrew.
 
 AI output is never accepted directly as state. It is schema-validated against the item's frozen rubric, known facets, known criteria, and error taxonomy.
 
@@ -896,6 +975,16 @@ Default attempt-type evidence masses are:
 No new attempt types were added for the recent reader and re-runging features; they emit existing types. A rung-variant request records a deterministic self-graded `self_report` attempt on the source item at the standard 0.30 mass — an easier request as a declared soft failure (score fraction 0.25), a harder request as a success (score fraction 1.0). Reader answers are never ability evidence at all: at most they become a replay-derived routing prior that reorders tier-two triage.
 
 Coverage comes from authored weights, rubric criterion maps, or a mode default. Reliability includes grader confidence, hint policy, attempt type, and other validated modifiers. Familiarity discounts same-item, same-surface, and overlapping-facet repetitions so dependent attempts cannot impersonate fresh evidence.
+
+### The coverage denominator is the contract frontier
+
+"How much of this LO have I covered" needs a denominator, and the honest one is the set of cells the LO's own blueprint recipes require — its **contract frontier** (section 8.6) — not the set of cells items happen to exist for. Three consequences:
+
+- **The vacuous case is fixed in the direction the floor exists to express.** An LO that declares obligations but has no instruments reports coverage 0.0, where it previously reported 1.0. An LO that genuinely requires nothing still reports 1.0.
+- **The denominator has a capability axis.** Coverage reads the per-cell ledger, so evidence at `retrieval` no longer closes a `transfer` cell. A vault predating that ledger falls back to facet-level mass and *says so* in `denominator_basis` rather than claiming per-cell precision it does not have.
+- **Legacy vaults are unaffected.** An LO with no authored blueprint components keeps its previous behavior byte-for-byte; the frontier switch is strictly additive.
+
+The frontier is the **union** over an LO's recipes rather than its best-covered single recipe. That overstates debt where recipes are true alternatives, which is the conservative direction for a variance floor, and it keeps one definition of "required cell" in the vault. Per-recipe routing belongs with the substitution rule that owns "for *some* blueprint", which is not yet built; a discount seam for inferred cells exists and is deliberately inert until it is.
 
 The LO EKF receives a resolved observation weight. Conceptually:
 
@@ -1082,11 +1171,34 @@ where \(G_{\max}=3\) by default. Cell shares are preserved when a cap scales a g
 
 This prevents one long testlet, one near-clone family, or one composite answer from minting unlimited certification. Retrieval evidence cannot certify method selection; strong components cannot certify integration without the declared direct whole-task evidence.
 
+**Direct and embedded credit are banked separately.** A conjunctive capstone (section 21.1) can supply credit to several cells at once, but credit arriving through a *supporting* target is embedded rather than direct, and no cell may take more than `max_embedded_credit_share` — 0.5 by default — of its certification credit from embedded observations. The cap is applied **per cell over its whole history**, not per attempt: an attempt-local cap can pass on every single attempt while the cell still ends up entirely embedded.
+
+A cell with zero direct credit therefore reads **0** certification credit. That is not a claim of zero evidence — the mass is in the ledger and the cell may legitimately display as `inferred` (section 11.8) — it is a claim of zero *certification*, which is the line this whole model exists to hold. The passed-facet firewall only protects the negative direction, and positive smearing has no firewall, because nobody contests being told they know something.
+
+The learner-facing Demonstrated curve is computed by a second, independent fold over the same ledger, and a dedicated test asserts the two agree to the float. Both folds share one guard predicate and one cap, because the first implementation taught only the projection and the displayed curve silently overstated the banked ledger.
+
 ### 11.7 Misconceptions are hypotheses, not score labels
 
 A mechanism error such as recall failure or method-selection failure routes the next intervention. A promoted misconception is a more specific belief statement with provenance and lifecycle state.
 
 A single strange answer may create an error event or unresolved cause; it should not automatically become a durable misconception. Repeated, discriminating evidence can promote or reactivate one. Clean later attempts can resolve it. The hypothesis-surface work is adding a better learner-facing history for returned/resolved cases, but the underlying diagnostic distinction already matters.
+
+Section 22 covers what happens after a misconception becomes durable: how a repair is proposed and verified, how a probe is commissioned to discriminate between rival explanations, and how a belief is withdrawn and corrected to your face when it turns out to be wrong.
+
+### 11.8 Every displayed facet state carries a label
+
+Four labels, one closed vocabulary, one precedence order:
+
+`measured > inferred > claimed > unknown`
+
+- **`measured`** — direct evidence in this exact `(facet, capability)` cell, over the mass gate.
+- **`inferred`** — a pooled prediction, from the shared facet parent or the LO backbone (section 11.4). Real, useful, and not a demonstration.
+- **`claimed`** — a learner self-report seeded the prior and nothing has tested it. A claim is a prior, so it can never outrank evidence.
+- **`unknown`** — nothing to say.
+
+The sharp edge is that **ignorance is not inference**. Predicted facet recall returns a 0.5 default when there is nothing to pool from, and labelling that `inferred` would be exactly the confident wrongness the vocabulary exists to prevent, so it reports `unknown`.
+
+The label is display-only by construction. No threshold, no certification decision, and no stored belief reads it — which is also its own revert condition: the moment a label starts gating something, it has become a score.
 
 ## 12. FSRS item memory
 
@@ -1131,10 +1243,15 @@ The queue starts with active PIs whose LO can be resolved. It excludes:
 
 - inactive items;
 - held-out exam-pool items;
-- ephemeral diagnostic dialogue turns from ordinary practice; and
-- cold LOs with no evidence, no active goal frontier, and no open diagnostic episode.
+- ephemeral diagnostic dialogue turns from ordinary practice;
+- cold LOs with no evidence, no active goal frontier, and no open diagnostic episode; and
+- **items whose stimulus the current interface cannot render**.
 
 A pending diagnostic episode never blocks ordinary practice. It keeps a cold LO eligible while the system waits for a suitable instrument.
+
+That last exclusion is a servability filter, and it exists because of a real failure. Two instrument classes shipped whose *stimulus* — an error hunt's worked solution, a laddered stem's shared setup — had no renderer. Nothing filtered them out of the due queue, so the live path ran: authored → gated → scheduled → the learner sees "correct the worked solution below" with nothing below it → the grader, which *does* receive the solution through its own path, marks every planted error missed → the projection banks negative facet mass for a repair the learner was never shown the material to make. A harmful write manufactured by the serving path, and worse than a missing instrument because it looks like evidence.
+
+The filter is deliberately not a config flag. "Can this app show this item?" is a fact about the code, and the correct way to lift the filter is to render the stimulus and delete the arm — which is what a single presentation renderer now does for both classes, rendering every declared block in order and never letting an unrecognized block kind decide whether the learner sees it. An unservable item is refused with a typed reason and a stated remedy, on both the practice queue and the exam-pool candidate build.
 
 ### 13.2 Baseline priority
 
@@ -1205,6 +1322,20 @@ U_{\text{practice}}={}&
 \]
 
 Gradient fit favors a useful challenge range rather than maximizing predicted correctness. The current target bands are 0.40–0.60 for probes, 0.75–0.90 for repairs, 0.60–0.80 for transfer, and 0.55–0.75 for ordinary practice.
+
+#### Item shape is a selection term, not an authoring rule
+
+Authoring emits both conjunctive capstones and decomposed single-cell items (section 21.1); selection decides which one you get. A `conjunctive_fit` term scores an item's shape as \((2p-1)\) — where \(p\) is the predicted pass probability — scaled by a saturating conjunctive strength. So a capstone is preferred exactly when the learner is predicted to pass, since a pass is what clears several cells at once, and a decomposed item is preferred exactly when they are not, since a failure on a capstone localizes nothing.
+
+Three deliberate exceptions:
+
+- Under the **repair** intent the shape term is a flat penalty. Repair exists to localize, and a capstone answers that question worst.
+- **Probes abstain entirely.** Probe ranking is already expected information gain over a hypothesis set; a second shape term would double-count the same argument.
+- A **single-cell item scores exactly 0**, so a pool with no conjunctive items is untouched.
+
+The spread rule was deliberately *not* inverted to "always author conjunctive". A pool of only capstones starves diagnosis.
+
+One correction worth recording, because it is the shape of mistake this term invites. The first implementation derived an item's cells from the compiled criterion targets, whose legacy fallback maps each criterion to its own facet — so any pre-conjunctive rubric naming different facets across criteria already scored as conjunctive. On the development vault, 6 of 55 items scored as capstones, five of them with no authored targets at all, perturbing the selection reward by up to ±0.067 on ordinary content and blinding the calibration sweep to a genuinely decision-relevant scheduler parameter. Conjunctive shape now requires *authored* targets, which is also the honest reading: the rule is about items authored as capstones, and a legacy rubric with one criterion per facet observes several cells without being one.
 
 ### 13.4 Composition and learner control
 
@@ -1533,6 +1664,20 @@ Recent errors decay in scheduler value with a seven-day time constant. High-seve
 
 Follow-up and intervention decisions are persisted separately from the original score. The typed repair-episode flow has landed: remediation episodes with delayed cold retries back a dedicated Repair surface, launched from feedback's "repair this →" or from a Review hypothesis.
 
+### Certification cold probes
+
+A repair cold retry asks "did the fix hold?". A **certification cold probe** asks a harder question: "was the certification real?" In a single-learner vault there is no held-out population to validate against, so a delayed re-test on a surface the learner has not seen is the only external validity check available.
+
+When an LO certifies, LearnLoop derives the certificate — content-hashed over the LO, blueprint, recipe, and certifying cells — and queues a probe that becomes due at **+14 days** and expires at **+21 days**. "Held out" reuses the existing surface vocabulary exactly: the probe item's surface group must not be in the union of independent surface groups over the certifying cells, with the held-out basis taken verbatim from the near-clone bases the causal activity policy already defines. The probe is an ordinary unassisted attempt subject to the same guard as every other cold task; failing it feeds `false_certification_rate`.
+
+Three implementation facts shape how to read the output, and each was a finding rather than a design choice:
+
+- **There is no durable certificate record.** Certification is a pure predicate over the ledger, so "which certificate" is derived and hashed over *requirements*, not evidence. Extra practice therefore never mints a new certificate, while a re-authored recipe does.
+- **Certification has no timestamp.** The projection's `updated_at` is projection time, which a rebuild moves. `certified_at` is derived as the latest observation time over the certifying cells — projected from immutable attempt timestamps — and when it is absent the horizon runs from discovery, which only ever *delays* a probe.
+- **Certification credit is monotone non-decreasing**, so failing new work cannot withdraw a certificate on its own. The metric's numerator is consequently not self-suppressing, which is the property that makes it worth trusting; the `certificate_withdrawn` abstention arm is reachable only through authoring or ledger changes.
+
+`learnloop cold-probe-schedule` queues what is due and `learnloop cold-probe-audit` reports the outcomes. When a certified LO has no held-out surface at all, the audit reports `certificates_unmeasurable` rather than a rate — the honest answer, and the common one on a small vault.
+
 ## 19. Provenance, replay, and debugging
 
 ### 19.1 Editable content versus derived state
@@ -1561,6 +1706,61 @@ learnloop ingest-batches show <batch-id> --vault ~/LearnLoop/my-vault
 learnloop ingest-batches resume <batch-id> --vault ~/LearnLoop/my-vault
 
 learnloop synthesize-repair <run-id> --dry-run --vault ~/LearnLoop/my-vault
+~~~
+
+Measurement and diagnostic commands (all read-only unless noted; section 23):
+
+~~~bash
+# What can this vault observe, and what did attempts actually land on?
+learnloop contract-reachability --vault ~/LearnLoop/my-vault
+learnloop contract-hit-rate --since 2026-07-01 --vault ~/LearnLoop/my-vault
+learnloop inference-precheck --vault ~/LearnLoop/my-vault
+
+# The scoreboard and the per-instrument-class revert criteria.
+learnloop scoreboard --vault ~/LearnLoop/my-vault
+learnloop scoreboard --replay --vault ~/LearnLoop/my-vault   # slow; enables the
+                                                             # replay-only metrics
+learnloop instrument-audit --vault ~/LearnLoop/my-vault
+
+# Cold re-test of certified work.
+learnloop cold-probe-schedule --vault ~/LearnLoop/my-vault
+learnloop cold-probe-audit --vault ~/LearnLoop/my-vault
+
+# Causal lane.
+learnloop causal-attribution-audit --vault ~/LearnLoop/my-vault
+learnloop build-causal-taxonomy --activate --vault ~/LearnLoop/my-vault
+learnloop commission-causal-probes --vault ~/LearnLoop/my-vault
+learnloop review-causal-probe --vault ~/LearnLoop/my-vault
+learnloop diagnosis queue --vault ~/LearnLoop/my-vault
+learnloop diagnosis adjudicate <attempt-id> --verdict correct --vault ~/LearnLoop/my-vault
+learnloop diagnosis scoreboard --vault ~/LearnLoop/my-vault
+
+# Stage 7. The first two append evaluation/license records; the report is read-only.
+learnloop persona-realism --personas authored-personas.json --vault ~/LearnLoop/my-vault
+learnloop diagnostic-eval \
+  --generator-provider deepseek_pro \
+  --diagnostician-provider codex_low \
+  --cases diagnostic-cases.json \
+  --vault ~/LearnLoop/my-vault
+learnloop diagnostic-augmentation --vault ~/LearnLoop/my-vault
+
+# Instrument channels.
+learnloop trace-evidence --vault ~/LearnLoop/my-vault
+learnloop clarification list --vault ~/LearnLoop/my-vault
+learnloop clarification rate --vault ~/LearnLoop/my-vault
+learnloop clarification expire --vault ~/LearnLoop/my-vault
+
+# Authoring gates, and the contrast-pair commissioning queue. All read-only:
+# they re-judge what already shipped, or derive a queue and nothing else.
+learnloop facet-mint-gate --vault ~/LearnLoop/my-vault
+learnloop persona-gate-precision --vault ~/LearnLoop/my-vault
+learnloop commission-contrast-pairs --vault ~/LearnLoop/my-vault
+
+# Vault-content edits.
+learnloop integration-backfill --vault ~/LearnLoop/my-vault             # diff-only
+learnloop integration-backfill --apply --vault ~/LearnLoop/my-vault
+learnloop correct-measurement <source-pi-id> corrected.yaml \
+  --reason "..." --projection-version <version> --vault ~/LearnLoop/my-vault
 ~~~
 
 `show <attempt-id> --json` exposes the coverage, reliability, familiarity, criterion, IRT, surprise, and ability-transition traces. `why` exposes scheduler terms and the expected information signal.
@@ -1614,8 +1814,251 @@ These are current defaults, not universal truths. They are versioned/configurabl
 | Forecast horizon | 14 days |
 | Starting-level claim levels | 0.15 / 0.35 / 0.55 / 0.75, pseudo-count 1 |
 | Rung-variant claim levels | easier 0.25, harder 0.70, pseudo-count 2; self-report attempt at 0.30 mass |
+| Max embedded share of a cell's certification credit | 0.5 (set to 1.0 to disable) |
+| Conjunctive item minimum cells / strength ceiling | 2 cells / saturates at 4 |
+| Trace-evidence elicitations per session | 2, and the reporting half is separately switchable |
+| Clarification TTL / warn threshold / minimum attempts | 48 hours / 15% / 20 |
+| Certification cold probe horizon | due +14 days, expires +21 days |
+| Contrast-pair band tolerance / within-pair difficulty gap | 0.05 / 0.15 |
+| Contrast-pair order-effect watch | minimum 5 completed pairs, dominance ceiling 0.50, two-sided α 0.05 |
 
-## 21. Practical interpretation
+## 21. Instrument classes
+
+For most of its life LearnLoop authored one kind of question: a prompt with a rubric. Section 8.6's measurement said the bottleneck was not the grader or the scheduler but the *pool* — most contract cells had no instrument that could close them, and most attempts observed the right facet at the wrong capability. This section describes the classes that were added in response.
+
+Two rules apply to all of them. **Every class ships with the metric that would justify reverting it**, reported by `learnloop instrument-audit`, and each of those metrics abstains as `no_data` with counts visible rather than reporting a fake 0.0 or 1.0. And **every class passes the planted-persona gate** (section 21.6) before it can reach a learner.
+
+### 21.1 Conjunctive capstones
+
+A capstone is one item whose criteria declare targets in several `(facet, capability)` cells at once (section 8.4). It is the largest available lever on cells-per-question: a learner who passes clears several obligations with one answer.
+
+Two guards keep it from becoming a credit machine, and both are described where they bite: unexercised supporting targets confer nothing (section 8.4), and no cell may take more than half its certification credit from embedded observations (section 11.6). Selection, not authoring, decides when you get a capstone versus its decomposed siblings (section 13.3).
+
+One consumer had to be taught that an item is no longer a single capability: exam-pool selection derived one capability per item from the item-level field, and reading only that field would have hidden every cell but one from the greedy selector — pricing the whole gain at zero. It now reads authored **primary** targets. Supporting targets are excluded there, because the question exam selection answers is "which cells can this item *close*", and embedded credit never certifies a component on its own.
+
+### 21.2 Opportunistic trace evidence
+
+When a grader reads an answer, it often *sees* a facet being used that the item never intended to measure. That observation was previously discarded. It is now recorded — under three bounds that are enforced by what the schema omits rather than by fields that could be edited later:
+
+- **Positive only.** There is no polarity column. Indicting a facet the item never intended to measure is exactly the smearing the attribution firewall forbids, and there is no criterion to appeal to. A trace observation may credit a facet; it may never indict one.
+- **Supporting at most.** The role column is a one-value constraint rather than the usual two-value vocabulary, so the channel cannot be promoted to primary by a later edit that forgets why.
+- **No capability, anywhere in the store.** The rung an observation counts at is a deterministic property of the criterion's authored target, never a model-reported one.
+
+The validator is deliberately both looser and stricter than the attribution channel. Looser: a trace observation is *by definition* allowed to name a facet the item never declared — that is the whole channel. Stricter: the facet must be in the vault's canonical registry, or the observation files evidence into a cell that no contract, report, or grid will ever read. A registry miss is dropped rather than raised, because a bonus channel must never take a graded attempt down.
+
+`observation_scope` — `declared` versus `opportunistic` — is derived, not authored, because the revert criterion is a statement about the opportunistic population only.
+
+**The elicitation half is the one with a learner cost.** More explanation is more evidence, so there is a standing temptation to demand it everywhere. LearnLoop does not. An item with an available trace contract is self-documenting — the steps *are* the explanation — so it never elicits. Only `method_selection` and `schema_interpretation` items, whose answers underdetermine the reasoning, ask at all: one optional line at a decision point, at most twice per session, rewarded and never required.
+
+"Never required" is structural. The line is held in state that is never checkpointed and is appended at submit behind a shared delimiter, so a blank line produces a submission **byte-identical** to an un-elicited one. There is no representation of "declined" anywhere in the system. The session budget counts lines actually written.
+
+### 21.3 The clarification channel
+
+Sometimes the grader's uncertainty is genuinely about *you* — it cannot tell from the answer whether you hedged because you were unsure of the method or unsure of the arithmetic. In that case, and only on hedged or abstained criteria, it may ask **one** question.
+
+- The grade is recorded as `provisional_pending_clarification`. This joins the existing "not final" vocabulary rather than starting a second one, so every surface that already reads that field sees it. It never overrides an existing reason: a grade that already needs a human is not made less so by also asking you.
+- A confidently-graded criterion never triggers a question. (An early version keyed on how confident the *learner* sounded, which licensed a question about a criterion awarded full credit at grader confidence 0.99.)
+- **The timeout arm writes nothing at all.** The provisional grade already recorded the hedge or abstention, so expiry only clears the review state. There is no code path from "the learner ignored the question" to a filled-in diagnosis. Skipping writes nothing either; the copy says so.
+- **Status is derived, not stored.** Two append-only tables — the request, and your answer — with `answered` / `timed_out` / `pending` computed from the pair plus the clock. The resolved grade lives in the evidence log as a new revision superseding the provisional one, so replay reproduces it without re-asking.
+- Resolution travels through the existing regrade door, with the exchange in the grading context (and therefore in the context hash, so the resolved grade is attributable to the exchange that produced it) rather than spliced into your answer text. Your answer is persisted **before** the regrade is attempted: the answer is the un-backfillable half and the regrade can always be re-run, so a provider outage must lose the second and never the first.
+- **`abstained` is first-class.** You may answer and the grader may still be unable to name a cause. Recording that is what stops the channel from becoming a machine for manufacturing resolutions.
+
+There is a standing watch on the boundary. `clarification rate` is denominated in attempts that *could have been asked* — ever model-graded, unioned with attempts carrying a clarification at all. A self-graded attempt has no grader that could have asked, and including it would dilute the rate toward zero, hiding exactly the over-asking the criterion watches for. It abstains below 20 attempts and warns above 15%; over threshold means machine-resident uncertainty is being misclassified as learner-resident, which must be fixed machine-side.
+
+### 21.4 Discrimination profiles, contrast pairs, and error hunts
+
+These three are authored as a group, because the first is the ground truth the other two consume.
+
+**Discrimination profiles** describe what a learner holding a particular belief would *do* on a given item. They have three consumers: the persona gate plants them as its highest-authority belief material; the grading context carries them as a **prior** with the expected failing criteria deliberately withheld — handing the grader the criteria the author expects to fail would turn a prior into a postdictive claim; and the commissioning path feeds them to contrast-pair authoring. `no_profile_applies` is a first-class sibling arm and a **row**, not the absence of one, which is what makes both tails of the fill-rate watch computable: a rate whose numerator is "no row was written" cannot be distinguished from "nothing was graded".
+
+**Contrast pairs** are two items differing in exactly one declared component, so an answer pattern across the pair isolates it. Both members must sit in the learner's success band, within a capped difficulty gap, with a symmetric declared differing component, and must survive a structural-manipulation test that masks numerals and refuses identical answer skeletons — a values-only variant is a clone. **Both members are refused together**; half a pair is not an instrument. Non-adjacency and order randomization live in the serving path with a deterministic seed, so the revert criterion — "within-pair differences dominated by order effects" — is measurable rather than assumed away.
+
+Where the deterministic rule cannot decide, it abstains rather than guessing. Without a semantic oracle, a belief signature that is not a byte-identical copy of one member's expected answer reads as "fails both", because one string cannot model a holder who answers one member correctly and the other wrongly. That case is a typed unjudged abstention that ships to review, not a verdict — an earlier version blocked every honestly-authored pair.
+
+**Error hunts** present work containing a planted error and ask you to find and repair it. The planted-error source has **no freehand arm** — a freehand error is an untyped instrument — and a required repair is mandatory, which keeps the class on the right side of the no-recognition-items rule. The persona gate is *inverted* here: the belief-holder passes by **not seeing** the plant, so the verdict blocks visible plants, uncorroborated plants, flag-only plants, plant-equals-repair, and any prompt that states the error count. Plants are seeded from your own misconception registry, which makes an error hunt double as repair verification.
+
+The clean-solution rotation is honoured end to end: some hunts contain no error. A learner who "finds" one in correct work mints a **misconception candidate** rather than a failure, and facet failures are stripped with an audit event rather than written. That guard was itself the source of the most instructive bug in this wave — see section 23.
+
+### 21.5 Laddered stems
+
+A laddered stem is one shared setup with several parts climbing it, so the context-loading cost is paid once at authoring time. Parts are correlated within a column and independent across columns, and the kinship rule for that lives in the one existing familiarity implementation rather than a second copy.
+
+Two honest caveats. The canonical projection **already** satisfied the rule that matters, because its accumulator is keyed per `(facet, capability)`; the pass that was capability-blind was the warmth-based one, which is the only one that changed. And the kinship cap itself has no production caller yet (section 1) — it is tested directly and is harmless, but it is not a live guarantee.
+
+**The stimulus is shown on every part, not once per run.** Parts are separate practice items, independently scheduled, each filing credit at its own capability; nothing in the app sequences a "ladder run" or holds session-level stimulus state. Part 3 can arrive days after part 1, in a different session, with parts 1–2 never served. Showing the setup once would mean showing it on whichever part happened to come first and serving the rest unanswerable. Repetition is correct here and should not be optimized away without a real ladder-run construct to hang it on.
+
+### 21.6 The planted-persona gate
+
+Before a generated item can reach you, it is run against planted personas: synthetic learners holding the specific beliefs the item claims to discriminate. If the personas do not separate — if the item cannot tell them apart — the item makes no discrimination claim it can keep.
+
+**Tiering is structural, not a flag.** The gate reads the instrument class off the row's own payload, and because it is chained into *every* generation route, a row that is structurally a diagnostic instrument is hard-gated even when the plain-practice route authored it. There is no strict-mode parameter to forget. A `diagnostic_probe` practice mode alone does not promote a row: it names no belief, so it makes no discrimination claim to check.
+
+Four typed outcomes, recorded rather than logged:
+
+| Outcome | Effect |
+|---|---|
+| `PASS` | Ships normally. |
+| `FLAG_FOR_REVIEW` | Loses auto-apply; goes to human review. |
+| `BLOCK` | Marked invalid, refused by the patch path, and the intervention need is reopened rather than being consumed by an undiscriminating instrument. |
+| `UNTESTED` | The abstention arm — no persona material exists for this item's targets. Changes no route. |
+
+`UNTESTED` is the common outcome on a vault with no facet registry, and that is deliberate: flagging every item would make the flag meaningless.
+
+Before an authored-signature B2 license exists, every audited row carries `persona_realism_validated: false`: diagnostic instruments remain hard-gated, plain practice failures remain advisory, and a pass is not diagnostic evidence. Once the blind matcher finds that corpus indistinguishable from real traces, plain-practice failures become hard and passing rows name the B2 run that licensed them. If the corpus is separable, an otherwise passing result is invalidated. Reviewer decisions remain descriptive rather than gate-precision labels because the reviewer sees the gate's reason; treating that response as independent ground truth would be circular.
+
+A second gate runs at ingest, on the vocabulary rather than the items: a facet is minted only when it owns an error signature its nearest neighbour lacks (symmetrically — a subset is a collapse) and a repair the neighbour lacks. A collapsed candidate becomes an **alias** with no new row, and every downstream reference is redirected to the surviving facet so evidence filed against the old id still lands correctly. One departure from a literal reading is documented in the code: a candidate that cannot be *tested* mints as `proposed` rather than aliasing, because aliasing on ignorance would delete the very missing-vocabulary record the rule exists to create.
+
+## 22. Causal attribution, repair, and correction
+
+Sections 11.7 and 14 cover what a misconception is and how a probe discriminates between rival explanations. This section covers the machinery around a *cause*: how it is stated, what may be done with it, how it is contested, and what happens when it turns out to be wrong.
+
+### 22.1 Prose first, structure behind it
+
+A diagnosis is authored as prose first. The structured causal fields — the anchor, the repair class, the typed target references — come after, and are constrained by it rather than the other way around. This ordering is load-bearing: causal attribution in natural language is something models do well, and forcing a fixed taxonomy at authoring time was reductive, because the span of plausible error types per question is effectively unbounded.
+
+Attribution axes are typed and consumed rather than decorative, and every attribution carries a measurement status and a trace contract, versioned append-only. Where the grade ledger deterministically falsifies a hypothesis, that veto survives everything downstream — including a human verdict. Adjudication outranks the system's *uncertainty*, never its *evidence*.
+
+### 22.2 Repair receipts and permitted uses
+
+A proposed repair carries a receipt naming what may be done with it. The permitted-use list is fail-closed: absent an explicit permission, the repair may not be used. Repair selection is deterministic and lexicographic, with the ranking pinned by a named policy version, so the same evidence always selects the same minimal repair.
+
+Where a repair's correctness is checkable, it is checked. A symbolic verifier confirms algebraic equivalence; a test-execution adapter exists with its trust boundary made explicit — the execution result arrives through a separate parameter rather than from the model-authored payload, because a repair that could attach its own successful return code would be issuing itself a deterministic verdict. With no caller-supplied result the verdict is `unsupported`, never a pass.
+
+### 22.3 Probe commissioning, and blindness
+
+When two rival explanations diverge on what they would have you *repair*, the system needs an instrument that separates them. Commissioning runs: divergence check → lock the hypothesis set → generate a blind prediction bundle per hypothesis → discrimination check → manipulation audit → mint a candidate.
+
+**The blind generator runs no model and consumes no learner observation.** It maps only the hypothesis's typed target reference into criterion targets authored on a fresh probe rubric; unmatched or un-mappable targets abstain rather than guessing. Each bundle declares over the union of those observation-free commitments. Regression tests vary the learner's postdictive claims while holding typed targets constant and require byte-identical bundles.
+
+Commissioning stops at `registered`, deliberately. Only `active` instruments are servable, and `registered → reviewed` requires a human, so a producer that activated its own instruments would defeat the register → review → activate ladder it exists to feed. `learnloop review-causal-probe` walks that ladder.
+
+The learner-facing verb changes correctly as a result. A divergent factor reports `no_discriminating_instrument` before commissioning and `unreviewed_probe_candidate` after — both blocked pending review, and the second is the more actionable statement: a human owes a review, rather than the pool owing an instrument. The machine's instrument debt is drained through a queue rather than being re-derived and forgotten on every attempt.
+
+### 22.4 Adjudication, promotion, and withdrawal
+
+You can contest a diagnosis from the feedback screen, and verdicts can also be entered deliberately with `learnloop diagnosis adjudicate`. Six verdicts, and only one of them promotes:
+
+| Verdict | Effect on the belief |
+|---|---|
+| `correct` | **Promotes** — the only verdict affirming both the anchor and the repair. |
+| `wrong_anchor` | **Withdraws.** |
+| `should_have_abstained` | **Withdraws.** |
+| `wrong_repair` | Neutral, with a recorded reason. Right place, wrong fix — withdrawing would contradict the verdict and promoting would launder it. |
+| `correctly_abstained` | Neutral, recorded. |
+| `should_not_have_abstained` | Neutral, recorded. |
+
+Late evidence is handled as late evidence: a learner confirmation arrives after the feedback screen has rendered and a human verdict days later, so neither is decidable inside the original normalization loop. Promotion is re-driven through the one existing durable door, and idempotency is structural rather than flag-guarded — a promoted candidate stops being a candidate — so replay reproduces it.
+
+### 22.5 Missing-vocabulary notes
+
+When the diagnostician abstains — it can see that something went wrong but has no vocabulary for it — that abstention is recorded in an append-only, content-addressed store rather than being discarded or forced into the nearest existing label. The same store receives authored items accepted with their facets left blank, recorded at acceptance rather than at generation, because a reviewer who filled the facets in withdrew the abstention.
+
+This data cannot be backfilled, which is why it ships ahead of the clustering that will eventually consume it. `learnloop causal-attribution-audit` reports the abstention rate alongside lane health and warns on uncaptured abstentions — the one hole capture cannot heal.
+
+### 22.6 Withdrawal is visible to you
+
+A belief that was **shown to you** and is later withdrawn as false produces a learner-visible correction entry. Three details make that work:
+
+- `surfaced_to_learner` is written only where a belief's wording actually reached you — unsuppressed *and* visible — and the wording **as shown** is stored alongside it, because the belief text may be rewritten before the correction fires.
+- The correction is keyed on the disposition event, so re-reading re-derives rather than duplicates.
+- The obvious join between "presented" and "withdrawn" did not exist as an equality join: the two diagnosis surfaces disagreed on the reference shape, so review presentations matched and **every feedback presentation silently missed**. Both are normalized at capture now.
+
+`harmful_write_rate` (section 23) is denominated on exactly this: of the beliefs LearnLoop told you about, how many did it later withdraw as false. Being told something false about your own mind is the harm, so the harm is in the telling. A belief merely *superseded* by a better-supported replacement is excluded and reported separately.
+
+## 23. Measuring the measurement
+
+A single-learner vault has no population to validate against, so LearnLoop instruments itself. `learnloop scoreboard` assembles fifteen metrics — harmful write rate, problems and learner-minutes to cold success, questions to certification, certification regret, cells cleared per question, tokens per resolved diagnostic episode, measurement rank, false certification rate, probe action change rate, and the adjudication-derived accuracy metrics — by composing the services that own them rather than reimplementing any of them.
+
+### 23.1 A metric that cannot be computed says so
+
+Availability is structural. The metric type refuses at construction to carry a value on an unavailable arm, and there is exactly one rate helper, so there is no code path from an empty denominator to a number. Four distinct unavailable states, because each implies a different remedy:
+
+| State | Meaning |
+|---|---|
+| `no_data` | The producer ran; the denominator is empty. |
+| `no_producer` | Nothing produces this yet. |
+| `unmeasured` | The events exist, but the measurement was never captured and cannot be backfilled. |
+| `requires_replay` | Computable, but only by replaying the attempt sequence (`--replay`). |
+
+That discipline immediately earned its keep: two metrics would otherwise have rendered as successes. Learner-minutes-to-cold-success was `unmeasured` because **every attempt in both live vaults had a null latency** — the entire backend path existed and worked, but no desktop client ever populated it. And tokens-per-resolved-diagnostic-episode was `unmeasured` because most episodes were unmetered; without the guard it would have reported 0.0 tokens for a loop that demonstrably calls a grader. A trajectory containing any null latency is excluded outright rather than summed over the recorded subset.
+
+Latency is wall-clock and deliberately not idle-adjusted. Subtracting time you "weren't really working" would be a fabrication, and the metric is denominated in your actual elapsed experience.
+
+Note the self-referential property: **the scoreboard is its own regression detector.** If a client stops sending latency, the metric flips back to `unmeasured` loudly rather than quietly reporting a number.
+
+### 23.2 Measurement rank
+
+`measurement_rank` counts how many *independently observable* dimensions a subject's item pool can resolve, against how many facets it declares. It separates the two ways a vocabulary can outrun its instruments, and the split is the whole point:
+
+- On one development vault: 39 facets declared, 15 independent dimensions, and the entire deficit comes from **unobserved facets**. That vault needs instruments.
+- On another: 101 facets declared, 38 independent dimensions, and the entire deficit of 63 comes from **collapse** — 21 groups of facets no authored criterion can separate.
+
+The second case looks like over-minting and is not. Re-judging all 101 facets under the mint gate returns 100 mint, 1 abstain, 0 alias, for two independent reasons: those facets carry no error signatures and no instructional repairs at all (their provenance is normalization, not synthesis, so the raw material the gate tests is simply absent), and within-group lexical similarity peaks well below synonymy — they are genuinely different atoms that collapse because **one criterion observes several of them at once**. That is under-instrumentation, which section 21's classes fix, not vocabulary bloat. The one true near-duplicate pair on that vault is exactly the single abstention, which says "I cannot test this, here is the record" rather than guessing.
+
+Publishing the rank triggers nothing. Merges stay behind review.
+
+### 23.3 Certification counters need a replay
+
+There is no persisted "certified at" record anywhere — certification is a pure predicate over the ledger — so questions-to-certification and certification regret require a prefix replay over the attempt sequence. Certification credit is monotone in the prefix, so the implementation bisects exactly rather than scanning a coarse grid, memoized across LOs and budgeted. It is opt-in behind `--replay`; otherwise those metrics report `requires_replay` rather than a number.
+
+### 23.4 What the audits watch, and one that mattered
+
+`learnloop instrument-audit` reports one revert criterion per instrument class: discrimination-profile rejection rate (two-tailed — collapse *and* saturation are both failures), contrast-pair order effect, error-hunt constructed-response agreement, and laddered-stem cross-column agreement. Each reads the **durable store** rather than the debug payload, so `rebuild-derived-state` cannot silently zero the watched tail.
+
+One of these was a coin flip when first written: the contrast-pair order metric's null value *equalled* its threshold, and a simulation flagged pure-manipulation data in 83 of 200 pools. Requiring an exact two-sided binomial deviation brought that to 2 of 200 while a genuinely order-driven pool still fires.
+
+The most instructive failure in this whole program is worth stating in full, because it is the shape everything above exists to prevent. The clean-solution rotation (section 21.4) suppresses facet failures when a learner "finds" an error in correct work. That guard was honoured in the attribution channel and *not* in the ledger: it emptied the evidence-family list, but an emptied list is indistinguishable from one the grader never filled, so the lineage stamp wrote null and the projection's single-target fallback attributed the whole failure to the criterion's own target. **0.75 units of negative mass banked against the exact facet the guard exists to protect.** The shipped test asserted the audit event and the suppression flag, and never read the evidence ledger at all. The fix is a typed blocked-write reason that travels with the emptied list all the way to the ledger; the test now projects and asserts zero negative mass on every cell, and fails without the stamp.
+
+A guard that is honoured in one fold and not the other is not a guard. Both of the folds that read the observation ledger — the projection and the learner-facing Demonstrated timeline — now share one predicate and one cap, and a dedicated invariant asserts they agree to the float.
+
+### 23.5 Pricing inference before building it
+
+The next planned step after instruments is *inference*: rules that let evidence in one contract cell say something about another. Two are specified — capability dominance (evidence at a strictly higher capability implies the lower one) and prerequisite entailment (direct evidence downstream implies an upstream prerequisite) — and neither is built.
+
+What *is* built is the precheck that decides whether they are worth building. `learnloop inference-precheck` is a static counterfactual over vault content: it reads no attempts, no learner state, and no provider, writes nothing, and applies no inferred credit anywhere. Its only job is the go/no-go question — **how many currently unreachable contract cells could this rule actually move?** The method generalizes the reachability measurement that started all of this, and it has already earned its keep once: dominance looked like a major lever and converted 1 cell out of 25 when measured.
+
+Two rules in the precheck are load-bearing and will remain so when the inference rules are eventually built:
+
+- **Prerequisite entailment fails closed on edge modality.** Existing concept prerequisite edges were authored for *instructional ordering* and predate edge modalities entirely. A missing modality is therefore `untyped`, never an implicit logical entailment, and `instructional_order` and `facilitating` edges convert zero cells by construction. This is the static guard against silently turning a pedagogical graph into a logical one. A `path_specific` edge is reported separately as conditional, because a static pass cannot establish that its path was exercised.
+- **Integration cells are never substitutable for certification.** Inference may improve the *prediction* for an integration cell, so it still appears in the converted count, but the summary splits it out: integration is the assembly claim, and an assembly claim always needs a direct observation.
+
+The discipline generalizes past these two rules. Every inference rule gets a static cells-converted precheck before it is built, and nothing gets built that does not move the count.
+
+### 23.6 Blinded diagnostic evaluation and the live augmentation ladder
+
+`learnloop persona-realism` runs B2 over an explicit JSON list of authored
+persona traces and the vault's real attempt traces. The matcher sees only
+text-shape features, stores no trace text, abstains below four traces per arm,
+and licenses the authoring gate only when the two arms are not separable.
+
+`learnloop diagnostic-eval` is the B1–B3 commissioning boundary. It requires
+separate configured generator and diagnostician providers. Its optional case
+manifest is either a JSON list or `{"cases": [...]}`; each case names one of the
+fixed regression shapes, a practice item and blind learner trace, whether the
+correct action is abstention, and optional planted anchor/cause/repair labels.
+The cause-change control carries raw `history` rows. Unknown manifest fields are
+errors rather than silently dropped labels. With no manifest, A5
+discrimination profiles provide cases, but an incomplete shape matrix remains
+unlicensed.
+
+The commissioning command generates each persona once, passes those exact
+traces to B2, and then gives the same corpus to B1. The persisted
+persona-corpus hash is part of the license lookup. A same-family generator and
+diagnostician is rejected even when their provider names differ, and an
+unlicensed run remains in the evaluation ledger but contributes no scoreboard
+ground truth.
+
+For ordinary model-graded attempts, C1–C4 run on the live path: prose and a
+minimal repaired trace precede structured attribution; typed verifier results
+are available during diagnosis; three independent samples produce a modal
+anchor/repair result and an unresolved cause set on disagreement; and up to four
+prior traces from the same facet and surface family are supplied without their
+old diagnoses. `learnloop diagnostic-augmentation` reports the resulting
+versioned receipts and each rung's hypothesis and revert criterion. Agreement
+is provisional support only; repeated readings of one trace never become an
+independent authority for durable promotion.
+
+## 24. Practical interpretation
 
 When LearnLoop serves an item, read the decision as:
 
@@ -1629,4 +2072,8 @@ When LearnLoop runs a diagnostic block, read it as:
 
 > Ask the smallest set of unassisted questions that can change what the system should do next. If the evidence remains ambiguous, admit that, obtain a better instrument, or switch to teaching.
 
-That is the core LearnLoop contract: local and inspectable evidence, explicit uncertainty, bounded inference, source-grounded repair, and a loop that returns to cold retrieval rather than confusing immediate fluency with durable learning.
+When LearnLoop reports a metric as unavailable, read it as:
+
+> This number would be a fabrication. Here is which kind of fabrication it would be — no data, no producer, never captured, or needs a replay — because each one has a different fix.
+
+That is the core LearnLoop contract: local and inspectable evidence, explicit uncertainty, bounded inference, source-grounded repair, instruments that know what they cannot measure, and a loop that returns to cold retrieval rather than confusing immediate fluency with durable learning.

@@ -27,6 +27,7 @@ from learnloop.db.repositories import Repository
 from learnloop.services.exam_profile import ExamUnitEntry, aggregate_exam_profile
 from learnloop.services.role_authority import role_authority
 from learnloop.services.source_outline import resolve_extraction_id
+from learnloop.services.source_unit_selection import effective_scope_groups
 from learnloop.services.source_unit_inventory import profile_satisfies
 from learnloop.vault.models import LoadedVault, SourceSet
 
@@ -97,18 +98,57 @@ def build_source_coverage(repo: Repository, vault: LoadedVault, source_set: Sour
         member_units: list[dict[str, Any]] = []
         scope_units = [scope.unit_id for scope in member.scope]
         rows = repo.unit_inventories_for_revision(member.revision_id) if extraction_id else []
+        ir = repo.load_document_ir(extraction_id) if extraction_id is not None else None
+        selection = repo.get_unit_selection(extraction_id) if extraction_id is not None else None
 
         # Whole artifact when scope empty (§4.3): use the extraction's units.
-        if not scope_units and extraction_id is not None:
-            ir = repo.load_document_ir(extraction_id)
+        if not scope_units and ir is not None:
             scope_units = [unit.unit_id for unit in ir.units] if ir is not None else []
 
         role_overrides = {scope.unit_id: scope.role_override for scope in member.scope if scope.role_override}
-        for unit_id in scope_units:
-            effective_role = role_overrides.get(unit_id, member.default_role)
+        groups = (
+            effective_scope_groups(
+                ir,
+                (selection or {}).get("boundary_overrides") or [],
+                scope_units,
+                role_by_unit=role_overrides,
+                default_role=member.default_role,
+            )
+            if ir is not None
+            else [
+                {
+                    "unit_id": unit_id,
+                    "unit_ids": [unit_id],
+                    "role": role_overrides.get(unit_id, member.default_role),
+                    "merged": False,
+                }
+                for unit_id in scope_units
+            ]
+        )
+        resolved_groups: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+        for group in groups:
+            inventory_row = _best_inventory(rows, str(group["unit_id"]), "combined")
+            if inventory_row is None and len(group["unit_ids"]) > 1:
+                for source_unit_id in group["unit_ids"]:
+                    source_group = {
+                        "unit_id": str(source_unit_id),
+                        "unit_ids": [str(source_unit_id)],
+                        "role": group["role"],
+                        "merged": False,
+                    }
+                    resolved_groups.append(
+                        (
+                            source_group,
+                            _best_inventory(rows, str(source_unit_id), "combined"),
+                        )
+                    )
+            else:
+                resolved_groups.append((group, inventory_row))
+
+        for group, inventory_row in resolved_groups:
+            unit_id = str(group["unit_id"])
+            effective_role = str(group["role"])
             unit_authority = role_authority(effective_role)
-            requested_profile = "combined"
-            inventory_row = _best_inventory(rows, unit_id, requested_profile)
             if inventory_row is None:
                 not_inventoried.append({"source_id": member.source_id, "unit_id": unit_id})
                 member_units.append({"unit_id": unit_id, "role": effective_role, "inventoried": False})
@@ -140,7 +180,6 @@ def build_source_coverage(repo: Repository, vault: LoadedVault, source_set: Sour
                 }
             )
             if effective_role == "exam" and unit_authority.assessment_alignment:
-                selection = repo.get_unit_selection(extraction_id) if extraction_id else None
                 paper_metadata = (selection or {}).get("exam_paper_metadata", {}) if selection else {}
                 exam_entries.append(
                     ExamUnitEntry(unit_id=unit_id, inventory=inventory, paper_metadata=paper_metadata)

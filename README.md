@@ -9,7 +9,20 @@ FSRS scheduling, learner-aware misconception detection and remediation, and AI-a
 
 > [!NOTE]
 > LearnLoop is under active development. The desktop app currently runs from a
-> source checkout, and installer bundling is not yet enabled
+> source checkout, and installer bundling is not yet enabled.
+>
+> **Implementation snapshot: 2026-07-27.** Stages 0–7 and the read-only Stage
+> 8.1 inference precheck of
+> [`implementation_plan_v1.md`](implementation_plan_v1.md) are shipped: causal
+> attribution is complete, the measurement layer has static reachability
+> analysis, contract-correct generation, authoring gates, and the full
+> instrument wave (conjunctive capstones, opportunistic trace evidence, the
+> clarification channel, discrimination profiles, contrast pairs, error hunts,
+> laddered stems), and the 15-metric scoreboard has producers. Stage 7 adds
+> blinded, cross-model planted-diagnosis evaluation, exact-corpus persona
+> realism licensing, and the live C1–C4 diagnosis augmentation ladder. Synthetic
+> scores remain unavailable to decisions until their realism and regression
+> matrix licenses pass.
 
 ## What LearnLoop does
 
@@ -29,9 +42,34 @@ FSRS scheduling, learner-aware misconception detection and remediation, and AI-a
 - Schedules ordinary review, repair, transfer practice, teach-back, and bounded
   diagnostic probes from one Today queue — and explains, term by term, why an
   item was selected.
+- Measures what its own question pool can and cannot observe. Every learning
+  object declares `(facet, capability)` contract cells; a standing reachability
+  check reports which cells no instrument can close, and generation authors at
+  the capability the contract names instead of at the learner's mastery band.
+- Prices inference before enabling it: a static counterfactual reports how many
+  currently unreachable cells B1 capability dominance and B3 prerequisite
+  entailment would convert. Untyped/instructional prerequisite edges confer
+  nothing, and path-specific candidates stay conditional until their path is
+  actually exercised.
+- Authors several instrument classes rather than one: conjunctive capstones that
+  close multiple cells at once, contrast pairs that isolate a single differing
+  component, error hunts seeded from your own misconception registry, laddered
+  stems, and discrimination profiles. Each ships with the metric that would
+  justify reverting it.
+- Asks *you* one bounded clarifying question when the grader is genuinely
+  unsure, and rewards an optional one-line "why this approach" without ever
+  requiring it. An unanswered question times out to the original honest
+  abstention, never to a guess.
 - Tracks item memory, predicted ability, demonstrated evidence, errors, claims,
   forecasts, goals, and exam readiness without collapsing them into a single
-  score. Prediction is never presented as certification.
+  score. Prediction is never presented as certification, and every displayed
+  facet state is labelled `measured` / `inferred` / `claimed` / `unknown`.
+- Diagnoses *causes*, not just scores: repair receipts with permitted uses,
+  deterministic verification of a proposed repair, adjudicated verdicts that can
+  promote or withdraw a belief, and a learner-visible correction when something
+  it told you turns out to be wrong.
+- Re-tests certified work cold, two to three weeks later, on a held-out surface —
+  the one external validity check available in a single-learner vault.
 - Grounds feedback and tutor answers in exact source spans and preserves
   provenance end to end. Raw attempts are retained so derived learning state
   can be deterministically replayed after algorithm changes.
@@ -233,9 +271,9 @@ no other process is writing to it. Run `doctor` after manual content changes.
 The scheduler, replay system, source extraction plan, and vault storage are
 local. AI-backed study-map synthesis, grading, tutor responses, and some
 authoring flows require a configured provider. Ordinary practice can use the
-desktop app's `manual` provider for self-grading; diagnostic observations and
-other workflows that require an independent grader remain unavailable in manual
-mode.
+desktop app's `manual` provider for self-grading; diagnostic observations, the
+clarification channel, opportunistic trace evidence, and other workflows that
+require an independent grader remain unavailable in manual mode.
 
 Provider profiles and per-workflow routing live in the vault's `learnloop.toml`:
 
@@ -277,6 +315,72 @@ uv run learnloop doctor --ai --vault ~/LearnLoop/my-vault
 
 The active grading provider can also be changed from the desktop app header.
 
+## Measuring the measurement
+
+A single-learner vault has no population to validate against, so LearnLoop
+carries its own instrumentation and is required to abstain rather than report a
+number it cannot support. Every command below is read-only unless noted.
+
+```bash
+# What can this vault's question pool actually observe?
+uv run learnloop contract-reachability --vault ~/LearnLoop/my-vault
+uv run learnloop contract-hit-rate --since 2026-07-01 --vault ~/LearnLoop/my-vault
+
+# What would inference buy, before any inference rule is built? Read-only
+# counterfactual: writes nothing, applies no inferred credit.
+uv run learnloop inference-precheck --vault ~/LearnLoop/my-vault
+
+# Before enabling inference, how many unreachable cells would each rule move?
+uv run learnloop inference-precheck --vault ~/LearnLoop/my-vault
+
+# The 15-metric scoreboard: harmful writes, problems-to-cold-success,
+# questions-to-certification, regret, cells cleared per question, tokens per
+# resolved diagnostic episode, measurement rank.
+uv run learnloop scoreboard --vault ~/LearnLoop/my-vault
+
+# Per-instrument-class revert criteria (all four abstain as no_data with
+# counts visible rather than reporting a fake 0.0 or 1.0).
+uv run learnloop instrument-audit --vault ~/LearnLoop/my-vault
+
+# Cold re-test of certified work on a held-out surface, +2–3 weeks.
+uv run learnloop cold-probe-schedule --vault ~/LearnLoop/my-vault
+uv run learnloop cold-probe-audit --vault ~/LearnLoop/my-vault
+
+# Causal lane: abstention rate, missing-vocabulary notes, probe commissioning.
+uv run learnloop causal-attribution-audit --vault ~/LearnLoop/my-vault
+uv run learnloop commission-causal-probes --vault ~/LearnLoop/my-vault
+uv run learnloop review-causal-probe --vault ~/LearnLoop/my-vault
+
+# Authoring gates (read-only re-judgements of what already shipped) and the
+# contrast-pair commissioning queue (derives authoring requests, writes nothing).
+uv run learnloop facet-mint-gate --vault ~/LearnLoop/my-vault
+uv run learnloop persona-gate-precision --vault ~/LearnLoop/my-vault
+uv run learnloop commission-contrast-pairs --vault ~/LearnLoop/my-vault
+
+# The one vault-content edit here — diff-only unless --apply.
+uv run learnloop integration-backfill --vault ~/LearnLoop/my-vault
+```
+
+Four things are worth knowing before you read any of this output:
+
+- **A metric that cannot be computed says so.** There are four distinct
+  unavailable states — `no_data`, `no_producer`, `unmeasured`, `requires_replay`
+  — because each implies a different remedy. There is no code path from an empty
+  denominator to a number.
+- **A displayed facet state is labelled.** `measured > inferred > claimed >
+  unknown`, and ignorance is not inference: a 0.5 default with nothing to pool
+  from reports `unknown`, never `inferred`.
+- **A cell whose credit is entirely embedded reads as zero certification
+  credit**, not as zero evidence. One capstone can supply evidence for several
+  cells, but at most half of any cell's certification credit may come from
+  supporting-role observations.
+- **When displayed numbers move without new evidence** — a coverage denominator
+  change, a projection version bump — the vault records exactly one
+  recalibration entry saying so, rather than letting the estimate drift under
+  you silently.
+
+`documentation.md` sections 8–14 and 21–23 explain the model behind all of it.
+
 ## Architecture
 
 ```text
@@ -310,11 +414,21 @@ timeout when debugging unusually long model calls.
 
 ## Development
 
-Run the Python test suite from the repository root:
+Everything Python goes through `uv` — there is no expectation that a virtualenv
+is activated, and `uv run` is what the Tauri shell falls back to when locating
+the sidecar.
 
 ```bash
-uv run pytest
+uv sync --extra dev                    # install
+uv run pytest                          # full suite (~10 minutes)
+uv run pytest tests/test_scheduler.py::test_name -x   # one test
+uv run learnloop --help                # CLI
+uv run python -m learnloop_sidecar     # sidecar directly, JSON-RPC over stdio
 ```
+
+Schema changes are ordered SQL files in `migrations/`. Numbering has gaps and
+parallel worktrees have collided over it, so check `ls migrations/` for the next
+free number rather than assuming.
 
 Check the desktop layers:
 

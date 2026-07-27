@@ -20,6 +20,7 @@ from learnloop.services import golden_path_restoration as GRstr
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.serializers import item_presentation
 from learnloop_sidecar.registry import method
 
 
@@ -50,6 +51,13 @@ def assess_open(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]:
         payload.update(
             practice_item_id=item.id,
             prompt=item.prompt,
+            # Meas §3.A2/§3.A3: this is a THIRD surface that asks a learner to
+            # answer a Practice Item, and it carried the prompt alone — so an
+            # error hunt reserved onto a golden-path surface would have been
+            # served with no worked solution even after practice and exams were
+            # fixed. It reads the same producer as both of them; `prompt` above
+            # stays for the self-grade header's one-line preview.
+            presentation=item_presentation(item),
             max_points=rubric.max_points if rubric is not None else 4,
         )
     return versioned(payload)

@@ -2,14 +2,15 @@
 
 Thin composition over ``services.item_authoring`` (the Matuschak reader-control
 slice: the learner edits their own collection immediately, no review gate).
-Every mutation rewrites vault YAML, so the handler reloads the sidecar context
-(which re-runs state_sync -- a retired item's scheduler state deactivates before
-the response returns).
+Broad mutations still reload the sidecar snapshot; retirement updates its one
+validated cached entity and derived serving rows directly.
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from pydantic import Field
 
 from learnloop.services.item_authoring import (
     ItemAuthoringError,
@@ -29,7 +30,7 @@ class AuthorPracticeItemInput(ParamsModel):
     prompt: str
     expected_answer: str
     practice_mode: str = "short_answer"
-    hints: list[str] = []
+    hints: list[str] = Field(default_factory=list)
 
 
 class EditPracticeItemInput(ParamsModel):
@@ -176,19 +177,30 @@ def edit_practice_item(ctx: SidecarContext, params: EditPracticeItemInput) -> di
 
 @method("retire_practice_item", RetirePracticeItemInput)
 def retire_practice_item(ctx: SidecarContext, params: RetirePracticeItemInput) -> dict[str, Any]:
-    root, repository = _root(ctx)
+    vault, repository = ctx.require_vault()
     try:
-        retire_item(
-            root,
+        result = retire_item(
+            vault.root,
             repository,
             practice_item_id=params.practice_item_id,
             reason=params.reason,
             note=params.note,
+            loaded_vault=vault,
         )
     except ItemAuthoringError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    ctx.reload(maintenance=False)
-    return versioned({"practiceItemId": params.practice_item_id, "status": "retired"})
+    # The primary sidecar serializes interactive calls, so replacing this one
+    # validated entity keeps the in-memory snapshot coherent without a global
+    # vault reload/state replay. External file changes still flow through the
+    # vault watcher/incremental refresh boundary.
+    vault.practice_items[params.practice_item_id] = result["item"]
+    return versioned(
+        {
+            "practiceItemId": params.practice_item_id,
+            "status": "retired",
+            "queueRevision": repository.queue_revision()["revision"],
+        }
+    )
 
 
 @method("split_practice_item", SplitPracticeItemInput)

@@ -20,7 +20,9 @@ is called out in §2 (measurement §5.7 pulled forward).
 
 **Progress:** items are marked ✅ as they land, with a one-line note on what
 shipped. Stage 0 ✅ · Stage 1 ✅ · Stage 2 ✅ · Stage 3 ✅ · Stage 4 ✅ ·
-Stage 5 ⚠️ (5.1 ✅ 5.2 ✅ 5.3 ⚠️ 5.4 ⚠️, audited 2026-07-26).
+Stage 5 ⚠️ (5.1 ✅ 5.2 ✅ 5.3 ✅ 5.4 ⚠️, audited 2026-07-27) ·
+Stage 6 ✅ (6.1 ✅ 6.2 ✅ 6.3 ✅ 6.4 ✅) · Stage 7 ✅ · Stage 8 ⚠️ (8.1 ✅;
+8.2–8.6 pending).
 
 **Original-spec audit correction (2026-07-26):** 5.3's gate mechanics are live,
 but augmentation B2's blinded persona-vs-real matcher does not land until Stage
@@ -48,6 +50,20 @@ fails on a drifted concept id), `tests/test_p0_projection_cutover.py` ×2,
 `tests/test_ingest_transcripts.py` ×1 and `tests/test_span_view.py` ×1 —
 **18 in total**. Not caused by any stage below. Fixing them is unclaimed work
 outside this plan.
+
+**Six more pre-existing failures found during Stage 6**, each verified against a
+pristine checkout (a `git worktree` at HEAD, or by stashing the working tree):
+`tests/test_registry_audit.py` ×6 (unregistered `animation.*` config leaves and
+`grading:FIREWALL_*` module constants — Stage 6 adds none of its own; every new
+decision parameter is registered), `tests/test_grading_context.py` ×1
+(`target_criterion_ids` no longer in `targeting_policy`),
+`tests/test_receipt_derivation.py::test_ready_derivation_none_on_legacy_vault`
+(its skip guard checks for `mvp-0.7` but the fixture has drifted to `mvp-0.8`),
+`tests/test_cli_json.py::test_doctor_json_contract`,
+`tests/test_p0_cutover_mvp08.py` ×1, and
+`tests/test_sim_probe_validation.py::test_planted_types_pass_the_checkpoint_gate`.
+`tests/test_span_view.py` now passes. Also outside the plan; listed so a later
+reader does not attribute them to Stage 6.
 
 Those last five share **one** root cause worth knowing before anyone chases them
 individually: `config.py`'s `claim_prior_min_variance = 2.0` at HEAD, against tests
@@ -599,7 +615,7 @@ metrics. B5 freezes before Phase C (Stage 7), after these are added.
 |---|---|---|---|
 | 5.1 ✅ | **Rung-correct generation:** practice generation authors at the capability the contract names, consuming 3.1's reachability report as a prioritized commissioning queue for `MISMATCH_BELOW` / `NO_INSTRUMENT` cells | [Meas §5.8.2 verdict; promoted to a named item] | The measured 72% lever — the single highest-ROI change in the measurement spec, and it needs no new instrument class. Hypothesis: contract-cell hit rate of new attempts rises from 28%. Revert: never (this is honoring existing contracts). |
 | 5.2 ✅ | Backfill the 18 persisted coordination integrations under D3's criterion | [Meas §5.8.3/Wave 2] | Blueprints are vault content; no rebuild touches them. Expect most dropped, some lowered, a few genuinely `coordination` (owed an A1 capstone later). Pilot on one LO first, measure reachable-cell delta, then batch. **Applied to `fixtures/linear_algebra` with narration — see below.** |
-| 5.3 ⚠️ | §3.0 planted-persona gate wired into the **live** generation path — tiered | [Meas §3.0] | Mechanics shipped. Original-spec validity remains blocked on Aug B2's blinded matcher; every row honestly carries `persona_realism_validated: false`. |
+| 5.3 ✅ | §3.0 planted-persona gate wired into the **live** generation path — tiered | [Meas §3.0] | Stage 7's B2 matcher now licenses the authored-signature corpus: pre-license passes remain provisional, indistinguishable corpora harden the plain-practice tier, and separable corpora invalidate otherwise passing results. |
 | 5.4 ⚠️ | D2 ingest mint gate: separability + distinct repair, typed rejection reasons, alias-not-mint | [Meas D2] | Structural proxy shipped. It normalizes the same persona material but does not yet run an authored item through the shared §3.0 grading harness, so literal D2 compliance remains open. |
 
 **5.1 as shipped** — new `services/contract_commissioning.py`, consumed by
@@ -833,14 +849,443 @@ Ship order within the stage: 6.1 → 6.2 → 6.3, then 6.4 as fixtures permit.
 | 6.3 | A8 clarification channel: `provisional_pending_clarification` grade state, one question per attempt on hedged/abstained criteria only, timeout→abstention, replay-stable resolution | [Meas A8; authorized by the causal principle-8 amendment already in tree] | Reinforces the abstention discipline; ship early in the wave. Revert if clarification rate exceeds a small fraction of attempts (machine-resident uncertainty misclassified). |
 | 6.4 | A2 laddered stems (kinship: correlated within column, independent across), A3 error-hunts (registry-planted, repair-required, clean-solution rotation — seed from the learner's own misconception registry as repair verification), A4 contrast pairs (`contrast_of` / `differing_component`; post-repair verification preferentially serves the isolating member), A5 discrimination profiles (`no_profile_applies` first-class), A7 adjacent-facet questions **(demoted: only if A8+A6 outcomes justify it)** | [Meas A2–A5, A7] | All behind the §3.0 gate. A5's profiles are Stage 7's planted-ground-truth producer. E4 (success+silence decay) is dropped from the plan (marginal yield, confident-wrongness risk). |
 
-### Stage 7 — Augmentation Phase B, then Phase C
+**6.1 as shipped** (migration 141) — `CriterionTargetPayload` + `targets` and
+`depends_on` on `RubricCriterionPayload` closes F2's asymmetry; new
+`services/conjunctive_items.py` owns the shape vocabulary and both guards;
+`_CONJUNCTIVE_ITEM_RULE` is chained into both practice-generation routes;
+`services/proposals._criterion_target_errors` types the authoring rejections.
+
+*The pydantic drop was silent in both directions.* `codex/schemas.py` declares no
+`model_config` anywhere, so every payload model runs pydantic's default
+`extra="ignore"` — a model emitting `targets` had it dropped with no error from
+either side — while `_strict_json_schema` forces `additionalProperties: false` on
+the schema sent to the provider, so on the strict path the model was actively
+*forbidden* to emit it. Both directions failed closed toward "no targets", which
+is why F2 reads as accidental rather than as a decision.
+
+*Guard 1 (`unexercised_supporting_target`) is symmetric and it bites today.* A
+supporting target claims the step *consumed* the facet; crediting that without
+the trace showing it is positive smearing, which the passed-facet firewall does
+not cover and which nobody contests. So an unexercised supporting target confers
+**nothing** — not credit and not blame; writing only the negative half would make
+a supporting target an instrument that can only ever hurt. Matching is on the
+facet, never the `(facet, capability)` cell: A6 reports that the trace shows a
+facet being used, and which rung that counts at is the criterion's authored
+target — a deterministic quantity — so letting the grader's report pick the cell
+would invert standing constraint 8. **The guard is not inert on existing data**:
+neither live vault has an authored supporting target yet, but the legacy compile
+path already mints `role='supporting'` from `measurement_status='supporting'`, and
+on `fixtures/linear_algebra` one cell
+(`facet_a_vector_space…@method_selection`) now records 0.452 unexercised mass
+where it previously banked embedded credit. Verified afterwards: the vault's one
+certified LO (`lo_orient_to_the_vector_space_idea`) still certifies.
+
+*Guard 1 drops the claim from the contract rather than filtering at each write
+site, and that distinction is load-bearing.* An adversarial review caught the
+naive version: `allocate_success_mass` normalizes across the targets it is given,
+so leaving a discarded supporting target in the list diluted the primary's mass
+to 1/1.3, and `observed_unresolved_failure` counts candidate causes, so it opened
+an unresolved-cause factor and suppressed the primary's negative evidence
+entirely. Net effect of the naive version: **authoring an honest supporting
+target strictly removed measurement** and spawned a spurious diagnostic episode —
+the exact opposite of what A1 is for. The shipped version splits the list once,
+before allocation, attribution weighting and the ambiguity gate; the record of
+what the discarded claims *would* have earned is computed separately against the
+contract as authored. With an A6 observation present the supporting target
+becomes a genuine second candidate cause and the ambiguity gate correctly fires.
+
+*The receipt fold had to learn the same rules.* `facet_evidence_timeline` runs a
+second, independent fold over the same ledger, and
+`test_receipt_exactness` asserts the two agree to the float. The first
+implementation taught only the projection, so the learner-facing "Demonstrated"
+curve **overstated the banked ledger** and that dedicated invariant broke. Both
+guards now live in both folds through one shared predicate
+(`conjunctive_items.supporting_unexercised`) and one shared cap
+(`cap_embedded_credit`), and the per-cell cap is applied inside
+`fold_demonstrated_timeline` because it is a statement about a cell's whole
+history. Relatedly, the direct/embedded split of banked credit is recovered from
+`itemize_observation_contributions`'s per-group `group_scale` rather than an
+attempt-wide ratio: the caps bind per correlation group, so a cell staged in two
+groups with different embedded shares would otherwise get a slightly wrong split.
+
+*Guard 2 is applied per cell over the whole history, not per attempt.* An
+attempt-local cap can pass on every attempt while the cell still ends up entirely
+embedded. `direct_certification_credit` / `embedded_certification_credit` are
+banked separately (the group caps scale proportionally, so the split of what
+survives is the split of what was staged) and `certification_credit` — still the
+one number `capability_grid` reads — is computed from them at row-build time.
+With `max_embedded_credit_share = 0.5`, a cell with zero direct credit reads
+**0**: not zero evidence (the mass is in the ledger and Part II may label it
+`inferred`) but zero *certification* credit, which is precisely §5.3's line.
+
+*The spread rule was NOT inverted, per the plan's amendment.* Authoring emits both
+shapes and `selection_rewards` picks: `conjunctive_fit` is `(2p−1)` scaled by a
+saturating conjunctive strength, so a capstone is preferred exactly when the
+learner is predicted to pass (a pass is what clears several cells at once) and the
+decomposed item exactly when they are not. Under the REPAIR intent it is a flat
+penalty — repair exists to localize, and a capstone answers that question worst. A
+single-cell item scores exactly 0, so a pool with no conjunctive items is
+untouched. PROBE deliberately abstains: its ranking is already EIG over a
+hypothesis set and a second shape term would double-count the same argument.
+
+*One consumer had to be taught that an item is no longer one capability.*
+`exam_pool._item_components` derived a single capability per item from
+`item.capability`; under A1 a capstone observes different facets at different
+rungs, and reading only the item-level field would have hidden every cell but one
+from the greedy selector — i.e. priced A1's whole gain at zero. It now reads
+authored **primary** targets through `compile_criterion_targets`; supporting
+targets are excluded because the question that function answers is "which cells
+can this item *close*", and §5.3 says embedded credit never certifies a component
+on its own. An item authoring no targets behaves byte-for-byte as before.
+`CANONICAL_PROJECTION_VERSION` → `canonical_projection_v5_supporting_requires_trace`,
+which routes the change through 1.4's recalibration entry rather than letting the
+numbers move under the learner.
+
+**6.2 as shipped** (migration 141) — `ExercisedFacetObservation` on
+`GradingProposal`, `grading._validated_exercised_facets`, the append-only
+`trace_exercised_facets` log, and `services/trace_evidence.py` for the elicitation
+boundary and the reports. New CLI `learnloop trace-evidence`.
+
+*The three A6 bounds are enforced by what the schema omits, not by fields.* There
+is no polarity column (positive only — indicting a facet the item never intended
+to measure is the smearing principle 5 forbids, and there is no criterion to
+appeal to); `role` is a one-value CHECK rather than the usual two-value vocabulary,
+so the channel cannot become primary through a later edit that forgets why; and
+there is **no capability** anywhere in the store, because standing constraint 8
+says the rung an observation counts at is a deterministic property of the
+criterion's target, never a model-reported one.
+
+*The validator is deliberately stricter and looser than the attribution channel.*
+Looser: an A6 observation is by definition allowed to name a facet the item never
+declared — that is the whole channel, and the existing `known_facets` gate
+(`grading.py`) would have dropped every one of them. Stricter: the facet must be
+in the vault's canonical registry, or the observation files evidence into a cell no
+contract, report or grid ever reads. A registry miss is dropped rather than raised
+— a bonus channel must never take a graded attempt down. `observation_scope` is
+*derived* (`declared` vs `opportunistic`), because A6's revert criterion is a
+statement about the opportunistic population only.
+
+*One correction to this item's own note.* The item says `grading.py:600-603`
+"currently *forbids* beyond-declared facets — this is a deliberate policy change
+at that validator." Two things are off. First, that code does not forbid: it
+collects unknown targets into `unknown_target_families` and surfaces them as a
+soft `manual_review_reason`, dropping the target silently. Second, and more
+importantly, **that validator must not be relaxed.** It gates *attribution*
+targets — the negative and repair channel — and A6 is positive-only by
+construction: "may credit a facet; it may never indict one." Opening the
+attribution gate to undeclared facets would authorize exactly the indictment A6
+forbids and principle 5 exists to prevent. The policy change belongs in a
+separate channel with its own closed-world rule, which is what shipped.
+
+*The desktop surface, and the shape of "never required".* `get_practice_item`
+carries the elicitation decision; `PracticeScreen` renders one optional line
+under the answer, held in state that is never checkpointed and appended at submit
+behind a shared delimiter — so a blank line produces a body **byte-identical** to
+an un-elicited answer and there is no representation of "declined" anywhere in
+the system. The session budget counts lines actually written, read back through
+`Repository.session_learner_answers` scoped to the session id rather than a
+started/ended window. `FeedbackScreen` renders the reward strip; the
+`observation_scope` split is what keeps it honest, since telling a learner their
+explanation demonstrated the facet the item was already grading them on is noise,
+not a reward. `insert_trace_exercised_facets` now **requires** the scope rather
+than defaulting to `opportunistic`: that arm is the reward-eligible,
+revert-criterion-counted one, and a caller that forgot the field has a bug, not a
+default.
+
+*Elicitation is bounded by the discriminator that already existed.* An item with an
+`available` trace contract is self-documenting — the steps *are* the explanation
+— so it never elicits; only `method_selection` / `schema_interpretation` items
+whose answer underdetermines the reasoning do, at most
+`[trace_evidence].max_elicitations_per_session` times, one line at a decision
+point, rewarded (`elicitation_reward`) and never required. Every non-ask is typed,
+because "we did not ask" has four different meanings.
+
+**6.3 as shipped** (migration 142) — `ClarificationRequest` on `GradingProposal`,
+`grading._validated_clarification`, `services/clarification.py`, and
+`learnloop clarification {list,expire,rate}`.
+
+*Status is derived, not stored, and that is what makes replay reproduce the
+resolved grade.* Two append-only tables — the request, and the learner's answer —
+with `answered` / `timed_out` / `pending` computed from the pair plus the clock.
+The resolved grade itself lives in `grading_evidence` as a new revision superseding
+the provisional one, so replay (which makes no provider call) reproduces it without
+re-asking, per causal §1 principle 9.
+
+*`provisional_pending_clarification` joins the existing grade-state vocabulary
+rather than starting a second one.* There is no `grade_state` column in this
+codebase; every "this grade is not final" state is a string in
+`manual_review_reason` (`codex_manual_review`, `low_grader_confidence`,
+`attribution_scope:*`). Putting A8's state anywhere else would hide it from every
+surface that already reads that field. It never overrides an existing reason: a
+grade that already needs a human is not made less so by also asking the learner.
+
+*The timeout arm writes nothing at all, and that is the design.* "An unanswered
+clarification times out to the abstention that triggered it, never to a guess" is
+achieved structurally — the provisional grade already recorded the hedge or
+abstention, so expiry only clears the review state. There is no code path from
+"the learner ignored the question" to a filled-in diagnosis.
+
+*The desktop surface.* `FeedbackScreen` renders the question with an answer box
+and an explicit skip; the copy states that it is optional, that the grade is
+currently provisional, and that skipping leaves the honest uncertainty in place
+rather than a guess. Skip writes nothing at all.
+`provisional_pending_clarification` renders as "provisional grade · not final"
+wherever `manual_review_reason` already surfaced, rather than as "manual review
+recommended" — the two are different obligations and reading one as the other
+would send the learner looking for a reviewer.
+
+*Resolution reuses the existing regrade door.* `_regrade_attempt` gained a
+`clarification_exchange` that travels in the grading context (and therefore in
+`grading_context_hash`, so the resolved grade is attributable to the exchange that
+produced it) rather than being spliced into the learner's answer text, plus
+`supersede_tiers=(1, 3)` so the provisional model grade is superseded instead of
+leaving two gradings of one criterion in the replay log. The answer is persisted
+**before** the regrade is attempted: the answer is the un-backfillable half
+(standing constraint 6) and the regrade can always be re-run, so a provider outage
+must lose the second and never the first. `regrade_failed` is a recorded outcome,
+distinguishable from "never answered". `abstained` is first-class — a learner may
+answer and the grader may still be unable to name a cause, and recording that is
+what stops A8 from becoming a machine for manufacturing resolutions.
+
+*The boundary has a standing watch.* `clarification_rate` is denominated in
+attempts that *could have been asked* — ever model-graded (including superseded
+evidence, since a regraded attempt still went through a grader that could ask)
+unioned with attempts carrying a clarification at all, which is direct proof they
+did. A self-graded attempt has no grader that could have asked, and including it
+would dilute the rate toward zero, hiding exactly the over-asking the criterion
+watches for. The metric abstains below 20 attempts and warns over 15%; over
+threshold means machine-resident uncertainty misclassified as learner-resident,
+which principle 8's unamended half says must be fixed machine-side.
+
+*Expiry has a caller.* `expire_clarifications` runs in `run_startup_maintenance`,
+before the deferred regrades. Without a sweep, an ignored question would leave
+`provisional_pending_clarification` on the attempt forever while
+`pending_clarification` correctly stopped offering the question after the TTL —
+so the surface would read "provisional, not final" with no action available.
+
+**6.4 as shipped** (migration 143) — four new services
+(`discrimination_profiles`, `contrast_pairs`, `error_hunt`, `laddered_stems`),
+three append-only stores, `learnloop instrument-audit` and
+`commission-contrast-pairs`. Ship order was A5 → A4 → A3 → A2 because A5's
+profiles are the oracle the other three consume.
+
+**A5 — discrimination profiles.** Three consumers, exactly as §3.A5 names them:
+`persona_gate.build_personas` plants every profile as highest-authority belief
+material (and a profile-bearing item is promoted to the HARD gate tier
+*structurally*, not by a flag); the grading context carries them as a **prior**
+with `fails_criteria` deliberately withheld — handing the grader the criteria the
+author expects to fail would turn a prior into a postdictive claim, which is the
+disease §3.A5 warns this item can become; and `profiles_by_facet` feeds A4's
+commissioning. `no_profile_applies` is a sibling arm in one closed vocabulary and
+a **row** in `discrimination_profile_matches` rather than the absence of one —
+which is what makes both tails of the fill-rate watch computable, since a rate
+whose numerator is "no row was written" cannot be distinguished from "nothing was
+graded".
+
+**A4 — contrast pairs.** A new `ContrastPairGate` chained after the persona gate
+on all four generation routes: both members in the band via the existing
+`_success_band_difficulty` inversion, a within-pair gap cap, a symmetric declared
+`differing_component`, and a structural-manipulation test that masks numerals and
+refuses identical answer skeletons (values-only is a clone, and kinship would
+refuse to count it twice anyway). Both members are refused together — half a pair
+is not an instrument. Commissioning follows `contract_commissioning`'s shape:
+`analyze_identifiability` findings become authoring requests on the plan, not a
+report someone might read. Non-adjacency and order randomization live in the
+serving path with a deterministic seed on `(session_id, pair_key)`, so the revert
+criterion ("within-pair differences dominated by order effects") is measurable
+rather than assumed away.
+
+**A3 — error hunts.** `PlantedError.source` has **no freehand arm** — a freehand
+error is an untyped instrument — and `required_repair` is mandatory, which is what
+keeps the class on the right side of the no-recognition-items gate. The §3.0 gate
+is *inverted* here: the belief-holder passes by **not seeing** the plant, so
+`error_hunt_verdict` blocks visible plants, uncorroborated plants, flag-only
+plants, plant==repair, and any prompt stating the error count. §10's clean-rotation
+case is honoured end to end: a learner who "finds" an error in correct work mints
+a **misconception candidate** in the existing store, and facet failures are
+stripped with an audit event rather than written.
+
+**A2 — laddered stems.** The kinship rule goes through the one existing
+implementation (augmentation §8's "one code path"): two edge cases inside
+`familiarity.tight_kinship_clusters`, threaded through to
+`progression.apply_evidence_cap`. The finding worth keeping: `canonical_projection`
+**already** satisfied A2, because its accumulator is keyed per
+`(facet, capability)` — the pass that was capability-blind was the warmth-based
+one, so that is the only one that changed.
+
+**Correction to the above, from the Stage 6 review — A2's kinship half is
+staged, not live.** The plan note originally said "inert when no item declares
+stem columns", which undersells it: `apply_evidence_cap` /
+`evidence_cap_grouping` / `tight_kinship_clusters` have **no production callers
+at all** today, and `stem_columns_for_surfaces` (the only builder of the
+`stem_columns` mapping) has none either. §10's bullet — two parts at one
+capability count as ~one group, two at different capabilities count as two — is
+satisfied by tests that call `apply_evidence_cap` directly, and by nothing on a
+real run. It is *harmless* rather than wrong, because the projection independently
+gets the answer right; but the code shipped for the rule is waiting on a consumer
+that does not exist yet, and it should be read that way rather than as a live
+guarantee.
+
+**Every class ships its revert-criterion producer**, all under
+`learnloop instrument-audit`: `discrimination_profile_rejection_rate` (two-tailed
+— collapse *and* saturation), `contrast_pair_order_effect`,
+`error_hunt_constructed_response_agreement`, `laddered_stem_cross_column_agreement`.
+Each abstains as `no_data` with counts visible rather than reporting a fake
+0.0/1.0, and the audit reads the **durable store** rather than the debug payload,
+so `rebuild-derived-state` cannot silently zero the watched tail.
+
+**The Stage 6 adversarial review found this note's original framing wrong, and
+the correction is the most important line in the stage.** It said the missing
+render of an error hunt's `worked_solution_md` and a laddered stem's
+`stimulus_md` was "presentation only". It is not: the missing field is the
+**stimulus**. Nothing filtered these items out of the due queue, so the live path
+was authored → gated → scheduled → learner sees "correct the worked solution
+below" with no solution → grader (which *does* receive the solution) marks every
+plant missed → the projection banks negative facet mass for a repair the learner
+was never shown the material to make. A harmful write manufactured by the serving
+path, and worse than a missing instrument because it looks like evidence.
+
+Fixed by `services/instrument_serving.unservable_reason`, called from
+`scheduler.build_due_queue` and the exam-pool candidate build: an item whose
+stimulus the surface cannot render is **not schedulable**, with a typed reason
+and a stated remedy. Deliberately not a config flag — "can the app show this?" is
+a fact about the code, and the correct way to lift the filter is to render the
+stimulus and delete the arm. The desktop surface for these two classes remains
+outstanding; until it lands they are authored, gated, stored and audited, but
+never served.
+
+**Two other claims in this note did not survive review and are corrected below**
+(A2's kinship half, and `profiles_by_facet` feeding A4's commissioning — the
+latter was false when written and is now true, wired into
+`commission_contrast_pairs` so a request carries the authored profiles standing
+on its facets).
+
+**Stage 6 adversarial review — what it caught, and what changed.** Two blockers,
+six serious, five minor. The two blockers were both *silent* failures that looked
+like evidence, which is the failure shape this whole program exists to prevent:
+
+1. **Unservable instruments were schedulable** (above). Fixed with a typed
+   servability filter on both serving paths.
+2. **§10's clean-solution line was honoured in the attribution channel and not in
+   the ledger.** `suppress_facet_failures_on_clean_solution` emptied
+   `target_evidence_families`, but an emptied list is indistinguishable from one
+   the grader never filled: `_stamp_observation_lineage` wrote `attribution_json`
+   NULL, and the projection's single-target fallback then attributed the whole
+   failure to the criterion's own target — **0.75 units of negative mass banked
+   against the exact facet the guard exists to protect.** The shipped test
+   asserted the audit event and the suppression flag and never read
+   `facet_capability_evidence`. Fixed with a typed `facet_write_blocked` reason
+   that travels with the emptied list to the observation ledger, alongside the
+   existing `machine_review_scope` arm; the test now projects and asserts zero
+   negative mass on every cell, and fails without the stamp.
+
+The six serious findings, all fixed: **(a)** the two folds shared the guard
+predicate but not its *input* — the timeline read A6 facet ids raw while the
+projection merge-resolved them, so a facet merge would desynchronise them and
+break receipt exactness in the direction that understates the learner's curve;
+**(b)** an attempt could sit `provisional_pending_clarification` forever, because
+the sweep walked clarification rows while two states reach that review reason with
+no row behind them (a deferred regrade that emits a request the regrade path never
+recorded, and an answered clarification whose resolving regrade re-asked) — the
+sweep is now keyed on the *attempt*, which is the actual invariant: the review
+state exists to point at a pending question; **(c)** §10's "a confidently-graded
+criterion never triggers a clarification" was unenforced, since
+`learner_confidence` describes how confident the *learner* sounded and licensed a
+question about a criterion awarded full credit at grader confidence 0.99;
+**(d)** A4's gate blocked every honestly-authored pair, because with no semantic
+oracle wired the deterministic rule reports "fails both" for any belief signature
+that is not a byte-identical copy of one member's expected answer — one string
+cannot model a holder who answers one member correctly and the other wrongly, so
+that case is now a typed `CONTRAST_PAIR_UNJUDGED` abstention that ships to review
+rather than a verdict; **(e)** A4's revert metric was a coin flip — its null value
+*equalled* its threshold, and a reviewer simulation flagged pure-manipulation data
+in 83 of 200 pools, now 2 of 200 after requiring an exact two-sided binomial
+deviation while a genuinely order-driven pool still fires; **(f)** a re-grade
+recorded neither its A6 observations nor its clarification request, which is what
+produced (b)'s first arm.
+
+**The one genuine regression, caught on the second pass and proven three ways.**
+6.1's note and the code comment both claimed the shape term was inert on a pool
+with no conjunctive items. **False.** `classify_item_shape` derived its cells
+from `compile_criterion_targets`, whose *legacy* fallback maps each criterion to
+its own facet — so any pre-A1 rubric naming different facets across criteria
+already yielded two or more primary cells. On `fixtures/linear_algebra`, a vault
+authored entirely before A1, **6 of 55 items scored as conjunctive, five of them
+with no authored targets at all**, perturbing `selection_reward` by up to ±0.067
+on ordinary content. The consequence was worse than the perturbation: it made
+`test_sweep_flags_decision_relevant_and_inert_params` fail, i.e. it blinded the
+calibration sweep to a genuinely decision-relevant scheduler parameter, and a
+change that blinds the harness that validates scheduler weights is worth less
+than the item it buys. `ItemShape` now carries `has_authored_targets` and both
+`is_conjunctive` and `conjunctive_strength` require it, which is also the honest
+reading: A1's shape rule is about items *authored* as capstones, and a legacy
+rubric with one criterion per facet observes several cells without being one.
+Pre-A1 vaults are now genuinely unaffected.
+
+Minor fixes: a pair key claimed by three rows is refused as a group
+(`PAIR_OVERSUBSCRIBED`) rather than having the first two members' verdict
+recorded against the third — admitting or refusing a row on evidence about a
+different item; the A6 reward no longer claims an explanation the learner did not
+write (`observation_scope` says whether the *item* declared a facet, not whether
+the *learner* volunteered anything); `profile_match_telemetry` had two
+implementations, one of whose docstrings claimed there was exactly one; a bare
+`KeyError` surfaced as "Internal sidecar error"; and `classify_item_shape` was
+compiling every candidate's rubric on every scheduling decision.
+
+**Verified and held up** (the reviewer's own list): `rebuild-derived-state` is
+idempotent and reproduces the new columns byte-identically; A1 guard 1's headline
+0.452 figure is real; the two folds agree within 1e-12 with A6 observations
+present in the non-merge case; `exam_pool._item_components` is unchanged on all
+55 legacy items; A6's three bounds are structural rather than conventional; the
+elicitation state is genuinely never checkpointed and has no "declined"
+representation; `profile_prior_payload` really does withhold `fails_criteria`;
+the §3.0 gate writes no learner state; and all four revert producers read durable
+stores rather than the debug payload.
+
+### Stage 7 — Augmentation Phase B, then Phase C ✅
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 7.1 | B1 planted-misconception eval harness scoring the diagnostician **blind**, over the §12 regression shapes incl. abstention cases; B3 cross-model separation from day one (the existing planted-trial path has the same-model defect) | [Aug B1, B3] | Consumes A5 discrimination profiles (6.4) as authored planted ground truth — the producer B1 currently lacks. |
-| 7.2 | B2 blinded persona-vs-real matcher | [Aug B2] | Licenses every B1 number; also upgrades 5.3's tiered gate to hard. |
-| 7.3 | B4 planted-vs-adjudicated agreement live | [Aug B4] | Producer scaffold from 4.4; adjudicated side accrues via the contest-first queue. |
-| 7.4 | Freeze B5; ship C1–C4 one rung at a time, each with hypothesis + revert | [Aug C] | **C1 is amended to repair-before-structure:** `diagnosis_md` stays first, the repaired trace comes second, and structured causal fields come last. This preserves causal §5.1's prose-first invariant while letting the checkable repair constrain structured attribution; it does not claim to implement literal repair-first ordering. C3 revert is measurable via 1.2. C4's eval must include a mid-history cause change. |
+| 7.1 ✅ | B1 planted-misconception eval harness scoring the diagnostician **blind**, over the §12 regression shapes incl. abstention cases; B3 cross-model separation from day one (the existing planted-trial path has the same-model defect) | [Aug B1, B3] | Consumes A5 discrimination profiles (6.4) as authored planted ground truth — the producer B1 currently lacks. |
+| 7.2 ✅ | B2 blinded persona-vs-real matcher | [Aug B2] | Licenses every B1 number; also upgrades 5.3's tiered gate to hard. |
+| 7.3 ✅ | B4 planted-vs-adjudicated agreement live | [Aug B4] | Producer scaffold from 4.4; adjudicated side accrues via the contest-first queue. |
+| 7.4 ✅ | Freeze B5; ship C1–C4 one rung at a time, each with hypothesis + revert | [Aug C] | **C1 is amended to repair-before-structure:** `diagnosis_md` stays first, the repaired trace comes second, and structured causal fields come last. This preserves causal §5.1's prose-first invariant while letting the checkable repair constrain structured attribution; it does not claim to implement literal repair-first ordering. C3 revert is measurable via 1.2. C4's eval must include a mid-history cause change. |
+
+**7.1–7.3 as shipped** — migration 144 adds three append-only evaluation
+ledgers, structurally separate from learner attempts and projections. B1 runs
+the live grading contract with discrimination profiles and planted labels
+withheld, scores all 14 fixed regression shapes by shape and in aggregate, and
+refuses a decision license unless the matrix contains a real open-vocabulary
+abstention plus the mid-history cause-change control. B3 canonicalizes model
+families across provider aliases, so routing GPT through two gateways is not
+independence. `learnloop diagnostic-eval` requires separate generator and
+diagnostician providers and accepts a strict JSON oracle manifest; unknown
+oracle fields fail closed.
+
+B2's leave-pair-out matcher sees text-shape features only and persists hashes
+and aggregate scores, never real learner traces. Insufficient volume abstains
+and a separable corpus rejects. A B1 license is bound to the exact persona
+corpus hash that B2 saw, preventing a realism pass over corpus A from licensing
+scores over corpus B. The standalone `learnloop persona-realism` command
+licenses only the authored-signature corpus used by §3.0; generated regression
+personas are licensed only inside the B1 commissioning transaction. A successful
+authored-signature license upgrades plain-practice failures from advisory to
+hard; a separable corpus invalidates an otherwise passing gate result. B4 now
+reads only licensed planted labels, joins them to A4 adjudications on overlap,
+and retains `no_producer` when only unlicensed synthetic runs exist.
+
+**7.4 as shipped** — B5's metric names and order remain frozen. The live
+non-deterministic grading path now emits diagnosis prose, then the repaired
+trace, then structured causal fields (C1); supplies typed verifier observations
+whose `parse_failed`/`unsupported` arms confer no support (C2); samples three
+independent diagnoses and turns disagreement into an unresolved cause set (C3);
+and supplies bounded raw prior traces from the same canonical facet and surface
+family without exposing prior diagnoses (C4). Sample agreement is stored as
+provisional support but is deliberately absent from the durable-promotion
+authorities. Every live augmented grade appends its prompt/model pin, context
+arms, sample support, history ids, hypothesis, and revert criterion; the Stage-7
+report exposes those receipts without inventing a verdict before outcomes
+accrue.
 
 ### Stage 8 — Measurement Waves 4–5 (inference, then certification)
 
@@ -849,12 +1294,36 @@ certifiable contracts (Stages 5–6 are what create this).
 
 | # | Item | Provenance | Notes |
 |---|---|---|---|
-| 8.1 | Static cells-converted precheck for B1 dominance and B3 entailment (principle 5 of §2) | [Meas §5.8.2 method] | Free. Last measurement: dominance converts 1 of 25 cells. Build nothing that doesn't move the count. |
+| 8.1 ✅ | Static cells-converted precheck for B1 dominance and B3 entailment (principle 5 of §2) | [Meas §5.8.2 method] | Free. Last measurement: dominance converts 1 of 25 cells. Build nothing that doesn't move the count. |
 | 8.2 | B1 capability dominance (embedded credit, assisted-attempts propagate nothing, sampled direct-probe audit) | [Meas B1] | Only if 8.1 justifies it post-Stage-5/6 (the pool will sit higher on the ladder by then, which is what makes dominance start converting). |
 | 8.3 | B3 prerequisite entailment — shadow first, `hard`/`path_specific` edges only, per-edge violation tracking from day one | [Meas B3] | Same precheck discipline. |
 | 8.4 | §5.3 substitution rule + certificate receipts (measured vs inferred, margins, integration never substitutable) | [Meas §5.3] | Certificates become withdrawable via 1.4's correction machinery when an edge retires. |
 | 8.5 | C1 EIG-per-minute exam selection (adversarial weighting by P(below θ), over contract cells only) | [Meas §5.4, §5.6] | Confined to certification sittings; practice serving keeps the desirable-difficulty band objective — two objectives, one posterior, never conflated. |
 | 8.6 | C2 adaptive sittings + posterior-threshold stop (superset reservation preserves leakage guarantees; never described as SPRT) | [Meas §5.5] | Revert if `false_certification_rate` (4.2) rises above baseline. |
+
+**8.1 as shipped** — new `services/inference_precheck.py`, exposed by
+`learnloop inference-precheck` and the desktop measurement-health panel. It is a
+pure counterfactual over the exact 3.1 reachability snapshot: no attempt or
+learner-state reads, no provider, no writes, and no inferred credit. B1's count is
+the `MISMATCH_ABOVE` set by construction. B3 requires a directly reachable
+downstream anchor and an explicitly typed prerequisite relation; missing
+modality fails closed as `UNTYPED`, `instructional_order`/`facilitating` convert
+nothing, and `path_specific` candidates are reported separately because a static
+pass cannot prove the path was exercised. Integration cells remain visible as
+prediction-only and are excluded from the later substitution count. Overlap
+between B1 and B3 is set-deduplicated.
+
+The post-Stage-5/6 measurement on `fixtures/linear_algebra` is decisive and
+reproduces the old conclusion rather than assuming the new instrument wave moved
+it: 9 of 47 cells are directly reachable; B1 converts **1 of the 38 gaps**
+(2.6%, 1 of 47 overall), the same
+`facet_vector_addition_must_be_commutative_and_associat@procedure_execution`
+cell already identified by §5.8.2. B3 converts **0**. All 30 LO prerequisite
+declarations are `UNTYPED`; the 42-edge prerequisite graph has 12 edges not
+referenced by an LO declaration. That is a typed upstream-data verdict, not a
+claim that entailment has no value: 8.3 is not justified until prerequisite
+relations are reviewed into `hard`/`path_specific` and the precheck is rerun.
+No B1/B3 belief or certification path was built by this item.
 
 ---
 
@@ -893,10 +1362,12 @@ certifiable contracts (Stages 5–6 are what create this).
    grounds. P2's manipulation-contract claim stands as written — no descoping
    annotation needed.
 3. ✅ **Persona-gate tiering** (5.3) — **confirmed:** diagnostic-purpose
-   instruments are hard-rejected when the personas do not separate; plain
-   practice items receive an advisory review flag until B2 lands. Before B2,
-   passing is not treated as persona-realism validation or diagnostic evidence,
-   and the advisory path bypasses no existing quality gate or normal review.
+   instruments are hard-rejected when the personas do not separate. Plain
+   practice items receive an advisory review flag before a successful B2 run;
+   an indistinguishable authored-signature corpus upgrades that tier to hard,
+   while a separable corpus invalidates an otherwise passing result. A pre-B2
+   pass is still not treated as persona-realism validation or diagnostic
+   evidence.
 4. ✅ **`TestExecutionVerifierAdapter`** — **wired**, with the trust boundary made
    explicit. A `test_execution` dispatch arm now exists, and the execution result
    arrives via a new `execution_result` parameter on `validate_repair_candidate`

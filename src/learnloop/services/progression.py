@@ -202,6 +202,7 @@ def apply_evidence_cap(
     surface_ids: Sequence[str],
     cap_policy_id: str | None = None,
     threshold: float | None = None,
+    stem_columns: Mapping[str, tuple[str, str]] | None = None,
 ) -> EvidenceCap:
     """Cap independent evidence over a target x capability x angle neighborhood (§4.3).
 
@@ -209,6 +210,14 @@ def apply_evidence_cap(
     first administration contributes a full unit of mass and each subsequent one
     ``decay^k`` (diminishing returns), summed and capped at ``max_effective_mass`` per
     cluster. Total effective mass never exceeds ``clusters x max_effective_mass``.
+
+    ``stem_columns`` (Meas §3.A2) maps a surface to its ``(stem_id, capability)``
+    when it is one part of a laddered stem. It is handed straight to
+    ``familiarity.evidence_cap_grouping`` and changes nothing here: A2's kinship
+    treatment is a property of the clustering rule, and augmentation §8 requires
+    it to live in one code path. Omitting it leaves this function's behaviour
+    byte-identical to what it was before A2, which is why no existing caller
+    needed touching.
     """
 
     decay = DIMINISHING_MASS_DECAY
@@ -224,7 +233,12 @@ def apply_evidence_cap(
             if threshold is None:
                 threshold = caps.get("tight_kinship_threshold")
 
-    grouping = F.evidence_cap_grouping(repository, surface_ids=surface_ids, threshold=threshold)
+    grouping = F.evidence_cap_grouping(
+        repository,
+        surface_ids=surface_ids,
+        threshold=threshold,
+        stem_columns=stem_columns,
+    )
     total_mass = 0.0
     capped = False
     for cluster in grouping.clusters:

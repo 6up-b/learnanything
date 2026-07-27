@@ -47,6 +47,10 @@ from learnloop.services.learner_profile import read_learner_profile
 from learnloop.services.identifiability import analyze_identifiability, build_proposal_view
 from learnloop.services.role_authority import role_authority
 from learnloop.services.source_outline import resolve_extraction_id
+from learnloop.services.source_unit_selection import (
+    compute_effective_units,
+    effective_scope_groups,
+)
 from learnloop.services.source_unit_inventory import profile_satisfies
 from learnloop.services.synthesis_gates import (
     GateContext,
@@ -205,6 +209,13 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         ir = repo.load_document_ir(extraction_id)
         if ir is not None:
             extraction_units.setdefault(extraction_id, set()).update(u.unit_id for u in ir.units)
+            selection = repo.get_unit_selection(extraction_id)
+            extraction_units[extraction_id].update(
+                str(effective["effective_id"])
+                for effective in compute_effective_units(
+                    ir, (selection or {}).get("boundary_overrides") or []
+                )
+            )
             extraction_spans.setdefault(extraction_id, set()).update(b.span_id for b in ir.blocks)
         rows = repo.unit_inventories_for_revision(member.revision_id)
         scope_units = [scope.unit_id for scope in member.scope]
@@ -215,10 +226,59 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         exam_use_modes = (selection or {}).get("exam_use_modes", {}) if selection else {}
         paper_metadata = (selection or {}).get("exam_paper_metadata", {}) if selection else {}
 
-        for unit_id in scope_units:
-            effective_role = role_overrides.get(unit_id, member.default_role)
+        scope_groups = (
+            effective_scope_groups(
+                ir,
+                (selection or {}).get("boundary_overrides") or [],
+                scope_units,
+                role_by_unit=role_overrides,
+                default_role=member.default_role,
+            )
+            if ir is not None
+            else [
+                {
+                    "unit_id": unit_id,
+                    "unit_ids": [unit_id],
+                    "role": role_overrides.get(unit_id, member.default_role),
+                    "merged": False,
+                }
+                for unit_id in scope_units
+            ]
+        )
+        for group in scope_groups:
+            unit_id = str(group["unit_id"])
+            source_unit_ids = [str(value) for value in group["unit_ids"]]
+            effective_role = str(group["role"])
             authority = role_authority(effective_role)
             row = _best_inventory(rows, unit_id, "combined")
+            if row is None and len(source_unit_ids) > 1:
+                # Transition-safe fallback: an existing per-member cache remains
+                # usable until the explicit composite inventory has been generated.
+                for source_unit_id in source_unit_ids:
+                    member_row = _best_inventory(
+                        rows, source_unit_id, "combined"
+                    )
+                    if member_row is None:
+                        continue
+                    inventory = member_row["inventory"]
+                    unit_inventory_versions[
+                        f"{member.revision_id}:{source_unit_id}"
+                    ] = str(member_row.get("inventory_schema_version")) + "|" + str(
+                        member_row.get("prompt_version")
+                    )
+                    unit_inventories.append(
+                        {
+                            "extraction_id": extraction_id,
+                            "revision_id": member.revision_id,
+                            "source_id": member.source_id,
+                            "unit_id": source_unit_id,
+                            "source_unit_ids": [source_unit_id],
+                            "role": effective_role,
+                            "semantic_authority": authority.semantic_contract,
+                            "inventory": inventory,
+                        }
+                    )
+                continue
             if row is None:
                 continue
             inventory = row["inventory"]
@@ -244,6 +304,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                     "revision_id": member.revision_id,
                     "source_id": member.source_id,
                     "unit_id": unit_id,
+                    "source_unit_ids": source_unit_ids,
                     "role": effective_role,
                     "semantic_authority": authority.semantic_contract,
                     "inventory": inventory,

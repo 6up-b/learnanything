@@ -1,12 +1,15 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
+  AnswerGradingClarificationResultDto,
+  AttemptTraceEvidenceDto,
   CandidateErrorTypeDto,
   CausalRepairStatusDto,
   ClaimCandidateDto,
   CriterionEvidenceRowDto,
   ErrorEventDto,
   FeedbackBundle,
+  GradingClarificationDto,
   FollowupGateDiagnosticsDto,
   FollowupGateSignalDto,
   MasteryDto,
@@ -941,6 +944,122 @@ function RegradeLedgerCard({
   );
 }
 
+// ── Meas §3.A8 clarification channel ─────────────────────────────────────────
+// One question, asked only when the grade above was hedged or abstained, and
+// only about something that exists solely in the learner's head. Three things
+// the copy has to make unmissable, because each of them is load-bearing:
+//   • it is optional — a skip is a non-event, and this card writes nothing;
+//   • the grade is provisional *right now*, not "may be revised later";
+//   • skipping leaves the honest uncertainty standing, and the alternative is
+//     never a guess — nothing in the timeout path writes a grade at all.
+const PROVISIONAL_PENDING_CLARIFICATION = "provisional_pending_clarification";
+
+// Mirrors the closed `reason` vocabulary in migration 142 — what shape of
+// uncertainty the grader hit, shown so the question does not read as arbitrary.
+const CLARIFICATION_REASON_COPY: Record<string, string> = {
+  ambiguous_notation: "your notation could be read two ways",
+  skipped_step: "a step is missing and could be fluency or a gap",
+  correct_answer_possibly_invalid_reasoning: "the answer is right; the route to it is unclear",
+  method_ambiguity: "which method you were using is unclear",
+  other: "the grade could not be settled from the work alone",
+};
+
+function clarificationOutcomeCopy(result: AnswerGradingClarificationResultDto): string {
+  if (result.error) return result.error;
+  // `abstained` is a real result, not a failed exchange: the learner answered
+  // and the grader still cannot name a cause. Saying anything warmer here would
+  // make A8 a machine for manufacturing resolutions.
+  if (result.outcome === "abstained") {
+    return "Recorded. The grader still cannot name a cause, so the uncertainty stays on the record rather than being filled in.";
+  }
+  if (result.outcome === "resolved") return "Recorded — the grade above was re-graded with your answer.";
+  return "Recorded. The grade has not been re-graded yet.";
+}
+
+function ClarificationCard({
+  clarification,
+  answer,
+  setAnswer,
+  submitting,
+  onSubmit,
+  onSkip,
+}: {
+  clarification: GradingClarificationDto;
+  answer: string;
+  setAnswer: (next: string) => void;
+  submitting: boolean;
+  onSubmit: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <>
+      <FbHeader>One question</FbHeader>
+      <div style={{
+        border: `1px solid ${C.borderStrong}`,
+        borderLeft: `3px solid ${C.amber}`,
+        background: C.bgElev,
+        borderRadius: 2,
+        padding: "14px 18px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Pill tone="amber">grade is provisional</Pill>
+          <Faint>optional</Faint>
+          <Meta>{CLARIFICATION_REASON_COPY[clarification.reason] ?? clarification.reason.replace(/_/g, " ")}</Meta>
+        </div>
+        <div className="markdown" style={{ marginTop: 10, fontSize: 13, lineHeight: 1.6, color: C.text }}>
+          <MarkdownMath value={clarification.questionMd} />
+        </div>
+        <textarea
+          value={answer}
+          onChange={(event) => setAnswer(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              onSubmit();
+            }
+          }}
+          disabled={submitting}
+          placeholder="a sentence is plenty"
+          rows={2}
+          style={{
+            width: "100%",
+            marginTop: 10,
+            resize: "vertical",
+            background: C.bg,
+            border: `1px solid ${C.border}`,
+            color: C.text,
+            fontFamily: MONO,
+            fontSize: 13,
+            lineHeight: 1.5,
+            padding: "8px 10px",
+            outline: "none",
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8, fontFamily: MONO, fontSize: 12 }}>
+          <span
+            style={{
+              color: answer.trim() && !submitting ? C.amberLink : C.textFaint,
+              textDecoration: "underline",
+              cursor: answer.trim() && !submitting ? "pointer" : "default",
+            }}
+            onClick={() => { if (answer.trim() && !submitting) onSubmit(); }}
+          >{submitting ? "re-grading…" : "answer & re-grade"}</span>
+          <span
+            style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer" }}
+            onClick={onSkip}
+          >skip this</span>
+          <Faint>⌘/⌃ ↵ to send</Faint>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
+          Only you know the answer to this, so no amount of work on our side settles it. Skipping
+          leaves the uncertainty exactly as it is — the grade stays the hedge that produced this
+          question, and nothing is guessed in its place.
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── FeedbackScreen ────────────────────────────────────────────────────────────
 export function FeedbackScreen({
   attemptId,
@@ -981,6 +1100,15 @@ export function FeedbackScreen({
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [trace, setTrace] = useState<AttemptTraceDto | null>(null);
+  // Meas §3.A6/§3.A8. `traceEvidence` carries the reward sentence a volunteered
+  // explanation earned; `clarification` is the one question that can still move
+  // a provisional grade. `clarificationNote` is what came back afterwards —
+  // including "still abstained", which is a result and not a failure.
+  const [traceEvidence, setTraceEvidence] = useState<AttemptTraceEvidenceDto | null>(null);
+  const [clarification, setClarification] = useState<GradingClarificationDto | null>(null);
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [answeringClarification, setAnsweringClarification] = useState(false);
+  const [clarificationNote, setClarificationNote] = useState<string | null>(null);
   const [regrading, setRegrading] = useState(false);
   // Old→new receipt captured when the learner triggers a regrade on this
   // screen; drives the ledger-fact claim. On a fresh load with no in-screen
@@ -1039,6 +1167,59 @@ export function FeedbackScreen({
       .catch((error) => { if (!cancelled) onError(error.message); });
     return () => { cancelled = true; };
   }, [attemptId, onError]);
+
+  // Meas §3.A6/§3.A8 post-grade reads. Both are best-effort and neither is ever
+  // raised as a toast: a missing reward line means the grader saw nothing extra,
+  // and a missing question means there was nothing it could not settle itself.
+  useEffect(() => {
+    let cancelled = false;
+    setClarificationAnswer("");
+    setClarificationNote(null);
+    api
+      .getAttemptTraceEvidence(attemptId)
+      .then((result) => { if (!cancelled) setTraceEvidence(result); })
+      .catch(() => { if (!cancelled) setTraceEvidence(null); });
+    api
+      .getGradingClarification(attemptId)
+      .then((result) => { if (!cancelled) setClarification(result.clarification); })
+      .catch(() => { if (!cancelled) setClarification(null); });
+    return () => { cancelled = true; };
+  }, [attemptId]);
+
+  // Answering re-grades with the learner's words in hand. The refreshed bundle
+  // comes back on the same call, so the resolved grade is on screen before the
+  // note explaining what it did — including when it did nothing.
+  const handleAnswerClarification = async () => {
+    const answer = clarificationAnswer.trim();
+    if (!feedback || answeringClarification || !answer) return;
+    setAnsweringClarification(true);
+    try {
+      const result = await api.answerGradingClarification(feedback.attemptId, answer);
+      setFeedback(result.feedback);
+      setClarification(null);
+      setClarificationNote(clarificationOutcomeCopy(result));
+      // The re-grade reads the same trace again and may report facets the first
+      // pass missed, so the reward line is re-read rather than left stale.
+      api
+        .getAttemptTraceEvidence(feedback.attemptId)
+        .then(setTraceEvidence)
+        .catch(() => {});
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setAnsweringClarification(false);
+    }
+  };
+
+  // Skipping writes nothing, deliberately: there is no "declined" state to
+  // record, and the question expires on its own TTL to the abstention that
+  // produced it. Dismissing the card is the whole action.
+  const handleSkipClarification = () => {
+    setClarification(null);
+    setClarificationNote(
+      "Skipped. The grade stays provisional and keeps the grader's original uncertainty until the question expires.",
+    );
+  };
 
   // ── P2 causal repair hold (spec_causal_attribution_v1 §6, §6.6) ───────────
   // Ask the orchestrator only when the receipt says there is something to hold:
@@ -1363,11 +1544,20 @@ export function FeedbackScreen({
           </Meta>
         </div>
 
-        {f.manualReviewReason && (
+        {/* `provisional_pending_clarification` shares the manual_review_reason
+            channel but is not a review request — it means this grade is not
+            final yet. Reading it out as "manual review recommended" would make
+            a provisional grade look settled, which is the one thing §3.A8
+            requires it never do. */}
+        {f.manualReviewReason === PROVISIONAL_PENDING_CLARIFICATION ? (
+          <div className="toast" style={{ marginBottom: 14 }}>
+            provisional grade · not final until the open clarification is answered or expires
+          </div>
+        ) : f.manualReviewReason ? (
           <div className="toast" style={{ marginBottom: 14 }}>
             manual review recommended: {f.manualReviewReason}
           </div>
-        )}
+        ) : null}
 
         {(f.questionHintEquivalents ?? 0) > 0 && (
           <div style={{ marginBottom: 14, fontSize: 12, color: C.textDim, fontFamily: MONO }}>
@@ -1407,9 +1597,11 @@ export function FeedbackScreen({
               onChanged={() => {
                 api.getPracticeItem(item.id).then(setItem).catch(() => {});
               }}
-              onRetired={() => {
-                api.getPracticeItem(item.id).then(setItem).catch(() => {});
-              }}
+              // CardControls keeps the historical feedback visible while
+              // removing all mutation actions after the durable retirement.
+              // Re-fetching detail here would rebuild the scheduler merely to
+              // redisplay an immutable attempt.
+              onRetired={() => {}}
               onTeachBack={onOpenPractice}
             />
           ) : null}
@@ -1424,6 +1616,27 @@ export function FeedbackScreen({
           </div>
 
           <ScoreBlock f={f} />
+
+          {/* Meas §3.A6 — the visible half of "voluntary and visibly rewarded":
+              what the extra line actually bought, named facet by facet. Absent
+              rather than zero when the grader saw nothing beyond the item's
+              declared set, because "0 additional facets" would punish the
+              learner for having volunteered. */}
+          {traceEvidence?.reward ? (
+            <div style={{
+              marginTop: 14, padding: "9px 12px",
+              background: C.bgElev, borderLeft: `3px solid ${C.green}`,
+              fontSize: 12, lineHeight: 1.6, color: C.text,
+              display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+            }}>
+              <span>{traceEvidence.reward}</span>
+              {traceEvidence.observations
+                .filter((row) => row.observationScope === "opportunistic")
+                .map((row) => (
+                  <Pill key={row.facetId} tone="green">{row.facetId.replace(/^facet_/, "")}</Pill>
+                ))}
+            </div>
+          ) : null}
 
           {/* rubric criteria */}
           {item?.teachBackSource?.questConnection === "connected" &&
@@ -1489,6 +1702,28 @@ export function FeedbackScreen({
             </div>
           )}
         </div>
+
+        {/* ── Meas §3.A8 clarification channel ──
+            Sits directly under the grade it qualifies, so "provisional" and the
+            thing that would settle it are never on separate screens. */}
+        {clarification ? (
+          <ClarificationCard
+            clarification={clarification}
+            answer={clarificationAnswer}
+            setAnswer={setClarificationAnswer}
+            submitting={answeringClarification}
+            onSubmit={() => void handleAnswerClarification()}
+            onSkip={handleSkipClarification}
+          />
+        ) : clarificationNote ? (
+          <div style={{
+            marginTop: 14, padding: "9px 12px",
+            background: C.bgElev, borderLeft: `3px solid ${C.amber}`,
+            fontFamily: MONO, fontSize: 12, lineHeight: 1.6, color: C.textDim,
+          }}>
+            {clarificationNote}
+          </div>
+        ) : null}
 
         {/* ── attempt trace (criterion DAG) ── */}
         {trace && trace.criteria.length > 0 && (

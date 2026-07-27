@@ -1321,16 +1321,33 @@ def probe_action_change_rate(repository: Repository) -> Metric:
 
 
 def planted_ground_truth(repository: Repository) -> dict[str, dict[str, Any]] | None:
-    """Planted (synthetic) labels keyed by attempt, or None when unproduced.
+    """Licensed B1 labels keyed by attempt, or ``None`` without a license.
 
-    Stage 7 (B1) fills this in. It must return labels in
-    `adjudicated_ground_truth`'s shape: at minimum `should_abstain` and
-    `anchor_key` (use `diagnosis_adjudication.anchor_key`, which is public for
-    exactly this reason), optionally `repair_class_id`.
+    A diagnostic-eval row counts only when B3 used different model families and
+    B2's blind matcher found that generator's personas indistinguishable from
+    real traces.  Unlicensed synthetic labels remain auditable in migration
+    144, but deliberately look like no producer to every decision metric.
     """
 
-    _ = repository
-    return None
+    runs = repository.diagnostic_eval_run_rows()
+    if not any(row.get("status") == "licensed" for row in runs):
+        return None
+    labels: dict[str, dict[str, Any]] = {}
+    for row in repository.diagnostic_eval_case_rows(licensed_only=True):
+        attempt_id = row.get("attempt_id")
+        if not attempt_id:
+            continue
+        labels[str(attempt_id)] = {
+            "should_abstain": bool(row.get("planted_should_abstain")),
+            "anchor_key": str(row.get("planted_anchor_key") or "none"),
+            "repair_class_id": row.get("planted_repair_class_id"),
+            "repair_equivalence_id": row.get(
+                "planted_repair_equivalence_id"
+            ),
+            "run_id": row.get("run_id"),
+            "case_key": row.get("case_key"),
+        }
+    return labels
 
 
 def planted_vs_adjudicated_agreement(repository: Repository) -> Metric:
@@ -1341,13 +1358,21 @@ def planted_vs_adjudicated_agreement(repository: Repository) -> Metric:
     adjudicated = adjudicated_ground_truth(repository)
     planted = planted_ground_truth(repository)
     if planted is None:
+        eval_runs = repository.diagnostic_eval_run_rows()
+        if eval_runs:
+            producer_note = (
+                f"{len(eval_runs)} planted run(s) exist but none is licensed by "
+                "both B2 realism and B3 cross-model separation"
+            )
+        else:
+            producer_note = "the planted side has no Stage-7 B1 producer run"
         return _unavailable(
             "planted_vs_adjudicated_agreement",
             availability="no_producer",
             unit="rate",
             denominator_label="attempts labelled by both ground truths",
             note=(
-                "the planted side has no producer (Stage 7 / Aug §3 B1); "
+                f"{producer_note}; "
                 f"{len(adjudicated)} adjudicated label(s) are ready to join "
                 "against"
             ),

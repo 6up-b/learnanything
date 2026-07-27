@@ -42,19 +42,19 @@ THE TIERING (plan §7.3, resolved)
   instrument whose whole purpose is to discriminate and which demonstrably does
   not discriminate is worthless as evidence, and A3 states the rule outright: "a
   freehand error is an untyped instrument."
-* **Advisory flag-for-review** for plain practice items, until augmentation §3
-  B2's blinded realism matcher exists. Authoring throughput is the measured
-  bottleneck and the simulator is not yet validated, so a plain item is never
-  blocked on it. Flagging still costs the item its auto-apply route — "the
-  advisory path bypasses neither existing quality gates nor normal review."
+* **Advisory flag-for-review** for plain practice items until augmentation §3
+  B2's blinded realism matcher licenses the authored-signature corpus. Once
+  licensed, the same failure is hard: Stage 7 upgrades the tier rather than
+  leaving a validated gate advisory forever.
 
-A PASS IS PROVISIONAL, AND SAYS SO
-----------------------------------
+A PASS IS LICENSED OR PROVISIONAL, AND SAYS WHICH
+-------------------------------------------------
 §3.0: "Persona realism inherits augmentation §3 B2's blinded matcher: if a matcher
 can separate persona traces from real vault traces, the gate is measuring a
 distribution that does not exist and its verdicts do not count." Every audit
-record this module writes therefore carries ``persona_realism_validated: false``.
-A pre-B2 pass is an authoring check, not evidence of diagnostic validity.
+record carries ``persona_realism_validated`` and the B2 run id. A pre-B2 pass is
+an authoring check; a licensed pass counts, while a separable corpus invalidates
+an otherwise passing result.
 
 WHAT THE DETERMINISTIC PATH ACTUALLY CATCHES
 --------------------------------------------
@@ -91,19 +91,20 @@ together, giving both members the same verdict.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.db.repositories import Repository
 from learnloop.services.diagnostic_gate import normalize_answer
+from learnloop.services.discrimination_profiles import payload_profiles
 from learnloop.services.scoreboard import Metric
 from learnloop.vault.models import LoadedVault
 
 #: Stamped into every audit record so a later reader can tell which harness
 #: version produced a verdict (the gate's semantics are expected to change when
 #: B2 lands and the plain-practice tier is promoted).
-PERSONA_GATE_VERSION = "persona_gate_v1"
+PERSONA_GATE_VERSION = "persona_gate_v2_realism_licensed"
 
 
 # ---------------------------------------------------------------------------
@@ -215,16 +216,29 @@ def _keyed_misconception_ids(payload: Mapping[str, Any]) -> list[str]:
     ]
 
 
-#: Tag prefix that binds two rows into one A4 contrast pair. `tags` already exists
-#: on `PracticeItemPatchPayload`, so this needs no schema change and nothing can
-#: currently emit it — A4 is Stage 6. Named here so the pair rule §3.0 states
-#: ("the misconception-holder must fail exactly one member") has a convention to
-#: bind on the day A4 lands, instead of shipping an unenforced clause.
+#: Tag prefix that binds two rows into one A4 contrast pair. Predates A4's own
+#: schema fields and is kept because it is the only binding available to a row
+#: whose two members are minted in one batch and do not yet have vault ids.
 CONTRAST_PAIR_TAG_PREFIX = "contrast_pair:"
 
 
 def contrast_pair_key(payload: Mapping[str, Any]) -> str | None:
-    """The pair id two contrast-pair members share, if the payload declares one."""
+    """The pair id two contrast-pair members share, if the payload declares one.
+
+    Two bindings, checked in this order:
+
+    1. the ``contrast_pair:<id>`` tag — an explicit batch-local grouping, and the
+       only one available before either member has a persisted id;
+    2. A4's structural field ``contrast_of``, from which the key is derived as
+       the sorted ``a|b`` id pair, so both members compute the SAME key without
+       either having to name the pair.
+
+    Deriving rather than authoring the key in case 2 is deliberate: a pair whose
+    grouping had to be authored separately from ``contrast_of`` could disagree
+    with itself, and the disagreement would silently split a pair into two
+    single-member groups — each of which then passes the gate on its own, which
+    is exactly the check §3.0 wrote the joint rule to prevent.
+    """
 
     for tag in payload.get("tags") or []:
         text = str(tag).strip()
@@ -232,6 +246,10 @@ def contrast_pair_key(payload: Mapping[str, Any]) -> str | None:
             key = text[len(CONTRAST_PAIR_TAG_PREFIX):].strip()
             if key:
                 return key
+    counterpart = str(payload.get("contrast_of") or "").strip()
+    own = str(payload.get("id") or "").strip()
+    if counterpart and own:
+        return "|".join(sorted((own, counterpart)))
     return None
 
 
@@ -240,6 +258,15 @@ def classify_instrument(payload: Mapping[str, Any]) -> InstrumentClass:
 
     Pure, total, and payload-only. Order matters: an item that is both an
     error-hunt and keys a misconception is an error-hunt (the deeper obligation).
+
+    Two channels, both read, because neither is sufficient alone. The
+    ``practice_mode`` / tag tokens catch an item that *says* what it is; the
+    structural fields (``error_hunt``, ``contrast_of`` / ``differing_component``,
+    ``discrimination_profiles``) catch one that merely *is*. An item carrying a
+    worked solution with planted errors is an error hunt whether or not anyone
+    remembered the tag, and the plan's requirement is that the tier be "read off
+    the row's own payload rather than passed in by whichever route happens to be
+    running" — a tag is closer to a caller flag than to a property.
     """
 
     if not normalize_answer(str(payload.get("prompt") or "")) and not normalize_answer(
@@ -253,6 +280,12 @@ def classify_instrument(payload: Mapping[str, Any]) -> InstrumentClass:
         # pair key as a suffix.
         if mode == token or any(tag == token or tag.startswith(f"{token}:") for tag in tags):
             return instrument_class
+    if isinstance(payload.get("error_hunt"), Mapping):
+        return InstrumentClass.ERROR_HUNT
+    if payload.get("contrast_of") or payload.get("differing_component"):
+        return InstrumentClass.CONTRAST_PAIR
+    if payload_profiles(payload):
+        return InstrumentClass.DISCRIMINATION_PROFILE
     if payload.get("misconception_consistent_answer") or _keyed_misconception_ids(payload):
         return InstrumentClass.MISCONCEPTION_DIAGNOSTIC
     return InstrumentClass.PLAIN_PRACTICE
@@ -286,7 +319,14 @@ class Persona:
     kind: PersonaKind
     belief: str
     answer: str
-    source: str  # registry_misconception | payload_declared | facet_error_signature | expected_answer
+    # discrimination_profile | registry_misconception | payload_declared |
+    # facet_error_signature | expected_answer
+    source: str
+    #: The registry belief this persona holds, when it is a registry-linked one.
+    #: A3's invisibility check needs to know WHICH belief a persona holds so it
+    #: can pair a planted error with its own holder rather than with whichever
+    #: persona happens to be first.
+    misconception_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -294,6 +334,7 @@ class Persona:
             "kind": str(self.kind),
             "belief": self.belief,
             "source": self.source,
+            "misconception_id": self.misconception_id,
         }
 
 
@@ -365,6 +406,20 @@ class PersonaGateReason(StrEnum):
     CONTRAST_PAIR_FAILS_BOTH = "contrast_pair_fails_both"
     #: FAIL (A4): the belief-holder fails neither member.
     CONTRAST_PAIR_FAILS_NEITHER = "contrast_pair_fails_neither"
+    #: ABSTAIN (A4): the pair could not be judged, because the deterministic
+    #: fallback cannot decide it and no semantic oracle is wired.
+    #:
+    #: A profile supplies ONE ``observable_signature`` per hypothesis, and the
+    #: string rule fires whenever that answer differs from a member's expected
+    #: answer. A signature written as what a believer would actually produce —
+    #: which is what §3.A5 asks for — differs from BOTH members, so the string
+    #: rule reports "fails both" on every honestly-authored pair and the pair is
+    #: blocked. The gate would then be enforcing "the signature is byte-identical
+    #: to one member's expected answer", which is a property of the prose, not of
+    #: the instrument. One string cannot model a holder who answers one member
+    #: correctly and the other wrongly; only a semantic grader can, so with no
+    #: grader wired this is an abstention rather than a verdict.
+    CONTRAST_PAIR_UNJUDGED = "contrast_pair_unjudged"
     #: FAIL: the item claims to discriminate a named belief but keys no fatal
     #: error to it, so a failure cannot be attributed. Mirrors
     #: `diagnostic_gate`'s `no_keyed_fatal_error` blocking reason.
@@ -374,6 +429,42 @@ class PersonaGateReason(StrEnum):
     INSUFFICIENT_PERSONA_PAYLOAD = "insufficient_persona_payload"
     #: ABSTAIN: the row is not a created practice item.
     NOT_AN_INSTRUMENT = "not_an_instrument"
+    #: B2: a blind matcher separated this persona corpus from real learner
+    #: traces.  Mechanical discrimination on an unreal distribution is not a
+    #: valid gate result.
+    PERSONA_REALISM_SEPARABLE = "persona_realism_separable"
+
+    # -- A3 error hunts (§3.A3). Seven arms because the instrument has seven
+    # distinct ways of being untyped, and each one has a different remedy.
+    #: PASS: every planted error is invisible to a holder of the belief it was
+    #: planted from — the non-triviality criterion §3.A3 states outright ("the
+    #: misconception-persona must *not* find the error").
+    ERROR_HUNT_PLANTS_INVISIBLE = "error_hunt_plants_invisible"
+    #: PASS: the item is the deliberate clean-solution rotation. It plants
+    #: nothing, so it discriminates nothing, and that is the point — "a rotation
+    #: that sometimes presents *correct* work is strictly more informative". A
+    #: typed pass rather than an abstention, because the alternative (falling
+    #: through to `INSUFFICIENT_PERSONA_PAYLOAD`) would block the rotation the
+    #: instrument depends on.
+    ERROR_HUNT_CLEAN_CONTROL = "error_hunt_clean_control"
+    #: FAIL: a holder of the targeted belief would spot the planted error, so the
+    #: item measures carefulness rather than the belief. §3.A3's revert direction,
+    #: caught at authoring time instead of after twenty attempts.
+    ERROR_HUNT_PLANT_VISIBLE_TO_BELIEF_HOLDER = "error_hunt_plant_visible_to_belief_holder"
+    #: FAIL: the plant names no registry belief and no facet error signature the
+    #: vault can corroborate. "Plant from the registry, never freehand — a
+    #: freehand error is an untyped instrument."
+    ERROR_HUNT_PLANT_NOT_FROM_REGISTRY = "error_hunt_plant_not_from_registry"
+    #: FAIL: a plant with no `required_repair`. Flagging is recognition;
+    #: repairing is construction, and §11 forbids recognition items.
+    ERROR_HUNT_NO_REPAIR_REQUIRED = "error_hunt_no_repair_required"
+    #: FAIL: the prompt states how many errors there are. "A prompt saying 'find
+    #: the 2 errors' is a scavenger hunt."
+    ERROR_HUNT_DECLARES_ERROR_COUNT = "error_hunt_declares_error_count"
+    #: FAIL: the planted text and its own required repair are the same thing, so
+    #: nothing was actually planted. Distinct from the visibility arm: the remedy
+    #: is to plant a genuine error, not to plant a subtler one.
+    ERROR_HUNT_PLANT_MATCHES_REPAIR = "error_hunt_plant_matches_repair"
 
 
 @dataclass(frozen=True)
@@ -480,6 +571,214 @@ def separation_verdict(
 
 
 # ---------------------------------------------------------------------------
+# A3 error hunts: the plant must be INVISIBLE to the belief it was planted from
+# ---------------------------------------------------------------------------
+
+#: Plant provenances the vault can corroborate. There is no ``freehand`` arm and
+#: there must never be one: §3.A3 — "Plant from the registry, never freehand ...
+#: A freehand error is an untyped instrument."
+_REGISTRY_PLANT_SOURCES: frozenset[str] = frozenset(
+    {"misconception_registry", "facet_error_signature"}
+)
+
+#: Prompt surfaces that hand the learner the error count. §3.A3: "A prompt saying
+#: 'find the 2 errors' is a scavenger hunt." Both the digit and the spelled forms,
+#: because the authoring model uses whichever reads better. Matched against the
+#: prompt only — the worked solution itself may legitimately contain numerals.
+_ERROR_COUNT_PATTERNS: tuple[str, ...] = (
+    r"\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
+    r"(?:errors?|mistakes?|flaws?|bugs?|slips?)\b",
+    r"\b(?:errors?|mistakes?|flaws?|bugs?|slips?)\s*[:\-]?\s*\d+\b",
+    r"\bexactly\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b",
+)
+
+
+def declares_error_count(prompt: str) -> bool:
+    """Does this prompt tell the learner how many errors to look for?
+
+    Deterministic and deliberately conservative in the *blocking* direction: it
+    fires on a stated count and not on "find the errors", because the rule is
+    about the count, not about plurality.
+    """
+
+    import re
+
+    text = str(prompt or "")
+    return any(
+        re.search(pattern, text, flags=re.IGNORECASE) for pattern in _ERROR_COUNT_PATTERNS
+    )
+
+
+def _plant_holder(
+    plant: Mapping[str, Any],
+    *,
+    vault: LoadedVault,
+    repository: Repository | None,
+    personas: Sequence[Persona],
+) -> Persona | None:
+    """The persona who holds the belief THIS plant was drawn from, or ``None``.
+
+    Pairing a plant with its own holder is what makes §3.A3's criterion checkable
+    at all: "the planted error must be invisible to a holder of the
+    misconception" is a statement about one specific belief, and testing it
+    against whichever belief-holder happened to be built first would answer a
+    different question.
+
+    Three resolutions, in the order the plant's own declaration supports:
+
+    1. ``misconception_id`` -> the registry record's signature;
+    2. ``facet_id`` -> the facet's ``error_signatures``, if one of them is the
+       planted text (D2 plants from the same field);
+    3. otherwise, an already-built persona whose answer IS the planted text.
+
+    ``None`` means the vault cannot corroborate the plant, which the caller
+    reports as ``ERROR_HUNT_PLANT_NOT_FROM_REGISTRY`` — the honest reading of a
+    plant that claims a registry source the registry does not have.
+    """
+
+    signature = str(plant.get("error_signature") or "")
+    misconception_id = str(plant.get("misconception_id") or "").strip()
+    if misconception_id and repository is not None:
+        record = repository.misconception(misconception_id)
+        if record is not None and str(getattr(record, "signature", "") or "").strip():
+            return Persona(
+                persona_id=f"plant_{misconception_id}",
+                kind=PersonaKind.BELIEF_HOLDER,
+                belief=str(record.statement),
+                answer=str(record.signature),
+                source="registry_misconception",
+                misconception_id=misconception_id,
+            )
+    facet_id = str(plant.get("facet_id") or "").strip()
+    if facet_id:
+        for candidate in _facet_error_signatures(vault, facet_id):
+            if normalize_answer(candidate) == normalize_answer(signature):
+                return Persona(
+                    persona_id=f"plant_{facet_id}",
+                    kind=PersonaKind.BELIEF_HOLDER,
+                    belief=candidate,
+                    answer=candidate,
+                    source="facet_error_signature",
+                )
+    for persona in personas:
+        if persona.kind is not PersonaKind.BELIEF_HOLDER:
+            continue
+        if normalize_answer(persona.answer) == normalize_answer(signature):
+            return persona
+    return None
+
+
+def error_hunt_verdict(
+    payload: Mapping[str, Any],
+    *,
+    personas: Sequence[Persona],
+    vault: LoadedVault,
+    repository: Repository | None = None,
+    grading_client: Any = None,
+) -> SeparationVerdict:
+    """§3.0's separation question, asked the way an A3 item answers it.
+
+    The ordinary gate asks "does the belief-holder get this item wrong?". On an
+    error hunt that question inverts, and the inversion is the whole design:
+
+    * a holder of the belief the error was planted from **cannot see** the error
+      (it is what they would have written), so they fail to repair it and the
+      item marks them wrong — they *fire*, exactly as §3.0 requires of a
+      belief-holder;
+    * a learner who holds the facet sees it and repairs it, so they pass.
+
+    An item whose plant a belief-holder *would* catch is measuring carefulness —
+    §3.A3: "An error-hunt item that any careful reader catches measures
+    carefulness, which is not a facet anyone wants." That is
+    ``ERROR_HUNT_PLANT_VISIBLE_TO_BELIEF_HOLDER``, and it is caught here rather
+    than inferred later from uncorrelated outcomes.
+
+    Three structural refusals run BEFORE the persona trials, because none of them
+    is a question about personas: a plant with no required repair is a
+    recognition item, a plant the vault cannot corroborate is untyped, and a
+    prompt that states the count is a scavenger hunt. Running them first also
+    means their reasons are never masked by a visibility verdict.
+
+    The clean rotation (no plants) passes with its own typed reason. It is not an
+    abstention: an item that plants nothing is *supposed* to discriminate
+    nothing, and blocking it would remove the rotation that kills the "there is
+    always an error" strategy.
+    """
+
+    contract = payload.get("error_hunt")
+    if not isinstance(contract, Mapping) or not str(
+        contract.get("worked_solution_md") or ""
+    ).strip():
+        return SeparationVerdict(False, PersonaGateReason.INSUFFICIENT_PERSONA_PAYLOAD)
+    if declares_error_count(str(payload.get("prompt") or "")):
+        return SeparationVerdict(False, PersonaGateReason.ERROR_HUNT_DECLARES_ERROR_COUNT)
+    plants = [
+        plant for plant in (contract.get("planted_errors") or []) if isinstance(plant, Mapping)
+    ]
+    if not plants:
+        return SeparationVerdict(True, PersonaGateReason.ERROR_HUNT_CLEAN_CONTROL)
+    for plant in plants:
+        if not str(plant.get("required_repair") or "").strip():
+            return SeparationVerdict(
+                False, PersonaGateReason.ERROR_HUNT_NO_REPAIR_REQUIRED
+            )
+        if str(plant.get("source") or "") not in _REGISTRY_PLANT_SOURCES:
+            return SeparationVerdict(
+                False, PersonaGateReason.ERROR_HUNT_PLANT_NOT_FROM_REGISTRY
+            )
+        if normalize_answer(str(plant.get("error_signature") or "")) == normalize_answer(
+            str(plant.get("required_repair") or "")
+        ):
+            return SeparationVerdict(
+                False, PersonaGateReason.ERROR_HUNT_PLANT_MATCHES_REPAIR
+            )
+    trials: list[PersonaTrial] = []
+    holders: list[Persona] = []
+    for plant in plants:
+        holder = _plant_holder(
+            plant, vault=vault, repository=repository, personas=personas
+        )
+        if holder is None:
+            return SeparationVerdict(
+                False,
+                PersonaGateReason.ERROR_HUNT_PLANT_NOT_FROM_REGISTRY,
+                tuple(trials),
+                tuple(holders),
+            )
+        holders.append(holder)
+        # "Visible" = the planted text is categorically distinct from what this
+        # holder would have written, i.e. it looks wrong TO THEM. Invisible is
+        # the passing condition, and an invisible plant is one they fail to
+        # repair — so `fires` (the item marks them wrong) is `not visible`.
+        visible = _fires(
+            str(plant.get("error_signature") or ""),
+            expected=holder.answer,
+            grading_client=grading_client,
+            fire_context={"payload": dict(payload), "planted_error": dict(plant)},
+        )
+        trials.append(
+            PersonaTrial(
+                persona_id=f"{holder.persona_id}@{plant.get('id') or 'plant'}",
+                kind=PersonaKind.BELIEF_HOLDER,
+                fires=not visible,
+            )
+        )
+    if any(not trial.fires for trial in trials):
+        return SeparationVerdict(
+            False,
+            PersonaGateReason.ERROR_HUNT_PLANT_VISIBLE_TO_BELIEF_HOLDER,
+            tuple(trials),
+            tuple(holders),
+        )
+    return SeparationVerdict(
+        True,
+        PersonaGateReason.ERROR_HUNT_PLANTS_INVISIBLE,
+        tuple(trials),
+        tuple(holders),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Building personas from the material the vault actually has
 # ---------------------------------------------------------------------------
 
@@ -503,6 +802,14 @@ def build_personas(
     because a payload-declared belief answer is the author's own claim about what
     the item discriminates and is therefore the claim to hold them to:
 
+    0. A5 ``discrimination_profiles`` (§3.A5). Highest authority, and the reason
+       A5 ships first in plan item 6.4: a profile is the item's own written-down
+       statement of "what a holder of this hypothesis visibly produces", which is
+       exactly what a planted persona is. §3.A5 lists "by §3.0 as the authoring
+       gate's oracle" as the first of its consumers, and one item may carry
+       several — so unlike every source below, this one plants EVERY profile
+       rather than the first, and separation then requires the item to be blind
+       to none of them.
     1. ``misconception_consistent_answer`` on the payload (§5.2.2);
     2. the registry ``MisconceptionRecord.signature`` for a keyed fatal error;
     3. the target facets' ``error_signatures`` — the ingest-emitted field D2 also
@@ -526,6 +833,24 @@ def build_personas(
             source="expected_answer",
         )
     ]
+    profiles = payload_profiles(payload)
+    if profiles:
+        for profile in profiles:
+            personas.append(
+                Persona(
+                    persona_id=f"profile_{profile['id']}",
+                    kind=PersonaKind.BELIEF_HOLDER,
+                    belief=str(profile["hypothesis"]),
+                    answer=str(profile["observable_signature"]),
+                    source="discrimination_profile",
+                    misconception_id=(
+                        str(profile["misconception_id"])
+                        if profile.get("misconception_id")
+                        else None
+                    ),
+                )
+            )
+        return tuple(personas)
     declared = payload.get("misconception_consistent_answer")
     if declared and str(declared).strip():
         personas.append(
@@ -550,6 +875,7 @@ def build_personas(
                     belief=str(record.statement),
                     answer=str(record.signature),
                     source="registry_misconception",
+                    misconception_id=str(mc_id),
                 )
             )
         if len(personas) > 1:
@@ -597,6 +923,8 @@ class PersonaGateOutcome:
     reason: PersonaGateReason
     verdict: SeparationVerdict | None
     target_facets: tuple[str, ...] = ()
+    persona_realism_validated: bool = False
+    persona_realism_run_id: str | None = None
 
     @property
     def gated(self) -> bool:
@@ -622,7 +950,8 @@ class PersonaGateOutcome:
             # until augmentation §3 B2's blinded matcher says the personas
             # resemble real learners; recorded per row so no reader can mistake
             # a pre-B2 pass for diagnostic validity.
-            "persona_realism_validated": False,
+            "persona_realism_validated": self.persona_realism_validated,
+            "persona_realism_run_id": self.persona_realism_run_id,
             "verdict": self.verdict.as_dict() if self.verdict is not None else None,
         }
 
@@ -733,8 +1062,58 @@ class PersonaGate:
         )
 
     def _apply(self, row: dict[str, Any], outcome: PersonaGateOutcome) -> None:
+        outcome = self._apply_realism_license(outcome)
         self.outcomes.append(outcome)
         self._record(row, outcome)
+
+    def _apply_realism_license(
+        self, outcome: PersonaGateOutcome
+    ) -> PersonaGateOutcome:
+        """B2 licenses a pass, or invalidates it when personas are separable."""
+
+        if self._repository is None:
+            return outcome
+        try:
+            realism = self._repository.latest_persona_realism_run(
+                persona_source="authored_signature"
+            )
+        except Exception:  # pragma: no cover - pre-144/diagnostic-only repo
+            return outcome
+        if not realism:
+            return outcome
+        run_id = str(realism.get("id") or "") or None
+        verdict = str(realism.get("verdict") or "")
+        if verdict == "indistinguishable":
+            promoted_tier = (
+                GateTier.HARD
+                if outcome.tier is GateTier.ADVISORY
+                else outcome.tier
+            )
+            promoted_decision = (
+                GateDecision.BLOCK
+                if outcome.decision is GateDecision.FLAG_FOR_REVIEW
+                else outcome.decision
+            )
+            return replace(
+                outcome,
+                tier=promoted_tier,
+                decision=promoted_decision,
+                persona_realism_validated=True,
+                persona_realism_run_id=run_id,
+            )
+        if verdict != "separable" or outcome.decision is not GateDecision.PASS:
+            return replace(outcome, persona_realism_run_id=run_id)
+        decision = (
+            GateDecision.BLOCK
+            if outcome.tier is GateTier.HARD
+            else GateDecision.FLAG_FOR_REVIEW
+        )
+        return replace(
+            outcome,
+            decision=decision,
+            reason=PersonaGateReason.PERSONA_REALISM_SEPARABLE,
+            persona_realism_run_id=run_id,
+        )
 
     def _judge_contrast_pair(
         self, key: str, members: Sequence[Mapping[str, Any]]
@@ -768,6 +1147,10 @@ class PersonaGate:
                 )
             return outcomes
         belief = beliefs[0]
+        # Whether a SEMANTIC oracle is available decides what "fails both" means
+        # (see CONTRAST_PAIR_UNJUDGED). Checked here rather than inside `_fires`
+        # because it changes the verdict, not the trial.
+        semantic_oracle = callable(getattr(self._grading_client, "grade_diagnostic_fire", None))
         trials = [
             PersonaTrial(
                 persona_id=f"{belief.persona_id}@{_ref(row)}",
@@ -790,11 +1173,24 @@ class PersonaGate:
             verdict = SeparationVerdict(
                 False, PersonaGateReason.CONTRAST_PAIR_FAILS_NEITHER, tuple(trials), (belief,)
             )
-        else:
+        elif semantic_oracle:
             verdict = SeparationVerdict(
                 False, PersonaGateReason.CONTRAST_PAIR_FAILS_BOTH, tuple(trials), (belief,)
             )
-        decision = GateDecision.PASS if verdict.separates else GateDecision.BLOCK
+        else:
+            verdict = SeparationVerdict(
+                False, PersonaGateReason.CONTRAST_PAIR_UNJUDGED, tuple(trials), (belief,)
+            )
+        if verdict.separates:
+            decision = GateDecision.PASS
+        elif verdict.reason is PersonaGateReason.CONTRAST_PAIR_UNJUDGED:
+            # An abstention, not a pass and not a block: the pair ships to review
+            # with the reason recorded, exactly as `FLAG_FOR_REVIEW` does
+            # everywhere else. Blocking here would make every honestly-authored
+            # pair unshippable; passing would claim a separation nothing tested.
+            decision = GateDecision.FLAG_FOR_REVIEW
+        else:
+            decision = GateDecision.BLOCK
         return [self._pair_outcome(row, decision, verdict) for row in members]
 
     @staticmethod
@@ -836,6 +1232,23 @@ class PersonaGate:
                 verdict=None,
             )
         personas = build_personas(payload, vault=self._vault, repository=self._repository)
+        if instrument_class is InstrumentClass.ERROR_HUNT:
+            # A3 inverts the question the ordinary verdict asks (see
+            # `error_hunt_verdict`), so it gets its own oracle rather than a flag
+            # threaded through the shared one.
+            hunt_verdict = error_hunt_verdict(
+                payload,
+                personas=personas,
+                vault=self._vault,
+                repository=self._repository,
+                grading_client=self._grading_client,
+            )
+            return PersonaGateOutcome(
+                **base,
+                decision=self._decide(instrument_class, tier, hunt_verdict),
+                reason=hunt_verdict.reason,
+                verdict=hunt_verdict,
+            )
         verdict = separation_verdict(
             expected_answer=_expected_text(payload),
             personas=personas,

@@ -144,6 +144,12 @@ SCHEDULE_DECISIONS: tuple[str, ...] = (
     "withdrawn_probe_cancelled",
     "no_candidate_item",
     "no_held_out_surface",
+    # Meas §3.A2/§3.A3: candidates exist on a held-out surface, but every one of
+    # them is an instrument the practice surface cannot render. Its own arm and
+    # not `no_candidate_item`, because the remedy is different in kind: the pool
+    # does not need more authoring, it needs the renderer. Collapsing the two
+    # would send someone writing items that already exist.
+    "no_servable_item",
     "certificate_recipe_unresolved",
 )
 
@@ -524,6 +530,11 @@ class HeldOutSelection:
     candidates_considered: int = 0
     rejected_as_used_surface: tuple[str, ...] = ()
     covers_integration: bool = False
+    #: Candidates dropped because the practice surface cannot render their
+    #: stimulus (Meas §3.A2/§3.A3). Same shape as ``rejected_as_used_surface``
+    #: and reported beside it: both answer "which items were considered and
+    #: thrown away, and under which rule".
+    rejected_as_unservable: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -534,6 +545,7 @@ class HeldOutSelection:
             "excluded_surface_groups": list(self.excluded_surface_groups),
             "candidates_considered": self.candidates_considered,
             "rejected_as_used_surface": list(self.rejected_as_used_surface),
+            "rejected_as_unservable": list(self.rejected_as_unservable),
             "covers_integration": self.covers_integration,
         }
 
@@ -574,7 +586,10 @@ def select_held_out_probe_item(
         for item_id in pool.item_ids(cell.facet_id, cell.capability):
             cells_by_item.setdefault(item_id, set()).add((cell.facet_id, cell.capability))
 
+    from learnloop.services.instrument_serving import unservable_reason
+
     rejected: list[str] = []
+    unservable: list[str] = []
     ranked: list[tuple[tuple[Any, ...], str, str, bool]] = []
     for item_id, covered in cells_by_item.items():
         item = vault.practice_items.get(item_id)
@@ -592,6 +607,17 @@ def select_held_out_probe_item(
         group = surface_group_id(item)
         if group in excluded:
             rejected.append(item_id)
+            continue
+        # Meas §3.A2/§3.A3, checked AFTER the surface rule so the two buckets are
+        # disjoint and each one means what it says: an id in `unservable` cleared
+        # the held-out test and was refused only because the practice surface
+        # cannot render its stimulus. The §5.7 probe is the ONLY external validity
+        # check on a certificate and its verdict is `false_certification`, so an
+        # unrenderable probe guarantees a miss and revokes a certified skill on
+        # evidence the learner was never shown the material to produce — the
+        # harmful write, at its most expensive.
+        if unservable_reason(item) is not None:
+            unservable.append(item_id)
             continue
         covers_integration = integration is not None and (
             (integration.facet_id, integration.capability) in covered
@@ -612,19 +638,31 @@ def select_held_out_probe_item(
         )
 
     if not ranked:
-        # Two different pieces of news, kept apart deliberately. "No candidate at
-        # all" is an authoring gap on the cell; "every candidate shares a surface
-        # with the certifying evidence" is an authoring gap on *variety*, and the
-        # certificate is unmeasurable until the pool grows.
-        decision = "no_held_out_surface" if rejected else "no_candidate_item"
+        # Three different pieces of news, kept apart deliberately. "No candidate
+        # at all" is an authoring gap on the cell; "every candidate shares a
+        # surface with the certifying evidence" is an authoring gap on *variety*;
+        # "a held-out candidate exists but cannot be rendered" is not an authoring
+        # gap at all, and the certificate is unmeasurable until the renderer lands
+        # rather than until the pool grows.
+        #
+        # Servability is checked FIRST because a non-empty `unservable` proves a
+        # held-out surface was found — reporting `no_held_out_surface` there
+        # would send someone authoring the variety they already have.
+        if unservable:
+            decision, basis = "no_servable_item", "distinct_surface_group"
+        elif rejected:
+            decision, basis = "no_held_out_surface", "shared_surface_group"
+        else:
+            decision, basis = "no_candidate_item", "unknown"
         return HeldOutSelection(
             practice_item_id=None,
             surface_group=None,
-            basis="shared_surface_group" if rejected else "unknown",
+            basis=basis,
             decision=decision,
             excluded_surface_groups=certificate.used_surface_groups(),
             candidates_considered=len(cells_by_item),
             rejected_as_used_surface=tuple(sorted(rejected)),
+            rejected_as_unservable=tuple(sorted(unservable)),
         )
 
     ranked.sort(key=lambda entry: entry[0])
@@ -637,6 +675,7 @@ def select_held_out_probe_item(
         excluded_surface_groups=certificate.used_surface_groups(),
         candidates_considered=len(cells_by_item),
         rejected_as_used_surface=tuple(sorted(rejected)),
+        rejected_as_unservable=tuple(sorted(unservable)),
         covers_integration=covers_integration,
     )
 

@@ -3196,6 +3196,266 @@ def doctor(
     raise typer.Exit(code=1)
 
 
+clarification_app = typer.Typer(
+    no_args_is_help=True,
+    help="A8 clarification channel: pending questions, answers, expiry, rate (spec_measurement_efficiency §3.A8).",
+)
+app.add_typer(clarification_app, name="clarification")
+
+
+@clarification_app.command("list")
+def clarification_list_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Clarification requests and their derived status (pending / answered / timed_out)."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.services.clarification import _row_to_clarification
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    now = utc_now_iso()
+    rows = [
+        _row_to_clarification(row).as_dict(now=now)
+        for row in repository.unanswered_grading_clarifications()
+    ]
+    if json_output:
+        typer.echo(_dump({"version": 1, "clarifications": rows}))
+        return
+    if not rows:
+        typer.echo("No unanswered clarification requests.")
+        return
+    for row in rows:
+        typer.echo(
+            f"  {row['status']:<10} {row['attempt_id']} trigger={row['trigger']} "
+            f"reason={row['reason']} expires={row['expires_at']}"
+        )
+        typer.echo(f"    {row['question_md']}")
+
+
+@clarification_app.command("retry")
+def clarification_retry_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Re-grade answers whose regrade never ran (spec_measurement_efficiency §3.A8).
+
+    The learner's answer is persisted BEFORE the re-grade is attempted, because
+    the answer is the un-backfillable half and the re-grade can always be re-run.
+    A provider outage between the two leaves the exchange complete and
+    unconsumed: the learner cannot resubmit (an answer exists) and nothing
+    retries (every other route looks for *pending* work). This drains that
+    queue, rebuilding the exchange from the stored question and response.
+    """
+
+    from learnloop.services.clarification import resolve_awaiting_regrades
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    runtime = check_codex_runtime(loaded.root, loaded.config.codex)
+    client = make_codex_client(loaded.config.codex, loaded.root) if runtime.ready else None
+    results = resolve_awaiting_regrades(loaded, repository, runtime=runtime, client=client)
+    backlog = repository.grading_clarifications_awaiting_regrade()
+    if json_output:
+        typer.echo(_dump({"version": 1, "resolved": results, "remaining": len(backlog)}))
+        return
+    if client is None:
+        typer.echo(
+            f"No grader available; {len(backlog)} answered clarification(s) still "
+            "awaiting a re-grade (their answers are safe and will be retried)."
+        )
+        return
+    for entry in results:
+        typer.echo(f"  {entry['outcome']:<16}{entry['clarification_id']}")
+    typer.echo(f"Resolved {len(results)}; {len(backlog)} remaining.")
+
+
+@clarification_app.command("expire")
+def clarification_expire_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Close the window on unanswered questions.
+
+    Writes no grade: the provisional grade already recorded the hedge or
+    abstention that triggered the question, so timing out to "the abstention
+    that triggered it" means changing nothing about the grade at all. All this
+    clears is the attempt's `provisional_pending_clarification` review state.
+    """
+
+    from learnloop.services.clarification import expire_clarifications
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    expired = expire_clarifications(repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, "expired": expired}))
+        return
+    typer.echo(f"Expired {len(expired)} clarification(s).")
+
+
+@clarification_app.command("rate")
+def clarification_rate_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """§3.A8's revert criterion: clarifications per model-graded attempt.
+
+    A rate above the threshold is evidence of MACHINE-resident uncertainty
+    misclassified as learner-resident, which principle 8's unamended half says
+    must be fixed machine-side rather than paid for with learner questions.
+    """
+
+    from learnloop.services.clarification import clarification_rate
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = clarification_rate(repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, **report}))
+        return
+    if not report["available"]:
+        typer.echo(
+            f"clarification_rate unavailable ({report['unavailable_reason']}): "
+            f"{report['gradeable_attempts']} model-graded attempt(s), "
+            f"{report['clarifications']} clarification(s) — too few to report a rate."
+        )
+        return
+    typer.echo(
+        f"clarification_rate {report['rate']:.1%} "
+        f"[{report['clarifications']}/{report['gradeable_attempts']}], "
+        f"{report['answered']} answered; threshold {report['threshold']:.0%}"
+    )
+    if report["over_threshold"]:
+        typer.echo(
+            "  OVER THRESHOLD — this is machine-resident uncertainty misclassified "
+            "as learner-resident. Fix it machine-side (grader prompt, item contract), "
+            "not by asking the learner more."
+        )
+
+
+@app.command("independence-audit")
+def independence_audit_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Withdraw invalid beliefs (default: report only)."),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Re-judge beliefs promoted on "independent surface" (augmentation §8, causal §5.6b).
+
+    Arm (b) used to count distinct authored `surface_family` strings, which is
+    the parallel notion augmentation §8 forbids; it now recomputes groups with
+    `surface_group_id`, the one primitive. This re-checks beliefs promoted under
+    the old rule. `--apply` withdraws the invalid ones as `retired_misdiagnosed`,
+    which A6 narrates to the learner in the words they were shown — but only for
+    beliefs a presentation proves they actually saw. Always exits 0.
+    """
+
+    from learnloop.services.independence_audit import (
+        apply_independence_audit,
+        audit_independent_surface_promotions,
+    )
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = (
+        apply_independence_audit(loaded, repository)
+        if apply
+        else audit_independent_surface_promotions(loaded, repository)
+    )
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+        return
+    summary = report.summary()
+    total = sum(summary.values())
+    if not total:
+        typer.echo(
+            "No beliefs promoted on independent-surface recurrence; nothing to re-judge."
+        )
+        return
+    typer.echo(f"{total} belief(s) promoted on independent-surface recurrence:")
+    for verdict in ("holds", "collapsed", "unresolvable", "not_arm_b"):
+        typer.echo(f"  {verdict:<14}{summary[verdict]:>5}")
+    for row in report.rows:
+        if row.verdict == "holds":
+            continue
+        typer.echo(
+            f"  {row.verdict:<13} {row.belief_id} groups={row.group_count} "
+            f"items={len(row.item_ids)} — {row.detail}"
+        )
+        typer.echo(f"      {row.statement[:100]}")
+    if report.applied:
+        typer.echo(
+            f"Withdrew {len(report.withdrawn)} belief(s) as {'retired_misdiagnosed'}; "
+            f"{len(report.declined)} declined."
+        )
+    elif any(row.should_withdraw for row in report.rows):
+        typer.echo("Re-run with --apply to withdraw them (A6 narrates the correction).")
+
+
+@app.command("trace-evidence")
+def trace_evidence_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """A6 trace-evidence report + A1 guard-1 record (spec_measurement_efficiency §3.A1/§3.A6).
+
+    Two questions, one report. A6's revert criterion: does opportunistic credit
+    concentrate on a few facets — i.e. is the grader pattern-matching the
+    vocabulary rather than reading the work? And A1 guard 1's typed record: which
+    cells are accruing ``unexercised_supporting_mass``, meaning some item claims
+    to consume a facet its learners' traces never touch. Always exits 0.
+    """
+
+    from learnloop.services.trace_evidence import trace_evidence_report
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = trace_evidence_report(repository)
+    if json_output:
+        typer.echo(_dump({"version": 1, **report}))
+        return
+    typer.echo(
+        f"{report['declared_observations']} declared + "
+        f"{report['opportunistic_observations']} opportunistic observation(s) "
+        f"across {report['attempts_with_observations']} attempt(s)."
+    )
+    concentration = report["opportunistic_concentration"]
+    if concentration is None:
+        typer.echo(
+            "  concentration: unavailable (fewer than 5 opportunistic observations "
+            "— reporting a share here would be noise, not a signal)"
+        )
+    else:
+        typer.echo(
+            f"  concentration: {concentration:.0%} of opportunistic observations on one "
+            f"facet, across {report['distinct_opportunistic_facets']} distinct facet(s)"
+        )
+    for row in report["top_opportunistic_facets"]:
+        typer.echo(f"    {row['facet_id']:<44}{row['count']:>5}")
+    count = report["unexercised_supporting_cell_count"]
+    if not count:
+        typer.echo("  no unexercised supporting targets recorded.")
+        return
+    typer.echo(f"  {count} cell(s) with unexercised supporting mass (A1 guard 1):")
+    for row in report["unexercised_supporting_cells"]:
+        typer.echo(
+            f"    {row['facet_id']}@{row['capability']} "
+            f"unexercised={row['unexercised_supporting_mass']:.3f} "
+            f"direct_credit={row['direct_certification_credit']:.3f} "
+            f"embedded_credit={row['embedded_certification_credit']:.3f}"
+        )
+
+
 @app.command("contract-reachability")
 def contract_reachability_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
@@ -3270,6 +3530,88 @@ def contract_reachability_command(
             f"facet={row.cell.facet_id} required={row.cell.capability} "
             f"observed=[{observed}] remedy={row.remedy}"
         )
+
+
+@app.command("inference-precheck")
+def inference_precheck_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Static cells-converted precheck for B1 dominance and B3 entailment.
+
+    Prices both Wave 4 inference rules against the current contract-reachability
+    baseline without reading attempts or learner state and without applying any
+    inferred credit.  Untyped/instructional prerequisite edges fail closed;
+    path-specific candidates are reported separately because a static pass
+    cannot establish that their path was exercised.
+    """
+
+    from learnloop.services.inference_precheck import analyze_inference_precheck
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    report = analyze_inference_precheck(loaded)
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+        return
+
+    summary = report.summary()
+    baseline = summary["baseline"]
+    b1 = summary["capability_dominance"]
+    b3 = summary["prerequisite_entailment"]
+    combined = summary["combined"]
+    if baseline["cell_count"] == 0:
+        typer.echo(
+            "No contract cells are declared; neither inference rule has a "
+            "denominator (not a zero-yield verdict)."
+        )
+        return
+
+    typer.echo(
+        f"Baseline: {baseline['reachable_count']}/{baseline['cell_count']} "
+        f"contract cell(s) directly reachable; {baseline['unreachable_count']} gap(s)."
+    )
+    typer.echo(
+        f"B1 capability dominance: {b1['cells_converted']} cell(s) converted "
+        f"({b1['substitutable_cells']} non-integration)."
+    )
+    typer.echo(
+        f"B3 prerequisite entailment: {b3['cells_converted']} hard-edge cell(s) "
+        f"converted; {b3['conditional_cells']} additional path-specific candidate(s)."
+    )
+    typer.echo(
+        f"Combined, deduplicated: {combined['cells_converted']} guaranteed; "
+        f"{combined['maximum_cells_converted']} including exercised paths."
+    )
+    modality_counts = b3["modality_counts"]
+    if modality_counts:
+        typer.echo(
+            "Prerequisite declarations by modality: "
+            + ", ".join(
+                f"{modality}={count}"
+                for modality, count in sorted(modality_counts.items())
+            )
+        )
+    if report.dominance:
+        typer.echo("B1 converted cells:")
+        for row in report.dominance:
+            typer.echo(
+                f"  {row.cell.learning_object_id} "
+                f"{row.cell.facet_id}@{row.cell.capability} "
+                f"<- {','.join(row.source_capabilities)}"
+            )
+    if report.entailment:
+        typer.echo("B3 converted/candidate cells:")
+        for row in report.entailment:
+            condition = "path-specific" if row.conditional_only else "hard"
+            downstream = sorted(
+                {source.downstream_learning_object_id for source in row.sources}
+            )
+            typer.echo(
+                f"  {row.cell.learning_object_id} "
+                f"{row.cell.facet_id}@{row.cell.capability} "
+                f"<- {','.join(downstream)} ({condition})"
+            )
 
 
 @app.command("contract-hit-rate")
@@ -5744,6 +6086,214 @@ def probe_instances_command(
             )
 
 
+@app.command("diagnostic-augmentation")
+def diagnostic_augmentation_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Emit the full Stage-7 report.")
+    ] = False,
+) -> None:
+    """B1-B4 evaluation licenses and C1-C4 live receipt/revert telemetry."""
+
+    from learnloop.services.diagnostic_augmentation import (
+        diagnostic_augmentation_report,
+    )
+
+    repository = _repository(_root(vault))
+    report = diagnostic_augmentation_report(repository)
+    if json_output:
+        typer.echo(_dump(report))
+        return
+    realism = report["persona_realism"]
+    planted = report["planted_evaluation"]
+    phase_c = report["phase_c"]
+    typer.echo(
+        f"persona realism: {realism['runs']} run(s); "
+        f"latest={((realism.get('latest') or {}).get('verdict') or 'unavailable')}"
+    )
+    typer.echo(
+        f"planted evaluation: {planted['licensed_runs']}/{planted['runs']} "
+        f"licensed run(s), {planted['cases']} case(s)"
+    )
+    typer.echo(f"Phase C live receipts: {phase_c['live_receipts']}")
+    for rung in ("c1", "c2", "c3", "c4"):
+        typer.echo(f"  {rung.upper()} hypothesis: {phase_c['hypotheses'][rung]}")
+        typer.echo(f"     revert: {phase_c['revert_criteria'][rung]}")
+
+
+def _stage7_manifest(path: Path) -> Any:
+    try:
+        return jsonlib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, jsonlib.JSONDecodeError) as exc:
+        raise ValueError(f"could not read Stage-7 JSON manifest {path}: {exc}") from exc
+
+
+@app.command("persona-realism")
+def persona_realism_command(
+    personas: Annotated[
+        Path,
+        typer.Option(
+            "--personas",
+            help="JSON list of persona trace strings, or {'traces': [...]}.",
+        ),
+    ],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    generator_provider: Annotated[
+        str | None,
+        typer.Option("--generator-provider", help="Optional generator provenance."),
+    ] = None,
+    generator_model: Annotated[
+        str | None,
+        typer.Option("--generator-model", help="Optional generator model provenance."),
+    ] = None,
+    separation_threshold: Annotated[
+        float,
+        typer.Option("--threshold", help="Separability score that rejects the corpus."),
+    ] = 0.70,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Run B2's blinded text-only persona-vs-real matcher and append its license."""
+
+    from learnloop.services.diagnostic_augmentation import model_family
+    from learnloop.services.persona_realism import match_persona_realism
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    try:
+        payload = _stage7_manifest(personas)
+        traces = payload.get("traces") if isinstance(payload, Mapping) else payload
+        if not isinstance(traces, list) or not all(
+            isinstance(trace, str) for trace in traces
+        ):
+            raise ValueError(
+                "persona manifest must be a JSON list of strings or {'traces': [...]}"
+            )
+        report = match_persona_realism(
+            repository,
+            traces,
+            # Generated-regression personas may only be licensed inside
+            # `diagnostic-eval`, which scores the exact same generated corpus.
+            # The standalone boundary exists solely for the authoring gate.
+            persona_source="authored_signature",
+            generator_provider=generator_provider,
+            generator_model=generator_model,
+            generator_family=(
+                model_family(generator_provider, generator_model)
+                if generator_model
+                else None
+            ),
+            separation_threshold=separation_threshold,
+        )
+    except ValueError as exc:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": "invalid_manifest", "message": str(exc)}))
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump(report.as_dict()))
+        return
+    typer.echo(
+        f"{report.verdict}: persona={report.persona_count}, real={report.real_count}, "
+        f"separability={report.balanced_accuracy if report.balanced_accuracy is not None else 'unavailable'}"
+    )
+    typer.echo(report.note)
+
+
+@app.command("diagnostic-eval")
+def diagnostic_eval_command(
+    generator_provider: Annotated[
+        str,
+        typer.Option(
+            "--generator-provider",
+            help="Configured provider used only to generate planted traces.",
+        ),
+    ],
+    diagnostician_provider: Annotated[
+        str,
+        typer.Option(
+            "--diagnostician-provider",
+            help="Configured provider used only to diagnose blind traces.",
+        ),
+    ],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    cases_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--cases",
+            help="JSON planted-case manifest; defaults to vault discrimination profiles.",
+        ),
+    ] = None,
+    sample_count: Annotated[
+        int,
+        typer.Option("--sample-count", min=1, help="Independent C3 samples per case."),
+    ] = 3,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
+) -> None:
+    """Commission B1-B3 with separate configured model providers."""
+
+    from learnloop.services.diagnostic_augmentation import (
+        commission_planted_diagnostic_evaluation,
+        planted_cases_from_manifest,
+    )
+
+    vault_root = _root(vault)
+    loaded = _load_vault_or_exit(vault_root, json_output=json_output)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    cases = None
+    try:
+        if cases_file is not None:
+            cases = planted_cases_from_manifest(_stage7_manifest(cases_file))
+    except ValueError as exc:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": "invalid_manifest", "message": str(exc)}))
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+
+    clients: list[Any] = []
+    for role, provider_name in (
+        ("generator", generator_provider),
+        ("diagnostician", diagnostician_provider),
+    ):
+        runtime = _runtime_for_provider(vault_root, loaded.config, provider_name)
+        if not runtime.ready:
+            message = (
+                f"{role} provider {provider_name!r} is unavailable: "
+                f"{getattr(runtime, 'status', 'not ready')}"
+            )
+            if json_output:
+                typer.echo(_dump({"version": 1, "error": "provider_unavailable", "message": message}))
+            else:
+                typer.echo(message, err=True)
+            raise typer.Exit(code=1)
+        clients.append(
+            _client_for_provider(vault_root, loaded.config, provider_name)
+        )
+    report = commission_planted_diagnostic_evaluation(
+        loaded,
+        repository,
+        generator_client=clients[0],
+        diagnostician_client=clients[1],
+        cases=cases,
+        sample_count=sample_count,
+    )
+    if json_output:
+        typer.echo(_dump(report))
+        return
+    realism = report.get("persona_realism")
+    evaluation = report["evaluation"]
+    typer.echo(
+        "persona realism: "
+        + (str(realism["verdict"]) if realism is not None else "not run")
+    )
+    typer.echo(
+        f"diagnostic eval: {evaluation['status']}; "
+        f"{evaluation['metrics'].get('cases_by_shape', {})}"
+    )
+
+
 @app.command("scoreboard")
 def scoreboard_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
@@ -6087,6 +6637,15 @@ def causal_attribution_audit_command(
             f"abstained={group['resolution_counts']['abstained']}, "
             f"firewall={group['firewall_trigger_count']}"
         )
+        # Meas §3.A5's own two tails, on the same grouping key. Printed even at
+        # zero: a tail that disappears from the report when it is empty cannot be
+        # watched, and "collapsed toward zero" is the thing being watched.
+        profiles = group.get("discrimination_profile_counts") or {}
+        if any(profiles.values()):
+            typer.echo(
+                "  profiles · "
+                + ", ".join(f"{arm}={count}" for arm, count in sorted(profiles.items()))
+            )
     typer.echo(
         f"vocabulary · abstention_rate={vocabulary['abstention_rate']:.3f} "
         f"({vocabulary['abstentions']}/{vocabulary['attributions']} attributions) · "
@@ -6113,6 +6672,150 @@ def causal_attribution_audit_command(
             f"fill={channel['fill_rate']:.3f} · "
             f"abstain={channel['abstention_rate']:.3f} · "
             f"missing={channel['missing']}/{channel['total']}"
+        )
+
+
+@app.command("instrument-audit")
+def instrument_audit_command(
+    since: Annotated[
+        str | None,
+        typer.Option("--since", help="ISO-8601 lower bound on created_at."),
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the JSON report to a file.")
+    ] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Read every Meas §3 instrument class's REVERT criterion (plan item 6.4).
+
+    §3 requires each instrument class to state a hypothesis and a revert
+    criterion, and the plan requires the criterion to be measurable with shipped
+    code — "a rung kept on judgement is exactly what the spec forbids". This is
+    the one command that reads all four:
+
+    * A2 laddered stems — cross-column vs within-column outcome agreement on one
+      stem. Revert when the two are equal (the independence claim is false).
+    * A3 error hunts — agreement between error-hunt and constructed-response
+      outcomes on the same facet. Revert when they are uncorrelated (the
+      instrument measures proofreading).
+    * A4 contrast pairs — share of within-pair differences explained by serving
+      order, plus the realized balance of the randomization that licenses it.
+      Revert when order dominates.
+    * A5 discrimination profiles — the two-tailed profile rejection rate. Revert
+      when `no_profile_applies` collapses toward zero, and treat a profile
+      matching nearly every failure as equally suspect.
+
+    Every arm reports its availability honestly: a rate over too little data is
+    `no_data` with the counts visible, never a 0.0 or a 1.0.
+    """
+
+    from learnloop.services.contrast_pairs import contrast_pair_order_effect
+    from learnloop.services.discrimination_profiles import (
+        profile_coverage,
+        profile_match_fill_rate,
+    )
+    from learnloop.services.error_hunt import error_hunt_outcome_summary, proofreading_signal
+    from learnloop.services.laddered_stems import stem_independence_signal, stem_shapes
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    metrics = [
+        stem_independence_signal(loaded, repository, since=since),
+        proofreading_signal(loaded, repository, since=since),
+        contrast_pair_order_effect(loaded, repository, since=since),
+        profile_match_fill_rate(repository, since=since),
+    ]
+    payload = {
+        "version": 1,
+        "since": since,
+        "metrics": [metric.as_dict() for metric in metrics],
+        # Companions, so a healthy-looking rate can be read against the pool it
+        # was computed over. A rejection rate of 0.4 over three profiled items
+        # says almost nothing, and the reader should be able to see that here.
+        "discrimination_profile_coverage": profile_coverage(loaded),
+        "error_hunt_outcomes": error_hunt_outcome_summary(repository, since=since),
+        "laddered_stems": [shape.as_dict() for shape in stem_shapes(loaded)],
+    }
+    _write_or_echo_report(payload, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    for metric in metrics:
+        verdict = metric.detail.get("verdict", "-")
+        value = "-" if metric.value is None else f"{metric.value:.3f}"
+        typer.echo(
+            f"{metric.name}: {metric.availability} · value={value} "
+            f"({metric.numerator or 0:g}/{metric.denominator or 0:g} "
+            f"{metric.denominator_label}) · verdict={verdict}"
+        )
+        typer.echo(f"  {metric.note}")
+    coverage = payload["discrimination_profile_coverage"]
+    typer.echo(
+        f"profiles: {coverage['profiles']} on {coverage['items_with_profiles']}"
+        f"/{coverage['practice_items']} item(s); "
+        f"{coverage['unlinked_authored_profiles']} unlinked to the registry"
+    )
+    hunts = payload["error_hunt_outcomes"]
+    typer.echo(
+        f"error hunts: {hunts['attempts']} attempt(s), "
+        f"{hunts['clean_solution_attempts']} on clean solutions, "
+        f"{hunts['planted_repaired']} plant(s) repaired, "
+        f"{hunts['misconception_candidates_written']} misconception candidate(s)"
+    )
+    ladders = [shape for shape in payload["laddered_stems"] if shape["is_ladder"]]
+    typer.echo(
+        f"laddered stems: {len(ladders)} ladder(s) over "
+        f"{len(payload['laddered_stems'])} stem(s)"
+    )
+
+
+@app.command("commission-contrast-pairs")
+def commission_contrast_pairs_command(
+    subject: Annotated[
+        str | None, typer.Option("--subject", help="Restrict to one subject id.")
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the JSON report to a file.")
+    ] = None,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+) -> None:
+    """Turn identifiability findings into A4 contrast-pair authoring requests.
+
+    Meas §3.A4: contrast pairs are "commissioned, not merely permitted —
+    ``analyze_identifiability`` already finds facet pairs no instrument separates,
+    and those findings become contrast-pair authoring requests."
+
+    Read-only, like `contract-commissioning`: it derives a queue and nothing else.
+    Deferred findings stay IN the queue with a typed reason rather than being
+    dropped, because a queue that silently omits its uncommissionable rows is how
+    an obligation goes unnoticed for months.
+    """
+
+    from learnloop.services.contrast_pairs import commission_contrast_pairs
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    plan = commission_contrast_pairs(loaded, repository, subject_id=subject)
+    payload = plan.as_dict()
+    _write_or_echo_report(payload, json_output=json_output, output=output)
+    if json_output and output is None:
+        return
+    summary = payload["summary"]
+    typer.echo(
+        f"Contrast pairs: {summary['commissioned']} commissioned, "
+        f"{summary['deferred']} deferred, over {summary['queue_length']} finding(s)."
+    )
+    for request in plan.commissioned:
+        typer.echo(
+            f"  COMMISSION {'/'.join(request.facet_ids)} "
+            f"(check {request.finding.check}, {request.finding.detail})"
+        )
+    for request in plan.deferred:
+        typer.echo(
+            f"  {request.disposition} {request.finding.target_key}: {request.reason}"
         )
 
 
@@ -6156,7 +6859,15 @@ def cold_probe_schedule_command(
         f"{counts['not_certified']} LO(s) not certified, "
         f"{counts['withdrawn_probe_cancelled']} cancelled on withdrawal"
     )
-    unmeasurable = counts["no_held_out_surface"] + counts["no_candidate_item"]
+    # `no_servable_item` belongs in this sum for the same reason as the other
+    # two: the certificate has no probe it can actually administer, so
+    # false_certification_rate cannot see it. It is counted here rather than
+    # silently dropped, which is what an unlisted third arm would have done.
+    unmeasurable = (
+        counts["no_held_out_surface"]
+        + counts["no_candidate_item"]
+        + counts["no_servable_item"]
+    )
     if unmeasurable:
         # Louder than a count in a table: a certificate with no held-out surface
         # is UNMEASURABLE, which is worse news than unmeasured (§5.7 has no other

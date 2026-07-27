@@ -1,12 +1,22 @@
 AUTHORING_PROMPT_VERSION = "mvp-0.8-causal-attribution-honesty"
 CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.5-canonical-ingest-audit-facet-weights"
-GRADING_PROMPT_VERSION = "mvp-0.9-causal-structural-repair"
+# Meas §3.A5/§3.A3 (plan item 6.4): the grading contract gains a discrimination-
+# profile match with a first-class `no_profile_applies` arm, and an error-hunt
+# report. Both change what the grader is ASKED, so both change the prompt
+# identity: telemetry is grouped by (prompt_version, model), and pooling
+# pre-A5 grades with post-A5 ones would compute the profile rejection rate over a
+# population half of which was never offered a profile.
+GRADING_PROMPT_VERSION = "mvp-1.2-repair-before-structure-verifier-sampling-history"
 # ING M8: cross-source practice generation with hard leakage controls (§8.5). The
 # authoring path grows a bounded multi-source grounding context + blueprint task-family
 # shaping, and generated surfaces are screened against the held-out inventory by a
 # deterministic code gate (services/practice_leakage). Versioned separately from
 # AUTHORING so the leakage-shaped contract has its own cache identity.
-PRACTICE_GENERATION_PROMPT_VERSION = "mvp-0.9-depth-waypoint-targeted"
+# Meas §3.A2-§3.A5 (plan item 6.4): authoring gains laddered stems, error hunts,
+# contrast pairs and discrimination profiles. Four new instrument classes with
+# four new payload contracts is a different authoring task, and the generation
+# cache is keyed on this string.
+PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.1-conjunctive-authored-targets-and-instrument-classes"
 # ING M8: tutor answers may cite bounded entity_source_links spans (§9.2). Bumped
 # for the citations contract (validated against provided spans, never invented).
 TUTOR_QA_PROMPT_VERSION = "mvp-0.7-tutor-qa-source-citations"

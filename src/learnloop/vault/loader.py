@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
+from ruamel.yaml.error import YAMLError
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config, write_default_config
@@ -42,7 +43,7 @@ def _load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> T
         return None
     try:
         return model.model_validate(read_yaml(path))
-    except (OSError, ValueError, ValidationError) as exc:
+    except (OSError, ValueError, ValidationError, YAMLError) as exc:
         issues.append(DoctorIssue("yaml:invalid", f"{path.name} could not be loaded: {exc}", path))
         return None
 
@@ -57,7 +58,7 @@ def _load_markdown_model(
     try:
         metadata, body = read_markdown_with_frontmatter(path)
         return model.model_validate(metadata), body
-    except (OSError, ValueError, ValidationError) as exc:
+    except (OSError, ValueError, ValidationError, YAMLError) as exc:
         issues.append(DoctorIssue("markdown:invalid_frontmatter", f"{path.name} frontmatter is invalid: {exc}", path))
         return None, ""
 
@@ -156,9 +157,8 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
                 )
 
     for pi_path in sorted((subject_dir / "practice-items").glob("*.yaml")):
-        practice_item = _load_yaml_model(pi_path, PracticeItem, loaded.issues)
+        practice_item = load_practice_item_file(pi_path, loaded)
         if practice_item:
-            practice_item = _canonicalized_practice_item_facets(loaded, practice_item)
             if practice_item.id in loaded.practice_items:
                 loaded.issues.append(DoctorIssue("practice_item:duplicate_id", f"Duplicate practice item id {practice_item.id}", pi_path))
             loaded.practice_items[practice_item.id] = practice_item
@@ -183,7 +183,7 @@ def _load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorI
         metadata["path"] = relative
         metadata["body"] = body
         return Note.model_validate(metadata)
-    except (OSError, ValueError, ValidationError) as exc:
+    except (OSError, ValueError, ValidationError, YAMLError) as exc:
         issues.append(DoctorIssue("note:invalid", f"{path.name} could not be loaded: {exc}", path))
         return None
 
@@ -258,6 +258,26 @@ def _canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem)
             "criterion_facet_weights": criterion_facet_weights,
             "repair_targets": repair_targets,
         }
+    )
+
+
+def load_practice_item_file(
+    path: Path,
+    loaded: LoadedVault,
+    *,
+    issues: list[DoctorIssue] | None = None,
+) -> PracticeItem | None:
+    """Parse one Practice Item through the canonical full-loader path."""
+
+    item = _load_yaml_model(
+        path,
+        PracticeItem,
+        loaded.issues if issues is None else issues,
+    )
+    return (
+        _canonicalized_practice_item_facets(loaded, item)
+        if item is not None
+        else None
     )
 
 

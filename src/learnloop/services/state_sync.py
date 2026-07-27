@@ -26,6 +26,24 @@ class StateSyncResult:
         }
 
 
+def practice_item_activatable(
+    item_id: str,
+    item,
+    *,
+    review_parked: set[str],
+    measurement_superseded: set[str],
+) -> bool:
+    """The one lifecycle gate shared by full and incremental vault sync."""
+
+    if getattr(item, "status", "active") != "active":
+        return False
+    return (
+        item_id not in review_parked
+        and item_id not in measurement_superseded
+        and item.practice_mode != "diagnostic_microprobe"
+    )
+
+
 def sync_vault_state(
     vault: LoadedVault,
     repository: Repository,
@@ -55,31 +73,30 @@ def sync_vault_state(
     review_parked = pending_review_instance_ids(repository)
     measurement_superseded = repository.superseded_measurement_item_ids()
 
-    def _activatable(item_id: str, item) -> bool:
-        # A learner-retired item stays in the vault (attempts/evidence intact)
-        # but must never reactivate into any serving path.
-        if getattr(item, "status", "active") != "active":
-            return False
-        return (
-            item_id not in review_parked
-            and item_id not in measurement_superseded
-            and item.practice_mode != "diagnostic_microprobe"
-        )
-
     for item_id, item in vault.practice_items.items():
         content_hash = practice_item_hash(item)
         state = item_states.get(item_id)
         if state is None:
             repository.upsert_practice_item_state(
                 item_id,
-                active=_activatable(item_id, item),
+                active=practice_item_activatable(
+                    item_id,
+                    item,
+                    review_parked=review_parked,
+                    measurement_superseded=measurement_superseded,
+                ),
                 content_hash=content_hash,
                 clock=clock,
             )
             created_items += 1
             continue
 
-        activatable = _activatable(item_id, item)
+        activatable = practice_item_activatable(
+            item_id,
+            item,
+            review_parked=review_parked,
+            measurement_superseded=measurement_superseded,
+        )
         if state.active != activatable or state.content_hash != content_hash:
             repository.upsert_practice_item_state(
                 item_id,

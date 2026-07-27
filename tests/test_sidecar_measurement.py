@@ -32,6 +32,7 @@ def test_measurement_health_exposes_stage_zero_through_five_producers(ctx):
     assert {
         "scoreboard",
         "reachability",
+        "inferencePrecheck",
         "coldProbes",
         "missingVocabulary",
         "causalHealth",
@@ -43,6 +44,9 @@ def test_measurement_health_exposes_stage_zero_through_five_producers(ctx):
     assert len(result["scoreboard"]["metrics"]) == 15
     assert result["reachability"]["summary"]["cellCount"] >= 0
     assert result["reachability"]["summary"]["learningObjectsTotal"] >= 1
+    assert result["inferencePrecheck"]["summary"]["capabilityDominance"]["cellsConverted"] >= 0
+    assert result["inferencePrecheck"]["summary"]["prerequisiteEntailment"]["cellsConverted"] >= 0
+    assert result["inferencePrecheck"]["summary"]["combined"]["cellsConverted"] >= 0
     assert "certificatesUnscheduled" in result["coldProbes"]["coverage"]
     assert result["personaGate"]["availability"] in {
         "available",

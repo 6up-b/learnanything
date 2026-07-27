@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import Field
+
 from learnloop_sidecar import __version__
 from learnloop_sidecar.context import SidecarContext, config_dto, runtime_health, vault_summary
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -11,6 +13,11 @@ from learnloop_sidecar.registry import METHOD_REGISTRY, method
 class InitializeParams(ParamsModel):
     vault_path: str
     client_version: str | None = None
+
+
+class RefreshVaultFilesInput(ParamsModel):
+    vault_root: str
+    paths: list[str] = Field(default_factory=list)
 
 
 @method("initialize", InitializeParams)
@@ -54,6 +61,15 @@ def load_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]:
 def reload_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]:
     ctx.reload()
     return ctx.app_snapshot()
+
+
+@method("refresh_vault_files", RefreshVaultFilesInput)
+def refresh_vault_files(ctx: SidecarContext, params: RefreshVaultFilesInput) -> dict[str, Any]:
+    """Rust watcher handoff: incrementally refresh supported changed files."""
+
+    return versioned(
+        ctx.refresh_vault_files(params.paths, expected_root=params.vault_root)
+    )
 
 
 @method("get_runtime_health")

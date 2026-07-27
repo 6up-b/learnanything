@@ -19,6 +19,10 @@ from learnloop.services.assessment_contracts import (
     KM_ALGORITHM_VERSION,
 )
 from learnloop.services.calibration import difficulty_miscalibration_flags
+from learnloop.services.instrument_serving import (
+    UNSERVABLE_REMEDIES,
+    unservable_reason,
+)
 from learnloop.services.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import (
@@ -933,6 +937,265 @@ def _check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]
                     )
 
     _check_criterion_target_dags(vault, issues)
+    _check_instrument_contracts(vault, issues)
+
+
+def _check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    """Meas §3.A2-§3.A5 contracts, checked on the VAULT (plan item 6.4).
+
+    Everything here is also enforced at authoring time by the §3.0 persona gate
+    and the A4 pair gate — but those run on generated proposals, and a
+    hand-edited YAML item never passes through either. The doctor is where a
+    vault says whether its own content is coherent, so the same rules are asserted
+    here against what actually shipped.
+
+    Every check keys on a field only an A2-A5 item carries, so a vault authored
+    before plan item 6.4 produces byte-identical doctor output.
+    """
+
+    from learnloop.services.capability_mapping import is_valid_capability
+    from learnloop.services.persona_gate import declares_error_count
+
+    known = set(vault.evidence_facets)
+    severity = _mvp07_facet_severity(vault)
+    normalize = _instrument_normalizer()
+
+    for item in vault.practice_items.values():
+        # -- A4 contrast pairs: the binding must be resolvable and symmetric ----
+        if item.contrast_of or item.differing_component is not None:
+            counterpart = vault.practice_items.get(str(item.contrast_of or ""))
+            if counterpart is None:
+                issues.append(
+                    _issue(
+                        "error",
+                        "contrast_pair:unresolved_counterpart",
+                        f"{item.id} declares contrast_of {item.contrast_of!r}, which is not a practice item",
+                        entity_id=item.id,
+                    )
+                )
+            elif counterpart.contrast_of != item.id:
+                # A one-directional pair is one item with a reference, and the
+                # §3.0 joint rule ("fail exactly one member") cannot be asked of it.
+                issues.append(
+                    _issue(
+                        "error",
+                        "contrast_pair:asymmetric_binding",
+                        f"{item.id} names {counterpart.id} as its pair, but {counterpart.id} does not name it back",
+                        entity_id=item.id,
+                    )
+                )
+            if item.differing_component is None:
+                issues.append(
+                    _issue(
+                        "error",
+                        "contrast_pair:missing_differing_component",
+                        f"{item.id} is a contrast pair member with no differing_component; "
+                        "the manipulation would have to be inferred from two prompts",
+                        entity_id=item.id,
+                    )
+                )
+            elif not is_valid_capability(item.differing_component.capability):
+                issues.append(
+                    _issue(
+                        "error",
+                        "contrast_pair:invalid_capability",
+                        f"{item.id} differing_component uses capability "
+                        f"{item.differing_component.capability!r} outside the closed vocabulary",
+                        entity_id=item.id,
+                    )
+                )
+            if (
+                item.differing_component is not None
+                and known
+                and item.differing_component.facet not in known
+            ):
+                issues.append(
+                    _issue(
+                        severity,
+                        "contrast_pair:unregistered_facet",
+                        f"{item.id} differing_component names unregistered facet "
+                        f"{item.differing_component.facet!r}",
+                        entity_id=item.id,
+                    )
+                )
+
+        # -- Servability: an authored instrument the surface cannot render ----
+        # The authoring prompts actively commission error hunts and laddered
+        # stems, and `instrument_serving` refuses to schedule them until their
+        # stimulus renders. Without this warning that refusal is SILENT: the item
+        # exists, passes every gate, and simply never appears, while
+        # `instrument-audit` reports `0 attempt(s)` forever without saying why.
+        # A queue filter nobody can see is indistinguishable from a bug.
+        unservable = unservable_reason(item)
+        if unservable is not None:
+            issues.append(
+                _issue(
+                    "warning",
+                    f"instrument_serving:{unservable}",
+                    f"{item.id} is authored but not schedulable: "
+                    f"{UNSERVABLE_REMEDIES[unservable]}",
+                    entity_id=item.id,
+                )
+            )
+
+        # -- A3 error hunts: registry-planted, repair-required, count-silent ----
+        if item.error_hunt is not None:
+            if declares_error_count(item.prompt):
+                issues.append(
+                    _issue(
+                        "error",
+                        "error_hunt:declares_error_count",
+                        f"{item.id} states how many errors there are; that is a scavenger hunt, "
+                        "not a repair task",
+                        entity_id=item.id,
+                    )
+                )
+            for plant in item.error_hunt.planted_errors:
+                if not str(plant.required_repair or "").strip():
+                    issues.append(
+                        _issue(
+                            "error",
+                            "error_hunt:no_required_repair",
+                            f"{item.id} plant {plant.id!r} requires no repair; flagging is recognition",
+                            entity_id=item.id,
+                        )
+                    )
+                if normalize(plant.error_signature) == normalize(plant.required_repair):
+                    issues.append(
+                        _issue(
+                            "error",
+                            "error_hunt:plant_matches_repair",
+                            f"{item.id} plant {plant.id!r} is identical to its own repair; "
+                            "nothing was planted",
+                            entity_id=item.id,
+                        )
+                    )
+                if plant.misconception_id is None and plant.facet_id is None:
+                    issues.append(
+                        _issue(
+                            "error",
+                            "error_hunt:unsourced_plant",
+                            f"{item.id} plant {plant.id!r} names neither a registry belief nor a "
+                            "facet; a freehand error is an untyped instrument",
+                            entity_id=item.id,
+                        )
+                    )
+                if known and plant.facet_id is not None and plant.facet_id not in known:
+                    issues.append(
+                        _issue(
+                            severity,
+                            "error_hunt:unregistered_facet",
+                            f"{item.id} plant {plant.id!r} names unregistered facet {plant.facet_id!r}",
+                            entity_id=item.id,
+                        )
+                    )
+
+        # -- A5 discrimination profiles: distinct ids, and not blind ------------
+        seen_profiles: set[str] = set()
+        expected = normalize(_instrument_expected_text(item))
+        for profile in item.discrimination_profiles:
+            if profile.id in seen_profiles:
+                issues.append(
+                    _issue(
+                        "error",
+                        "discrimination_profile:duplicate_id",
+                        f"{item.id} authors two profiles with id {profile.id!r}; a match record "
+                        "could not say which one it meant",
+                        entity_id=item.id,
+                    )
+                )
+            seen_profiles.add(profile.id)
+            if expected and normalize(profile.observable_signature) == expected:
+                issues.append(
+                    _issue(
+                        "error",
+                        "discrimination_profile:signature_is_the_answer_key",
+                        f"{item.id} profile {profile.id!r} claims a belief whose holder writes the "
+                        "answer key; the item is blind to it",
+                        entity_id=item.id,
+                    )
+                )
+            if known and profile.facet_id is not None and profile.facet_id not in known:
+                issues.append(
+                    _issue(
+                        severity,
+                        "discrimination_profile:unregistered_facet",
+                        f"{item.id} profile {profile.id!r} names unregistered facet {profile.facet_id!r}",
+                        entity_id=item.id,
+                    )
+                )
+
+    _check_laddered_stems(vault, issues)
+
+
+def _check_laddered_stems(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    """Meas §3.A2: a stem's parts must actually span the capability ladder.
+
+    Scoped to items DECLARING ``laddered_stem``: ``shared_stimulus_id`` predates
+    the instrument and is set by unrelated authoring paths, so keying on it here
+    would emit findings about items that never claimed to be a ladder.
+
+    The one-column case is a warning rather than an error because the vault is
+    not wrong — it is just paying four items for roughly one observation, which
+    the kinship rule will correctly enforce. That is exactly the failure mode
+    that looks like success in an item count, so it has to be said out loud.
+    """
+
+    parts: dict[str, list[Any]] = {}
+    for item in vault.practice_items.values():
+        contract = item.laddered_stem
+        if contract is None:
+            continue
+        parts.setdefault(str(contract.stem_id), []).append(item)
+        shared = getattr(item.evidence_fingerprint, "shared_stimulus_id", None)
+        if shared and str(shared) != str(contract.stem_id):
+            issues.append(
+                _issue(
+                    "error",
+                    "laddered_stem:fingerprint_mismatch",
+                    f"{item.id} declares stem {contract.stem_id!r} but fingerprints stimulus "
+                    f"{shared!r}; the kinship rule reads the fingerprint",
+                    entity_id=item.id,
+                )
+            )
+        if contract.part_index >= contract.part_count:
+            issues.append(
+                _issue(
+                    "warning",
+                    "laddered_stem:part_index_out_of_range",
+                    f"{item.id} is part {contract.part_index} of a stem declaring "
+                    f"{contract.part_count} part(s)",
+                    entity_id=item.id,
+                )
+            )
+    for stem_id, members in sorted(parts.items()):
+        if len(members) < 2:
+            continue
+        capabilities = {str(part.capability) for part in members if part.capability}
+        if len(capabilities) < 2:
+            issues.append(
+                _issue(
+                    "warning",
+                    "laddered_stem:single_column",
+                    f"stem {stem_id!r} has {len(members)} parts spanning "
+                    f"{len(capabilities)} capability column(s); parts in one column count as "
+                    "roughly one observation",
+                    entity_id=stem_id,
+                )
+            )
+
+
+def _instrument_normalizer():
+    from learnloop.services.diagnostic_gate import normalize_answer
+
+    return normalize_answer
+
+
+def _instrument_expected_text(item: Any) -> str:
+    expected = getattr(item, "expected_answer", None)
+    if isinstance(expected, dict):
+        return " ".join(str(value) for value in expected.values())
+    return str(expected or "")
 
 
 def _check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) -> None:

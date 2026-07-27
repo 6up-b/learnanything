@@ -33,6 +33,7 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
 from learnloop_sidecar.handlers.goals import GoalIdInput, _find_goal
+from learnloop_sidecar.handlers.serializers import item_presentation
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.dto import EmptyParams
 
@@ -116,6 +117,25 @@ def _session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, An
                 "index": index,
                 "total": len(item_order),
                 "prompt": item.prompt if item is not None else "(missing item)",
+                # The SAME §3.A2/§3.A3 presentation payload the practice detail
+                # carries, built by the same serializer. Exams historically had
+                # their own prompt-only DTO, which is precisely why fixing the
+                # practice surface alone would have left an error hunt served
+                # solution-less in exam mode. One producer, two consumers.
+                "presentation": (
+                    item_presentation(item)
+                    if item is not None
+                    # A reserved item deleted from the vault mid-session: the
+                    # session must still resume and finish, so this renders the
+                    # same visible "(missing item)" the prompt did rather than
+                    # failing the whole snapshot.
+                    else {
+                        "practice_item_id": item_id,
+                        "blocks": [
+                            {"kind": "prompt", "markdown": "(missing item)", "label": None}
+                        ],
+                    }
+                ),
                 "practice_mode": item.practice_mode if item is not None else "short_answer",
             }
         )

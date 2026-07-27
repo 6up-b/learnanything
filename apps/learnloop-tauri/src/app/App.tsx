@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { AppSnapshot, ProbeBlockEndDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
@@ -33,6 +34,7 @@ import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
+import { notifyQueueChanged } from "../queueEvents";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 
 type OpenSourceTarget = {
@@ -44,6 +46,17 @@ type OpenSourceTarget = {
 };
 
 type TodayStage = "queue" | "practice" | "feedback" | "blockReview";
+
+type VaultFilesChangedEvent = {
+  root: string;
+  changedPaths: string[];
+  refresh: {
+    mode?: "noop" | "stale" | "incremental" | "full";
+    practiceItemCount?: number;
+    snapshot?: AppSnapshot;
+    error?: { code: string; message: string };
+  };
+};
 
 export function App() {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
@@ -159,6 +172,54 @@ export function App() {
         }
       })
       .catch((error) => onError(error.message));
+  }, [onError]);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen<VaultFilesChangedEvent>("learnloop://vault-files-changed", ({ payload }) => {
+      notifyQueueChanged();
+      if (payload.refresh.error) {
+        onError(`Vault refresh failed: ${payload.refresh.error.message}`);
+        return;
+      }
+      if (payload.refresh.mode === "full") {
+        const next = payload.refresh.snapshot;
+        if (next) {
+          setAlgoConfig(next.config);
+          setSnapshot(next);
+        } else {
+          onError("Vault refreshed, but the watcher returned no application snapshot.");
+        }
+        return;
+      }
+      if (typeof payload.refresh.practiceItemCount === "number") {
+        const practiceItemCount = payload.refresh.practiceItemCount;
+        setSnapshot((current) =>
+          current?.vault
+            ? {
+                ...current,
+                vault: {
+                  ...current.vault,
+                  counts: {
+                    ...current.vault.counts,
+                    practiceItems: practiceItemCount
+                  }
+                }
+              }
+            : current
+        );
+      }
+    })
+      .then((stop) => {
+        if (disposed) stop();
+        else unlisten = stop;
+      })
+      .catch((error) => onError((error as Error).message));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, [onError]);
 
   useEffect(() => {

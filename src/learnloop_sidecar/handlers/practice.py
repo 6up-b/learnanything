@@ -30,8 +30,13 @@ from learnloop.services.probe_episodes import (
 )
 from learnloop.services.probes import probe_posterior
 from learnloop.services.scheduler import SchedulerSession, build_due_queue
+from learnloop.services.trace_evidence import (
+    compose_learner_trace,
+    decide_elicitation,
+    elicited_explanations_in,
+)
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
 from learnloop_sidecar.handlers.queue import PracticeItemInput, _sections
@@ -68,6 +73,11 @@ class SubmitAttemptInput(ParamsModel):
     practice_item_id: str
     answer_md: str
     attempt_type: str
+    #: Meas §3.A6: the optional one-line justification, submitted as its own
+    #: field. `answer_md` is the answer and nothing else — a client never
+    #: appends the volunteered line to it, because that made a text delimiter a
+    #: cross-language contract that only a comment held together.
+    explanation_md: str | None = None
     hints_used: int = 0
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
@@ -97,10 +107,69 @@ class SkipInput(ParamsModel):
     practice_item_id: str
 
 
-@method("get_practice_item", PracticeItemInput)
-def get_practice_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]:
+class ServePracticeItemInput(ParamsModel):
+    practice_item_id: str
+    #: The open session this serve belongs to. Absent for read-only opens (the
+    #: feedback screen re-reading the prompt, the inspector), which must not be
+    #: offered an elicitation at all — see `get_practice_item`.
+    session_id: str | None = None
+
+
+def _require_active_item(vault, practice_item_id: str):
+    """One terminal lifecycle gate for every practice write/serve."""
+
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Practice item {practice_item_id} not found.")
+    if item.status != "active":
+        raise SidecarError(
+            "item_retired",
+            f"Practice item {practice_item_id} has been retired and cannot be served.",
+            details={"practice_item_id": practice_item_id},
+        )
+    return item
+
+
+@method("get_practice_item", ServePracticeItemInput)
+def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> dict[str, Any]:
+    """Serve one item, carrying A6's elicitation decision for this serve.
+
+    Spec: ``spec_measurement_efficiency_v1.md`` §3.A6; plan item 6.2.
+
+    The decision rides on the served DTO rather than on its own call because it
+    is a property of *this* serve and not of the item: the same item opened
+    later in the same session may be past the per-session budget, and a cached
+    per-item answer would quietly defeat rule 4. All five arms travel, not just
+    the boolean — "we did not ask" has four distinct meanings and A6's revert
+    criterion has to tell them apart.
+
+    Without a session there is no budget to spend against, so no decision is
+    made at all (``None``, not a fabricated "no"): a read-only open is not a
+    serve, and reporting it as a declined elicitation would put a learner-facing
+    event in the record where nothing happened.
+    """
+
     vault, repository = ctx.require_vault()
-    return practice_item_detail(vault, repository, params.practice_item_id)
+    item = vault.practice_items.get(params.practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
+    if params.session_id is not None:
+        item = _require_active_item(vault, params.practice_item_id)
+    detail = practice_item_detail(vault, repository, params.practice_item_id)
+    detail["elicitation"] = (
+        None
+        if params.session_id is None
+        else to_camel(
+            decide_elicitation(
+                item,
+                config=vault.config.trace_evidence,
+                elicitations_this_session=elicited_explanations_in(
+                    repository.session_learner_answers(params.session_id)
+                ),
+            ).as_dict()
+        )
+    )
+    return detail
 
 
 class ProbeContractInput(ParamsModel):
@@ -157,9 +226,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     """
 
     vault, repository = ctx.require_vault()
-    item = vault.practice_items.get(params.practice_item_id)
-    if item is None:
-        raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    item = _require_active_item(vault, params.practice_item_id)
     episode = repository.open_probe_episode(item.learning_object_id)
     if episode is None or episode.status != "in_progress":
         return versioned({"active": False})
@@ -304,7 +371,8 @@ def start_overconfidence_probe(ctx: SidecarContext, params: OverconfidenceProbeI
 
 @method("save_practice_draft", PracticeDraftCheckpoint)
 def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) -> dict[str, Any]:
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
+    _require_active_item(vault, params.practice_item_id)
     patch_checkpoint(
         repository,
         SessionCheckpointInput(
@@ -325,6 +393,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
+    item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # Substantive tutor questions asked mid-attempt count as hints: fold them
     # into hints_used so the existing hint dampening / FSRS rating caps apply.
@@ -332,12 +401,18 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         repository, params.practice_item_id, params.session_id
     )
     hints_used = params.hints_used + question_hints
-    item = vault.practice_items.get(params.practice_item_id)
-    if item is not None and item.hint_policy.max_useful_hints > 0:
+    if item.hint_policy.max_useful_hints > 0:
         hints_used = min(hints_used, item.hint_policy.max_useful_hints)
+    # A6: compose the one trace the grader reads, here and nowhere else. The
+    # volunteered line arrives as its own field and is joined to the answer by
+    # the module that owns the format, so the delimiter never appears in a
+    # client, a handler, or a detection site.
+    explanation_md = (params.explanation_md or "").strip() or None
+    learner_answer_md = compose_learner_trace(params.answer_md, explanation_md)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
-        learner_answer_md=params.answer_md,
+        learner_answer_md=learner_answer_md,
+        elicited_explanation_md=explanation_md,
         attempt_type=params.attempt_type,
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
@@ -412,7 +487,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     # Clear the checkpoint in the same call that records the attempt, so a lost
     # client-side clear can never leave a submitted draft to replay on restart.
     repository.clear_session_checkpoint(params.session_id)
-    _log_attempt_recorded(repository, params.session_id, params.answer_md, result)
+    _log_attempt_recorded(repository, params.session_id, learner_answer_md, result)
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
     payload = _attempt_result(result, repository)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
@@ -427,6 +502,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
+    _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
     draft = AttemptDraft(
