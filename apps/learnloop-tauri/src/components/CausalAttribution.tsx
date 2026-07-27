@@ -14,7 +14,7 @@ import type {
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
-import { COLOR, Dim, Faint, FONT_MONO, Pill, SectionHeader } from "./term";
+import { COLOR, Dim, Faint, FONT_MONO, Pill, PlainEnglishPanel, SectionHeader } from "./term";
 
 const CONTEST_LABELS: Partial<Record<UnresolvedCauseSelfReportResponse, string>> = {
   diagnosis_wrong: "The diagnosis is wrong",
@@ -407,9 +407,18 @@ export function CausalFeedbackPanel({
   repairNote?: string | null;
   onRepairAction?: (actionId: CausalRepairActionId, status: CausalRepairStatusDto) => void;
 }) {
-  const nonHypothesisUnverified = feedback.unverified.filter(
-    (claim) => claim.kind !== "causal_hypothesis",
+  const graderFeedback = feedback.unverified.filter(
+    (claim) => claim.kind === "grader_feedback",
   );
+  const nonHypothesisUnverified = feedback.unverified.filter(
+    (claim) => claim.kind !== "causal_hypothesis" && claim.kind !== "grader_feedback",
+  );
+  const correctionRemainsUnverified =
+    graderFeedback.length > 0 && feedback.verifiedCorrection === null;
+  const hasUnverifiedClaims =
+    nonHypothesisUnverified.length > 0 ||
+    feedback.causalHypotheses.length > 0 ||
+    correctionRemainsUnverified;
   const canContest = Boolean(feedback.contestAction.available && onContest);
   return (
     <div style={{ fontSize: 13, color: COLOR.text }}>
@@ -425,6 +434,30 @@ export function CausalFeedbackPanel({
         <Pill color="cyan">claim checked</Pill>
         <Dim>We separate what the attempt showed from what might explain it.</Dim>
       </div>
+
+      {graderFeedback.length ? (
+        <PlainEnglishPanel label="grader feedback" style={{ marginBottom: 8 }}>
+          {graderFeedback.map((claim, index) => {
+            const statement = claim.statement?.trim();
+            return (
+              <div
+                key={`${statement ?? "no-written-feedback"}:${index}`}
+                style={{
+                  borderTop: index ? `1px solid ${COLOR.border}` : "none",
+                  marginTop: index ? 7 : 0,
+                  paddingTop: index ? 7 : 0,
+                }}
+              >
+                {statement ? (
+                  <MarkdownMath value={statement} />
+                ) : (
+                  <Dim>The grader did not provide additional written feedback for this submission.</Dim>
+                )}
+              </div>
+            );
+          })}
+        </PlainEnglishPanel>
+      ) : null}
 
       {feedback.demonstratedCriteria.length ? (
         <Panel tone="green">
@@ -507,26 +540,55 @@ export function CausalFeedbackPanel({
         </div>
       ) : null}
 
-      {nonHypothesisUnverified.length || feedback.causalHypotheses.length ? (
-        <Panel tone="slate" style={{ marginTop: 8 }}>
-          <SmallLabel>what remains unverified</SmallLabel>
-          {nonHypothesisUnverified.length ? (
-            nonHypothesisUnverified.map((claim, index) => (
-              <div
-                key={`${claim.kind}:${claim.hypothesisId ?? index}`}
-                style={{ marginTop: index ? 8 : 0, lineHeight: 1.55 }}
-              >
-                <Pill color="slate">{humanize(claim.kind)}</Pill>
-                <div style={{ marginTop: 5 }}>
-                  <MarkdownMath value={claim.statement} />
-                </div>
+      <Panel tone="slate" style={{ marginTop: 8 }}>
+        <SmallLabel>what remains unverified after this submission</SmallLabel>
+        {nonHypothesisUnverified.map((claim, index) => {
+          const statement = claim.statement?.trim();
+          return (
+            <div
+              key={`${claim.kind}:${claim.hypothesisId ?? index}`}
+              style={{ marginTop: index ? 8 : 0, lineHeight: 1.55 }}
+            >
+              <Pill color="slate">{humanize(claim.kind)}</Pill>
+              <div style={{ marginTop: 5 }}>
+                {statement ? (
+                  <MarkdownMath value={statement} />
+                ) : (
+                  <Dim>
+                    The grader marked this part of your submitted answer as unverified,
+                    but did not provide any further detail.
+                  </Dim>
+                )}
               </div>
-            ))
-          ) : (
-            <Dim>Why this happened remains a hypothesis, not a confirmed learner belief.</Dim>
-          )}
-        </Panel>
-      ) : null}
+            </div>
+          );
+        })}
+        {feedback.causalHypotheses.length ? (
+          <div style={{ marginTop: nonHypothesisUnverified.length ? 8 : 0 }}>
+            <Dim>
+              This attempt showed where your answer first diverged, but it did not
+              establish why. The possible explanations above remain unconfirmed.
+            </Dim>
+          </div>
+        ) : null}
+        {correctionRemainsUnverified ? (
+          <div
+            style={{
+              marginTop:
+                nonHypothesisUnverified.length || feedback.causalHypotheses.length ? 8 : 0,
+            }}
+          >
+            <Dim>
+              The grader identified what to revisit, but this submission did not
+              verify a corrected answer. A later checked attempt is needed to
+              confirm the repair.
+            </Dim>
+          </div>
+        ) : null}
+        {!hasUnverifiedClaims ? (
+          <Dim>No additional claims from this submission are still marked as unverified.</Dim>
+        ) : null}
+      </Panel>
 
       {feedback.proposedNextAction ? (
         <Panel tone="cyan" style={{ marginTop: 8 }}>

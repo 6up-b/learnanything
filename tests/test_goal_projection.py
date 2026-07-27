@@ -14,9 +14,10 @@ from learnloop.services.goal_projection import (
     goal_report,
     resolve_goal_scope,
 )
+from learnloop.services.goal_pace import compute_goal_pace
 from learnloop.services.recall_coverage import expected_facet_mass_gain
 from learnloop.vault.loader import load_vault
-from learnloop.vault.yaml_io import write_yaml
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault, seed_due_item
 
@@ -28,6 +29,45 @@ FACET_ID = "recall"
 def _loaded(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    repository = seed_due_item(paths)
+    return load_vault(vault_root), paths, repository
+
+
+# The basic vault's only item is `short_answer` on facet "recall", which compiles
+# to capability `schema_interpretation`. Cells below are positioned against that
+# single instrument on the ladder retrieval(0) < schema_interpretation(1) <
+# procedure_execution(2) < method_selection(3) < coordination(4).
+INSTRUMENT_CAPABILITY = "schema_interpretation"
+
+
+def _loaded_with_contract(tmp_path, components):
+    """``_loaded`` but ``lo_svd_definition`` first declares a blueprint.
+
+    ``components`` are ``(facet, capability)`` pairs authored as hard ``all_of``
+    requirements — i.e. real contract cells that certification must close.
+    """
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    lo_path = paths.learning_object_path("linear-algebra", LO_ID)
+    data = read_yaml(lo_path)
+    data["blueprints"] = [
+        {
+            "id": "bp1",
+            "weight": 1.0,
+            "recipes": [
+                {
+                    "id": "r1",
+                    "composition": "conjunctive",
+                    "all_of": [
+                        {"facet": facet, "capability": capability, "modality": "hard"}
+                        for facet, capability in components
+                    ],
+                }
+            ],
+        }
+    ]
+    write_yaml(lo_path, data)
     repository = seed_due_item(paths)
     return load_vault(vault_root), paths, repository
 
@@ -210,10 +250,16 @@ def test_attempts_to_certify_inverts_the_mass_equation(tmp_path):
     expected = math.ceil((min_mass + 1e-6) / (0.75 * gain))
     assert projection.attempts_to_certify == expected
 
-    # Certified facets need nothing further.
-    _seed_aggregate_facet(repository, mean=0.9, mass=2.0)
+    # Certified AND attained facets need nothing further. Mass well past the gate
+    # and a near horizon keep both axes quiet, so 0 here really does mean 0.
+    vault.goals[0].due_at = _due_iso(1)
+    _seed_aggregate_facet(repository, mean=0.99, mass=8.0)
     report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
-    assert _recall_projection(report).attempts_to_certify == 0
+    settled = _recall_projection(report)
+    assert settled.at_risk is False
+    assert settled.attempts_to_certify == 0
+    assert settled.attempts_is_lower_bound is False
+    assert report.attempts_remaining_is_partial is False
 
 
 def test_attempts_to_certify_inversion_edge_cases():
@@ -227,6 +273,163 @@ def test_attempts_to_certify_inversion_edge_cases():
         (0.5 + 1e-6) / (0.75 * 0.25)
     )
     assert _attempts_to_certify("facet", 0.0, {"facet": [1e-9]}, 0.5) == 99
+
+
+def _pace(vault, repository, report):
+    return compute_goal_pace(
+        vault, repository, vault.goals[0], report, clock=FrozenClock(NOW)
+    )
+
+
+def test_unreachable_contract_cell_makes_attempts_unknowable(tmp_path):
+    """A cell no instrument can observe has no attempt count — only the fiction.
+
+    ``recall`` is required at ``coordination`` and the vault's single item
+    observes it at ``schema_interpretation``: MISMATCH_BELOW, and dominance only
+    propagates downward, so no amount of practice closes the cell. The mass
+    inversion would happily quote a number anyway (it only knows about evidence
+    mass), which is the dishonesty: attempts that can never certify.
+    """
+
+    vault, _paths, repository = _loaded_with_contract(
+        tmp_path, [("recall", "coordination")]
+    )
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+
+    assert projection.at_risk is True
+    assert projection.certification_reachable is False
+    assert projection.attempts_to_certify is None
+    assert report.attempts_remaining == 0
+    assert report.attempts_remaining_is_partial is True
+
+    # The honest arm of the pace read-model: unknowable, not "done".
+    pace = _pace(vault, repository, report)
+    assert pace.attempts_remaining is None
+    assert pace.needed_per_day is None
+    assert pace.on_pace is None
+
+
+def test_one_uncloseable_rung_abstains_for_the_whole_facet(tmp_path):
+    """Both unreachable verdicts abstain, and a reachable sibling cell cannot rescue.
+
+    ``recall`` carries a reachable cell *and* an uncloseable one — the LO's hard
+    components are conjunctive, so having somewhere to put evidence is not the
+    same as being able to certify, and the facet abstains. ``uninstrumented`` has
+    nothing observing it at any capability (NO_INSTRUMENT) and abstains too.
+    """
+
+    vault, _paths, repository = _loaded_with_contract(
+        tmp_path,
+        [
+            ("recall", INSTRUMENT_CAPABILITY),   # REACHABLE
+            ("recall", "coordination"),          # MISMATCH_BELOW
+            ("uninstrumented", "procedure_execution"),  # NO_INSTRUMENT
+        ],
+    )
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    by_facet = {facet.facet_id: facet for facet in report.facets}
+    assert set(by_facet) == {"recall", "uninstrumented"}
+
+    for facet_id in ("recall", "uninstrumented"):
+        assert by_facet[facet_id].certification_reachable is False
+        assert by_facet[facet_id].attempts_to_certify is None
+    assert report.attempts_remaining_is_partial is True
+
+
+def test_fully_reachable_contract_keeps_the_legacy_estimate(tmp_path):
+    """A contract every cell of which is closeable changes nothing at all."""
+
+    legacy_vault, _legacy_paths, legacy_repository = _loaded(tmp_path / "legacy")
+    legacy = _recall_projection(
+        goal_report(
+            legacy_vault, legacy_repository, legacy_vault.goals[0], clock=FrozenClock(NOW)
+        )
+    )
+
+    vault, _paths, repository = _loaded_with_contract(
+        tmp_path / "contracted", [("recall", INSTRUMENT_CAPABILITY)]
+    )
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+
+    assert projection.certification_reachable is True
+    assert projection.attempts_to_certify == legacy.attempts_to_certify
+    assert projection.attempts_to_certify is not None
+    assert report.attempts_remaining == legacy.attempts_to_certify
+    assert report.attempts_remaining_is_partial is False
+
+
+def test_legacy_lo_without_a_contract_is_untouched(tmp_path):
+    """No blueprint, no cells: reachability has nothing to say, so it says nothing."""
+
+    vault, _paths, repository = _loaded(tmp_path)
+    assert vault.learning_objects[LO_ID].blueprints == []
+
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+
+    item = vault.practice_items[ITEM_ID]
+    gain = expected_facet_mass_gain(item, vault.rubric_for_item(item), vault.config.evidence)[
+        FACET_ID
+    ]
+    min_mass = vault.config.recall_coverage.min_facet_evidence_mass
+    assert projection.certification_reachable is True
+    assert projection.attempts_to_certify == math.ceil((min_mass + 1e-6) / (0.75 * gain))
+    assert report.attempts_remaining_is_partial is False
+
+
+def test_mismatch_above_is_not_treated_as_unreachable(tmp_path):
+    """The evidence exists one rung up: the remedy is projection, not attempts.
+
+    Abstaining here would overstate the gap — §5.8.2's B1 downward-dominance
+    propagation closes these cells without a single new instrument.
+    """
+
+    vault, _paths, repository = _loaded_with_contract(tmp_path, [("recall", "retrieval")])
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+
+    assert projection.certification_reachable is True
+    assert projection.attempts_to_certify is not None
+    assert report.attempts_remaining_is_partial is False
+
+
+def test_decayed_certified_facet_reports_a_floor_not_zero(tmp_path):
+    """The retention axis of ``at_risk`` may not report "nothing outstanding".
+
+    Mass-certified but projected below target: the mass inversion has nothing
+    left to ask for, and its plain ``0`` reads as "all facets certified — hold
+    the line" for a facet that is demonstrably losing the line.
+    """
+
+    vault, _paths, repository = _loaded(tmp_path)
+    _seed_aggregate_facet(repository, mean=0.9, mass=2.0)
+    repository.upsert_practice_item_state(
+        ITEM_ID,
+        difficulty=5.0,
+        stability=1.0,
+        due_at="2026-05-18T12:00:00Z",
+        last_attempt_at="2026-05-16T12:00:00Z",
+        active=True,
+    )
+    vault.goals[0].due_at = _due_iso(120)
+
+    report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
+    projection = _recall_projection(report)
+
+    assert projection.certified is True         # mass gate cleared
+    assert projection.on_track is False         # attainment axis is not
+    assert projection.at_risk is True
+    assert projection.attempts_to_certify == 1  # a floor, deliberately not a forecast
+    assert projection.attempts_is_lower_bound is True
+    assert report.attempts_remaining == 1
+    assert report.attempts_remaining_is_partial is True
+
+    # A lower bound is still a number: the pace sentence keeps its "at least"
+    # arm rather than collapsing to the unknowable one.
+    pace = _pace(vault, repository, report)
+    assert pace.attempts_remaining == 1
 
 
 def test_attainment_aggregates(tmp_path):
@@ -284,6 +487,12 @@ def test_known_gap_facet_is_never_on_track(tmp_path):
     assert projection.label == "known_gap"
     assert projection.on_track is False
     assert projection.at_risk is True
+    # The other false zero: mass is past the gate, so the inversion has nothing
+    # left to ask for — but the gap is open and certification is refused, so a
+    # plain 0 would read as "done". Report the floor and say it is one.
+    assert projection.attempts_to_certify == 1
+    assert projection.attempts_is_lower_bound is True
+    assert report.attempts_remaining_is_partial is True
 
 
 def test_quota_floor_open_ended_goal_uses_floor_min(tmp_path):

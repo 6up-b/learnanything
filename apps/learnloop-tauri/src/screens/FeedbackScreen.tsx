@@ -81,6 +81,25 @@ function FbHeader({ children, first = false }: { children: ReactNode; first?: bo
   );
 }
 
+// Compact evidence subsection used inside the scored-attempt card. Rubric
+// evidence and the criterion trace are peers, so they share this hierarchy
+// instead of promoting the trace to a separate top-level screen section.
+function EvidenceHeader({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        color: C.amber,
+        fontSize: 13,
+        marginBottom: 6,
+        textDecoration: "underline",
+        textUnderlineOffset: 3,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ── BlockBar ─────────────────────────────────────────────────────────────────
 function BlockBar({ value, max = 1, width = 8, color = C.amber }: {
   value: number; max?: number; width?: number; color?: string;
@@ -1123,6 +1142,9 @@ export function FeedbackScreen({
   // P2 §6: the typed causal repair hold for this attempt's diagnosis, rendered
   // inside the claim-checked feedback panel rather than raised as an error.
   const [repairStatus, setRepairStatus] = useState<CausalRepairStatusDto | null>(null);
+  // Journey B card ("Not now" is a per-view dismissal, not a persisted
+  // preference — there is no probe offer to defer on a shared-repair factor).
+  const [commonRepairDismissed, setCommonRepairDismissed] = useState(false);
   const [addingError, setAddingError] = useState(false);
   const [errorTypeInput, setErrorTypeInput] = useState("");
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
@@ -1148,6 +1170,7 @@ export function FeedbackScreen({
 
   useEffect(() => {
     let cancelled = false;
+    setCommonRepairDismissed(false);
     api
       .getFeedback(attemptId)
       .then((bundle) => {
@@ -1242,6 +1265,10 @@ export function FeedbackScreen({
     const causal = feedback?.causalFeedback;
     const need = causal?.probeNeed;
     if (!causal || !need) return null;
+    // Only the divergent / machine-owed shapes need a live orchestrator read.
+    // The non-divergent case is no longer a dead end: the post-attempt hook
+    // already consulted the lane and `causalFeedback.commonRepair` carries the
+    // recommendation, so re-reading here would only mint a duplicate receipt.
     if (!need.divergent && !need.incompleteRepairMapping) return null;
     return (
       feedback?.matchedMisconception?.id ??
@@ -1660,12 +1687,7 @@ export function FeedbackScreen({
           ) : null}
 
           <div style={{ marginTop: 22 }}>
-            <div style={{
-              color: C.amber, fontSize: 13, marginBottom: 6,
-              textDecoration: "underline", textUnderlineOffset: 3,
-            }}>
-              Rubric · criterion evidence
-            </div>
+            <EvidenceHeader>Rubric · criterion evidence</EvidenceHeader>
             {f.criterionEvidence.map((row) => (
               <CriterionRow
                 key={row.criterionId}
@@ -1675,6 +1697,13 @@ export function FeedbackScreen({
             ))}
             <div style={{ borderTop: `1px solid ${C.border}` }} />
           </div>
+
+          {trace && trace.criteria.length > 0 ? (
+            <div style={{ marginTop: 22 }}>
+              <EvidenceHeader>Attempt · criterion trace</EvidenceHeader>
+              <AttemptTraceView trace={trace} />
+            </div>
+          ) : null}
 
           {/* fatal errors */}
           {f.fatalErrors.length > 0 && (
@@ -1725,14 +1754,6 @@ export function FeedbackScreen({
           </div>
         ) : null}
 
-        {/* ── attempt trace (criterion DAG) ── */}
-        {trace && trace.criteria.length > 0 && (
-          <>
-            <FbHeader>Attempt trace</FbHeader>
-            <AttemptTraceView trace={trace} />
-          </>
-        )}
-
         {/* P1 is authoritative for learner-facing causal claims. It replaces
             the raw tutor diagnosis/correction display with receipt-typed
             sections, but the P0 one-tap unresolved-cause question remains
@@ -1764,6 +1785,33 @@ export function FeedbackScreen({
                   .finally(() => setReportingFactorId(null));
               }}
             />
+            {/* Journey B: every plausible cause shares one fix — deliver the
+                repair instead of holding or interrogating. Rendering reads the
+                recommendation off the feedback payload (recorded post-attempt);
+                "Start the fix" is the same handoff "Teach me now" uses. */}
+            {f.causalFeedback.commonRepair && !commonRepairDismissed && !repairStatus ? (
+              <div style={{
+                marginTop: 14, padding: "10px 12px",
+                background: C.bgElev, borderLeft: `3px solid ${C.greenSoft}`,
+                fontFamily: MONO, fontSize: 12, lineHeight: 1.6,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Pill tone="green">same fix</Pill>
+                  <Faint>these explanations point to the same fix</Faint>
+                </div>
+                <div style={{ color: C.text }}>{f.causalFeedback.commonRepair.message}</div>
+                <div style={{ marginTop: 8, display: "flex", gap: 16, alignItems: "center" }}>
+                  <span
+                    style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer" }}
+                    onClick={() => onOpenRepair?.(f.causalFeedback!.commonRepair!.misconceptionId)}
+                  >start the fix</span>
+                  <span
+                    style={{ color: C.textDim, textDecoration: "underline", cursor: "pointer" }}
+                    onClick={() => setCommonRepairDismissed(true)}
+                  >not now</span>
+                </div>
+              </div>
+            ) : null}
           </>
         ) : null}
 

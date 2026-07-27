@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
@@ -31,6 +32,123 @@ from learnloop.vault.models import (
     Rubric,
     learning_object_facet_union,
 )
+
+
+# Closed vocabulary for how a quote anchor's offsets were resolved. The quote is
+# the authority; char offsets are model-reported hints that we recompute
+# server-side (deterministic outranks model-reported, applied to anchors).
+ANCHOR_BASES = (
+    "quote_match_unique",
+    "quote_match_hint_disambiguated",
+    "quote_match_first",
+    "quote_match_normalized",
+    "unanchored_quote",
+)
+
+
+@dataclass(frozen=True)
+class QuoteAnchorResolution:
+    char_start: int | None
+    char_end: int | None
+    basis: str
+
+
+def _collapse_whitespace_with_map(text: str) -> tuple[str, list[int]]:
+    """Collapse whitespace runs to single spaces, keeping original indices.
+
+    Returns the collapsed string and, per collapsed character, the index of the
+    original character it came from (a collapsed space maps to the first
+    whitespace character of its run). Leading/trailing whitespace is dropped so
+    the collapsed form matches ``" ".join(text.split())``.
+    """
+
+    out: list[str] = []
+    index_map: list[int] = []
+    pending_space_at: int | None = None
+    for i, ch in enumerate(text):
+        if ch.isspace():
+            if out and pending_space_at is None:
+                pending_space_at = i
+            continue
+        if pending_space_at is not None:
+            out.append(" ")
+            index_map.append(pending_space_at)
+            pending_space_at = None
+        out.append(ch)
+        index_map.append(i)
+    return "".join(out), index_map
+
+
+def _pick_occurrence(
+    starts: list[int], hint_start: int | None
+) -> tuple[int, str]:
+    if len(starts) == 1:
+        return starts[0], "quote_match_unique"
+    if hint_start is not None:
+        best = min(starts, key=lambda s: (abs(s - hint_start), s))
+        return best, "quote_match_hint_disambiguated"
+    return starts[0], "quote_match_first"
+
+
+def _all_occurrences(haystack: str, needle: str) -> list[int]:
+    starts: list[int] = []
+    pos = haystack.find(needle)
+    while pos != -1:
+        starts.append(pos)
+        pos = haystack.find(needle, pos + 1)
+    return starts
+
+
+def resolve_quote_anchor(
+    learner_answer: str,
+    quote: str,
+    *,
+    hint_start: int | None = None,
+    hint_end: int | None = None,
+) -> QuoteAnchorResolution:
+    """Locate ``quote`` in ``learner_answer`` and derive offsets server-side.
+
+    Pure and deterministic (replay reproduces it). Resolution order: exact
+    substring (unique / nearest-to-hint / first), then one normalized pass
+    (whitespace runs collapsed; NFC applied to the quote when the answer is
+    already NFC-normal), else ``unanchored_quote`` with no offsets. Offsets are
+    zero-based, end-exclusive indices into the ORIGINAL answer; a normalized
+    match spans the original region including its internal whitespace, so
+    ``answer[start:end] == quote`` is guaranteed only for the exact-match bases.
+    """
+
+    del hint_end  # symmetry with the wire shape; disambiguation keys on start
+    if not quote or not learner_answer:
+        return QuoteAnchorResolution(None, None, "unanchored_quote")
+
+    exact = _all_occurrences(learner_answer, quote)
+    if exact:
+        start, basis = _pick_occurrence(exact, hint_start)
+        return QuoteAnchorResolution(start, start + len(quote), basis)
+
+    collapsed_answer, index_map = _collapse_whitespace_with_map(learner_answer)
+    candidates = [" ".join(quote.split())]
+    # NFC arm: only when the answer is already NFC-normal, so collapsed indices
+    # map faithfully back to the original string. A non-NFC answer that matches
+    # only after normalization degrades to unanchored rather than risking a
+    # wrong span.
+    if unicodedata.normalize("NFC", collapsed_answer) == collapsed_answer:
+        nfc_quote = unicodedata.normalize("NFC", " ".join(quote.split()))
+        if nfc_quote not in candidates:
+            candidates.append(nfc_quote)
+    for candidate in candidates:
+        if not candidate:
+            continue
+        starts = _all_occurrences(collapsed_answer, candidate)
+        if not starts:
+            continue
+        collapsed_start, _ = _pick_occurrence(starts, hint_start)
+        original_start = index_map[collapsed_start]
+        original_end = index_map[collapsed_start + len(candidate) - 1] + 1
+        return QuoteAnchorResolution(
+            original_start, original_end, "quote_match_normalized"
+        )
+    return QuoteAnchorResolution(None, None, "unanchored_quote")
 
 
 def is_canonical_state_vault(vault: LoadedVault) -> bool:
@@ -795,9 +913,18 @@ def validate_codex_grading_proposal(
                 and end is not None
                 and answer[int(start) : int(end)] != quote
             ):
-                raise GradingValidationError(
-                    "answer-span target offsets do not match learner answer"
+                # Model-reported offsets are hints, never authorities: the quote
+                # anchors (checked above), so recompute the span server-side
+                # instead of rejecting the grade over a miscount.
+                resolution = resolve_quote_anchor(
+                    answer, quote, hint_start=int(start)
                 )
+                if resolution.char_start is not None:
+                    target_ref["char_start"] = resolution.char_start
+                    target_ref["char_end"] = resolution.char_end
+                else:
+                    target_ref.pop("char_start", None)
+                    target_ref.pop("char_end", None)
 
         first_divergence = (
             attribution.first_divergence.model_dump(mode="json", exclude_none=True)
@@ -831,22 +958,43 @@ def validate_codex_grading_proposal(
                         f"Unknown first-divergence checkpoint {checkpoint_id}"
                     )
             if quote:
-                normalized_quote = " ".join(str(quote).split())
-                normalized_answer = " ".join(answer.split())
-                if str(quote) not in answer and normalized_quote not in normalized_answer:
-                    raise GradingValidationError(
-                        "first_divergence quote does not anchor in learner answer"
-                    )
-                first_divergence["normalized_quote"] = normalized_quote
+                # The quote is the anchor authority; model-reported offsets are
+                # hints. Localization is NEVER fatal: a quote we cannot place
+                # degrades to a whole-answer anchor (the designed fallback for
+                # null trace contracts) and the grade proceeds — rejecting the
+                # whole measurement over a miscounted span punished exactly the
+                # imperfect answers the diagnosis exists for.
+                q = str(quote)
+                first_divergence["normalized_quote"] = " ".join(q.split())
                 first_divergence["quote_hash"] = hashlib.sha256(
-                    str(quote).encode("utf-8")
+                    q.encode("utf-8")
                 ).hexdigest()
-                start = first_divergence.get("char_start")
-                end = first_divergence.get("char_end")
-                if start is not None and end is not None and answer[int(start) : int(end)] != quote:
-                    raise GradingValidationError(
-                        "first_divergence offsets do not match learner answer"
-                    )
+                model_start = first_divergence.get("char_start")
+                model_end = first_divergence.get("char_end")
+                resolution = resolve_quote_anchor(
+                    answer,
+                    q,
+                    hint_start=model_start if isinstance(model_start, int) else None,
+                )
+                first_divergence["anchor_basis"] = resolution.basis
+                if resolution.char_start is None:
+                    first_divergence.pop("char_start", None)
+                    first_divergence.pop("char_end", None)
+                    if first_divergence.get("anchor_kind") == "span":
+                        first_divergence["anchor_kind"] = "whole_answer"
+                else:
+                    first_divergence["char_start"] = resolution.char_start
+                    first_divergence["char_end"] = resolution.char_end
+                if (
+                    isinstance(model_start, int)
+                    and isinstance(model_end, int)
+                    and (model_start, model_end)
+                    != (resolution.char_start, resolution.char_end)
+                ):
+                    # Audit note: the raw model offsets, kept visible so the
+                    # model-vs-computed disagreement rate stays measurable.
+                    first_divergence["model_reported_char_start"] = model_start
+                    first_divergence["model_reported_char_end"] = model_end
 
         facet_contrast = (
             attribution.facet_contrast.model_dump(mode="json", exclude_none=True)
@@ -1045,7 +1193,20 @@ def validate_codex_grading_proposal(
             repaired_answer = str(
                 repaired_trace.get("repaired_answer_md") or ""
             )
+            # ``repaired_answer_md`` duplicates the auditable edit encoded by
+            # learner_work_prefix + regenerated_work. Make the full answer
+            # deterministic whenever the model supplied a real regenerated
+            # suffix, rather than trusting a second copy that may normalize
+            # ANSI styling, LaTeX delimiters, whitespace, or downstream text.
+            regenerated_work = str(
+                repaired_trace.get("regenerated_work") or ""
+            )
+            if regenerated_work:
+                repaired_answer = learner_prefix + regenerated_work
+                repaired_trace["repaired_answer_md"] = repaired_answer
             if learner_prefix and not repaired_answer.startswith(learner_prefix):
+                # With no regenerated suffix there is no authoritative
+                # downstream repair to compose, so keep failing closed.
                 raise GradingValidationError(
                     "repaired trace does not preserve learner_work_prefix"
                 )

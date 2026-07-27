@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_coordinate_affine_combination_law_select
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+evidence_weights:
+  facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+criterion_facet_weights:
+  crit_connect_all_coordinates:
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+  crit_select_scalar_equality:
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_select_scalar_bottleneck
+      checkpoints:
+        - state_coordinate_equality
+        - name_scalar_law
+        - lift_to_vector_equality
+      dependencies:
+        lift_to_vector_equality:
+          - state_coordinate_equality
+        name_scalar_law:
+          - state_coordinate_equality
+        state_coordinate_equality: []
+variant_contract:
+teach_back_source:
+prompt: A proof of (a+b)x=ax+bx in Fⁿ has already been reduced to comparing one 
+  arbitrary coordinate k. State the single scalar equality that is the proof's 
+  bottleneck, name the law it uses over F=R or C, and explain why proving that 
+  equality for every k finishes the vector identity.
+expected_answer: The decisive scalar equality is (a+b)xₖ=axₖ+bxₖ. It is 
+  distributivity of scalar multiplication over scalar addition in R or C. Once 
+  this equality holds for every k, the two vectors have equal corresponding 
+  coordinates, so (a+b)x=ax+bx in Fⁿ.
+difficulty: 0.45
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - method-selection
+  - scalar-laws
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.65
+scaffold_level: 0.03
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: coordinate_bottleneck_identification
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_selects_associativity
+    hypothesis: Believes that changing (a+b)xₖ into axₖ+bxₖ is an application of
+      associativity.
+    observable_signature: Writes (a+b)xₖ=axₖ+bxₖ but labels the step 
+      “associativity of multiplication.”
+    misconception_id:
+    facet_id: facet_scalar_calculations_over_r_or_c_use_commutative_
+    fails_criteria:
+      - crit_select_scalar_equality
+    distinguishing_features:
+      - correct equation with wrong law name
+      - calls distribution regrouping
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_select_scalar_equality
+      points: 2.5
+      description: Writes (a+b)xₖ=axₖ+bxₖ and names scalar distributivity.
+      tier: core
+      targets:
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_connect_all_coordinates
+      points: 1.5
+      description: Explains that equality at every coordinate establishes 
+        equality of the vectors.
+      tier: core
+      targets:
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: method_selection
+          role: primary
+      depends_on:
+        - crit_select_scalar_equality
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:15Z'
+updated_at: '2026-07-27T08:36:15Z'

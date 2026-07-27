@@ -1,0 +1,149 @@
+schema_version: 1
+id: pi_coordinate_negation_proof_route
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+evidence_weights:
+  facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+criterion_facet_weights:
+  crit_choose_arbitrary_coordinate:
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+  crit_finish_coordinate_proof:
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+  crit_write_negation_scalar_step:
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_plan_coordinate_negation_proof
+      checkpoints:
+        - choose_arbitrary_coordinate
+        - apply_coordinate_definitions
+        - use_scalar_negation_identity
+        - conclude_vector_equality
+      dependencies:
+        apply_coordinate_definitions:
+          - choose_arbitrary_coordinate
+        choose_arbitrary_coordinate: []
+        conclude_vector_equality:
+          - use_scalar_negation_identity
+        use_scalar_negation_identity:
+          - apply_coordinate_definitions
+variant_contract:
+teach_back_source:
+prompt: 'You need to prove (−a)x=−(ax) for every a∈F and x∈Fⁿ. Give a compact proof
+  route: identify what coordinate to compare, write the decisive scalar equality,
+  and state the final fact that turns the coordinate calculation into a vector equality.
+  Do not appeal to a picture or test a numerical vector.'
+expected_answer: Let k be arbitrary. By coordinatewise scalar multiplication, 
+  ((−a)x)ₖ=(−a)xₖ. The scalar identity (−a)xₖ=−(axₖ) gives 
+  ((−a)x)ₖ=−(axₖ)=(−(ax))ₖ. This holds for every k=1,…,n, so the two vectors 
+  have equal corresponding coordinates and therefore (−a)x=−(ax).
+difficulty: 0.5
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - method-selection
+  - coordinate-proof
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.82
+transfer_distance: 0.7
+scaffold_level: 0.02
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: identity_to_coordinate_route
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_one_coordinate_suffices
+    hypothesis: Believes that checking one chosen coordinate proves equality of 
+      vectors in Fⁿ.
+    observable_signature: Checks only k=1 and concludes the vectors are equal, 
+      without making k arbitrary or covering every coordinate.
+    misconception_id:
+    facet_id: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+    fails_criteria:
+      - crit_choose_arbitrary_coordinate
+      - crit_finish_coordinate_proof
+    distinguishing_features:
+      - uses k=1 specifically
+      - omits universal coordinate conclusion
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_choose_arbitrary_coordinate
+      points: 1.5
+      description: Selects an arbitrary coordinate k and invokes the coordinate 
+        definitions on both sides.
+      tier: core
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_write_negation_scalar_step
+      points: 1.5
+      description: Writes the decisive scalar equality (−a)xₖ=−(axₖ).
+      tier: core
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_choose_arbitrary_coordinate
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_finish_coordinate_proof
+      points: 1.0
+      description: Concludes vector equality from equality of every 
+        corresponding coordinate.
+      tier: core
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_write_negation_scalar_step
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:14Z'
+updated_at: '2026-07-27T08:36:14Z'

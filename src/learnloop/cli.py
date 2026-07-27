@@ -53,8 +53,6 @@ from learnloop.services.exam_session import (
     start_exam,
 )
 from learnloop.services.exam_calibration import calibration_report as exam_calibration_report
-from learnloop.services.grading import confidence_to_grader_confidence, resolved_rubric
-from learnloop.services.attempts import GradeAttribution, ResolvedGrade, _rubric_score
 from learnloop.ids import new_ulid
 from learnloop.services.concepts import ConceptMergeError, merge_concepts
 from learnloop.services.doctor import run_doctor
@@ -4639,8 +4637,19 @@ def accept(
     if all_items and items:
         typer.echo("--all cannot be combined with --items.", err=True)
         raise typer.Exit(code=1)
+    from learnloop.services.promotions import (
+        reconcile_accepted_question_promotion_patch,
+    )
+
+    vault_root = _root(vault)
+    repository = _repository(vault_root)
     try:
-        result = accept_items(_root(vault), patch_id, _split_items(items))
+        result = accept_items(vault_root, patch_id, _split_items(items))
+        # Parity with the sidecar's accept_proposal_items: a tutor question that
+        # was promoted into this patch owns a promotion request, and accepting
+        # the patch is what completes it. Without this the CLI leaves the request
+        # stranded mid-flight while the item is live in the vault.
+        reconcile_accepted_question_promotion_patch(repository, patch_id)
     except PatchApplicationError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
@@ -4653,8 +4662,17 @@ def reject(
     items: Annotated[str | None, typer.Option("--items", help="Comma-separated proposal item SQL ids.")] = None,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
+    from learnloop.services.promotions import (
+        reconcile_rejected_question_promotion_patch,
+    )
+
+    vault_root = _root(vault)
+    repository = _repository(vault_root)
     try:
-        count = reject_items(_root(vault), patch_id, _split_items(items))
+        count = reject_items(vault_root, patch_id, _split_items(items))
+        # Same parity: a fully rejected promotion patch must surface on the
+        # request as a failure the learner can act on, not stay pending forever.
+        reconcile_rejected_question_promotion_patch(repository, patch_id)
     except PatchApplicationError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
@@ -5569,55 +5587,6 @@ def _goal_or_exit(loaded, goal_id: str, *, json_output: bool):
     raise typer.Exit(code=1)
 
 
-def _resolve_self_grade(loaded, item, points: dict[str, float], *, confidence: int, fatal_errors, error_type):
-    """Resolve a CLI self-grade into a ResolvedGrade (no mastery writes).
-
-    Mirrors ``complete_self_graded_attempt`` so ``exam answer`` reuses the same
-    self-grade rubric input as ``learnloop attempt``, but hands the resolved
-    grade to the exam session instead of applying it immediately.
-    """
-
-    rubric = resolved_rubric(loaded, item)
-    criterion_points = {criterion.id: float(points.get(criterion.id, 0.0)) for criterion in rubric.criteria}
-    fatal = list(fatal_errors or [])
-    rubric_score = _rubric_score(rubric, criterion_points, fatal)
-    grader_confidence = confidence_to_grader_confidence(confidence)
-    attributions = []
-    if error_type:
-        error = loaded.error_types.get(error_type)
-        attributions.append(
-            GradeAttribution(
-                error_type=error_type,
-                severity=error.severity_default if error is not None else 0.5,
-                is_misconception=error.is_misconception if error is not None else False,
-            )
-        )
-    evidence_rows = [
-        {
-            "id": new_ulid(),
-            "criterion_id": criterion.id,
-            "points_awarded": criterion_points[criterion.id],
-            "evidence": f"Exam self-grade awarded {criterion_points[criterion.id]:g}/{criterion.points:g}.",
-            "notes": None,
-            "local_grader_id": "self",
-            "grader_tier": 1,
-            "learner_confidence": "hedged" if confidence <= 2 else "confident",
-            "created_at": utc_now_iso(None),
-        }
-        for criterion in rubric.criteria
-    ]
-    return ResolvedGrade(
-        rubric_score=rubric_score,
-        criterion_points=criterion_points,
-        evidence_rows=evidence_rows,
-        error_attributions=attributions,
-        grader_confidence=grader_confidence,
-        confidence=confidence,
-        manual_review_reason="low_self_confidence" if grader_confidence < 0.4 else None,
-        fatal_errors=fatal,
-    )
-
-
 @exam_app.command("reserve")
 def exam_reserve_command(
     goal: Annotated[str, typer.Option("--goal", help="Goal id to reserve a held-out exam pool for.")],
@@ -5671,18 +5640,62 @@ def exam_start_command(
     )
 
 
+#: Refusal shared with the sidecar's ``submit_exam_answer``
+#: (``learnloop_sidecar/handlers/exams.py``). The exam is a held-out measurement
+#: of the mastery model's projections; a grade the learner assigned to their own
+#: held-out answer measures the learner's opinion, not the model. The two front
+#: ends must refuse identically or the CLI becomes the way around the rule.
+EXAM_SELF_GRADE_REFUSAL = (
+    "Exam answers need an AI grading provider (self-grading a held-out exam "
+    "would not be a measurement). Configure a provider and retry."
+)
+
+
+def _exam_answer_refusal(code: str, message: str, *, json_output: bool) -> None:
+    if json_output:
+        typer.echo(_dump({"version": 1, "error": code, "message": message}))
+    else:
+        typer.echo(message, err=True)
+    raise typer.Exit(code=1)
+
+
 @exam_app.command("answer")
 def exam_answer_command(
     session: Annotated[str, typer.Option("--session", help="Exam session id.")],
     practice_item_id: Annotated[str, typer.Argument(help="Practice item id being answered.")],
     answer: Annotated[str | None, typer.Option("--answer", help="Learner answer markdown.")] = None,
-    criterion_points: Annotated[str | None, typer.Option("--criterion-points", help="Comma-separated criterion=points pairs.")] = None,
-    fatal_errors: Annotated[str | None, typer.Option("--fatal-errors", help="Comma-separated fatal rubric error ids.")] = None,
-    confidence: Annotated[int, typer.Option("--confidence", min=1, max=5, help="Self-grade confidence 1..5.")] = 3,
-    error_type: Annotated[str | None, typer.Option("--error-type", help="Optional error taxonomy id or literal.")] = None,
+    criterion_points: Annotated[str | None, typer.Option("--criterion-points", help="REFUSED: a held-out exam is not self-graded.")] = None,
+    fatal_errors: Annotated[str | None, typer.Option("--fatal-errors", help="REFUSED: a held-out exam is not self-graded.")] = None,
+    confidence: Annotated[int | None, typer.Option("--confidence", min=1, max=5, help="REFUSED: a held-out exam is not self-graded.")] = None,
+    error_type: Annotated[str | None, typer.Option("--error-type", help="REFUSED: a held-out exam is not self-graded.")] = None,
+    ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for grading.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
+    """Answer one held-out exam item. AI-graded only -- see ``EXAM_SELF_GRADE_REFUSAL``.
+
+    The self-grade options are kept so an existing caller gets the typed refusal
+    rather than an unknown-option error; ordinary practice (``learnloop attempt``)
+    still self-grades, because practice is not the measurement the exam is.
+    """
+
+    self_grade_flags = [
+        name
+        for name, value in (
+            ("--criterion-points", criterion_points),
+            ("--fatal-errors", fatal_errors),
+            ("--confidence", confidence),
+            ("--error-type", error_type),
+        )
+        if value is not None
+    ]
+    if self_grade_flags:
+        _exam_answer_refusal(
+            "exam_self_grade_refused",
+            f"{', '.join(self_grade_flags)} self-grade a held-out exam. "
+            + EXAM_SELF_GRADE_REFUSAL,
+            json_output=json_output,
+        )
     vault_root = _root(vault)
     loaded = load_vault(vault_root)
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
@@ -5691,23 +5704,53 @@ def exam_answer_command(
     if item is None:
         typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
         raise typer.Exit(code=1)
-    answer_text = answer if answer is not None else typer.prompt("Answer", default="")
-    points = _parse_points(criterion_points)
-    rubric = loaded.rubric_for_item(item)
-    if not points and rubric is not None:
-        for criterion in rubric.criteria:
-            raw = typer.prompt(f"{criterion.id} points", default="0")
-            try:
-                points[criterion.id] = float(raw)
-            except ValueError:
-                typer.echo(f"{criterion.id} points must be numeric.", err=True)
-                raise typer.Exit(code=1)
-    try:
-        grade = _resolve_self_grade(
-            loaded, item, points, confidence=confidence, fatal_errors=_split_items(fatal_errors), error_type=error_type
+    provider_name, runtime, client = _ready_provider_for_task(
+        vault_root, loaded.config, "grading", ai_provider
+    )
+    if provider_name == "manual" or not runtime.ready or client is None:
+        _exam_answer_refusal(
+            "exam_grading_unavailable", EXAM_SELF_GRADE_REFUSAL, json_output=json_output
         )
+    answer_text = answer if answer is not None else typer.prompt("Answer", default="")
+    from learnloop.services.attempts import _resolved_codex_grade
+    from learnloop.services.grading import (
+        GradingValidationError,
+        build_grading_context,
+        validate_codex_grading_proposal,
+    )
+
+    grading_attempt_id = new_ulid()
+    context = build_grading_context(
+        loaded, item, attempt_id=grading_attempt_id, learner_answer_md=answer_text
+    )
+    try:
+        validated = validate_codex_grading_proposal(
+            client.run_grading_proposal(context),
+            attempt_id=grading_attempt_id,
+            item=item,
+            vault=loaded,
+            learner_answer_md=answer_text,
+        )
+    except GradingValidationError as exc:
+        _exam_answer_refusal(
+            "exam_grading_failed", str(exc), json_output=json_output
+        )
+    except Exception as exc:  # provider transport failures
+        _exam_answer_refusal(
+            "exam_grading_unavailable",
+            f"AI grading failed: {exc}. Retry when the provider is available.",
+            json_output=json_output,
+        )
+    try:
         result = record_exam_answer(
-            loaded, repository, session, practice_item_id, answer_md=answer_text, resolved_grade=grade
+            loaded,
+            repository,
+            session,
+            practice_item_id,
+            answer_md=answer_text,
+            resolved_grade=_resolved_codex_grade(
+                validated, agent_run_id=None, clock=None
+            ),
         )
     except (ExamSessionError, ValueError) as exc:
         if json_output:
@@ -6137,15 +6180,21 @@ def persona_realism_command(
             help="JSON list of persona trace strings, or {'traces': [...]}.",
         ),
     ],
-    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     generator_provider: Annotated[
-        str | None,
-        typer.Option("--generator-provider", help="Optional generator provenance."),
-    ] = None,
+        str,
+        typer.Option(
+            "--generator-provider",
+            help="Provider name that authored these persona traces.",
+        ),
+    ],
     generator_model: Annotated[
-        str | None,
-        typer.Option("--generator-model", help="Optional generator model provenance."),
-    ] = None,
+        str,
+        typer.Option(
+            "--generator-model",
+            help="Model that authored these persona traces.",
+        ),
+    ],
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     separation_threshold: Annotated[
         float,
         typer.Option("--threshold", help="Separability score that rejects the corpus."),
@@ -6178,11 +6227,7 @@ def persona_realism_command(
             persona_source="authored_signature",
             generator_provider=generator_provider,
             generator_model=generator_model,
-            generator_family=(
-                model_family(generator_provider, generator_model)
-                if generator_model
-                else None
-            ),
+            generator_family=model_family(generator_provider, generator_model),
             separation_threshold=separation_threshold,
         )
     except ValueError as exc:
@@ -6590,6 +6635,79 @@ def taxonomy_regrade_check_command(
             )
     if not report["no_regressions"]:
         raise typer.Exit(code=1)
+
+
+@app.command("causal-selection-readiness")
+def causal_selection_readiness_command(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
+) -> None:
+    """WP0 readiness for the formal causal selector (decision-value spec §8 Stage 0).
+
+    Candidate multiplicity, likelihood-regime counts, duration-source shares,
+    shadow conversion counts, and repair-linked cold-outcome volume — every
+    empty denominator as a typed unavailable arm, never a favorable zero.
+    """
+
+    from learnloop.services.causal_selection_audit import causal_selection_readiness
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    report = causal_selection_readiness(loaded, repository)
+    if json_output:
+        typer.echo(_dump(report))
+        return
+    factors = report["factors"]
+    typer.echo(f"factors · total={factors['total']} open={factors['open']}")
+    for key in ("candidate_multiplicity", "likelihood_regimes"):
+        block = report[key]
+        if not block.get("available"):
+            typer.echo(f"{key} · unavailable ({block['reason']})")
+        else:
+            counts = ", ".join(
+                f"{arm}={count}" for arm, count in sorted(block["counts"].items())
+            )
+            typer.echo(f"{key} · {counts}")
+    durations = report["duration_sources"]
+    if durations.get("available"):
+        shares = ", ".join(
+            f"{source}={count}"
+            for source, count in sorted(durations["source_counts"].items())
+        )
+        typer.echo(
+            f"duration_sources · {shares} · distinct_values="
+            f"{durations['distinct_minute_values']} · pooled_latency_n="
+            f"{durations['pooled_latency']['sample_count']}"
+        )
+    else:
+        typer.echo(f"duration_sources · unavailable ({durations['reason']})")
+    shadows = report["shadow_conversions"]
+    if shadows.get("available"):
+        typer.echo(
+            f"shadow · receipts={shadows['receipts']} formal_available="
+            f"{shadows['formal_arm_available']} would_change(measure="
+            f"{shadows['would_change_measure_vs_repair']}, candidate="
+            f"{shadows['would_change_candidate']}, repair="
+            f"{shadows['would_change_repair']}) full_vs_equal(comparable="
+            f"{shadows['full_vs_equal_cost_comparable']}, diverged="
+            f"{shadows['full_vs_equal_cost_diverged']})"
+        )
+    else:
+        typer.echo(f"shadow · unavailable ({shadows['reason']})")
+    cold = report["cold_outcomes"]
+    if cold.get("available"):
+        outcomes = ", ".join(
+            f"{arm}={count}" for arm, count in sorted(cold["outcomes"].items())
+        )
+        typer.echo(
+            f"cold_outcomes · {outcomes} · training_eligible={cold['training_eligible']}"
+        )
+    else:
+        typer.echo(f"cold_outcomes · unavailable ({cold['reason']})")
+    typer.echo(f"note · {report['expectations_note']}")
+    for finding in report["findings"]:
+        typer.echo(f"finding · {finding['kind']}: {finding['parameter']}")
 
 
 @app.command("causal-attribution-audit")

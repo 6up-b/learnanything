@@ -643,7 +643,16 @@ class PracticeItemPatchPayload(WireModel):
     # spec §5.2.2: the categorically-divergent answer a holder of the targeted
     # belief would give on a diagnostic item. Feeds the sim gate (§6) and the
     # §5.3 review check; None on ordinary (non-diagnostic) items.
-    misconception_consistent_answer: str | None = None
+    misconception_consistent_answer: str | None = Field(
+        default=None,
+        description=(
+            "Leave null for ordinary practice. Populating this makes the item a "
+            "misconception DIAGNOSTIC, and a diagnostic owes a detector: the "
+            "grading_rubric MUST then carry a fatal error whose misconception_id "
+            "names a REGISTERED (canonical) misconception. Never speculate a "
+            "misconception that is not in the provided context."
+        ),
+    )
     # Meas §3.A5. Optional and empty by default: a plain practice item makes no
     # discrimination claim and owes no profiles. Authoring ONE promotes the item
     # to the §3.0 gate's hard tier, which is the intended trade -- a claim about
@@ -1710,6 +1719,17 @@ class SynthFacet(WireModel):
 
 
 class SynthRecipeComponent(WireModel):
+    """An `all_of`/`any_of` recipe component.
+
+    `capability` is nullable with no default for the same reason
+    :class:`SynthIntegrationComponent`'s is: a parse-time default made "the
+    model did not choose" unobservable, so a silently-defaulted `retrieval`
+    became a contract cell nobody authored. Unlike the integration slot, an
+    omitted capability here is defaulted to `retrieval` at normalization WITH a
+    review diagnostic (an ordinary component always observes *something*, so
+    dropping it would be worse than flagging it).
+    """
+
     facet_client_id: str = ""
     facet: str = ""
     capability: Literal[
@@ -1718,7 +1738,7 @@ class SynthRecipeComponent(WireModel):
         "procedure_execution",
         "method_selection",
         "coordination",
-    ] = "retrieval"
+    ] | None = None
     modality: Literal["hard", "path_specific", "facilitating", "instructional_order"] = "hard"
 
 
@@ -1787,6 +1807,10 @@ class SynthLearningObject(WireModel):
 
 
 class SynthCriterionTarget(WireModel):
+    """An authored criterion target (A1). `capability` is nullable with no
+    default — see :class:`SynthRecipeComponent`; normalization defaults an
+    omission to `retrieval` with a review diagnostic."""
+
     facet_client_id: str = ""
     facet: str = ""
     capability: Literal[
@@ -1795,7 +1819,7 @@ class SynthCriterionTarget(WireModel):
         "procedure_execution",
         "method_selection",
         "coordination",
-    ] = "retrieval"
+    ] | None = None
     role: Literal["primary", "supporting"] = "primary"
 
 

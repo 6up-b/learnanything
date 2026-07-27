@@ -1,0 +1,148 @@
+schema_version: 1
+id: pi_axiom_sequence_audit_plan
+learning_object_id: lo_operations_and_the_vector_space_axiom_checklist
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+  - facet_vector_addition_must_be_commutative_and_associat
+evidence_weights:
+  facet_addition_assigns_an_element_of_the_set_to_each_o: 0.5
+  facet_vector_addition_must_be_commutative_and_associat: 0.5
+criterion_facet_weights:
+  crit_sequence_laws:
+    facet_vector_addition_must_be_commutative_and_associat: 1.0
+  crit_sequence_mapping:
+    facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_sequence_addition_audit
+      checkpoints:
+        - establish_closure
+        - establish_commutativity
+        - establish_associativity
+      dependencies:
+        establish_associativity:
+          - establish_closure
+        establish_closure: []
+        establish_commutativity:
+          - establish_closure
+variant_contract:
+teach_back_source:
+prompt: Let V be the real sequences that are eventually zero, and define 
+  (x⊕y)ₖ=xₖ+yₖ. Give the shortest audit that establishes both that this rule is 
+  genuinely an addition on V and that its order and grouping behavior meet the 
+  vector-addition checklist. State the witness or equation used for each part.
+expected_answer: First verify the mapping V×V→V. If xₖ=0 for k>N and yₖ=0 for 
+  k>M, then (x⊕y)ₖ=0 for k>max(N,M), so x⊕y is eventually zero. For order, 
+  (x⊕y)ₖ=xₖ+yₖ=yₖ+xₖ=(y⊕x)ₖ for every k. For grouping, 
+  ((x⊕y)⊕z)ₖ=(xₖ+yₖ)+zₖ=xₖ+(yₖ+zₖ)=(x⊕(y⊕z))ₖ for every k. Thus the operation is
+  closed, commutative, and associative.
+difficulty: 0.55
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - capstone
+  - axiom-checklist
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.8
+transfer_distance: 0.72
+scaffold_level: 0.02
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: eventual_sequence_axiom_audit
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_formula_implies_closure
+    hypothesis: Believes that writing a formula for two inputs automatically 
+      makes it a binary operation on the named set.
+    observable_signature: Begins with commutativity and associativity and never 
+      proves that x⊕y is eventually zero.
+    misconception_id:
+    facet_id: facet_addition_assigns_an_element_of_the_set_to_each_o
+    fails_criteria:
+      - crit_sequence_mapping
+    distinguishing_features:
+      - omits output-membership argument
+      - treats formula existence as closure
+    source: authored
+  - id: profile_commutativity_implies_associativity
+    hypothesis: Believes that a commutative addition need not be checked 
+      separately for associativity.
+    observable_signature: Writes xₖ+yₖ=yₖ+xₖ and concludes that both 
+      commutativity and associativity hold without a three-vector grouping 
+      equation.
+    misconception_id:
+    facet_id: facet_vector_addition_must_be_commutative_and_associat
+    fails_criteria:
+      - crit_sequence_laws
+    distinguishing_features:
+      - uses only two vectors
+      - omits grouping equality
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+  - facet_vector_addition_must_be_commutative_and_associat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_sequence_mapping
+      points: 2.0
+      description: Uses eventual-zero cutoffs to establish that ⊕ maps V×V into 
+        V.
+      tier: core
+      targets:
+        - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_sequence_laws
+      points: 2.0
+      description: Writes coordinatewise commutative and associative equalities 
+        with arbitrary sequences.
+      tier: core
+      targets:
+        - facet: facet_vector_addition_must_be_commutative_and_associat
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_sequence_mapping
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:11Z'
+updated_at: '2026-07-27T08:36:11Z'

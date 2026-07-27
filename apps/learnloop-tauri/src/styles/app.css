@@ -753,6 +753,8 @@ button { color: inherit; }
 .markdown { line-height: 1.65; }
 .markdown code { background: var(--input); padding: 1px 4px; }
 .markdown pre { background: var(--input); border: 1px solid var(--border); padding: 12px; overflow: auto; }
+.ask-user-message > :first-child { margin-top: 0; }
+.ask-user-message > :last-child { margin-bottom: 0; }
 
 .placeholder-screen { flex: 1; display: grid; place-items: center; color: var(--faint); }
 .placeholder-title { border: 1px solid var(--border); padding: 16px 22px; }
@@ -1087,20 +1089,6 @@ button { color: inherit; }
 .sfin-c-green { color: var(--green); }
 .sfin-c-dim { color: var(--dim); }
 .sfin-c-faint { color: var(--faint); }
-
-/* Start-screen backdrop spans (palette-aware ASCII, mirrors sfin-c-*).
-   Emitted as <span class> runs by the StartScreen backdrops so a palette
-   switch retints every backdrop through the CSS-variable cascade. */
-.bd-c-amber { color: var(--amber); }
-.bd-c-amber-hi { color: var(--amber-hi); }
-.bd-c-amber-mid { color: var(--amber-mid); }
-.bd-c-amber-low { color: var(--amber-low); }
-.bd-c-green { color: var(--green); }
-.bd-c-cyan { color: var(--cyan); }
-.bd-c-red { color: var(--red); }
-.bd-c-pink { color: var(--pink); }
-.bd-c-dim { color: var(--dim); }
-.bd-c-faint { color: var(--faint); }
 
 /* faint scanlines */
 .sfin-scan {

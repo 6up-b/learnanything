@@ -1062,8 +1062,14 @@ def test_integration_below_coordination_is_kept_silently(tmp_path):
 
 
 def test_integration_capability_has_no_schema_default():
-    """Absence must be representable: an all_of component may default, this may not."""
+    """Absence must be representable — on EVERY slot, not only integration.
+
+    The parse-time `retrieval` default on ordinary components made "the model
+    did not choose" unobservable (a defaulted capability is a contract cell
+    nobody authored); normalization now defaults it WITH a review diagnostic
+    instead of pydantic defaulting it silently."""
     assert SynthIntegrationComponent().capability is None
-    assert SynthRecipeComponent().capability == "retrieval"
+    assert SynthRecipeComponent().capability is None
+    assert SynthCriterionTarget().capability is None
     with pytest.raises(ValueError):
         SynthIntegrationComponent(capability="assemble the whole proof")

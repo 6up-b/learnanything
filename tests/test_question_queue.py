@@ -57,6 +57,81 @@ def test_captured_questions_start_open_and_list_newest_first(repo: Repository) -
     assert count_open_questions(repo) == 2
 
 
+def test_reader_question_exposes_exact_dialogue_and_source_context(repo: Repository) -> None:
+    repo.insert_question_event(
+        {
+            "id": "q_reader",
+            "context": "reader",
+            "note_id": "span:ext_reader/span_7",
+            "session_id": "session_reader",
+            "question_md": "Why does this implication hold?",
+            "answer_md": "Because the map is injective.",
+            "answer_status": "answered",
+            "source_context": {
+                "extraction_id": "ext_reader",
+                "span_id": "span_7",
+                "source_spans": [
+                    {
+                        "extraction_id": "ext_reader",
+                        "span_id": "span_7",
+                        "label": "Injective maps",
+                    }
+                ],
+            },
+            "created_at": "2026-07-03T10:00:00Z",
+        }
+    )
+
+    row = list_question_queue(repo)[0]
+    assert row["attempt_id"] is None
+    assert row["session_id"] == "session_reader"
+    assert row["source_citation"] == {
+        "extraction_id": "ext_reader",
+        "span_id": "span_7",
+        "label": "Injective maps",
+    }
+
+
+def test_sidecar_reader_question_transcript_can_be_resumed(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    load_vault(root)
+    repo = Repository(paths.sqlite_path)
+    repo.insert_question_event(
+        {
+            "id": "q_reader",
+            "context": "reader",
+            "note_id": "span:ext_reader/span_7",
+            "question_md": "Why does this implication hold?",
+            "answer_md": "Because the map is injective.",
+            "answer_status": "answered",
+            "created_at": "2026-07-03T10:00:00Z",
+        }
+    )
+
+    messages = [
+        {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"vaultPath": str(root)}},
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "get_tutor_transcript",
+            "params": {
+                "context": "reader",
+                "noteId": "span:ext_reader/span_7",
+            },
+        },
+    ]
+    stdin = io.StringIO("".join(json.dumps(m) + "\n" for m in messages))
+    stdout = io.StringIO()
+    serve(stdin, stdout)
+    transcript = [
+        json.loads(line) for line in stdout.getvalue().splitlines()
+    ][1]["result"]
+
+    assert transcript["remaining"] >= 0
+    assert [event["id"] for event in transcript["events"]] == ["q_reader"]
+
+
 def test_resolution_is_learner_owned_and_reopenable(repo: Repository) -> None:
     _seed(repo, "q1", question="Q", created_at="2026-07-01T10:00:00Z")
     event = set_question_resolution(repo, question_event_id="q1", resolution="resolved")

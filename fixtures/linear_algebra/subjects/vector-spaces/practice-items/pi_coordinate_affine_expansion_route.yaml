@@ -1,0 +1,190 @@
+schema_version: 1
+id: pi_coordinate_affine_expansion_route
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+evidence_weights:
+  facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.25
+  facet_scalar_calculations_over_r_or_c_use_commutative_: 0.4
+  facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 0.35
+criterion_facet_weights:
+  criterion_coordinate_setup:
+    facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 1.0
+  criterion_scalar_rewrite:
+    facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.2
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 0.8
+  criterion_vector_conclusion:
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 0.25
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 0.75
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_coordinate_expansion_route
+      checkpoints:
+        - choose_coordinate
+        - select_scalar_rewrite
+        - lift_to_vector_equality
+      dependencies:
+        choose_coordinate: []
+        lift_to_vector_equality:
+          - choose_coordinate
+          - select_scalar_rewrite
+        select_scalar_rewrite:
+          - choose_coordinate
+variant_contract:
+teach_back_source:
+prompt: 'You must prove (a+b)(x+y)=ax+ay+bx+by for arbitrary a,b∈F and x,y∈F^n, where
+  F is R or C. Give a compact proof plan: state the arbitrary coordinate comparison
+  you would make, name the scalar laws that perform the decisive rewrite, and state
+  the final fact that converts the coordinate calculation into vector equality. Do
+  not carry out unrelated vector-space axiom checks.'
+expected_answer: 'Fix an arbitrary k. Compare the kth coordinates: the left side has
+  coordinate (a+b)(x_k+y_k), while the right side has coordinate ax_k+ay_k+bx_k+by_k.
+  Apply scalar distributivity over addition twice, then use associativity and commutativity
+  of scalar addition to regroup the four terms into the displayed right-hand coordinate.
+  Because the kth coordinates agree for every k=1,…,n, equality of ordered coordinate
+  lists gives (a+b)(x+y)=ax+ay+bx+by in F^n.'
+difficulty: 0.51
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - coordinate-proof
+  - method-selection
+  - capstone
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.84
+transfer_distance: 0.66
+scaffold_level: 0.03
+capability: method_selection
+task_features:
+  complexity: 3
+  representation:
+    - symbolic
+    - verbal
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: bilinear_expansion_proof_architecture
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_vector_equality_without_coordinates
+    hypothesis: Believes that a scalar identity written without an arbitrary 
+      coordinate automatically proves the corresponding vector identity in F^n.
+    observable_signature: By distributivity, (a+b)(x+y)=ax+ay+bx+by, so the 
+      result follows; no coordinate k or equality-of-lists step is needed.
+    misconception_id:
+    facet_id: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+    fails_criteria:
+      - criterion_coordinate_setup
+      - criterion_vector_conclusion
+    distinguishing_features:
+      - omits an arbitrary kth coordinate
+      - omits the bridge from coordinate equality to vector equality
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_coordinate_setup
+      points: 1.0
+      description: Fixes an arbitrary coordinate k and correctly identifies the 
+        two kth-coordinate expressions to compare.
+      tier: core
+      targets:
+        - facet: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_scalar_rewrite
+      points: 2.0
+      description: Selects scalar distributivity and the order/grouping laws 
+        needed to rewrite the left coordinate as the right coordinate.
+      tier: core
+      targets:
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: method_selection
+          role: primary
+        - facet: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - criterion_coordinate_setup
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_vector_conclusion
+      points: 1.0
+      description: Invokes equality of all coordinates to conclude equality of 
+        the two vectors in F^n.
+      tier: transfer
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: method_selection
+          role: primary
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - criterion_coordinate_setup
+        - criterion_scalar_rewrite
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: manual_context_authoring_request
+      path:
+      locator: context.instructions and Targets
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids:
+        - lo_operations_and_the_vector_space_axiom_checklist
+        - lo_orient_to_the_vector_space_idea
+        - lo_prove_vector_identities_from_scalar_laws
+        - lo_read_and_apply_the_vector_space_definition
+        - lo_what_makes_a_vector_space
+created_at: '2026-07-27T09:20:15Z'
+updated_at: '2026-07-27T09:20:15Z'

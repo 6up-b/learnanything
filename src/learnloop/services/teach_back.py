@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass, field, replace as dataclass_replace
 from typing import Any, Mapping
 
@@ -67,6 +68,22 @@ TEACH_BACK_COMPILER_VERSION = "source_item_v3"
 
 STATE_VERSION = 1
 LOG = logging.getLogger(__name__)
+
+# Model-authored Markdown occasionally arrives with terminal rendering bytes
+# (for example ``\x1b[1mR\x1b[22m`` instead of ``**R**``). Those bytes are not
+# content: persisting them makes the transcript unstable across renderers and
+# can break the grading repair contract's verbatim-prefix check. Preserve
+# Markdown whitespace, but remove ANSI CSI/OSC sequences and other C0/C1
+# controls from AI turns at the boundary.
+_ANSI_SEQUENCE = re.compile(
+    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))"
+)
+_UNSAFE_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+
+
+def _sanitize_ai_markdown(value: str) -> str:
+    return _UNSAFE_CONTROL.sub("", _ANSI_SEQUENCE.sub("", value))
+
 
 # Diagnostic-state ranking for follow-up planning: uncertain and unexamined
 # facets are probed first; known gaps next (the gap is known but a probe still
@@ -134,7 +151,11 @@ class TeachBackState:
             turns=[
                 TeachBackTurn(
                     role=str(turn["role"]),
-                    content_md=str(turn.get("content_md") or ""),
+                    content_md=(
+                        _sanitize_ai_markdown(str(turn.get("content_md") or ""))
+                        if str(turn["role"]) == "ai"
+                        else str(turn.get("content_md") or "")
+                    ),
                     criterion_id=turn.get("criterion_id"),
                 )
                 for turn in payload.get("turns", [])
@@ -338,12 +359,13 @@ def next_question(
         learning_object_summary=learning_object.summary if learning_object is not None else None,
     )
     question = client.run_teach_back_question(context)
+    question_md = _sanitize_ai_markdown(question.question_md)
     state.turns.append(
-        TeachBackTurn(role="ai", content_md=question.question_md, criterion_id=criterion.id)
+        TeachBackTurn(role="ai", content_md=question_md, criterion_id=criterion.id)
     )
     state.asked_count += 1
     return state, {
-        "question_md": question.question_md,
+        "question_md": question_md,
         "criterion_id": criterion.id,
         "tier": str(selection.get("tier") or "core"),
         "facet_targets": [str(facet) for facet in selection.get("facet_targets", [])],
@@ -401,7 +423,12 @@ def render_transcript_md(state: TeachBackState, item: PracticeItem) -> str:
         question_number += 1
         criterion_note = f" (criterion: {turn.criterion_id})" if turn.criterion_id else ""
         lines.extend([f"## Follow-up {question_number}{criterion_note}", ""])
-        lines.extend([f"**Student asked:** {turn.content_md.strip()}", ""])
+        lines.extend(
+            [
+                f"**Student asked:** {_sanitize_ai_markdown(turn.content_md).strip()}",
+                "",
+            ]
+        )
         answer = next(
             (later for later in turns[index + 1 :] if later.role == "learner"),
             None,

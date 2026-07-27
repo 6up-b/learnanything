@@ -25,6 +25,24 @@ MVP approximation (documented deliberately, so a later model can replace it):
     hold recall flat rather than inventing a curve.
   * When there is no aggregate recall state at all, both ``current_recall`` and
     ``projected_recall`` are ``None``.
+
+``attempts_to_certify`` is the other forward projection here, and it answers a
+narrower question than its name: how many fresh attempts close the *evidence
+mass* gate. Two things it cannot see, both corrected in
+:func:`_outstanding_attempts` so the mass arithmetic stays one honest thing:
+
+  * whether the facet's contract can be observed at all. Certification credit is
+    structural on the capability axis (spec_measurement_efficiency_v1 §5.4), so a
+    required ``(facet, capability)`` cell with no instrument at that rung is not
+    closed by *any* number of attempts. ``contract_reachability`` decides this
+    statically; unreachable facets abstain (``None``) instead of quoting a number
+    that would never certify anything. LOs with no authored contract have no
+    cells and are untouched.
+  * the attainment axis of ``at_risk``. A facet whose mass gate is clear but
+    whose projection sits below ``target_recall`` (decay, or an open known gap)
+    inverted to a flat ``0`` — "nothing outstanding" for a facet the same report
+    calls at risk. It now reports a floor of 1, flagged as a lower bound. That is
+    deliberately not a retention forecast; it is a refusal to claim zero.
 """
 
 from __future__ import annotations
@@ -33,11 +51,16 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import ceil
 from statistics import median
+from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemState, Repository
 from learnloop.numeric import clamp
 from learnloop.services.blueprint_projection import LoReadiness, project_lo_readiness
+from learnloop.services.contract_reachability import (
+    ReachabilityVerdict,
+    analyze_contract_reachability,
+)
 from learnloop.services.facet_diagnostics import facet_state_label, scope_facets
 from learnloop.services.facet_state_reader import (
     facet_states_by_lo as read_facet_states_by_lo,
@@ -61,6 +84,24 @@ from learnloop.vault.models import Goal, LoadedVault
 # re-drilling; 0.75 is an honest middle for a short remediation run.
 _ASSUMED_FRESH_DISCOUNT = 0.75
 
+#: Reachability verdicts under which *no amount of practice on the current
+#: instrument pool* can close a contract cell, so an attempt count for the facet
+#: would be a fabrication (spec_measurement_efficiency_v1 §5.8.2):
+#:
+#: * ``NO_INSTRUMENT`` — nothing observes the facet at any capability;
+#: * ``MISMATCH_BELOW`` — everything observing it sits lower on the ladder, and
+#:   dominance only propagates downward.
+#:
+#: Deliberately NOT included: ``MISMATCH_ABOVE`` (the evidence exists one rung up
+#: — the remedy is B1 downward-dominance propagation in the projection, not more
+#: attempts, so calling the count unknowable would overstate the gap) and
+#: ``INDETERMINATE`` (the contract names a capability outside the vocabulary; that
+#: is ``doctor``'s ``blueprint:invalid_capability``, an authoring bug rather than
+#: a statement about the instrument pool).
+_UNSERVED_VERDICTS: frozenset[ReachabilityVerdict] = frozenset(
+    {ReachabilityVerdict.NO_INSTRUMENT, ReachabilityVerdict.MISMATCH_BELOW}
+)
+
 
 @dataclass(frozen=True)
 class FacetProjection:
@@ -74,7 +115,19 @@ class FacetProjection:
     predicted_at_horizon: float     # predicted_current x FSRS retention ratio at the horizon
     evidence_mass: float            # aggregate independent evidence mass
     certified: bool                 # coverage axis: label == "solid" (mass gate cleared, no open gap)
-    attempts_to_certify: int | None  # ~fresh attempts to clear the mass gate; None = no supporting items
+    attempts_to_certify: int | None  # ~fresh attempts to clear the mass gate; None = not knowable
+    # Meas §5.8.2: can the current instrument pool close this facet's contract
+    # cells at all? False when some required (facet, capability) cell of this LO
+    # is NO_INSTRUMENT / MISMATCH_BELOW — practice cannot reach it, so
+    # ``attempts_to_certify`` abstains rather than inverting a mass equation whose
+    # answer would never certify anything. Always True for a legacy LO with no
+    # authored contract: reachability has nothing to say there.
+    certification_reachable: bool = True
+    # True when ``attempts_to_certify`` is a floor rather than an estimate: the
+    # mass inversion had nothing left to ask for, but the facet is still at risk
+    # on the attainment axis (decayed below target, or an open known gap), so the
+    # honest reading is "at least this many", not "done".
+    attempts_is_lower_bound: bool = False
     # KM3 §9.5 dual-axis split (additive; the display rule — ambient leads Ready,
     # goal/cert surfaces lead Demonstrated, never blended — is KM3b's UI job).
     # ``predicted_at_horizon`` is the Ready value; these expose the Demonstrated
@@ -181,8 +234,18 @@ class GoalReport:
 
     @property
     def attempts_remaining_is_partial(self) -> bool:
+        """``attempts_remaining`` is an under-count, not the whole job.
+
+        Two ways that happens, both meaning "at least this much": a facet whose
+        count is unknowable (no supporting items, or a contract cell the current
+        instrument pool cannot reach), and a facet whose count is a floor because
+        the mass axis is satisfied while the attainment axis is not.
+        """
+
         return any(
-            facet.attempts_to_certify is None for facet in self.facets if facet.at_risk
+            facet.attempts_to_certify is None or facet.attempts_is_lower_bound
+            for facet in self.facets
+            if facet.at_risk
         )
 
 
@@ -361,6 +424,72 @@ def _attempts_to_certify(
     return min(ceil(gap / delta), 99)
 
 
+def unserved_contract_facets(vault: LoadedVault) -> dict[str, frozenset[str]]:
+    """``lo_id -> facets whose contract the instrument pool cannot close``.
+
+    Pure static analysis over vault content (:func:`analyze_contract_reachability`
+    reads no attempts and no learner state), so it is safe to fold into a read
+    model — but it walks every blueprint and compiles every rubric, so callers
+    compute it **once per projection call** and pass it down rather than per LO.
+
+    A facet appears here as soon as *one* of its required
+    ``(facet, capability)`` cells on that LO is in :data:`_UNSERVED_VERDICTS`:
+    the LO's hard components are conjunctive, so one uncloseable rung is enough
+    to make "how many attempts until certified?" unanswerable.
+
+    An LO with no authored contract contributes no cells and therefore never
+    appears — legacy behaviour is unchanged byte-for-byte.
+    """
+
+    unserved: dict[str, set[str]] = {}
+    for row in analyze_contract_reachability(vault).cells:
+        if row.verdict not in _UNSERVED_VERDICTS:
+            continue
+        unserved.setdefault(row.cell.learning_object_id, set()).add(row.cell.facet_id)
+    return {
+        learning_object_id: frozenset(facets)
+        for learning_object_id, facets in unserved.items()
+    }
+
+
+def _outstanding_attempts(
+    facet_id: str,
+    evidence_mass: float,
+    mass_gain_by_facet: dict[str, list[float]],
+    min_mass: float,
+    *,
+    at_risk: bool,
+    certification_reachable: bool,
+) -> tuple[int | None, bool]:
+    """``(attempts_to_certify, is_lower_bound)`` for one facet.
+
+    The raw inversion (:func:`_attempts_to_certify`) answers exactly one
+    question — how much *evidence mass* is missing — and the goal surfaces render
+    its answer as "the work outstanding". Two ways that reading is false, and
+    both are corrected here rather than inside the inversion so the mass
+    arithmetic stays a single honest thing:
+
+    * the facet's contract cannot be reached by practice at all, so no number of
+      attempts certifies it (``None``: unknowable, never a number);
+    * the mass gate is already clear while the facet is still at risk on the
+      attainment axis, where the inversion has nothing to say — a plain ``0``
+      there reads as "done" for a facet that demonstrably is not, so report the
+      floor (``1``) and flag the total as a lower bound.
+
+    Facets that are not at risk are left exactly as the inversion found them:
+    there is no outstanding work to describe.
+    """
+
+    attempts = _attempts_to_certify(facet_id, evidence_mass, mass_gain_by_facet, min_mass)
+    if not at_risk:
+        return attempts, False
+    if not certification_reachable:
+        return None, False
+    if attempts == 0:
+        return 1, True
+    return attempts, False
+
+
 def _lo_mass_gains(
     vault: LoadedVault,
     learning_object_id: str,
@@ -395,8 +524,13 @@ def _facet_projections(
     mastery_states: dict[str, MasteryState],
     fsrs_weights: tuple[float, ...],
     include_demonstration: bool = False,
+    unserved_facets: Mapping[str, frozenset[str]] | None = None,
 ) -> list[FacetProjection]:
     scope = resolve_goal_scope(vault, goal, repository)
+    # Static reachability is vault-wide and goal-independent; compute it at most
+    # once per call (callers that project several goals hand the same map down).
+    if unserved_facets is None:
+        unserved_facets = unserved_contract_facets(vault)
     min_mass = vault.config.recall_coverage.min_facet_evidence_mass
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
     projections: list[FacetProjection] = []
@@ -429,6 +563,7 @@ def _facet_projections(
         }
         mastery = mastery_states.get(learning_object_id)
         mass_gain_by_facet = _lo_mass_gains(vault, learning_object_id, item_states)
+        unserved_here = unserved_facets.get(learning_object_id, frozenset())
         for facet_id in sorted(scope[learning_object_id]):
             recall_state = recall_by_facet.get(facet_id)
             uncertainty_state = uncertainty_by_facet.get(facet_id)
@@ -466,6 +601,15 @@ def _facet_projections(
             )
             certified = label == "solid"
             on_track = predicted_at_horizon >= goal.target_recall and label != "known_gap"
+            certification_reachable = facet_id not in unserved_here
+            attempts_to_certify, attempts_is_lower_bound = _outstanding_attempts(
+                facet_id,
+                evidence_mass,
+                mass_gain_by_facet,
+                min_mass,
+                at_risk=not on_track or not certified,
+                certification_reachable=certification_reachable,
+            )
             learning_object = vault.learning_objects.get(learning_object_id)
             demonstration = (
                 facet_demonstration(vault, repository, learning_object, facet_id)
@@ -484,9 +628,9 @@ def _facet_projections(
                     predicted_at_horizon=predicted_at_horizon,
                     evidence_mass=evidence_mass,
                     certified=certified,
-                    attempts_to_certify=_attempts_to_certify(
-                        facet_id, evidence_mass, mass_gain_by_facet, min_mass
-                    ),
+                    attempts_to_certify=attempts_to_certify,
+                    certification_reachable=certification_reachable,
+                    attempts_is_lower_bound=attempts_is_lower_bound,
                     demonstrated=demonstration.demonstrated if demonstration else False,
                     required_capabilities=(
                         demonstration.required_capabilities if demonstration else ()
@@ -708,6 +852,8 @@ def build_goal_frontier(
     if mastery_states is None:
         mastery_states = repository.mastery_states()
     fsrs_weights = resolve_fsrs_weights(repository)
+    # Goal-independent static analysis: one pass for every active goal below.
+    unserved_facets = unserved_contract_facets(vault)
 
     by_lo: dict[str, FrontierEntry] = {}
     active_goal_ids: list[str] = []
@@ -726,6 +872,7 @@ def build_goal_frontier(
             facet_states_by_lo=facet_states_by_lo,
             mastery_states=mastery_states,
             fsrs_weights=fsrs_weights,
+            unserved_facets=unserved_facets,
         )
         # Frontier keeps every facet needing work on either axis: unattained
         # (predicted below target) or unattained certification (mass gate) —

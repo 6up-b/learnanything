@@ -1544,6 +1544,51 @@ def candidate_has_current_blind_input_contract(
     )
 
 
+#: Serving preference over the review ladder: an active candidate always
+#: outranks any unreviewed one, whatever its informativeness.
+CANDIDATE_STATUS_RANK = {
+    "active": 0,
+    "reviewed": 1,
+    "registered": 2,
+    "candidate": 3,
+    "rejected": 4,
+}
+
+
+def _candidate_separable_pairs(candidate: Mapping[str, Any]) -> int:
+    discrimination = candidate.get("discrimination")
+    if not isinstance(discrimination, Mapping):
+        return 0
+    pairs = discrimination.get("separable_pairs") or []
+    return len(pairs) if isinstance(pairs, (list, tuple)) else 0
+
+
+def order_probe_candidates(
+    candidates: Sequence[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    """THE deterministic candidate order, shared by every consumer.
+
+    Both `causal_orchestrator`'s decision path and `accept_probe_offer` used to
+    take an unranked head (`active[0]` / `candidates[0]`) from DB row order; a
+    future ranking would then have let the ranked winner and the served item
+    diverge. Key: review-ladder status, then recorded discrimination strength
+    (separable-pair count — computed, never model-reported), then created_at,
+    then id. When the EVSI selector earns live authority it REPLACES the
+    informativeness term (the head of this order), not the status term: an
+    unreviewed instrument never outranks a reviewed one.
+    """
+
+    return sorted(
+        candidates,
+        key=lambda value: (
+            CANDIDATE_STATUS_RANK.get(str(value.get("status") or ""), len(CANDIDATE_STATUS_RANK)),
+            -_candidate_separable_pairs(value),
+            str(value.get("created_at") or ""),
+            str(value.get("id") or ""),
+        ),
+    )
+
+
 def transition_probe_candidate(
     repository: Repository,
     candidate_id: str,
@@ -1666,6 +1711,85 @@ def classify_causal_activity(
     )
 
 
+# Migration 145: the repair lane's typed disposition ledger (spec §4.3).
+CAUSAL_COLD_OUTCOME_STORE_VERSION = "causal_cold_outcomes_v1"
+
+
+class ColdVerificationPrecondition(ValueError):
+    """A §6.2 precondition failed, with the §4.3 disposition it maps to.
+
+    Subclasses ``ValueError`` so pre-145 callers that caught the untyped guard
+    keep working; new callers read ``reason`` instead of parsing the message.
+    """
+
+    def __init__(self, reason: str, message: str, *, detail: Mapping[str, Any] | None = None):
+        super().__init__(message)
+        self.reason = reason
+        self.detail = dict(detail or {})
+
+
+def record_causal_cold_outcome(
+    repository: Repository,
+    *,
+    outcome: str,
+    followup_task_id: str | None = None,
+    remediation_episode_id: str | None = None,
+    case_kind: str | None = None,
+    case_ref: str | None = None,
+    source_attempt_id: str | None = None,
+    cold_attempt_id: str | None = None,
+    repair_class_id: str | None = None,
+    hypothesis_ids: Sequence[str] = (),
+    cold_verification_id: str | None = None,
+    servable_opportunity: bool,
+    detail: Mapping[str, Any] | None = None,
+    scheduled_not_before: str | None = None,
+    scheduled_expires_at: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Write one typed terminal disposition (spec §4.3). Idempotent.
+
+    ``duration_state`` is derived here rather than accepted: with a cold
+    attempt it is ``captured``/``missing`` from ``latency_seconds``; with no
+    attempt there is nothing to time and it stays NULL.
+    """
+
+    duration_state: str | None = None
+    if cold_attempt_id:
+        attempt = repository.fetch_practice_attempt(cold_attempt_id)
+        if attempt is not None:
+            duration_state = (
+                "captured" if attempt.get("latency_seconds") is not None else "missing"
+            )
+    identity = {
+        "followup_task_id": followup_task_id,
+        "remediation_episode_id": remediation_episode_id,
+        "source_attempt_id": source_attempt_id,
+        "cold_attempt_id": cold_attempt_id,
+        "outcome": outcome,
+    }
+    return repository.insert_causal_cold_outcome(
+        outcome_id=_content_id("cco", identity),
+        outcome=outcome,
+        followup_task_id=followup_task_id,
+        remediation_episode_id=remediation_episode_id,
+        case_kind=case_kind,
+        case_ref=case_ref,
+        source_attempt_id=source_attempt_id,
+        cold_attempt_id=cold_attempt_id,
+        repair_class_id=repair_class_id,
+        hypothesis_ids=sorted({str(value) for value in hypothesis_ids}),
+        cold_verification_id=cold_verification_id,
+        servable_opportunity=servable_opportunity,
+        duration_state=duration_state,
+        detail=dict(detail or {}),
+        store_version=CAUSAL_COLD_OUTCOME_STORE_VERSION,
+        scheduled_not_before=scheduled_not_before,
+        scheduled_expires_at=scheduled_expires_at,
+        clock=clock,
+    )
+
+
 def record_delayed_cold_verification(
     vault: LoadedVault,
     repository: Repository,
@@ -1688,32 +1812,49 @@ def record_delayed_cold_verification(
     source_attempt = repository.fetch_practice_attempt(source_attempt_id)
     cold_attempt = repository.fetch_practice_attempt(cold_attempt_id)
     if source_attempt is None or cold_attempt is None:
-        raise ValueError("source and cold attempts must exist")
+        raise ColdVerificationPrecondition(
+            "missing_chain", "source and cold attempts must exist"
+        )
     source_at = parse_utc(source_attempt.get("created_at"))
     cold_at = parse_utc(cold_attempt.get("created_at"))
     if source_at is None or cold_at is None or cold_at <= source_at:
         # A "delayed" verification that is not later than its source is either a
         # mis-wired caller or a replay ordering bug; it can never be evidence of
         # durable transfer.
-        raise ValueError(
-            "cold verification must be chronologically later than its source attempt"
+        raise ColdVerificationPrecondition(
+            "chronology_invalid",
+            "cold verification must be chronologically later than its source attempt",
         )
     source_item = vault.practice_items.get(
         str(source_attempt["practice_item_id"])
     )
     cold_item = vault.practice_items.get(str(cold_attempt["practice_item_id"]))
     if source_item is None or cold_item is None:
-        raise ValueError("source and cold items must exist in the vault")
+        raise ColdVerificationPrecondition(
+            "missing_chain", "source and cold items must exist in the vault"
+        )
     source_surface = surface_group_id(source_item)
     cold_surface = surface_group_id(cold_item)
     if source_surface == cold_surface:
-        raise ValueError("cold verification requires a different surface family")
+        raise ColdVerificationPrecondition(
+            "same_surface",
+            "cold verification requires a different surface family",
+            detail={"surface_group": source_surface},
+        )
     if cold_attempt.get("primed") or int(cold_attempt.get("hints_used") or 0):
-        raise ValueError("cold verification must be fresh and unassisted")
+        raise ColdVerificationPrecondition(
+            "contaminated_or_assisted",
+            "cold verification must be fresh and unassisted",
+            detail={
+                "primed": bool(cold_attempt.get("primed")),
+                "hints_used": int(cold_attempt.get("hints_used") or 0),
+            },
+        )
     avoided = sorted({str(value) for value in avoided_affordances if str(value)})
     if not avoided:
-        raise ValueError(
-            "cold verification must declare the avoided source affordance"
+        raise ColdVerificationPrecondition(
+            "missing_chain",
+            "cold verification must declare the avoided source affordance",
         )
     parameters = resolve_causal_probe_parameters(repository)
     threshold = parameters["cold_verification_success_correctness"]

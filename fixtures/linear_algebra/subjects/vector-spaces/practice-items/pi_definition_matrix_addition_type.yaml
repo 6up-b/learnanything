@@ -1,0 +1,107 @@
+schema_version: 1
+id: pi_definition_matrix_addition_type
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+evidence_weights:
+  facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+criterion_facet_weights:
+  crit_matrix_addition_interpretation:
+    facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: 'Let M₂(R) denote the set of 2×2 real matrices. A text says that ordinary
+  matrix addition is the addition on this set. Explain this statement as a function:
+  identify what one input to the function consists of, where its output must lie,
+  and why ordinary matrix addition has the required type.'
+expected_answer: One input is an ordered pair (A,B) of matrices from M₂(R). The 
+  addition function has type M₂(R)×M₂(R)→M₂(R), sending (A,B) to A+B. Entrywise 
+  addition of two 2×2 real matrices produces another 2×2 real matrix, so the 
+  output lies in the stated set.
+difficulty: 0.43
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - commissioned_cell
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.34
+scaffold_level: 0.04
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: matrix_operation_function_annotation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_addition_has_single_matrix_input
+    hypothesis: Believes that addition on a set is a unary function because the 
+      notation A+B displays one resulting matrix.
+    observable_signature: The input is one matrix A and the function returns 
+      A+B, so its type is M₂(R)→M₂(R).
+    misconception_id:
+    facet_id: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+    fails_criteria:
+      - crit_matrix_addition_interpretation
+    distinguishing_features:
+      - gives a unary domain
+      - does not treat the two addends as an ordered input pair
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_matrix_addition_interpretation
+      points: 4.0
+      description: Correctly interprets matrix addition as a function on ordered
+        pairs and justifies its codomain.
+      tier: core
+      targets:
+        - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T07:52:48Z'
+updated_at: '2026-07-27T07:52:48Z'

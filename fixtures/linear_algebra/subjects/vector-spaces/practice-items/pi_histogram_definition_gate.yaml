@@ -1,0 +1,132 @@
+schema_version: 1
+id: pi_histogram_definition_gate
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+evidence_weights:
+  facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+criterion_facet_weights:
+  criterion_histogram_nonclosure_witness:
+    facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+  criterion_select_mapping_gate:
+    facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: definition_before_axioms
+      checkpoints:
+        - select_operation_type_test
+        - track_normalization
+        - reject_operation
+      dependencies:
+        reject_operation:
+          - track_normalization
+        select_operation_type_test: []
+        track_normalization:
+          - select_operation_type_test
+variant_contract:
+teach_back_source:
+prompt: 'Let H be the set of all length-n probability histograms: entries are nonnegative
+  and sum to 1. A modeler proposes ordinary coordinatewise addition as the addition
+  on H and ordinary real scaling as scalar multiplication. Before checking commutativity
+  or associativity, what definition-level test should you run first? Give a general
+  witness that settles it.'
+expected_answer: First test whether the proposed addition really has type H×H→H.
+  If p,q∈H, then the coordinates of p+q sum to 2 rather than 1, so p+q∉H. Thus 
+  ordinary addition is not an addition on H in the required sense, and the 
+  proposal already fails.
+difficulty: 0.49
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - definition-gate
+  - method-selection
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.69
+transfer_distance: 0.67
+scaffold_level: 0.04
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: normalization_invariant_gate
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_average_substituted_for_proposed_addition
+    hypothesis: Believes that a proposed operation may be silently changed to 
+      preserve membership in the set.
+    observable_signature: The sum stays in H because addition should be computed
+      as (p+q)/2.
+    misconception_id:
+    facet_id: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+    fails_criteria:
+      - criterion_select_mapping_gate
+      - criterion_histogram_nonclosure_witness
+    distinguishing_features:
+      - changes the authored operation
+      - reports closure for an averaging rule instead
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_select_mapping_gate
+      points: 2.0
+      description: Selects the requirement that proposed addition be a mapping 
+        H×H→H before testing later laws.
+      tier: core
+      targets:
+        - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_histogram_nonclosure_witness
+      points: 2.0
+      description: Shows generally that adding two normalized histograms 
+        produces coordinate sum 2 and hence leaves H.
+      tier: core
+      targets:
+        - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+          capability: method_selection
+          role: primary
+      depends_on:
+        - criterion_select_mapping_gate
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:51:57Z'
+updated_at: '2026-07-27T08:51:57Z'

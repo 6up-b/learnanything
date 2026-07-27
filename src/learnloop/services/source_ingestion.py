@@ -101,6 +101,12 @@ class IngestResult:
     goal_id: str | None = None
     goal_created: bool = False
     goal_updated: bool = False
+    #: Static contract-cell verdicts for the LOs this ingest applied, so the
+    #: measurement obligations minted by an ingest are a stated fact at the
+    #: moment they are created rather than a later discovery. ``None`` when the
+    #: ingest applied no LO/blueprint content, or when the report was
+    #: unavailable (typed under ``"unavailable"`` — never a fake zero).
+    reachability_summary: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -119,6 +125,7 @@ class IngestResult:
             "goal_id": self.goal_id,
             "goal_created": self.goal_created,
             "goal_updated": self.goal_updated,
+            "reachability_summary": self.reachability_summary,
         }
 
 
@@ -268,6 +275,7 @@ def ingest_canonical_source(
             for item in merged.items
         ]
         _downgrade_unready_auto_apply(rows, vault_for_validation)
+        _apply_instrument_gates(rows, vault_for_validation, repository, codex_client)
         if retry_client is not None and any(row["validation_status"] == "invalid" for row in rows):
             # A7: drain against THIS run before the retry run opens, so the
             # first provider's windows are not billed to the stronger provider.
@@ -323,6 +331,7 @@ def ingest_canonical_source(
                 for item in merged.items
             ]
             _downgrade_unready_auto_apply(rows, vault_for_validation)
+            _apply_instrument_gates(rows, vault_for_validation, repository, retry_client)
         patch_id = repository.persist_proposal_batch(
             {
                 "id": new_ulid(),
@@ -335,7 +344,32 @@ def ingest_canonical_source(
             },
             rows,
         )
+        # Auto-apply routes through `accept_items` → `patches.apply_accepted_
+        # items`, which stamps the recalibration boundary at the content change
+        # (one marker, correct time and attribution) — no second stamp here.
         _auto_apply_rows(vault.root, patch_id, rows)
+        applied_content_lo_ids = sorted(
+            {
+                str(
+                    row.get("target_entity_id")
+                    or (row.get("payload") or {}).get("learning_object_id")
+                    or (row.get("payload") or {}).get("id")
+                    or ""
+                )
+                for row in rows
+                if row.get("_auto_apply")
+                and row.get("item_type") in {"learning_object", "task_blueprint"}
+            }
+            - {""}
+        )
+        reachability_summary: dict[str, Any] | None = None
+        if applied_content_lo_ids:
+            # Meas §5.8.2 at the moment obligations are minted: what did this
+            # ingest just add to the measurement contract, and how much of it
+            # can any authored instrument observe today?
+            reachability_summary = _reachability_summary(
+                load_vault(vault.root), repository, applied_content_lo_ids
+            )
         linkage = _establish_goal_linkage(
             vault.root,
             subject,
@@ -374,6 +408,7 @@ def ingest_canonical_source(
         goal_id=linkage["goal_id"],
         goal_created=linkage["created"],
         goal_updated=linkage["updated"],
+        reachability_summary=reachability_summary,
     )
 
 
@@ -442,6 +477,53 @@ def _agent_provider_fields(
     if provider == "codex" or provider_type == "codex_sdk":
         fields["codex_revision"] = provider_revision
     return fields
+
+
+def _reachability_summary(vault, repository, learning_object_ids: list[str]) -> dict[str, Any]:
+    """Verdict counts for the just-applied LOs' contract cells (Meas §5.8.2).
+
+    Computed from the standing static analyzer, scoped to the LOs this ingest
+    touched. Defensive: the analyzer is a separate, independently-evolving
+    surface, and a reporting failure must never take an applied ingest down —
+    it reports a typed unavailable arm instead.
+    """
+
+    try:
+        from learnloop.services.contract_reachability import analyze_contract_reachability
+
+        report = analyze_contract_reachability(vault)
+        scoped = [
+            row
+            for row in report.cells
+            if row.cell.learning_object_id in set(learning_object_ids)
+        ]
+        counts: dict[str, int] = {}
+        for row in scoped:
+            counts[str(row.verdict)] = counts.get(str(row.verdict), 0) + 1
+        return {
+            "learning_objects": sorted(set(learning_object_ids)),
+            "contract_cells": len(scoped),
+            "verdicts": counts,
+        }
+    except Exception as exc:  # pragma: no cover - defensive reporting seam
+        return {"unavailable": f"{type(exc).__name__}: {exc}"}
+
+
+def _apply_instrument_gates(rows: list[dict[str, Any]], vault, repository, grading_client) -> None:
+    """Stage-5.3/6 instrument gates on the canonical-ingest lane.
+
+    This lane AUTO-APPLIES practice items, so it is the one place an ungated
+    item did not even reach a human: it went straight to the vault. The shared
+    chain (`authoring_gates`) marks a refused row `invalid` and a flagged row
+    `warning`, and both lose `_auto_apply`, so `_auto_apply_rows` routes them
+    to review instead — the same FLAG_FOR_REVIEW discipline as every other
+    lane. UNTESTED (no persona material) changes nothing, deliberately.
+    """
+
+    from learnloop.services.authoring_gates import build_instrument_gates
+
+    gates = build_instrument_gates(vault, repository, grading_client=grading_client)
+    gates(rows)
 
 
 def _downgrade_unready_auto_apply(rows: list[dict[str, Any]], vault) -> None:

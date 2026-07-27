@@ -19,11 +19,10 @@ import { masteryTone } from "../app/algoConfig";
 // portfolio: how many LOs sat in each mastery band (or untried) at every
 // moment. All of time is visible at once; a crosshair gives exact dates.
 
-const W = 860;
+const DEFAULT_W = 860;
 const LABEL_W = 168;
 const STAT_W = 84;
 const PLOT_X = LABEL_W;
-const PLOT_W = W - LABEL_W - STAT_W;
 const AGG_H = 64;
 const AXIS_H = 18;
 const ROW_H = 20;
@@ -207,14 +206,21 @@ export function KnowledgeStrataView({
   history,
   selected,
   onSelect,
-  onInspect
+  onInspect,
+  width
 }: {
   points: KnowledgeMapPoint[];
   history: KnowledgeMapHistory;
   selected: string | null;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
+  /** Pane width in CSS pixels; the timeline stretches to fill it. */
+  width?: number;
 }) {
+  // Width follows the pane (the plot band absorbs the slack); height stays
+  // content-driven — the strata are a list, so they scroll rather than squash.
+  const W = width && width > 0 ? width : DEFAULT_W;
+  const PLOT_W = W - LABEL_W - STAT_W;
   const nowMs = useMemo(() => Date.now(), []);
   const data = useMemo(() => buildStrata(points, history, nowMs), [points, history, nowMs]);
   const svgRef = useRef<SVGSVGElement | null>(null);

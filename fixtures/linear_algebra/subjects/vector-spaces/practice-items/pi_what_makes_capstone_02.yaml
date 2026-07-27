@@ -1,0 +1,176 @@
+schema_version: 1
+id: pi_what_makes_capstone_02
+learning_object_id: lo_what_makes_a_vector_space
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_equipped_with_addition_a
+  - facet_vector_addition_must_be_commutative_and_associat
+evidence_weights:
+  facet_a_vector_space_is_a_set_equipped_with_addition_a: 0.55
+  facet_vector_addition_must_be_commutative_and_associat: 0.45
+criterion_facet_weights:
+  c1:
+    facet_a_vector_space_is_a_set_equipped_with_addition_a: 1.0
+  c2:
+    facet_a_vector_space_is_a_set_equipped_with_addition_a: 0.25
+    facet_vector_addition_must_be_commutative_and_associat: 0.75
+  c3:
+    facet_a_vector_space_is_a_set_equipped_with_addition_a: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: decisive_axiom_audit
+      checkpoints:
+        - identify_candidate_structure
+        - select_associativity_test
+        - compute_two_groupings
+        - issue_vector_space_verdict
+      dependencies:
+        compute_two_groupings:
+          - select_associativity_test
+        identify_candidate_structure: []
+        issue_vector_space_verdict:
+          - compute_two_groupings
+        select_associativity_test:
+          - identify_candidate_structure
+variant_contract:
+teach_back_source:
+prompt: Let V=R with u⊕v=u−v and a⊙u=au. You want the shortest decisive audit of
+  whether this specified structure is a real vector space. Name the 
+  vector-addition law you would test first, give a concrete calculation using 
+  three elements that settles it, and state the resulting verdict.
+expected_answer: Test associativity of vector addition. For example, 
+  (0⊕0)⊕1=0⊕1=−1, whereas 0⊕(0⊕1)=0⊕(−1)=1. These are unequal, so ⊕ is not 
+  associative. Therefore the specified operations do not make R a vector space 
+  over R.
+difficulty: 0.53
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - capstone
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.62
+scaffold_level: 0.02
+capability: method_selection
+task_features:
+  complexity: 3
+  representation:
+    - symbolic
+    - verbal
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: decisive_axiom_test_selection
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_commutativity_implies_associativity
+    hypothesis: Believes commutativity of a proposed addition makes a separate 
+      associativity test unnecessary.
+    observable_signature: The operation is acceptable because changing the order
+      is the only addition law that needs checking.
+    misconception_id:
+    facet_id: facet_vector_addition_must_be_commutative_and_associat
+    fails_criteria:
+      - c2
+      - c3
+    distinguishing_features:
+      - omits the grouping law
+      - treats order and grouping as the same requirement
+    source: authored
+  - id: dp_ordinary_plus_substitution
+    hypothesis: Believes vector-space axioms should be checked using ordinary 
+      addition instead of the candidate's specified addition.
+    observable_signature: (0+0)+1=0+(0+1)=1, so addition is associative and the 
+      structure is a vector space.
+    misconception_id:
+    facet_id: facet_a_vector_space_is_a_set_equipped_with_addition_a
+    fails_criteria:
+      - c1
+      - c2
+      - c3
+    distinguishing_features:
+      - replaces ⊕ with ordinary addition
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_vector_space_is_a_set_equipped_with_addition_a
+  - facet_vector_addition_must_be_commutative_and_associat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Treats the set together with the two displayed operations as 
+        the candidate structure to be assessed.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_equipped_with_addition_a
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c2
+      points: 2.0
+      description: Selects associativity and computes a valid three-element 
+        counterexample.
+      tier: core
+      targets:
+        - facet: facet_vector_addition_must_be_commutative_and_associat
+          capability: method_selection
+          role: primary
+        - facet: facet_a_vector_space_is_a_set_equipped_with_addition_a
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - c1
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+    - id: c3
+      points: 1.0
+      description: Concludes that failure of one required axiom rules out a 
+        vector-space structure.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_equipped_with_addition_a
+          capability: method_selection
+          role: primary
+      depends_on:
+        - c1
+        - c2
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:03:06Z'
+updated_at: '2026-07-27T08:03:06Z'

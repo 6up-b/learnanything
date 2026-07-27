@@ -10,11 +10,16 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, discover_migrations
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.services.grading import (
+    GradingValidationError,
+    validate_codex_grading_proposal,
+)
 from learnloop.services.recall_coverage import derive_facet_outcomes
 from learnloop.services.replay import rebuild_derived_state
 from learnloop.services.scheduler import SchedulerSession, build_due_queue
 from learnloop.services.teach_back import (
     TeachBackState,
+    TeachBackTurn,
     asked_criterion_ids,
     begin_teach_back,
     ensure_teach_back_item,
@@ -22,6 +27,7 @@ from learnloop.services.teach_back import (
     next_question,
     plan_followups,
     record_answer,
+    render_transcript_md,
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric
@@ -568,6 +574,166 @@ def test_finish_partial_grading_only_asked_criteria_produce_evidence(tmp_path):
     # Evidence rows persist only asked criteria (replay input).
     evidence = repository.fetch_grading_evidence(result.attempt.attempt_id)
     assert sorted(row.criterion_id for row in evidence) == ["core_definition", "core_geometry"]
+
+
+def test_ai_question_control_sequences_are_removed_from_live_and_restored_state(tmp_path):
+    _root, vault, repository = _setup(tmp_path)
+    item = vault.practice_items[TEACH_ITEM_ID]
+    state = begin_teach_back(
+        vault,
+        repository,
+        item,
+        opening_md="SVD factors a matrix.",
+        clock=FrozenClock(NOW),
+    )
+
+    class ANSIQuestionClient:
+        def run_teach_back_question(self, _context):
+            return TeachBackQuestion(
+                question_md="What changes on \x1b[1mR\x1b[22m²?"
+            )
+
+    state, payload = next_question(vault, state, ANSIQuestionClient())
+
+    assert payload is not None
+    assert payload["question_md"] == "What changes on R²?"
+    assert state.turns[-1].content_md == "What changes on R²?"
+
+    restored = TeachBackState.from_dict(
+        {
+            **state.to_dict(),
+            "turns": [
+                {"role": "learner", "content_md": "Opening.", "criterion_id": None},
+                {
+                    "role": "ai",
+                    "content_md": "Why \x1b[1mR\x1b[22m²?",
+                    "criterion_id": "core_definition",
+                },
+            ],
+        }
+    )
+    assert restored.turns[-1].content_md == "Why R²?"
+
+    # Rendering is defensive too, so an in-memory legacy state cannot leak
+    # terminal bytes into the transcript sent to the grader.
+    restored.turns[-1] = TeachBackTurn(
+        role="ai",
+        content_md="Why \x1b[1mR\x1b[22m²?",
+        criterion_id="core_definition",
+    )
+    transcript = render_transcript_md(restored, item)
+    assert "\x1b" not in transcript
+    assert "**Student asked:** Why R²?" in transcript
+
+
+def test_repaired_answer_is_composed_from_verbatim_prefix_and_regenerated_work(
+    tmp_path,
+):
+    _root, vault, _repository = _setup(tmp_path)
+    item = vault.practice_items[TEACH_ITEM_ID]
+    prefix = (
+        "# Teach-back transcript\n\n"
+        "## Follow-up 1\n\n"
+        "**Student asked:** What changes on \x1b[1mR\x1b[22m²?\n\n"
+    )
+    regenerated = "**Learner answered:** The operation outputs can change."
+    learner_answer = prefix + "**Learner answered:** The set changes."
+    normalized_duplicate = (
+        prefix.replace("\x1b[1m", "").replace("\x1b[22m", "")
+        + regenerated
+    )
+    proposal = GradingProposal.model_validate(
+        {
+            "attempt_id": "att_teach_back_prefix",
+            "practice_item_id": item.id,
+            "rubric_score": 4,
+            "criterion_evidence": [
+                {
+                    "criterion_id": criterion.id,
+                    "points_awarded": criterion.points,
+                    "evidence": "Covered in the transcript.",
+                }
+                for criterion in item.grading_rubric.criteria
+            ],
+            "fatal_errors": [],
+            "error_attributions": [],
+            "repair_suggestions": [
+                {
+                    "practice_mode": "targeted_repair",
+                    "rationale": "Repair only the downstream answer.",
+                    "target_evidence_families": [],
+                    "target_criterion_ids": [],
+                    "repaired_trace": {
+                        "learner_work_prefix": prefix,
+                        "minimal_edit": "Replace the incorrect answer.",
+                        "regenerated_work": regenerated,
+                        # The model normalized formatting in this redundant
+                        # full copy, which caused the production failure.
+                        "repaired_answer_md": normalized_duplicate,
+                        "changed_latent_claims": ["operation outputs can change"],
+                        "changed_checkpoint_ids": [],
+                    },
+                }
+            ],
+            "grader_confidence": 0.9,
+        }
+    )
+
+    validated = validate_codex_grading_proposal(
+        proposal,
+        attempt_id="att_teach_back_prefix",
+        item=item,
+        vault=vault,
+        learner_answer_md=learner_answer,
+    )
+
+    repaired_trace = validated.repair_suggestions[0]["repaired_trace"]
+    assert repaired_trace["repaired_answer_md"] == prefix + regenerated
+    assert repaired_trace["repaired_answer_md"].startswith(prefix)
+
+
+def test_repaired_answer_without_regenerated_work_still_requires_exact_prefix(
+    tmp_path,
+):
+    _root, vault, _repository = _setup(tmp_path)
+    item = vault.practice_items[TEACH_ITEM_ID]
+    proposal = GradingProposal.model_validate(
+        {
+            "attempt_id": "att_teach_back_bad_prefix",
+            "practice_item_id": item.id,
+            "rubric_score": 4,
+            "criterion_evidence": [],
+            "fatal_errors": [],
+            "error_attributions": [],
+            "repair_suggestions": [
+                {
+                    "practice_mode": "targeted_repair",
+                    "rationale": "Invalid duplicate with no auditable suffix.",
+                    "repaired_trace": {
+                        "learner_work_prefix": "verbatim prefix",
+                        "minimal_edit": "Replace the answer.",
+                        "regenerated_work": "",
+                        "repaired_answer_md": "normalized prefix",
+                        "changed_latent_claims": [],
+                        "changed_checkpoint_ids": [],
+                    },
+                }
+            ],
+            "grader_confidence": 0.9,
+        }
+    )
+
+    with pytest.raises(
+        GradingValidationError,
+        match="does not preserve learner_work_prefix",
+    ):
+        validate_codex_grading_proposal(
+            proposal,
+            attempt_id="att_teach_back_bad_prefix",
+            item=item,
+            vault=vault,
+            learner_answer_md="verbatim prefix plus learner work",
+        )
 
 
 def test_finish_with_no_answered_followup_grades_opening_against_core(tmp_path):

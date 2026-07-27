@@ -718,8 +718,11 @@ def _check_criterion_facet_maps(vault: LoadedVault, issues: list[HealthIssue]) -
                         },
                     )
                 )
+        # Criteria with authored targets need no weights map: compile_criterion_targets
+        # uses authored targets verbatim and never consults criterion_facet_weights.
+        targeted = {criterion.id for criterion in rubric.criteria if criterion.targets}
         if item.criterion_facet_weights or item.provenance.origin in {"codex_proposal", "canonical_extract"}:
-            for criterion_id in sorted(criteria - set(item.criterion_facet_weights)):
+            for criterion_id in sorted(criteria - set(item.criterion_facet_weights) - targeted):
                 issues.append(
                     _issue(
                         "warning",
@@ -1020,12 +1023,14 @@ def _check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -
                 )
 
         # -- Servability: an authored instrument the surface cannot render ----
-        # The authoring prompts actively commission error hunts and laddered
-        # stems, and `instrument_serving` refuses to schedule them until their
-        # stimulus renders. Without this warning that refusal is SILENT: the item
-        # exists, passes every gate, and simply never appears, while
-        # `instrument-audit` reports `0 attempt(s)` forever without saying why.
-        # A queue filter nobody can see is indistinguishable from a bug.
+        # Keyed off whatever `unservable_reason` still answers, never off an
+        # instrument class: the error-hunt and laddered-stem arms retired when
+        # their renderer landed, so this warning is dormant and fires again only
+        # if a future class ships ahead of its surface. That is when it matters —
+        # without it the refusal is SILENT: the item exists, passes every gate,
+        # and simply never appears, while `instrument-audit` reports
+        # `0 attempt(s)` forever without saying why. A queue filter nobody can
+        # see is indistinguishable from a bug.
         unservable = unservable_reason(item)
         if unservable is not None:
             issues.append(

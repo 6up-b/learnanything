@@ -24,6 +24,52 @@ Stage 5 ⚠️ (5.1 ✅ 5.2 ✅ 5.3 ✅ 5.4 ⚠️, audited 2026-07-27) ·
 Stage 6 ✅ (6.1 ✅ 6.2 ✅ 6.3 ✅ 6.4 ✅) · Stage 7 ✅ · Stage 8 ⚠️ (8.1 ✅;
 8.2–8.6 pending).
 
+**2026-07-27 addendum — stabilization + loop-closing waves** (companion:
+`decision_value_and_commissioning_spec_v1.md`; full suite at the documented
+pre-existing-failure baseline after every item below):
+
+- **Certification integrity:** `recipe_gaps` enforces `any_of` (≥1 alternative
+  demonstrated) and refuses zero-component recipes — the vacuous
+  `all_of=[]`+`any_of` certification hole is closed; certificates carry the
+  satisfying alternative; `exam_readiness` internal inconsistency fixed.
+- **6.4 serving filter retired:** renderer landed (`ItemPresentation.tsx`), the
+  two `unservable_reason` arms deleted (`UnservableReason = Never`), both
+  journey test files inverted to assert delivery, servability axis +
+  `unservable_item_count` added to `build_instrument_pool`.
+- **Evidence folds:** FET gained mvp-0.8 effective-observation parity via a
+  shared helper; exactness guard unpinned from mvp-0.7; **projection v6** —
+  absent grading evidence confers nothing (missing row ≠ observed failure).
+- **Generation unblocked:** contract-backed LOs waive `require_completed_probe`
+  (0 → 15 targets on the fixture); residual `[0.0,0.0]` band-collapse paths
+  (probe plan, promotions) guarded.
+- **Stage 7 corrections:** C1–C4 had shipped live under one prompt bump with
+  C3 at k=3 paid samples per attempt; C3 now defaults k=1 (planted-eval harness
+  keeps k=3), `sampling_enabled` registered, persona-gate realism license
+  scoped to matcher version + generator family, `learnloop diagnostic-eval`
+  runs B1/B2 commissioning end to end. 7.4's rung-by-rung promotion mechanics
+  (per-rung metric deltas, auto-revert) are still prose, not machinery.
+- **Authoring contract:** shared instrument-gate chain (`authoring_gates.py`)
+  on every lane — the three ingest lanes, rung variants, and tutor promotion
+  were previously ungated; prompt/gate response-mode vocabulary single-sourced;
+  deterministic information-removing gate remediation; one validation authority
+  for generation and refresh doors; misconception pair atomic; `Synth*`
+  capability fields nullable with default-and-flag; `items_off` respected on
+  append; recalibration boundary stamped at patch apply.
+- **Loops closed:** post-attempt common-repair delivery (Journey B);
+  typed repair-lane cold outcomes (migration 145, decision-value §4.3
+  vocabulary) with schedule-time independent-surface refusal; goal projection
+  abstains on unreachable cells; in-app adjudication overlay (contest →
+  adjudicate → promote/withdraw → learner correction); nav badges; Maintain
+  commissioning trigger; `ScheduledItem.followup_kind`; cold probes labeled
+  honestly; exam deferral surfaced; Golden Path hidden pending repair;
+  `generate_starter_practice` / `reader_ask_history` commands fixed; CLI
+  accept/reject promotion reconcile + held-out self-grade parity.
+- **In progress:** EVSI hardening (fail-closed `evsi.py` / `action_loss.py`,
+  dual unranked-pick fix, receipt provenance) then the shadow selector +
+  readiness report, live-shadowing `fixtures/linear_algebra`. Open decisions:
+  the `test_p0_projection_cutover` authoritative-vs-cache ruling (exhibit:
+  adjudicating a belief down raises credit 0.696 → 1.0); checkpoint commit.
+
 **Original-spec audit correction (2026-07-26):** 5.3's gate mechanics are live,
 but augmentation B2's blinded persona-vs-real matcher does not land until Stage
 7. The measurement spec explicitly says pre-B2 verdicts “do not count,” so 5.3
@@ -1150,9 +1196,11 @@ Fixed by `services/instrument_serving.unservable_reason`, called from
 stimulus the surface cannot render is **not schedulable**, with a typed reason
 and a stated remedy. Deliberately not a config flag — "can the app show this?" is
 a fact about the code, and the correct way to lift the filter is to render the
-stimulus and delete the arm. The desktop surface for these two classes remains
-outstanding; until it lands they are authored, gated, stored and audited, but
-never served.
+stimulus and delete the arm. **Done 2026-07-27:** `ItemPresentation.tsx` renders
+both classes in Practice/Exam/GoldenPath, the two arms are deleted
+(`UnservableReason = Never`), both journey test files are inverted to assert
+delivery end-to-end, and the serializer's blank-content refusal is the
+remaining guard.
 
 **Two other claims in this note did not survive review and are corrected below**
 (A2's kinship half, and `profiles_by_facet` feeding A4's commissioning — the
@@ -1270,22 +1318,24 @@ scores over corpus B. The standalone `learnloop persona-realism` command
 licenses only the authored-signature corpus used by §3.0; generated regression
 personas are licensed only inside the B1 commissioning transaction. A successful
 authored-signature license upgrades plain-practice failures from advisory to
-hard; a separable corpus invalidates an otherwise passing gate result. B4 now
-reads only licensed planted labels, joins them to A4 adjudications on overlap,
-and retains `no_producer` when only unlicensed synthetic runs exist.
+hard only for the same matcher version and canonical generator family; a
+separable corpus invalidates an otherwise passing gate result. B4 now reads only
+licensed planted labels, joins them to A4 adjudications on overlap, and retains
+`no_producer` when only unlicensed synthetic runs exist.
 
 **7.4 as shipped** — B5's metric names and order remain frozen. The live
 non-deterministic grading path now emits diagnosis prose, then the repaired
 trace, then structured causal fields (C1); supplies typed verifier observations
-whose `parse_failed`/`unsupported` arms confer no support (C2); samples three
-independent diagnoses and turns disagreement into an unresolved cause set (C3);
-and supplies bounded raw prior traces from the same canonical facet and surface
-family without exposing prior diagnoses (C4). Sample agreement is stored as
-provisional support but is deliberately absent from the durable-promotion
-authorities. Every live augmented grade appends its prompt/model pin, context
-arms, sample support, history ids, hypothesis, and revert criterion; the Stage-7
-report exposes those receipts without inventing a verdict before outcomes
-accrue.
+whose `parse_failed`/`unsupported` arms confer no support (C2); implements
+independent diagnosis sampling and turns disagreement into an unresolved cause
+set (C3); and supplies bounded raw prior traces from the same canonical facet
+and surface family without exposing prior diagnoses (C4). The paid live default
+remains the one-sample baseline; `sample_count > 1` is an explicit promotion
+trial, not a silent 3× cost increase. Sample agreement is stored as provisional
+support but is deliberately absent from the durable-promotion authorities.
+Every live augmented grade appends its prompt/model pin, context arms, sample
+support, history ids, hypothesis, and revert criterion; the Stage-7 report
+exposes those receipts without inventing a verdict before outcomes accrue.
 
 ### Stage 8 — Measurement Waves 4–5 (inference, then certification)
 

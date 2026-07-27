@@ -268,7 +268,7 @@ function LockSection({ lock }: { lock: FacetDetailDto["lock"] }) {
   }
   return (
     <div style={{ marginTop: 10, border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${COLOR.red}`, padding: "8px 12px" }}>
-      <div style={{ fontSize: 12, color: COLOR.red, marginBottom: 4 }}>{LOCK_GLYPH} identity locked — history is load-bearing</div>
+      <div style={{ fontSize: 12, color: COLOR.red, marginBottom: 4 }}>{LOCK_GLYPH} identity locked — significant history</div>
       {lock.reasons.length === 0 ? (
         <Faint style={{ fontSize: 11 }}>locked (no reason detail recorded)</Faint>
       ) : (

@@ -4,33 +4,43 @@
 // oscillation detected via grid hashes), population collapse, or a timer.
 
 import { useEffect, useRef, type CSSProperties } from "react";
-import { FONT_MONO } from "../../components/term";
 import { CHAR_H, CHAR_W, prefersReducedMotion } from "./shared";
+import {
+  FULLSCREEN_CANVAS_STYLE,
+  MonospaceGlyphAtlas,
+  readAmberAtlasPalette
+} from "./glyphAtlas";
 
 const STEP_MS = 75; // ~13 generations/second
 const SOUP_DENSITY = 0.28;
 const RESEED_AFTER_MS = 90_000;
 
-// age bucket → glyph + palette class (newborns hottest, ash coolest)
-function cellGlyph(age: number): { ch: string; cls: string } {
-  if (age <= 2) return { ch: "@", cls: "bd-c-amber-hi" };
-  if (age <= 6) return { ch: "#", cls: "bd-c-amber" };
-  if (age <= 15) return { ch: "*", cls: "bd-c-amber-mid" };
-  return { ch: ":", cls: "bd-c-amber-low" };
-}
+const GLYPHS = ":*#@";
 
 export function LifeBackdrop({ scanlines }: { scanlines: CSSProperties }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
-    const pre = preRef.current;
-    if (!container || !pre) return;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
     const reduce = prefersReducedMotion();
+    const { colors, glow } = readAmberAtlasPalette(0.22);
     let cols = 80;
     let rows = 40;
+    let width = 0;
+    let height = 0;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let atlas: MonospaceGlyphAtlas | null = null;
+    let cells = new Uint16Array(0);
+    let oldCode = 0;
+    let matureCode = 0;
+    let youngCode = 0;
+    let newbornCode = 0;
     let grid = new Uint8Array(0); // 0 = dead, else age (capped 255)
     let next = new Uint8Array(0);
     let hashes: number[] = []; // rolling recent grid hashes for stagnation detection
@@ -68,6 +78,7 @@ export function LifeBackdrop({ scanlines }: { scanlines: CSSProperties }) {
       }
       grid = fresh;
       next = new Uint8Array(cols * rows);
+      cells = new Uint16Array(cols * rows);
       prevCols = cols;
       prevRows = rows;
       hashes = [];
@@ -121,47 +132,51 @@ export function LifeBackdrop({ scanlines }: { scanlines: CSSProperties }) {
       if (stagnant || collapsed || expired) seed();
     }
 
+    function rebuildAtlas() {
+      atlas = new MonospaceGlyphAtlas({
+        glyphs: GLYPHS,
+        colors,
+        dpr,
+        glowColor: glow,
+        glowBlur: 6
+      });
+      oldCode = atlas.code(atlas.glyphIndex(":"), 0);
+      matureCode = atlas.code(atlas.glyphIndex("*"), 1);
+      youngCode = atlas.code(atlas.glyphIndex("#"), 2);
+      newbornCode = atlas.code(atlas.glyphIndex("@"), 3);
+    }
+
     function renderFrame() {
-      let html = "";
-      let curClass: string | null = null;
-      let run = "";
-      const flush = () => {
-        if (run.length === 0) return;
-        html += curClass === null ? run : `<span class="${curClass}">${run}</span>`;
-        run = "";
-      };
-      for (let y = 0; y < rows; y++) {
-        const base = y * cols;
-        for (let x = 0; x < cols; x++) {
-          const age = grid[base + x];
-          if (age === 0) {
-            if (curClass !== null) {
-              flush();
-              curClass = null;
-            }
-            run += " ";
-            continue;
-          }
-          const { ch, cls } = cellGlyph(age);
-          if (cls !== curClass) {
-            flush();
-            curClass = cls;
-          }
-          run += ch;
-        }
-        flush();
-        html += "\n";
-        curClass = null;
+      for (let i = 0; i < grid.length; i++) {
+        const age = grid[i];
+        cells[i] =
+          age === 0 ? 0 :
+          age <= 2 ? newbornCode :
+          age <= 6 ? youngCode :
+          age <= 15 ? matureCode :
+          oldCode;
       }
-      pre!.innerHTML = html;
+      ctx!.clearRect(0, 0, width, height);
+      atlas!.draw(ctx!, cells, cols);
     }
 
     function resize() {
       const rect = container!.getBoundingClientRect();
-      cols = Math.max(20, Math.min(220, Math.floor(rect.width / CHAR_W)));
-      rows = Math.max(10, Math.min(120, Math.floor(rect.height / CHAR_H)));
+      width = rect.width;
+      height = rect.height;
+      const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dprChanged = nextDpr !== dpr;
+      dpr = nextDpr;
+      canvas!.width = Math.max(1, Math.floor(width * dpr));
+      canvas!.height = Math.max(1, Math.floor(height * dpr));
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx!.imageSmoothingEnabled = false;
+      cols = Math.max(20, Math.min(220, Math.floor(width / CHAR_W)));
+      rows = Math.max(10, Math.min(120, Math.floor(height / CHAR_H)));
+      if (!atlas || dprChanged) rebuildAtlas();
       alloc();
     }
+    rebuildAtlas();
     resize();
     // Coalesce reduced-motion repaints: settling the grid costs 40 full
     // generations, too heavy to redo on every callback of a drag-resize.
@@ -205,22 +220,7 @@ export function LifeBackdrop({ scanlines }: { scanlines: CSSProperties }) {
 
   return (
     <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
-      <pre
-        ref={preRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 12,
-          lineHeight: "12px",
-          letterSpacing: 0,
-          whiteSpace: "pre",
-          userSelect: "none",
-          textShadow: "0 0 6px color-mix(in srgb, var(--amber) 22%, transparent)"
-        }}
-      />
+      <canvas ref={canvasRef} style={FULLSCREEN_CANVAS_STYLE} />
       <div style={scanlines} />
     </div>
   );

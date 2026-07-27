@@ -12,11 +12,15 @@ import { depthFade, project, useOrbitCamera } from "./wire3d";
 // diffuse through the BlueprintRecipe Laplacian before they reach the mesh, so
 // screen-space proximity alone cannot make two facets share a basin.
 
-const W = 860;
-const H = 600;
-const CX = W / 2;
-const CY = H / 2 + 42;
-const SCALE = 238;
+// Framing is derived from the pane size (viewBox 1:1 with CSS pixels) so the
+// terrain fills its space without rescaling text; the coefficients reproduce
+// the original 860×600 layout exactly.
+const DEFAULT_W = 860;
+const DEFAULT_H = 600;
+const CENTER_DROP = 0.07; // scene centre sits below the box centre
+const SCALE_W = 0.2767;
+const SCALE_H = 0.3967;
+
 const GX = 38;
 const GY = 27;
 const TAU = 0.72;
@@ -198,17 +202,20 @@ function gapGlyph(kind: NonNullable<KnowledgeFacetField["nextGap"]>["kind"], x: 
   return `M ${x - 6} ${y + 5} L ${x} ${y - 6} L ${x + 6} ${y + 5} Z`;
 }
 
-function FlatTopology({ field, selected, onSelect, onInspect }: {
+function FlatTopology({ field, selected, onSelect, onInspect, W, H }: {
   field: KnowledgeFacetField;
   selected: string | null;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
+  W: number;
+  H: number;
 }) {
   const byId = new Map(field.points.map((point) => [point.id, point] as const));
-  const sx = (x: number) => CX + x * SCALE;
+  const SCALE = Math.min(W * SCALE_W, H * SCALE_H);
+  const sx = (x: number) => W / 2 + x * SCALE;
   const sy = (y: number) => H / 2 + y * SCALE;
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: "100%", fontFamily: FONT_MONO }}>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block", fontFamily: FONT_MONO }}>
       <text x={24} y={28} fill={COLOR.amber} fontSize={11}>{field.layoutWarning ?? "flat recipe topology"}</text>
       {field.edges.map((edge) => {
         const a = byId.get(edge.source);
@@ -229,13 +236,24 @@ export function KnowledgeTerrainView({
   field,
   selected,
   onSelect,
-  onInspect
+  onInspect,
+  width,
+  height
 }: {
   field: KnowledgeFacetField;
   selected: string | null;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
+  /** Pane size in CSS pixels; omitted falls back to the design framing. */
+  width?: number;
+  height?: number;
 }) {
+  const W = width && width > 0 ? width : DEFAULT_W;
+  const H = height && height > 0 ? height : DEFAULT_H;
+  const CX = W / 2;
+  const CY = H / 2 + H * CENTER_DROP;
+  const SCALE = Math.min(W * SCALE_W, H * SCALE_H);
+
   const { cam, onMouseDown, pauseDrift, dragging } = useOrbitCamera({ yaw: -0.62, pitch: 1.02 });
   const cells = useMemo(() => buildCells(field), [field]);
   const demo = useMemo(() => meshSegments(cells, "demo"), [cells]);
@@ -286,7 +304,7 @@ export function KnowledgeTerrainView({
   const floorD = `M ${floor.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" L ")} Z`;
 
   if (!field.layoutValid) {
-    return <FlatTopology field={field} selected={selected} onSelect={onSelect} onInspect={onInspect} />;
+    return <FlatTopology field={field} selected={selected} onSelect={onSelect} onInspect={onInspect} W={W} H={H} />;
   }
 
   return (
@@ -298,8 +316,7 @@ export function KnowledgeTerrainView({
       onMouseDown={onMouseDown}
       style={{
         fontFamily: FONT_MONO,
-        maxWidth: "100%",
-        height: "auto",
+        display: "block",
         overflow: "visible",
         cursor: dragging ? "grabbing" : "grab",
         userSelect: "none"

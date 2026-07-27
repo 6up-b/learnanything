@@ -117,6 +117,7 @@ import type {
   ExamReportSnapshot,
   ExamSessionSnapshot,
   ExamStatusSnapshot,
+  GenerateCommissioningPracticeResult,
   GenerateStarterPracticeResult,
   GoalDto,
   GoalFeasibilityInput,
@@ -138,6 +139,7 @@ import type {
   RefreshRevisionInput,
   MaintenanceFeedSnapshot,
   MeasurementHealthDto,
+  ReviewCountsDto,
   MaintenanceNoticeDto,
   SourceConflictDto,
   ResolveConflictInput,
@@ -225,6 +227,10 @@ import type {
   ReaderMaintainInput,
   ReaderArcDto,
   ReaderRestorationDto,
+  AdjudicationQueueDto,
+  AdjudicationRecordInput,
+  AdjudicationRecordResultDto,
+  AdjudicationScoreboardDto,
 } from "./dto";
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -269,6 +275,7 @@ function normalizeError(error: unknown): CommandError {
 export const api = {
   selectVault: (path?: string | null) => call<VaultSummary | null>("select_vault", { path }),
   loadVault: () => call<AppSnapshot>("load_vault"),
+  getReviewCounts: () => call<ReviewCountsDto>("get_review_counts"),
   createVault: (input: CreateVaultInput) => call<CreateVaultResult>("create_vault", { input }),
   getLearnerProfile: () => call<LearnerProfileDto>("get_learner_profile"),
   setLearnerProfile: (input: { startingLevel: StartingLevel; levelNote?: string | null }) =>
@@ -460,6 +467,20 @@ export const api = {
   getMaintenanceFeed: (subjectId?: string | null) =>
     call<MaintenanceFeedSnapshot>("maintenance_feed", { input: { subjectId: subjectId ?? null } }),
   getMeasurementHealth: () => call<MeasurementHealthDto>("get_measurement_health"),
+  // Enqueue-and-return: the generation runs on the sidecar's job worker, so this
+  // resolves in milliseconds and the caller watches the batch, not this promise.
+  generateCommissioningPractice: (input?: {
+    learningObjectIds?: string[];
+    limit?: number | null;
+    reason?: string | null;
+  }) =>
+    call<GenerateCommissioningPracticeResult>("generate_commissioning_practice", {
+      input: {
+        learningObjectIds: input?.learningObjectIds ?? [],
+        limit: input?.limit ?? null,
+        reason: input?.reason ?? null
+      }
+    }),
   scheduleCertificationColdProbes: (learningObjectId?: string | null) =>
     call<{ version: number; schedule: Record<string, unknown> }>(
       "schedule_certification_cold_probes",
@@ -968,5 +989,14 @@ export const api = {
   readerPrime: (input: { arcId: string; questionRef: string; section?: string | null; answer?: boolean; gaveUp?: boolean }) =>
     call<Record<string, unknown>>("reader_prime", { input }),
   readerRestore: (input: { sourceId: string; extractionId?: string | null; runId?: string | null; idempotencyKey?: string | null }) =>
-    call<ReaderRestorationDto>("reader_restore", { input })
+    call<ReaderRestorationDto>("reader_restore", { input }),
+  // adjudication.* (diagnosis adjudication store, §2 A4). `record` returns the
+  // belief effect arm (d) actually applied; the overlay reports that, not the
+  // effect the verdict implies.
+  adjudicationQueue: (input?: { learningObjectId?: string | null; reasons?: string[] | null; limit?: number }) =>
+    call<AdjudicationQueueDto>("adjudication_queue", { input: input ?? {} }),
+  adjudicationRecord: (input: AdjudicationRecordInput) =>
+    call<AdjudicationRecordResultDto>("adjudication_record", { input }),
+  adjudicationScoreboard: (groupBy: "version" | "queue_reason" | "none" = "version") =>
+    call<AdjudicationScoreboardDto>("adjudication_scoreboard", { input: { groupBy } })
 };

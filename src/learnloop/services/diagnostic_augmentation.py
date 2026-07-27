@@ -40,8 +40,22 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 
 DIAGNOSTIC_EVAL_HARNESS_VERSION = "blind_planted_diagnostician_v1"
 PHASE_C_VERSION = "diagnostic_augmentation_c1_c4_v1"
-DEFAULT_DIAGNOSIS_SAMPLES = 3
+#: The LIVE C3 default: one diagnosis call per graded attempt.  k>1 is a
+#: promotion of C3, not its baseline (see ``DiagnosticAugmentationConfig``), and
+#: is opted into per vault.
+DEFAULT_DIAGNOSIS_SAMPLES = 1
+#: The planted-eval harness default.  Measuring whether k-sample agreement tracks
+#: adjudicated correctness is exactly what the harness is for, so it keeps k=3
+#: while the live path stays at the baseline.
+EVAL_DIAGNOSIS_SAMPLES = 3
 DEFAULT_HISTORY_LIMIT = 4
+
+#: How ``DiagnosisConsensus.agreement_support`` was obtained.  A k=1 run has no
+#: agreement to report: 1/1 is arithmetic, not consensus, and downstream readers
+#: (``causal_attribution``'s ``support_authority``) would otherwise read it as a
+#: measured "sample_agreement" support score of 1.0.
+SINGLE_SAMPLE_BASIS = "single_sample"
+SAMPLE_AGREEMENT_BASIS = "sample_agreement"
 
 REGRESSION_SHAPES: tuple[str, ...] = (
     "exhibit",
@@ -159,22 +173,44 @@ class DiagnosisSample:
 
 @dataclass(frozen=True)
 class DiagnosisConsensus:
+    """One live diagnosis, plus whatever agreement (if any) was measured.
+
+    ``agreement_support`` is ``None`` on the k=1 baseline.  It is the value that
+    reaches the attribution as ``diagnostic_sample_support``, and a fabricated
+    1.0 there would promote the attribution's support authority to
+    ``sample_agreement`` on the strength of a single unrepeated call.
+    """
+
     proposal: GradingProposal
     sample_count: int
-    agreement_support: float
+    agreement_support: float | None
     winner_fingerprint: str
     samples: tuple[DiagnosisSample, ...]
     disagreement_causes: tuple[dict[str, Any], ...] = ()
+    agreement_basis: str = SAMPLE_AGREEMENT_BASIS
+    winner_votes: int = 1
 
     @property
     def disagreed(self) -> bool:
         return len({sample.fingerprint for sample in self.samples}) > 1
+
+    @property
+    def receipt_agreement_support(self) -> float:
+        """The receipt column's non-null float (migration 144 is NOT NULL).
+
+        Read it only next to ``c3_sample_count``: at k=1 this is 1/1, which says
+        nothing about agreement.  ``agreement_support`` is the field that refuses
+        to claim consensus it did not measure.
+        """
+
+        return self.winner_votes / max(self.sample_count, 1)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "version": PHASE_C_VERSION,
             "sample_count": self.sample_count,
             "agreement_support": self.agreement_support,
+            "agreement_basis": self.agreement_basis,
             "winner_fingerprint": self.winner_fingerprint,
             "disagreed": self.disagreed,
             "disagreement_causes": list(self.disagreement_causes),
@@ -381,10 +417,27 @@ def run_diagnosis_samples(
     *,
     sample_count: int = DEFAULT_DIAGNOSIS_SAMPLES,
 ) -> DiagnosisConsensus:
-    """C3 k independent calls, modal answer, and a disagreement cause set."""
+    """C3 k independent calls, modal answer, and a disagreement cause set.
+
+    At the k=1 baseline this is one call and nothing else: no agreement is
+    computed, the attribution is returned exactly as the grader wrote it, and
+    ``agreement_support`` stays ``None`` so no reader mistakes a single reading
+    for a consensus.
+    """
 
     if sample_count < 1:
         raise ValueError("diagnostic sample_count must be >= 1")
+    if sample_count == 1:
+        only = _sample(client.run_grading_proposal(context), 0)
+        return DiagnosisConsensus(
+            proposal=only.proposal,
+            sample_count=1,
+            agreement_support=None,
+            winner_fingerprint=only.fingerprint,
+            samples=(only,),
+            agreement_basis=SINGLE_SAMPLE_BASIS,
+            winner_votes=1,
+        )
     samples = tuple(
         _sample(client.run_grading_proposal(context), index)
         for index in range(sample_count)
@@ -473,6 +526,8 @@ def run_diagnosis_samples(
         agreement_support=winner_count / sample_count,
         winner_fingerprint=winner_fingerprint,
         samples=samples,
+        agreement_basis=SAMPLE_AGREEMENT_BASIS,
+        winner_votes=winner_count,
         disagreement_causes=(
             disagreement_causes if len(distinct) > 1 else ()
         ),
@@ -778,7 +833,7 @@ def run_planted_diagnostic_evaluation(
     generator_client: Any,
     diagnostician_client: Any,
     cases: Sequence[PlantedDiagnosticCase] | None = None,
-    sample_count: int = DEFAULT_DIAGNOSIS_SAMPLES,
+    sample_count: int = EVAL_DIAGNOSIS_SAMPLES,
     personas_pre_generated: bool = False,
     clock: Clock | None = None,
 ) -> DiagnosticEvalReport:
@@ -957,7 +1012,7 @@ def commission_planted_diagnostic_evaluation(
     diagnostician_client: Any,
     cases: Sequence[PlantedDiagnosticCase] | None = None,
     real_traces: Sequence[str] | None = None,
-    sample_count: int = DEFAULT_DIAGNOSIS_SAMPLES,
+    sample_count: int = EVAL_DIAGNOSIS_SAMPLES,
     separation_threshold: float = 0.70,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
@@ -1061,7 +1116,10 @@ def record_phase_c_receipt(
             "c1_repair_before_structure": True,
             "c2_verifier_observations": context.verifier_observations,
             "c3_sample_count": consensus.sample_count,
-            "c3_agreement_support": consensus.agreement_support,
+            # NOT NULL column: the receipt stores winner-votes/k so the cost
+            # ledger stays readable.  ``c3_sample_count`` is the disambiguator --
+            # 1.0 at k=1 is arithmetic, not measured agreement.
+            "c3_agreement_support": consensus.receipt_agreement_support,
             "c3_disagreement_causes": list(consensus.disagreement_causes),
             "c4_history_attempt_ids": [
                 row["attempt_id"]

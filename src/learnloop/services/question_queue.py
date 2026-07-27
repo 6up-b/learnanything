@@ -68,15 +68,147 @@ def list_question_queue(
             "resolution": event["resolution"],
             "question_type": event.get("question_type"),
             "practice_item_id": event.get("practice_item_id"),
+            "attempt_id": event.get("attempt_id"),
             "note_id": event.get("note_id"),
+            "session_id": event.get("session_id"),
             "saved_note_id": event.get("saved_note_id"),
             "created_at": event["created_at"],
             "promotion": promotions.get(event["id"]),
             "promotion_request": promotion_requests.get(event["id"]),
             "promotion_target_ids": targets[event["id"]],
+            "source_citation": _source_citation(
+                repository, event, vault=vault
+            ),
         }
         for event in events
     ]
+
+
+def _source_citation(
+    repository: Repository,
+    event: dict[str, Any],
+    *,
+    vault: LoadedVault | None,
+) -> dict[str, str | None] | None:
+    """Best canonical teaching span for an outstanding question.
+
+    Reader questions retain their exact in-view span in ``source_context``.
+    Older practice/feedback/library turns predate that structured field, so
+    they fall back to the same bounded semantic-authority span selection used
+    to ground tutor answers.  Returning ``None`` is an honest absence: the
+    Today surface never fabricates a source link from a note path or item id.
+    """
+
+    source_context = event.get("source_context")
+    source_context = source_context if isinstance(source_context, dict) else {}
+    extraction_id = source_context.get("extraction_id")
+    span_id = source_context.get("span_id")
+    source_spans = source_context.get("source_spans")
+    source_spans = source_spans if isinstance(source_spans, list) else []
+    citations = source_context.get("citations")
+    citations = citations if isinstance(citations, list) else []
+
+    # Reader dialogue continuity is keyed to the originally viewed span. A
+    # tutor may cite an adjacent block in its answer, but reopening the thread
+    # must not silently move the learner into a different per-span conversation.
+    if event.get("context") == "reader" and extraction_id and span_id:
+        matching = next(
+            (
+                span
+                for span in source_spans
+                if isinstance(span, dict)
+                and str(span.get("extraction_id")) == str(extraction_id)
+                and str(span.get("span_id")) == str(span_id)
+            ),
+            None,
+        )
+        return {
+            "extraction_id": str(extraction_id),
+            "span_id": str(span_id),
+            "label": (
+                str(matching.get("label"))
+                if matching is not None and matching.get("label")
+                else None
+            ),
+        }
+
+    validated_citation = next(
+        (
+            citation
+            for citation in citations
+            if isinstance(citation, dict)
+            and citation.get("extraction_id")
+            and citation.get("span_id")
+        ),
+        None,
+    )
+    if validated_citation is not None:
+        return {
+            "extraction_id": str(validated_citation["extraction_id"]),
+            "span_id": str(validated_citation["span_id"]),
+            "label": (
+                str(validated_citation["label"])
+                if validated_citation.get("label")
+                else None
+            ),
+        }
+
+    if extraction_id and span_id:
+        matching = next(
+            (
+                span
+                for span in source_spans
+                if isinstance(span, dict)
+                and str(span.get("extraction_id")) == str(extraction_id)
+                and str(span.get("span_id")) == str(span_id)
+            ),
+            None,
+        )
+        return {
+            "extraction_id": str(extraction_id),
+            "span_id": str(span_id),
+            "label": (
+                str(matching.get("label"))
+                if matching is not None and matching.get("label")
+                else None
+            ),
+        }
+
+    if vault is None:
+        return None
+
+    learning_object_ids: list[str] = []
+    practice_item_id = event.get("practice_item_id")
+    if practice_item_id:
+        item = vault.practice_items.get(str(practice_item_id))
+        if item is not None:
+            learning_object_ids.append(item.learning_object_id)
+    elif event.get("context") == "library" and event.get("note_id"):
+        note = vault.notes.get(str(event["note_id"]))
+        if note is not None:
+            learning_object_ids.extend(note.related_los)
+
+    if not learning_object_ids:
+        return None
+
+    # Kept in tutor_qa as the single authority for bounded, semantic teaching
+    # spans. Import lazily to avoid loading the tutor stack for queue counts.
+    from learnloop.services.tutor_qa import _source_spans
+
+    try:
+        spans = _source_spans(vault, repository, learning_object_ids)
+    except Exception:  # noqa: BLE001 - optional enrichment must never hide the queue
+        return None
+    if not spans:
+        return None
+    first = spans[0]
+    if not first.get("extraction_id") or not first.get("span_id"):
+        return None
+    return {
+        "extraction_id": str(first["extraction_id"]),
+        "span_id": str(first["span_id"]),
+        "label": str(first["label"]) if first.get("label") else None,
+    }
 
 
 def count_open_questions(repository: Repository) -> int:

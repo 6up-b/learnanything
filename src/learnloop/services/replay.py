@@ -155,3 +155,53 @@ def rebuild_derived_state(
         learning_object_ids=rebuilt,
         marker_id=marker_id,
     )
+
+
+def record_content_recalibration(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    affected_learning_object_ids: list[str],
+    clock: Clock | None = None,
+) -> str | None:
+    """Stamp the recalibration boundary AT the content change, not after it.
+
+    Applying ingested content (new LOs, changed blueprints) moves the
+    vault-wide contract frontier, but nothing on the ingest path used to
+    record a rebuild — so the coverage-denominator delta sat armed until the
+    NEXT unrelated rebuild, which then narrated a recalibration at the wrong
+    time, attributed to a rebuild that did not cause it (and an LO-scoped
+    rebuild folded the whole vault-wide drift into its own marker).
+
+    Discipline is `integration_backfill`'s: apply → reload → rebuild the
+    affected LOs → exactly one marker. The caller passes the RELOADED vault.
+    Affected LOs with persisted attempts are genuinely replayed (an append can
+    change the blueprint of a practised LO); brand-new LOs have nothing to
+    replay, and for them this records a zero-replay marker so the
+    content-addressed coverage version is stamped now. Idempotence survives:
+    an apply that changes no frontier cells re-stamps the same version and
+    `derived_state_rebuild_version_changes` emits nothing.
+    """
+
+    affected = sorted(set(affected_learning_object_ids) & set(vault.learning_objects))
+    if not affected:
+        return None
+    with_attempts = set(repository.learning_object_ids_with_attempts())
+    replayable = [lo_id for lo_id in affected if lo_id in with_attempts]
+    if replayable:
+        return rebuild_derived_state(
+            vault, repository, learning_object_ids=replayable, clock=clock
+        ).marker_id
+    from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
+    from learnloop.services.facet_diagnostics import coverage_denominator_version
+
+    return repository.record_derived_state_rebuild(
+        scope="learning_object",
+        learning_object_ids=affected,
+        algorithm_version=vault.config.algorithms.algorithm_version,
+        rebuilt_learning_objects=0,
+        replayed_attempts=0,
+        canonical_projection_version=CANONICAL_PROJECTION_VERSION,
+        coverage_denominator_version=coverage_denominator_version(vault, repository),
+        clock=clock,
+    )

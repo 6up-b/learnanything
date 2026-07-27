@@ -1,0 +1,168 @@
+schema_version: 1
+id: pi_coordinate_associativity_dependency_capstone
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+evidence_weights:
+  facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.3
+  facet_scalar_calculations_over_r_or_c_use_commutative_: 0.35
+  facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 0.35
+criterion_facet_weights:
+  crit_capstone_coordinate_rule:
+    facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 1.0
+  crit_capstone_proof_bridge:
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+  crit_capstone_scalar_law:
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_coordinate_associativity_capstone
+      checkpoints:
+        - expand_kth_coordinates
+        - select_scalar_associativity
+        - conclude_vector_identity
+      dependencies:
+        conclude_vector_identity:
+          - expand_kth_coordinates
+          - select_scalar_associativity
+        expand_kth_coordinates: []
+        select_scalar_associativity:
+          - expand_kth_coordinates
+variant_contract:
+teach_back_source:
+prompt: 'Prepare a dependency-labeled proof of (x+y)+z=x+(y+z) for arbitrary x,y,z∈Fⁿ.
+  Your answer must contain three labeled lines: “coordinate rule used,” “scalar law
+  selected,” and “vector conclusion.” Each later line should explicitly use the result
+  of the preceding line.'
+expected_answer: 'Coordinate rule used: for arbitrary k, ((x+y)+z)ₖ=(xₖ+yₖ)+zₖ and
+  (x+(y+z))ₖ=xₖ+(yₖ+zₖ), by coordinatewise addition. Scalar law selected: associativity
+  of addition in R or C gives (xₖ+yₖ)+zₖ=xₖ+(yₖ+zₖ). Vector conclusion: the corresponding
+  coordinates are equal for every k, so (x+y)+z=x+(y+z) in Fⁿ.'
+difficulty: 0.55
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - capstone
+  - coordinate-proof
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.84
+transfer_distance: 0.72
+scaffold_level: 0.02
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: dependency_labeled_coordinate_capstone
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_calls_grouping_commutativity
+    hypothesis: Believes that changing the grouping of a sum is justified by 
+      commutativity rather than associativity.
+    observable_signature: Writes (xₖ+yₖ)+zₖ=xₖ+(yₖ+zₖ) and labels the step 
+      “commutativity of addition.”
+    misconception_id:
+    facet_id: facet_scalar_calculations_over_r_or_c_use_commutative_
+    fails_criteria:
+      - crit_capstone_scalar_law
+    distinguishing_features:
+      - correct grouping equation
+      - names order law instead of grouping law
+    source: authored
+  - id: profile_symbolic_rearrangement_is_vector_proof
+    hypothesis: Believes that a scalar-looking symbolic rearrangement proves a 
+      vector identity without quantifying over coordinates.
+    observable_signature: Writes (x+y)+z=x+y+z=x+(y+z) with no arbitrary 
+      coordinate k and no coordinate-equality conclusion.
+    misconception_id:
+    facet_id: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+    fails_criteria:
+      - crit_capstone_coordinate_rule
+      - crit_capstone_proof_bridge
+    distinguishing_features:
+      - omits kth coordinates
+      - omits equality for every k
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_capstone_coordinate_rule
+      points: 1.25
+      description: Correctly expands both sides at an arbitrary kth coordinate 
+        using coordinatewise addition.
+      tier: core
+      targets:
+        - facet: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+          capability: retrieval
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_capstone_scalar_law
+      points: 1.5
+      description: Selects and applies associativity of scalar addition to the 
+        expanded coordinates.
+      tier: core
+      targets:
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: method_selection
+          role: primary
+      depends_on:
+        - crit_capstone_coordinate_rule
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_capstone_proof_bridge
+      points: 1.25
+      description: Concludes vector equality from equality of corresponding 
+        coordinates for every k.
+      tier: core
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_capstone_coordinate_rule
+        - crit_capstone_scalar_law
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:13Z'
+updated_at: '2026-07-27T08:36:13Z'

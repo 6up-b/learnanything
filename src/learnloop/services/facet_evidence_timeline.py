@@ -32,11 +32,12 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
+from learnloop.services.assessment_contracts import P0_ALGORITHM_VERSION
 from learnloop.services.conjunctive_items import (
     cap_embedded_credit,
     supporting_unexercised,
@@ -56,6 +57,7 @@ from learnloop.services.canonical_projection import (
     _attribution_weights,
     _repeat_discount,
     observed_unresolved_failure,
+    p0_effective_evidence_mass,
     surface_group_id,
 )
 from learnloop.services.evidence import attempt_evidence_mass
@@ -169,6 +171,14 @@ class FacetTimelineSnapshot:
     # (`test_receipt_exactness`) is that the two agree to the float — so any input
     # the projection reads, this one must read too.
     exercised_by_attempt: dict[str, frozenset[str]] = field(default_factory=dict)
+    # mvp-0.8 (P0.3 §4.3): the response-level reliability-discounted evidence mass
+    # per attempt, computed through the SAME shared helper the canonical
+    # projection uses (`p0_effective_evidence_mass`). ``None`` means the P0 lane
+    # was not loaded — the mvp-0.7 byte-identical path. Same argument as
+    # ``exercised_by_attempt`` above: any input the projection reads, this fold
+    # must read too, or the Demonstrated curve over-reports the banked ledger
+    # (a legacy attempt with no active interpretation banks ZERO under mvp-0.8).
+    p0_evidence_mass_by_attempt: dict[str, float] | None = None
 
 
 def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot:
@@ -222,6 +232,49 @@ def _resolved_exercised_facets(
         attempt_id: frozenset(resolve(str(row["facet_id"])) for row in rows)
         for attempt_id, rows in observations.items()
     }
+
+
+def p0_evidence_mass_by_attempt(
+    vault: LoadedVault, repository: Repository
+) -> dict[str, float]:
+    """Per-attempt mvp-0.8 evidence mass, byte-matched to the projection.
+
+    Walks the same authoritative-events ledger the canonical projection folds
+    (``canonical_observation_ledger_v2``) and applies the identical response-
+    level reliability discount through the one shared helper, in the same
+    association order (attempt-type mass first, then the discount), so the two
+    folds cannot drift by even a ulp.
+    """
+
+    return {
+        str(row["attempt_id"]): p0_effective_evidence_mass(
+            repository,
+            interpretation=row.get("active_interpretation"),
+            attempt_type_mass=attempt_evidence_mass(
+                row["attempt_type"], vault.config.evidence
+            ),
+        )
+        for row in repository.canonical_observation_ledger_v2()
+    }
+
+
+def _with_p0_masses(
+    vault: LoadedVault, repository: Repository, snapshot: FacetTimelineSnapshot
+) -> FacetTimelineSnapshot:
+    """Attach the P0 mass map to a snapshot when the vault runs mvp-0.8.
+
+    On an mvp-0.7 vault (or a snapshot that already carries the map) this is a
+    no-op, keeping the legacy path byte-identical.
+    """
+
+    if vault.config.algorithms.algorithm_version != P0_ALGORITHM_VERSION:
+        return snapshot
+    if snapshot.p0_evidence_mass_by_attempt is not None:
+        return snapshot
+    return replace(
+        snapshot,
+        p0_evidence_mass_by_attempt=p0_evidence_mass_by_attempt(vault, repository),
+    )
 
 
 def fold_demonstrated_timeline(
@@ -358,6 +411,7 @@ def _epoch_certification_credit(
     seen_groups_by_cell: dict[tuple[str, str], set[str]],
     resolve,
     exercised_facets: frozenset[str] = frozenset(),
+    evidence_mass_override: float | None = None,
 ) -> tuple[
     dict[tuple[str, str], float],
     dict[tuple[str, str], set[str]],
@@ -379,12 +433,24 @@ def _epoch_certification_credit(
     """
 
     rubric_total = sum(max(c.points, 0.0) for c in rubric.criteria) or 1.0
-    emass = attempt_evidence_mass(attempt_type, vault.config.evidence)
+    # ``evidence_mass_override`` is the mvp-0.8 reliability-discounted mass the
+    # caller precomputed per attempt through the shared projection helper; this
+    # function stays DB-free, so the discount cannot be computed here.
+    emass = (
+        evidence_mass_override
+        if evidence_mass_override is not None
+        else attempt_evidence_mass(attempt_type, vault.config.evidence)
+    )
     outcomes: list[CriterionOutcome] = []
     for criterion in rubric.criteria:
         row = rows_by_criterion.get(criterion.id)
+        if row is None:
+            # Projection v6 mirror: absent evidence is not an observation.
+            # Identical skip to the canonical projection, or the two folds
+            # would disagree the moment an attempt is partially graded.
+            continue
         fraction = 0.0
-        if row is not None and criterion.points > 0:
+        if criterion.points > 0:
             fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
         outcomes.append(
             CriterionOutcome(
@@ -548,9 +614,17 @@ def _observation_events_by_facet(
             current = merge_map[current]
         return current
 
+    p0_masses = snapshot.p0_evidence_mass_by_attempt
     for attempt in snapshot.attempts:
         item = vault.practice_items.get(attempt["practice_item_id"])
         rows = snapshot.grading_by_attempt.get(str(attempt["id"]), ())
+        # mvp-0.8: the reliability-discounted mass precomputed through the shared
+        # projection helper. The 0.0 fallback is fail-closed — the v2 ledger
+        # covers every attempt by construction, so a miss can only mean a stale
+        # snapshot, and absent data must not create mass.
+        evidence_mass_override = (
+            p0_masses.get(str(attempt["id"]), 0.0) if p0_masses is not None else None
+        )
         # Group by immutable grading revision when present. Timestamp remains the
         # compatibility key for legacy/manual regrades; a FrozenClock can give
         # revisions the same timestamp, so it cannot be the primary new-data key.
@@ -581,29 +655,11 @@ def _observation_events_by_facet(
         # non-superseded view at the final epoch.
         cumulative_rows: dict[str, dict] = {}
         epoch_items = sorted(epochs.items())
-        if not epoch_items:
-            # No grading evidence: the attempt certifies nothing, but the
-            # canonical projection still walks its criteria (all fractions 0)
-            # and can mark surface groups through attributed failures. Run the
-            # marking-only pass so later attempts see identical novelty.
-            rubric = vault.rubric_for_item(item) if item is not None else None
-            if rubric is not None and rubric.criteria:
-                group = surface_group_id(item)
-                _, marked, _items, _rel, _emb = _epoch_certification_credit(
-                    vault,
-                    item,
-                    rubric,
-                    rows_by_criterion={},
-                    attempt_type=attempt["attempt_type"],
-                    surface_group=group,
-                    assisted=assisted,
-                    seen_groups_by_cell=prior_seen,
-                    resolve=resolve,
-                    exercised_facets=snapshot.exercised_by_attempt.get(
-                        str(attempt["id"]), frozenset()
-                    ),
-                )
-                marked_by_latest_epoch = marked
+        # An attempt with no grading evidence marks nothing under projection v6:
+        # absent evidence produces no criterion outcomes, so it can neither bank
+        # mass nor advance surface-group novelty in either fold. (Pre-v6 this
+        # branch ran a marking-only pass because the projection treated every
+        # ungraded criterion as a failure.)
         for index, ((epoch_at, _revision_key), records) in enumerate(epoch_items):
             version_ids = {
                 record.assessment_contract_version_id
@@ -656,6 +712,7 @@ def _observation_events_by_facet(
                 exercised_facets=snapshot.exercised_by_attempt.get(
                     str(attempt["id"]), frozenset()
                 ),
+                evidence_mass_override=evidence_mass_override,
             )
             marked_by_latest_epoch = marked
             # Avoid an event for a facet this historical epoch never targeted.
@@ -726,7 +783,9 @@ def _observation_events(
     canonical_facet: str,
 ) -> list[FacetEvidenceEvent]:
     """Compatibility wrapper for callers that inspect one facet's events."""
-    snapshot = load_facet_timeline_snapshot(repository)
+    snapshot = _with_p0_masses(
+        vault, repository, load_facet_timeline_snapshot(repository)
+    )
     return _observation_events_by_facet(
         vault,
         snapshot,
@@ -748,7 +807,9 @@ def facet_evidence_timelines(
     }
     if not canonical:
         return {}
-    loaded = snapshot or load_facet_timeline_snapshot(repository)
+    loaded = _with_p0_masses(
+        vault, repository, snapshot or load_facet_timeline_snapshot(repository)
+    )
     events_by_facet = _observation_events_by_facet(vault, loaded, canonical)
     repeat_discount = _repeat_discount(vault)
     return {

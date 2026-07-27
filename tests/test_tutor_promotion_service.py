@@ -557,3 +557,74 @@ def test_gap_inline_diagnostic_generation_when_available(tmp_path):
     # Diagnostic generation ran and fulfilled the need.
     need = repository.intervention_need(result["intervention_need_id"])
     assert need["status"] == "fulfilled"
+
+
+# --- CLI/sidecar parity ----------------------------------------------------
+#
+# The sidecar's accept/reject handlers reconcile the promotion request that owns
+# the patch (learnloop_sidecar/handlers/proposals.py). The CLI did not, so the
+# same review decision left a tutor-question promotion stranded mid-flight
+# depending on which front end the learner happened to use.
+
+
+def _reviewable_promotion(root, repository, event_id: str) -> tuple[str, str]:
+    _add_origin_source_note(root)
+    _insert_event(repository, event_id)
+    repository.insert_question_promotion_request(
+        question_event_id=event_id, intent="practice"
+    )
+    result = promote_tutor_question(
+        root,
+        _FullClient(
+            PromotionAnalysis(attributed_facets=["recall"]),
+            _attach_proposal(review_route="review_required"),
+        ),
+        event_id=event_id,
+        intent="practice",
+    )
+    patch_id = result["proposed_patch_id"]
+    row = next(
+        item
+        for item in repository.proposal_items(patch_id)
+        if item["item_type"] == "practice_item"
+    )
+    return patch_id, row["id"]
+
+
+def test_cli_accept_reconciles_the_question_promotion(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    patch_id, item_id = _reviewable_promotion(root, repository, "ev_cli_accept")
+
+    result = CliRunner().invoke(
+        app, ["accept", patch_id, "--items", item_id, "--vault", str(root)]
+    )
+
+    assert result.exit_code == 0, result.output
+    promotion = repository.question_promotion("ev_cli_accept")
+    assert promotion["route"] == "auto_apply"
+    assert promotion["created_practice_item_id"] == "pi_svd_promoted_001"
+    assert repository.question_promotion_request("ev_cli_accept")["stage"] == "ready"
+
+
+def test_cli_reject_fails_the_question_promotion_request(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    root = create_basic_vault(tmp_path / "vault").root
+    repository = Repository(root / "state.sqlite")
+    patch_id, item_id = _reviewable_promotion(root, repository, "ev_cli_reject")
+
+    result = CliRunner().invoke(
+        app, ["reject", patch_id, "--items", item_id, "--vault", str(root)]
+    )
+
+    assert result.exit_code == 0, result.output
+    request = repository.question_promotion_request("ev_cli_reject")
+    assert request["status"] == "failed"
+    assert request["error_code"] == "proposal_rejected"

@@ -658,10 +658,19 @@ def generate_rung_variant(
             payload["tags"] = sorted(set(payload.get("tags") or []) | {"rung_variant"})
 
     def _run(extra: str | None) -> tuple[str, "_RungGate"]:
+        from learnloop.services.authoring_gates import build_instrument_gates
+
         rung_gate = _RungGate(repository, plan)
+        # The variant lane previously ran ONLY the rung gate + variant stamps,
+        # so a variant that was structurally a diagnostic instrument (or a
+        # selected-response surface) bypassed the Stage-5.3/6 chain every other
+        # authoring lane runs. One shared composition now, same as everywhere.
+        instrument_gates = build_instrument_gates(
+            vault, repository, grading_client=client, rung_gate=rung_gate
+        )
 
         def _composed(rows: list[dict[str, Any]]) -> None:
-            rung_gate(rows)
+            instrument_gates(rows)
             _stamp_variant(rows)
             for row in rows:
                 payload = row.get("payload")

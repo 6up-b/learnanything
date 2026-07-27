@@ -4,6 +4,8 @@ import type { CommandError, QuestionQueueRowDto } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, type PillColor } from "./term";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
+import type { AskTarget } from "./AskOverlay";
+import { OpenInSource } from "./OpenInSource";
 
 // The outstanding-question queue (spec_andymatusnotes: "a queue of outstanding
 // questions"). Renders on Today so open questions stay ambiently visible in the
@@ -17,11 +19,27 @@ const CONTEXT_PILL: Record<string, PillColor> = {
   reader: "purple"
 };
 
-export function QuestionQueuePanel({ onError }: { onError: (message: string) => void }) {
+interface SourceLaunch {
+  extractionId: string;
+  spanId: string;
+  questionEventId: string;
+  primedItemId: string | null;
+}
+
+export function QuestionQueuePanel({
+  onContinueDialogue,
+  onOpenPrimedPractice,
+  onError
+}: {
+  onContinueDialogue: (target: AskTarget) => void;
+  onOpenPrimedPractice: (practiceItemId: string) => void;
+  onError: (message: string) => void;
+}) {
   const [rows, setRows] = useState<QuestionQueueRowDto[] | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedTargetById, setSelectedTargetById] = useState<Record<string, string>>({});
+  const [sourceLaunch, setSourceLaunch] = useState<SourceLaunch | null>(null);
 
   const refresh = useCallback(() => {
     api
@@ -95,30 +113,33 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
   if (!rows || rows.length === 0) return null;
 
   return (
-    <div style={{ padding: "0 16px 12px" }}>
-      <SectionHeader>
-        Open questions <Faint style={{ fontSize: 11 }}>({rows.length})</Faint>
-      </SectionHeader>
-      <Faint style={{ fontSize: 11, display: "block", marginBottom: 6 }}>
-        questions you raised that are still yours — an answered question stays here until you decide it is settled.
-      </Faint>
-      {rows.map((row) => {
-        const expanded = expandedId === row.id;
-        const busy = busyId === row.id;
-        return (
-          <div
-            key={row.id}
-            style={{
-              border: `1px solid ${COLOR.border}`,
-              borderLeft: `3px solid ${COLOR.purplePill}`,
-              marginBottom: 6,
-              padding: "8px 10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              background: COLOR.bgElev
-            }}
-          >
+    <>
+      <div style={{ padding: "0 16px 12px" }}>
+        <SectionHeader>
+          Open questions <Faint style={{ fontSize: 11 }}>({rows.length})</Faint>
+        </SectionHeader>
+        <Faint style={{ fontSize: 11, display: "block", marginBottom: 6 }}>
+          questions you raised that are still yours — an answered question stays here until you decide it is settled.
+        </Faint>
+        {rows.map((row) => {
+          const expanded = expandedId === row.id;
+          const busy = busyId === row.id;
+          const dialogueTarget = targetForDialogue(row);
+          const primedItemId = readyPracticeItemId(row);
+          return (
+            <div
+              key={row.id}
+              style={{
+                border: `1px solid ${COLOR.border}`,
+                borderLeft: `3px solid ${COLOR.purplePill}`,
+                marginBottom: 6,
+                padding: "8px 10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                background: COLOR.bgElev
+              }}
+            >
             <div
               onClick={() => setExpandedId(expanded ? null : row.id)}
               style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
@@ -151,6 +172,41 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
                   <Faint style={{ fontSize: 11 }}>no tutor answer recorded.</Faint>
                 )}
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  {dialogueTarget ? (
+                    <QueueAction
+                      label="↳ continue dialogue"
+                      disabled={busy}
+                      onClick={() => onContinueDialogue(dialogueTarget)}
+                    />
+                  ) : null}
+                  {row.sourceCitation ? (
+                    <QueueAction
+                      label="open canonical source"
+                      disabled={busy}
+                      onClick={() =>
+                        setSourceLaunch({
+                          extractionId: row.sourceCitation!.extractionId,
+                          spanId: row.sourceCitation!.spanId,
+                          questionEventId: row.id,
+                          primedItemId: null
+                        })
+                      }
+                    />
+                  ) : null}
+                  {row.sourceCitation && primedItemId ? (
+                    <QueueAction
+                      label="review → primed attempt"
+                      disabled={busy}
+                      onClick={() =>
+                        setSourceLaunch({
+                          extractionId: row.sourceCitation!.extractionId,
+                          spanId: row.sourceCitation!.spanId,
+                          questionEventId: row.id,
+                          primedItemId
+                        })
+                      }
+                    />
+                  ) : null}
                   <QueueAction label="✓ resolved" disabled={busy} onClick={() => void resolve(row.id, "resolved")} />
                   <QueueAction label="dismiss" disabled={busy} onClick={() => void resolve(row.id, "dismissed")} />
                   {row.promotionRequest?.status === "failed" ? (
@@ -219,10 +275,63 @@ export function QuestionQueuePanel({ onError }: { onError: (message: string) => 
                 </div>
               </>
             ) : null}
-          </div>
-        );
-      })}
-    </div>
+            </div>
+          );
+        })}
+      </div>
+      {sourceLaunch ? (
+        <OpenInSource
+          extractionId={sourceLaunch.extractionId}
+          spanId={sourceLaunch.spanId}
+          context="open_question"
+          entityType="question_event"
+          entityId={sourceLaunch.questionEventId}
+          onClose={() => {
+            const primedItemId = sourceLaunch.primedItemId;
+            setSourceLaunch(null);
+            if (primedItemId) onOpenPrimedPractice(primedItemId);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function targetForDialogue(row: QuestionQueueRowDto): AskTarget | null {
+  if (row.context === "reader") {
+    if (!row.noteId || !row.sourceCitation) return null;
+    return {
+      context: "reader",
+      noteId: row.noteId,
+      extractionId: row.sourceCitation.extractionId,
+      spanId: row.sourceCitation.spanId
+    };
+  }
+  if (row.context === "feedback") {
+    if (!row.attemptId) return null;
+    return {
+      context: "feedback",
+      attemptId: row.attemptId,
+      practiceItemId: row.practiceItemId ?? undefined
+    };
+  }
+  if (row.context === "practice") {
+    if (!row.practiceItemId) return null;
+    return {
+      context: "practice",
+      practiceItemId: row.practiceItemId,
+      sessionId: row.sessionId ?? undefined
+    };
+  }
+  if (!row.noteId) return null;
+  return { context: "library", noteId: row.noteId };
+}
+
+function readyPracticeItemId(row: QuestionQueueRowDto): string | null {
+  return (
+    row.promotion?.existingPracticeItemId ??
+    row.promotion?.createdPracticeItemId ??
+    row.practiceItemId
   );
 }
 

@@ -434,7 +434,18 @@ export interface ScheduledItemDto {
   dueStatus: "due" | "later" | "probe" | "followup";
   isProbe: boolean;
   isFollowup: boolean;
+  /** Which follow-up lane inserted this row. A `certification_cold_probe` is a
+   *  held-out validity check on an already-certified skill, NOT a repair retry —
+   *  narrating the two the same way misrepresents what the item is for.
+   *  Null when `isFollowup` is false. */
+  followupKind: FollowupKind | null;
 }
+
+export type FollowupKind =
+  | "certification_cold_probe"
+  | "cold_retry"
+  | "intervention_followup"
+  | "negative_surprise_followup";
 
 export interface QueueSection {
   title: string;
@@ -922,7 +933,8 @@ export interface CausalFeedbackDto {
   unverified: {
     kind: string;
     hypothesisId?: string;
-    statement: string;
+    /** Null when the receipt marks a claim unverified without supplying prose. */
+    statement: string | null;
   }[];
   proposedNextAction: {
     label: string;
@@ -948,6 +960,21 @@ export interface CausalFeedbackDto {
   permittedUses: string[];
   traceConsistency?: Record<string, CausalTraceConsistencyState>;
   probeNeed?: CausalProbeNeedDto | null;
+  /** Journey B: the post-attempt orchestrator consultation found that every
+   * plausible cause shares one repair (`skip_common_repair` /
+   * `skip_action_equivalent`), read off the recorded decision receipt —
+   * rendering this never re-decides. Absent for divergent or
+   * incomplete-mapping factors, which keep the learner-initiated
+   * `causal_repair_status` flow. */
+  commonRepair?: {
+    status: string;
+    decision: string;
+    reason: string;
+    message: string;
+    misconceptionId: string;
+    factorId: string;
+    decisionReceiptId: string;
+  } | null;
   decisionPolicyVersion?: string | null;
 }
 
@@ -1338,7 +1365,7 @@ export interface PrimedRetryResultDto {
 
 // ── Tutor Q&A ("ask") ──────────────────────────────────────────────────────
 
-export type TutorQuestionContext = "library" | "practice" | "feedback";
+export type TutorQuestionContext = "library" | "practice" | "feedback" | "reader";
 
 export interface AskTutorQuestionInput {
   context: TutorQuestionContext;
@@ -1467,19 +1494,23 @@ export type QuestionResolution = "open" | "resolved" | "dismissed";
 
 export interface QuestionQueueRowDto {
   id: string;
-  context: TutorQuestionContext | "reader";
+  context: TutorQuestionContext;
   questionMd: string;
   answerMd: string | null;
   answerStatus: "pending" | "answered" | "failed";
   resolution: QuestionResolution;
   questionType: string | null;
   practiceItemId: string | null;
+  attemptId: string | null;
   noteId: string | null;
+  sessionId: string | null;
   savedNoteId: string | null;
   createdAt: IsoTimestamp;
   promotion: QuestionPromotionDto | null;
   promotionRequest: QuestionPromotionRequestDto | null;
   promotionTargetIds: string[];
+  /** Exact canonical teaching span when one can be resolved honestly. */
+  sourceCitation: TutorCitationDto | null;
 }
 
 export interface QuestionQueueSnapshot {
@@ -3284,6 +3315,38 @@ export interface GenerateStarterPracticeResult {
   learningObjectIds: string[];
 }
 
+/** Result of enqueueing authoring for the commissioning queue's gaps.
+ *  `batchId` is null exactly when there was nothing to author — an empty
+ *  commissioning queue is success, not failure, so it is not an error arm. */
+export interface GenerateCommissioningPracticeResult {
+  version: number;
+  batchId: string | null;
+  batch: IngestBatchDto | null;
+  learningObjectIds: string[];
+  /** Authorable contract cells covered by this run. */
+  commissionableCellCount: number;
+  /** Cells the queue holds but generation cannot close (coordination depth
+   *  envelopes, downward dominance, blueprint repair). Reported so the button
+   *  never implies it closed obligations it did not. */
+  deferredCellCount: number;
+}
+
+/** Counts behind the nav-tab badges. Deliberately its own cheap call rather
+ *  than a field on `AppSnapshot`: the file watcher re-embeds a whole snapshot on
+ *  every vault change, and badge counts should not make unrelated edits pay. */
+export interface ReviewCountsDto {
+  version: number;
+  pendingProposals: number;
+  unreviewedProbeCandidates: number;
+  openSourceConflicts: number;
+  actionNeededNotices: number;
+  pendingClarifications: number;
+  /** Rollups the nav renders directly, computed sidecar-side so the two
+   *  surfaces cannot drift on what a badge counts. */
+  proposalsBadge: number;
+  maintainBadge: number;
+}
+
 export interface CreateGoalInput {
   title: string;
   intentSentence?: string | null;
@@ -4979,7 +5042,7 @@ export interface ReaderAnswerDto {
   readerAnswerEventId: string;
   answerMd: string;
   answerMode: ReaderAnswerMode;
-  citations: unknown[];
+  citations: TutorCitationDto[];
   manifest: Record<string, unknown>;
   warmedSurfaceIds: string[];
   burnedSurfaceIds: string[];
@@ -5552,4 +5615,178 @@ export interface StubDiagnosticPackDto {
 export interface StubPoolSurfacesDto {
   poolSlug: string;
   surfaces: Array<{ surfaceSlug: string; angle: string }>;
+}
+
+// ── Diagnosis adjudication (spec_diagnostic_augmentation_v1 §2 A4) ────────────
+// `adjudication.queue | record | scoreboard`. The verdict vocabulary is
+// partitioned: the four filled verdicts are recordable only against a diagnosis
+// that named a cause, the two abstention verdicts only against an abstention.
+// The overlay never derives that partition itself — every case carries the
+// `allowedVerdicts` the store will accept for it.
+
+export type AdjudicationVerdict =
+  | "correct"
+  | "wrong_anchor"
+  | "wrong_repair"
+  | "should_have_abstained"
+  | "correctly_abstained"
+  | "should_not_have_abstained";
+
+/** learner_contest | system_abstention | anchor_disagreement | incomplete_repair_mapping | sampled | manual */
+export type AdjudicationQueueReason = string;
+
+export interface AdjudicationAnchorDto {
+  anchorKind: string;
+  criterionId?: string;
+  quote?: string | null;
+  normalizedQuote?: string | null;
+  checkpointId?: string | null;
+  charStart?: number | null;
+  charEnd?: number | null;
+  [k: string]: unknown;
+}
+
+export interface AdjudicationRepairClassOptionDto {
+  id: string;
+  operator?: string | null;
+  expectedMinutes?: number | null;
+  targetRefs?: unknown[];
+}
+
+export interface AdjudicationShownToLearnerDto {
+  /** false when the receipt did not permit a learner-facing causal overlay. */
+  rendered: boolean;
+  feedbackMd: string | null;
+  hypotheses: Array<{
+    hypothesisId?: string | null;
+    label?: string | null;
+    statement?: string | null;
+    traceConsistency?: string | null;
+  }>;
+  proposedNextAction: {
+    label?: string;
+    operator?: string | null;
+    rationale?: string | null;
+    repairClassId?: string | null;
+  } | null;
+  firstDivergence: AdjudicationAnchorDto | null;
+  repairedTrace: Record<string, unknown> | null;
+}
+
+export interface AdjudicationCaseDto {
+  attemptId: string;
+  queueReason: AdjudicationQueueReason;
+  priority: number;
+  detail: string;
+  createdAt: string;
+  learningObjectId: string | null;
+  learningObjectTitle: string | null;
+  practiceItemId: string | null;
+  prompt: string | null;
+  learnerAnswerMd: string | null;
+  rubricScore: number | null;
+  correctness: number | null;
+  systemAbstained: boolean;
+  abstentionBasis: string;
+  systemAnchor: AdjudicationAnchorDto | null;
+  anchorDisagreement: boolean;
+  systemRepairClassId: string | null;
+  incompleteRepairMapping: boolean;
+  repairClassOptions: AdjudicationRepairClassOptionDto[];
+  shownToLearner: AdjudicationShownToLearnerDto;
+  learnerReport: { id?: string; response?: string; createdAt?: string; [k: string]: unknown } | null;
+  allowedVerdicts: AdjudicationVerdict[];
+  /** The frozen system-side snapshot pinned with any verdict on this case. */
+  system: Record<string, unknown>;
+}
+
+export interface AdjudicationQueueDto {
+  version?: number;
+  total: number;
+  countsByReason: Array<{ reason: AdjudicationQueueReason; count: number }>;
+  cases: AdjudicationCaseDto[];
+}
+
+export interface AdjudicationRecordInput {
+  attemptId: string;
+  verdict: AdjudicationVerdict;
+  anchor?: {
+    anchorKind: string;
+    criterionId?: string;
+    quote?: string | null;
+    checkpointId?: string | null;
+    charStart?: number | null;
+    charEnd?: number | null;
+  } | null;
+  repairMd?: string | null;
+  repairClassId?: string | null;
+  queueReason?: AdjudicationQueueReason | null;
+  adjudicatorSource?: "human_owner" | "independent_expert" | "deterministic_verifier";
+  rationale?: string | null;
+}
+
+/** What §5.6 arm (d) actually did to belief state — never inferred from the verdict. */
+export interface AdjudicationBeliefEffectDto {
+  arm: string;
+  attemptId: string;
+  verdict: AdjudicationVerdict | null;
+  promoted: string[];
+  withdrawn: string[];
+  declined: string[];
+}
+
+export interface AdjudicationOutcomeDto {
+  status: "promoted" | "withdrawn" | "no_belief_change" | "effect_failed";
+  message: string;
+  beliefIds: string[];
+  /** A withdrawal is narrated to the learner only if the belief was surfaced. */
+  learnerCorrectionPending: boolean;
+  declined: string[];
+}
+
+export interface AdjudicationRecordResultDto {
+  version?: number;
+  adjudication: {
+    id: string;
+    attemptId: string;
+    verdict: AdjudicationVerdict;
+    queueReason: AdjudicationQueueReason;
+    supersedesId?: string | null;
+    learnerReportId?: string | null;
+    adjudicatedAnchor?: AdjudicationAnchorDto | null;
+    adjudicatedRepairClassId?: string | null;
+    [k: string]: unknown;
+  };
+  effect: AdjudicationBeliefEffectDto | null;
+  outcome: AdjudicationOutcomeDto;
+}
+
+export interface AdjudicationScoreboardGroupDto {
+  scope?: string;
+  gradingPromptVersion?: string;
+  graderModel?: string;
+  queueReason?: AdjudicationQueueReason;
+  records: number;
+  byVerdict: Array<{ verdict: AdjudicationVerdict; count: number }>;
+  byQueueReason: Array<{ reason: AdjudicationQueueReason; count: number }>;
+  anchorScored: number;
+  anchorCorrect: number;
+  repairIdScored: number;
+  repairIdMatch: number;
+  abstentionConfusion: { tp: number; fp: number; fn: number; tn: number };
+  // Every rate is null — never a flattering 1.0 — on an empty denominator.
+  firstDivergenceAnchorAccuracy: number | null;
+  repairClassMatchRate: number | null;
+  repairClassIdMatchRate: number | null;
+  abstentionPrecision: number | null;
+  abstentionRecall: number | null;
+  abstentionCasesPresent: boolean;
+}
+
+export interface AdjudicationScoreboardDto {
+  version?: number;
+  storeVersion: string;
+  groupBy: string | null;
+  overall: AdjudicationScoreboardGroupDto;
+  groups: AdjudicationScoreboardGroupDto[];
 }

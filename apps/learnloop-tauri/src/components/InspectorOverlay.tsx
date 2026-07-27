@@ -27,7 +27,7 @@ import type {
   SchedulerComponents,
   SchedulerExplanationDto
 } from "../api/dto";
-import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, HelpTooltip, Meta, modePillColor, Pill, SectionHeader, type PillColor } from "./term";
+import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, HelpTooltip, Meta, modePillColor, Pill, PlainEnglishPanel, SectionHeader, type PillColor } from "./term";
 import { CapabilityGridView } from "./KnowledgeModel";
 import { RungVariantActions } from "./CardControls";
 import { ConceptAnimationSection } from "./ConceptAnimationSection";
@@ -1276,23 +1276,9 @@ function SchedulerWhy({ scheduler }: { scheduler: SchedulerExplanationDto }) {
       })}
 
       {scheduler.plainEnglish.length ? (
-        <div
-          style={{
-            marginTop: 14,
-            padding: "10px 12px",
-            background: COLOR.bgElev,
-            border: `1px solid ${COLOR.border}`,
-            borderLeft: `2px solid ${COLOR.cyan}`,
-            fontSize: 12,
-            lineHeight: 1.6,
-            color: COLOR.text
-          }}
-        >
-          <div style={{ color: COLOR.cyan, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-            plain english
-          </div>
+        <PlainEnglishPanel style={{ marginTop: 14 }}>
           {scheduler.plainEnglish.join(" ")}
-        </div>
+        </PlainEnglishPanel>
       ) : null}
 
       <div style={{ marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11 }}>

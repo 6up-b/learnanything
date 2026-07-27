@@ -50,6 +50,23 @@ class LossDerivationError(ValueError):
     """A loss cell was constructed without a minutes derivation (registration lint)."""
 
 
+class LossTableIncompleteError(ValueError):
+    """The loss table is missing cells or hypotheses the decision needs.
+
+    Fail-closed contract (decision-value spec invariants 5/6): a missing
+    ``(hypothesis, action)`` cell must never read as 0.0 — zero is the reserved
+    value meaning "this action IS the effective repair", so an omission would
+    impersonate the single most favorable cell and win argmin ties. Missing
+    machine data may license a skip or abstention upstream, never a fabricated
+    favorable number here.
+    """
+
+    def __init__(self, reason: str, detail: Sequence[str] | str = ()) -> None:
+        self.reason = reason
+        self.detail = tuple(detail) if not isinstance(detail, str) else (detail,)
+        super().__init__(f"{reason}: {', '.join(self.detail)}" if self.detail else reason)
+
+
 @dataclass(frozen=True)
 class DurationEstimate:
     """One intervention's minutes estimate + its provenance (inspectable)."""
@@ -104,7 +121,13 @@ class LossTable:
 
     def loss(self, hypothesis: str, action: str) -> float:
         cell = self.cells.get((hypothesis, action))
-        return cell.minutes if cell is not None else 0.0
+        if cell is None:
+            # 0.0 is the reserved "effective repair" value; returning it for an
+            # omission would make the missing cell win argmin ties.
+            raise LossTableIncompleteError(
+                "missing_loss_cell", (f"{hypothesis}/{action}",)
+            )
+        return cell.minutes
 
     def expected_loss(self, action: str, posterior: Mapping[str, float]) -> float:
         return sum(
@@ -227,7 +250,13 @@ def build_loss_table(
 
     by_reason = _routes_by_reason(routes)
     reasons = tuple(hypotheses) if hypotheses is not None else tuple(sorted(by_reason.keys()))
-    reasons = tuple(r for r in reasons if r in by_reason)
+    routeless = tuple(r for r in reasons if r not in by_reason)
+    if routeless:
+        # Silently dropping a route-less hypothesis redistributes its prior mass
+        # over the survivors downstream (EVSI renormalizes over the table's
+        # hypotheses) — the decision would be computed as if the hypothesis did
+        # not exist. Fail closed and name them.
+        raise LossTableIncompleteError("hypotheses_without_routes", routeless)
 
     effective = {r: str(by_reason[r]["first_intervention"]) for r in reasons}
     actions = tuple(sorted(set(effective.values())))
@@ -293,6 +322,18 @@ def assert_derived(table: LossTable) -> None:
     derivation. A free-constant entry (missing/empty derivation, or a non-zero minutes
     value with no wasted/delay accounting) fails registration."""
 
+    expected = len(table.hypotheses) * len(table.actions)
+    if len(table.cells) != expected:
+        missing = sorted(
+            f"{h}/{a}"
+            for h in table.hypotheses
+            for a in table.actions
+            if (h, a) not in table.cells
+        )
+        raise LossTableIncompleteError(
+            "incomplete_grid",
+            missing or (f"{len(table.cells)} cells for {expected} slots",),
+        )
     for key, cell in table.cells.items():
         d = cell.derivation
         if not d or "kind" not in d:

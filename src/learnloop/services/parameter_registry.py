@@ -905,15 +905,20 @@ _CONFIG_RULES: list[_ConfigRule] = [
         lifecycle="dormant", bind_site="config guardrail expression (min/max/clamp)"),
     # Aug Stage 7 C3/C4. Both change diagnostic decisions and learner/model
     # burden, so neither may hide as an unregistered operational constant.
+    # ``sampling_enabled`` is the on/off half of the SAME C3 decision: it is what
+    # a revert actually flips, and Inventory A's numeric-leaf walk skips booleans,
+    # so leaving it unregistered would have hidden the rung's kill switch from the
+    # audit that exists to enumerate rung decisions.
     _ConfigRule(
         _exact(
+            "diagnostic_augmentation.sampling_enabled",
             "diagnostic_augmentation.sample_count",
             "diagnostic_augmentation.history_limit",
         ),
         "decision",
         "constraint",
-        "C3 independent diagnosis-call count and C4 same-surface history bound; "
-        "each rung has a persisted hypothesis and revert criterion.",
+        "C3 independent diagnosis-call switch/count and C4 same-surface history "
+        "bound; each rung has a persisted hypothesis and revert criterion.",
     ),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
@@ -1169,28 +1174,50 @@ def _freeze_catchall_rule() -> frozenset[str]:
 CATCHALL_SNAPSHOT: frozenset[str] = _freeze_catchall_rule()
 
 
+def _register_config_path(path: str) -> bool:
+    """Register one config leaf from its classification rule. False if unclassified."""
+
+    if path in REGISTRY:
+        return True
+    rule = classify_config_path(path)
+    if rule is None:
+        # Deliberately NOT registered: the audit reports it as unclassified.
+        return False
+    register(
+        ParameterSpec(
+            path=path,
+            kind=rule.kind,
+            param_class=rule.param_class,
+            owner="config",
+            rationale=rule.rationale,
+            default_status=rule.status,
+            default_lifecycle=rule.lifecycle,
+            source_of_value="config",
+            promotion_gate=rule.gate if rule.kind == "decision" else None,
+            bind_site=rule.bind_site,
+        )
+    )
+    return True
+
+
+#: Boolean config leaves that are DECISIONS, not structure. Inventory A walks
+#: numeric leaves only (``config_numeric_leaves`` skips bools), so a flag that
+#: switches a rung on and off -- the thing a revert flips -- would otherwise never
+#: reach the registry at all. Enumerated rather than swept: most config booleans
+#: really are structural, and a blanket bool sweep would bury these among them.
+BOOLEAN_DECISION_LEAVES: tuple[str, ...] = (
+    "diagnostic_augmentation.sampling_enabled",
+)
+
+
 def _build_config_specs() -> None:
     for path in sorted(config_numeric_leaves().keys()):
-        if path in REGISTRY:
-            continue
-        rule = classify_config_path(path)
-        if rule is None:
-            # Deliberately NOT registered: the audit reports it as unclassified.
-            continue
-        register(
-            ParameterSpec(
-                path=path,
-                kind=rule.kind,
-                param_class=rule.param_class,
-                owner="config",
-                rationale=rule.rationale,
-                default_status=rule.status,
-                default_lifecycle=rule.lifecycle,
-                source_of_value="config",
-                promotion_gate=rule.gate if rule.kind == "decision" else None,
-                bind_site=rule.bind_site,
+        _register_config_path(path)
+    for path in BOOLEAN_DECISION_LEAVES:
+        if not _register_config_path(path):
+            raise RuntimeError(
+                f"boolean decision leaf {path} has no classification rule"
             )
-        )
 
 
 _build_config_specs()

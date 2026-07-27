@@ -509,7 +509,9 @@ def evaluate_attempt_intervention_followup(
     maybe_reprobe_for_predictive_failure(
         vault, repository, result.learning_object_id, clock=clock
     )
-    _run_causal_orchestrator_hooks(vault, repository, result, clock=clock)
+    _run_causal_orchestrator_hooks(
+        vault, repository, result, session_id=session_id, clock=clock
+    )
 
     debug_payload = result.debug_payload or {}
     facet_targets = _facet_targets_from_debug(debug_payload)
@@ -569,6 +571,7 @@ def _run_causal_orchestrator_hooks(
     repository: Repository,
     result: Any,
     *,
+    session_id: str | None = None,
     clock: Clock | None = None,
 ) -> None:
     """Live-path P2 hooks: the machine-check producer and cold verification.
@@ -649,6 +652,82 @@ def _run_causal_orchestrator_hooks(
             result.attempt_id,
             exc_info=True,
         )
+    try:
+        _consult_common_repair(
+            vault, repository, result, session_id=session_id, clock=clock
+        )
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        logger.warning(
+            "common-repair consultation failed for attempt %s",
+            result.attempt_id,
+            exc_info=True,
+        )
+
+
+def _consult_common_repair(
+    vault: LoadedVault,
+    repository: Repository,
+    result: Any,
+    *,
+    session_id: str | None,
+    clock: Clock | None,
+) -> None:
+    """Journey B delivery: consult the repair lane once, post-attempt.
+
+    ``decide_probe``'s ``skip_common_repair`` / ``skip_action_equivalent`` arms
+    were reachable only from a learner-initiated read ("Teach me now", the
+    Repair screen), so a factor whose plausible causes share one repair produced
+    no recommendation anywhere — ambiguity never forced a question because the
+    lane was never consulted at all. This consults it exactly once per attempt
+    that leaves an open factor with a NON-divergent cause set; the decision
+    receipt it records is what the feedback surface then reads, so re-viewing
+    feedback never re-decides. Divergent and incomplete-mapping factors stay
+    learner-initiated: those are the shapes where the surface already offers
+    the probe/hold flow, and a machine-initiated read would duplicate it.
+
+    Read-only by construction (``start_repair=False``): no episode is minted,
+    no probe is offered, and every existing gate is inside ``decide_probe``.
+    """
+
+    if not repository.unresolved_cause_factors_for_attempt(result.attempt_id):
+        return
+
+    from learnloop.services.causal_attribution import causal_episode_for_attempt
+    from learnloop.services.causal_orchestrator import (
+        CausalRepairError,
+        causal_repair_status,
+    )
+
+    episode = causal_episode_for_attempt(repository, result.attempt_id)
+    if not episode:
+        return
+    need = episode.get("probe_need")
+    # A receipt that already states divergence (or a machine-owed mapping) is
+    # the shape the feedback surface's own learner-initiated read handles;
+    # consulting here too would duplicate its receipt. A missing probe_need
+    # (no diagnosis receipt) is not a refusal — the orchestrator is the
+    # divergence authority and every arm it can return fails safe.
+    if isinstance(need, dict) and (
+        need.get("divergent") or need.get("incomplete_repair_mapping")
+    ):
+        return
+    hypotheses = episode.get("hypotheses") or []
+    misconception_id = str((hypotheses[0] or {}).get("id") or "") if hypotheses else ""
+    if not misconception_id:
+        return
+    try:
+        causal_repair_status(
+            vault,
+            repository,
+            misconception_id=misconception_id,
+            session_id=session_id,
+            start_repair=False,
+            clock=clock,
+        )
+    except CausalRepairError:
+        # No candidate case (e.g. resolved between diagnosis and this hook):
+        # nothing is being held, so there is nothing to recommend.
+        return
 
 
 def _probe_unfamiliar_probability(

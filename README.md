@@ -19,10 +19,12 @@ FSRS scheduling, learner-aware misconception detection and remediation, and AI-a
 > instrument wave (conjunctive capstones, opportunistic trace evidence, the
 > clarification channel, discrimination profiles, contrast pairs, error hunts,
 > laddered stems), and the 15-metric scoreboard has producers. Stage 7 adds
-> blinded, cross-model planted-diagnosis evaluation, exact-corpus persona
-> realism licensing, and the live C1–C4 diagnosis augmentation ladder. Synthetic
-> scores remain unavailable to decisions until their realism and regression
-> matrix licenses pass.
+> blinded, cross-model planted-diagnosis evaluation, exact-corpus B1 realism
+> licensing, matcher/family-scoped authoring-gate licenses, and the C1–C4
+> diagnosis augmentation ladder (with C3 kept at its one-sample paid baseline
+> until a deliberate promotion trial).
+> Synthetic scores remain unavailable to decisions until their realism and
+> regression matrix licenses pass.
 
 ## What LearnLoop does
 

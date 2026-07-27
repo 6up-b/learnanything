@@ -1,0 +1,105 @@
+schema_version: 1
+id: pi_definition_vector_term_interpret_02
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+evidence_weights:
+  facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+criterion_facet_weights:
+  c1:
+    facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: The polynomial space P₂(R) has been declared a vector space over R, and 
+  p(t)=1−3t belongs to P₂(R). Explain why p may be called a vector, identify 
+  what its scalars are, and clarify why this terminology does not require p to 
+  be drawn as an arrow.
+expected_answer: A vector is any element of a vector space, so p is a vector 
+  because p∈P₂(R). The scalars are the real numbers because the scalar field is 
+  R. Calling p a vector refers to its membership and the vector-space structure;
+  it does not require the element to be a geometric arrow.
+difficulty: 0.45
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.71
+transfer_distance: 0.38
+scaffold_level: 0.03
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: nongeometric_vector_explanation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_vectors_must_be_arrows
+    hypothesis: Believes only geometric arrows or coordinate tuples can be 
+      vectors.
+    observable_signature: The polynomial p cannot be called a vector because it 
+      is a function rather than an arrow or tuple.
+    misconception_id:
+    facet_id: facet_an_element_of_a_vector_space_may_be_called_a_vec
+    fails_criteria:
+      - c1
+    distinguishing_features:
+      - restricts vectors to geometric or coordinate objects
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 4.0
+      description: Interprets p∈P₂(R) as making p a vector, distinguishes real 
+        scalars, and rejects an unnecessary geometric restriction.
+      tier: core
+      targets:
+        - facet: facet_an_element_of_a_vector_space_may_be_called_a_vec
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:03:00Z'
+updated_at: '2026-07-27T08:03:00Z'

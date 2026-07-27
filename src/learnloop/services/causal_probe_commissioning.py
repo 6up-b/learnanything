@@ -55,13 +55,28 @@ from learnloop.services.causal_probe_coherence import (
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 #: Stamped on every commissioning receipt so a stored outcome can be replayed
-#: against the policy that produced it.
-COMMISSIONING_POLICY_VERSION = "causal_probe_commissioning_v2"
+#: against the policy that produced it. v3: a factor may carry up to
+#: :data:`MAX_CANDIDATES_PER_FACTOR` non-rejected candidates when their
+#: instrument CLASSES differ — v2's one-candidate cap made the selector's
+#: 2+ ranking arm structurally unreachable (decision-value spec §6.1).
+COMMISSIONING_POLICY_VERSION = "causal_probe_commissioning_v3"
 
-#: How the pre-registered predictions were produced.  ``hypothesis_target_frame_v1``
-#: runs no model; ``injected_generator`` means a caller supplied one, and the
-#: bundle records the model revision it came from.
-PREDICTION_BASES = ("hypothesis_target_frame_v1", "injected_generator")
+#: Hard cap on non-rejected candidates per factor. Two, not more: the second
+#: exists so candidate RANKING is evaluable at all; a wider pool is authoring
+#: spend no readiness report has yet justified. Constraint decision parameter.
+MAX_CANDIDATES_PER_FACTOR = 2
+
+#: How the pre-registered predictions were produced.  The target-frame bases
+#: run no model; ``injected_generator`` means a caller supplied one, and the
+#: bundle records the model revision it came from.  v2 emits a UNIFORM key
+#: schema plus an explicit H_OTHER disposition (§6.2 arm B); v1 bundles remain
+#: readable and stay arm C — correct, not a bug, since their key schemas
+#: differ by target set.
+PREDICTION_BASES = (
+    "hypothesis_target_frame_v1",
+    "hypothesis_target_frame_v2_uniform_keys",
+    "injected_generator",
+)
 
 #: Every terminal state of one commissioning attempt.  A typed outcome per
 #: reason, because "no instrument" has at least six different remedies and an
@@ -94,6 +109,10 @@ COMMISSIONING_OUTCOMES = (
     "pending_adversarial_review",
     # The candidate item's measurement targets are not independently compiled.
     "measurement_contract_rejected",
+    # An explicit candidate item was passed whose instrument class duplicates an
+    # existing non-rejected candidate's class. A second candidate exists to make
+    # ranking evaluable; a same-class twin adds nothing to separability.
+    "duplicate_instrument_class",
 )
 
 _ALGORITHM_VERSION = COMMISSIONING_POLICY_VERSION
@@ -214,6 +233,13 @@ def make_target_generator(
                 values[f"criterion:{criterion_id}:passed"] = False
                 values[f"criterion:{criterion_id}:full_credit"] = False
             else:
+                # Uniform key schema (decision-value spec §6.2 arm B): the
+                # complement declares BOTH keys too, so every hypothesis in the
+                # frame emits over one identical key set and the bundle set can
+                # form an exact declared-emission partition. v1 emitted only
+                # `full_credit` here, which made the key schema differ by
+                # target set and kept every bundle cohort at arm C.
+                values[f"criterion:{criterion_id}:passed"] = True
                 values[f"criterion:{criterion_id}:full_credit"] = True
                 complement.append(criterion_id)
         keys = sorted(values)
@@ -221,11 +247,23 @@ def make_target_generator(
             "feature_rows": [
                 {"keys": keys, "values": {key: values[key] for key in keys}}
             ],
-            "prediction_basis": "hypothesis_target_frame_v1",
+            "prediction_basis": "hypothesis_target_frame_v2_uniform_keys",
             "frame_criterion_ids": in_frame,
             "targeted_criteria": sorted(targets & observable),
             "complement_criteria": complement,
             "unobservable_criteria": dropped,
+            # The open-set arm carries prior mass but no declared emission; an
+            # exact partition must EXCLUDE it formally, never by omission. This
+            # declaration is what lets the shadow adapter treat the partition
+            # as conditional-on-concrete with the excluded mass stamped.
+            "open_set_disposition": {
+                "label": "other_or_unknown",
+                "disposition": "excluded_no_declared_emission",
+                "note": (
+                    "H_OTHER predicts nothing; classification falls to the "
+                    "no-match/open-set arm and never promotes a hypothesis"
+                ),
+            },
         }
 
     return generate
@@ -241,6 +279,25 @@ def _is_diagnostic_item(item: PracticeItem) -> bool:
         return True
     allowed = getattr(item, "attempt_types_allowed", None) or []
     return "diagnostic_probe" in {str(value) for value in allowed}
+
+
+def probe_instrument_class(item: PracticeItem) -> str:
+    """The instrument CLASS an item would serve as, for the multiplicity cap.
+
+    Derived from the item's own structural contracts (Stage-6 instrument
+    classes), never from prose: an error hunt, a laddered-stem member, and a
+    contrast-pair member measure through different mechanisms, so a second
+    candidate in a DIFFERENT class can separate hypotheses a same-class twin
+    cannot. Everything else is one class of constructed diagnostic.
+    """
+
+    if getattr(item, "error_hunt", None) is not None:
+        return "error_hunt"
+    if getattr(item, "laddered_stem", None) is not None:
+        return "laddered_stem"
+    if getattr(item, "contrast_of", None):
+        return "contrast_pair"
+    return "constructed_diagnostic"
 
 
 def candidate_probe_items(
@@ -379,24 +436,44 @@ def commission_probe_instrument(
         for value in repository.causal_probe_candidates_for_factor(factor_id)
         if candidate_has_current_blind_input_contract(value)
     ]
-    if any(value.get("status") == "active" for value in existing):
-        return _result(
-            "already_available",
-            candidate_ids=[
-                str(value["id"]) for value in existing if value.get("status") == "active"
-            ],
-        )
-    pending = [
+    nonterminal = [
         value
         for value in existing
-        if value.get("status") in {"candidate", "registered", "reviewed"}
+        if value.get("status") in {"candidate", "registered", "reviewed", "active"}
     ]
-    if pending:
+    active_existing = [
+        value for value in nonterminal if value.get("status") == "active"
+    ]
+    pending = [value for value in nonterminal if value.get("status") != "active"]
+
+    def _saturated() -> dict[str, Any]:
+        if active_existing:
+            return _result(
+                "already_available",
+                candidate_ids=[str(value["id"]) for value in active_existing],
+            )
         return _result(
             "already_pending_review",
             candidate_ids=[str(value["id"]) for value in pending],
             statuses=sorted(str(value["status"]) for value in pending),
         )
+
+    # v3 multiplicity: one candidate per instrument CLASS, at most
+    # MAX_CANDIDATES_PER_FACTOR per factor. A single existing candidate no
+    # longer saturates the factor — v2's cap made a 2+ feasible set (and
+    # therefore any candidate ranking) structurally unreachable.
+    existing_classes: set[str] = set()
+    if nonterminal:
+        if len(nonterminal) >= MAX_CANDIDATES_PER_FACTOR:
+            return _saturated()
+        for value in nonterminal:
+            item = vault.practice_items.get(str(value.get("practice_item_id") or ""))
+            if item is None:
+                # The existing candidate's class cannot be established, so a
+                # second mint cannot be shown to add class diversity; the
+                # conservative arm is the old single-candidate behavior.
+                return _saturated()
+            existing_classes.add(probe_instrument_class(item))
 
     if str(factor.get("status") or "") != "open":
         return _result("factor_not_probeable", reason="factor_is_not_open")
@@ -434,7 +511,18 @@ def commission_probe_instrument(
             learning_object_id=learning_object_id,
             exclude_item_ids=[source_item_id],
         )
+        if existing_classes:
+            available = [
+                item
+                for item in available
+                if probe_instrument_class(item) not in existing_classes
+            ]
         if not available:
+            if nonterminal:
+                # A second candidate is warranted only when it adds a NEW
+                # instrument class; with none available the factor keeps its
+                # existing single candidate.
+                return _saturated()
             return _result(
                 "no_candidate_item",
                 learning_object_id=learning_object_id,
@@ -445,6 +533,12 @@ def commission_probe_instrument(
         candidate_item = vault.practice_items.get(str(candidate_practice_item_id))
         if candidate_item is None:
             raise ValueError("candidate practice item does not exist")
+        if probe_instrument_class(candidate_item) in existing_classes:
+            return _result(
+                "duplicate_instrument_class",
+                instrument_class=probe_instrument_class(candidate_item),
+                candidate_ids=[str(value["id"]) for value in nonterminal],
+            )
     candidate_item_id = str(candidate_item.id)
     rubric = vault.rubric_for_item(candidate_item)
     trace_contract = getattr(candidate_item, "trace_contract", None)
@@ -472,10 +566,10 @@ def commission_probe_instrument(
     prediction_basis = (
         "injected_generator"
         if blind_generator is not None
-        else "hypothesis_target_frame_v1"
+        else "hypothesis_target_frame_v2_uniform_keys"
     )
     revision = model_revision or (
-        "deterministic_hypothesis_target_v1"
+        "deterministic_hypothesis_target_v2"
         if blind_generator is None
         else "unspecified"
     )

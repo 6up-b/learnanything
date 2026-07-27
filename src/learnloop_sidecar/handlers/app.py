@@ -82,3 +82,69 @@ def get_runtime_health(ctx: SidecarContext, _params) -> dict[str, Any]:
 def get_config(ctx: SidecarContext, _params) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     return config_dto(vault)
+
+
+#: One SQL round trip per nav badge. Deliberately NOT routed through the screens'
+#: own loaders: ``get_proposals`` materializes and DTO-serializes every item,
+#: ``maintenance_feed`` *regenerates and writes* the whole feed, and
+#: ``get_measurement_health`` runs reachability plus the scoreboard. All three are
+#: fine when a screen is open and far too heavy to hang off a nav bar. These are
+#: indexed or small-table counts, so the badge stays a count and never becomes a
+#: reason to avoid opening the tab.
+_BADGE_COUNT_QUERIES: dict[str, str] = {
+    # Proposals tab.
+    "pending_proposals": """
+        SELECT COUNT(*) FROM proposed_patch_items WHERE decision = 'pending'
+    """,
+    # Maintain tab, four independent queues.
+    "unreviewed_probe_candidates": """
+        SELECT COUNT(*) FROM causal_probe_candidates
+        WHERE status IN ('candidate', 'registered')
+    """,
+    "open_source_conflicts": """
+        SELECT COUNT(*) FROM source_conflicts WHERE status = 'open'
+    """,
+    "action_needed_notices": """
+        SELECT COUNT(*) FROM maintenance_notices
+        WHERE status IN ('active', 'snoozed') AND severity = 'action_needed'
+    """,
+    "pending_clarifications": """
+        SELECT COUNT(*) FROM grading_clarifications c
+        LEFT JOIN grading_clarification_responses r ON r.clarification_id = c.id
+        WHERE r.id IS NULL
+    """,
+}
+
+#: Which Maintain-tab queues roll up into that tab's single badge. Proposals gets
+#: its own count and is excluded here so one pending item is never counted twice.
+_MAINTAIN_BADGE_KEYS: tuple[str, ...] = (
+    "unreviewed_probe_candidates",
+    "open_source_conflicts",
+    "action_needed_notices",
+    "pending_clarifications",
+)
+
+
+@method("get_review_counts")
+def get_review_counts(ctx: SidecarContext, _params) -> dict[str, Any]:
+    """Counts behind the nav-tab badges: what is waiting on the learner.
+
+    Kept separate from ``load_vault`` on purpose. The Rust file watcher re-embeds
+    a whole ``app_snapshot`` on a full refresh, so a count folded into that
+    snapshot would have to be recomputed on every vault file change; as its own
+    method the frontend can refresh badges on exactly the events that can change
+    them without making unrelated vault edits pay for the queries.
+    """
+
+    _vault, repository = ctx.require_vault()
+    counts: dict[str, int] = {}
+    with repository.connection() as connection:
+        for name, query in _BADGE_COUNT_QUERIES.items():
+            counts[name] = int(connection.execute(query).fetchone()[0])
+    return versioned(
+        {
+            **counts,
+            "proposals_badge": counts["pending_proposals"],
+            "maintain_badge": sum(counts[key] for key in _MAINTAIN_BADGE_KEYS),
+        }
+    )

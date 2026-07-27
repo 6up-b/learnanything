@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_axiom_order_probe
+learning_object_id: lo_operations_and_the_vector_space_axiom_checklist
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_vector_addition_must_be_commutative_and_associat
+evidence_weights:
+  facet_vector_addition_must_be_commutative_and_associat: 1.0
+criterion_facet_weights:
+  criterion_select_commutativity:
+    facet_vector_addition_must_be_commutative_and_associat: 1.0
+  criterion_supply_order_witness:
+    facet_vector_addition_must_be_commutative_and_associat: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: commutativity_counterexample
+      checkpoints:
+        - select_required_law
+        - evaluate_reversed_inputs
+        - reject_candidate
+      dependencies:
+        evaluate_reversed_inputs:
+          - select_required_law
+        reject_candidate:
+          - evaluate_reversed_inputs
+        select_required_law: []
+variant_contract:
+teach_back_source:
+prompt: On V=R, proposed vector addition is u⊕v=u+2v. You want the shortest 
+  decisive audit rather than a full checklist. Name the addition law you would 
+  test first and give one concrete calculation that settles whether this can be 
+  vector addition in a real vector space.
+expected_answer: Test commutativity first. For example, 0⊕1=2, while 1⊕0=1. Thus
+  0⊕1≠1⊕0, so the proposed addition is not commutative and cannot be the 
+  addition of a real vector space.
+difficulty: 0.5
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - axiom-audit
+  - method-selection
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.61
+scaffold_level: 0.05
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: order_sensitive_operation_certificate
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_closure_suffices_axiom_probe
+    hypothesis: Believes that an everywhere-defined operation with outputs in V 
+      is automatically valid vector addition.
+    observable_signature: The rule always returns a real number, so it is valid 
+      vector addition.
+    misconception_id:
+    facet_id: facet_vector_addition_must_be_commutative_and_associat
+    fails_criteria:
+      - criterion_select_commutativity
+      - criterion_supply_order_witness
+    distinguishing_features:
+      - treats closure as sufficient
+      - does not test an addition law
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_vector_addition_must_be_commutative_and_associat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_select_commutativity
+      points: 2.0
+      description: Selects commutativity as a decisive required law to test.
+      tier: core
+      targets:
+        - facet: facet_vector_addition_must_be_commutative_and_associat
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_supply_order_witness
+      points: 2.0
+      description: Computes a reversed-order pair whose outputs differ and draws
+        the correct rejection conclusion.
+      tier: core
+      targets:
+        - facet: facet_vector_addition_must_be_commutative_and_associat
+          capability: method_selection
+          role: primary
+      depends_on:
+        - criterion_select_commutativity
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:51:54Z'
+updated_at: '2026-07-27T08:51:54Z'

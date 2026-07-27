@@ -459,6 +459,47 @@ export function SectionHeader({ children, style = {} }: { children: ReactNode; s
   );
 }
 
+/** Cyan plain-language callout used by `learnloop show` explanations and
+ * learner-facing grader prose. Keeping it here prevents those two surfaces from
+ * drifting into different visual meanings for the same presentation element. */
+export function PlainEnglishPanel({
+  children,
+  label = "plain english",
+  style = {},
+}: {
+  children: ReactNode;
+  label?: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        background: COLOR.bgElev,
+        border: `1px solid ${COLOR.border}`,
+        borderLeft: `2px solid ${COLOR.cyan}`,
+        fontSize: 12,
+        lineHeight: 1.6,
+        color: COLOR.text,
+        ...style,
+      }}
+    >
+      <div
+        style={{
+          color: COLOR.cyan,
+          fontSize: 10,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function DisclosureHeader({
   open,
   onToggle,

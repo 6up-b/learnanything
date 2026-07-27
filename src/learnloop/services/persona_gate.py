@@ -91,6 +91,8 @@ together, giving both members the same verdict.
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, Iterable, Mapping, Sequence
@@ -98,13 +100,46 @@ from typing import Any, Iterable, Mapping, Sequence
 from learnloop.db.repositories import Repository
 from learnloop.services.diagnostic_gate import normalize_answer
 from learnloop.services.discrimination_profiles import payload_profiles
+from learnloop.services.persona_realism import PERSONA_REALISM_MATCHER_VERSION
 from learnloop.services.scoreboard import Metric
 from learnloop.vault.models import LoadedVault
+
+logger = logging.getLogger(__name__)
 
 #: Stamped into every audit record so a later reader can tell which harness
 #: version produced a verdict (the gate's semantics are expected to change when
 #: B2 lands and the plain-practice tier is promoted).
 PERSONA_GATE_VERSION = "persona_gate_v2_realism_licensed"
+
+#: The B2 persona corpus this gate's authored personas belong to.
+PERSONA_GATE_REALISM_SOURCE = "authored_signature"
+
+
+class RealismLicenseStatus(StrEnum):
+    """Why a row's pass is (or is not) B2-licensed -- persisted in the audit.
+
+    Every value except :data:`LICENSED` means "not licensed", but they are not the
+    same fact and a reader must not have to guess which one happened. In
+    particular :data:`LOOKUP_FAILED` (the B2 ledger could not be read) is a repo
+    fault, not evidence about realism, and it used to be indistinguishable from
+    :data:`NO_RUN` because the lookup swallowed every exception.
+    """
+
+    #: No repository was supplied, so B2 was never consulted.
+    UNCHECKED = "unchecked"
+    #: The ledger was read and holds no authored-signature run at all.
+    NO_RUN = "no_run"
+    #: A run exists, but none matching this gate's scope (matcher version +
+    #: generator family) says ``indistinguishable``.
+    UNLICENSED_SCOPE = "unlicensed_scope"
+    #: A scoped run says the personas are indistinguishable from real traces.
+    LICENSED = "licensed"
+    #: The latest authored-signature run separated personas from real traces.
+    SEPARABLE = "separable"
+    #: Migration 144 has not been applied to this vault (no ledger to read).
+    LEDGER_ABSENT = "ledger_absent"
+    #: The ledger exists but could not be read. NOT a realism verdict.
+    LOOKUP_FAILED = "lookup_failed"
 
 
 # ---------------------------------------------------------------------------
@@ -925,6 +960,7 @@ class PersonaGateOutcome:
     target_facets: tuple[str, ...] = ()
     persona_realism_validated: bool = False
     persona_realism_run_id: str | None = None
+    persona_realism_status: RealismLicenseStatus = RealismLicenseStatus.UNCHECKED
 
     @property
     def gated(self) -> bool:
@@ -952,6 +988,7 @@ class PersonaGateOutcome:
             # a pre-B2 pass for diagnostic validity.
             "persona_realism_validated": self.persona_realism_validated,
             "persona_realism_run_id": self.persona_realism_run_id,
+            "persona_realism_status": str(self.persona_realism_status),
             "verdict": self.verdict.as_dict() if self.verdict is not None else None,
         }
 
@@ -1066,53 +1103,158 @@ class PersonaGate:
         self.outcomes.append(outcome)
         self._record(row, outcome)
 
+    def persona_generator_family(self) -> str | None:
+        """B3 family identity of whatever authored the personas being gated.
+
+        The authoring client is the gate's client: ``practice_generation`` hands
+        the same Codex client that wrote the candidates. ``None`` means the gate
+        cannot name the family, and an unnamed family can never be licensed --
+        promotion to HARD is a claim about a specific generator's output.
+        """
+
+        client = self._grading_client
+        if client is None:
+            return None
+        provider = getattr(client, "provider_name", None)
+        model = getattr(client, "model", None)
+        if not provider and not model:
+            return None
+        from learnloop.services.diagnostic_augmentation import model_family
+
+        return model_family(provider, model)
+
+    def _licenses_this_gate(self, row: Mapping[str, Any]) -> bool:
+        """Is this B2 run a license for the material THIS gate is judging?
+
+        Scoped on what an authored-signature run actually records:
+
+        * ``matcher_version`` -- a verdict is a property of the matcher that
+          produced it. A run from a retired matcher does not license today's gate.
+        * ``generator_family`` -- B2 says "personas from generator X are
+          indistinguishable from real traces". It says nothing about generator Y.
+
+        RESIDUAL GAP (typed deliberately, not an oversight): the authored-signature
+        corpus hash is NOT bound. ``persona_realism`` hashes the exact traces it
+        scored, but the gate builds its personas per row via ``build_personas`` and
+        never registers that corpus with B2, so there is nothing to compare against.
+        A license therefore still covers a generator family rather than the specific
+        personas in front of it, and corpus drift within a family goes undetected
+        until the next B2 run. Closing it means plumbing the gate's persona corpus
+        into a B2 run (and re-running B2 when authored personas change), which is a
+        substrate change rather than a scoping fix.
+        """
+
+        if str(row.get("matcher_version") or "") != PERSONA_REALISM_MATCHER_VERSION:
+            return False
+        family = self.persona_generator_family()
+        if family is None:
+            return False
+        return str(row.get("generator_family") or "") == family
+
+    def _authored_signature_runs(
+        self, outcome: PersonaGateOutcome
+    ) -> tuple[list[Mapping[str, Any]], PersonaGateOutcome | None]:
+        """Read the B2 ledger. The second element is a short-circuit outcome."""
+
+        assert self._repository is not None
+        try:
+            rows = self._repository.persona_realism_run_rows(
+                persona_source=PERSONA_GATE_REALISM_SOURCE
+            )
+        except sqlite3.OperationalError as exc:
+            # Distinguish "this vault predates migration 144" from "the ledger is
+            # broken". Both withhold the license, but only one is a fault.
+            if "no such table" in str(exc).lower():
+                logger.debug("persona realism ledger absent: %s", exc)
+                return [], replace(
+                    outcome,
+                    persona_realism_status=RealismLicenseStatus.LEDGER_ABSENT,
+                )
+            logger.warning("persona realism license lookup failed: %s", exc)
+            return [], replace(
+                outcome, persona_realism_status=RealismLicenseStatus.LOOKUP_FAILED
+            )
+        except sqlite3.Error as exc:
+            logger.warning("persona realism license lookup failed: %s", exc)
+            return [], replace(
+                outcome, persona_realism_status=RealismLicenseStatus.LOOKUP_FAILED
+            )
+        return list(rows), None
+
     def _apply_realism_license(
         self, outcome: PersonaGateOutcome
     ) -> PersonaGateOutcome:
-        """B2 licenses a pass, or invalidates it when personas are separable."""
+        """B2 licenses a pass, or invalidates it when personas are separable.
+
+        A license is SCOPED (see :meth:`_licenses_this_gate`): one
+        ``indistinguishable`` run does not promote every authored-signature gate
+        forever. Invalidation is deliberately NOT scoped -- if the newest run
+        separated personas from real traces at all, the gate's whole premise is in
+        doubt and withholding a pass is the fail-closed direction.
+        """
 
         if self._repository is None:
-            return outcome
-        try:
-            realism = self._repository.latest_persona_realism_run(
-                persona_source="authored_signature"
+            return replace(
+                outcome, persona_realism_status=RealismLicenseStatus.UNCHECKED
             )
-        except Exception:  # pragma: no cover - pre-144/diagnostic-only repo
-            return outcome
-        if not realism:
-            return outcome
-        run_id = str(realism.get("id") or "") or None
-        verdict = str(realism.get("verdict") or "")
-        if verdict == "indistinguishable":
-            promoted_tier = (
-                GateTier.HARD
-                if outcome.tier is GateTier.ADVISORY
-                else outcome.tier
+        rows, short_circuit = self._authored_signature_runs(outcome)
+        if short_circuit is not None:
+            return short_circuit
+        if not rows:
+            return replace(
+                outcome, persona_realism_status=RealismLicenseStatus.NO_RUN
             )
-            promoted_decision = (
+        latest = rows[-1]
+        latest_id = str(latest.get("id") or "") or None
+        if str(latest.get("verdict") or "") == "separable":
+            if outcome.decision is not GateDecision.PASS:
+                return replace(
+                    outcome,
+                    persona_realism_run_id=latest_id,
+                    persona_realism_status=RealismLicenseStatus.SEPARABLE,
+                )
+            decision = (
                 GateDecision.BLOCK
-                if outcome.decision is GateDecision.FLAG_FOR_REVIEW
-                else outcome.decision
+                if outcome.tier is GateTier.HARD
+                else GateDecision.FLAG_FOR_REVIEW
             )
             return replace(
                 outcome,
-                tier=promoted_tier,
-                decision=promoted_decision,
-                persona_realism_validated=True,
-                persona_realism_run_id=run_id,
+                decision=decision,
+                reason=PersonaGateReason.PERSONA_REALISM_SEPARABLE,
+                persona_realism_run_id=latest_id,
+                persona_realism_status=RealismLicenseStatus.SEPARABLE,
             )
-        if verdict != "separable" or outcome.decision is not GateDecision.PASS:
-            return replace(outcome, persona_realism_run_id=run_id)
-        decision = (
+        # The NEWEST in-scope run decides, not the newest one that happens to say
+        # yes: a later run that came back ``insufficient_data`` (or otherwise
+        # non-affirmative) leaves the gate unlicensed rather than letting an older
+        # affirmative verdict stand in for a measurement that was not made.
+        scoped = [row for row in rows if self._licenses_this_gate(row)]
+        license_row = scoped[-1] if scoped else None
+        if (
+            license_row is None
+            or str(license_row.get("verdict") or "") != "indistinguishable"
+        ):
+            return replace(
+                outcome,
+                persona_realism_run_id=latest_id,
+                persona_realism_status=RealismLicenseStatus.UNLICENSED_SCOPE,
+            )
+        promoted_tier = (
+            GateTier.HARD if outcome.tier is GateTier.ADVISORY else outcome.tier
+        )
+        promoted_decision = (
             GateDecision.BLOCK
-            if outcome.tier is GateTier.HARD
-            else GateDecision.FLAG_FOR_REVIEW
+            if outcome.decision is GateDecision.FLAG_FOR_REVIEW
+            else outcome.decision
         )
         return replace(
             outcome,
-            decision=decision,
-            reason=PersonaGateReason.PERSONA_REALISM_SEPARABLE,
-            persona_realism_run_id=run_id,
+            tier=promoted_tier,
+            decision=promoted_decision,
+            persona_realism_validated=True,
+            persona_realism_run_id=str(license_row.get("id") or "") or None,
+            persona_realism_status=RealismLicenseStatus.LICENSED,
         )
 
     def _judge_contrast_pair(

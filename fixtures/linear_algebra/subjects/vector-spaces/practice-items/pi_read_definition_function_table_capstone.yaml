@@ -1,0 +1,151 @@
+schema_version: 1
+id: pi_read_definition_function_table_capstone
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+  - facet_a_vector_space_is_a_set_with_addition_and_scalar
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_addition_and_scalar: 0.33
+  facet_an_addition_on_a_set_assigns_an_element_of_the_s: 0.34
+  facet_an_element_of_a_vector_space_may_be_called_a_vec: 0.33
+criterion_facet_weights:
+  crit_capstone_addition:
+    facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+  crit_capstone_scalar:
+    facet_a_vector_space_is_a_set_with_addition_and_scalar: 1.0
+  crit_capstone_vector_term:
+    facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_function_space_definition_capstone
+      checkpoints:
+        - interpret_addition
+        - execute_scalar_action
+        - interpret_vector_term
+      dependencies:
+        execute_scalar_action: []
+        interpret_addition: []
+        interpret_vector_term:
+          - interpret_addition
+          - execute_scalar_action
+variant_contract:
+teach_back_source:
+prompt: 'Let V be the real-valued functions on [0,1], with pointwise addition and
+  pointwise scalar multiplication. Let f(t)=t² and g(t)=1−t². Write a compact three-row
+  record containing: the addition mapping type and (f+g)(t); the scalar-multiplication
+  mapping type and ((−3)f)(t); and the standard name for f as an element of V, with
+  one sentence explaining why that name does not assert that f is an arrow.'
+expected_answer: 'Addition: V×V→V, and (f+g)(t)=f(t)+g(t)=1. Scalar multiplication:
+  R×V→V, and ((−3)f)(t)=−3t². Since f∈V and V is a vector space, f is called a vector;
+  here “vector” means an element of the vector space and does not require a geometric
+  arrow.'
+difficulty: 0.54
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - capstone
+  - function-space
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.75
+transfer_distance: 0.42
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: function_operation_record_capstone
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_vector_requires_arrow
+    hypothesis: Believes an element can be called a vector only when it is 
+      represented as a geometric arrow or coordinate tuple.
+    observable_signature: Refuses to call f a vector because f is a function 
+      rather than an arrow or tuple.
+    misconception_id:
+    facet_id: facet_an_element_of_a_vector_space_may_be_called_a_vec
+    fails_criteria:
+      - crit_capstone_vector_term
+    distinguishing_features:
+      - denies vector terminology for functions
+      - requires geometric representation
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+  - facet_a_vector_space_is_a_set_with_addition_and_scalar
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_capstone_addition
+      points: 1.5
+      description: Writes V×V→V and correctly computes the pointwise sum.
+      tier: core
+      targets:
+        - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_capstone_scalar
+      points: 1.5
+      description: Writes R×V→V and correctly computes the scalar multiple.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_capstone_vector_term
+      points: 1.0
+      description: Explains that f is a vector because it is an element of V, 
+        without imposing geometric form.
+      tier: core
+      targets:
+        - facet: facet_an_element_of_a_vector_space_may_be_called_a_vec
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit_capstone_addition
+        - crit_capstone_scalar
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:18Z'
+updated_at: '2026-07-27T08:36:18Z'

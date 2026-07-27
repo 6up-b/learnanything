@@ -153,6 +153,9 @@ export function GoalBanner({
   const [atRiskError, setAtRiskError] = useState<string | null>(null);
 
   const [exam, setExam] = useState<ExamStatusSnapshot | null>(null);
+  // Tracked separately from `exam === null` so a failed status read is never read
+  // as "the exam pool is deferred" — those are different facts about the goal.
+  const [examStatusFailed, setExamStatusFailed] = useState(false);
   const [celebrateCount, setCelebrateCount] = useState<number | null>(null);
   const [editingIntent, setEditingIntent] = useState(false);
   const [intentDraft, setIntentDraft] = useState("");
@@ -200,16 +203,21 @@ export function GoalBanner({
   useEffect(() => {
     if (!goalId || !goal?.exam.enabled) {
       setExam(null);
+      setExamStatusFailed(false);
       return;
     }
     let cancelled = false;
     api
       .getExamStatus(goalId)
       .then((snap) => {
-        if (!cancelled) setExam(snap);
+        if (cancelled) return;
+        setExam(snap);
+        setExamStatusFailed(false);
       })
       .catch(() => {
-        if (!cancelled) setExam(null);
+        if (cancelled) return;
+        setExam(null);
+        setExamStatusFailed(true);
       });
     return () => {
       cancelled = true;
@@ -283,7 +291,13 @@ export function GoalBanner({
 
   const pace = report?.pace ?? null;
   const atRiskCount = report?.atRiskCount ?? 0;
-  const showExamButton = Boolean(onTakeExam && goal.exam.enabled && exam && exam.poolItemCount > 0);
+  // Three distinct exam states, never collapsed: ready (button), deferred (an
+  // inactive row that says *why*), and status-read-failed (silent, as before).
+  const examWanted = Boolean(onTakeExam && goal.exam.enabled && exam && !examStatusFailed);
+  const showExamButton = Boolean(examWanted && exam && exam.poolItemCount > 0);
+  const examDeferred = Boolean(examWanted && !showExamButton && exam?.reservationDeferred);
+  const examUncovered = exam?.uncoveredFacets ?? [];
+  const examUncoveredShown = examUncovered.slice(0, 3);
   const paceOverdue = (daysUntil(goal.dueAt) ?? 0) < 0;
   const paceZero = pace != null && (pace.attemptsLast14d <= 0 || pace.attemptsPerDay <= 0);
   const paceRemaining = report?.attemptsRemaining ?? pace?.attemptsRemaining ?? null;
@@ -719,6 +733,29 @@ export function GoalBanner({
               <button type="button" onClick={() => onTakeExam?.(goal.id)} style={btnStyle(COLOR.cyan)}>
                 take practice exam
               </button>
+            ) : examDeferred ? (
+              <span
+                title="a practice exam is held out of your normal queue — it needs spare coverage before it can reserve one"
+                style={{
+                  ...btnStyle(COLOR.textFaint),
+                  cursor: "default",
+                  fontWeight: 400,
+                  color: COLOR.textDim,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: 460
+                }}
+              >
+                exam not ready — {exam?.reservableCandidateCount ?? 0} reservable item
+                {(exam?.reservableCandidateCount ?? 0) === 1 ? "" : "s"}
+                {examUncoveredShown.length
+                  ? `; no held-out coverage yet for: ${examUncoveredShown.join(", ")}${
+                      examUncovered.length > examUncoveredShown.length
+                        ? ` +${examUncovered.length - examUncoveredShown.length} more`
+                        : ""
+                    }`
+                  : "; no held-out coverage yet"}
+              </span>
             ) : null}
             <span style={{ flex: 1 }} />
             <span onClick={onNewGoal} style={{ fontSize: 12, color: COLOR.textFaint, cursor: "pointer", alignSelf: "center", fontFamily: FONT_MONO }}>

@@ -1,0 +1,177 @@
+schema_version: 1
+id: pi_coordinate_batching_certificate
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+evidence_weights:
+  facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.33
+  facet_scalar_calculations_over_r_or_c_use_commutative_: 0.33
+  facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 0.34
+criterion_facet_weights:
+  criterion_choose_coordinate_method:
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+  criterion_name_scalar_basis:
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 1.0
+  criterion_write_coordinate_expansion:
+    facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.8
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 0.2
+trace_contract:
+  status: available
+  recipes:
+    - id: batched_coordinate_certificate
+      checkpoints:
+        - choose_coordinate_comparison
+        - expand_arbitrary_coordinate
+        - identify_scalar_law
+        - lift_to_vector_equality
+      dependencies:
+        choose_coordinate_comparison: []
+        expand_arbitrary_coordinate:
+          - choose_coordinate_comparison
+        identify_scalar_law:
+          - expand_arbitrary_coordinate
+        lift_to_vector_equality:
+          - expand_arbitrary_coordinate
+variant_contract:
+teach_back_source:
+prompt: 'A batching routine over F^n, with F=R or C, replaces (a+b)(x+y) by ax+ay+bx+by.
+  Give a compact certificate for this rewrite: state the proof method, write the decisive
+  equality for an arbitrary coordinate k, and name the scalar law that makes the equality
+  work.'
+expected_answer: Use a coordinate proof. For arbitrary k, 
+  [(a+b)(x+y)]_k=(a+b)(x_k+y_k)=ax_k+ay_k+bx_k+by_k=[ax+ay+bx+by]_k. The 
+  expansion uses distributivity of scalar multiplication over scalar addition 
+  (applied as the distributive laws in R or C), with associativity/commutativity
+  used only to regroup the four scalar terms. Since the kth coordinates agree 
+  for every k, the vectors are equal.
+difficulty: 0.52
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - coordinate-proof
+  - capstone
+  - method-selection
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.76
+transfer_distance: 0.62
+scaffold_level: 0.03
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: batch_rewrite_correctness_certificate
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_vector_equality_from_one_coordinate
+    hypothesis: Believes that checking one convenient coordinate is sufficient 
+      to prove equality of vectors in F^n.
+    observable_signature: At k=1, (a+b)(x_1+y_1)=ax_1+ay_1+bx_1+by_1, so the 
+      vectors are equal.
+    misconception_id:
+    facet_id: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+    fails_criteria:
+      - criterion_choose_coordinate_method
+      - criterion_write_coordinate_expansion
+    distinguishing_features:
+      - uses a fixed coordinate instead of arbitrary k
+      - omits the every-coordinate conclusion
+    source: authored
+  - id: profile_distributivity_replaced_by_associativity
+    hypothesis: Believes that associativity alone permits a product of sums to 
+      be expanded into four terms.
+    observable_signature: The equality (a+b)(x_k+y_k)=ax_k+ay_k+bx_k+by_k 
+      follows by associativity.
+    misconception_id:
+    facet_id: facet_scalar_calculations_over_r_or_c_use_commutative_
+    fails_criteria:
+      - criterion_name_scalar_basis
+    distinguishing_features:
+      - names associativity as the expansion law
+      - does not identify distributivity
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_choose_coordinate_method
+      points: 1.0
+      description: Selects comparison of an arbitrary coordinate as the proof 
+        method.
+      tier: core
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_write_coordinate_expansion
+      points: 2.0
+      description: Writes a correct arbitrary-coordinate equality connecting 
+        both vector expressions.
+      tier: core
+      targets:
+        - facet: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+          capability: method_selection
+          role: primary
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - criterion_choose_coordinate_method
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_name_scalar_basis
+      points: 1.0
+      description: Identifies scalar distributivity over R or C as the decisive 
+        law.
+      tier: core
+      targets:
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: method_selection
+          role: primary
+      depends_on:
+        - criterion_choose_coordinate_method
+        - criterion_write_coordinate_expansion
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:51:55Z'
+updated_at: '2026-07-27T08:51:55Z'

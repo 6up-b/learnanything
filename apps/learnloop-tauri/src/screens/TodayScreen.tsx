@@ -27,6 +27,7 @@ import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
+import type { AskTarget } from "../components/AskOverlay";
 
 const HOTKEYS = "123456789abcdef";
 
@@ -113,6 +114,8 @@ export function TodayScreen({
   gradingProvider = "codex",
   algorithmVersion,
   onOpenPractice,
+  onOpenPrimedPractice,
+  onAsk,
   onPaletteEntities,
   onEndSession,
   onInspect,
@@ -128,6 +131,8 @@ export function TodayScreen({
   gradingProvider?: string;
   algorithmVersion: string;
   onOpenPractice: (practiceItemId: string) => void;
+  onOpenPrimedPractice: (practiceItemId: string) => void;
+  onAsk: (target: AskTarget) => void;
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
   onEndSession: (summary: SessionEndSummary) => void;
   onInspect: (id: string) => void;
@@ -695,7 +700,11 @@ export function TodayScreen({
             )
           ) : null}
 
-          <QuestionQueuePanel onError={onError} />
+          <QuestionQueuePanel
+            onContinueDialogue={onAsk}
+            onOpenPrimedPractice={onOpenPrimedPractice}
+            onError={onError}
+          />
 
           <QueueRankingStrip algorithmVersion={algorithmVersion} />
         </div>
@@ -1062,6 +1071,15 @@ function SurpriseInsertionBanner({
   onOpen: (id: string) => void;
   onInspect: (id: string) => void;
 }) {
+  // A certification cold probe is a validity check on something the system
+  // already claimed — the opposite errand from a repair retry. Same banner,
+  // honest copy: don't tell the learner they tripped an intervention gate when
+  // what actually happened is we came back to audit a certification.
+  const coldProbe = followup.followupKind === "certification_cold_probe";
+  const heading = coldProbe
+    ? "validity check - held-out cold probe inserted"
+    : "intervention gate - diagnostic follow-up inserted";
+  const noun = coldProbe ? "cold probe" : "follow-up";
   return (
     <div
       style={{
@@ -1095,18 +1113,31 @@ function SurpriseInsertionBanner({
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11, color: COLOR.amber, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em" }}>
-          intervention gate - diagnostic follow-up inserted
+          {heading}
         </div>
         <div style={{ marginTop: 6, fontSize: 13, color: COLOR.text, lineHeight: 1.55 }}>
-          A diagnostic follow-up on{" "}
-          <EntityLink id={followup.practiceItemId} onInspect={onInspect}>
-            {followup.learningObjectTitle}
-          </EntityLink>{" "}
-          was queued after the latest attempt crossed an intervention trigger.
+          {coldProbe ? (
+            <>
+              A held-out check on{" "}
+              <EntityLink id={followup.practiceItemId} onInspect={onInspect}>
+                {followup.learningObjectTitle}
+              </EntityLink>
+              , a skill you certified — no prep, that&apos;s the point. It is here to test the
+              claim, not to repair it.
+            </>
+          ) : (
+            <>
+              A diagnostic follow-up on{" "}
+              <EntityLink id={followup.practiceItemId} onInspect={onInspect}>
+                {followup.learningObjectTitle}
+              </EntityLink>{" "}
+              was queued after the latest attempt crossed an intervention trigger.
+            </>
+          )}
         </div>
         <div style={{ marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: 11, alignItems: "center" }}>
           <span>
-            <Faint>follow-up</Faint> <Meta>{followup.practiceItemId}</Meta>
+            <Faint>{noun}</Faint> <Meta>{followup.practiceItemId}</Meta>
           </span>
           <span style={{ flex: 1 }} />
           <span
@@ -1122,7 +1153,7 @@ function SurpriseInsertionBanner({
               cursor: "pointer"
             }}
           >
-            open follow-up →
+            open {noun} →
           </span>
         </div>
       </div>

@@ -15,6 +15,7 @@ import type {
   ExamReadinessReportDto,
   MaintenanceNoticeDto,
   MaintenanceSeverity,
+  GenerateCommissioningPracticeResult,
   MeasurementHealthDto,
   SourceConflictDto,
   SourceSetSummaryDto,
@@ -68,11 +69,16 @@ const btn: CSSProperties = {
 export function MaintenanceScreen({
   subjects,
   onError,
-  onInspect
+  onInspect,
+  onOpenAdjudication
 }: {
   subjects: { id: string; title: string }[];
   onError: (message: string) => void;
   onInspect?: (id: string) => void;
+  // The diagnosis-adjudication overlay (§2 A4). Maintenance is where the owner
+  // already answers "what does the system owe me?", and unjudged diagnoses are
+  // one of those debts — the count is read count-only (limit 0).
+  onOpenAdjudication?: () => void;
 }) {
   const [subjectId, setSubjectId] = useState<string | null>(subjects[0]?.id ?? null);
   const [notices, setNotices] = useState<MaintenanceNoticeDto[]>([]);
@@ -80,7 +86,10 @@ export function MaintenanceScreen({
   const [readiness, setReadiness] = useState<ExamReadinessReportDto | null>(null);
   const [sourceSets, setSourceSets] = useState<SourceSetSummaryDto[]>([]);
   const [measurementHealth, setMeasurementHealth] = useState<MeasurementHealthDto | null>(null);
+  const [adjudicationOwed, setAdjudicationOwed] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [generatingPractice, setGeneratingPractice] = useState(false);
+  const [practiceRun, setPracticeRun] = useState<GenerateCommissioningPracticeResult | null>(null);
   const [append, setAppend] = useState<AppendResultDto | null>(null);
   const [openSpan, setOpenSpan] = useState<{
     extractionId: string;
@@ -100,6 +109,10 @@ export function MaintenanceScreen({
     api.getExamReadiness(subjectId).then((r) => setReadiness(r.report)).catch(reportError);
     api.listSourceSets().then((r) => setSourceSets(r.sourceSets)).catch(reportError);
     api.getMeasurementHealth().then(setMeasurementHealth).catch(reportError);
+    api
+      .adjudicationQueue({ limit: 0 })
+      .then((queue) => setAdjudicationOwed(queue.total))
+      .catch(() => setAdjudicationOwed(null));
   }, [subjectId, reportError]);
 
   useEffect(() => {
@@ -185,6 +198,27 @@ export function MaintenanceScreen({
     }
   };
 
+  // Deliberately NOT on the screen-wide `busy` flag: this one returns as soon as
+  // the batch is queued, while the cold-probe and backfill actions mutate state
+  // the screen re-reads. Sharing the flag would grey this button out for the
+  // length of an unrelated action.
+  const generateCommissioningPractice = async () => {
+    if (generatingPractice) return;
+    setGeneratingPractice(true);
+    try {
+      // No learning-object ids: the sidecar recomputes the commissioning queue
+      // and takes it in priority order. The panel above shows only the first
+      // eight rows, so posting what is displayed would author for those and
+      // silently skip the rest.
+      const result = await api.generateCommissioningPractice({ reason: "maintenance_commissioning_gap" });
+      setPracticeRun(result);
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setGeneratingPractice(false);
+    }
+  };
+
   const applyIntegrationBackfill = async () => {
     const confirmed = window.confirm(
       "Apply the reviewed D3 coordination backfill? This rewrites authored learning-object YAML, rebuilds affected state, and records one learner-visible recalibration boundary."
@@ -213,6 +247,11 @@ export function MaintenanceScreen({
           />
         ) : null}
         <button style={btn} onClick={load}>↻ refresh</button>
+        {onOpenAdjudication ? (
+          <button style={btn} onClick={onOpenAdjudication} title="Judge queued diagnoses (learnloop diagnosis adjudicate)">
+            adjudicate diagnoses{adjudicationOwed == null ? "" : ` · ${adjudicationOwed} owed`}
+          </button>
+        ) : null}
       </div>
 
       <MeasurementHealthPanel
@@ -221,6 +260,9 @@ export function MaintenanceScreen({
         onScheduleColdProbes={scheduleColdProbes}
         onTransitionProbe={transitionProbe}
         onApplyIntegrationBackfill={applyIntegrationBackfill}
+        generatingPractice={generatingPractice}
+        practiceRun={practiceRun}
+        onGenerateCommissioningPractice={generateCommissioningPractice}
       />
 
       {/* Maintenance feed (§11) */}
@@ -406,13 +448,19 @@ function MeasurementHealthPanel({
   busy,
   onScheduleColdProbes,
   onTransitionProbe,
-  onApplyIntegrationBackfill
+  onApplyIntegrationBackfill,
+  generatingPractice,
+  practiceRun,
+  onGenerateCommissioningPractice
 }: {
   health: MeasurementHealthDto | null;
   busy: boolean;
   onScheduleColdProbes: () => void;
   onTransitionProbe: (candidateId: string, toStatus: string) => void;
   onApplyIntegrationBackfill: () => void;
+  generatingPractice: boolean;
+  practiceRun: GenerateCommissioningPracticeResult | null;
+  onGenerateCommissioningPractice: () => void;
 }) {
   if (!health) {
     return (
@@ -514,6 +562,45 @@ function MeasurementHealthPanel({
             <Faint style={{ display: "block", marginTop: 5 }}>
               first {queue.length} of {reach.unreachableCount} commissioning rows
             </Faint>
+          ) : null}
+          {reach.unreachableCount > 0 ? (
+            <div style={{ marginTop: 8 }}>
+              <button
+                style={{ ...btn, opacity: generatingPractice ? 0.5 : 1, cursor: generatingPractice ? "default" : "pointer" }}
+                disabled={generatingPractice}
+                onClick={onGenerateCommissioningPractice}
+              >
+                {/* "queueing", not "generating": the click enqueues a job and
+                    returns in milliseconds; the authoring run itself happens on
+                    the sidecar's worker and is disclaimed as background work. */}
+                {generatingPractice ? "queueing…" : "generate practice for these gaps"}
+              </button>
+              {practiceRun ? (
+                practiceRun.batchId ? (
+                  <div style={{ marginTop: 6, fontSize: 11, color: COLOR.green }}>
+                    queued for {practiceRun.learningObjectIds.length} learning object
+                    {practiceRun.learningObjectIds.length === 1 ? "" : "s"} ·{" "}
+                    {practiceRun.commissionableCellCount} commissionable cell
+                    {practiceRun.commissionableCellCount === 1 ? "" : "s"} — authored items land in
+                    Proposals for review as the batch completes.
+                    {practiceRun.deferredCellCount > 0 ? (
+                      <Faint style={{ display: "block", marginTop: 3 }}>
+                        {practiceRun.deferredCellCount} further cell
+                        {practiceRun.deferredCellCount === 1 ? " is" : "s are"} deferred (coordination depth,
+                        downward dominance, or blueprint repair) and are not closed by this run.
+                      </Faint>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textDim }}>
+                    Nothing authorable in the commissioning queue right now
+                    {practiceRun.deferredCellCount > 0
+                      ? ` — its ${practiceRun.deferredCellCount} open cell${practiceRun.deferredCellCount === 1 ? "" : "s"} need review, not generation.`
+                      : "."}
+                  </div>
+                )
+              ) : null}
+            </div>
           ) : null}
           <div style={{ marginTop: 12 }}>
             <Faint>Wave 4 inference precheck · static cells converted, no credit applied</Faint>

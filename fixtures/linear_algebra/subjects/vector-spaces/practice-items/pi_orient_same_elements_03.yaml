@@ -1,0 +1,106 @@
+schema_version: 1
+id: pi_orient_same_elements_03
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  c1:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: Two mathematical objects have exactly the same underlying elements and 
+  use the same scalar field, but the symbol “+” is assigned a different rule in 
+  each object. Explain why the underlying set alone does not tell you whether 
+  these are the same vector-space structure or whether either one satisfies the 
+  vector-space axioms.
+expected_answer: A vector space is not just its underlying set; its specified 
+  vector addition and scalar multiplication are part of the structure. Changing 
+  the addition rule can produce a different structure even when the elements and
+  field are unchanged. Each specified pair of operations must separately be 
+  checked against the vector-space axioms.
+difficulty: 0.36
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.74
+transfer_distance: 0.4
+scaffold_level: 0.03
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: structure_identity_explanation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_set_determines_structure
+    hypothesis: Believes the underlying set and scalar field uniquely determine 
+      the vector-space operations.
+    observable_signature: They are the same vector space because they contain 
+      exactly the same elements and use the same field.
+    misconception_id:
+    facet_id: facet_a_vector_space_is_a_set_with_operations_of_addit
+    fails_criteria:
+      - c1
+    distinguishing_features:
+      - ignores the specified addition rule
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 4.0
+      description: Explains that operations are part of the structure and that 
+        changing a rule creates a separately assessed candidate structure.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_operations_of_addit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:03:04Z'
+updated_at: '2026-07-27T08:03:04Z'

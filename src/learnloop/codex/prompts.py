@@ -6,7 +6,7 @@ CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.5-canonical-ingest-audit-facet-weights"
 # identity: telemetry is grouped by (prompt_version, model), and pooling
 # pre-A5 grades with post-A5 ones would compute the profile rejection rate over a
 # population half of which was never offered a profile.
-GRADING_PROMPT_VERSION = "mvp-1.2-repair-before-structure-verifier-sampling-history"
+GRADING_PROMPT_VERSION = "mvp-1.3-anchors-server-side"
 # ING M8: cross-source practice generation with hard leakage controls (§8.5). The
 # authoring path grows a bounded multi-source grounding context + blueprint task-family
 # shaping, and generated surfaces are screened against the held-out inventory by a
@@ -29,14 +29,14 @@ PROBE_INSTANCE_PROMPT_VERSION = "mvp-0.6-probe-instance-surfaces-natural-wording
 PROBE_FAMILY_TRIALS_PROMPT_VERSION = "mvp-0.6-probe-family-trials"
 PROBE_DIALOGUE_TURN_PROMPT_VERSION = "mvp-0.6-probe-dialogue-turn"
 PROMOTION_ANALYSIS_PROMPT_VERSION = "mvp-0.1-promotion-analysis"
-TUTOR_PROMOTION_PROMPT_VERSION = "mvp-0.1-tutor-promotion"
+TUTOR_PROMOTION_PROMPT_VERSION = "mvp-0.2-constructed-response-and-keyed-misconceptions"
 SOURCE_UNIT_INVENTORY_PROMPT_VERSION = "mvp-0.7-source-unit-inventory-role-aware"
 READING_QUICK_CHECK_PROMPT_VERSION = "mvp-0.1-reading-quick-check"
 READER_PRESET_SYNTHESIS_PROMPT_VERSION = "mvp-0.2-reader-preset-selection-focus"
 DEPTH_EDGE_INSTANCE_PROMPT_VERSION = "mvp-0.1-depth-edge-instance"
 RUNG_BACKFILL_PROMPT_VERSION = "mvp-0.1-rung-backfill"
 EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.1-exercise-authoring"
-SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-0.9-source-set-synthesis-required-recipes"
+SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.0-anyof-obligation-explicit-capability"
 CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1"
 APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.7-append-reconciliation"
 
@@ -204,6 +204,27 @@ NOT force a weak match.
 # spec_tutor_promotion.md §3 Step 2 — the authoring contract, threaded into
 # generate_authoring_proposal's `instructions`. The routing policy (§3 Step 3)
 # and the grounding rule (§3 Step 1) are enforced in code, not here.
+# ---------------------------------------------------------------------------
+# Response-mode contract — the ONE statement of what authoring may recommend.
+#
+# services/authoring_gates.py imports these and enforces them (SelectedResponseGate
+# refuses lettered-option / true-false surfaces AND any payload declaring a banned
+# practice_mode), and the prompt text below interpolates them — so the ladder can
+# never again recommend a mode the gate deterministically rejects. That exact
+# drift shipped proposal item 01KYH9F2WWE6Z5PBGRKGNEMYVY: rule 6 recommended
+# `multiple_choice_with_explanation` while the gate banned the surface it produces.
+# ---------------------------------------------------------------------------
+BANNED_RESPONSE_MODES: tuple[str, ...] = (
+    "multiple_choice",
+    "multiple_choice_with_explanation",
+    "true_false",
+)
+LOW_MASTERY_RESPONSE_MODES: tuple[str, ...] = (
+    "ordering",
+    "classification",
+    "short_answer",
+)
+
 TUTOR_PROMOTION_PROMPT = """\
 Promote ONE tutor Q&A exchange into a LearnLoop authoring proposal. The learner \
 flagged the tutor's SOCRATIC guiding question as worth keeping as a rep. The \
@@ -234,14 +255,31 @@ transfer_distance, scaffold_level, repair_targets, audit). If you choose a \
 `practice_mode` that has no default rubric, ship an explicit `grading_rubric`.
 6. Practice mode scales to learner skill. The context carries the origin LO's \
 `mastery_mean` and `recommended_difficulty_band`. Pick the mode from this ladder \
-keyed to the mastery band: LOW mastery -> recognition/structure modes \
-(`ordering`, `classification`, `multiple_choice_with_explanation`); MID mastery \
--> recall/application (`short_answer`, `worked_calculation`); HIGH mastery -> \
-synthesis/transfer (`constructed_response`, `proof_explanation`, `teach_back`). \
+keyed to the mastery band: LOW mastery -> cued constructed-response modes \
+(__LOW_MASTERY_MODES__) — provide support through `hints` and `scaffold_level`, \
+NEVER through answer options; MID mastery -> recall/application \
+(`short_answer`, `worked_calculation`); HIGH mastery -> synthesis/transfer \
+(`constructed_response`, `proof_explanation`, `teach_back`). Selected-response \
+surfaces are BANNED and deterministically rejected: never use \
+__BANNED_MODES__, never present lettered answer options (A. / B) / …) or \
+true-false choices, and `task_features.response` must agree with the chosen \
+mode (never `recognize`). \
 Calibrate `difficulty` into the recommended_difficulty_band. For a NEW LO (no \
 mastery yet) default to the MID band — the probe will place it.
 7. Tag every created item with `tutor_promoted` (add it to the payload `tags`).
+8. Leave `misconception_consistent_answer` null for ordinary practice. Populate \
+it ONLY when a misconception from `registered_misconceptions` in \
+PROMOTION_CONTEXT is this item's diagnostic target, and then the rubric MUST \
+carry a fatal error whose `misconception_id` is that canonical id. If \
+`registered_misconceptions` is empty or absent, there is no canonical belief to \
+key against: leave the field null.
 """
+
+TUTOR_PROMOTION_PROMPT = TUTOR_PROMOTION_PROMPT.replace(
+    "__LOW_MASTERY_MODES__", ", ".join(f"`{mode}`" for mode in LOW_MASTERY_RESPONSE_MODES)
+).replace(
+    "__BANNED_MODES__", ", ".join(f"`{mode}`" for mode in BANNED_RESPONSE_MODES)
+)
 
 
 
@@ -529,11 +567,18 @@ least one `blueprint`, and every blueprint MUST contain at least one recipe with
 at least one component — NEVER emit a blueprint with an empty `recipes` array or
 a recipe with no components. Recipe shape: `composition` is `"conjunctive"`;
 `all_of` is the list of components ALL jointly required to demonstrate the
-objective; `any_of` is substitutable components where any one suffices. Each
-component sets EITHER `facet_client_id` (a facet you propose in this response's
-`facets`) OR `facet` (a canonical id from `registry_index`), plus a `capability`
-from the closed vocabulary in constraint 10. A blueprint whose recipes are empty
-is invalid and will be rejected — author a real recipe or drop the blueprint (and
+objective; `any_of` is substitutable components where any one suffices. `any_of`
+is a CERTIFICATION OBLIGATION, not a decoration: the learner must demonstrate at
+least one alternative before the objective can certify, so author two or more
+GENUINE substitutes or put the component in `all_of` instead — a one-element
+`any_of` is a required component in the wrong slot. A recipe with no components
+in any slot is invalid and will be rejected. Each component sets EITHER
+`facet_client_id` (a facet you propose in this response's `facets`) OR `facet`
+(a canonical id from `registry_index`), plus a `capability` from the closed
+vocabulary in constraint 10 — there is NO default: state the capability
+explicitly on every component and criterion target, on the same evidence you
+would use for any other component. A blueprint whose recipes are empty is
+invalid and will be rejected — author a real recipe or drop the blueprint (and
 its learning object). This holds in `as_you_read` mode too: recipes are authored
 now even though practice items are deferred.
 14. INTEGRATION IS THE EXCEPTION, NOT THE DEFAULT: `integration` is OPTIONAL and

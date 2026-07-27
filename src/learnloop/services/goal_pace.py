@@ -72,8 +72,11 @@ def compute_goal_pace(
 
     attempts_remaining: int | None = report.attempts_remaining
     if report.attempts_remaining_is_partial and attempts_remaining == 0:
-        # Every at-risk facet lacks supporting items: the total is unknowable,
-        # not zero — surface None rather than a false "done".
+        # Nothing at risk yielded a countable attempt — no supporting items, or a
+        # contract cell the instrument pool cannot reach. The total is unknowable,
+        # not zero, so surface None rather than a false "done". (A partial total
+        # that IS positive stays a number: it is a genuine lower bound, and the
+        # banner already renders it as "at least".)
         attempts_remaining = None
 
     needed_per_day: float | None = None

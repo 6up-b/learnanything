@@ -10,6 +10,7 @@ from learnloop.db.repositories import MasteryState, PracticeItemState, Repositor
 from learnloop.services.scheduler import (
     ScheduledItem,
     SchedulerSession,
+    _insert_pending_followups,
     _rotate_same_day_frontier_repeats,
     _selection_propensities,
     build_due_queue,
@@ -18,7 +19,7 @@ from learnloop.services.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
-from tests.helpers import create_basic_vault
+from tests.helpers import create_basic_vault, seed_due_item
 
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
@@ -492,6 +493,73 @@ def test_scheduler_candidate_logs_are_retained_per_configured_limit(tmp_path):
     explanations = repository.latest_scheduler_explanations_by_session("s_retention")
     assert len(explanations) == 1
     assert explanations[0]["practice_item_id"] == "pi_svd_define_001"
+
+
+@pytest.mark.parametrize(
+    ("action_type", "expected_kind", "expected_component"),
+    [
+        # Three lanes share the one intervention_followup priority component --
+        # which is exactly why the kind has to travel on the item itself.
+        ("intervention_followup", "intervention_followup", "intervention_followup"),
+        ("cold_retry", "cold_retry", "intervention_followup"),
+        (
+            "certification_cold_probe",
+            "certification_cold_probe",
+            "intervention_followup",
+        ),
+        (
+            "negative_surprise_followup",
+            "negative_surprise_followup",
+            "negative_surprise_followup",
+        ),
+    ],
+)
+def test_inserted_followup_records_its_lane(tmp_path, action_type, expected_kind, expected_component):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    loaded = load_vault(vault_root)
+
+    queue = _insert_pending_followups(
+        loaded,
+        [],
+        [{"practice_item_id": "pi_svd_define_001", "action_type": action_type}],
+        None,
+    )
+
+    assert len(queue) == 1
+    assert queue[0].followup_kind == expected_kind
+    assert queue[0].components[expected_component] == 1.0
+
+
+def test_unrecognised_followup_action_reports_the_lane_it_lands_on(tmp_path):
+    # An action_type outside the known set rides the negative-surprise component,
+    # so it must report that lane rather than a kind no surface can render.
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    loaded = load_vault(vault_root)
+
+    queue = _insert_pending_followups(
+        loaded,
+        [],
+        [{"practice_item_id": "pi_svd_define_001", "action_type": "some_future_lane"}],
+        None,
+    )
+
+    assert queue[0].followup_kind == "negative_surprise_followup"
+    assert queue[0].components["negative_surprise_followup"] == 1.0
+
+
+def test_ordinary_due_pick_carries_no_followup_kind(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+
+    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+
+    assert queue
+    assert all(scheduled.followup_kind is None for scheduled in queue)
 
 
 def _scheduled(item_id: str, reward: float, *, intent: str = "practice") -> ScheduledItem:

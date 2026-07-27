@@ -71,6 +71,7 @@ const GRAMMAR: Record<string, GrammarSpec> = {
   "kill-codex": { help: "Interrupt a stuck Codex ingest call without stopping LearnLoop", args: [{ name: "job_id" }], flags: [] },
   "populate-goal": { help: "Generate + accept practice items covering an active goal's scope", args: [{ name: "goal_id", kind: "goal" }], flags: ["--target-items-per-lo", "--max-new-per-lo", "--instructions", "--review", "--dry-run", "--json"] },
   calibrate: { help: "Start a calibration session — batched diagnostic blocks over a goal (or all open episodes)", args: [{ name: "goal_id", kind: "goal" }], flags: ["--minutes"] },
+  adjudicate: { help: "Judge queued diagnoses — the ground-truth store behind anchor accuracy and abstention precision", args: [], flags: [] },
   "generate-diagnostics": { help: "Generate diagnostic follow-up practice proposals", args: [], flags: ["--learning-object-id", "--max-needs", "--instructions", "--ai-provider", "--dry-run", "--json"] },
   "observation-templates": { help: "List observation templates", args: [], flags: ["--all", "--json"] },
   "register-observation-template": { help: "Register an observation template", args: [], flags: ["--file", "--domain", "--version", "--title", "--active", "--inactive", "--json"] },
@@ -115,6 +116,7 @@ interface CmdCtx {
   onGoto: (tab: TopTab) => void;
   onOpenPractice: (id: string) => void;
   onOpenCalibration: (calibrationSessionId: string) => void;
+  onOpenAdjudication: () => void;
   onInspect: (id: string) => void;
   onAsk: () => boolean;
   clearBuffer: () => void;
@@ -166,6 +168,13 @@ async function runCommand(name: string, args: string[], flags: Flags, ctx: CmdCt
     }
     case "calibrate":
       return runCalibrate(args, flags, ctx);
+    case "adjudicate": {
+      // The overlay owns the queue read; opening it must not also spend a round
+      // trip here, and it stays open over whatever screen was mounted.
+      ctx.onOpenAdjudication();
+      ctx.close();
+      return [{ type: "log", text: "→ adjudicate · diagnosis verdict queue" }];
+    }
     case "doctor":
       return runDoctor();
     case "proposals": {
@@ -666,6 +675,7 @@ export function CommandPalette({
   onGoto,
   onOpenPractice,
   onOpenCalibration,
+  onOpenAdjudication,
   onInspect,
   onAsk,
   onError
@@ -679,6 +689,7 @@ export function CommandPalette({
   onGoto: (tab: TopTab) => void;
   onOpenPractice: (id: string) => void;
   onOpenCalibration: (calibrationSessionId: string) => void;
+  onOpenAdjudication: () => void;
   onInspect: (id: string) => void;
   onAsk: () => boolean;
   onError: (message: string) => void;
@@ -788,6 +799,7 @@ export function CommandPalette({
         onGoto,
         onOpenPractice,
         onOpenCalibration,
+        onOpenAdjudication,
         onInspect,
         onAsk,
         clearBuffer: () => setBuffer([]),

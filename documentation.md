@@ -1736,7 +1736,11 @@ learnloop diagnosis adjudicate <attempt-id> --verdict correct --vault ~/LearnLoo
 learnloop diagnosis scoreboard --vault ~/LearnLoop/my-vault
 
 # Stage 7. The first two append evaluation/license records; the report is read-only.
-learnloop persona-realism --personas authored-personas.json --vault ~/LearnLoop/my-vault
+learnloop persona-realism \
+  --personas authored-personas.json \
+  --generator-provider codex \
+  --generator-model gpt-5.6-sol \
+  --vault ~/LearnLoop/my-vault
 learnloop diagnostic-eval \
   --generator-provider deepseek_pro \
   --diagnostician-provider codex_low \
@@ -2029,7 +2033,10 @@ The discipline generalizes past these two rules. Every inference rule gets a sta
 `learnloop persona-realism` runs B2 over an explicit JSON list of authored
 persona traces and the vault's real attempt traces. The matcher sees only
 text-shape features, stores no trace text, abstains below four traces per arm,
-and licenses the authoring gate only when the two arms are not separable.
+and licenses the authoring gate only when the two arms are not separable. The
+provider and model are required provenance: a license applies only to the
+current matcher version and the same canonical generator family used by the
+authoring gate.
 
 `learnloop diagnostic-eval` is the B1–B3 commissioning boundary. It requires
 separate configured generator and diagnostician providers. Its optional case
@@ -2048,15 +2055,18 @@ diagnostician is rejected even when their provider names differ, and an
 unlicensed run remains in the evaluation ledger but contributes no scoreboard
 ground truth.
 
-For ordinary model-graded attempts, C1–C4 run on the live path: prose and a
-minimal repaired trace precede structured attribution; typed verifier results
-are available during diagnosis; three independent samples produce a modal
-anchor/repair result and an unresolved cause set on disagreement; and up to four
-prior traces from the same facet and surface family are supplied without their
-old diagnoses. `learnloop diagnostic-augmentation` reports the resulting
-versioned receipts and each rung's hypothesis and revert criterion. Agreement
-is provisional support only; repeated readings of one trace never become an
-independent authority for durable promotion.
+For ordinary model-graded attempts, the C1–C4 integration surface is live:
+prose and a minimal repaired trace precede structured attribution; typed
+verifier results are available during diagnosis; independent samples can
+produce a modal anchor/repair result and an unresolved cause set on
+disagreement; and up to four prior traces from the same facet and surface family
+are supplied without their old diagnoses. The paid default remains the
+one-sample baseline. Set `diagnostic_augmentation.sample_count` above one only
+for a deliberate C3 promotion trial whose token and action-change metrics will
+decide whether to keep it. `learnloop diagnostic-augmentation` reports the
+resulting versioned receipts and each rung's hypothesis and revert criterion.
+Agreement is provisional support only; repeated readings of one trace never
+become an independent authority for durable promotion.
 
 ## 24. Practical interpretation
 

@@ -205,3 +205,64 @@ def test_misconceptions_lists_and_resolves_active_error_events(tmp_path):
     missing_json = runner.invoke(app, ["resolve-error", "ee_missing", "--json", *v])
     assert missing_json.exit_code == 1
     assert json.loads(missing_json.output)["resolved"] is False
+
+
+def test_exam_answer_refuses_self_grade_flags(tmp_path):
+    """Parity with the sidecar's ``submit_exam_answer``.
+
+    The exam is the held-out measurement of the model's projections. The sidecar
+    has always refused to self-grade one; the CLI used to prompt for criterion
+    points and record the learner's own score as the exam result, which made the
+    front end you picked decide whether the measurement was real.
+    """
+
+    root = create_basic_vault(tmp_path / "vault").root
+
+    result = runner.invoke(
+        app,
+        [
+            "exam",
+            "answer",
+            "pi_svd_define_001",
+            "--session",
+            "session_does_not_matter",
+            "--answer",
+            "A = U Sigma V^T",
+            "--criterion-points",
+            "correctness=4",
+            "--json",
+            "--vault",
+            str(root),
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["error"] == "exam_self_grade_refused"
+    assert "would not be a measurement" in payload["message"]
+
+
+def test_exam_answer_refuses_when_no_ai_grader_is_configured(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+
+    result = runner.invoke(
+        app,
+        [
+            "exam",
+            "answer",
+            "pi_svd_define_001",
+            "--session",
+            "session_does_not_matter",
+            "--answer",
+            "A = U Sigma V^T",
+            "--json",
+            "--vault",
+            str(root),
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    # The sidecar's error code, verbatim: one refusal, one name for it.
+    assert payload["error"] == "exam_grading_unavailable"
+    assert "would not be a measurement" in payload["message"]

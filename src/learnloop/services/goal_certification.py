@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from learnloop.db.repositories import Repository
 from learnloop.services.certification import is_demonstrated_credit
 from learnloop.services.capability_mapping import default_capability_for
+from learnloop.services.contract_reachability import CONTRACT_MODALITIES
 from learnloop.services.facet_state_reader import is_canonical_state_vault
 from learnloop.vault.models import LearningObject, LoadedVault, recipe_components
 
@@ -148,10 +149,28 @@ class RecipeGaps:
     recipe_id: str
     component_gaps: tuple[str, ...]
     integration_gaps: tuple[str, ...]
+    #: One entry per unmet ``any_of`` group: the facets of the alternatives, none
+    #: of which is demonstrated. A group is OR-joined — satisfying any single
+    #: alternative clears the whole entry — so the facets are listed together
+    #: rather than folded into ``component_gaps``, which is AND-joined.
+    alternative_gaps: tuple[tuple[str, ...], ...] = ()
+    #: The ``(facet, capability)`` cells of the ``any_of`` alternatives that are
+    #: demonstrated. These are load-bearing for the certificate exactly as the
+    #: ``all_of`` cells are, so the cold probe re-tests them (§5.7).
+    satisfying_alternatives: tuple[tuple[str, str], ...] = ()
+    #: How many contract-modality obligations this recipe declares at all
+    #: (``all_of`` cells + one per ``any_of`` group + the integration cell). A
+    #: recipe that declares none certifies nothing: with both loops empty every
+    #: gap tuple is empty, which must not read as "all requirements met".
+    contract_component_count: int = 0
 
     @property
     def satisfied(self) -> bool:
-        return not self.component_gaps and not self.integration_gaps
+        if not self.contract_component_count:
+            return False
+        return not (
+            self.component_gaps or self.integration_gaps or self.alternative_gaps
+        )
 
 
 def _demonstrated_resolver(vault: LoadedVault, repository: Repository):
@@ -175,6 +194,14 @@ def recipe_gaps(
 ) -> tuple[RecipeGaps, ...]:
     """Per-recipe gaps for every declared recipe, in declaration order.
 
+    Every declared obligation is gated, at the same modality filter
+    ``contract_reachability.CONTRACT_MODALITIES`` uses to build the commissioning
+    queue: ``all_of`` conjunctively, ``any_of`` at-least-one (the semantics
+    :func:`blueprint_projection.project_recipe` already projects with), and the
+    integration cell. Certification and reachability must agree on which
+    obligations exist, or a recipe can be blocked by a cell that never appears in
+    the queue that exists to close it.
+
     Requires a canonical-state vault with authored blueprints; returns ``()``
     otherwise, exactly as :func:`lo_certification` returns ``demonstrated=False``
     there (nothing to certify against).
@@ -188,13 +215,47 @@ def recipe_gaps(
         for recipe in blueprint.recipes:
             component_gaps: set[str] = set()
             integration_gaps: set[str] = set()
+            contract_components = 0
             for component in recipe.all_of:
-                if component.modality not in ("hard", "path_specific"):
+                if component.modality not in CONTRACT_MODALITIES:
                     continue
+                contract_components += 1
                 if component.capability not in demo(component.facet):
                     component_gaps.add(vault.canonical_facet_id(component.facet))
-            if recipe.integration is not None:
+            alternatives = [
+                component
+                for component in recipe.any_of
+                if component.modality in CONTRACT_MODALITIES
+            ]
+            alternative_gaps: tuple[tuple[str, ...], ...] = ()
+            satisfying: set[tuple[str, str]] = set()
+            if alternatives:
+                contract_components += 1
+                for component in alternatives:
+                    if component.capability in demo(component.facet):
+                        satisfying.add(
+                            (
+                                vault.canonical_facet_id(component.facet),
+                                component.capability,
+                            )
+                        )
+                if not satisfying:
+                    alternative_gaps = (
+                        tuple(
+                            sorted(
+                                {
+                                    vault.canonical_facet_id(component.facet)
+                                    for component in alternatives
+                                }
+                            )
+                        ),
+                    )
+            if (
+                recipe.integration is not None
+                and recipe.integration.modality in CONTRACT_MODALITIES
+            ):
                 integ = recipe.integration
+                contract_components += 1
                 if integ.capability not in demo(integ.facet):
                     integration_gaps.add(vault.canonical_facet_id(integ.facet))
             rows.append(
@@ -203,6 +264,9 @@ def recipe_gaps(
                     recipe_id=recipe.id,
                     component_gaps=tuple(sorted(component_gaps)),
                     integration_gaps=tuple(sorted(integration_gaps)),
+                    alternative_gaps=alternative_gaps,
+                    satisfying_alternatives=tuple(sorted(satisfying)),
+                    contract_component_count=contract_components,
                 )
             )
     return tuple(rows)
@@ -214,9 +278,11 @@ def lo_certification(
     """Whether a composite LO is demonstrated (§9.2 last bullet, §9.5).
 
     Certification requires, for at least one declared blueprint: every hard
-    component demonstrated at its capability **and** direct evidence on the
-    blueprint's declared integration facet. Strong components alone cannot
-    saturate it — a planted integration gap keeps the LO undemonstrated.
+    component demonstrated at its capability, at least one alternative of each
+    declared ``any_of`` group, **and** direct evidence on the blueprint's
+    declared integration facet. Strong components alone cannot saturate it — a
+    planted integration gap keeps the LO undemonstrated, and a recipe that
+    declares no contract-modality obligation at all certifies nothing.
 
     Only meaningful on mvp-0.7 vaults with authored blueprints; returns
     ``demonstrated=False`` otherwise (nothing to certify against).
@@ -231,6 +297,11 @@ def lo_certification(
     all_integration_gaps: set[str] = set()
     for gaps in recipe_gaps(vault, repository, learning_object):
         all_component_gaps |= set(gaps.component_gaps)
+        # An unmet ``any_of`` group contributes every alternative: each is
+        # undemonstrated today, and the flat LO-level list has no OR to express.
+        # Only one of them has to close for the recipe to clear.
+        for group in gaps.alternative_gaps:
+            all_component_gaps |= set(group)
         all_integration_gaps |= set(gaps.integration_gaps)
         if gaps.satisfied:
             any_blueprint_demonstrated = True

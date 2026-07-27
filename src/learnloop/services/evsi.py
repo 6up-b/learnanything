@@ -54,6 +54,29 @@ EVSI_SCHEMA_VERSION = 1
 PERTURBATION_DELTA = 0.15
 
 
+# The prior bases that may carry a live value claim. `uniform_fallback` is the
+# causal side's stamp for "we had nothing and spread mass evenly" — a legal
+# *record*, but a fabricated distribution as an EVSI input (invariants 5/6:
+# no invented likelihoods; missing machine data never buys learner effort).
+LIVE_VALUE_PRIOR_BASES = ("support_weighted",)
+
+
+class EVSIInputError(ValueError):
+    """An EVSI input is missing or fabricated; the value must not be computed.
+
+    Fail-closed contract: a prior with no mass is not silently replaced with a
+    uniform, and a hypothesis carrying prior mass but no likelihood row (or no
+    loss-table row) is not silently dropped-and-renormalized — both would
+    redistribute belief the machine does not hold. Callers turn this into a
+    typed abstention/exclusion, never a live probe.
+    """
+
+    def __init__(self, reason: str, detail: Sequence[str] = ()) -> None:
+        self.reason = reason
+        self.detail = tuple(detail)
+        super().__init__(f"{reason}: {', '.join(self.detail)}" if self.detail else reason)
+
+
 # ---------------------------------------------------------------------------
 # Core EVSI over one conditional table (one credible-set member).
 # ---------------------------------------------------------------------------
@@ -63,8 +86,9 @@ def _normalized_prior(prior: Mapping[str, float], hypotheses: Sequence[str]) -> 
     p = {h: max(float(prior.get(h, 0.0)), 0.0) for h in hypotheses}
     total = sum(p.values())
     if total <= 0:
-        n = len(hypotheses) or 1
-        return {h: 1.0 / n for h in hypotheses}
+        # Inventing a uniform here would be manufacturing the belief the value
+        # calculation is supposed to consume (invariant 5).
+        raise EVSIInputError("prior_mass_zero", tuple(hypotheses))
     return {h: v / total for h, v in p.items()}
 
 
@@ -99,7 +123,21 @@ def evsi_for_conditionals(
     loss_table: AL.LossTable,
 ) -> MemberEVSI:
     """EVSI over one ``P(E|H)`` table (spec §6.3). ``conditionals`` is ``{H: {E: p}}``;
-    it is the composed emission likelihood, NOT a stored ``P(Z|E)`` (§6.1)."""
+    it is the composed emission likelihood, NOT a stored ``P(Z|E)`` (§6.1).
+
+    Fail-closed: every hypothesis carrying prior mass must have BOTH a loss-table
+    row and a likelihood row (``H_OTHER`` included). The old behavior —
+    intersect-and-renormalize — silently redistributed the dropped hypothesis's
+    mass over the survivors and computed EVSI as if it did not exist.
+    """
+
+    positive = {h for h, v in prior.items() if float(v) > 0.0}
+    missing_loss = sorted(positive - set(loss_table.hypotheses))
+    if missing_loss:
+        raise EVSIInputError("incomplete_loss_table", missing_loss)
+    missing_likelihood = sorted(positive - set(conditionals))
+    if missing_likelihood:
+        raise EVSIInputError("incomplete_likelihoods", missing_likelihood)
 
     hyps = [h for h in loss_table.hypotheses if h in conditionals]
     p = _normalized_prior(prior, hyps)
@@ -257,6 +295,11 @@ class DiagnosticCandidate:
     prior: Mapping[str, float]
     expected_minutes: float
     burden_minutes: float = 0.0
+    # The causal side's stamp for how ``prior`` was formed (`support_weighted` /
+    # `uniform_fallback` / None when the producer predates the stamp). A
+    # `uniform_fallback` prior is a legal record but a fabricated distribution,
+    # so it is excluded from live-value ranking (LIVE_VALUE_PRIOR_BASES).
+    prior_basis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -278,6 +321,11 @@ class RankResult:
     verdict: str  # 'measure' | 'stop' | 'abstain'
     reason: str
     stress_winner_flipped: bool
+    # Candidates refused BEFORE valuation, each with the typed input defect
+    # (`prior_mass_zero` / `incomplete_likelihoods` / `incomplete_loss_table` /
+    # `uniform_fallback_prior`). Exclusion is the fail-closed arm: missing
+    # machine data may remove a candidate from consideration, never inflate it.
+    excluded: tuple[dict[str, Any], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -288,6 +336,7 @@ class RankResult:
             "verdict": self.verdict,
             "reason": self.reason,
             "stress_winner_flipped": self.stress_winner_flipped,
+            "excluded": [dict(entry) for entry in self.excluded],
             "ranked": [
                 {"ref": r.ref, "rank_value": round(r.rank_value, 6),
                  "evsi": r.evsi.as_dict(), "expected_minutes": r.expected_minutes,
@@ -327,9 +376,30 @@ def rank_feasible(
         return RankResult((), None, True, False, "stop", "no_feasible_question", False)
 
     scored: list[tuple[DiagnosticCandidate, RobustEVSI, float]] = []
+    excluded: list[dict[str, Any]] = []
     for c in candidates:
-        ev = robust_evsi(c.members, c.prior, loss_table, quantile=quantile)
+        if c.prior_basis is not None and c.prior_basis not in LIVE_VALUE_PRIOR_BASES:
+            excluded.append(
+                {"ref": c.ref, "reason": "uniform_fallback_prior",
+                 "detail": [str(c.prior_basis)]}
+            )
+            continue
+        try:
+            ev = robust_evsi(c.members, c.prior, loss_table, quantile=quantile)
+        except EVSIInputError as error:
+            excluded.append(
+                {"ref": c.ref, "reason": error.reason, "detail": list(error.detail)}
+            )
+            continue
         scored.append((c, ev, _rank_value(ev, c.expected_minutes, c.burden_minutes)))
+    if not scored:
+        # Every candidate had a fabricated or incomplete input. That is machine-
+        # resident missing data: it licenses an abstention, never a live probe
+        # and never a confident "stop, measurement is worthless".
+        return RankResult(
+            (), None, False, True, "abstain", "no_evaluable_candidate", False,
+            excluded=tuple(excluded),
+        )
     scored.sort(key=lambda t: (t[2], t[0].ref), reverse=True)
 
     ranked = tuple(
@@ -366,7 +436,8 @@ def rank_feasible(
 
     if should_stop:
         return RankResult(ranked, best_cand.ref, True, False, "stop",
-                          "lcb_evsi_below_minutes_cost", stress_winner_flipped)
+                          "lcb_evsi_below_minutes_cost", stress_winner_flipped,
+                          excluded=tuple(excluded))
     if abstain:
         if best_ev.action_flipped:
             reason = "downstream_action_flip"
@@ -375,9 +446,10 @@ def rank_feasible(
         else:
             reason = "stress_winner_flip"
         return RankResult(ranked, best_cand.ref, False, True, "abstain", reason,
-                          stress_winner_flipped)
+                          stress_winner_flipped, excluded=tuple(excluded))
     return RankResult(ranked, best_cand.ref, False, False, "measure",
-                      "positive_robust_net_value", stress_winner_flipped)
+                      "positive_robust_net_value", stress_winner_flipped,
+                      excluded=tuple(excluded))
 
 
 def _action_flips_under_stress(

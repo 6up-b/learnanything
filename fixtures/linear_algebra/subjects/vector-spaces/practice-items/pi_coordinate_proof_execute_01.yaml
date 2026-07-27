@@ -1,0 +1,158 @@
+schema_version: 1
+id: pi_coordinate_proof_execute_01
+learning_object_id: lo_prove_vector_identities_from_scalar_laws
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+evidence_weights:
+  facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.2
+  facet_scalar_calculations_over_r_or_c_use_commutative_: 0.2
+  facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 0.6
+criterion_facet_weights:
+  c1:
+    facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 1.0
+  c2:
+    facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co: 0.2
+    facet_scalar_calculations_over_r_or_c_use_commutative_: 0.8
+  c3:
+    facet_to_prove_a_vector_identity_in_f_n_by_coordinates: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: coordinate_commutativity_proof
+      checkpoints:
+        - expand_arbitrary_coordinate
+        - apply_scalar_commutativity
+        - lift_to_vector_equality
+      dependencies:
+        apply_scalar_commutativity:
+          - expand_arbitrary_coordinate
+        expand_arbitrary_coordinate: []
+        lift_to_vector_equality:
+          - apply_scalar_commutativity
+variant_contract:
+teach_back_source:
+prompt: Let x=(x₁,…,xₙ) and y=(y₁,…,yₙ) be arbitrary elements of Fⁿ, where F is 
+  R or C. Write a structured coordinate proof that x+y=y+x. Your proof must 
+  begin with an arbitrary coordinate and end with equality of the vectors.
+expected_answer: Fix an arbitrary k∈{1,…,n}. By coordinatewise addition, 
+  (x+y)_k=x_k+y_k. Commutativity of scalar addition in F gives x_k+y_k=y_k+x_k. 
+  Again by coordinatewise addition, y_k+x_k=(y+x)_k. Thus (x+y)_k=(y+x)_k for 
+  every k, so x+y=y+x because vectors in Fⁿ are equal when all corresponding 
+  coordinates are equal.
+difficulty: 0.52
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.8
+transfer_distance: 0.32
+scaffold_level: 0.03
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: indexed_equality_proof
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_coordinate_only_conclusion
+    hypothesis: Believes verifying one displayed coordinate is enough without 
+      quantifying over every coordinate.
+    observable_signature: For k=1, (x+y)₁=x₁+y₁=y₁+x₁=(y+x)₁, so x+y=y+x.
+    misconception_id:
+    facet_id: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+    fails_criteria:
+      - c3
+    distinguishing_features:
+      - checks only k=1
+      - omits arbitrary-coordinate quantification
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+  - facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+  - facet_scalar_calculations_over_r_or_c_use_commutative_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Fixes an arbitrary coordinate and expands both vector sums 
+        coordinatewise.
+      tier: core
+      targets:
+        - facet: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c2
+      points: 1.0
+      description: Applies commutativity of scalar addition over R or C to the 
+        arbitrary coordinate.
+      tier: core
+      targets:
+        - facet: facet_scalar_calculations_over_r_or_c_use_commutative_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_for_all_x_y_in_f_n_coordinatewise_addition_is_co
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - c1
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c3
+      points: 2.0
+      description: Generalizes the coordinate equality to every coordinate and 
+        concludes equality of the vectors.
+      tier: core
+      targets:
+        - facet: facet_to_prove_a_vector_identity_in_f_n_by_coordinates
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - c1
+        - c2
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:02:58Z'
+updated_at: '2026-07-27T08:02:58Z'

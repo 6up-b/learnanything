@@ -1846,12 +1846,21 @@ class DiagnosticAugmentationConfig(BaseModel):
     ``history_limit`` is C4's anchoring/exposure bound.  They are explicit
     registry parameters rather than module constants so a revert can restore
     the one-sample/no-history baseline without changing historical receipts.
+
+    The shipped default is the ONE-SAMPLE BASELINE (``sample_count=1``).  C1-C4
+    were promoted live simultaneously under a single grading-prompt bump, which
+    the augmentation spec forbids: each rung carries its own hypothesis and
+    revert criterion and therefore needs its own promotion.  k=3 tripled the paid
+    grading calls per graded attempt and, on disagreement, rewrote the winning
+    attribution to ``unresolved`` -- a live behaviour change that never had its
+    own trial.  k>1 stays available (planted-eval harness, or a deliberate
+    promotion trial) by setting it here; it is not the default a learner pays for.
     """
 
     model_config = ConfigDict(extra="allow")
 
     sampling_enabled: bool = True
-    sample_count: int = Field(default=3, ge=1, le=9)
+    sample_count: int = Field(default=1, ge=1, le=9)
     history_limit: int = Field(default=4, ge=0, le=20)
 
 

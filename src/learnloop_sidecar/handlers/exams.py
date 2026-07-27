@@ -198,7 +198,17 @@ def submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> di
             learner_answer_md=params.answer_md,
         )
     except GradingValidationError as exc:
-        raise SidecarError("exam_grading_failed", str(exc)) from exc
+        # Internal validation detail goes in `details` for the inspector; the
+        # learner-facing message never surfaces raw grader internals, and the
+        # answer is retryable because the failure is ours, not theirs.
+        raise SidecarError(
+            "exam_grading_failed",
+            "Grading this answer hit an internal validation problem on our "
+            "side — your answer was not lost. Submit it again; if this "
+            "repeats, the item needs review.",
+            retryable=True,
+            details={"validation_error": str(exc)},
+        ) from exc
     except (TimeoutError, Exception) as exc:  # provider transport failures
         if isinstance(exc, SidecarError):
             raise

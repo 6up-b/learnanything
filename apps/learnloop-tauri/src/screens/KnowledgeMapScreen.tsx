@@ -8,6 +8,7 @@ import { masteryTone } from "../app/algoConfig";
 import { KnowledgeTerrainView } from "./KnowledgeTerrainView";
 import { KnowledgeWellView } from "./KnowledgeWellView";
 import { KnowledgeStrataView } from "./KnowledgeStrataView";
+import { useElementSize } from "./wire3d";
 
 // Knowledge map with two complementary read levels:
 //
@@ -28,6 +29,12 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // Sticky hover selection, same convention as the facet radar: the last point
   // touched stays selected until another one is hovered/clicked.
   const [selected, setSelected] = useState<string | null>(null);
+  // Hard select (well view): clicking a node latches it, so drifting the
+  // pointer across the field can no longer steal the sidebar out from under
+  // whatever the user was reading. The latch releases when the pointer reaches
+  // the sidebar — by then they have arrived at what the pick was for, and
+  // coming back to the field is a fresh look.
+  const [pinned, setPinned] = useState(false);
   const [mode, setMode] = useState<"terrain" | "well" | "strata">("terrain");
   const [history, setHistory] = useState<KnowledgeMapHistory | null>(null);
   // The well view's decay-pressure feed (which facets the FSRS model holds flat
@@ -37,6 +44,9 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // One facet side window owns both its semantic contract and evidence receipt.
   // Facets have no map coordinate — we join by id.
   const [inspectFacetId, setInspectFacetId] = useState<string | null>(null);
+  // The canvas hands its live pixel box to whichever view is showing, so the
+  // scene fills the pane instead of sitting in a fixed 860-wide letterbox.
+  const canvas = useElementSize<HTMLDivElement>();
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +107,9 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
     });
   }, [mode, snapshot]);
 
+  // A latch only makes sense against the field the user latched it on.
+  useEffect(() => setPinned(false), [mode]);
+
   const points = snapshot?.points ?? [];
 
   // Per-facet lock state (§3.4), joined by canonical facet id. Locks live on the
@@ -145,8 +158,18 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
               pointerEvents: "none"
             }}
           />
-          <div className="ll-scroll" style={{ position: "absolute", inset: 0, overflow: "auto", padding: 24 }}>
-            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div
+            className="ll-scroll"
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflow: "auto",
+              padding: 24,
+              display: "flex",
+              flexDirection: "column"
+            }}
+          >
+            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
               <div>
                 <span style={{ color: COLOR.amber, fontSize: 13 }}>knowledge-map</span>{" "}
                 <Meta>
@@ -182,25 +205,55 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
 
             {(mode === "strata" ? points.length : snapshot.facetField.points.length) === 0 ? (
               <div style={{ color: COLOR.textFaint, fontSize: 13, padding: 30 }}>no mapped evidence yet</div>
-            ) : mode === "terrain" ? (
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <KnowledgeTerrainView field={snapshot.facetField} selected={selected} onSelect={setSelected} onInspect={onInspect} />
+            ) : mode === "strata" ? (
+              // Strata is a list: it takes the full width but keeps its own
+              // content height, so the pane scrolls rather than squashing rows.
+              <div ref={canvas.ref} style={{ flex: "0 0 auto", minHeight: 0 }}>
+                {history == null ? (
+                  <div style={{ color: COLOR.textFaint, fontSize: 13, padding: 30 }}>loading strata…</div>
+                ) : (
+                  <KnowledgeStrataView
+                    points={points}
+                    history={history}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onInspect={onInspect}
+                    width={canvas.width}
+                  />
+                )}
               </div>
-            ) : mode === "well" ? (
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <KnowledgeWellView field={snapshot.facetField} decay={decay} selected={selected} onSelect={setSelected} onInspect={onInspect} />
-              </div>
-            ) : history == null ? (
-              <div style={{ color: COLOR.textFaint, fontSize: 13, padding: 30 }}>loading strata…</div>
             ) : (
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <KnowledgeStrataView
-                  points={points}
-                  history={history}
-                  selected={selected}
-                  onSelect={setSelected}
-                  onInspect={onInspect}
-                />
+              // The 3D views take the whole remaining box; they size their own
+              // viewBox to it, so there is never dead background around them.
+              <div ref={canvas.ref} style={{ flex: 1, minHeight: 0, position: "relative" }}>
+                {canvas.width > 0 && canvas.height > 0 ? (
+                  mode === "terrain" ? (
+                    <KnowledgeTerrainView
+                      field={snapshot.facetField}
+                      selected={selected}
+                      onSelect={setSelected}
+                      onInspect={onInspect}
+                      width={canvas.width}
+                      height={canvas.height}
+                    />
+                  ) : (
+                    <KnowledgeWellView
+                      field={snapshot.facetField}
+                      decay={decay}
+                      selected={selected}
+                      onSelect={(id) => {
+                        if (!pinned) setSelected(id);
+                      }}
+                      onPin={(id) => {
+                        setSelected(id);
+                        setPinned(true);
+                      }}
+                      onInspect={onInspect}
+                      width={canvas.width}
+                      height={canvas.height}
+                    />
+                  )
+                ) : null}
               </div>
             )}
           </div>
@@ -212,6 +265,8 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
             nextGap={snapshot.facetField.nextGap?.facetId === activeFacet?.id ? snapshot.facetField.nextGap : null}
             onInspect={onInspect}
             onInspectFacet={setInspectFacetId}
+            pinned={pinned}
+            onEnter={() => setPinned(false)}
           />
         ) : (
           <PointDetail point={active} onInspect={onInspect} facetLockById={facetLockById} onInspectFacet={setInspectFacetId} />
@@ -270,7 +325,7 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
           </>
         )}
         <span style={{ color: COLOR.amber }}>🔒 locked facet</span>
-        <Dim>locked = history is load-bearing; unlocked facets still merge/split cheaply</Dim>
+        <Dim>locked = history is significant; unlocked facets still merge/split cheaply</Dim>
         <span style={{ flex: 1 }} />
         <Faint>
           {mode === "strata"
@@ -301,15 +356,28 @@ export function FacetFieldDetail({
   point,
   nextGap,
   onInspect,
-  onInspectFacet
+  onInspectFacet,
+  pinned,
+  onEnter
 }: {
   point: KnowledgeFacetPoint | null;
   nextGap: KnowledgeMapSnapshot["facetField"]["nextGap"];
   onInspect: (id: string) => void;
   onInspectFacet?: (facetId: string) => void;
+  /** The field's selection is latched on this facet (well view click). */
+  pinned?: boolean;
+  /** Pointer reached the sidebar — releases the field's hard select. */
+  onEnter?: () => void;
 }) {
   if (!point) {
-    return <div style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, padding: "16px 18px", color: COLOR.textFaint }}>hover a facet</div>;
+    return (
+      <div
+        onMouseEnter={onEnter}
+        style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, padding: "16px 18px", color: COLOR.textFaint }}
+      >
+        hover a facet
+      </div>
+    );
   }
   const stat = (label: string, value: string, color?: string) => (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontSize: 12 }}>
@@ -317,8 +385,17 @@ export function FacetFieldDetail({
     </div>
   );
   return (
-    <div className="ll-scroll" style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, overflowY: "auto", padding: "16px 18px", fontSize: 13 }}>
-      <div style={{ fontSize: 11, color: COLOR.textFaint, marginBottom: 4 }}>evidence facet</div>
+    <div
+      className="ll-scroll"
+      onMouseEnter={onEnter}
+      style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, overflowY: "auto", padding: "16px 18px", fontSize: 13 }}
+    >
+      <div style={{ fontSize: 11, color: COLOR.textFaint, marginBottom: 4, display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <span>evidence facet</span>
+        {/* Without this the field just stops responding to hover and reads as
+            broken; name the latch and how to drop it. */}
+        {pinned ? <span style={{ color: COLOR.amber }} title="click latched this facet — move here to unlatch">pinned</span> : null}
+      </div>
       <div style={{ fontSize: 14, fontWeight: 600 }}>
         {point.title}
         {point.locked ? <span style={{ color: COLOR.amber, marginLeft: 6 }} title={`🔒 locked · ${point.lockSources.join(", ") || "identity locked"}`}>🔒</span> : null}

@@ -1,12 +1,10 @@
-// Shared plumbing for the start-screen backdrops: palette snapshot for canvas
-// renderers, rgb math, glyph metrics, and the reduced-motion check.
+// Shared plumbing for the start-screen backdrops: palette snapshots, rgb math,
+// glyph metrics, and the reduced-motion check.
 //
-// ASCII backdrops stay palette-aware through CSS (`bd-c-*` classes / var()
-// inline styles) and never need this reader. Canvas 2D cannot resolve var()
-// in fillStyle, so canvas backdrops snapshot the BASE palette tokens at mount
-// via getComputedStyle. Base tokens are plain hex in app.css :root AND every
-// palettes.css block (documented invariant there); derived tokens are
-// color-mix() strings JS can't parse, so shades are derived here with mixRgb.
+// Canvas 2D cannot resolve var() in fillStyle, so backdrops snapshot the BASE
+// palette tokens at mount via getComputedStyle. Base tokens are plain hex in
+// app.css :root AND every palettes.css block (documented invariant there);
+// derived shades are either resolved by glyphAtlas.ts or built with mixRgb.
 // StartScreen fully unmounts on tab switch and the palette can only change on
 // the Settings tab, so a mount-time snapshot is always fresh.
 
@@ -99,7 +97,3 @@ export function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
 export function prefersReducedMotion(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
-
-// Class ramps for palette-aware ASCII rendering (resolved in app.css to
-// var(--amber-low/-mid/…)). Monotonic dark→bright.
-export const AMBER_CLASS_RAMP = ["bd-c-amber-low", "bd-c-amber-mid", "bd-c-amber", "bd-c-amber-hi"];

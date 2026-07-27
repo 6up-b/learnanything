@@ -596,6 +596,26 @@ pub async fn get_measurement_health(
     blocking_sidecar_call(sidecar, "get_measurement_health", json!({})).await
 }
 
+/// Enqueues authoring for the commissioning queue's gaps. Returns as soon as the
+/// batch is queued -- the generation itself runs on the sidecar's job worker, so
+/// this call does not hold the single RPC channel for the length of a model run.
+#[tauri::command]
+pub async fn generate_commissioning_practice(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "generate_commissioning_practice", input).await
+}
+
+/// Counts behind the nav-tab badges. Cheap by construction; safe to call on the
+/// same events that already refresh the vault.
+#[tauri::command]
+pub async fn get_review_counts(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_review_counts", json!({})).await
+}
+
 #[tauri::command]
 pub async fn schedule_certification_cold_probes(
     input: Value,
@@ -1607,6 +1627,13 @@ p2_passthrough!(practice_pool_next_surface, "practice_pool.next_surface");
 p2_passthrough!(practice_pool_for_run, "practice_pool.for_run");
 p2_passthrough!(practice_pool_seed_for_run, "practice_pool.seed_for_run");
 p2_passthrough!(practice_pool_admit_anchor, "practice_pool.admit_anchor");
+
+// adjudication.* (diagnosis adjudication store, spec_diagnostic_augmentation §2 A4):
+// the queue that decides which attempt is worth a verdict, the append-only write
+// path, and the B5 scoreboard the overlay tallies at the top.
+p2_passthrough!(adjudication_queue, "adjudication.queue");
+p2_passthrough!(adjudication_record, "adjudication.record");
+p2_passthrough!(adjudication_scoreboard, "adjudication.scoreboard");
 
 // reader.* (minimal bidirectional reader dialogue, U-033)
 p2_passthrough!(reader_ask, "reader.ask");

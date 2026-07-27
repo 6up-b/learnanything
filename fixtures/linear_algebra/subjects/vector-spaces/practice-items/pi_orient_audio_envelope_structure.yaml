@@ -1,0 +1,142 @@
+schema_version: 1
+id: pi_orient_audio_envelope_structure
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  criterion_structure_interpretation:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_structure_inventory
+      checkpoints:
+        - identify_given_data
+        - supply_operation_types
+        - state_verification_obligation
+      dependencies:
+        identify_given_data: []
+        state_verification_obligation:
+          - supply_operation_types
+        supply_operation_types:
+          - identify_given_data
+variant_contract:
+teach_back_source:
+prompt: An audio engineer defines S to be the collection of all continuous 
+  real-valued volume envelopes on the time interval [0,10] and writes, “Use real
+  scalars, so S is a vector space.” Interpret this declaration as a proposed 
+  mathematical structure. Explain precisely what data are still missing, give 
+  the input-output form of each missing rule, and say what would remain to be 
+  verified after those rules were supplied.
+expected_answer: The collection S and the scalar field R have been named, but 
+  that alone does not specify a vector space. One must define an addition map 
+  S×S→S that combines two envelopes and a scalar-multiplication map R×S→S. After
+  the two rules are supplied, one must verify that they are well defined on S 
+  and satisfy all vector-space axioms. Pointwise formulas would be a natural 
+  proposal, but they are not part of the original declaration unless explicitly 
+  stated.
+difficulty: 0.34
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - vector-space-definition
+  - schema-interpretation
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.38
+scaffold_level: 0.04
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: engineering_declaration_completion
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_set_alone_is_structure
+    hypothesis: Believes that naming a set and scalar field automatically 
+      supplies a vector-space structure.
+    observable_signature: S is already a real vector space because its elements 
+      are real-valued functions; no further definitions are needed.
+    misconception_id:
+    facet_id: facet_a_vector_space_is_a_set_with_operations_of_addit
+    fails_criteria:
+      - criterion_structure_interpretation
+    distinguishing_features:
+      - claims no operation rules are missing
+      - treats real-valued outputs as sufficient
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_structure_interpretation
+      points: 4.0
+      description: Distinguishes the set and scalar field from the missing 
+        addition and scalar-multiplication rules, gives both mapping types, and 
+        notes that the axioms still require verification.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_operations_of_addit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: manual_context_authoring_request
+      path:
+      locator: context.instructions and Targets
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids:
+        - lo_operations_and_the_vector_space_axiom_checklist
+        - lo_orient_to_the_vector_space_idea
+        - lo_prove_vector_identities_from_scalar_laws
+        - lo_read_and_apply_the_vector_space_definition
+        - lo_what_makes_a_vector_space
+created_at: '2026-07-27T09:20:19Z'
+updated_at: '2026-07-27T09:20:19Z'

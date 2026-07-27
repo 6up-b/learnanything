@@ -27,8 +27,12 @@ from learnloop.services.followups import (
 )
 from learnloop.services.facet_state_reader import facet_recall_states_for_lo
 from learnloop.services.mastery import covering_learner_claim, display_mastery
-from learnloop.services.contrast_pairs import ContrastPairGate
-from learnloop.services.persona_gate import PersonaGate
+from learnloop.services.authoring_gates import (
+    SELECTED_RESPONSE_PATTERNS as _SELECTED_RESPONSE_PATTERNS,
+    SelectedResponseGate as _SelectedResponseGate,
+    build_instrument_gates,
+    chain_gates as _chain_gates,
+)
 from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
 from learnloop.services.state_sync import sync_vault_state
@@ -283,19 +287,25 @@ def build_practice_expansion_plan(
         raise PracticeExpansionError("max_new_per_lo must be positive")
     _validate_mode_mix(mode_mix)
     named_lo_ids = list(dict.fromkeys(learning_object_ids or []))
+    # Stage 5.1: 3.1's reachability report, resolved into rung-correct authoring
+    # targets. One static pass over vault content (no attempts, no provider), and
+    # it is what makes the contract — rather than the learner's mastery band — the
+    # authority on the capability new items are authored at.
+    commissions = commission_plan(vault, repository)
     _validate_named_learning_objects(
-        vault, repository, named_lo_ids, require_completed_probe=require_completed_probe
+        vault,
+        repository,
+        named_lo_ids,
+        require_completed_probe=require_completed_probe,
+        contract_backed={
+            lo_id for lo_id in named_lo_ids if commissions.for_learning_object(lo_id)
+        },
     )
     subject_filter = set(subjects or [])
     concept_filter = set(focus_concepts or [])
     item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids)
     facet_unions = _active_evidence_facet_unions(vault, repository)
     surface_families = _active_surface_families(vault, repository)
-    # Stage 5.1: 3.1's reachability report, resolved into rung-correct authoring
-    # targets. One static pass over vault content (no attempts, no provider), and
-    # it is what makes the contract — rather than the learner's mastery band — the
-    # authority on the capability new items are authored at.
-    commissions = commission_plan(vault, repository)
     # Meas §3.A4: the identifiability findings a contrast pair can close, keyed by
     # the facets they name. One static pass, no provider, and it reuses the SAME
     # `analyze_identifiability` the doctor runs -- a request here and a finding
@@ -313,8 +323,21 @@ def build_practice_expansion_plan(
             continue
         if concept_filter and learning_object.concept not in concept_filter:
             continue
+        # Stage 5.1 corollary: the completed-probe gate follows probe *evidence*,
+        # but a commissionable contract cell is an authoring obligation that
+        # exists regardless of probes — the rung below comes from the contract,
+        # not the mastery band, so the gate would only starve the contract it
+        # exists to protect. (Measured: with the gate unconditional,
+        # fixtures/linear_algebra yields 0 targets while 18 LOs hold
+        # commissionable cells, because lo_probe_state has no rows.) LOs with
+        # nothing commissionable keep the gate byte-for-byte.
+        commissioned = commissions.for_learning_object(learning_object.id)
         probe_state = repository.probe_state(learning_object.id)
-        if require_completed_probe and (probe_state is None or probe_state.status != "complete"):
+        if (
+            require_completed_probe
+            and not commissioned
+            and (probe_state is None or probe_state.status != "complete")
+        ):
             continue
         existing_count = item_counts.get(learning_object.id, 0)
         needed = target_items_per_lo - existing_count
@@ -345,7 +368,6 @@ def build_practice_expansion_plan(
         # Otherwise nothing changes: `select_rung`'s mastery-band / probe-hypothesis
         # / milestone path stands exactly as before, which is why a legacy vault
         # with no authored blueprints is byte-for-byte unaffected.
-        commissioned = commissions.for_learning_object(learning_object.id)
         deferred = commissions.deferred_for_learning_object(learning_object.id)
         if commissioned:
             rung = commissioned[0].rung
@@ -473,15 +495,22 @@ def build_diagnostic_practice_plan(
                 mastery_mean=mastery_mean,
                 facet_recall_mean_by_facet=facet_means,
                 facet_recall_variance_by_facet=facet_variances,
-                # No floor/min-width here: the probe band is deliberately narrow
-                # and centred on the learner's boundary, where outcome variance
-                # (and so diagnostic information) is already maximal. Widening or
-                # raising it would blunt the very thing a probe is for.
-                recommended_difficulty_band=_success_band_difficulty(
-                    _ability_logit(_ability_estimate(facet_means, mastery_mean)),
-                    vault.config.practice_generation.probe_success_band,
-                    discrimination=irt.discrimination_default,
-                    difficulty_scale=irt.difficulty_prior_scale,
+                # No floor here: the probe band is deliberately narrow and
+                # centred on the learner's boundary, where outcome variance
+                # (and so diagnostic information) is already maximal. Raising it
+                # would blunt the very thing a probe is for. The one guarded
+                # case is a band that clamped to zero width — the degenerate
+                # [0.0, 0.0] collapse that pinned authored difficulty to 0.0
+                # pre-101474c — which _guard_degenerate_band widens away from
+                # the clamp edge without re-centring.
+                recommended_difficulty_band=_guard_degenerate_band(
+                    _success_band_difficulty(
+                        _ability_logit(_ability_estimate(facet_means, mastery_mean)),
+                        vault.config.practice_generation.probe_success_band,
+                        discrimination=irt.discrimination_default,
+                        difficulty_scale=irt.difficulty_prior_scale,
+                    ),
+                    min_band_width=vault.config.practice_generation.min_band_width,
                 ),
             )
         )
@@ -634,16 +663,17 @@ def generate_diagnostic_practice_proposal(
     # `grade_diagnostic_fire` only when the provider exposes it, and falls back to
     # the deterministic in-memory rule otherwise (a provider outage must not block
     # authoring). Nothing about the tier is decided here — see `classify_instrument`.
-    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
-    surface_gate = _SelectedResponseGate()
-    # Meas §3.A4 (plan item 6.4). Chained after the persona gate on every route,
-    # and separate from it: the persona gate asks whether the belief-holder fails
-    # exactly one member, which is a question about beliefs; this one asks whether
-    # the two payloads are a pair at all (band, structural manipulation, symmetric
-    # `differing_component`). The diagnostic route has no per-LO difficulty band,
-    # so the band clause abstains here and says so in the audit rather than
-    # inventing a band to check against.
-    pair_gate = ContrastPairGate(vault)
+    # Meas §3.A4 (plan item 6.4): the pair gate is chained after the persona gate
+    # on every route, and separate from it — the persona gate asks whether the
+    # belief-holder fails exactly one member (a question about beliefs); the pair
+    # gate asks whether the two payloads are a pair at all. The diagnostic route
+    # has no per-LO difficulty band, so the band clause abstains and says so in
+    # the audit rather than inventing a band to check against. The composition
+    # itself lives in `authoring_gates.build_instrument_gates` so the ingest
+    # lanes run the identical chain.
+    gates = build_instrument_gates(vault, repository, grading_client=codex_client)
+    persona_gate = gates.persona_gate
+    pair_gate = gates.pair_gate
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -652,7 +682,7 @@ def generate_diagnostic_practice_proposal(
         instructions=_diagnostic_practice_instructions(plan, extra_instructions=extra_instructions),
         codex_revision=codex_revision,
         merge_context_source_refs=True,
-        row_transform=_chain_gates(surface_gate, persona_gate, pair_gate),
+        row_transform=gates,
     )
     fulfilled: list[str] = []
     persisted_items = repository.proposal_items(patch_id)
@@ -749,22 +779,25 @@ def generate_post_probe_practice_proposal(
     if not plan.targets:
         raise PracticeExpansionError("No completed probe Learning Objects need more Practice Items.")
     rung_gate = _RungGate(repository, plan)
-    surface_gate = _SelectedResponseGate()
     # Meas §3.0, advisory tier for plain practice (plan §7.3): chained onto the
     # plain-practice route too, so that a row which is *structurally* a diagnostic
     # instrument is hard-gated even when produced here. The tier is never a
-    # property of the route.
-    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
-    # Meas §3.A4: the pair gate holds both members to the SAME target band the
-    # rung gate already uses (`_success_band_difficulty`'s inversion), so "the
-    # target difficulty band" means one thing in this vault.
-    pair_gate = ContrastPairGate(
+    # property of the route. Meas §3.A4: the pair gate holds both members to the
+    # SAME target band the rung gate already uses (`_success_band_difficulty`'s
+    # inversion), so "the target difficulty band" means one thing in this vault.
+    gates = build_instrument_gates(
         vault,
+        repository,
+        grading_client=codex_client,
+        rung_gate=rung_gate,
         difficulty_band_by_lo={
             target.learning_object_id: target.recommended_difficulty_band
             for target in plan.targets
         },
     )
+    surface_gate = gates.surface_gate
+    persona_gate = gates.persona_gate
+    pair_gate = gates.pair_gate
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -780,7 +813,7 @@ def generate_post_probe_practice_proposal(
         source_refs=source_refs,
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
-        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate, pair_gate),
+        row_transform=gates,
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -888,19 +921,21 @@ def generate_goal_practice_proposal(
         f"{goal_preamble} {extra_instructions}" if extra_instructions else goal_preamble
     )
     rung_gate = _RungGate(repository, plan)
-    surface_gate = _SelectedResponseGate()
-    # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note).
-    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
-    # Meas §3.A4: the pair gate holds both members to the SAME target band the
-    # rung gate already uses (`_success_band_difficulty`'s inversion), so "the
-    # target difficulty band" means one thing in this vault.
-    pair_gate = ContrastPairGate(
+    # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note);
+    # Meas §3.A4 band note ditto. One shared composition: `authoring_gates`.
+    gates = build_instrument_gates(
         vault,
+        repository,
+        grading_client=codex_client,
+        rung_gate=rung_gate,
         difficulty_band_by_lo={
             target.learning_object_id: target.recommended_difficulty_band
             for target in plan.targets
         },
     )
+    surface_gate = gates.surface_gate
+    persona_gate = gates.persona_gate
+    pair_gate = gates.pair_gate
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -913,7 +948,7 @@ def generate_goal_practice_proposal(
         focus_concepts=list(goal.facet_scope.concepts) or None,
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
-        row_transform=_chain_gates(surface_gate, rung_gate, persona_gate, pair_gate),
+        row_transform=gates,
     )
     return PracticeExpansionResult(
         patch_id=patch_id,
@@ -1143,27 +1178,20 @@ def generate_cross_source_practice_proposal(
             )
 
     rung_gate = _RungGate(repository, plan)
-    surface_gate = _SelectedResponseGate()
-    # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note).
-    persona_gate = PersonaGate(vault, repository, grading_client=codex_client)
-    # Meas §3.A4: the pair gate holds both members to the SAME target band the
-    # rung gate already uses (`_success_band_difficulty`'s inversion), so "the
-    # target difficulty band" means one thing in this vault.
-    pair_gate = ContrastPairGate(
+    # Meas §3.0 / §3.A4 notes as on the other routes; the cross-source route
+    # additionally runs its leakage gate FIRST, as a `leading` hook on the one
+    # shared composition.
+    gates = build_instrument_gates(
         vault,
+        repository,
+        grading_client=codex_client,
+        rung_gate=rung_gate,
         difficulty_band_by_lo={
             target.learning_object_id: target.recommended_difficulty_band
             for target in plan.targets
         },
+        leading=(_leakage_gate,),
     )
-
-    def _combined_gate(rows: list[dict[str, Any]]) -> None:
-        _leakage_gate(rows)
-        surface_gate(rows)
-        rung_gate(rows)
-        persona_gate(rows)
-        pair_gate(rows)
-
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -1179,7 +1207,7 @@ def generate_cross_source_practice_proposal(
         focus_facets=focus_facets,
         codex_revision=codex_revision,
         prompt_version=PRACTICE_GENERATION_PROMPT_VERSION,
-        row_transform=_combined_gate,
+        row_transform=gates,
     )
     return CrossSourcePracticeResult(
         patch_id=patch_id,
@@ -1205,22 +1233,27 @@ def _validate_named_learning_objects(
     learning_object_ids: list[str],
     *,
     require_completed_probe: bool = True,
+    contract_backed: set[str] | None = None,
 ) -> None:
     """Named --los targets must exist, be active, and have a completed probe.
 
     Naming an LO bypasses only the item-count deficit gate; the completed-probe
     gate stays (evidence-not-mastery: generation targets follow probe evidence)
     unless the caller explicitly waives it (goal population, where the goal
-    itself is the learner's declared intent to practice these LOs).
+    itself is the learner's declared intent to practice these LOs) or the LO is
+    in ``contract_backed`` — its blueprint names commissionable contract cells,
+    so the contract, not probe evidence, is the authority on what gets authored
+    (Stage 5.1) and the plan loop would waive the same LO anyway.
     """
 
+    contract_backed = contract_backed or set()
     for lo_id in learning_object_ids:
         learning_object = vault.learning_objects.get(lo_id)
         if learning_object is None:
             raise PracticeExpansionError(f"Unknown learning object id: {lo_id}")
         if learning_object.status != "active":
             raise PracticeExpansionError(f"Learning object {lo_id} is not active (status={learning_object.status}).")
-        if not require_completed_probe:
+        if not require_completed_probe or lo_id in contract_backed:
             continue
         probe_state = repository.probe_state(lo_id)
         if probe_state is None or probe_state.status != "complete":
@@ -1230,15 +1263,10 @@ def _validate_named_learning_objects(
 
 
 #: Surfaces that mean "pick one of these" rather than "produce an answer".
-_SELECTED_RESPONSE_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\breply with the letter\b", "asks the learner to reply with a letter"),
-    (r"\bselect the (?:correct|right)\b", "asks the learner to select an option"),
-    (r"\bwhich of the following\b", "poses a which-of-the-following option list"),
-    (r"\bchoose the (?:correct|right|best)\b", "asks the learner to choose an option"),
-    (r"\btrue or false\b", "is a true/false item"),
-    # Two or more lettered options: "A. ... B. ..." / "A) ... B) ...".
-    (r"(?:(?<=\s)|^)[A-D][.)]\s+\S.*?(?:(?<=\s)|^)[B-E][.)]\s+\S", "lists lettered answer options"),
-)
+# `_SELECTED_RESPONSE_PATTERNS` / `_SelectedResponseGate` / `_chain_gates` now
+# live in `authoring_gates` (imported above under their historical names) so
+# the ingest lanes consume the SAME instrument-gate implementations instead of
+# a private subset that could drift.
 
 
 def _contrast_pair_requests_by_facet(
@@ -1298,55 +1326,6 @@ def _contrast_pair_requests_for(
         for request in by_facet.get(str(facet), ()):  # type: ignore[arg-type]
             seen.setdefault(str(request["target_key"]), request)
     return sorted(seen.values(), key=lambda request: int(request["queue_rank"]))
-
-
-def _chain_gates(*gates):
-    """Run several row_transform gates over one proposal batch, in order."""
-
-    def _run(rows: list[dict[str, Any]]) -> None:
-        for gate in gates:
-            gate(rows)
-
-    return _run
-
-
-class _SelectedResponseGate:
-    """Deterministic ban on selected-response surfaces (multiple choice / T-F).
-
-    A prompt rule alone does not hold: the authoring model reliably falls back to
-    option lists when asked for an easy item. Selected-response items measure
-    option elimination rather than the capability the Learning Object names, and
-    they are near-worthless as evidence, so an item that ships one is forced off
-    the auto-apply route and marked invalid for review.
-    """
-
-    def __init__(self) -> None:
-        self.violations: list[str] = []
-
-    def __call__(self, rows: list[dict[str, Any]]) -> None:
-        import re
-
-        for row in rows:
-            if row.get("item_type") != "practice_item" or row.get("operation") != "create":
-                continue
-            payload = row.get("payload")
-            if not isinstance(payload, dict):
-                continue
-            prompt = str(payload.get("prompt") or "")
-            reasons = [
-                reason
-                for pattern, reason in _SELECTED_RESPONSE_PATTERNS
-                if re.search(pattern, prompt, flags=re.IGNORECASE | re.DOTALL)
-            ]
-            if not reasons:
-                continue
-            ref = str(row.get("client_item_id") or payload.get("id") or "item")
-            message = f"{ref}: selected-response surface ({'; '.join(reasons)})"
-            self.violations.append(message)
-            row["_auto_apply"] = False
-            row["validation_status"] = "invalid"
-            errors = list(row.get("validation_errors") or [])
-            row["validation_errors"] = ["selected_response_surface", *errors]
 
 
 class _RungGate:
@@ -2187,3 +2166,27 @@ def _success_band_difficulty(
     low = max(low, difficulty_floor)
     high = max(high, low + min_band_width)
     return (round(min(low, 1.0), 2), round(min(high, 1.0), 2))
+
+
+def _guard_degenerate_band(
+    band: tuple[float, float], *, min_band_width: float
+) -> tuple[float, float]:
+    """Restore width to a band that clamped to ``[x, x]``; never re-centre it.
+
+    The probe band deliberately carries no ``difficulty_floor`` — it sits on the
+    learner's boundary, where outcome variance (and so diagnostic information)
+    is already maximal, and raising it would blunt the probe. The one shape
+    that must not survive is zero width at a clamp edge: ``[0.0, 0.0]`` under a
+    pessimistic ability estimate (or ``[1.0, 1.0]`` under an optimistic one)
+    names an item whose outcome the model already predicts, so it yields no
+    information and can never correct the estimate that produced it. Width is
+    restored away from the clamp edge only; the boundary-centred edge stays
+    where the estimate put it.
+    """
+
+    low, high = band
+    if high - low > 1e-9 or min_band_width <= 0.0:
+        return band
+    if high + min_band_width <= 1.0:
+        return (low, round(high + min_band_width, 2))
+    return (round(max(0.0, low - min_band_width), 2), high)

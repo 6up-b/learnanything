@@ -92,7 +92,51 @@ ASSISTED_ATTEMPT_TYPES = _ASSISTED_ATTEMPT_TYPES
 # with no new learner evidence, so the version bump is what routes it through
 # 1.4's "estimates recomputed, your evidence unchanged" recalibration entry
 # instead of the numbers silently moving under the learner.
-CANONICAL_PROJECTION_VERSION = "canonical_projection_v5_supporting_requires_trace"
+# v6 (stabilization A3): a criterion with NO grading-evidence row produces NO
+#     outcome. Before v6 a missing row read as fraction 0.0 -> passed=False, so
+#     absent data banked negative mass, advanced consecutive-failure runs, and
+#     could open unresolved-cause factors — confident wrongness manufactured
+#     from nothing (an ungraded attempt "failed" its whole rubric). A PRESENT
+#     row with zero points is unchanged: that is a real observed failure.
+#     Rebuilding an affected vault removes phantom negative mass, which is why
+#     it is a versioned boundary rather than a silent correction.
+CANONICAL_PROJECTION_VERSION = "canonical_projection_v6_absent_evidence_confers_nothing"
+
+
+def p0_effective_evidence_mass(
+    repository: Repository,
+    *,
+    interpretation: Mapping[str, Any] | None,
+    attempt_type_mass: float,
+) -> float:
+    """THE mvp-0.8 response-level evidence-mass discount (P0.3 §4.3), shared by
+    both evidence folds.
+
+    The calibrated channel scales evidence authority/mass only — directional
+    criterion outcomes always remain their raw fractions. Direction no longer
+    comes from the response posterior, so its aleatoric certainty moves to the
+    authority term: combined with ``EffectiveObservation``'s epistemic factor
+    this yields the shared certainty LCB as the total response-level mass
+    discount. An attempt with no active interpretation (legacy, pre-P0.2)
+    contributes zero reliable mass — never a silent full-credit.
+
+    The canonical projection and the facet evidence timeline both call this
+    helper so the banked ledger and the learner-facing Demonstrated curve can
+    never disagree about the discount (`test_receipt_exactness` holds them to
+    float agreement under mvp-0.8 as well as mvp-0.7).
+    """
+
+    from learnloop.services.effective_observation import build_effective_observation
+
+    effective_obs = build_effective_observation(
+        repository,
+        interpretation=interpretation,
+        # score_fraction shapes only the (unused-here) expected true-score
+        # fraction; the mass product below is independent of it.
+        score_fraction={},
+        attempt_type_mass=attempt_type_mass,
+    )
+    return effective_obs.effective_mass * effective_obs.certainty
 
 
 def surface_group_id(item: PracticeItem) -> str:
@@ -435,7 +479,6 @@ def project_canonical_facet_state(
     use_p0 = algorithm_version == P0_ALGORITHM_VERSION
     p0_score_fraction: dict[str, float] = {}
     if use_p0:
-        from learnloop.services.effective_observation import build_effective_observation
         from learnloop.services.outcome_schemas import (
             COARSE_RESPONSE_SLUG,
             ensure_builtin_schemas,
@@ -521,21 +564,14 @@ def project_canonical_facet_state(
         rubric_total = rubric_total or 1.0
         emass = attempt_evidence_mass(attempt["attempt_type"], vault.config.evidence)
         # The response-level calibrated channel scales evidence authority/mass
-        # only. Directional criterion outcomes always remain their raw fractions.
-        p0_fraction: float | None = None
+        # only. Directional criterion outcomes always remain their raw fractions
+        # (rationale in the shared helper's docstring).
         if use_p0:
-            effective_obs = build_effective_observation(
+            emass = p0_effective_evidence_mass(
                 repository,
                 interpretation=attempt.get("active_interpretation"),
-                score_fraction=p0_score_fraction,
                 attempt_type_mass=emass,
             )
-            # Direction no longer comes from the response posterior, so its
-            # aleatoric certainty must move to the authority term. Combined
-            # with EffectiveObservation's epistemic factor this yields the
-            # shared certainty LCB as the total response-level mass discount.
-            emass = effective_obs.effective_mass * effective_obs.certainty
-            p0_fraction = effective_obs.expected_true_score_fraction
         # Observed-outcome override for the unresolved-cause gate: adjudication
         # is observation-scoped (one activity observation per attempt), so it
         # applies to every criterion of this attempt.
@@ -559,8 +595,19 @@ def project_canonical_facet_state(
         outcomes: list[CriterionOutcome] = []
         for criterion in criteria:
             row = evidence_by_criterion.get(criterion.id)
+            if row is None:
+                # Projection v6: absent evidence is not an observation. A
+                # criterion nobody graded produces NO outcome — neither positive
+                # nor negative — rather than reading as fraction 0.0 and banking
+                # a failure that never happened. A PRESENT row with zero points
+                # is the observed-failure case and is unchanged below.
+                # ``localize_criterion_outcomes`` treats a dependency missing
+                # from the outcome list as passed, so an ungraded parent neither
+                # manufactures its own failure nor suppresses its descendants'
+                # observed evidence.
+                continue
             fraction = 0.0
-            if row is not None and criterion.points > 0:
+            if criterion.points > 0:
                 fraction = max(0.0, min(1.0, float(row["points_awarded"]) / criterion.points))
             outcomes.append(
                 CriterionOutcome(

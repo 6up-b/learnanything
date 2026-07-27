@@ -332,7 +332,7 @@ def test_the_projection_version_names_the_supporting_trace_rule():
     """The guards move stored belief with no new learner evidence, so the
     version bump is what routes it through one recalibration boundary."""
 
-    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v5_supporting_requires_trace"
+    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v6_absent_evidence_confers_nothing"
 
 
 # ---------------------------------------------------------------------------

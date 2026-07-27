@@ -21,6 +21,9 @@ export interface AskTarget {
   attemptId?: string;
   noteId?: string;
   sessionId?: string;
+  /** Reader threads stay anchored to the exact canonical source span. */
+  extractionId?: string;
+  spanId?: string;
   /** Date.now() when the practice item was opened (practice context only). */
   openedAtMs?: number;
   /** §12.1: open with the tutor's persisted typed move before the learner
@@ -31,7 +34,8 @@ export interface AskTarget {
 const CONTEXT_PILL: Record<TutorQuestionContext, PillColor> = {
   library: "cyan",
   practice: "amber",
-  feedback: "green"
+  feedback: "green",
+  reader: "purple"
 };
 
 interface ThreadEntry {
@@ -86,7 +90,7 @@ function promotionRequestLabel(request: QuestionPromotionRequestDto): string {
 }
 
 function entityIdOf(target: AskTarget): string {
-  return target.noteId ?? target.attemptId ?? target.practiceItemId ?? "";
+  return target.spanId ?? target.noteId ?? target.attemptId ?? target.practiceItemId ?? "";
 }
 
 export function AskOverlay({
@@ -242,6 +246,8 @@ export function AskOverlay({
     target?.attemptId,
     target?.noteId,
     target?.sessionId,
+    target?.extractionId,
+    target?.spanId,
     target?.proactiveOpen
   ]);
 
@@ -293,19 +299,54 @@ export function AskOverlay({
       }
     ]);
     setQuestion("");
-    const input: AskTutorQuestionInput = {
-      context: target.context,
-      question: text,
-      practiceItemId: target.practiceItemId,
-      attemptId: target.attemptId,
-      noteId: target.noteId,
-      sessionId: target.sessionId
-    };
-    if (target.context === "practice" && target.openedAtMs) {
-      input.secondsIntoAttempt = Math.max(0, (Date.now() - target.openedAtMs) / 1000);
-    }
     try {
-      const answer = await api.askTutorQuestion(input);
+      let answer: {
+        eventId: string;
+        answerMd: string;
+        questionType: string | null;
+        hintEquivalent: boolean;
+        citations: TutorCitationDto[];
+        remaining: number;
+      };
+      if (target.context === "reader") {
+        if (!target.extractionId || !target.spanId) {
+          throw new Error("This reader question is no longer linked to its source span.");
+        }
+        const readerAnswer = await api.readerAsk({
+          extractionId: target.extractionId,
+          spanId: target.spanId,
+          question: text
+        });
+        answer = {
+          eventId: readerAnswer.eventId,
+          answerMd: readerAnswer.answerMd,
+          questionType: null,
+          hintEquivalent: readerAnswer.hintEquivalent,
+          citations: readerAnswer.citations,
+          remaining: readerAnswer.remaining ?? 0
+        };
+      } else {
+        const input: AskTutorQuestionInput = {
+          context: target.context,
+          question: text,
+          practiceItemId: target.practiceItemId,
+          attemptId: target.attemptId,
+          noteId: target.noteId,
+          sessionId: target.sessionId
+        };
+        if (target.context === "practice" && target.openedAtMs) {
+          input.secondsIntoAttempt = Math.max(0, (Date.now() - target.openedAtMs) / 1000);
+        }
+        const tutorAnswer = await api.askTutorQuestion(input);
+        answer = {
+          eventId: tutorAnswer.eventId,
+          answerMd: tutorAnswer.answerMd,
+          questionType: tutorAnswer.questionType,
+          hintEquivalent: tutorAnswer.hintEquivalent,
+          citations: tutorAnswer.citations,
+          remaining: tutorAnswer.remaining
+        };
+      }
       setThread((prev) =>
         prev.map((entry, index) =>
           index === prev.length - 1
@@ -428,14 +469,22 @@ export function AskOverlay({
         {/* ── transcript ── */}
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "12px 16px" }}>
           {thread.length === 0 && !pending ? (
-            <Faint>ask the tutor about this {target.context === "library" ? "note" : "item"} …</Faint>
+            <Faint>
+              ask the tutor about this{" "}
+              {target.context === "library"
+                ? "note"
+                : target.context === "reader"
+                  ? "source passage"
+                  : "item"}{" "}
+              …
+            </Faint>
           ) : null}
           {thread.map((entry, index) => (
             <div key={entry.eventId ?? `pending-${index}`} style={{ marginBottom: 16 }}>
               {!entry.opening ? (
-                <div style={{ color: COLOR.text, fontSize: 13, display: "flex", gap: 6 }}>
+                <div style={{ color: COLOR.text, fontSize: 13, display: "flex", alignItems: "baseline", gap: 6 }}>
                   <span style={{ color: COLOR.amber, fontWeight: 700 }}>❯</span>
-                  <div className="markdown" style={{ flex: 1, minWidth: 0 }}>
+                  <div className="markdown ask-user-message" style={{ flex: 1, minWidth: 0 }}>
                     <MarkdownMath value={entry.questionMd} />
                   </div>
                 </div>
@@ -558,7 +607,7 @@ export function AskOverlay({
                           >
                             add to practice
                           </span>
-                          {target.context !== "library" ? (
+                          {target.context === "practice" || target.context === "feedback" ? (
                             <span
                               onClick={() => void promote(entry.eventId as string, "gap")}
                               style={{ cursor: "pointer", color: COLOR.amberLink }}

@@ -139,9 +139,37 @@ def _apply_accepted_locked(
     # 2. Stage/fsync/atomic-rename the YAML into place.
     materialize_targets(vault.root, targets)
     # 3. Derived-state sync + DB side effects, then mark the intent applied.
-    sync_vault_state(load_vault(vault.root), repository, clock=clock)
+    vault_after = load_vault(vault.root)
+    sync_vault_state(vault_after, repository, clock=clock)
     change_batch_ids = perform_db_effects(repository, db_plan, clock=clock)
     repository.mark_apply_intent_applied(intent_id, clock=clock)
+    # Applying LO/blueprint content moves the vault-wide contract frontier, and
+    # the coverage-denominator boundary must be stamped AT the change (one
+    # marker, correct time, correct attribution) rather than armed for the next
+    # unrelated rebuild to narrate. Content-addressed version ⇒ an apply that
+    # changes no frontier cells re-stamps the same value and emits nothing.
+    content_lo_ids = sorted(
+        {
+            str(
+                item.get("target_entity_id")
+                or (item.get("payload") or {}).get("learning_object_id")
+                or (item.get("payload") or {}).get("id")
+                or ""
+            )
+            for item in ordered_items
+            if item.get("item_type") in {"learning_object", "task_blueprint"}
+        }
+        - {""}
+    )
+    if content_lo_ids:
+        from learnloop.services.replay import record_content_recalibration
+
+        record_content_recalibration(
+            vault_after,
+            repository,
+            affected_learning_object_ids=content_lo_ids,
+            clock=clock,
+        )
     return PatchApplyResult(applied_count=len(ordered_items), change_batch_ids=change_batch_ids)
 
 

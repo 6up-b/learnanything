@@ -85,14 +85,27 @@ class ExamReadinessReport:
         }
 
 
-def _recipe_components(blueprint) -> list[tuple[str, str]]:
-    comps: list[tuple[str, str]] = []
+def _recipe_component_groups(blueprint) -> list[list[tuple[str, str]]]:
+    """The blueprint's requirement slots, each as the cells that can fill it.
+
+    ``all_of`` and ``integration`` are one-cell slots (conjunctive); an
+    ``any_of`` list is ONE slot filled by any of its alternatives, matching the
+    max-over-alternatives semantics ``project_blueprint`` projects the same
+    blueprint with in this function. Counting alternatives as separate required
+    slots would report a blueprint as less demonstrated than its own readiness
+    model says it is.
+    """
+
+    groups: list[list[tuple[str, str]]] = []
     for recipe in blueprint.recipes or []:
-        for comp in [*(recipe.all_of or []), *(recipe.any_of or [])]:
-            comps.append((comp.facet, comp.capability))
+        for comp in recipe.all_of or []:
+            groups.append([(comp.facet, comp.capability)])
+        alternatives = [(comp.facet, comp.capability) for comp in recipe.any_of or []]
+        if alternatives:
+            groups.append(alternatives)
         if recipe.integration is not None:
-            comps.append((recipe.integration.facet, recipe.integration.capability))
-    return comps
+            groups.append([(recipe.integration.facet, recipe.integration.capability)])
+    return groups
 
 
 def exam_readiness_report(
@@ -143,22 +156,25 @@ def exam_readiness_report(
             continue
         for blueprint in lo.blueprints:
             projection = project_blueprint(blueprint, component_recall, slip=slip, guess=guess)
-            comps = _recipe_components(blueprint)
+            groups = _recipe_component_groups(blueprint)
             facet_caps: list[dict[str, Any]] = []
             demonstrated = 0
-            for facet, capability in comps:
-                credit = ledger.get((vault.canonical_facet_id(facet), capability), 0.0)
-                is_demo = is_demonstrated_credit(credit)
-                demonstrated += 1 if is_demo else 0
-                facet_caps.append(
-                    {
-                        "facet": facet,
-                        "capability": capability,
-                        "demonstrated": is_demo,
-                        "certification_credit": round(credit, 3),
-                        "recall_mean": round(component_recall(facet, capability), 3),
-                    }
-                )
+            for group in groups:
+                group_demonstrated = False
+                for facet, capability in group:
+                    credit = ledger.get((vault.canonical_facet_id(facet), capability), 0.0)
+                    is_demo = is_demonstrated_credit(credit)
+                    group_demonstrated = group_demonstrated or is_demo
+                    facet_caps.append(
+                        {
+                            "facet": facet,
+                            "capability": capability,
+                            "demonstrated": is_demo,
+                            "certification_credit": round(credit, 3),
+                            "recall_mean": round(component_recall(facet, capability), 3),
+                        }
+                    )
+                demonstrated += 1 if group_demonstrated else 0
             # task family: derive from the exam-profile weighting when present, else
             # the blueprint id (the blueprint IS the task family proxy in v2).
             task_family = blueprint.id
@@ -173,7 +189,7 @@ def exam_readiness_report(
                     normalized_weight=0.0,
                     learning_object_ids=[lo_id],
                     ready=projection.success_probability,
-                    demonstrated_fraction=(demonstrated / len(comps)) if comps else 0.0,
+                    demonstrated_fraction=(demonstrated / len(groups)) if groups else 0.0,
                     facet_capabilities=facet_caps,
                 )
             )

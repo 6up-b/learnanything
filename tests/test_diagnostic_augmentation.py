@@ -10,8 +10,15 @@ from learnloop.cli import app
 from learnloop.codex.client import GradingContext
 from learnloop.codex.schemas import GradingProposal
 from learnloop.db.repositories import Repository
+from learnloop.ai.runtime import AIRuntimeReport
+from learnloop.services.attempts import (
+    AttemptDraft,
+    SelfGradeInput,
+    complete_attempt_with_ai_fallback,
+)
 from learnloop.services.causal_attribution import APPROVED_SUPPORT_AUTHORITIES
 from learnloop.services.diagnostic_augmentation import (
+    DEFAULT_DIAGNOSIS_SAMPLES,
     PlantedDiagnosticCase,
     REGRESSION_SHAPES,
     commission_planted_diagnostic_evaluation,
@@ -22,6 +29,7 @@ from learnloop.services.diagnostic_augmentation import (
 )
 from learnloop.services.persona_realism import match_persona_realism
 from learnloop.services.scoreboard import planted_ground_truth
+from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
@@ -180,6 +188,10 @@ def test_persona_realism_cli_runs_the_blind_matcher(tmp_path):
             str(paths.root),
             "--personas",
             str(personas),
+            "--generator-provider",
+            "codex",
+            "--generator-model",
+            "gpt-5",
             "--json",
         ],
     )
@@ -241,6 +253,88 @@ def test_identical_text_distributions_license_personas(tmp_path):
     assert report.verdict == "indistinguishable"
     assert report.licensed
     assert report.balanced_accuracy == pytest.approx(0.5)
+
+
+def _grading_context() -> GradingContext:
+    return GradingContext(
+        attempt_id="attempt_1",
+        practice_item_id="pi_svd_define_001",
+        prompt="Define SVD.",
+        expected_answer="A = U Sigma V transpose",
+        learner_answer_md="A = U Sigma",
+        rubric={"max_points": 4, "criteria": []},
+    )
+
+
+def test_c3_default_is_one_call_and_claims_no_agreement():
+    """The shipped C3 rung: one call, the grader's own attribution, no consensus.
+
+    k=1 is where the sample-count default sits after the C1-C4 simultaneous
+    promotion was unwound. The failure this pins is a *quiet* one: 1/1 is 1.0, and
+    a 1.0 flowing out as ``agreement_support`` would reach the attribution as
+    ``diagnostic_sample_support`` and flip ``causal_attribution``'s support
+    authority to ``sample_agreement`` -- a measured-consensus claim built from a
+    single unrepeated reading.
+    """
+
+    client = _SequenceDiagnostician([_proposal("attempt_1")])
+
+    consensus = run_diagnosis_samples(
+        client, _grading_context(), sample_count=DEFAULT_DIAGNOSIS_SAMPLES
+    )
+
+    assert DEFAULT_DIAGNOSIS_SAMPLES == 1
+    assert len(client.contexts) == 1  # one paid call
+    assert consensus.sample_count == 1
+    assert consensus.agreement_support is None
+    assert consensus.agreement_basis == "single_sample"
+    assert not consensus.disagreed
+    assert consensus.disagreement_causes == ()
+    # The attribution is returned as the grader wrote it: no rewrite to
+    # "unresolved", no synthesized candidate cause set, no confidence overwrite.
+    primary = consensus.proposal.error_attributions[0]
+    assert primary.resolution_status == "resolved"
+    assert not primary.candidate_causes
+    # The receipt column is NOT NULL, so it still stores 1/1 -- but next to
+    # sample_count=1, which is what makes it readable rather than a claim.
+    assert consensus.receipt_agreement_support == pytest.approx(1.0)
+    assert consensus.as_dict()["agreement_support"] is None
+
+
+def test_c3_k1_leaves_no_sample_support_on_the_stored_attribution(tmp_path):
+    """End to end: nothing downstream sees a support score the baseline never measured."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository)
+    assert vault.config.diagnostic_augmentation.sample_count == 1
+
+    result = complete_attempt_with_ai_fallback(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id="pi_svd_define_001",
+            learner_answer_md="A = U Sigma",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+        runtime=AIRuntimeReport(
+            status="ready",
+            active_provider="diagnostician",
+            provider_type="openai_chat",
+            model="claude-4",
+        ),
+        ai_client=_SequenceDiagnostician(
+            [lambda context: _proposal(context.attempt_id)]
+        ),
+    )
+
+    events = repository.error_events_for_attempt(result.attempt_id)
+    assert events
+    for event in events:
+        assert "diagnostic_sample_support" not in (event["repair_plan"] or {})
+    receipts = repository.diagnostic_augmentation_receipt_rows()
+    assert receipts[0]["c3_sample_count"] == 1
 
 
 def test_c3_disagreement_becomes_unresolved_cause_set_and_real_support():

@@ -1,0 +1,106 @@
+schema_version: 1
+id: pi_orient_operations_omission_rewrite
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  crit_complete_structure_rewrite:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: Rewrite the incomplete claim “R² is a vector space over C” as a 
+  mathematically complete proposal that could actually be checked. Your rewrite 
+  need not make the proposal true, but it must expose every piece of structural 
+  data that a checker would need before testing axioms.
+expected_answer: 'A complete proposal must name the underlying set R², the scalar
+  field C, an explicit addition rule R²×R²→R², and an explicit scalar-multiplication
+  rule C×R²→R². For example: “On R², propose (x,y)⊕(u,v)=(x+u,y+v), and specify a
+  rule C×R²→R² for scalar multiplication; then test closure and all vector-space axioms.”
+  Without the second explicit rule, the claim cannot yet be checked.'
+difficulty: 0.33
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.76
+transfer_distance: 0.34
+scaffold_level: 0.04
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: structural_proposal_rewrite
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_set_and_field_are_complete_data
+    hypothesis: Believes that naming an underlying set and scalar field fully 
+      specifies a vector-space structure.
+    observable_signature: 'A complete proposal is: “The underlying set is R² and the
+      scalar field is C.”'
+    misconception_id:
+    facet_id: facet_a_vector_space_is_a_set_with_operations_of_addit
+    fails_criteria:
+      - crit_complete_structure_rewrite
+    distinguishing_features:
+      - omits both operation rules
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_complete_structure_rewrite
+      points: 4.0
+      description: Produces a checkable proposal naming the set, field, 
+        addition, and scalar-multiplication rule with their input-output types.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_operations_of_addit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T07:52:50Z'
+updated_at: '2026-07-27T07:52:50Z'

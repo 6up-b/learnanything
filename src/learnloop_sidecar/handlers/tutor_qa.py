@@ -376,6 +376,10 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
         events = repository.question_events(
             context="feedback", attempt_id=params.attempt_id, answer_status="answered"
         )
+    elif params.context == "reader":
+        events = repository.question_events(
+            context="reader", note_id=params.note_id, answer_status="answered"
+        )
     else:
         events = repository.question_events(
             context="library", note_id=params.note_id, answer_status="answered"

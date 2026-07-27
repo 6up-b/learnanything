@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_read_definition_nonempty_sets_method
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+evidence_weights:
+  facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+criterion_facet_weights:
+  crit_select_mapping_audit:
+    facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+  crit_supply_empty_set_witness:
+    facet_an_addition_on_a_set_assigns_an_element_of_the_s: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_audit_addition_mapping
+      checkpoints:
+        - select_mapping_check
+        - produce_counterexample
+        - state_verdict
+      dependencies:
+        produce_counterexample:
+          - select_mapping_check
+        select_mapping_check: []
+        state_verdict:
+          - produce_counterexample
+variant_contract:
+teach_back_source:
+prompt: Let V be the set of nonempty finite subsets of Z, and propose A⊕B=A△B, 
+  the symmetric difference. Before testing commutativity, identities, or 
+  inverses, name the definition-level check that should be performed first and 
+  give one decisive calculation.
+expected_answer: 'First check whether ⊕ really defines an addition V×V→V: every ordered
+  pair of elements of V must produce another element of V. It fails, because for any
+  A∈V, A△A=∅, while ∅∉V. Therefore this rule is not an addition on V as stated.'
+difficulty: 0.47
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - commissioned_cell
+  - operation-audit
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.7
+scaffold_level: 0.03
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: set_operation_definition_audit
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_commutativity_before_totality
+    hypothesis: Believes any commutative formula automatically qualifies as an 
+      addition on the named set.
+    observable_signature: States that symmetric difference is a valid addition 
+      because A△B=B△A, without checking that A△A leaves V.
+    misconception_id:
+    facet_id: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+    fails_criteria:
+      - crit_select_mapping_audit
+      - crit_supply_empty_set_witness
+    distinguishing_features:
+      - uses commutativity as sufficient
+      - omits the codomain failure
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_addition_on_a_set_assigns_an_element_of_the_s
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_select_mapping_audit
+      points: 2.0
+      description: Selects the total input-output requirement V×V→V as the first
+        check.
+      tier: core
+      targets:
+        - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_supply_empty_set_witness
+      points: 2.0
+      description: Uses A△A=∅ with ∅ outside V to reject the proposed addition.
+      tier: core
+      targets:
+        - facet: facet_an_addition_on_a_set_assigns_an_element_of_the_s
+          capability: method_selection
+          role: primary
+      depends_on:
+        - crit_select_mapping_audit
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:21Z'
+updated_at: '2026-07-27T08:36:21Z'

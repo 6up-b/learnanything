@@ -332,6 +332,12 @@ def ask_question(
         & set(candidates)
     )
     citations = _validated_citations(answer, ai_context.source_spans)
+    if citations:
+        source_context = dict(source_context or {})
+        # Persist the model-selected citation only after it has passed the
+        # provided-span allowlist. Today can then link this exact discussion
+        # instead of guessing from the broader learning-object source set.
+        source_context["citations"] = citations
     hint_equivalent = context == "practice" and answer.question_type in HINT_EQUIVALENT_TYPES
     leak_suspected = (
         context == "practice"
@@ -355,6 +361,7 @@ def ask_question(
         leak_suspected=leak_suspected,
         answer_status="answered",
         signal_channel=signal_channel,
+        source_context=source_context,
     )
 
     # Feedback wiring: a post-grade question about facet X is a signal the

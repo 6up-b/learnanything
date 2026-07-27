@@ -1,0 +1,151 @@
+schema_version: 1
+id: pi_orient_to_the_vector_space_idea_teach_back_phcbsn
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: teach_back
+attempt_types_allowed:
+  - teach_back
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  criterion_teach_1:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+  criterion_teach_2:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+  criterion_teach_transfer:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_compare_operation_packages
+      checkpoints:
+        - identify_shared_data
+        - identify_changed_data
+        - infer_distinct_structures
+      dependencies:
+        identify_changed_data: []
+        identify_shared_data: []
+        infer_distinct_structures:
+          - identify_shared_data
+          - identify_changed_data
+variant_contract:
+teach_back_source:
+  source_practice_item_id: pi_orient_same_set_03
+  source_updated_at: '2026-07-25T23:50:28Z'
+  compiler_version: source_item_v3
+  quest_id: goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  quest_sentence: Do well on the exam goal “Get good at proofs and gain 
+    intuition on abstract vector spaces”.
+  quest_basis: exam_goal
+  quest_connection: connected
+  authoring_mode: ai
+prompt: In the completed problem about two authors using the same set V and 
+  field F but defining different addition and scalar-multiplication rules, 
+  explain the reasoning you used to decide whether they were discussing the same
+  candidate vector-space structure.
+expected_answer: A strong explanation should distinguish the shared underlying 
+  data from the operations that differ. It should state that a vector-space 
+  structure includes the set together with its addition and scalar 
+  multiplication, then explain why changing either operation can change sums, 
+  scalar multiples, and whether the vector-space axioms are satisfied. It should
+  conclude that sharing V and F alone does not make the candidate structures 
+  identical.
+difficulty: 0.23
+difficulty_source: llm_estimate
+tags:
+  - teach_back
+  - learner_requested
+  - teach_back_compiler:source_item_v3
+  - quest_transfer:connected
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance:
+scaffold_level:
+capability:
+task_features:
+task_feature_schema:
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_teach_1
+      points: 1.5
+      description: Explains that the operations of vector addition and scalar 
+        multiplication are part of the vector-space structure, rather than 
+        treating the underlying set V alone as the structure.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_teach_2
+      points: 1.5
+      description: 'Explains the consequences of changing the operations: computed
+        sums or scalar multiples may differ, and the vector-space axioms may hold
+        for one operation package but not another.'
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: supporting
+    - id: criterion_teach_transfer
+      points: 1.0
+      description: "In the exam-preparation scenario, transfers the same comparison
+        reasoning by identifying what data are shared, identifying which operations
+        differ, and explaining why those differences produce distinct candidate structures
+        and may change axiom satisfaction.\n\nTransfer scenario: While preparing for
+        the exam goal of gaining intuition about abstract vector spaces, compare two
+        proposed structures on R²: one uses the usual operations, while the other
+        uses newly defined addition or scalar multiplication. Explain how you would
+        determine whether they are the same candidate vector-space structure, without
+        carrying out a full axiom proof."
+      tier: transfer
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: supporting
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: existing_entity
+      ref_id: pi_orient_same_set_03
+      path:
+      locator:
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+created_at: '2026-07-27T06:51:01Z'
+updated_at: '2026-07-27T06:51:02Z'

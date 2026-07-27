@@ -29,6 +29,7 @@ from learnloop.services.practice_generation import (
     _success_band_difficulty,
     generate_diagnostic_practice_proposal,
 )
+from learnloop.services.authoring_gates import build_instrument_gates
 from learnloop.services.proposals import generate_authoring_proposal
 from learnloop.services.tutor_qa import _thread, build_tutor_qa_note
 from learnloop.vault.loader import load_vault
@@ -600,6 +601,13 @@ def _promote_practice(
             if force_review and row.get("_auto_apply"):
                 row["_auto_apply"] = False
 
+    instrument_gates = build_instrument_gates(vault, repository, grading_client=client)
+
+    def _routed_and_gated(rows: list[dict[str, Any]]) -> None:
+        # Routing first so the gates judge the row's final learning object.
+        _enforce_routing(rows)
+        instrument_gates(rows)
+
     patch_id = generate_authoring_proposal(
         root,
         client,
@@ -607,7 +615,7 @@ def _promote_practice(
         source_refs=source_refs,
         instructions=instructions,
         merge_context_source_refs=True,
-        row_transform=_enforce_routing,
+        row_transform=_routed_and_gated,
         clock=clock,
     )
 
@@ -875,14 +883,23 @@ def _origin_mastery(
 def _recommended_difficulty_band(
     vault: LoadedVault, mastery_mean: float | None
 ) -> tuple[float, float]:
-    """Mode-ladder difficulty band (§3 Step 2.6) — reuses the expansion planner math."""
+    """Mode-ladder difficulty band (§3 Step 2.6) — reuses the expansion planner math.
+
+    This is a *practice* band, so it carries the same floor/min-width the
+    expansion planner passes: without them a pessimistic mastery estimate
+    collapses the band to ``[0.0, 0.0]`` and the authoring model dutifully pins
+    the promoted item to difficulty 0.0 (the pre-101474c defect).
+    """
 
     irt = vault.config.mastery.irt
+    generation = vault.config.practice_generation
     return _success_band_difficulty(
         _ability_logit(mastery_mean),
-        vault.config.practice_generation.practice_success_band,
+        generation.practice_success_band,
         discrimination=irt.discrimination_default,
         difficulty_scale=irt.difficulty_prior_scale,
+        difficulty_floor=generation.difficulty_floor,
+        min_band_width=generation.min_band_width,
     )
 
 
@@ -911,6 +928,18 @@ def _promotion_instructions(
         "attempted_in_thread": analysis.attempted_in_thread,
         "mastery_mean": mastery_mean,
         "recommended_difficulty_band": list(band),
+        # Prompt rule 8's referent: the closed set of canonical beliefs a
+        # diagnostic item may key. Empty means "leave
+        # misconception_consistent_answer null" — the model must never invent
+        # a misconception the registry cannot detect against.
+        "registered_misconceptions": [
+            {"id": record.id, "statement": record.statement}
+            for record in (
+                repository.misconceptions_for_learning_object(origin_lo.id)
+                if origin_lo is not None
+                else []
+            )
+        ][:10],
     }
     return (
         TUTOR_PROMOTION_PROMPT

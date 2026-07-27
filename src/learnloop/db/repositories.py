@@ -3248,6 +3248,7 @@ class Repository:
         leak_suspected: bool,
         answer_status: str,
         signal_channel: str | None = None,
+        source_context: Mapping[str, Any] | None = None,
     ) -> bool:
         """Complete (or fail) a pending question event after the provider call.
 
@@ -3263,7 +3264,8 @@ class Repository:
                 UPDATE question_events
                 SET answer_md = ?, question_type = ?, facets_json = ?,
                     hint_equivalent = ?, leak_suspected = ?, answer_status = ?,
-                    signal_channel = COALESCE(?, signal_channel)
+                    signal_channel = COALESCE(?, signal_channel),
+                    source_context_json = COALESCE(?, source_context_json)
                 WHERE id = ?
                 """,
                 (
@@ -3274,6 +3276,7 @@ class Repository:
                     1 if leak_suspected else 0,
                     answer_status,
                     signal_channel,
+                    _json(dict(source_context)) if source_context is not None else None,
                     event_id,
                 ),
             )
@@ -14099,6 +14102,139 @@ class Repository:
         payload["success"] = bool(payload["success"])
         return payload
 
+    # -- causal cold outcomes (migration 145) -------------------------------
+    #
+    # One append-only row per terminal disposition of a cold-verification
+    # opportunity, measured or not (spec §4.3). INSERT OR IGNORE over a
+    # content-addressed id, so replaying the same terminal event is one row.
+
+    def insert_causal_cold_outcome(
+        self,
+        *,
+        outcome_id: str,
+        outcome: str,
+        followup_task_id: str | None,
+        remediation_episode_id: str | None,
+        case_kind: str | None,
+        case_ref: str | None,
+        source_attempt_id: str | None,
+        cold_attempt_id: str | None,
+        repair_class_id: str | None,
+        hypothesis_ids: Sequence[str],
+        cold_verification_id: str | None,
+        servable_opportunity: bool,
+        duration_state: str | None,
+        detail: Mapping[str, Any],
+        store_version: str,
+        scheduled_not_before: str | None,
+        scheduled_expires_at: str | None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_cold_outcomes(
+                  id, outcome, followup_task_id, remediation_episode_id,
+                  case_kind, case_ref, source_attempt_id, cold_attempt_id,
+                  repair_class_id, hypothesis_ids_json, cold_verification_id,
+                  servable_opportunity, duration_state, detail_json,
+                  store_version, scheduled_not_before, scheduled_expires_at,
+                  created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    outcome_id,
+                    outcome,
+                    followup_task_id,
+                    remediation_episode_id,
+                    case_kind,
+                    case_ref,
+                    source_attempt_id,
+                    cold_attempt_id,
+                    repair_class_id,
+                    _json(list(hypothesis_ids)),
+                    cold_verification_id,
+                    int(servable_opportunity),
+                    duration_state,
+                    _json(dict(detail)),
+                    store_version,
+                    scheduled_not_before,
+                    scheduled_expires_at,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return self.causal_cold_outcome(outcome_id)
+
+    @staticmethod
+    def _decode_causal_cold_outcome(row: Any) -> dict[str, Any]:
+        payload = dict(row)
+        payload["hypothesis_ids"] = _loads(payload.pop("hypothesis_ids_json"), [])
+        payload["detail"] = _loads(payload.pop("detail_json"), {})
+        payload["servable_opportunity"] = bool(payload["servable_opportunity"])
+        return payload
+
+    def causal_cold_outcome(self, outcome_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_cold_outcomes WHERE id = ?",
+                (outcome_id,),
+            ).fetchone()
+        return self._decode_causal_cold_outcome(row) if row is not None else None
+
+    def causal_cold_outcome_for_task(
+        self, followup_task_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_cold_outcomes WHERE followup_task_id = ?",
+                (followup_task_id,),
+            ).fetchone()
+        return self._decode_causal_cold_outcome(row) if row is not None else None
+
+    def causal_cold_outcomes(
+        self,
+        *,
+        outcome: str | None = None,
+        remediation_episode_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if outcome is not None:
+            clauses.append("outcome = ?")
+            params.append(outcome)
+        if remediation_episode_id is not None:
+            clauses.append("remediation_episode_id = ?")
+            params.append(remediation_episode_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM causal_cold_outcomes {where} ORDER BY created_at, id",
+                params,
+            ).fetchall()
+        return [self._decode_causal_cold_outcome(row) for row in rows]
+
+    def expired_cold_retry_tasks_without_outcome(self) -> list[dict[str, Any]]:
+        """Expired repair-lane retries whose terminal disposition is unrecorded.
+
+        The expiry UPDATE inside ``due_followup_tasks`` is silent by design (it
+        is a queue transition, not a label); this is the reconciliation read the
+        per-attempt sweep uses to turn each expiry into a typed §4.3 row.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT ft.* FROM followup_tasks ft
+                LEFT JOIN causal_cold_outcomes cco ON cco.followup_task_id = ft.id
+                WHERE ft.kind = 'cold_retry' AND ft.status = 'expired'
+                  AND cco.id IS NULL
+                ORDER BY ft.updated_at, ft.id
+                """
+            ).fetchall()
+        return [_decode_followup_task(row) for row in rows]
+
     # -- certification cold probes (migration 139) --------------------------
     #
     # The §5.7 ground-truth store. Append-only: the table's triggers refuse an
@@ -14605,6 +14741,32 @@ class Repository:
                 "updated_at": row["updated_at"],
             }
             for row in rows
+        ]
+
+    def unresolved_cause_factors(
+        self, *, status: str | None = "open"
+    ) -> list[dict[str, Any]]:
+        """Vault-wide unresolved-cause factors (readiness reads; EVSI-2).
+
+        ``status=None`` returns every factor. Rows carry decoded
+        ``candidate_causes`` exactly as :meth:`unresolved_cause_factor` does.
+        """
+
+        clause = "" if status is None else "WHERE status = ?"
+        params: tuple[Any, ...] = () if status is None else (status,)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT id FROM unresolved_cause_factors
+                {clause}
+                ORDER BY created_at, id
+                """,
+                params,
+            ).fetchall()
+        return [
+            factor
+            for row in rows
+            if (factor := self.unresolved_cause_factor(str(row["id"]))) is not None
         ]
 
     def unresolved_cause_factor(self, factor_id: str) -> dict[str, Any] | None:
@@ -21858,6 +22020,164 @@ class Repository:
         return [
             self._decode_causal_probe_decision_receipt(row) for row in rows
         ]
+
+    # ------------------------------------------------------------------
+    # Shadow selection receipts (migration 146; decision-value spec §6.6).
+    # Append-only: the table's triggers abort any update/delete, and shadow
+    # output has zero live authority — no serving path reads these rows.
+    # ------------------------------------------------------------------
+
+    def insert_causal_shadow_selection_receipt(
+        self,
+        *,
+        decision_receipt_id: str,
+        factor_id: str,
+        incumbent_decision: str,
+        incumbent_reason: str,
+        shadow_verdict: str,
+        likelihood_regime: str,
+        loss_table_regime: str,
+        baselines: Mapping[str, Any],
+        body: Mapping[str, Any],
+        shadow_policy_version: str,
+        prior_basis: str | None = None,
+        learning_object_id: str | None = None,
+        attempt_id: str | None = None,
+        candidate_id: str | None = None,
+        would_change_candidate: bool | None = None,
+        would_change_measure_vs_repair: bool | None = None,
+        would_change_repair: bool | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        """Append one shadow receipt; returns None when the live decision
+        receipt already carries one (UNIQUE decision_receipt_id — a shadow is
+        1:1 with the live decision it rode along with)."""
+
+        def _flag(value: bool | None) -> int | None:
+            return None if value is None else int(bool(value))
+
+        receipt_id = new_ulid()
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO causal_shadow_selection_receipts(
+                  id, decision_receipt_id, factor_id, learning_object_id,
+                  attempt_id, candidate_id, incumbent_decision,
+                  incumbent_reason, shadow_verdict, likelihood_regime,
+                  loss_table_regime, prior_basis, would_change_candidate,
+                  would_change_measure_vs_repair, would_change_repair,
+                  baselines_json, body_json, shadow_policy_version, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt_id,
+                    decision_receipt_id,
+                    factor_id,
+                    learning_object_id,
+                    attempt_id,
+                    candidate_id,
+                    incumbent_decision,
+                    incumbent_reason,
+                    shadow_verdict,
+                    likelihood_regime,
+                    loss_table_regime,
+                    prior_basis,
+                    _flag(would_change_candidate),
+                    _flag(would_change_measure_vs_repair),
+                    _flag(would_change_repair),
+                    _json(dict(baselines)),
+                    _json(dict(body)),
+                    shadow_policy_version,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+            inserted = cursor.rowcount > 0
+        if not inserted:
+            return None
+        return self.causal_shadow_selection_receipt(receipt_id)
+
+    def _decode_causal_shadow_selection_receipt(
+        self, row: sqlite3.Row
+    ) -> dict[str, Any]:
+        payload = dict(row)
+        payload["baselines"] = _loads(payload.pop("baselines_json"), {})
+        payload["body"] = _loads(payload.pop("body_json"), {})
+        for flag in (
+            "would_change_candidate",
+            "would_change_measure_vs_repair",
+            "would_change_repair",
+        ):
+            value = payload.get(flag)
+            payload[flag] = None if value is None else bool(value)
+        return payload
+
+    def causal_shadow_selection_receipt(
+        self, receipt_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM causal_shadow_selection_receipts WHERE id = ?",
+                (receipt_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._decode_causal_shadow_selection_receipt(row)
+
+    def causal_shadow_selection_receipts(
+        self,
+        *,
+        factor_id: str | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        values: list[Any] = []
+        if factor_id is not None:
+            clauses.append("factor_id = ?")
+            values.append(factor_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM causal_shadow_selection_receipts
+                {where}
+                ORDER BY created_at, id
+                LIMIT ?
+                """,
+                (*values, limit),
+            ).fetchall()
+        return [
+            self._decode_causal_shadow_selection_receipt(row) for row in rows
+        ]
+
+    def median_attempt_latency_seconds(self) -> tuple[float | None, int]:
+        """Pooled median of captured attempt latencies + the sample count.
+
+        The Tauri client is the only latency producer (Stage-4 capture); a
+        NULL-latency attempt was never timed and is excluded rather than read
+        as zero. Wall-clock presentation-to-submit time, per the column's own
+        contract — callers must not relabel it active time.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT latency_seconds FROM practice_attempts "
+                "WHERE latency_seconds IS NOT NULL"
+            ).fetchall()
+        values = sorted(
+            float(row["latency_seconds"])
+            for row in rows
+            if row["latency_seconds"] is not None
+        )
+        if not values:
+            return None, 0
+        middle = len(values) // 2
+        if len(values) % 2:
+            median = values[middle]
+        else:
+            median = (values[middle - 1] + values[middle]) / 2.0
+        return median, len(values)
 
     def record_causal_probe_preference(
         self,

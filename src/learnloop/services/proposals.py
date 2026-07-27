@@ -1079,6 +1079,7 @@ def edit_proposal_item(
         edited_payload,
         vault,
         batch_source_refs=batch.get("source_refs") if batch is not None else None,
+        repository=repository,
     )
     validation_status = "invalid" if validation_errors else "valid"
     updated = repository.update_proposal_item_edited_payload(
@@ -1119,6 +1120,7 @@ def refresh_proposal_item_validation(
         payload,
         vault,
         batch_source_refs=batch.get("source_refs") if batch is not None else None,
+        repository=repository,
     )
     validation_status = "invalid" if validation_errors else "valid"
     updated = repository.update_proposal_item_validation(
@@ -1160,6 +1162,7 @@ def repair_proposal_item_audit(
         payload,
         vault,
         batch_source_refs=batch.get("source_refs") if batch is not None else None,
+        repository=repository,
     )
     if validated_audit.status == "failed":
         errors.append("generated_audit_failed")
@@ -1586,12 +1589,42 @@ def _validation_warnings(
     )
 
 
+def _instrument_gate_errors(
+    payload: dict[str, Any],
+    vault: LoadedVault,
+    repository: Repository | None = None,
+) -> list[str]:
+    """Report-only instrument-gate verdicts for the edit/refresh door.
+
+    The generation door runs these gates through the InstrumentGateChain
+    row_transform; before this helper the edit/refresh door ran none of them,
+    so refreshing an unchanged failing payload cleared its gate errors — a
+    validation bypass. Both doors now consult the same authorities
+    (`selected_response_reasons`, `PersonaGate.judge`); this door only REPORTS
+    and never remediates, because a human-edited payload is the human's to
+    change. The contrast-pair gate is deliberately absent: pair validity is a
+    joint property of two rows and cannot be judged from one edited payload.
+    """
+
+    from learnloop.services.authoring_gates import selected_response_reasons
+    from learnloop.services.persona_gate import GateDecision, PersonaGate
+
+    errors: list[str] = []
+    if selected_response_reasons(payload):
+        errors.append("selected_response_surface")
+    outcome = PersonaGate(vault, repository).judge(payload)
+    if outcome.decision is GateDecision.BLOCK:
+        errors.append(f"persona_gate: {outcome.reason}")
+    return errors
+
+
 def _edited_payload_validation_errors(
     item: dict[str, Any],
     edited_payload: dict[str, Any],
     vault: LoadedVault,
     *,
     batch_source_refs: list[dict[str, Any]] | None = None,
+    repository: Repository | None = None,
 ) -> list[str]:
     errors = [
         error
@@ -1615,6 +1648,8 @@ def _edited_payload_validation_errors(
     if item["item_type"] == "practice_item":
         errors.extend(_attempt_type_validation_errors(edited_payload))
         errors.extend(_practice_item_metadata_errors(edited_payload, vault, None, generated=False))
+        if item["operation"] == "create":
+            errors.extend(_instrument_gate_errors(edited_payload, vault, repository))
     if item["item_type"] == "concept_edge":
         errors.extend(_concept_edge_validation_errors(edited_payload, vault, None))
     return _dedupe_preserve_order(errors)
@@ -1773,6 +1808,20 @@ def _practice_item_metadata_errors(
             errors.append(f"declared_measurement_missing_facet_map:{criterion_id}")
     if payload.get("practice_mode") == _TEACH_BACK_PRACTICE_MODE:
         errors.extend(_teach_back_rubric_errors(payload, evidence_facets, criterion_facet_weights))
+    # A populated misconception_consistent_answer is a diagnostic claim, and a
+    # diagnostic owes a detector: a rubric fatal error keyed to the canonical
+    # misconception it catches. Enforced here (not as a raising pydantic
+    # validator) deliberately — a validator raise fails the WHOLE proposal at
+    # the wire before the row-level repair pass can fix one item, whereas this
+    # error string reaches the repair pass, the gate-remediation pass, and the
+    # edit/refresh door alike.
+    if str(payload.get("misconception_consistent_answer") or "").strip():
+        fatal_errors = (rubric.get("fatal_errors") if isinstance(rubric, dict) else None) or []
+        if not any(
+            isinstance(fatal, dict) and str(fatal.get("misconception_id") or "").strip()
+            for fatal in fatal_errors
+        ):
+            errors.append("misconception_answer_requires_keyed_fatal_error")
     return errors
 
 

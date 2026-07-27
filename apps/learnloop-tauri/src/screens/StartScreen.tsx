@@ -18,6 +18,12 @@ import { CliffordBackdrop } from "./startBackdrops/CliffordBackdrop";
 import { PendulumBackdrop } from "./startBackdrops/PendulumBackdrop";
 import { ThreeBodyBackdrop } from "./startBackdrops/ThreeBodyBackdrop";
 import { BLACK, mixRgb, prefersReducedMotion, readPaletteColors, rgba } from "./startBackdrops/shared";
+import {
+  FULLSCREEN_CANVAS_STYLE,
+  MonospaceGlyphAtlas,
+  readAmberAtlasPalette,
+  resolveCssColor
+} from "./startBackdrops/glyphAtlas";
 
 const LOW_MASTERY_WORDS = [
   "better", "oriented", "motivated", "prepared", "improve", "develop",
@@ -207,8 +213,7 @@ const CRT_SCANLINES: CSSProperties = {
 type LorenzTr = { x: number; y: number; z: number; trail: number[][]; hot: boolean };
 function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; intensity?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const dimPreRef = useRef<HTMLPreElement>(null);
-  const hotPreRef = useRef<HTMLPreElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const densityRef = useRef(density);
   const intensityRef = useRef(intensity);
   const needsRebuildRef = useRef(false);
@@ -223,9 +228,10 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
 
   useEffect(() => {
     const container = containerRef.current;
-    const dimPre = dimPreRef.current;
-    const hotPre = hotPreRef.current;
-    if (!container || !dimPre || !hotPre) return;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
     const CHAR_W = 7;
     const CHAR_H = 12;
@@ -239,6 +245,13 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
 
     let cols = 80;
     let rows = 40;
+    let width = 0;
+    let height = 0;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let atlas: MonospaceGlyphAtlas | null = null;
+    let cells = new Uint16Array(0);
+    let dimCodes = new Uint16Array(CHARS.length);
+    let hotCodes = new Uint16Array(CHARS.length);
     let trajectories: LorenzTr[] = [];
 
     function stepOnce(tr: LorenzTr) {
@@ -274,21 +287,48 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
     }
 
     const reduce = prefersReducedMotion();
+    const P = readPaletteColors();
+    const dimColor = resolveCssColor(
+      "color-mix(in srgb, var(--dim) 55%, transparent)",
+      rgba(P.dim, 0.55)
+    );
+    const hotColor = resolveCssColor("var(--amber)", rgba(P.amber, 1));
+    const hotGlow = resolveCssColor(
+      "color-mix(in srgb, var(--amber) 55%, transparent)",
+      rgba(P.amber, 0.55)
+    );
 
-    function renderFrame() {
+    function rebuildAtlas() {
+      atlas = new MonospaceGlyphAtlas({
+        glyphs: CHARS,
+        colors: [dimColor, hotColor],
+        dpr,
+        glowColors: ["transparent", hotGlow],
+        glowBlur: 6
+      });
+      dimCodes = new Uint16Array(CHARS.length);
+      hotCodes = new Uint16Array(CHARS.length);
+      for (let i = 0; i < CHARS.length; i++) {
+        dimCodes[i] = atlas.code(i, 0);
+        hotCodes[i] = atlas.code(i, 1);
+      }
+    }
+
+    function renderFrame(simulationFrames = 1) {
       if (needsRebuildRef.current) {
         makeTrajectories();
         needsRebuildRef.current = false;
       }
-      for (const tr of trajectories) {
-        for (let k = 0; k < SUBSTEPS; k++) stepOnce(tr);
-        tr.trail.push([tr.x, tr.z]);
-        if (tr.trail.length > TRAIL_LEN) tr.trail.shift();
+      for (let frame = 0; frame < simulationFrames; frame++) {
+        for (const tr of trajectories) {
+          for (let k = 0; k < SUBSTEPS; k++) stepOnce(tr);
+          tr.trail.push([tr.x, tr.z]);
+          if (tr.trail.length > TRAIL_LEN) tr.trail.shift();
+        }
       }
 
       const fill = intensityRef.current;
-      const dimGrid = Array.from({ length: rows }, () => Array(cols).fill(" "));
-      const hotGrid = Array.from({ length: rows }, () => Array(cols).fill(" "));
+      cells.fill(0);
 
       const SCALE_X = (cols * 0.42) / 25;
       const SCALE_Z = (rows * 0.85) / 50;
@@ -296,7 +336,6 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
       const ORIGIN_Y = rows * 0.88;
 
       for (const tr of trajectories) {
-        const grid = tr.hot ? hotGrid : dimGrid;
         const len = tr.trail.length;
         for (let i = 0; i < len; i++) {
           if (fill < 1 && Math.random() > fill) continue;
@@ -306,28 +345,49 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
           if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) continue;
           const age = i / Math.max(1, len - 1);
           const ci = Math.min(CHARS.length - 1, Math.floor(age * CHARS.length));
-          grid[cy][cx] = CHARS[ci];
+          const index = cy * cols + cx;
+          if (tr.hot) cells[index] = hotCodes[ci];
+          else if (cells[index] === 0) cells[index] = dimCodes[ci];
         }
       }
 
-      dimPre!.textContent = dimGrid.map((r) => r.join("")).join("\n");
-      hotPre!.textContent = hotGrid.map((r) => r.join("")).join("\n");
+      ctx!.clearRect(0, 0, width, height);
+      atlas!.draw(ctx!, cells, cols);
     }
 
     function resize() {
       const rect = container!.getBoundingClientRect();
-      cols = Math.max(20, Math.floor(rect.width / CHAR_W));
-      rows = Math.max(20, Math.floor(rect.height / CHAR_H));
+      width = rect.width;
+      height = rect.height;
+      const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dprChanged = nextDpr !== dpr;
+      dpr = nextDpr;
+      canvas!.width = Math.max(1, Math.floor(width * dpr));
+      canvas!.height = Math.max(1, Math.floor(height * dpr));
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx!.imageSmoothingEnabled = false;
+      cols = Math.max(20, Math.floor(width / CHAR_W));
+      rows = Math.max(20, Math.floor(height / CHAR_H));
+      cells = new Uint16Array(cols * rows);
+      if (!atlas || dprChanged) rebuildAtlas();
       makeTrajectories();
       if (reduce) renderFrame();
     }
+    rebuildAtlas();
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
     let raf = 0;
-    function draw() {
-      renderFrame();
+    let last = 0;
+    function draw(ts: number) {
+      if (ts - last < 33) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      const elapsed = last === 0 ? 33 : Math.min(100, ts - last);
+      last = ts;
+      renderFrame(Math.max(1, Math.round(elapsed / (1000 / 60))));
       raf = requestAnimationFrame(draw);
     }
     if (reduce) {
@@ -343,40 +403,7 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
 
   return (
     <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
-      <pre
-        ref={dimPreRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 12,
-          lineHeight: "12px",
-          letterSpacing: 0,
-          color: "color-mix(in srgb, var(--dim) 55%, transparent)",
-          whiteSpace: "pre",
-          userSelect: "none"
-        }}
-      />
-      <pre
-        ref={hotPreRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 12,
-          lineHeight: "12px",
-          letterSpacing: 0,
-          color: COLOR.amber,
-          textShadow:
-            "0 0 6px color-mix(in srgb, var(--amber) 55%, transparent), 0 0 14px color-mix(in srgb, var(--amber) 20%, transparent)",
-          whiteSpace: "pre",
-          userSelect: "none"
-        }}
-      />
+      <canvas ref={canvasRef} style={FULLSCREEN_CANVAS_STYLE} />
       <div style={CRT_SCANLINES} />
     </div>
   );
@@ -385,7 +412,7 @@ function LorenzBackdrop({ density = 12, intensity = 0.8 }: { density?: number; i
 // ── ASCII wave backdrop ───────────────────────────────────────────────────
 function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; intensity?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const densityRef = useRef(density);
   const intensityRef = useRef(intensity);
   const needsRebuildRef = useRef(false);
@@ -400,14 +427,22 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
 
   useEffect(() => {
     const container = containerRef.current;
-    const pre = preRef.current;
-    if (!container || !pre) return;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
     const CHAR_W = 7;
     const CHAR_H = 12;
 
     let cols = 80;
     let rows = 40;
+    let width = 0;
+    let height = 0;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let atlas: MonospaceGlyphAtlas | null = null;
+    let cells = new Uint16Array(0);
+    const charCodes = new Map<string, number>();
     let mouse = { x: cols / 2, y: rows / 2 };
     let strings: CursedString[] = [];
 
@@ -472,15 +507,41 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
     }
 
     const reduce = prefersReducedMotion();
+    const { colors, glow } = readAmberAtlasPalette(0.45);
+    const glyphs = "LINEAR_GB03#";
+
+    function rebuildAtlas() {
+      atlas = new MonospaceGlyphAtlas({
+        glyphs,
+        colors: [colors[2]],
+        dpr,
+        glowColor: glow,
+        glowBlur: 6
+      });
+      charCodes.clear();
+      for (let i = 0; i < glyphs.length; i++) charCodes.set(glyphs[i], atlas.code(i, 0));
+    }
 
     function resize() {
       const rect = container!.getBoundingClientRect();
-      cols = Math.max(10, Math.floor(rect.width / CHAR_W));
-      rows = Math.max(10, Math.floor(rect.height / CHAR_H));
+      width = rect.width;
+      height = rect.height;
+      const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dprChanged = nextDpr !== dpr;
+      dpr = nextDpr;
+      canvas!.width = Math.max(1, Math.floor(width * dpr));
+      canvas!.height = Math.max(1, Math.floor(height * dpr));
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx!.imageSmoothingEnabled = false;
+      cols = Math.max(10, Math.floor(width / CHAR_W));
+      rows = Math.max(10, Math.floor(height / CHAR_H));
+      cells = new Uint16Array(cols * rows);
+      if (!atlas || dprChanged) rebuildAtlas();
       mouse = { x: cols / 2, y: rows / 2 };
       createStrings();
       if (reduce) renderFrame(0);
     }
+    rebuildAtlas();
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(container);
@@ -498,7 +559,7 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
         needsRebuildRef.current = false;
       }
       const fill = intensityRef.current;
-      const grid = Array.from({ length: rows }, () => Array(cols).fill(" "));
+      cells.fill(0);
       strings.forEach((s) => {
         s.update(time);
         for (let x = 0; x < cols; x++) {
@@ -508,15 +569,22 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
           const charIndex = (x + Math.floor(time * 0.01)) % currentString.length;
           let char = currentString[charIndex];
           if (Math.random() < 0.015) char = "#";
-          grid[y][x] = char;
+          cells[y * cols + x] = charCodes.get(char) ?? 0;
         }
       });
-      pre!.textContent = grid.map((r) => r.join("")).join("\n");
+      ctx!.clearRect(0, 0, width, height);
+      atlas!.draw(ctx!, cells, cols);
     }
 
     let raf = 0;
     let lastMutation = 0;
+    let lastFrame = 0;
     function draw(time: number) {
+      if (time - lastFrame < 33) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      lastFrame = time;
       renderFrame(time);
       if (time - lastMutation > 2500) {
         mutateString();
@@ -538,24 +606,7 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
 
   return (
     <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
-      <pre
-        ref={preRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 12,
-          lineHeight: "12px",
-          letterSpacing: 0,
-          color: COLOR.amber,
-          textShadow:
-            "0 0 6px color-mix(in srgb, var(--amber) 45%, transparent), 0 0 14px color-mix(in srgb, var(--amber) 15%, transparent)",
-          whiteSpace: "pre",
-          userSelect: "none"
-        }}
-      />
+      <canvas ref={canvasRef} style={FULLSCREEN_CANVAS_STYLE} />
       <div style={CRT_SCANLINES} />
     </div>
   );
@@ -565,50 +616,63 @@ function WaveBackdrop({ density = 14, intensity = 0.7 }: { density?: number; int
 const TORUS_W = 60;
 const TORUS_H = 26;
 const RAMP = ".,-~:;=!*#$@";
-// Luminance → palette-aware span class (resolved in app.css to the amber
-// tiers), replacing the old 12 hardcoded hex browns so palettes retint the
-// donut. Monotonic dark→bright across the ramp.
-const RAMP_CLASSES = [
-  "bd-c-amber-low",
-  "bd-c-amber-low",
-  "bd-c-amber-mid",
-  "bd-c-amber-mid",
-  "bd-c-amber-mid",
-  "bd-c-amber",
-  "bd-c-amber",
-  "bd-c-amber",
-  "bd-c-amber",
-  "bd-c-amber-hi",
-  "bd-c-amber-hi",
-  "bd-c-amber-hi"
-];
+const RAMP_COLOR_INDEX = [0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3];
+const TORUS_THETA = Array.from({ length: Math.ceil(6.28 / 0.1) }, (_, i) => i * 0.1);
+const TORUS_PHI = Array.from({ length: Math.ceil(6.28 / 0.028) }, (_, i) => i * 0.028);
+const TORUS_COS_THETA = TORUS_THETA.map(Math.cos);
+const TORUS_SIN_THETA = TORUS_THETA.map(Math.sin);
+const TORUS_COS_PHI = TORUS_PHI.map(Math.cos);
+const TORUS_SIN_PHI = TORUS_PHI.map(Math.sin);
 function Torus() {
-  const ref = useRef<HTMLPreElement>(null);
+  const ref = useRef<HTMLCanvasElement>(null);
   const aRef = useRef(0);
   const bRef = useRef(0);
   useEffect(() => {
     if (!ref.current) return;
-    const node = ref.current;
+    const canvas = ref.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     const reduce = prefersReducedMotion();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = TORUS_W * 7;
+    const height = TORUS_H * 12;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    const { colors, glow } = readAmberAtlasPalette(0.18);
+    const atlas = new MonospaceGlyphAtlas({
+      glyphs: RAMP,
+      colors,
+      dpr,
+      glowColor: glow,
+      glowBlur: 6
+    });
+    const codes = new Uint16Array(RAMP.length);
+    for (let i = 0; i < RAMP.length; i++) codes[i] = atlas.code(i, RAMP_COLOR_INDEX[i]);
+    const buf = new Int8Array(TORUS_W * TORUS_H);
+    const zbuf = new Float64Array(TORUS_W * TORUS_H);
+    const cells = new Uint16Array(TORUS_W * TORUS_H);
     let raf = 0;
     let last = 0;
-    function renderFrame() {
+    function renderFrame(elapsed: number) {
       const W = TORUS_W;
       const H = TORUS_H;
-      const buf = new Array(W * H).fill(-1);
-      const zbuf = new Array(W * H).fill(0);
+      buf.fill(-1);
+      zbuf.fill(0);
+      cells.fill(0);
       const A = aRef.current;
       const B = bRef.current;
       const cosA = Math.cos(A);
       const sinA = Math.sin(A);
       const cosB = Math.cos(B);
       const sinB = Math.sin(B);
-      for (let theta = 0; theta < 6.28; theta += 0.1) {
-        const cosT = Math.cos(theta);
-        const sinT = Math.sin(theta);
-        for (let phi = 0; phi < 6.28; phi += 0.028) {
-          const cosP = Math.cos(phi);
-          const sinP = Math.sin(phi);
+      for (let ti = 0; ti < TORUS_THETA.length; ti++) {
+        const cosT = TORUS_COS_THETA[ti];
+        const sinT = TORUS_SIN_THETA[ti];
+        for (let pi = 0; pi < TORUS_PHI.length; pi++) {
+          const cosP = TORUS_COS_PHI[pi];
+          const sinP = TORUS_SIN_PHI[pi];
           const circleX = 2 + cosT;
           const circleY = sinT;
           const x = circleX * (cosB * cosP + sinA * sinB * sinP) - circleY * cosA * sinB;
@@ -628,47 +692,30 @@ function Torus() {
         }
       }
 
-      let html = "";
-      let curClass: string | null = null;
-      let run = "";
-      const flush = () => {
-        if (run.length === 0) return;
-        html += curClass === null ? run : `<span class="${curClass}">${run}</span>`;
-        run = "";
-      };
-      for (let i = 0; i < H; i++) {
-        for (let j = 0; j < W; j++) {
-          const k = i * W + j;
-          const lum = buf[k];
-          const ch = lum < 0 ? " " : RAMP[lum];
-          const cls = lum < 0 ? null : RAMP_CLASSES[lum];
-          if (cls !== curClass) {
-            flush();
-            curClass = cls;
-          }
-          run += ch === " " ? " " : ch;
-        }
-        flush();
-        html += "\n";
-        curClass = null;
+      for (let i = 0; i < buf.length; i++) {
+        const lum = buf[i];
+        if (lum >= 0) cells[i] = codes[lum];
       }
-      node.innerHTML = html;
-      aRef.current += 0.045;
-      bRef.current += 0.025;
+      ctx!.clearRect(0, 0, width, height);
+      atlas.draw(ctx!, cells, W);
+      const frameScale = elapsed / 33;
+      aRef.current += 0.045 * frameScale;
+      bRef.current += 0.025 * frameScale;
     }
     function frame(ts: number) {
       if (ts - last < 33) {
         raf = requestAnimationFrame(frame);
         return;
       }
+      const elapsed = last === 0 ? 33 : Math.min(100, ts - last);
       last = ts;
-      renderFrame();
+      renderFrame(elapsed);
       raf = requestAnimationFrame(frame);
     }
     if (reduce) {
       aRef.current = 1.0;
       bRef.current = 0.6;
-      renderFrame();
+      renderFrame(0);
     } else {
       raf = requestAnimationFrame(frame);
     }
@@ -676,18 +723,13 @@ function Torus() {
   }, []);
 
   return (
-    <pre
+    <canvas
       ref={ref}
       style={{
         margin: 0,
-        fontFamily: FONT_MONO,
-        fontSize: 12,
-        lineHeight: "12px",
-        letterSpacing: 0,
-        color: COLOR.amber,
-        whiteSpace: "pre",
-        userSelect: "none",
-        textShadow: "0 0 6px color-mix(in srgb, var(--amber) 18%, transparent)"
+        width: TORUS_W * 7,
+        height: TORUS_H * 12,
+        display: "block"
       }}
     />
   );
@@ -696,36 +738,75 @@ function Torus() {
 // ── Rotating coordinate-axes / basis-vectors backdrop ──────────────────────
 function AxesBackdrop() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
-    const pre = preRef.current;
-    if (!container || !pre) return;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
     const CHAR_W = 7;
     const CHAR_H = 12;
     const AXIS_RAMP = ".:-=+*#";
+    const GLYPHS = `${AXIS_RAMP}XYZ`;
     const AXES = [
-      { v: [1, 0, 0], color: COLOR.red, label: "X" },
-      { v: [0, 1, 0], color: COLOR.green, label: "Y" },
-      { v: [0, 0, 1], color: COLOR.cyan, label: "Z" }
+      { v: [1, 0, 0], colorIndex: 0, label: "X" },
+      { v: [0, 1, 0], colorIndex: 1, label: "Y" },
+      { v: [0, 0, 1], colorIndex: 2, label: "Z" }
     ];
 
+    const P = readPaletteColors();
+    const colors = [P.red, P.green, P.cyan, P.amber].map((color) => rgba(color, 1));
+    const glow = resolveCssColor(
+      "color-mix(in srgb, var(--amber) 25%, transparent)",
+      rgba(P.amber, 0.25)
+    );
+    const reduce = prefersReducedMotion();
     let cols = 80;
     let rows = 40;
+    let width = 0;
+    let height = 0;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let atlas: MonospaceGlyphAtlas | null = null;
+    let cells = new Uint16Array(0);
+    let raf = 0;
+    let last = 0;
+    let yaw = 0.7;
+    const pitch = -0.5;
+
+    function rebuildAtlas() {
+      atlas = new MonospaceGlyphAtlas({
+        glyphs: GLYPHS,
+        colors,
+        dpr,
+        glowColor: glow,
+        glowBlur: 6
+      });
+    }
+
     function resize() {
       const rect = container!.getBoundingClientRect();
-      cols = Math.max(20, Math.floor(rect.width / CHAR_W));
-      rows = Math.max(20, Math.floor(rect.height / CHAR_H));
+      width = rect.width;
+      height = rect.height;
+      const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dprChanged = nextDpr !== dpr;
+      dpr = nextDpr;
+      canvas!.width = Math.max(1, Math.floor(width * dpr));
+      canvas!.height = Math.max(1, Math.floor(height * dpr));
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx!.imageSmoothingEnabled = false;
+      cols = Math.max(20, Math.floor(width / CHAR_W));
+      rows = Math.max(20, Math.floor(height / CHAR_H));
+      cells = new Uint16Array(cols * rows);
+      if (!atlas || dprChanged) rebuildAtlas();
     }
+    rebuildAtlas();
     resize();
-    // Under reduced motion there is no rAF loop, so a resize must repaint the
-    // single static frame itself. (Safe here: the observer fires after the
-    // effect body, once `reduce`/`draw` are initialized.)
     const ro = new ResizeObserver(() => {
       resize();
-      if (reduce) draw();
+      if (reduce) draw(0);
     });
     ro.observe(container);
 
@@ -742,19 +823,12 @@ function AxesBackdrop() {
       return [x1, y2, z2];
     }
 
-    const reduce = prefersReducedMotion();
-    let raf = 0;
-    let yaw = 0.7;
-    const pitch = -0.5;
-
     function plot(
       x0: number,
       y0: number,
       x1: number,
       y1: number,
-      ax: { color: string },
-      grid: string[][],
-      cgrid: (string | null)[][]
+      colorIndex: number
     ) {
       const dx = x1 - x0;
       const dy = y1 - y0;
@@ -765,15 +839,13 @@ function AxesBackdrop() {
         const yi = Math.round(y0 + dy * t);
         if (xi < 0 || xi >= cols || yi < 0 || yi >= rows) continue;
         const ci = Math.min(AXIS_RAMP.length - 1, Math.floor(t * AXIS_RAMP.length));
-        grid[yi][xi] = AXIS_RAMP[ci];
-        cgrid[yi][xi] = ax.color;
+        cells[yi * cols + xi] = atlas!.code(ci, colorIndex);
       }
     }
 
-    function draw() {
-      yaw += 0.0032;
-      const grid: string[][] = Array.from({ length: rows }, () => Array(cols).fill(" "));
-      const cgrid: (string | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
+    function draw(elapsed: number) {
+      yaw += 0.0032 * (elapsed / (1000 / 60));
+      cells.fill(0);
 
       const cx = cols / 2;
       const cyy = rows / 2;
@@ -788,49 +860,37 @@ function AxesBackdrop() {
       const [ox, oy] = project([0, 0, 0]);
       for (const ax of AXES) {
         const [tx, ty] = project(ax.v);
-        plot(ox, oy, tx, ty, ax, grid, cgrid);
+        plot(ox, oy, tx, ty, ax.colorIndex);
         const txi = Math.round(tx);
         const tyi = Math.round(ty);
         if (txi >= 0 && txi < cols && tyi >= 0 && tyi < rows) {
-          grid[tyi][txi] = ax.label;
-          cgrid[tyi][txi] = ax.color;
+          cells[tyi * cols + txi] = atlas!.code(atlas!.glyphIndex(ax.label), ax.colorIndex);
         }
       }
       const oxi = Math.round(ox);
       const oyi = Math.round(oy);
       if (oxi >= 0 && oxi < cols && oyi >= 0 && oyi < rows) {
-        grid[oyi][oxi] = "+";
-        cgrid[oyi][oxi] = COLOR.amber;
+        cells[oyi * cols + oxi] = atlas!.code(atlas!.glyphIndex("+"), 3);
       }
 
-      let html = "";
-      for (let i = 0; i < rows; i++) {
-        let run = "";
-        let cur: string | null = null;
-        const flush = () => {
-          if (!run) return;
-          html += cur ? `<span style="color:${cur}">${run}</span>` : run;
-          run = "";
-        };
-        for (let j = 0; j < cols; j++) {
-          const ch = grid[i][j];
-          const col = cgrid[i][j];
-          if (col !== cur) {
-            flush();
-            cur = col;
-          }
-          run += ch === " " ? " " : ch;
-        }
-        flush();
-        html += "\n";
+      ctx!.clearRect(0, 0, width, height);
+      atlas!.draw(ctx!, cells, cols);
+    }
+
+    function frame(ts: number) {
+      if (ts - last < 33) {
+        raf = requestAnimationFrame(frame);
+        return;
       }
-      pre!.innerHTML = html;
-      if (!reduce) raf = requestAnimationFrame(draw);
+      const elapsed = last === 0 ? 33 : Math.min(100, ts - last);
+      last = ts;
+      draw(elapsed);
+      raf = requestAnimationFrame(frame);
     }
     if (reduce) {
-      draw();
+      draw(0);
     } else {
-      raf = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(frame);
     }
     return () => {
       cancelAnimationFrame(raf);
@@ -840,23 +900,7 @@ function AxesBackdrop() {
 
   return (
     <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden", background: "var(--shell-bg)" }}>
-      <pre
-        ref={preRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 12,
-          lineHeight: "12px",
-          letterSpacing: 0,
-          color: COLOR.amber,
-          textShadow: "0 0 6px color-mix(in srgb, var(--amber) 25%, transparent)",
-          whiteSpace: "pre",
-          userSelect: "none"
-        }}
-      />
+      <canvas ref={canvasRef} style={FULLSCREEN_CANVAS_STYLE} />
       <div style={CRT_SCANLINES} />
     </div>
   );
@@ -865,27 +909,20 @@ function AxesBackdrop() {
 // ── Rotating tesseract / hypercube backdrop ────────────────────────────────
 function TesseractBackdrop() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
-    const pre = preRef.current;
-    if (!container || !pre) return;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
     const CHAR_W = 7;
     const CHAR_H = 12;
     const CHARS = ".:-=+*#";
-    // Depth → palette-aware span class (dark→bright); replaces the hardcoded
-    // amber hex ramp so palettes retint the hypercube. On the default palette
-    // the top three tiers match the old #9a6f3a/#e3a063/#f0c890 literals.
-    const AMBER = [
-      "bd-c-amber-low",
-      "bd-c-amber-low",
-      "bd-c-amber-mid",
-      "bd-c-amber-mid",
-      "bd-c-amber",
-      "bd-c-amber-hi"
-    ];
+    const AMBER_LEVELS = 6;
+    const COLOR_BY_BRIGHTNESS = [0, 0, 1, 1, 2, 3];
 
     type Edge = { i: number; j: number; axis: number };
 
@@ -909,20 +946,52 @@ function TesseractBackdrop() {
 
     let cols = 80;
     let rows = 40;
+    let width = 0;
+    let height = 0;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let atlas: MonospaceGlyphAtlas | null = null;
+    let cells = new Uint16Array(0);
+    let zbuf = new Float64Array(0);
+    const { colors, glow } = readAmberAtlasPalette(0.45);
+    const reduce = prefersReducedMotion();
+    let raf = 0;
+    let last = 0;
+    let t = 0;
+    const aspect = CHAR_W / CHAR_H;
+
+    function rebuildAtlas() {
+      atlas = new MonospaceGlyphAtlas({
+        glyphs: CHARS,
+        colors,
+        dpr,
+        glowColor: glow,
+        glowBlur: 6
+      });
+    }
 
     function resize() {
       const rect = container!.getBoundingClientRect();
-      cols = Math.max(20, Math.floor(rect.width / CHAR_W));
-      rows = Math.max(20, Math.floor(rect.height / CHAR_H));
+      width = rect.width;
+      height = rect.height;
+      const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dprChanged = nextDpr !== dpr;
+      dpr = nextDpr;
+      canvas!.width = Math.max(1, Math.floor(width * dpr));
+      canvas!.height = Math.max(1, Math.floor(height * dpr));
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx!.imageSmoothingEnabled = false;
+      cols = Math.max(20, Math.floor(width / CHAR_W));
+      rows = Math.max(20, Math.floor(height / CHAR_H));
+      cells = new Uint16Array(cols * rows);
+      zbuf = new Float64Array(cols * rows);
+      if (!atlas || dprChanged) rebuildAtlas();
     }
 
+    rebuildAtlas();
     resize();
-    // Under reduced motion there is no rAF loop, so a resize must repaint the
-    // single static frame itself. (Safe here: the observer fires after the
-    // effect body, once `reduce`/`aspect`/`draw` are initialized.)
     const ro = new ResizeObserver(() => {
       resize();
-      if (reduce) draw();
+      if (reduce) draw(0);
     });
     ro.observe(container);
 
@@ -949,19 +1018,10 @@ function TesseractBackdrop() {
       return q;
     }
 
-    const reduce = prefersReducedMotion();
-    let raf = 0;
-    let t = 0;
-    const aspect = CHAR_W / CHAR_H;
-
-    function draw() {
-      t += 0.006;
-
-      const grid: string[][] = Array.from({ length: rows }, () => Array(cols).fill(" "));
-      const cgrid: (string | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
-
-      // Real geometric depth buffer. Larger = closer.
-      const zbuf: number[][] = Array.from({ length: rows }, () => Array(cols).fill(-Infinity));
+    function draw(elapsed: number) {
+      t += 0.006 * (elapsed / (1000 / 60));
+      cells.fill(0);
+      zbuf.fill(-Infinity);
 
       const D4 = 3.2; // 4D camera distance from W
       const D3 = 4.0; // 3D camera distance from Z
@@ -1001,8 +1061,8 @@ function TesseractBackdrop() {
 
       function brightnessOf(depth: number, boost = 0) {
         const u = (depth - dmin) / Math.max(1e-6, dmax - dmin);
-        const b = Math.floor(u * (AMBER.length - 1)) + boost;
-        return Math.max(0, Math.min(AMBER.length - 1, b));
+        const b = Math.floor(u * (AMBER_LEVELS - 1)) + boost;
+        return Math.max(0, Math.min(AMBER_LEVELS - 1, b));
       }
 
       const screen = projected.map((p) => ({
@@ -1035,8 +1095,9 @@ function TesseractBackdrop() {
           if (xi < 0 || xi >= cols || yi < 0 || yi >= rows) continue;
 
           const z = z0 + (z1 - z0) * u;
-          if (z <= zbuf[yi][xi]) continue;
-          zbuf[yi][xi] = z;
+          const index = yi * cols + xi;
+          if (z <= zbuf[index]) continue;
+          zbuf[index] = z;
 
           let bri = Math.round(b0 + (b1 - b0) * u);
 
@@ -1046,11 +1107,10 @@ function TesseractBackdrop() {
 
           const ci = Math.min(
             CHARS.length - 1,
-            Math.floor((bri / (AMBER.length - 1)) * (CHARS.length - 1))
+            Math.floor((bri / (AMBER_LEVELS - 1)) * (CHARS.length - 1))
           );
 
-          grid[yi][xi] = CHARS[ci];
-          cgrid[yi][xi] = AMBER[bri];
+          cells[index] = atlas!.code(ci, COLOR_BY_BRIGHTNESS[bri]);
         }
       }
 
@@ -1071,42 +1131,26 @@ function TesseractBackdrop() {
         );
       }
 
-      let html = "";
+      ctx!.clearRect(0, 0, width, height);
+      atlas!.draw(ctx!, cells, cols);
+    }
 
-      for (let i = 0; i < rows; i++) {
-        let run = "";
-        let cur: string | null = null;
-
-        const flush = () => {
-          if (!run) return;
-          html += cur ? `<span class="${cur}">${run}</span>` : run;
-          run = "";
-        };
-
-        for (let j = 0; j < cols; j++) {
-          const col = cgrid[i][j];
-
-          if (col !== cur) {
-            flush();
-            cur = col;
-          }
-
-          run += grid[i][j];
-        }
-
-        flush();
-        html += "\n";
+    function frame(ts: number) {
+      if (ts - last < 33) {
+        raf = requestAnimationFrame(frame);
+        return;
       }
-
-      pre!.innerHTML = html;
-      if (!reduce) raf = requestAnimationFrame(draw);
+      const elapsed = last === 0 ? 33 : Math.min(100, ts - last);
+      last = ts;
+      draw(elapsed);
+      raf = requestAnimationFrame(frame);
     }
 
     if (reduce) {
       t = 0.6;
-      draw();
+      draw(0);
     } else {
-      raf = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(frame);
     }
 
     return () => {
@@ -1125,24 +1169,7 @@ function TesseractBackdrop() {
         background: "var(--shell-bg)"
       }}
     >
-      <pre
-        ref={preRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 12,
-          lineHeight: "12px",
-          letterSpacing: 0,
-          color: COLOR.amber,
-          textShadow:
-            "0 0 6px color-mix(in srgb, var(--amber) 45%, transparent), 0 0 14px color-mix(in srgb, var(--amber) 18%, transparent)",
-          whiteSpace: "pre",
-          userSelect: "none"
-        }}
-      />
+      <canvas ref={canvasRef} style={FULLSCREEN_CANVAS_STYLE} />
       <div style={CRT_SCANLINES} />
     </div>
   );

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
@@ -28,7 +29,11 @@ from learnloop.services.contract_reachability import (
     analyze_contract_reachability,
 )
 from learnloop.services.depth_rungs import capability_rung, select_rung, waypoint_slug_for_capability
-from learnloop.services.practice_generation import _RungGate, build_practice_expansion_plan
+from learnloop.services.practice_generation import (
+    PracticeExpansionError,
+    _RungGate,
+    build_practice_expansion_plan,
+)
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
@@ -328,6 +333,64 @@ def test_max_los_truncates_by_queue_priority(tmp_path):
     )
 
     assert [target.learning_object_id for target in plan.targets] == ["lo_zzz_second"]
+
+
+# -- the completed-probe gate ----------------------------------------------------
+
+
+def test_contract_backed_lo_waives_the_completed_probe_gate(tmp_path):
+    """A commissionable contract cell is an authoring obligation regardless of probes.
+
+    With the gate unconditional, `fixtures/linear_algebra` yielded **0** expansion
+    targets under the CLI default while 18 LOs held commissionable cells — every
+    `lo_probe_state` row was absent and all probe episodes sat at pending_items.
+    The contract already owns the waypoint (5.1); it owns this gate for the same
+    reason: probe evidence is about the learner, a commissionable cell is about
+    the instrument pool.
+    """
+
+    paths = _write_blueprint(
+        create_basic_vault(tmp_path / "vault"),
+        [("uninstrumented_facet", "procedure_execution", "hard")],
+    )
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)  # no probe state seeded anywhere
+
+    # Default gate (require_completed_probe=True) — the CLI `generate-practice` path.
+    plan = build_practice_expansion_plan(vault, repository)
+    (target,) = plan.targets
+    assert target.learning_object_id == LO_ID
+    assert [cell["capability"] for cell in target.commissioned_cells] == ["procedure_execution"]
+
+    # Naming the LO must agree with the loop rather than raising at validation.
+    named = build_practice_expansion_plan(vault, repository, learning_object_ids=[LO_ID])
+    assert [t.learning_object_id for t in named.targets] == [LO_ID]
+
+
+def test_lo_without_contract_cells_keeps_the_completed_probe_gate(tmp_path):
+    # No blueprint ⇒ nothing commissionable ⇒ the probe gate is byte-for-byte the
+    # old behaviour, in both the loop and the named-LO validation.
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    assert build_practice_expansion_plan(vault, repository).targets == []
+    with pytest.raises(PracticeExpansionError):
+        build_practice_expansion_plan(vault, repository, learning_object_ids=[LO_ID])
+
+
+def test_deferred_only_lo_keeps_the_completed_probe_gate(tmp_path):
+    # Deferral is not commissioning: an LO whose only unreachable cell is deferred
+    # (`coordination` behind the depth envelope) has nothing the planner can
+    # author, so waiving the probe gate for it would produce a target with no
+    # commissioned cells and a band-keyed rung — the pre-5.1 shape.
+    paths = _write_blueprint(
+        create_basic_vault(tmp_path / "vault"),
+        [(INSTRUMENT_FACET, "schema_interpretation", "hard")],  # REACHABLE
+        integration=("assembly_facet", "coordination"),  # deferred, not commissioned
+    )
+    plan = build_practice_expansion_plan(load_vault(paths.root), Repository(paths.sqlite_path))
+    assert plan.targets == []
 
 
 # -- the gate -------------------------------------------------------------------

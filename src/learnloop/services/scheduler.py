@@ -52,6 +52,15 @@ class ScheduledItem:
     selected_mode: str
     plain_english: list[str]
     reward_debug: dict[str, object] | None = None
+    #: Which delayed follow-up lane resurrected this item, or ``None`` for an
+    #: ordinary due pick. Three lanes (``intervention_followup``, ``cold_retry``,
+    #: ``certification_cold_probe``) share the one ``intervention_followup``
+    #: priority component, so the component alone cannot say what the item is
+    #: FOR: a §5.7 certification cold probe is a held-out validity check on an
+    #: already-certified skill, not a repair retry. This carries the originating
+    #: ``followup_tasks.kind`` so surfaces need not reverse-engineer the lane
+    #: from the learner-facing prose.
+    followup_kind: str | None = None
 
 
 def build_due_queue(
@@ -509,6 +518,13 @@ _FOLLOWUP_REASONS: dict[str, str] = {
     "certification_cold_probe": "held-out check on a certified skill",
 }
 
+#: Follow-up lanes that ride the ``intervention_followup`` priority component.
+#: Anything outside this set is treated as a negative-surprise insertion, which
+#: is also the ``action_type`` default when a task does not name one.
+_INTERVENTION_FOLLOWUP_KINDS: frozenset[str] = frozenset(
+    {"intervention_followup", "cold_retry", "certification_cold_probe"}
+)
+
 
 def _insert_pending_followups(
     vault: LoadedVault,
@@ -567,12 +583,12 @@ def _insert_pending_followups(
             )
         components = dict(scheduled.components)
         action_type = pending.get("action_type") or "negative_surprise_followup"
-        component = (
-            "intervention_followup"
-            if action_type
-            in {"intervention_followup", "cold_retry", "certification_cold_probe"}
-            else "negative_surprise_followup"
-        )
+        is_intervention = action_type in _INTERVENTION_FOLLOWUP_KINDS
+        component = "intervention_followup" if is_intervention else "negative_surprise_followup"
+        # The lane survives on the item itself, not only in the prose below.
+        # An unrecognised action_type lands on the negative-surprise component,
+        # so it reports that lane rather than inventing a kind no surface knows.
+        followup_kind = action_type if is_intervention else "negative_surprise_followup"
         # Measurement §5.7's probe is a retention/validity check, not a repair
         # retry, and the learner-facing reason says so: it is the one item in the
         # queue whose purpose is to test something the system already claimed.
@@ -585,6 +601,7 @@ def _insert_pending_followups(
                 priority=max_priority + len(pending_followups) - index,
                 components=components,
                 plain_english=reasons,
+                followup_kind=followup_kind,
             )
         )
         inserted_ids.add(practice_item_id)

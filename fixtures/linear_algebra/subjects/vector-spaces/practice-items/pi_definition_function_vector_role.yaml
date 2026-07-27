@@ -1,0 +1,119 @@
+schema_version: 1
+id: pi_definition_function_vector_role
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+evidence_weights:
+  facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+criterion_facet_weights:
+  crit_function_vector_role:
+    facet_an_element_of_a_vector_space_may_be_called_a_vec: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: Suppose C[0,1], the set of continuous real-valued functions on [0,1], 
+  has been declared a vector space with the usual operations. A classmate says 
+  f(t)=t² cannot be a vector because it is a function rather than an arrow. 
+  Interpret the word “vector” in this declaration and explain precisely what 
+  object is the vector and what objects are merely its values.
+expected_answer: In an abstract vector space, every element of the underlying 
+  set is called a vector. The function f itself is an element of C[0,1], so f is
+  a vector. For each t, the number f(t)=t² is a scalar value produced by that 
+  vector-function, not the vector itself.
+difficulty: 0.45
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - commissioned_cell
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.68
+transfer_distance: 0.4
+scaffold_level: 0.03
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: abstract_element_role_explanation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_vectors_must_be_arrows
+    hypothesis: Believes that only geometric arrows or coordinate lists can be 
+      vectors.
+    observable_signature: f is not a vector; only an arrow or an ordered 
+      coordinate list can be a vector.
+    misconception_id:
+    facet_id: facet_an_element_of_a_vector_space_may_be_called_a_vec
+    fails_criteria:
+      - crit_function_vector_role
+    distinguishing_features:
+      - rejects function-space elements solely because of their surface form
+    source: authored
+  - id: profile_function_values_are_vectors
+    hypothesis: Believes that the outputs of a vector-valued role are the 
+      vectors rather than the function that belongs to the space.
+    observable_signature: Each value f(t)=t² is a vector, while f is only a rule
+      collecting those vectors.
+    misconception_id:
+    facet_id: facet_an_element_of_a_vector_space_may_be_called_a_vec
+    fails_criteria:
+      - crit_function_vector_role
+    distinguishing_features:
+      - labels scalar outputs as vectors
+      - denies the function's membership role
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_element_of_a_vector_space_may_be_called_a_vec
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_function_vector_role
+      points: 4.0
+      description: Identifies the function as the vector because it is an 
+        element of the vector space and distinguishes it from its scalar values.
+      tier: core
+      targets:
+        - facet: facet_an_element_of_a_vector_space_may_be_called_a_vec
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T07:52:47Z'
+updated_at: '2026-07-27T07:52:47Z'

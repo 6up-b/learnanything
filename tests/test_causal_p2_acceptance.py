@@ -1227,13 +1227,13 @@ def test_projection_version_names_the_open_cause_union(tmp_path):
 
     # Pinned deliberately so changing what the fold derives is always a conscious
     # bump. Each version supersedes without replacing: the open-cause UNION
-    # semantics (v3) and item-declared capability for compiled criterion targets
-    # (v4) both remain in force, and v5 adds Meas §3.A1's two guards — supporting
-    # targets confer credit only where A6 trace evidence shows the facet
-    # exercised, and each cell's certification credit is capped at
-    # `max_embedded_credit_share` embedded. Update this literal whenever the
-    # projection semantics move.
-    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v5_supporting_requires_trace"
+    # semantics (v3), item-declared capability for compiled criterion targets
+    # (v4), and v5's Meas §3.A1 guards (supporting credit requires A6 trace
+    # evidence; per-cell embedded-share cap) all remain in force, and v6 makes
+    # absent grading evidence inert — a criterion with no evidence row produces
+    # NO outcome instead of banking a phantom failure. Update this literal
+    # whenever the projection semantics move.
+    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v6_absent_evidence_confers_nothing"
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     _single_cause_failure(vault, repository)

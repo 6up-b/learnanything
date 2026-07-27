@@ -417,6 +417,57 @@ def _gate_recipe_validity(proposal: GateProposal, ctx: GateContext) -> list[Gate
                 )
                 continue
             for recipe in recipes:
+                all_of = recipe.get("all_of") or []
+                any_of = recipe.get("any_of") or []
+                integration = recipe.get("integration")
+                # A recipe with zero components in all three slots is vacuous.
+                # `recipe_gaps` refuses to certify one (its `satisfied` requires
+                # at least one contract component), so admitting it here would
+                # author an LO that is permanently uncertifiable with no
+                # diagnostic naming why. Mirror the authority at mint time.
+                if (
+                    not all_of
+                    and not any_of
+                    and not integration
+                    # A recipe shape that predates the slot split carries only
+                    # `facets`; judge those on that field rather than on slots
+                    # it never declared.
+                    and not (recipe.get("facets") or [])
+                ):
+                    out.append(
+                        GateDiagnostic(
+                            gate="recipe_validity",
+                            severity="hard_fail",
+                            entity_refs=item.refs(),
+                            message=(
+                                f"recipe {recipe.get('id') or '<unnamed>'} has no components "
+                                "in any slot (all_of/any_of/integration): it can never be "
+                                "demonstrated or certified"
+                            ),
+                            suggested_action="author at least one real component, or drop the recipe",
+                        )
+                    )
+                    continue
+                # A single-alternative `any_of` behaves exactly like `all_of`
+                # under certification (>=1 alternative must be demonstrated, and
+                # there is only one) while reading as optional to every human
+                # reviewer — a required component mis-slotted. Review, not
+                # hard-fail: the semantics are coherent, only the shape misleads.
+                if not all_of and len(any_of) == 1:
+                    out.append(
+                        GateDiagnostic(
+                            gate="recipe_validity",
+                            severity="review",
+                            entity_refs=item.refs(),
+                            message=(
+                                f"recipe {recipe.get('id') or '<unnamed>'} has a single-alternative "
+                                "any_of and no all_of: the alternative is effectively required"
+                            ),
+                            suggested_action=(
+                                "move the component to all_of, or author a second genuine substitute"
+                            ),
+                        )
+                    )
                 for facet in recipe.get("facets") or []:
                     if str(facet) not in known_facets:
                         out.append(

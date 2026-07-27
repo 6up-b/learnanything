@@ -537,14 +537,22 @@ def test_evsi_inputs_are_computed_and_carry_their_provenance(tmp_path):
     # No repair-class `expected_minutes` was authored, so the teaching cost is
     # the pinned fallback -- said out loud, not passed off as computed.
     assert provenance["avoided_overteaching_minutes"] == "heuristic_default"
-    # The instrument card declares its own expected seconds.
-    assert provenance["probe_burden_minutes"] == "deterministic"
+    # The instrument card declares its own expected seconds -- an authored
+    # family-template constant. Reading it is deterministically reproducible,
+    # but the receipt records the epistemic SOURCE (decision-value spec §4.1):
+    # authored, not computed.
+    assert provenance["probe_burden_minutes"] == "authored_prior"
     assert set(provenance.values()) <= set(EVSI_PROVENANCE)
 
     receipt = repository.causal_probe_decision_receipts(factor_id=factor_id)[0]
     assert receipt["inputs"]["evsi_provenance"] == provenance
     assert receipt["inputs"]["separable_pairs"] == 1
     assert receipt["inputs"]["inseparable_pairs"] == 0
+    # §10.1 receipt contract: the decision states how the prior was formed,
+    # whether likelihood coverage is complete, and which loss regime priced it.
+    assert receipt["inputs"]["likelihood_completeness"]["complete"] is True
+    assert receipt["inputs"]["loss_table_regime"] == "p2_pairwise_proxy_no_loss_table"
+    assert "prior_basis" in receipt["inputs"]
 
 
 def test_inseparable_bundles_yield_a_computed_zero_information_gain(tmp_path):

@@ -22,6 +22,13 @@ import { CommandOverlayFrame, learnloopShowOverlayWidth } from "./CommandOverlay
 const pct = (value: number | null | undefined): string =>
   value == null ? "—" : `${Math.round(value * 100)}%`;
 
+// Demonstrated is backed by cumulative certification credit, not a probability:
+// distinct observations can legitimately bank more than 1.0 credit. Learner-
+// facing percentage surfaces saturate at 100% while the receipt keeps the raw
+// ledger value (and its correction deltas) intact.
+const demonstratedPct = (value: number | null | undefined): string =>
+  pct(value == null ? value : Math.min(value, 1));
+
 const shortFacet = (facetId: string): string => facetId.replace(/^facet_/, "");
 const facetTitle = (facetId: string): string =>
   shortFacet(facetId)
@@ -40,23 +47,34 @@ const STATUS_META: Record<TraceCriterionDto["status"], { glyph: string; label: s
 function TraceCriterionRow({ row }: { row: TraceCriterionDto }) {
   const meta = STATUS_META[row.status];
   return (
-    <div style={{ padding: "6px 0", borderBottom: `1px solid ${COLOR.border}` }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <span style={{ color: meta.color, width: 14, textAlign: "center" }}>{meta.glyph}</span>
-        <span style={{ color: COLOR.text, flex: 1 }}>{row.description}</span>
-        <Pill color={meta.pill}>{meta.label}</Pill>
-        <span style={{ color: COLOR.textDim, minWidth: 44, textAlign: "right" }}>
-          {row.pointsAwarded == null ? "—" : row.pointsAwarded}/{row.pointsPossible}
-        </span>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "24px minmax(0, 1fr) 64px",
+        gap: 12,
+        padding: "10px 0",
+        borderTop: `1px solid ${COLOR.border}`,
+        fontSize: 13,
+      }}
+    >
+      <div style={{ color: meta.color, textAlign: "center", fontWeight: 700 }}>{meta.glyph}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ color: COLOR.text }}>{row.description}</span>
+          <Pill color={meta.pill}>{meta.label}</Pill>
+        </div>
+        <div style={{ marginTop: 3, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
+          {row.targets.map((t, i) => (
+            <Pill key={`${t.facet}:${t.capability}:${i}`} color="slate">
+              {shortFacet(t.facet)} · {t.capability}
+            </Pill>
+          ))}
+          {row.dependsOn.length > 0 && <Faint>depends on {row.dependsOn.join(", ")}</Faint>}
+          {row.status === "not_judged" && <Faint>downstream of an earlier error — not judged, not wrong</Faint>}
+        </div>
       </div>
-      <div style={{ marginLeft: 22, marginTop: 2, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
-        {row.targets.map((t, i) => (
-          <Pill key={`${t.facet}:${t.capability}:${i}`} color="slate">
-            {shortFacet(t.facet)} · {t.capability}
-          </Pill>
-        ))}
-        {row.dependsOn.length > 0 && <Faint>depends on {row.dependsOn.join(", ")}</Faint>}
-        {row.status === "not_judged" && <Faint>downstream of an earlier error — not judged, not wrong</Faint>}
+      <div style={{ textAlign: "right", color: meta.color, fontFamily: FONT_MONO }}>
+        {row.pointsAwarded == null ? "—" : row.pointsAwarded.toFixed(1)} / {row.pointsPossible.toFixed(1)}
       </div>
     </div>
   );
@@ -65,8 +83,8 @@ function TraceCriterionRow({ row }: { row: TraceCriterionDto }) {
 export function AttemptTraceView({ trace }: { trace: AttemptTraceDto }) {
   if (!trace.criteria.length) return null;
   return (
-    <div style={{ fontFamily: FONT_MONO }}>
-      <div style={{ marginBottom: 6 }}>
+    <div>
+      <div style={{ marginBottom: 6, fontSize: 11 }}>
         <Pill color="green">{trace.demonstratedCount} demonstrated</Pill>{" "}
         {trace.firstErrorCount > 0 && <Pill color="red">{trace.firstErrorCount} first error</Pill>}{" "}
         {trace.notJudgedCount > 0 && <Pill color="slate">{trace.notJudgedCount} not judged</Pill>}
@@ -736,7 +754,7 @@ function DemonstratedCurve({ timeline }: { timeline: FacetEvidenceTimelineDto })
           strokeWidth={1}
         >
           <title>
-            {p.t} · demonstrated {pct(p.demonstrated)}
+            {p.t} · demonstrated {demonstratedPct(p.demonstrated)}
             {p.isCorrection ? ` · correction (${p.delta >= 0 ? "+" : ""}${pct(p.delta)})` : ""}
             {p.assisted ? " · assisted (no credit)" : ""}
           </title>
@@ -795,7 +813,7 @@ export function FacetEvidenceReceipt({ facetId, onInspect }: { facetId: string; 
               <span style={{ color: COLOR.textFaint, fontSize: 10 }}>{facetId}</span>
             </div>
             <div style={{ marginTop: 7, display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
-              <span style={{ color: COLOR.green, fontSize: 18, fontWeight: 600 }}>{pct(timeline.demonstrated)}</span>
+              <span style={{ color: COLOR.green, fontSize: 18, fontWeight: 600 }}>{demonstratedPct(timeline.demonstrated)}</span>
               <span style={{ color: COLOR.textDim, fontSize: 11 }}>demonstrated</span>
               {latestCaps.length > 0 ? (
                 <>

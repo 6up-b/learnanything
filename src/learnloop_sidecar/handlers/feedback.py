@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.clock import utc_now_iso
+from learnloop.services.causal_orchestrator import SAFE_COMMON_REPAIR_MESSAGE
 from learnloop.services.instrument_serving import unservable_refusal
+from learnloop.services.surfaced_beliefs import mark_belief_surfaced
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -51,6 +53,83 @@ class ContestCausalDiagnosisInput(ParamsModel):
     response: str
 
 
+# Learner copy per skip verb. `STARTED_MESSAGE` ("Starting the targeted
+# repair.") would be untrue here — the post-attempt consultation is a read and
+# mints no episode; starting is the learner's action on this card.
+_COMMON_REPAIR_MESSAGES = {
+    "skip_common_repair": SAFE_COMMON_REPAIR_MESSAGE,
+    "skip_action_equivalent": (
+        "Every explanation that fits points to the same fix, so there is "
+        "nothing to disambiguate first."
+    ),
+}
+
+
+def _attach_common_repair(
+    repository: Any, attempt_id: str, bundle: dict[str, Any]
+) -> None:
+    """Journey B: surface the already-decided common-repair recommendation.
+
+    Reads the decision receipt the post-attempt hook recorded
+    (``followups._consult_common_repair``) — never calls the orchestrator, so
+    re-viewing feedback cannot mint another receipt. Divergent and
+    incomplete-mapping factors keep the existing learner-initiated
+    ``causal_repair_status`` flow untouched.
+    """
+
+    causal = bundle.get("causalFeedback")
+    if not isinstance(causal, dict):
+        return
+    need = causal.get("probeNeed")
+    if not isinstance(need, dict):
+        return
+    if need.get("divergent") or need.get("incompleteRepairMapping"):
+        return
+    factors = repository.unresolved_cause_factors_for_attempt(attempt_id)
+    if not factors:
+        return
+    factor_id = str(factors[0]["id"])
+    recommendation = None
+    for receipt in reversed(
+        repository.causal_probe_decision_receipts(factor_id=factor_id)
+    ):
+        if str(receipt.get("decision") or "") in _COMMON_REPAIR_MESSAGES:
+            recommendation = receipt
+            break
+    if recommendation is None:
+        return
+    hypotheses = causal.get("causalHypotheses") or [{}]
+    misconception_id = str(
+        recommendation.get("misconception_id")
+        or (hypotheses[0] or {}).get("hypothesisId")
+        or ""
+    )
+    if not misconception_id:
+        return
+    # A6 capture: this card names the belief and its fix outside a ClaimSurface
+    # mount, so stamp exactly as the Repair screen's `_case_dto` does — durable
+    # beliefs only; a provisional belief has no disposition lifecycle to be
+    # withdrawn from.
+    record = repository.misconception(misconception_id)
+    if record is not None:
+        mark_belief_surfaced(
+            repository,
+            belief_id=misconception_id,
+            claim_text=getattr(record, "statement", None),
+            surface="feedback_common_repair",
+        )
+    decision = str(recommendation.get("decision"))
+    causal["commonRepair"] = {
+        "status": str(recommendation.get("repair_status") or ""),
+        "decision": decision,
+        "reason": str(recommendation.get("reason") or ""),
+        "message": _COMMON_REPAIR_MESSAGES[decision],
+        "misconceptionId": misconception_id,
+        "factorId": factor_id,
+        "decisionReceiptId": str(recommendation.get("id") or ""),
+    }
+
+
 @method("get_feedback", AttemptInput)
 def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
@@ -58,6 +137,7 @@ def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     session_id = attempt.get("session_id") if attempt is not None else None
     repository.record_feedback_shown(params.attempt_id, session_id=session_id)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
+    _attach_common_repair(repository, params.attempt_id, bundle)
     log_event(
         "feedback_shown",
         session_id=session_id,

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { DecayPressureDto, KnowledgeFacetField, KnowledgeFacetPoint } from "../api/dto";
 import { COLOR, FONT_MONO } from "../components/term";
+import { useScrollZoom } from "./scrollZoom";
 import { depthFade, polyPath, project, useOrbitCamera, type Projected } from "./wire3d";
 
 // KnowledgeWellView — a spacetime-curvature wireframe where settled knowledge
@@ -23,11 +24,16 @@ import { depthFade, polyPath, project, useOrbitCamera, type Projected } from "./
 // ring at its pre-decay (readyGhost) depth. No number is drawn on the fabric
 // that isn't straight from the DTO; exact values live in the side panel.
 
-const W = 860;
-const H = 640;
-const CX = W / 2;
-const CY = H / 2 - 30;
-const SCALE = 235;
+// The view fills whatever box it is given; the viewBox is 1:1 with CSS pixels
+// so labels and stroke weights keep their designed size as the well grows. The
+// coefficients below reproduce the original 860×640 framing exactly, and the
+// vertical term keeps the scene from outgrowing a short, wide pane.
+const DEFAULT_W = 860;
+const DEFAULT_H = 640;
+const CENTER_LIFT = 0.047; // scene centre sits above the box centre (label room)
+const SCALE_W = 0.273;
+const SCALE_H = 0.42;
+
 const DEPTH = 0.9;
 const CENTER_BLEND = 0.28;
 const PROFILE_POW = 1.55;
@@ -256,26 +262,48 @@ export function KnowledgeWellView({
   decay,
   selected,
   onSelect,
-  onInspect
+  onPin,
+  onInspect,
+  width,
+  height
 }: {
   field: KnowledgeFacetField;
   decay?: DecayPressureDto | null;
   selected: string | null;
+  /** Hover select. The owner may ignore this while a pick is pinned. */
   onSelect: (id: string) => void;
+  /** Explicit select (click / arrow key). Always honoured, and hard-selects. */
+  onPin?: (id: string) => void;
   onInspect: (id: string) => void;
+  /** Pane size in CSS pixels; omitted falls back to the design framing. */
+  width?: number;
+  height?: number;
 }) {
+  const W = width && width > 0 ? width : DEFAULT_W;
+  const H = height && height > 0 ? height : DEFAULT_H;
+  const CX = W / 2;
+  const CY = H / 2 - H * CENTER_LIFT;
+  const SCALE = Math.min(W * SCALE_W, H * SCALE_H);
+
   const { cam, onMouseDown, pauseDrift, dragging } = useOrbitCamera({ yaw: -0.5, pitch: 1.0 });
+  // Scroll-wheel zoom (see scrollZoom.ts — SCROLL_ZOOM.enabled = false, or
+  // deleting this line, the svg's ref/onDoubleClick and the `zoom.*` reads
+  // below, removes the behaviour wholesale).
+  const zoom = useScrollZoom({ viewWidth: W, centerX: CX, centerY: CY, contentRadius: SCALE, onInteract: pauseDrift });
   const states = useMemo(() => buildStates(field, decay), [field, decay]);
   const geometry = useMemo(() => buildGeometry(states), [states]);
 
-  const view = { cx: CX, cy: CY, scale: SCALE, persp: 5.4 };
+  const view = { cx: CX + zoom.panX, cy: CY + zoom.panY, scale: SCALE * zoom.k, persp: 5.4 };
   const proj = (p: V3) => project(p.x, p.y, p.z, cam, view);
 
-  // Painter-ordered anchor beads (far first).
+  // Painter order for the anchor beads (far first). View depth is independent
+  // of zoom/pan, so this only re-sorts when the camera or geometry moves; the
+  // screen positions are projected at draw time.
   const beadOrder = useMemo(() => {
     return geometry.beads
-      .map((pos, i) => ({ i, p: proj(pos) }))
-      .sort((a, b) => a.p.depth - b.p.depth);
+      .map((pos, i) => ({ i, depth: project(pos.x, pos.y, pos.z, cam, view).depth }))
+      .sort((a, b) => a.depth - b.depth)
+      .map((entry) => entry.i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geometry, cam.yaw, cam.pitch]);
 
@@ -305,9 +333,16 @@ export function KnowledgeWellView({
     `${summary.shallow} shallow, ${summary.flat} flat frontier` +
     (summary.held ? `, ${summary.held} held flat for insufficient history` : "") +
     (summary.debt ? `, ${summary.debt} absent (content debt)` : "") +
-    ". Deep = likely recall, filled bead = demonstrated, flat = unexplored.";
+    ". Deep = likely recall, filled bead = demonstrated, flat = unexplored." +
+    " Scroll or press plus and minus to zoom; 0 restores the default framing.";
 
   const sortedIds = states.map((s) => s.point.id);
+
+  // Explicit picks (click, arrow keys) go through `pin` so the owner can latch
+  // the selection; hover keeps calling `onSelect`, which the owner may ignore
+  // while that latch is held. Falling back to onSelect keeps the component
+  // usable standalone, where nothing is latched and the two are the same act.
+  const pin = onPin ?? onSelect;
 
   // Keyboard navigation: arrows cycle the selected facet through the stable id
   // order; Enter opens the facet's first learning object in the inspector.
@@ -316,12 +351,19 @@ export function KnowledgeWellView({
     const idx = selected ? sortedIds.indexOf(selected) : -1;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
-      onSelect(sortedIds[(idx + 1 + sortedIds.length) % sortedIds.length]);
+      pin(sortedIds[(idx + 1 + sortedIds.length) % sortedIds.length]);
       pauseDrift();
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
       event.preventDefault();
-      onSelect(sortedIds[(idx - 1 + sortedIds.length) % sortedIds.length]);
+      pin(sortedIds[(idx - 1 + sortedIds.length) % sortedIds.length]);
       pauseDrift();
+    } else if (event.key === "+" || event.key === "=" || event.key === "-" || event.key === "_") {
+      // Keyboard peer for the scroll gesture, so zoom isn't pointer-only.
+      event.preventDefault();
+      zoom.zoomBy(event.key === "-" || event.key === "_" ? 1 / 1.35 : 1.35);
+    } else if (event.key === "0") {
+      event.preventDefault();
+      zoom.reset();
     } else if ((event.key === "Enter" || event.key === " ") && idx >= 0) {
       event.preventDefault();
       const lo = states[idx].point.learningObjectIds[0];
@@ -339,6 +381,7 @@ export function KnowledgeWellView({
 
   return (
     <svg
+      ref={zoom.ref}
       className="noselect-canvas"
       width={W}
       height={H}
@@ -347,12 +390,14 @@ export function KnowledgeWellView({
       tabIndex={0}
       aria-label={ariaLabel}
       onMouseDown={onMouseDown}
+      onDoubleClick={zoom.reset}
       onKeyDown={onKeyDown}
       style={{
         fontFamily: FONT_MONO,
-        maxWidth: "100%",
-        height: "auto",
-        overflow: "visible",
+        display: "block",
+        // The svg now spans the whole pane, so its box is the frame: spilling
+        // rim labels would run under the side panel (and add scrollbars).
+        overflow: "hidden",
         cursor: dragging ? "grabbing" : "grab",
         userSelect: "none",
         WebkitUserSelect: "none",
@@ -423,7 +468,7 @@ export function KnowledgeWellView({
                 onSelect(s.point.id);
                 pauseDrift();
               }}
-              onClick={() => onSelect(s.point.id)}
+              onClick={() => pin(s.point.id)}
             />
           </g>
         );
@@ -453,11 +498,13 @@ export function KnowledgeWellView({
           Filled green bead = demonstrated; hollow cyan ring = predicted but not
           yet demonstrated; × = absent (no blueprint, content debt); hollow
           diamond = held flat for insufficient history. Never a second depth. */}
-      {beadOrder.map(({ i, p }) => {
+      {beadOrder.map((i) => {
         const s = states[i];
+        const p = proj(geometry.beads[i]);
         const isActive = s.point.id === selected;
         const fade = depthFade(p.depth, 0.6, 1);
-        const size = (isActive ? 5 : 3.8) * p.k;
+        const size = (isActive ? 5 : 3.8) * p.k * zoom.markerScale;
+        const hit = 11 * zoom.markerScale;
         const tooltip =
           `${s.point.title}\n` +
           `Ready ${Math.round(s.point.ready * 100)}% · Demonstrated ${Math.round(s.point.demonstratedMass * 100)}% · evidence ${s.point.evidenceMass.toFixed(2)}` +
@@ -470,9 +517,11 @@ export function KnowledgeWellView({
         };
         const onClick = (event: React.MouseEvent) => {
           event.stopPropagation();
+          // Hard-select first either way, so the pick survives the pointer
+          // moving off the bead (and stays put behind the LO overlay).
+          pin(s.point.id);
           const lo = s.point.learningObjectIds[0];
           if (lo) onInspect(lo);
-          else onSelect(s.point.id);
         };
         // Absent — content debt, not a learner gap (§1.7): a faint ×, no well.
         if (s.absent) {
@@ -480,7 +529,7 @@ export function KnowledgeWellView({
             <g key={`bead-${s.point.id}`} opacity={isActive ? 1 : fade} style={{ cursor: "pointer" }} onMouseEnter={onEnter} onClick={onClick}>
               <line x1={p.x - size} y1={p.y - size} x2={p.x + size} y2={p.y + size} stroke={COLOR.textFaint} strokeWidth={1.1} />
               <line x1={p.x + size} y1={p.y - size} x2={p.x - size} y2={p.y + size} stroke={COLOR.textFaint} strokeWidth={1.1} />
-              <circle cx={p.x} cy={p.y} r={11} fill="transparent" />
+              <circle cx={p.x} cy={p.y} r={hit} fill="transparent" />
               <title>{tooltip}</title>
             </g>
           );
@@ -498,7 +547,7 @@ export function KnowledgeWellView({
                 strokeWidth={1.1}
                 strokeDasharray="2 2"
               />
-              <circle cx={p.x} cy={p.y} r={11} fill="transparent" />
+              <circle cx={p.x} cy={p.y} r={hit} fill="transparent" />
               <title>{tooltip}</title>
             </g>
           );
@@ -528,7 +577,7 @@ export function KnowledgeWellView({
                 strokeWidth={1.4}
               />
             )}
-            <circle cx={p.x} cy={p.y} r={11} fill="transparent" />
+            <circle cx={p.x} cy={p.y} r={hit} fill="transparent" />
             <title>{tooltip}</title>
           </g>
         );
@@ -553,7 +602,7 @@ export function KnowledgeWellView({
               onSelect(s.point.id);
               pauseDrift();
             }}
-            onClick={() => onSelect(s.point.id)}
+            onClick={() => pin(s.point.id)}
           >
             <text
               x={p.x}
@@ -586,6 +635,37 @@ export function KnowledgeWellView({
           </g>
         );
       })}
+
+      {/* Zoom readout — bright on the notch, then settles to a faint reminder
+          that the framing is no longer the resting one. Corner ticks mark the
+          clipped viewport. Both fade to nothing at ×1. */}
+      {zoom.readout > 0 ? (
+        <g opacity={zoom.readout} pointerEvents="none">
+          {[
+            [1, 1],
+            [-1, 1],
+            [1, -1],
+            [-1, -1]
+          ].map(([sx, sy], i) => {
+            const x = sx > 0 ? W - 10 : 10;
+            const y = sy > 0 ? H - 10 : 10;
+            return (
+              <path
+                key={`tick-${i}`}
+                d={`M ${x - sx * 14} ${y} L ${x} ${y} L ${x} ${y - sy * 14}`}
+                fill="none"
+                stroke={COLOR.amber}
+                strokeWidth={0.9}
+                opacity={0.55}
+              />
+            );
+          })}
+          <text x={18} y={H - 18} fill={COLOR.amber} fontSize={11}>
+            {`×${zoom.k.toFixed(2)}`}
+            <tspan fill={COLOR.textFaint}>{"  scroll to zoom · double-click to reset"}</tspan>
+          </text>
+        </g>
+      ) : null}
     </svg>
   );
 }

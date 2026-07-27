@@ -1,0 +1,105 @@
+schema_version: 1
+id: pi_axiom_operation_totality_01
+learning_object_id: lo_operations_and_the_vector_space_axiom_checklist
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+evidence_weights:
+  facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+criterion_facet_weights:
+  c1:
+    facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+trace_contract:
+  status: no_reliable_decomposition
+  recipes: []
+variant_contract:
+teach_back_source:
+prompt: Let V=R². A proposed “addition” is defined by (a,b)⋆(c,d)=(a+c,b/d), but
+  only when d≠0. Interpret what an addition on V is required to do, and explain 
+  precisely whether ⋆ supplies that data on all of V.
+expected_answer: An addition on V must be a function V×V→V, so it must assign 
+  one element of V to every ordered pair of elements of V. The rule ⋆ is 
+  undefined whenever the second input has d=0. Therefore it is not a function 
+  V×V→V and does not define an addition on all of V.
+difficulty: 0.46
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.35
+scaffold_level: 0.05
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: partial_operation_domain_audit
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_partial_rule_counts
+    hypothesis: Believes a formula defines addition even when it is not defined 
+      for every ordered pair in the set.
+    observable_signature: The rule is a valid addition because its output has 
+      two real coordinates whenever d is nonzero.
+    misconception_id:
+    facet_id: facet_addition_assigns_an_element_of_the_set_to_each_o
+    fails_criteria:
+      - c1
+    distinguishing_features:
+      - ignores inputs with d=0
+      - does not require a total map on V×V
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 4.0
+      description: States the required mapping V×V→V and correctly explains that
+        the proposed rule fails because it is not defined for every input pair.
+      tier: core
+      targets:
+        - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:02:57Z'
+updated_at: '2026-07-27T08:02:57Z'

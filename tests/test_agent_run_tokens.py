@@ -305,10 +305,15 @@ class _MeteredGradingClient(TokenUsageAccounting):
         )
 
 
-def _graded_attempt(tmp_path, client):
+def _graded_attempt(tmp_path, client, *, sample_count: int | None = None):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     vault = load_vault(vault_root)
+    if sample_count is not None:
+        # C3's k is a per-vault opt-in, not the shipped default. A cost test must
+        # SET the k it prices; inheriting it from the default is how three paid
+        # grading calls per attempt stopped reading as a decision.
+        vault.config.diagnostic_augmentation.sample_count = sample_count
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
     sync_vault_state(vault, repository, clock=clock)
@@ -336,7 +341,7 @@ def _graded_attempt(tmp_path, client):
 def test_grading_path_persists_actual_tokens(tmp_path):
     client = _MeteredGradingClient()
 
-    repository, result = _graded_attempt(tmp_path, client)
+    repository, result = _graded_attempt(tmp_path, client, sample_count=3)
 
     run = repository.agent_run(result.agent_run_id)
     assert run["purpose"] == "grading"
@@ -353,6 +358,27 @@ def test_grading_path_persists_actual_tokens(tmp_path):
     assert receipts[0]["hypotheses"]["c3"].startswith("sample agreement")
     # Drained, so the next graded attempt on this client starts clean.
     assert client.consume_usage() == TokenUsage()
+
+
+def test_grading_defaults_to_the_one_sample_baseline(tmp_path):
+    """The default config pays for ONE call, not k.
+
+    The sibling above prices k=3 deliberately; this is what a learner who never
+    opted in is billed. If C3 is ever promoted to k>1 by default, this is the
+    test that has to be changed on purpose.
+    """
+
+    client = _MeteredGradingClient()
+    repository, result = _graded_attempt(tmp_path, client)
+
+    run = repository.agent_run(result.agent_run_id)
+    assert (run["actual_input_tokens"], run["actual_output_tokens"]) == (2400, 310)
+    receipts = repository.diagnostic_augmentation_receipt_rows()
+    assert receipts[0]["c3_sample_count"] == 1
+    # 1/1 in the receipt column (NOT NULL), disambiguated by c3_sample_count.
+    # What must NOT happen is that number reaching the attribution as measured
+    # support -- see tests/test_diagnostic_augmentation.py's k=1 coverage.
+    assert receipts[0]["c3_agreement_support"] == 1.0
 
 
 def test_grading_fallback_still_bills_the_failed_run(tmp_path):

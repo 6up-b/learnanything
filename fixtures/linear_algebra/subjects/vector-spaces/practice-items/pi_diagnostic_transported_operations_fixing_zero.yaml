@@ -1,0 +1,163 @@
+schema_version: 1
+id: pi_diagnostic_transported_operations_fixing_zero
+learning_object_id: lo_orient_to_the_vector_space_idea
+subjects:
+  - vector-spaces
+practice_mode: diagnostic_probe
+attempt_types_allowed:
+  - diagnostic_probe
+  - open_text
+  - dont_know
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+criterion_facet_weights:
+  criterion_identify_and_compare_operation_packages:
+    facet_a_vector_space_is_a_set_with_operations_of_addit: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: transported_structure_comparison
+      checkpoints:
+        - find_transported_zero
+        - compute_witness_sum
+        - compare_operation_packages
+        - classify_relationship
+        - explain_zero_test_limit
+      dependencies:
+        classify_relationship:
+          - compare_operation_packages
+        compare_operation_packages:
+          - compute_witness_sum
+        compute_witness_sum: []
+        explain_zero_test_limit:
+          - find_transported_zero
+          - compare_operation_packages
+        find_transported_zero: []
+variant_contract:
+teach_back_source:
+prompt: "On the set V=R², let T(x,y)=(x,y+x³), so T⁻¹(a,b)=(a,b-a³). Define\n\nv⊕w=T⁻¹(T(v)+T(w)), c⊙v=T⁻¹(cT(v)).\n\
+  \nWithout checking every vector-space axiom:\n1. Determine the additive identity
+  for ⊕.\n2. Compare (1,0)⊕(1,0) with the ordinary sum (1,0)+(1,0).\n3. Decide whether
+  the transported structure is literally the usual vector-space structure, merely
+  isomorphic to it via T, or neither. Explain why the zero-vector comparison alone
+  would or would not settle that decision."
+expected_answer: "Because T(0,0)=(0,0), the additive identity for ⊕ is T⁻¹(0,0)=(0,0),
+  the same element as the usual zero. However, T(1,0)=(1,1), so\n(1,0)⊕(1,0)=T⁻¹((1,1)+(1,1))=T⁻¹(2,2)=(2,2-2³)=(2,-6),\n\
+  whereas the ordinary sum is (2,0). Thus the operation packages are not literally
+  the same. The transported structure is nevertheless isomorphic to the usual vector
+  space via the bijection T, since the operations were defined by transporting the
+  usual operations through T. Agreement of the zero vectors does not establish equality
+  of structures; equality requires the two addition rules and the two scalar-multiplication
+  rules to agree on every valid input, while one differing output is enough to prove
+  they are distinct."
+difficulty: 0.7
+difficulty_source: llm_estimate
+tags:
+  - diagnostic
+  - transported_operations
+  - isomorphism_vs_equality
+  - zero_vector
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.85
+transfer_distance: 0.25
+scaffold_level: 0.2
+capability: schema_interpretation
+task_features:
+  complexity: 3
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema:
+surface_family: operation_package_comparison
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_operations_of_addit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_identify_and_compare_operation_packages
+      points: 4.0
+      description: Correctly finds the transported additive identity, computes 
+        the differing sum, and concludes that the structures are isomorphic via 
+        T but not literally identical, explicitly explaining why a shared zero 
+        vector is insufficient to prove equality of operation packages.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_operations_of_addit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: 01KYH7C5E611J2SAZHEQPZDWKM
+      path:
+      locator:
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+    - ref_type: existing_entity
+      ref_id: lo_orient_to_the_vector_space_idea
+      path:
+      locator:
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+    - ref_type: existing_entity
+      ref_id: pi_orient_to_the_vector_space_idea_teach_back_phcbsn
+      path:
+      locator:
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+created_at: '2026-07-27T07:51:07Z'
+updated_at: '2026-07-27T07:51:07Z'

@@ -10,6 +10,7 @@ from learnloop.services.confusable_concepts import learner_observed_confusable_c
 from learnloop.services.grading import resolved_rubric
 from learnloop.services.mastery import display_mastery, sigmoid
 from learnloop.services.scheduler import (
+    _FOLLOWUP_REASONS,
     ScheduledItem,
     dominant_scheduler_reason,
     explain_practice_item,
@@ -22,12 +23,44 @@ from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 
 
+#: Reverse of the scheduler's follow-up reason table, kept only as a FALLBACK.
+#: ``_insert_pending_followups`` routes three distinct ``action_type`` lanes onto
+#: one ``intervention_followup`` component, and ``ScheduledItem.followup_kind``
+#: now carries the originating lane directly. Queue rows built by other paths --
+#: notably tests and the TUI, which construct ``ScheduledItem`` by hand -- may
+#: still arrive without the field, and for those the plain-English reason the
+#: scheduler puts first is the only surviving carrier of the lane. That matters:
+#: a §5.7 certification cold probe is a held-out validity check on something
+#: already certified, not a repair retry, and collapsing the two makes the UI
+#: narrate a validity check as an intervention.
+_FOLLOWUP_KIND_BY_REASON: dict[str, str] = {
+    reason: kind for kind, reason in _FOLLOWUP_REASONS.items()
+}
+
+
+def _followup_kind(scheduled: ScheduledItem) -> str:
+    # Direct read: the scheduler stamps the lane it actually inserted under.
+    if scheduled.followup_kind is not None:
+        return scheduled.followup_kind
+    for reason in scheduled.plain_english:
+        kind = _FOLLOWUP_KIND_BY_REASON.get(reason)
+        if kind is not None:
+            return kind
+    if scheduled.components.get("negative_surprise_followup", 0.0) > 0.0:
+        return "negative_surprise_followup"
+    return "intervention_followup"
+
+
 def scheduled_item_dto(vault: LoadedVault, repository: Repository, scheduled: ScheduledItem) -> dict[str, Any]:
     item = _require_item(vault, scheduled.practice_item_id)
     learning_object = vault.learning_objects.get(scheduled.learning_object_id)
     state = repository.practice_item_state(scheduled.practice_item_id)
     mastery = repository.mastery_state(scheduled.learning_object_id)
     mastery_display = display_mastery(mastery) if mastery is not None else None
+    is_followup = (
+        scheduled.components.get("negative_surprise_followup", 0.0) > 0.0
+        or scheduled.components.get("intervention_followup", 0.0) > 0.0
+    )
     return to_camel(
         {
             "practice_item_id": scheduled.practice_item_id,
@@ -50,10 +83,10 @@ def scheduled_item_dto(vault: LoadedVault, repository: Repository, scheduled: Sc
             # A positive EIG marks a ranking-time candidate. Only the item with
             # a durable scheduler-backed presentation is a diagnostic probe.
             "is_probe": scheduled.components.get("probe_committed", 0.0) > 0.0,
-            "is_followup": (
-                scheduled.components.get("negative_surprise_followup", 0.0) > 0.0
-                or scheduled.components.get("intervention_followup", 0.0) > 0.0
-            ),
+            "is_followup": is_followup,
+            # Which follow-up lane, so the surface can say what the item is FOR
+            # instead of assuming every insertion is a repair.
+            "followup_kind": _followup_kind(scheduled) if is_followup else None,
         }
     )
 

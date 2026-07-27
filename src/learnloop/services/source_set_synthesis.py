@@ -913,7 +913,32 @@ def _normalize(
                     cm = comp if isinstance(comp, dict) else comp.model_dump()
                     fclient = cm.get("facet_client_id") or ""
                     facet_id = facet_client_to_id.get(fclient) or cm.get("facet") or ""
-                    capability = cm.get("capability") or "retrieval"
+                    # D3's discipline extended to ordinary components: the schema
+                    # no longer defaults `capability` at parse time, so "the model
+                    # did not choose" is observable here. An `all_of`/`any_of`
+                    # component always observes *something*, so the honest remedy
+                    # is default-and-flag rather than drop — but a defaulted
+                    # capability is still a contract cell nobody authored, and it
+                    # must surface as a review diagnostic, never silently.
+                    declared = str(cm.get("capability") or "").strip()
+                    capability = declared or "retrieval"
+                    if not declared:
+                        dropped_diagnostics.append(
+                            {
+                                "gate": "recipe_component_capability",
+                                "severity": "review",
+                                "entity_refs": [lo_id, facet_id],
+                                "message": (
+                                    f"recipe {r.get('id') or '<unnamed>'} {slot} component for "
+                                    f"{facet_id or '<unresolved facet>'} declared no capability; "
+                                    "defaulted to `retrieval`"
+                                ),
+                                "suggested_action": (
+                                    "confirm `retrieval` is the capability this component is "
+                                    "actually demonstrated at, or re-author it explicitly"
+                                ),
+                            }
+                        )
                     comps_out.append({"facet": facet_id, "capability": capability, "modality": cm.get("modality") or "hard", "_slot": slot})
                     flat_facets.append(facet_id)
                     recipe_components.append({"facet": facet_id, "capability": capability})
@@ -1049,7 +1074,26 @@ def _normalize(
                 t = target if isinstance(target, dict) else target.model_dump()
                 fclient = t.get("facet_client_id") or ""
                 facet_id = facet_client_to_id.get(fclient) or t.get("facet") or ""
-                capability = t.get("capability") or "retrieval"
+                # Same default-and-flag discipline as recipe components: an
+                # authored target wins verbatim downstream (A1), so a silently
+                # defaulted rung would file evidence into a cell nobody chose.
+                declared_target_capability = str(t.get("capability") or "").strip()
+                capability = declared_target_capability or "retrieval"
+                if not declared_target_capability:
+                    dropped_diagnostics.append(
+                        {
+                            "gate": "criterion_target_capability",
+                            "severity": "review",
+                            "entity_refs": [pid, facet_id],
+                            "message": (
+                                f"criterion target for {facet_id or '<unresolved facet>'} on "
+                                f"item {pid} declared no capability; defaulted to `retrieval`"
+                            ),
+                            "suggested_action": (
+                                "state the capability the criterion actually observes"
+                            ),
+                        }
+                    )
                 role = t.get("role") or "primary"
                 targets_out.append({"facet": facet_id, "capability": capability, "role": role})
                 criterion_targets.append(
@@ -1523,7 +1567,7 @@ def _create_study_map(
             agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
             now=now, usage=usage, resolved_hashes=resolved_hashes,
             clock=clock, progress=progress, items_off=items_off,
-            token_usage=token_usage,
+            token_usage=token_usage, grading_client=client,
         )
     except StudyMapError as exc:
         if candidate_preserved:
@@ -1594,6 +1638,7 @@ def _gate_and_persist(
     progress: ProgressFn | None = None,
     items_off: bool = False,
     token_usage: TokenUsage | None = None,
+    grading_client: Any = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]:
     """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
 
@@ -1658,6 +1703,24 @@ def _gate_and_persist(
             synthesis_run_id=synthesis_run_id,
             candidate_preserved=True,
         )
+
+    # Stage-5.3/6 instrument gates over the practice-item rows, via the one
+    # shared composition every authoring lane runs (`authoring_gates`). The §8.7
+    # gates above check provenance/scope/structure; these check whether an item
+    # measures anything, and this lane used to skip them entirely — an item
+    # authored at ingest reached review with no persona/selected-response/pair
+    # judgement at all. Row-level verdicts, never batch aborts: a refused item
+    # persists as `invalid` (acceptance refuses it) rather than discarding the
+    # paid-for synthesis. `grading_client=None` (revalidation) falls back to the
+    # deterministic persona rule; missing persona material stays a typed
+    # UNTESTED abstention, so first ingests are not blocked.
+    from learnloop.services.authoring_gates import build_instrument_gates
+
+    instrument_gates = build_instrument_gates(
+        vault, repository, grading_client=grading_client
+    )
+    instrument_gates(normalized.rows)
+    diagnostics.extend(instrument_gates.diagnostics())
 
     # persist generate-discriminator / coarsen needs (FIRST, per §11.3).
     generation_needs = _persist_generation_needs(repository, subject_id, source_set.id,

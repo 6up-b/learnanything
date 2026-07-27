@@ -260,6 +260,15 @@ def _append(
             subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
             unlimited_token_budget=unlimited_token_budget,
         )
+        # Same items-off resolution as the create lane (`_create_study_map`):
+        # the brief decides, falling back to the vault's standing bootstrap
+        # setting. Without this the append lane authored practice items
+        # unconditionally — the `as_you_read` guard was a create-lane-only
+        # invariant.
+        brief_items = (brief or {}).get("practice_items")
+        if brief_items not in ("upfront", "as_you_read"):
+            brief_items = vault.config.ingest.bootstrap_practice_items
+        items_off = brief_items == "as_you_read"
         (
             rows,
             gate_items,
@@ -269,6 +278,7 @@ def _append(
             normalizer_diagnostics,
         ) = _normalize_append(
             reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
+            items_off=items_off,
         )
 
         gate_ctx = _gate_context(vault, repository, inputs, [])
@@ -288,6 +298,15 @@ def _append(
                              error_message="append gates hard-failed", clock=clock)
             raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
                                 diagnostics=diagnostics)
+
+        # Stage-5.3/6 instrument gates — the one shared composition (see
+        # `_gate_and_persist`); this lane used to persist practice items with
+        # no instrument judgement at all. Row-level verdicts, never batch aborts.
+        from learnloop.services.authoring_gates import build_instrument_gates
+
+        instrument_gates = build_instrument_gates(vault, repository, grading_client=client)
+        instrument_gates(rows)
+        diagnostics.extend(instrument_gates.diagnostics())
 
         patch_id = new_ulid()
         repository.persist_proposal_batch(
@@ -392,13 +411,15 @@ def _output_tokens(result: Any) -> int:
 # --- normalization ----------------------------------------------------------
 
 
-def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id):
+def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id,
+                      items_off: bool = False):
     """Map an AppendReconciliation to proposal rows + gate items + auto-apply ids."""
 
     def d(obj):
         return obj if isinstance(obj, dict) else obj.model_dump()
 
-    # new_coverage reuses the bootstrap normalizer.
+    # new_coverage reuses the bootstrap normalizer — including its items-off
+    # drop guard, which this lane previously bypassed by omission.
     coverage = SourceSetSynthesis(
         concepts=getattr(reconciliation, "concepts", []) or [],
         facets=getattr(reconciliation, "facets", []) or [],
@@ -406,7 +427,8 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         blueprints=getattr(reconciliation, "blueprints", []) or [],
         practice_items=getattr(reconciliation, "practice_items", []) or [],
     )
-    normalized = _normalize(coverage, inputs, vault, now, subject_id=subject_id)
+    normalized = _normalize(coverage, inputs, vault, now, subject_id=subject_id,
+                            items_off=items_off)
     rows = list(normalized.rows)
     gate_items = list(normalized.gate_items)
     auto_apply_ids: list[str] = []

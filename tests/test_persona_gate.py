@@ -10,10 +10,12 @@ they fail if the `row_transform` wiring is removed.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from learnloop.codex.schemas import AuthoringProposal
 from learnloop.db.repositories import Repository
+from learnloop.services.diagnostic_augmentation import model_family
 from learnloop.services.persona_gate import (
     CONTRAST_PAIR_TAG_PREFIX,
     GATE_PRECISION_METRIC,
@@ -22,10 +24,12 @@ from learnloop.services.persona_gate import (
     InstrumentClass,
     PersonaGate,
     PersonaGateReason,
+    RealismLicenseStatus,
     classify_instrument,
     gate_precision,
     tier_for,
 )
+from learnloop.services.persona_realism import PERSONA_REALISM_MATCHER_VERSION
 from learnloop.services.practice_generation import generate_diagnostic_practice_proposal
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -307,9 +311,12 @@ def test_b2_license_promotes_plain_practice_advisory_failure_to_hard(tmp_path):
     repository, need_id = _setup(root, with_facet_registry=True)
     repository.insert_persona_realism_run(
         {
-            "matcher_version": "test",
+            "matcher_version": PERSONA_REALISM_MATCHER_VERSION,
             "corpus_hash": "b" * 64,
             "persona_source": "authored_signature",
+            "generator_family": model_family(
+                _FakeClient.provider_name, _FakeClient.model
+            ),
             "persona_count": 8,
             "real_count": 8,
             "folds": 16,
@@ -329,10 +336,87 @@ def test_b2_license_promotes_plain_practice_advisory_failure_to_hard(tmp_path):
     item = repository.proposal_items(result.patch_id)[0]
     audit = item["audit"]["persona_gate"]
     assert audit["persona_realism_validated"] is True
+    assert audit["persona_realism_status"] == "licensed"
     assert audit["tier"] == str(GateTier.HARD)
     assert audit["decision"] == str(GateDecision.BLOCK)
     assert item["validation_status"] == "invalid"
     assert repository.intervention_need(need_id)["status"] == "pending"
+
+
+def test_b2_license_from_another_generator_family_stays_advisory(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    repository, _need_id = _setup(root, with_facet_registry=True)
+    repository.insert_persona_realism_run(
+        {
+            "matcher_version": PERSONA_REALISM_MATCHER_VERSION,
+            "corpus_hash": "c" * 64,
+            "persona_source": "authored_signature",
+            "generator_family": model_family("anthropic", "claude-4"),
+            "persona_count": 8,
+            "real_count": 8,
+            "folds": 16,
+            "matcher_correct": 8,
+            "matcher_total": 16,
+            "balanced_accuracy": 0.5,
+            "separation_threshold": 0.7,
+            "verdict": "indistinguishable",
+            "feature_manifest": {},
+        }
+    )
+
+    result = generate_diagnostic_practice_proposal(
+        root, _FakeClient(_proposal(_item_payload()))
+    )
+
+    item = repository.proposal_items(result.patch_id)[0]
+    audit = item["audit"]["persona_gate"]
+    assert audit["persona_realism_validated"] is False
+    assert audit["persona_realism_status"] == "unlicensed_scope"
+    assert audit["tier"] == str(GateTier.ADVISORY)
+    assert audit["decision"] == str(GateDecision.FLAG_FOR_REVIEW)
+
+
+def test_b2_never_run_is_recorded_as_no_run(tmp_path):
+    """The contrast case for the fault test below: the ledger read fine, it is empty."""
+
+    root = create_basic_vault(tmp_path / "vault").root
+    repository, _need_id = _setup(root, with_facet_registry=True)
+
+    result = generate_diagnostic_practice_proposal(
+        root, _FakeClient(_proposal(_item_payload()))
+    )
+
+    audit = repository.proposal_items(result.patch_id)[0]["audit"]["persona_gate"]
+    assert audit["persona_realism_status"] == str(RealismLicenseStatus.NO_RUN)
+    assert audit["persona_realism_validated"] is False
+
+
+def test_b2_lookup_fault_is_not_reported_as_an_unvalidated_pass(tmp_path, monkeypatch):
+    """A broken B2 ledger is a FAULT, not a realism verdict.
+
+    The lookup used to sit under a bare ``except Exception: return outcome``, so a
+    schema or IO fault produced exactly the same audit record as "B2 has never
+    run" -- a reader could not tell the gate had failed to check.
+    """
+
+    root = create_basic_vault(tmp_path / "vault").root
+    repository, _need_id = _setup(root, with_facet_registry=True)
+
+    def _boom(self, **_kwargs):
+        raise sqlite3.DatabaseError("database disk image is malformed")
+
+    monkeypatch.setattr(Repository, "persona_realism_run_rows", _boom)
+
+    result = generate_diagnostic_practice_proposal(
+        root, _FakeClient(_proposal(_item_payload()))
+    )
+
+    audit = repository.proposal_items(result.patch_id)[0]["audit"]["persona_gate"]
+    assert audit["persona_realism_status"] == str(RealismLicenseStatus.LOOKUP_FAILED)
+    assert audit["persona_realism_status"] != str(RealismLicenseStatus.NO_RUN)
+    assert audit["persona_realism_validated"] is False
+    # A fault withholds the license; it never promotes and never invalidates.
+    assert audit["tier"] == str(GateTier.ADVISORY)
 
 
 def test_live_route_abstains_when_there_is_nothing_to_plant(tmp_path):

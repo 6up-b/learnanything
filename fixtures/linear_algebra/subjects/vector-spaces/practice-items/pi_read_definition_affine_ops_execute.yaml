@@ -1,0 +1,146 @@
+schema_version: 1
+id: pi_read_definition_affine_ops_execute
+learning_object_id: lo_read_and_apply_the_vector_space_definition
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_vector_space_is_a_set_with_addition_and_scalar
+evidence_weights:
+  facet_a_vector_space_is_a_set_with_addition_and_scalar: 1.0
+criterion_facet_weights:
+  crit_compute_addition:
+    facet_a_vector_space_is_a_set_with_addition_and_scalar: 1.0
+  crit_compute_scalar_action:
+    facet_a_vector_space_is_a_set_with_addition_and_scalar: 1.0
+  crit_label_operation_roles:
+    facet_a_vector_space_is_a_set_with_addition_and_scalar: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_execute_affine_operations
+      checkpoints:
+        - compute_addition
+        - compute_scalar_action
+        - label_operation_types
+      dependencies:
+        compute_addition: []
+        compute_scalar_action: []
+        label_operation_types:
+          - compute_addition
+          - compute_scalar_action
+variant_contract:
+teach_back_source:
+prompt: Let V=P₁(R). Two operations are specified by p⊕q=p+q+1 and a⊙p=ap+(a−1),
+  where p,q∈V and a∈R. For p(t)=t, q(t)=1−t, and a=−2, compute p⊕q and a⊙p. Then
+  label which rule is the proposed vector addition and which is the proposed 
+  scalar multiplication, including the input type of each rule.
+expected_answer: p⊕q=t+(1−t)+1=2, which is in P₁(R). Also, 
+  (−2)⊙p=−2t+(−2−1)=−2t−3, which is in P₁(R). The rule ⊕ is the proposed 
+  addition V×V→V because it takes two polynomials from V. The rule ⊙ is the 
+  proposed scalar multiplication R×V→V because it takes a real scalar and a 
+  polynomial from V.
+difficulty: 0.52
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - commissioned_cell
+  - vector-space-definition
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.4
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: affine_operation_execution
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_treat_scalar_as_second_vector
+    hypothesis: Believes scalar multiplication is another binary operation on 
+      two elements of V.
+    observable_signature: Labels ⊙ as V×V→V and describes −2 as a vector in 
+      P₁(R).
+    misconception_id:
+    facet_id: facet_a_vector_space_is_a_set_with_addition_and_scalar
+    fails_criteria:
+      - crit_label_operation_roles
+    distinguishing_features:
+      - writes V×V→V for scalar multiplication
+      - calls the scalar a vector
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_vector_space_is_a_set_with_addition_and_scalar
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_compute_addition
+      points: 1.5
+      description: Correctly computes p⊕q=2 and records that the result belongs 
+        to V.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_compute_scalar_action
+      points: 1.5
+      description: Correctly computes (−2)⊙p=−2t−3 and records that the result 
+        belongs to V.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_label_operation_roles
+      points: 1.0
+      description: Correctly labels ⊕:V×V→V and ⊙:R×V→V from their inputs.
+      tier: core
+      targets:
+        - facet: facet_a_vector_space_is_a_set_with_addition_and_scalar
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - crit_compute_addition
+        - crit_compute_scalar_action
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T08:36:19Z'
+updated_at: '2026-07-27T08:36:19Z'

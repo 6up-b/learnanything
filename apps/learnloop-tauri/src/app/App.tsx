@@ -1,12 +1,12 @@
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { AppSnapshot, ProbeBlockEndDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
+import type { AppSnapshot, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
-import { EmptyPlaceholder, TerminalFrame, type TopTab, navTabs } from "../components/ui";
+import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab, navTabs } from "../components/ui";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { ExamScreen } from "../screens/ExamScreen";
@@ -31,10 +31,11 @@ import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import { ReaderScreen } from "../screens/ReaderScreen";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
+import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
 import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
-import { notifyQueueChanged } from "../queueEvents";
+import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 
 type OpenSourceTarget = {
@@ -60,6 +61,7 @@ type VaultFilesChangedEvent = {
 
 export function App() {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
+  const [reviewCounts, setReviewCounts] = useState<ReviewCountsDto | null>(null);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [tab, setTab] = useState<TopTab>("start");
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
@@ -106,6 +108,9 @@ export function App() {
   // Settings is also a command-style overlay. In particular, opening it while
   // practicing or reading must not unmount the active screen beneath it.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Diagnosis adjudication (§2 A4) is a command overlay too: the supply step for
+  // the eval store, opened over whatever screen is mounted.
+  const [adjudicateOpen, setAdjudicateOpen] = useState(false);
   const [libraryFocus, setLibraryFocus] = useState<{ patchId: string; itemId: string } | null>(null);
   const [proposalFocusPatchId, setProposalFocusPatchId] = useState<string | null>(null);
   const [ingestJobId, setIngestJobId] = useState<string | null>(null);
@@ -221,6 +226,45 @@ export function App() {
       unlisten?.();
     };
   }, [onError]);
+
+  // Nav badge counts. Event-driven, never polled: it refreshes when a vault is
+  // opened or switched, when the learner moves between tabs (so acting on a
+  // queue updates its badge on the way out), and on the same `queue-changed`
+  // signal the file watcher and the review surfaces already broadcast. The RPC
+  // is a handful of indexed COUNTs, which is what makes hanging it off tab
+  // changes affordable.
+  const vaultRoot = snapshot?.vault?.root ?? null;
+  useEffect(() => {
+    if (!vaultRoot) {
+      setReviewCounts(null);
+      return;
+    }
+    let disposed = false;
+    const refresh = () => {
+      api.getReviewCounts()
+        .then((counts) => {
+          if (!disposed) setReviewCounts(counts);
+        })
+        // Badges are decoration. A count that fails to load leaves the previous
+        // number in place and stays quiet — it must never raise a toast over a
+        // screen the learner is working in.
+        .catch(() => undefined);
+    };
+    refresh();
+    const unsubscribe = subscribeQueueChanged(refresh);
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [vaultRoot, tab]);
+
+  const navBadges = useMemo<NavBadgeCounts>(
+    () =>
+      reviewCounts
+        ? { proposals: reviewCounts.proposalsBadge, maintain: reviewCounts.maintainBadge }
+        : {},
+    [reviewCounts]
+  );
 
   useEffect(() => {
     localStorage.setItem("learnloop.tab", tab);
@@ -402,6 +446,9 @@ export function App() {
   }
 
   function gotoTab(next: TopTab) {
+    // Golden Path is gated off (see SHOW_GOLDEN_PATH); refuse the target rather
+    // than land on a tab with no button back. Overlay targets still dispatch.
+    if (next === "golden" && !SHOW_GOLDEN_PATH) return;
     if (next === "errors") {
       setSettingsOpen(false);
       setReviewOpen(true);
@@ -531,7 +578,7 @@ export function App() {
     // The golden-path run pre-empts the body (exam/calibration precedent) while a
     // run is active. Selecting the Golden Path tab with no active run renders the
     // offline fixture surface.
-    if (goldenRunId) {
+    if (goldenRunId && SHOW_GOLDEN_PATH) {
       return (
         <GoldenPathScreen
           runId={goldenRunId}
@@ -637,6 +684,8 @@ export function App() {
           gradingProvider={gradingProvider}
           algorithmVersion={snapshot.vault?.algorithmVersion ?? "unknown"}
           onOpenPractice={openPractice}
+          onOpenPrimedPractice={openPrimedRetry}
+          onAsk={setAskTarget}
           onPaletteEntities={onPaletteEntities}
           onEndSession={endSession}
           onInspect={setInspectorId}
@@ -744,6 +793,7 @@ export function App() {
           subjects={subjectOptions}
           onError={onError}
           onInspect={setInspectorId}
+          onOpenAdjudication={() => setAdjudicateOpen(true)}
         />
       );
     }
@@ -760,6 +810,7 @@ export function App() {
         vaultRoot={snapshot?.vault?.root}
         onSelectVault={changeVault}
         settingsOpen={settingsOpen}
+        badges={navBadges}
       >
         {toast && !settingsOpen ? <div className="toast" onClick={() => setToast(null)}>{toast}</div> : null}
         {renderBody()}
@@ -875,6 +926,9 @@ export function App() {
         />
       ) : null}
       {whyTriage ? <WhyDiagnosisOverlay triage={whyTriage} onClose={() => setWhyTriage(null)} /> : null}
+      {adjudicateOpen ? (
+        <AdjudicationOverlay onClose={() => setAdjudicateOpen(false)} onError={onError} />
+      ) : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
         open={paletteOpen}
@@ -886,6 +940,7 @@ export function App() {
         onGoto={gotoTab}
         onOpenPractice={openPractice}
         onOpenCalibration={openCalibration}
+        onOpenAdjudication={() => setAdjudicateOpen(true)}
         onInspect={setInspectorId}
         onAsk={askCurrentContext}
         onError={onError}

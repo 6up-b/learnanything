@@ -3,7 +3,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../app/recentVaults";
 
-export const navTabs = [
+// Visibility gate, not a removal. The Golden Path run flow is structurally
+// broken end to end — the measuring stage has no workspace, triage fabricates a
+// ui-local attempt id, and finalization no-ops without a pinned pack — so the
+// tab is hidden until that is repaired. All Golden Path code stays intact; flip
+// this to `true` to work on it.
+export const SHOW_GOLDEN_PATH = false;
+
+const allNavTabs = [
   { id: "start", key: "1", label: "Start" },
   { id: "today", key: "2", label: "Today" },
   { id: "graph", key: "3", label: "Graph" },
@@ -16,8 +23,14 @@ export const navTabs = [
   { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 
+// The tabs the shell actually renders, keyboard-navigates (alt+key lookup is by
+// `key`, so hiding one leaves every other accelerator untouched), and offers as
+// palette completions. `TopTab` still derives from the full list so the hidden
+// screen's code keeps type-checking.
+export const navTabs = allNavTabs.filter((tab) => tab.id !== "golden" || SHOW_GOLDEN_PATH);
+
 // `errors` and `settings` are overlay-only navigation targets, not visible tabs.
-export type TopTab = (typeof navTabs)[number]["id"] | "errors" | "settings";
+export type TopTab = (typeof allNavTabs)[number]["id"] | "errors" | "settings";
 
 function getAppWindow(): ReturnType<typeof getCurrentWindow> | null {
   try {
@@ -205,6 +218,24 @@ function SettingsChip({
   );
 }
 
+// Inline rather than a stylesheet rule because `.top-nav button span` is a bare
+// descendant selector that already claims every span in a tab — it sets the
+// bracket's 8px right margin, which on a trailing badge would read as a stray
+// gap. Inline wins that specificity fight without editing the shared rule.
+// Deliberately colourless: a count is not an alarm, and the nav has exactly one
+// urgency colour (the active tab's amber) that this must not compete with.
+const NAV_BADGE_STYLE: CSSProperties = {
+  color: "var(--dim)",
+  fontSize: 11,
+  marginRight: 0,
+  marginLeft: 1
+};
+
+/** Counts a tab may advertise. A tab absent from this map, or sitting at zero,
+ *  renders exactly as it did before — the badge is an addition to the nav's
+ *  vocabulary, never a permanent widening of it. */
+export type NavBadgeCounts = Partial<Record<TopTab, number>>;
+
 export function TerminalFrame({
   active,
   onTab,
@@ -213,7 +244,8 @@ export function TerminalFrame({
   aiManual = false,
   vaultRoot,
   onSelectVault,
-  settingsOpen = false
+  settingsOpen = false,
+  badges
 }: {
   active: TopTab;
   onTab: (tab: TopTab) => void;
@@ -223,22 +255,35 @@ export function TerminalFrame({
   vaultRoot?: string | null;
   onSelectVault: (path: string) => void;
   settingsOpen?: boolean;
+  badges?: NavBadgeCounts;
 }) {
   return (
     <div className="desktop-shell">
       <div className="terminal-frame">
         <Titlebar />
         <nav className="top-nav">
-          {navTabs.map((tab) => (
+          {navTabs.map((tab) => {
+            const count = badges?.[tab.id] ?? 0;
+            return (
             <button
               key={tab.id}
               className={tab.id === active ? "active" : ""}
               onClick={() => onTab(tab.id)}
               type="button"
+              // The count is decoration on a label that already says where it
+              // goes, so it is hidden from assistive tech and the number is
+              // spoken as part of the tab name instead.
+              aria-label={count > 0 ? `${tab.label}, ${count} waiting` : undefined}
             >
               <span>[{tab.key}]</span>{tab.label}
+              {count > 0 ? (
+                <span className="nav-badge" style={NAV_BADGE_STYLE} aria-hidden="true">
+                  ·{count}
+                </span>
+              ) : null}
             </button>
-          ))}
+            );
+          })}
           <div className="nav-status">
             {vaultRoot ? <VaultPath root={vaultRoot} onSelect={onSelectVault} /> : null}
             <SettingsChip

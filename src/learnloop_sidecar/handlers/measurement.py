@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import Field
+
 from learnloop.services.causal_health import causal_lane_health
+from learnloop.services.causal_selection_audit import causal_selection_readiness
 from learnloop.services.clarification import clarification_rate
 from learnloop.services.causal_probe_coherence import (
     candidate_has_current_blind_input_contract,
@@ -12,6 +15,7 @@ from learnloop.services.certification_cold_probe import (
     certification_cold_probe_report,
     schedule_certification_cold_probes,
 )
+from learnloop.services.contract_commissioning import commission_plan
 from learnloop.services.contract_reachability import analyze_contract_reachability
 from learnloop.services.facet_mint_gate import judge_facet_mints
 from learnloop.services.integration_backfill import (
@@ -33,6 +37,17 @@ from learnloop_sidecar.registry import method
 
 class ScheduleCertificationColdProbesInput(ParamsModel):
     learning_object_id: str | None = None
+
+
+class GenerateCommissioningPracticeInput(ParamsModel):
+    #: Empty means "the whole commissioning queue" -- the default path, and the
+    #: one the Maintain button uses. A caller may narrow it, but never widen it:
+    #: ids outside the vault are rejected rather than silently skipped.
+    learning_object_ids: list[str] = Field(default_factory=list)
+    #: Cap on learning objects per run, applied after queue ordering so a capped
+    #: run takes the queue's highest-priority gaps rather than an arbitrary slice.
+    limit: int | None = None
+    reason: str | None = None
 
 
 class TransitionCausalProbeCandidateInput(ParamsModel):
@@ -232,6 +247,9 @@ def get_measurement_health(
             "cold_probes": certification_cold_probe_report(vault, repository),
             "missing_vocabulary": missing_vocabulary_report(repository),
             "causal_health": causal_lane_health(repository),
+            # EVSI-2's WP0 readiness: can the formal selector change any
+            # decision here yet? Typed unavailable arms, never favorable zeros.
+            "causal_selection": causal_selection_readiness(vault, repository),
             "persona_gate": gate_precision(repository).as_dict(),
             "facet_mint_gate": _facet_mint_gate_payload(vault),
             "integration_backfill": _integration_backfill_payload(vault),
@@ -315,5 +333,95 @@ def apply_integration_backfill_handler(
             "integration_backfill": _integration_backfill_payload(
                 refreshed_vault
             ),
+        }
+    )
+
+
+@method("generate_commissioning_practice", GenerateCommissioningPracticeInput)
+def generate_commissioning_practice(
+    ctx: SidecarContext, params: GenerateCommissioningPracticeInput
+) -> dict[str, Any]:
+    """Author practice for the commissioning queue's authorable gaps.
+
+    The Maintain view has shown the reachability queue read-only: it names the
+    contract cells no instrument observes, and then leaves the learner with
+    nowhere to go. This is the action that closes them.
+
+    Two things are deliberate.
+
+    *The default target set comes from the commissioning plan, not the screen.*
+    ``MeasurementHealthPanel`` renders a truncated slice of the reachability
+    cells, so a button that posted what it displayed would author for the first
+    eight rows and silently skip the rest. The plan is recomputed here and
+    consumed in ``commissioning_queue`` order, which is the same order
+    ``build_practice_expansion_plan`` uses -- one priority, not two. Only
+    ``COMMISSION`` cells are targeted; the deferred dispositions (coordination
+    depth envelopes, downward dominance, blueprint repair) are not authoring
+    work and are reported, not generated for.
+
+    *It enqueues rather than generates.* This is a multi-item model-backed
+    authoring run, and the sidecar has a single stdin/stdout channel -- blocking
+    it for the length of a generation would freeze every other call the app
+    makes, timeout ceiling or not. So it takes the same durable
+    ``practice_expansion`` job every other multi-item authoring path takes and
+    returns the batch for the caller to watch. Items land as a proposal awaiting
+    review, never applied silently.
+    """
+
+    vault, repository = ctx.require_vault()
+    plan = commission_plan(vault, repository)
+    ranked = plan.learning_object_rank()
+
+    requested = [str(value).strip() for value in params.learning_object_ids if str(value).strip()]
+    if requested:
+        unknown = [value for value in requested if value not in vault.learning_objects]
+        if unknown:
+            raise SidecarError(
+                "not_found",
+                f"Unknown learning object(s): {', '.join(sorted(unknown))}.",
+                details={"learning_object_ids": sorted(unknown)},
+            )
+        # An explicit selection is still ordered by the queue, and anything the
+        # queue has nothing authorable for sorts last rather than being dropped:
+        # the caller asked for it, so it is generated for, just not first.
+        targets = sorted(requested, key=lambda lo_id: (ranked.get(lo_id, len(ranked)), lo_id))
+    else:
+        targets = sorted(ranked, key=lambda lo_id: (ranked[lo_id], lo_id))
+
+    if params.limit is not None:
+        targets = targets[: params.limit]
+
+    if not targets:
+        # Not an error: an empty commissioning queue is the good outcome, and a
+        # surface that raised here would report success as a failure.
+        return versioned(
+            {
+                "batch_id": None,
+                "batch": None,
+                "learning_object_ids": [],
+                "commissionable_cell_count": 0,
+                "deferred_cell_count": len(plan.deferred),
+            }
+        )
+
+    subjects = {
+        subject
+        for lo_id in targets
+        for subject in vault.learning_objects[lo_id].subjects
+    }
+    batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
+        learning_object_ids=targets,
+        subject_id=next(iter(sorted(subjects))) if len(subjects) == 1 else None,
+        reason=params.reason or "commissioning_queue_gap",
+    )
+    return versioned(
+        {
+            "batch_id": batch_id,
+            "batch": ctx.ingest_jobs.get_batch(batch_id),
+            "learning_object_ids": targets,
+            "commissionable_cell_count": sum(
+                len(plan.for_learning_object(lo_id)) for lo_id in targets
+            ),
+            "deferred_cell_count": len(plan.deferred),
         }
     )

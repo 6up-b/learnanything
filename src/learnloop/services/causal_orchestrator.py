@@ -104,6 +104,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
 import json
+import logging
 import math
 from typing import Any, Mapping, Sequence
 
@@ -119,9 +120,11 @@ from learnloop.services.causal_probe_coherence import (
     candidate_has_current_blind_input_contract,
     classify_against_blind_bundles,
     decide_probe,
+    order_probe_candidates,
     repair_class_need_for_factor,
     resolve_causal_probe_parameters,
 )
+from learnloop.services import causal_diagnostic_selector as shadow_selector
 from learnloop.services.probe_targeting import (
     CAUSE_SET_INCOMPLETE_MAPPING,
     MAPPING_BASIS_LEGACY_FACET,
@@ -148,9 +151,24 @@ LEARNER_PREFERENCES = ("allow", "decline", "teach_now", "no_more_diagnostics")
 
 #: Standing constraint 4: where an EVSI input came from.  ``deterministic`` is a
 #: computed fact (blind-bundle separability, a stored learner action, a counted
-#: attempt); ``model_reported`` came from authored/model prose; and
-#: ``heuristic_default`` is a pinned fallback used because neither existed.
-EVSI_PROVENANCE = ("deterministic", "model_reported", "heuristic_default")
+#: attempt); ``model_reported`` came from authored/model prose;
+#: ``authored_prior`` is a human/template-authored constant read verbatim
+#: (decision-value spec §4.1: deterministically REPRODUCIBLE is not an
+#: epistemic source — a card's ``expected_seconds=45`` is still authored);
+#: ``mixed`` means part of one aggregate came from authored/model prose and part
+#: from a pinned default; ``heuristic_default`` is a pinned fallback alone.
+EVSI_PROVENANCE = (
+    "deterministic",
+    "model_reported",
+    "authored_prior",
+    "mixed",
+    "heuristic_default",
+)
+
+#: The loss regime of the CURRENT live decision rule. The P2 proxy prices a
+#: probe against avoided over-teaching minutes; it consumes no L(h,a) table at
+#: all, and the receipt must say so rather than imply a learned loss model.
+LOSS_TABLE_REGIME_P2_PROXY = "p2_pairwise_proxy_no_loss_table"
 
 MACHINE_CHECK_REPAIR_MAPPING = "repair_class_mapping_backfill"
 
@@ -599,6 +617,17 @@ def sweep_machine_checks(
                 source=source,
                 clock=clock,
             )
+    # Piggyback the §4.3 expiry reconciliation on the one per-attempt hook that
+    # holds a vault handle (`_run_causal_orchestrator_hooks` calls this on
+    # every attempt).  Guarded independently: a fault here must not block the
+    # machine-check sweep it rides on.
+    try:
+        sweep_expired_cold_retries(vault, repository, clock=clock)
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        logging.getLogger(__name__).warning(
+            "expired cold-retry reconciliation failed", exc_info=True
+        )
+
     return _close_orphan_checks(repository, learning_object_id, live, clock=clock)
 
 
@@ -861,7 +890,11 @@ def _avoided_overteaching_minutes(
             minutes.append(default_minutes)
             from_default = True
     total = sum(minutes)
-    if from_receipt:
+    if from_receipt and from_default:
+        # Part of the sum is authored prose and part is the pinned 8.0 fallback;
+        # calling that "model_reported" would launder the default (§4.1).
+        provenance = "mixed"
+    elif from_receipt:
         provenance = "model_reported"
     else:
         provenance = "heuristic_default" if from_default else "deterministic"
@@ -884,7 +917,10 @@ def _probe_burden_minutes(
         seconds = (card.card or {}).get("expected_seconds")
         if isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
             if seconds > 0:
-                return float(seconds) / 60.0, "deterministic"
+                # Reading the card is deterministic; the NUMBER is an authored
+                # family-template constant, and the receipt records the source,
+                # not the reproducibility (§4.1).
+                return float(seconds) / 60.0, "authored_prior"
     return default_minutes, "heuristic_default"
 
 
@@ -1184,6 +1220,11 @@ def _status_for_factor(
         if isinstance(value, Mapping) and value.get("hypothesis_id")
     )
 
+    # The shadow selector reads the SAME chosen candidate the live decision
+    # used (set below, once `chosen` exists); early arms shadow with none,
+    # which the selector records as typed unavailable arms — the honest state.
+    shadow_context: dict[str, Any] = {"candidates": (), "chosen": None}
+
     def finish(
         *,
         status: str,
@@ -1223,6 +1264,25 @@ def _status_for_factor(
             candidate_id=str(candidate["id"]) if candidate is not None else None,
             clock=clock,
         )
+        # EVSI-2 shadow (§6.6): computed AFTER the live receipt exists, from
+        # the live receipt itself, in its own try/except. Zero live authority:
+        # the return value feeds nothing below, and a shadow failure must
+        # never take the attempt path down (§3 invariant 2).
+        try:
+            shadow_selector.record_shadow_selection(
+                repository,
+                decision_receipt=receipt,
+                candidates=tuple(shadow_context["candidates"]),
+                chosen_candidate=shadow_context["chosen"],
+                repair_class_by_hypothesis=repair_class_by_hypothesis,
+                common_repair_class_id=common_repair_class_id,
+                clock=clock,
+            )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "shadow selection failed for factor %s (live decision unaffected)",
+                factor_id,
+            )
         episode = (
             _episode_for(
                 repository,
@@ -1357,21 +1417,63 @@ def _status_for_factor(
         repository, factor_id=factor_id, learning_object_id=learning_object_id
     )
 
-    candidates = [
-        value
-        for value in repository.causal_probe_candidates_for_factor(factor_id)
-        if candidate_has_current_blind_input_contract(value)
-    ]
+    candidates = order_probe_candidates(
+        [
+            value
+            for value in repository.causal_probe_candidates_for_factor(factor_id)
+            if candidate_has_current_blind_input_contract(value)
+        ]
+    )
     active = [value for value in candidates if value.get("status") == "active"]
     # Only a reviewed-ACTIVE candidate is servable; an unreviewed one still
     # tells us how much information the instrument WOULD carry, which is what
-    # the decision receipt should record.
+    # the decision receipt should record. The head is THE shared deterministic
+    # order (`order_probe_candidates`), the same one `accept_probe_offer`
+    # serves from, so the receipt's chosen candidate and the served instrument
+    # cannot diverge.
     chosen = active[0] if active else (candidates[0] if candidates else None)
     instrument_available = bool(active)
+    shadow_context["candidates"] = tuple(candidates)
+    shadow_context["chosen"] = chosen
 
     discrimination = _discrimination_inputs(chosen, repair_class_by_hypothesis)
     expected_information_gain = discrimination.expected_information_gain
     action_change = discrimination.probability_information_changes_repair
+
+    # Decision-value spec §4.1/§10.1: the receipt states how the prior was
+    # formed, whether the likelihood coverage is complete (H_OTHER and any
+    # bundle-less hypothesis included), and which loss regime priced the
+    # decision — P4 consumes these receipts as training records and must be
+    # able to refuse fabricated inputs without re-deriving them.
+    prior_basis: str | None = None
+    if chosen is not None and chosen.get("hypothesis_set_id"):
+        locked_set = repository.fetch_hypothesis_set(str(chosen["hypothesis_set_id"]))
+        if locked_set is not None:
+            prior_basis = (
+                str(locked_set.get("prior_basis")) if locked_set.get("prior_basis") else None
+            )
+    likelihood_completeness: dict[str, Any]
+    if chosen is None:
+        likelihood_completeness = {"complete": False, "reason": "no_instrument"}
+    else:
+        chosen_discrimination = (
+            chosen.get("discrimination")
+            if isinstance(chosen.get("discrimination"), Mapping)
+            else {}
+        )
+        missing_ids = [
+            str(value)
+            for value in (chosen_discrimination.get("missing_hypothesis_ids") or [])
+        ]
+        unusable_ids = [
+            str(value)
+            for value in (chosen_discrimination.get("unusable_hypothesis_ids") or [])
+        ]
+        likelihood_completeness = {
+            "complete": not missing_ids and not unusable_ids,
+            "missing_hypothesis_ids": missing_ids,
+            "unusable_hypothesis_ids": unusable_ids,
+        }
     probe_burden, burden_provenance = _probe_burden_minutes(
         repository,
         str(chosen["practice_item_id"]) if chosen is not None else None,
@@ -1454,6 +1556,9 @@ def _status_for_factor(
         "instrument_available": instrument_available,
         "probe_episode_conflict": episode_conflict,
         "evsi_provenance": evsi_provenance,
+        "prior_basis": prior_basis,
+        "likelihood_completeness": likelihood_completeness,
+        "loss_table_regime": LOSS_TABLE_REGIME_P2_PROXY,
     }
 
     verb = decision.decision
@@ -1693,17 +1798,21 @@ def accept_probe_offer(
     candidates = repository.causal_probe_candidates_for_factor(
         factor_id, statuses=("active",)
     )
-    candidates = [
-        value
-        for value in candidates
-        if candidate_has_current_blind_input_contract(value)
-    ]
+    candidates = order_probe_candidates(
+        [
+            value
+            for value in candidates
+            if candidate_has_current_blind_input_contract(value)
+        ]
+    )
     if not candidates:
         return ProbeOffer(
             accepted=False,
             reason="no_reviewed_active_candidate",
             factor_id=factor_id,
         )
+    # Same shared order as the decision path: the served instrument is the
+    # receipt's chosen instrument by construction.
     candidate = candidates[0]
     practice_item_id = str(candidate["practice_item_id"])
     item = vault.practice_items.get(practice_item_id)
@@ -2479,29 +2588,82 @@ def record_cold_verification_from_task(
 ) -> dict[str, Any] | None:
     """Fire the delayed cold verification when a scheduled retry completes.
 
-    Returns the receipt, or None with no side effect when the carried context is
-    incomplete or the pair does not satisfy the §6.2 preconditions (same surface
-    family, assisted retry, non-monotone chronology).  This runs inside
-    ``apply_attempt``, so it must never raise on the hot path.
+    Returns the receipt, or None when the carried context is incomplete or the
+    pair does not satisfy the §6.2 preconditions (same surface family, assisted
+    retry, non-monotone chronology).  This runs inside ``apply_attempt``, so it
+    must never raise on the hot path — but "does not apply" is a terminal
+    disposition, not silence: every path below lands a typed §4.3 row
+    (migration 145), because expiry, decline, contamination and same-surface
+    reuse being indistinguishable from "no row" is exactly how the repair
+    lane's cold corpus stayed empty.
     """
 
     from learnloop.services.causal_probe_coherence import (
+        ColdVerificationPrecondition,
+        record_causal_cold_outcome,
         record_delayed_cold_verification,
     )
 
+    def _disposition(
+        outcome: str,
+        *,
+        cold_verification_id: str | None = None,
+        detail: Mapping[str, Any] | None = None,
+        context: Mapping[str, Any] | None = None,
+    ) -> None:
+        record_causal_cold_outcome(
+            repository,
+            outcome=outcome,
+            followup_task_id=str(task.get("id") or "") or None,
+            remediation_episode_id=(
+                str(task.get("remediation_episode_id") or "") or None
+            ),
+            case_kind=str(task.get("case_kind") or "") or None,
+            case_ref=str(task.get("case_ref") or "") or None,
+            source_attempt_id=(
+                str((context or {}).get("source_attempt_id") or "")
+                or (str(task.get("source_attempt_id") or "") or None)
+            ),
+            cold_attempt_id=cold_attempt_id,
+            repair_class_id=(
+                str((context or {}).get("repair_class_id") or "") or None
+            ),
+            hypothesis_ids=[
+                str(value) for value in (context or {}).get("hypothesis_ids") or []
+            ],
+            cold_verification_id=cold_verification_id,
+            # The task was served and consumed, so the opportunity was genuine.
+            servable_opportunity=True,
+            detail=detail,
+            scheduled_not_before=str(task.get("not_before") or "") or None,
+            scheduled_expires_at=str(task.get("expires_at") or "") or None,
+            clock=clock,
+        )
+
     context = task.get("context")
-    if not isinstance(context, Mapping):
-        return None
-    if context.get("kind") != "causal_cold_verification":
+    if not isinstance(context, Mapping) or context.get("kind") != "causal_cold_verification":
+        _disposition(
+            "missing_chain",
+            detail={"reason": "no_causal_cold_verification_context"},
+        )
         return None
     repair_class_id = context.get("repair_class_id")
     source_attempt_id = context.get("source_attempt_id")
     if not repair_class_id or not source_attempt_id:
-        # No repair class means there is no repair-effect claim to make.  Stay
-        # silent rather than inventing one.
+        # No repair class means there is no repair-effect claim to make.  The
+        # chain is incomplete, and that fact is the record.
+        _disposition(
+            "missing_chain",
+            detail={
+                "reason": "no_repair_class"
+                if not repair_class_id
+                else "no_source_attempt"
+            },
+            context=context,
+        )
         return None
     try:
-        return record_delayed_cold_verification(
+        receipt = record_delayed_cold_verification(
             vault,
             repository,
             source_attempt_id=str(source_attempt_id),
@@ -2515,11 +2677,110 @@ def record_cold_verification_from_task(
             ],
             clock=clock,
         )
-    except ValueError:
-        # A precondition failed (same surface family, assisted cold attempt,
-        # chronology).  The verification simply does not apply; the attempt
-        # itself is unaffected.
+    except ColdVerificationPrecondition as exc:
+        _disposition(exc.reason, detail={"message": str(exc), **exc.detail}, context=context)
         return None
+    except ValueError as exc:
+        # A caller-contract violation with no §4.3 disposition of its own.
+        _disposition("missing_chain", detail={"message": str(exc)}, context=context)
+        return None
+    _disposition(
+        "cold_success" if receipt.get("success") else "cold_failure",
+        cold_verification_id=str(receipt["id"]),
+        context=context,
+    )
+    return receipt
+
+
+def sweep_expired_cold_retries(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None = None,
+) -> list[dict[str, Any]]:
+    """Turn silent cold-retry expiries into typed §4.3 dispositions.
+
+    The queue's expiry UPDATE (``due_followup_tasks``) is a status transition,
+    not a label.  Spec §4.3: only a task that had a genuine independent serving
+    opportunity may become ordinary right-censoring — an expired task whose
+    surface was never servable, or whose pair never had an independent surface,
+    records structural unmeasurability instead.
+    """
+
+    from learnloop.services.canonical_projection import surface_group_id
+    from learnloop.services.causal_probe_coherence import record_causal_cold_outcome
+    from learnloop.services.instrument_serving import unservable_reason
+
+    recorded: list[dict[str, Any]] = []
+    for task in repository.expired_cold_retry_tasks_without_outcome():
+        context = task.get("context")
+        context = context if isinstance(context, Mapping) else {}
+        outcome = "right_censored_expired"
+        servable = True
+        detail: dict[str, Any] = {"stage": "expiry"}
+
+        cold_item = vault.practice_items.get(str(task.get("selected_item_id") or ""))
+        if cold_item is None:
+            outcome, servable = "unmeasurable_unservable_surface", False
+            detail["reason"] = "selected_item_missing"
+        elif unservable_reason(cold_item) is not None:
+            outcome, servable = "unmeasurable_unservable_surface", False
+            detail["reason"] = unservable_reason(cold_item)
+        else:
+            state = repository.practice_item_state(cold_item.id)
+            if state is not None and not state.active:
+                outcome, servable = "unmeasurable_unservable_surface", False
+                detail["reason"] = "selected_item_inactive"
+            else:
+                source_attempt_id = str(
+                    context.get("source_attempt_id")
+                    or task.get("source_attempt_id")
+                    or ""
+                )
+                source_attempt = (
+                    repository.fetch_practice_attempt(source_attempt_id)
+                    if source_attempt_id
+                    else None
+                )
+                source_item = (
+                    vault.practice_items.get(
+                        str(source_attempt.get("practice_item_id") or "")
+                    )
+                    if source_attempt is not None
+                    else None
+                )
+                if source_item is not None and surface_group_id(
+                    source_item
+                ) == surface_group_id(cold_item):
+                    outcome, servable = "unmeasurable_no_held_out_surface", False
+                    detail["reason"] = "no_independent_surface"
+
+        row = record_causal_cold_outcome(
+            repository,
+            outcome=outcome,
+            followup_task_id=str(task["id"]),
+            remediation_episode_id=(
+                str(task.get("remediation_episode_id") or "") or None
+            ),
+            case_kind=str(task.get("case_kind") or "") or None,
+            case_ref=str(task.get("case_ref") or "") or None,
+            source_attempt_id=(
+                str(context.get("source_attempt_id") or "")
+                or (str(task.get("source_attempt_id") or "") or None)
+            ),
+            repair_class_id=str(context.get("repair_class_id") or "") or None,
+            hypothesis_ids=[
+                str(value) for value in context.get("hypothesis_ids") or []
+            ],
+            servable_opportunity=servable,
+            detail=detail,
+            scheduled_not_before=str(task.get("not_before") or "") or None,
+            scheduled_expires_at=str(task.get("expires_at") or "") or None,
+            clock=clock,
+        )
+        if row is not None:
+            recorded.append(row)
+    return recorded
 
 
 __all__ = [
@@ -2568,5 +2829,6 @@ __all__ = [
     "request_teaching_now",
     "resolve_machine_check",
     "resolve_orchestrator_parameters",
+    "sweep_expired_cold_retries",
     "sweep_machine_checks",
 ]

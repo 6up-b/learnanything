@@ -1,0 +1,134 @@
+schema_version: 1
+id: pi_axiom_polynomial_product_closure
+learning_object_id: lo_operations_and_the_vector_space_axiom_checklist
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+evidence_weights:
+  facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+criterion_facet_weights:
+  crit_polynomial_required_type:
+    facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+  crit_polynomial_witness:
+    facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: trace_polynomial_closure_witness
+      checkpoints:
+        - state_required_signature
+        - choose_inputs
+        - compute_output
+        - compare_with_codomain
+      dependencies:
+        choose_inputs:
+          - state_required_signature
+        compare_with_codomain:
+          - compute_output
+        compute_output:
+          - choose_inputs
+        state_required_signature: []
+variant_contract:
+teach_back_source:
+prompt: Let P₂ be the real polynomials of degree at most 2. A proposed operation
+  is p⊕q=pq. Interpret what would have to be true for this to be an addition on 
+  P₂, then settle the question with a specific input pair and its output.
+expected_answer: For ⊕ to be an addition on P₂, it must define a map P₂×P₂→P₂. 
+  Take p(t)=q(t)=t². Both inputs lie in P₂, but p⊕q=t⁴ does not. Thus the 
+  proposed rule is not closed in P₂ and is not even an addition on this set.
+difficulty: 0.46
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - commissioned_cell
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.74
+transfer_distance: 0.38
+scaffold_level: 0.04
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: polynomial_codomain_counterexample
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_operation_formula_guarantees_closure
+    hypothesis: Believes that a formula using two elements of a set 
+      automatically defines a binary operation on that set.
+    observable_signature: Since polynomial multiplication is defined for every p
+      and q, the rule is an addition on P₂.
+    misconception_id:
+    facet_id: facet_addition_assigns_an_element_of_the_set_to_each_o
+    fails_criteria:
+      - crit_polynomial_witness
+    distinguishing_features:
+      - checks whether computation is defined but not whether the output remains
+        in the codomain
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: crit_polynomial_required_type
+      points: 2.0
+      description: States that an addition on P₂ must map P₂×P₂ into P₂.
+      tier: core
+      targets:
+        - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: crit_polynomial_witness
+      points: 2.0
+      description: Supplies and evaluates a valid counterexample showing an 
+        output outside P₂.
+      tier: core
+      targets:
+        - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - crit_polynomial_required_type
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-27T07:52:44Z'
+updated_at: '2026-07-27T07:52:44Z'

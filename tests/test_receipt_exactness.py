@@ -1,12 +1,21 @@
 """B5 exactness invariant (spec §5.2): the facet evidence timeline's final
 folded credit equals the banked canonical ledger credit EXACTLY, on every
-fixture vault with attempt history.
+fixture vault with attempt history — under BOTH canonical algorithm versions.
 
 This is the test that retires baseline fact 2 ("the drawer claimed exactness
 while the timeline omitted grouped caps") and unblocks the exact drawer copy.
-Each fixture is copied to a scratch dir, flipped to mvp-0.7, and the canonical
-projection is re-banked from its real attempt history so the comparison is
-authoritative-fold vs timeline-fold over identical evidence.
+Each fixture is copied to a scratch dir, pinned to the parametrized algorithm
+version, and the canonical projection is re-banked from its real attempt
+history so the comparison is authoritative-fold vs timeline-fold over
+identical evidence.
+
+The mvp-0.8 arm exists because the original mvp-0.7-only pin hid a real
+divergence: the projection discounts evidence mass through the calibrated
+response channel (``p0_effective_evidence_mass``) while the timeline read the
+raw attempt-type mass, so the learner-facing Demonstrated curve over-reported
+the banked ledger — including banking nonzero credit for legacy attempts the
+projection banks at ZERO (no active interpretation). A guard that pins the
+version it guards away is not a guard.
 """
 
 from __future__ import annotations
@@ -31,15 +40,16 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FIXTURE_VAULTS = sorted(
     path.name for path in FIXTURES.iterdir() if (path / "state.sqlite").exists()
 )
+ALGORITHM_VERSIONS = ("mvp-0.7", "mvp-0.8")
 
 
-def _loaded_fixture(tmp_path, name):
+def _loaded_fixture(tmp_path, name, algorithm_version="mvp-0.7"):
     root = tmp_path / name
     shutil.copytree(FIXTURES / name, root)
     toml_path = root / "learnloop.toml"
     text, count = re.subn(
         r'algorithm_version = "[^"]+"',
-        'algorithm_version = "mvp-0.7"',
+        f'algorithm_version = "{algorithm_version}"',
         toml_path.read_text(encoding="utf-8"),
         count=1,
     )
@@ -57,9 +67,12 @@ def _all_facets(vault, banked):
     return sorted(facets)
 
 
+@pytest.mark.parametrize("algorithm_version", ALGORITHM_VERSIONS)
 @pytest.mark.parametrize("fixture_name", FIXTURE_VAULTS)
-def test_timeline_final_credit_equals_banked_ledger_credit(tmp_path, fixture_name):
-    vault, repository = _loaded_fixture(tmp_path, fixture_name)
+def test_timeline_final_credit_equals_banked_ledger_credit(
+    tmp_path, fixture_name, algorithm_version
+):
+    vault, repository = _loaded_fixture(tmp_path, fixture_name, algorithm_version)
     attempts = repository.list_attempt_history()
     if not attempts:
         pytest.skip(f"fixture {fixture_name} has no attempt history")
@@ -68,7 +81,12 @@ def test_timeline_final_credit_equals_banked_ledger_credit(tmp_path, fixture_nam
     banked: dict[str, float] = {}
     for cell in repository.facet_capability_evidence_all():
         banked[cell.facet_id] = banked.get(cell.facet_id, 0.0) + cell.certification_credit
-    assert sum(banked.values()) > 0.0, "fixture with attempts should bank some credit"
+    if algorithm_version == "mvp-0.7":
+        assert sum(banked.values()) > 0.0, "fixture with attempts should bank some credit"
+    # Under mvp-0.8 a fixture whose attempts predate P0.2 interpretations banks
+    # ZERO reliable mass by design (no active interpretation -> no silent full
+    # credit). The per-facet equality below is then exactly the divergence
+    # detector: an un-P0-aware timeline still folds the raw mass and reads > 0.
 
     for facet in _all_facets(vault, banked):
         series = facet_evidence_timeline(vault, repository, facet)
@@ -76,7 +94,7 @@ def test_timeline_final_credit_equals_banked_ledger_credit(tmp_path, fixture_nam
         expected = banked.get(facet, 0.0)
         # Exact fold over the immutable ledger: only float re-association slack.
         assert final == pytest.approx(expected, abs=1e-12), (
-            f"{fixture_name}:{facet} timeline={final} banked={expected}"
+            f"{fixture_name}@{algorithm_version}:{facet} timeline={final} banked={expected}"
         )
 
 

@@ -57,6 +57,7 @@ from learnloop.services.capability_mapping import (
     default_capability_for,
     is_valid_capability,
 )
+from learnloop.services.instrument_serving import unservable_reason
 from learnloop.vault.models import (
     CAPABILITY_VOCABULARY,
     LoadedVault,
@@ -274,6 +275,12 @@ class ContractReachabilityReport:
     #: capability (§5.8.2's ``measurement_rank / facets_declared``).
     facets_declared: int
     facets_instrumented: int
+    #: Items skipped because the serving surface cannot carry their instrument
+    #: class (``instrument_serving.unservable_reason``). Its own count, because
+    #: its remedy is a renderer rather than authoring: a cell instrumented only
+    #: by these is blocked on deployment, not unauthored, and it must not read as
+    #: reachable. Zero while the predicate has no arms — the fence, not a finding.
+    unservable_item_count: int = 0
 
     @property
     def counts(self) -> dict[str, int]:
@@ -357,6 +364,7 @@ class ContractReachabilityReport:
             "learning_objects_total": self.learning_objects_total,
             "instrument_count": self.instrument_count,
             "unrubricked_item_count": self.unrubricked_item_count,
+            "unservable_item_count": self.unservable_item_count,
             "advisory_component_count": self.advisory_component_count,
             "facets_declared": self.facets_declared,
             "facets_instrumented": self.facets_instrumented,
@@ -460,6 +468,10 @@ class InstrumentPool:
     roles_by_facet: Mapping[str, tuple[str, ...]]
     instrument_count: int
     unrubricked_item_count: int
+    #: Items excluded because ``instrument_serving.unservable_reason`` says the
+    #: serving surface cannot carry their class. Counted, never merged into
+    #: ``unrubricked``: the remedy is a renderer, not a rubric.
+    unservable_item_count: int = 0
 
     def capabilities(self, facet_id: str) -> tuple[str, ...]:
         """Observed capabilities for ``facet_id``, in ladder order."""
@@ -494,6 +506,16 @@ def build_instrument_pool(
     Pure over vault content — no repository, no attempts. ``statuses`` is a seam
     for tests and for asking the counterfactual "what if retired items were
     revived?"; the standing check uses :data:`INSTRUMENT_STATUSES`.
+
+    TWO AXES, NOT ONE (§7.2). "Authored" and "deliverable" are different facts.
+    Status answers the first; ``instrument_serving.unservable_reason`` answers the
+    second — whether the serving surface can carry the item's class at all — and
+    a cell whose only instrument cannot be served is not reachable, it is blocked
+    on a renderer. Counting it as REACHABLE would flip the cell green and hide
+    the gap in the one report Stage 5 built to find gaps. The predicate has no
+    arms today (both retired when their renderer landed), so this costs one
+    ``None`` check per item and exists so the next class shipped ahead of its
+    surface cannot silently certify.
     """
 
     allowed = frozenset(str(status) for status in statuses)
@@ -501,8 +523,14 @@ def build_instrument_pool(
     roles: dict[str, set[str]] = defaultdict(set)
     instrument_count = 0
     unrubricked = 0
+    unservable = 0
     for item in sorted(vault.practice_items.values(), key=lambda entry: entry.id):
         if item.status not in allowed:
+            continue
+        # Before the rubric, so the buckets are disjoint and each means what it
+        # says: an id here cannot reach a learner whatever its rubric compiles.
+        if unservable_reason(item) is not None:
+            unservable += 1
             continue
         observations = _item_observations(vault, item)
         if observations is None:
@@ -523,6 +551,7 @@ def build_instrument_pool(
         roles_by_facet={facet: tuple(sorted(values)) for facet, values in sorted(roles.items())},
         instrument_count=instrument_count,
         unrubricked_item_count=unrubricked,
+        unservable_item_count=unservable,
     )
 
 
@@ -683,6 +712,7 @@ def analyze_contract_reachability(
         learning_objects_total=len(vault.learning_objects),
         instrument_count=pool.instrument_count,
         unrubricked_item_count=pool.unrubricked_item_count,
+        unservable_item_count=pool.unservable_item_count,
         advisory_component_count=advisory,
         facets_declared=len(declared),
         # Registry-scoped: an observation of an unregistered facet is the

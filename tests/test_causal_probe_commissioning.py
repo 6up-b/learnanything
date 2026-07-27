@@ -36,12 +36,15 @@ PASSING_REVIEW = {
 }
 
 
-def _write_probe_item(paths, item_id: str, *, criteria: list[str]) -> None:
+def _write_probe_item(
+    paths, item_id: str, *, criteria: list[str], extra: dict | None = None
+) -> None:
     """A diagnostic item for the same learning object, with its own rubric."""
 
     write_yaml(
         paths.practice_item_path("linear-algebra", item_id),
         {
+            **(extra or {}),
             "schema_version": 1,
             "id": item_id,
             "learning_object_id": "lo_svd_definition",
@@ -162,7 +165,7 @@ def test_commissioning_lights_the_lane_end_to_end(tmp_path):
     assert len(result["bundle_ids"]) == 2
     # Model-free and observation-blind: predictions map typed hypothesis targets
     # onto the fresh item's authored criteria.
-    assert result["prediction_basis"] == "hypothesis_target_frame_v1"
+    assert result["prediction_basis"] == "hypothesis_target_frame_v2_uniform_keys"
     assert result["discrimination"]["distinguishable"]
 
     stored = repository.causal_probe_candidates_for_factor(factor_id)
@@ -469,15 +472,21 @@ def test_frame_generator_declares_targets_and_marks_the_complement(tmp_path):
     }
     predictions = generate(payload)
 
-    assert predictions["prediction_basis"] == "hypothesis_target_frame_v1"
+    assert predictions["prediction_basis"] == "hypothesis_target_frame_v2_uniform_keys"
     assert predictions["targeted_criteria"] == ["criterion_recall"]
     assert predictions["complement_criteria"] == ["criterion_method"]
     row = predictions["feature_rows"][0]
+    # §6.2 arm B: every in-frame criterion declares BOTH keys, so all
+    # hypotheses in the frame share one key schema and the bundles partition.
     assert row["values"] == {
         "criterion:criterion_method:full_credit": True,
+        "criterion:criterion_method:passed": True,
         "criterion:criterion_recall:full_credit": False,
         "criterion:criterion_recall:passed": False,
     }
+    assert predictions["open_set_disposition"]["disposition"] == (
+        "excluded_no_declared_emission"
+    )
     # A criterion outside the frame is never declared, even though the item
     # measures it: the frame is what the RIVALS put in play.
     assert "criterion:criterion_extra:full_credit" not in row["values"]
@@ -612,3 +621,123 @@ def test_sweep_commissions_open_factors_and_reports_each_outcome(tmp_path):
     )
     assert [value["outcome"] for value in results] == ["commissioned"]
     assert all(value["outcome"] in COMMISSIONING_OUTCOMES for value in results)
+
+
+# ---------------------------------------------------------------------------
+# v3 multiplicity: one candidate per instrument CLASS, at most two per factor
+# (EVSI-1 -- v2's one-candidate cap made the 2+ ranking arm unreachable).
+# ---------------------------------------------------------------------------
+
+
+def _commission(vault, repository, factor_id, **kwargs):
+    return commission_probe_instrument(
+        vault,
+        repository,
+        factor_id=factor_id,
+        adversarial_review=PASSING_REVIEW,
+        generation_agent_run_id="agent_generate",
+        reviewer_agent_run_id="agent_review",
+        clock=FrozenClock(NOW),
+        **kwargs,
+    )
+
+
+def test_second_candidate_in_a_new_instrument_class_is_commissioned(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    _write_probe_item(
+        paths, "pi_svd_probe_001", criteria=["criterion_recall", "criterion_method"]
+    )
+    _write_probe_item(
+        paths,
+        "pi_svd_probe_pair",
+        criteria=["criterion_recall", "criterion_method"],
+        extra={"contrast_of": "pi_svd_probe_001"},
+    )
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    factor_id, _first, _second = _seed_divergent_factor(repository)
+
+    first = _commission(vault, repository, factor_id)
+    assert first["outcome"] == "commissioned"
+    assert first["practice_item_id"] == "pi_svd_probe_001"
+
+    second = _commission(vault, repository, factor_id)
+    assert second["outcome"] == "commissioned"
+    # The second mint is the DIFFERENT-class member (contrast pair), never a
+    # same-class twin of the constructed diagnostic already pending.
+    assert second["practice_item_id"] == "pi_svd_probe_pair"
+
+    stored = repository.causal_probe_candidates_for_factor(factor_id)
+    assert sorted(str(value["status"]) for value in stored) == [
+        "registered",
+        "registered",
+    ]
+
+
+def test_a_same_class_pool_keeps_the_single_candidate(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    _write_probe_item(
+        paths, "pi_svd_probe_001", criteria=["criterion_recall", "criterion_method"]
+    )
+    _write_probe_item(
+        paths, "pi_svd_probe_002", criteria=["criterion_recall", "criterion_method"]
+    )
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    factor_id, _first, _second = _seed_divergent_factor(repository)
+
+    assert _commission(vault, repository, factor_id)["outcome"] == "commissioned"
+    # Both remaining items are the same constructed-diagnostic class: a twin
+    # adds no class diversity, so the factor keeps its single pending candidate.
+    result = _commission(vault, repository, factor_id)
+    assert result["outcome"] == "already_pending_review"
+    assert len(repository.causal_probe_candidates_for_factor(factor_id)) == 1
+
+
+def test_explicit_same_class_item_is_refused_as_a_typed_duplicate(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    _write_probe_item(
+        paths, "pi_svd_probe_001", criteria=["criterion_recall", "criterion_method"]
+    )
+    _write_probe_item(
+        paths, "pi_svd_probe_002", criteria=["criterion_recall", "criterion_method"]
+    )
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    factor_id, _first, _second = _seed_divergent_factor(repository)
+
+    assert _commission(vault, repository, factor_id)["outcome"] == "commissioned"
+    result = _commission(
+        vault, repository, factor_id,
+        candidate_practice_item_id="pi_svd_probe_002",
+    )
+    assert result["outcome"] == "duplicate_instrument_class"
+    assert result["instrument_class"] == "constructed_diagnostic"
+
+
+def test_the_cap_is_two_candidates_per_factor(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    _write_probe_item(
+        paths, "pi_svd_probe_001", criteria=["criterion_recall", "criterion_method"]
+    )
+    _write_probe_item(
+        paths,
+        "pi_svd_probe_pair",
+        criteria=["criterion_recall", "criterion_method"],
+        extra={"contrast_of": "pi_svd_probe_001"},
+    )
+    _write_probe_item(
+        paths,
+        "pi_svd_probe_pair_b",
+        criteria=["criterion_recall", "criterion_method"],
+        extra={"contrast_of": "pi_svd_probe_001"},
+    )
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    factor_id, _first, _second = _seed_divergent_factor(repository)
+
+    assert _commission(vault, repository, factor_id)["outcome"] == "commissioned"
+    assert _commission(vault, repository, factor_id)["outcome"] == "commissioned"
+    third = _commission(vault, repository, factor_id)
+    assert third["outcome"] == "already_pending_review"
+    assert len(repository.causal_probe_candidates_for_factor(factor_id)) == 2

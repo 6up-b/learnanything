@@ -214,19 +214,32 @@ def start_remediation_treatment(
             )
         raise RemediationError("no practice item is available for this repair")
     primed = ranked[0]
-    cold = ranked[1] if len(ranked) > 1 else ranked[0]
-    updated = repository.update_remediation_episode(
-        episode_id,
-        state="treatment",
-        primed_item_id=primed.id,
-        cold_item_id=cold.id,
-        clock=clock,
+    # §4.3 / spec §6.2: the cold retry is only a verification if it lands on an
+    # independent surface. Prefer the best-ranked item in a DIFFERENT surface
+    # group; when none exists, record that fact now (cold_item_id stays unset)
+    # instead of scheduling a retry the consume-time guard is bound to reject.
+    from learnloop.services.canonical_projection import surface_group_id
+
+    primed_surface = surface_group_id(primed)
+    cold = next(
+        (item for item in ranked[1:] if surface_group_id(item) != primed_surface),
+        None,
     )
+    updates: dict[str, Any] = {
+        "state": "treatment",
+        "primed_item_id": primed.id,
+    }
+    if cold is not None:
+        updates["cold_item_id"] = cold.id
+    updated = repository.update_remediation_episode(episode_id, clock=clock, **updates)
     assert updated is not None
     return {
         "episode": updated,
         "primed_item_id": primed.id,
-        "cold_item_id": cold.id,
+        "cold_item_id": cold.id if cold is not None else None,
+        "cold_unmeasurable_reason": (
+            None if cold is not None else "no_independent_surface"
+        ),
         # Travels on the success result too, and the handler spreads it onto the
         # wire: the pair the learner gets is not the pair the ranking would have
         # chosen, and this is the only record of why.
@@ -247,6 +260,36 @@ def record_remediation_attempt(
             str(attempt["practice_item_id"])
         )
         if episode is None:
+            return
+        cold_item_id = str(episode.get("cold_item_id") or "")
+        if not cold_item_id or cold_item_id == str(attempt["practice_item_id"]):
+            # No independent surface existed when treatment picked the pair
+            # (or a legacy episode reused the primed item). Scheduling would
+            # only manufacture a verification the §6.2 guard rejects on
+            # consume days later — record the typed §4.3 disposition now.
+            from learnloop.services.causal_probe_coherence import (
+                record_causal_cold_outcome,
+            )
+
+            repository.update_remediation_episode(
+                episode["id"], primed_attempt_id=attempt["id"], clock=clock
+            )
+            record_causal_cold_outcome(
+                repository,
+                outcome="unmeasurable_no_held_out_surface",
+                remediation_episode_id=str(episode["id"]),
+                case_kind=str(episode.get("case_kind") or "") or None,
+                case_ref=str(episode.get("case_ref") or "") or None,
+                source_attempt_id=str(attempt["id"]),
+                servable_opportunity=False,
+                detail={
+                    "stage": "schedule",
+                    "reason": "same_surface_only"
+                    if cold_item_id
+                    else "no_independent_surface",
+                },
+                clock=clock,
+            )
             return
         created = parse_utc(attempt.get("created_at")) or (clock or SystemClock()).now()
         not_before = (created.astimezone(UTC) + timedelta(days=1)).replace(microsecond=0)

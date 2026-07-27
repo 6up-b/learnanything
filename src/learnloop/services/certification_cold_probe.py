@@ -90,6 +90,7 @@ from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.services.contract_reachability import CONTRACT_MODALITIES
 from learnloop.services.fitted_params import CERTIFICATION_COLD_PROBE_SCOPE
 from learnloop.vault.models import LearningObject, LoadedVault
 
@@ -427,7 +428,7 @@ def current_certificate(
     cells: list[CertifiedCell] = []
     algorithm_versions: set[str] = set()
     observed: list[str] = []
-    for component, role in _certified_components(vault, recipe):
+    for component, role in _certified_components(vault, recipe, chosen):
         facet_id = vault.canonical_facet_id(component.facet)
         ledger = repository.facet_capability_evidence(facet_id, component.capability)
         recall = repository.canonical_facet_recall_state(facet_id, component.capability)
@@ -485,26 +486,38 @@ def _recipe(learning_object: LearningObject, blueprint_id: str, recipe_id: str):
     return None
 
 
-def _certified_components(vault: LoadedVault, recipe) -> list[tuple[Any, str]]:
+def _certified_components(vault: LoadedVault, recipe, gaps) -> list[tuple[Any, str]]:
     """The components `recipe_gaps` actually gated on, with their roles.
 
     Mirrors the authority exactly: `all_of` components at `hard` /
-    `path_specific` modality, plus the integration component. `any_of` and
-    advisory modalities are not part of the certificate's claim, so they are not
-    part of what the probe re-tests.
+    `path_specific` modality, the `any_of` alternatives that satisfied their
+    group (read off `gaps.satisfying_alternatives` rather than re-derived, so the
+    two can never disagree about what the certificate rests on), plus the
+    integration component. Advisory modalities gate nothing, so they are not part
+    of the certificate's claim and not part of what the probe re-tests.
     """
 
     components: list[tuple[Any, str]] = []
     seen: set[tuple[str, str]] = set()
     for component in recipe.all_of:
-        if component.modality not in ("hard", "path_specific"):
+        if component.modality not in CONTRACT_MODALITIES:
             continue
         key = (vault.canonical_facet_id(component.facet), str(component.capability))
         if key in seen:
             continue
         seen.add(key)
         components.append((component, "component"))
-    if recipe.integration is not None:
+    satisfying = set(gaps.satisfying_alternatives)
+    for component in recipe.any_of:
+        key = (vault.canonical_facet_id(component.facet), str(component.capability))
+        if key not in satisfying or key in seen:
+            continue
+        seen.add(key)
+        components.append((component, "component"))
+    if (
+        recipe.integration is not None
+        and str(recipe.integration.modality) in CONTRACT_MODALITIES
+    ):
         # Deliberately appended even when the same cell already appears as a
         # component: the roles are different claims (competence vs coordination)
         # and the probe ranks on the integration role, so collapsing them would

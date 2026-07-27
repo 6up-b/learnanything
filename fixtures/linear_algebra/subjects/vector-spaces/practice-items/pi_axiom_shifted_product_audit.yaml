@@ -1,0 +1,150 @@
+schema_version: 1
+id: pi_axiom_shifted_product_audit
+learning_object_id: lo_operations_and_the_vector_space_axiom_checklist
+subjects:
+  - vector-spaces
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+  - facet_vector_addition_must_be_commutative_and_associat
+evidence_weights:
+  facet_addition_assigns_an_element_of_the_set_to_each_o: 0.45
+  facet_vector_addition_must_be_commutative_and_associat: 0.55
+criterion_facet_weights:
+  criterion_law_methods:
+    facet_addition_assigns_an_element_of_the_set_to_each_o: 0.2
+    facet_vector_addition_must_be_commutative_and_associat: 0.8
+  criterion_operation_type:
+    facet_addition_assigns_an_element_of_the_set_to_each_o: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_shifted_product_audit
+      checkpoints:
+        - operation_type
+        - commutativity_method
+        - associativity_method
+      dependencies:
+        associativity_method:
+          - operation_type
+        commutativity_method:
+          - operation_type
+        operation_type: []
+variant_contract:
+teach_back_source:
+prompt: On V=R, proposed vector addition is u⊙v=u+v+uv. Give a compact audit 
+  plan that first addresses whether ⊙ is genuinely an addition V×V→V and then 
+  names an efficient way to test both the order and grouping laws. State what 
+  each proposed check would establish; you need not write every algebraic line.
+expected_answer: 'First observe that every ordered pair of real numbers produces the
+  real number u+v+uv, so ⊙ is a total map R×R→R. Commutativity can be checked from
+  the symmetry u+v+uv=v+u+vu. For associativity, compare the two expansions: (u⊙v)⊙w
+  and u⊙(v⊙w) both simplify to u+v+w+uv+uw+vw+uvw. These checks establish closure/totality,
+  commutativity, and associativity for the proposed addition, though they do not by
+  themselves prove every vector-space axiom.'
+difficulty: 0.52
+difficulty_source: llm_estimate
+tags:
+  - goal_get_good_at_proofs_and_gain_intuition_on_abstract_vector_spaces
+  - vector-space-axioms
+  - method-selection
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.68
+scaffold_level: 0.05
+capability: method_selection
+task_features:
+  complexity: 3
+  representation:
+    - symbolic
+    - verbal
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: shifted_product_audit_plan
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_addition_assigns_an_element_of_the_set_to_each_o
+  - facet_vector_addition_must_be_commutative_and_associat
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_operation_type
+      points: 2.0
+      description: Interprets the rule as a total map R×R→R and explains why its
+        outputs remain in R.
+      tier: core
+      targets:
+        - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_law_methods
+      points: 2.0
+      description: Selects symmetry for commutativity and comparison of the two 
+        grouped expansions for associativity, with correct anticipated 
+        conclusions.
+      tier: transfer
+      targets:
+        - facet: facet_vector_addition_must_be_commutative_and_associat
+          capability: method_selection
+          role: primary
+        - facet: facet_addition_assigns_an_element_of_the_set_to_each_o
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - criterion_operation_type
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: manual_context
+      ref_id: manual_context_authoring_request
+      path:
+      locator: context.instructions and Targets
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids:
+        - lo_operations_and_the_vector_space_axiom_checklist
+        - lo_orient_to_the_vector_space_idea
+        - lo_prove_vector_identities_from_scalar_laws
+        - lo_read_and_apply_the_vector_space_definition
+        - lo_what_makes_a_vector_space
+created_at: '2026-07-27T09:20:13Z'
+updated_at: '2026-07-27T09:20:13Z'
