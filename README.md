@@ -4,27 +4,77 @@
 
 LearnLoop builds an inspectable model of what you are learning, what you
 have demonstrated, what is becoming forgettable, and what to practice next. It
-combines editable Markdown/YAML content with a SQLite event store,
-FSRS scheduling, learner-aware misconception detection and remediation, and AI-assisted authoring and feedback.
+combines FSRS scheduling, learner-aware misconception detection and remediation, and AI-assisted authoring and feedback.
 
 > [!NOTE]
 > LearnLoop is under active development. The desktop app currently runs from a
 > source checkout, and installer bundling is not yet enabled.
 >
-> **Implementation snapshot: 2026-07-27.** Stages 0–7 and the read-only Stage
-> 8.1 inference precheck of
-> [`implementation_plan_v1.md`](implementation_plan_v1.md) are shipped: causal
-> attribution is complete, the measurement layer has static reachability
-> analysis, contract-correct generation, authoring gates, and the full
-> instrument wave (conjunctive capstones, opportunistic trace evidence, the
-> clarification channel, discrimination profiles, contrast pairs, error hunts,
-> laddered stems), and the 15-metric scoreboard has producers. Stage 7 adds
-> blinded, cross-model planted-diagnosis evaluation, exact-corpus B1 realism
-> licensing, matcher/family-scoped authoring-gate licenses, and the C1–C4
-> diagnosis augmentation ladder (with C3 kept at its one-sample paid baseline
-> until a deliberate promotion trial).
-> Synthetic scores remain unavailable to decisions until their realism and
-> regression matrix licenses pass.
+> **Implementation snapshot: trying out EVSI to see if it helps cold retrieval
+
+
+
+## A look at it
+
+From fixture linear-algebra vault, reading *Linear Algebra
+Done Right* by Sheldon Axler.
+
+### 1. Ingest anything you actually trust
+
+![Ingest screen showing the source library with a PDF textbook, two YouTube lectures, and a completed exercise-import batch](docs/screenshots/ingest-source-library.png)
+
+One screen for the whole import path. A source can be a textbook PDF, a YouTube
+lecture used as an alternate explanation, a problem set, audio lecture or a past exam — the
+role you assign decides how it is allowed to influence authoring, so a mock exam
+can steer which practice items get written without ever becoming the primary
+explanation. Importing commits you to nothing: it downloads, extracts structure,
+and files the revision in the library, and nothing is sent to a model until you
+outline and select units for a study map. Then, you can have practice items authored as you go through your canonical source.
+
+### 2. Read the source, with checks anchored to the passage
+
+![Reader with a quick check generated from the "sum of subspaces" definition, shown beside the highlighted passage it came from](docs/screenshots/reader-quick-check.png)
+
+The embedded Reader runs over the original PDF bytes. As you read, optional
+quick checks are authored from the section in front of you and stay anchored to
+the exact span they came from — answer in your own words, then compare with the
+source. These are based on Andy Matuschak's ideas of a mneomic medium
+
+### 3. Turn a textbook exercise into a real practice item
+
+![Reader capture panel importing exercise 9 from the textbook as a scheduled practice item with facets, hints, and a difficulty estimate](docs/screenshots/reader-author-practice-item.png)
+
+Select an exercise, and it becomes a practice item whose stem is from
+the source. The model fills in the answer, rubric, hints, and depth; the item
+lands scheduled, tagged with its facets and difficulty, and carries the source
+span with it.
+
+### 4. Grading that shows its evidence
+
+![Attempt inspector showing per-criterion grading evidence, the raw grader output, and the causal episode receipt](docs/screenshots/attempt-grading-evidence.png)
+
+Every attempt is inspectable, in the app or via `learnloop show <attempt-id>`.
+The score is broken out per rubric criterion with the quoted evidence behind it,
+alongside the raw grader output and the causal episode's receipt.
+
+### 5. The minimal repair
+
+![Side-by-side diff of the observed trace and the minimal repair, with the learner's correct work preserved and only the mistaken step rewritten](docs/screenshots/attempt-minimal-repair.png)
+
+LearnLoop looks for the smallest edit that fixes the attempt. Here the identity
+and witness sum work was right and is preserved; only the mistaken
+classification in step 3 is rewritten. Because one safe repair covers every
+plausible cause, the diagnosis is not divergent and no follow-up probe is
+needed. when it *is* divergent, that is what commissions a follow-up probe.
+
+### 6. The jagged boundary of what you know
+
+![Knowledge field "well" view: 39 evidence facets around a gravity well, with demonstrated facets as filled beads and unexplored ones flat](docs/screenshots/knowledge-field-well.png)
+
+The knowledge field plots evidence facets by depth (readiness weighted by
+evidence) rather than by a single mastery score. Filled beads are demonstrated;
+hollow ones are predicted but not demonstrated; flat regions are frontier you
+have not touched. 
 
 ## What LearnLoop does
 
@@ -76,8 +126,7 @@ FSRS scheduling, learner-aware misconception detection and remediation, and AI-a
   provenance end to end. Raw attempts are retained so derived learning state
   can be deterministically replayed after algorithm changes.
 - Supports learner authoring: write your own practice cards, promote useful
-  tutor exchanges, request easier/harder variants of an item, and run a
-  narrow end-to-end certifying "golden path" over one task family.
+  tutor exchanges, request easier/harder variants of an item
 
 The core loop is:
 
@@ -93,71 +142,7 @@ For a step-by-step walkthrough, start with the
 [quick start](documentation.md#quick-start) in the
 [user and algorithm guide](documentation.md), which covers vault creation,
 Quick Add versus deliberate ingestion, what the pipeline does mechanistically,
-and the daily practice loop — then drills into the learner model behind it.
-
-## A look at it
-
-Screenshots are from the tracked linear-algebra vault, reading *Linear Algebra
-Done Right* (4th ed., Sheldon Axler).
-
-### 1. Ingest anything you actually trust
-
-![Ingest screen showing the source library with a PDF textbook, two YouTube lectures, and a completed exercise-import batch](docs/screenshots/ingest-source-library.png)
-
-One screen for the whole import path. A source can be a textbook PDF, a YouTube
-lecture used as an alternate explanation, a problem set, or a past exam — the
-role you assign decides how it is allowed to influence authoring, so a mock exam
-can steer which practice items get written without ever becoming the primary
-explanation. Importing commits you to nothing: it downloads, extracts structure,
-and files the revision in the library, and nothing is sent to a model until you
-outline and select units for a study map.
-
-### 2. Read the source, with checks anchored to the passage
-
-![Reader with a quick check generated from the "sum of subspaces" definition, shown beside the highlighted passage it came from](docs/screenshots/reader-quick-check.png)
-
-The embedded Reader runs over the original PDF bytes. As you read, optional
-quick checks are authored from the section in front of you and stay anchored to
-the exact span they came from — answer in your own words, then compare with the
-source. They are self-checks and never enter your grade.
-
-### 3. Turn a textbook exercise into a real practice item
-
-![Reader capture panel importing exercise 9 from the textbook as a scheduled practice item with facets, hints, and a difficulty estimate](docs/screenshots/reader-author-practice-item.png)
-
-Select an exercise, and it becomes a practice item whose stem is verbatim from
-the source. The model fills in the answer, rubric, hints, and depth; the item
-lands scheduled, tagged with its facets and difficulty, and carries the source
-span with it.
-
-### 4. Grading that shows its evidence
-
-![Attempt inspector showing per-criterion grading evidence, the raw grader output, and the causal episode receipt](docs/screenshots/attempt-grading-evidence.png)
-
-Every attempt is inspectable, in the app or via `learnloop show <attempt-id>`.
-The score is broken out per rubric criterion with the quoted evidence behind it,
-alongside the raw grader output and the causal episode's receipt — including
-what that receipt is *permitted* to be used for.
-
-### 5. The minimal repair, not a rewrite
-
-![Side-by-side diff of the observed trace and the minimal repair, with the learner's correct work preserved and only the mistaken step rewritten](docs/screenshots/attempt-minimal-repair.png)
-
-LearnLoop looks for the smallest edit that fixes the attempt. Here the identity
-and witness-sum work was right and is preserved verbatim; only the mistaken
-classification in step 3 is rewritten. Because one safe repair covers every
-plausible cause, the diagnosis is not divergent and no follow-up probe is
-needed — when it *is* divergent, that is what commissions one.
-
-### 6. The jagged boundary of what you know
-
-![Knowledge field "well" view: 39 evidence facets around a gravity well, with demonstrated facets as filled beads and unexplored ones flat](docs/screenshots/knowledge-field-well.png)
-
-The knowledge field plots evidence facets by depth (readiness weighted by
-evidence) rather than by a single mastery score. Filled beads are demonstrated;
-hollow ones are predicted but not demonstrated; flat regions are frontier you
-have not touched. Ready and Demonstrated stay separate axes on purpose — the
-panel shows both, never a blend.
+and the daily practice loop then drills into the learner model behind it.
 
 ## Quick start: desktop app
 
