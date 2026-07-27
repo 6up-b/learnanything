@@ -3519,6 +3519,34 @@ export interface ExamFacetOutcomeDto {
   observedCorrectness: number | null;
 }
 
+/** The learner-facing slice of a validated repair suggestion. Internal ids
+ *  (validator id, checkpoint ids, structural refs) are deliberately absent —
+ *  they are audit structure, not review material. */
+export interface ExamItemRepairDto {
+  rationale: string;
+  practiceMode: string;
+  learningObjectId: string | null;
+  operator: string | null;
+  expectedMinutes: number | null;
+  repairedTrace: RepairedTraceDto | null;
+}
+
+/** Post-sitting only. `finish_exam` is the sole producer of this shape, so
+ *  nothing here can reach a learner mid-exam. Derived from the durable
+ *  `exam_answers` rows, which means sessions completed before these fields
+ *  existed review just as well as fresh ones. */
+export interface ExamItemOutcomeDto {
+  practiceItemId: string;
+  predictedCorrectness: number | null;
+  observedCorrectness: number | null;
+  prompt: string | null;
+  answerMd: string | null;
+  rubricScore: number | null;
+  maxPoints: number | null;
+  feedbackMd: string | null;
+  repairSuggestions: ExamItemRepairDto[];
+}
+
 export interface ExamReportSnapshot {
   version: number;
   sessionId: string;
@@ -3527,11 +3555,7 @@ export interface ExamReportSnapshot {
   predictedScoreFraction: number | null;
   brier: number | null;
   perFacet: ExamFacetOutcomeDto[];
-  itemOutcomes: Array<{
-    practiceItemId: string;
-    predictedCorrectness: number | null;
-    observedCorrectness: number | null;
-  }>;
+  itemOutcomes: ExamItemOutcomeDto[];
 }
 
 // --- ING M7: Update study map (append reconciliation, §10-§11, §15) ---------

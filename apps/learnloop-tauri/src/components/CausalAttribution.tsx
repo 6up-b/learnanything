@@ -15,6 +15,7 @@ import type {
 } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { COLOR, Dim, Faint, FONT_MONO, Pill, PlainEnglishPanel, SectionHeader } from "./term";
+import { RepairTraceBlocks } from "./RepairTrace";
 
 const CONTEST_LABELS: Partial<Record<UnresolvedCauseSelfReportResponse, string>> = {
   diagnosis_wrong: "The diagnosis is wrong",
@@ -97,18 +98,57 @@ function Panel({
   );
 }
 
-function SmallLabel({ children }: { children: ReactNode }) {
+/** Panel-internal field label. Tracking matches the app-wide uppercase
+ * micro-label idiom (0.10em — ItemPresentation, SqliteBrowser, TrackRecordView);
+ * `tone` lets a label inside a toned Panel agree with its border instead of
+ * staying faint while a block nested below it renders louder. */
+function SmallLabel({ children, tone = COLOR.textFaint }: { children: ReactNode; tone?: string }) {
   return (
     <div
       style={{
-        color: COLOR.textFaint,
+        color: tone,
         fontFamily: FONT_MONO,
         fontSize: 10,
-        letterSpacing: "0.04em",
+        letterSpacing: "0.1em",
         marginBottom: 5,
         textTransform: "uppercase",
       }}
     >
+      {children}
+    </div>
+  );
+}
+
+// One rank above SmallLabel. The receipt is a three-level document — section
+// header, group, panel label — but the group tier used to render in the same
+// 10px faint style as the panel tier, so the before/after diff nested inside
+// `repair decision` read as its peer rather than its child. Amber at 0.12em is
+// the app's heading eyebrow (ClaimSurface, RepairScreen, QuickAddDialog);
+// SmallLabel keeps the faint field-label role it shares with the rest of the app.
+function GroupHeader({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        color: COLOR.amber,
+        fontFamily: FONT_MONO,
+        fontSize: 11,
+        letterSpacing: "0.12em",
+        marginBottom: 8,
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** A group inside the inspector receipt. The hairline carries the break that
+ * whitespace could not: a 14px group gap against an 8px intra-group gap did not
+ * read as a boundary across a section this long. */
+function AuditGroup({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div style={{ marginTop: 20, borderTop: `1px solid ${COLOR.border}`, paddingTop: 12 }}>
+      <GroupHeader>{label}</GroupHeader>
       {children}
     </div>
   );
@@ -123,43 +163,158 @@ function TraceView({
 }) {
   return (
     <Panel tone="green">
-      <SmallLabel>{label}</SmallLabel>
-      {trace.learnerWorkPrefix ? (
-        <div style={{ marginBottom: 9 }}>
-          <Faint>preserved learner work</Faint>
-          <div
-            style={{
-              marginTop: 4,
-              padding: "7px 9px",
-              border: `1px solid ${COLOR.border}`,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            <MarkdownMath value={trace.learnerWorkPrefix} />
-          </div>
-        </div>
-      ) : null}
-      {trace.minimalEdit ? (
-        <div style={{ color: COLOR.text, lineHeight: 1.55 }}>
-          <span style={{ color: COLOR.green }}>minimal edit · </span>
-          {trace.minimalEdit}
-        </div>
-      ) : null}
-      {trace.repairedAnswerMd ? (
-        <div style={{ marginTop: 9 }}>
-          <Faint>repaired continuation</Faint>
-          <div
-            style={{
-              marginTop: 4,
-              padding: "7px 9px",
-              border: `1px solid ${COLOR.border}`,
-            }}
-          >
-            <MarkdownMath value={trace.repairedAnswerMd} />
-          </div>
-        </div>
-      ) : null}
+      <SmallLabel tone={COLOR.green}>{label}</SmallLabel>
+      <RepairTraceBlocks trace={trace} preservedLabel="preserved learner work" repairLabel="the repair" />
     </Panel>
+  );
+}
+
+/** Where the two traces stop agreeing. The cut snaps back to a line break (or a
+ * word boundary) so each side stays independently parseable as markdown —
+ * splitting mid-list or mid-`$…$` would render as garbage rather than as a diff.
+ * Backing up to the start of the line also means the whole changed line lights
+ * up on both sides, which is what a line-based diff shows anyway. `shared` is
+ * identical in both traces by construction, so either may supply it. */
+function splitDivergence(
+  before: string,
+  after: string,
+): { shared: string; removed: string; added: string } {
+  const limit = Math.min(before.length, after.length);
+  let common = 0;
+  while (common < limit && before[common] === after[common]) common += 1;
+  if (common === before.length && common === after.length) {
+    return { shared: before, removed: "", added: "" };
+  }
+  const newline = after.lastIndexOf("\n", common);
+  const space = after.lastIndexOf(" ", common);
+  // Clamped to `common`: when the traces diverge exactly at a line break the
+  // snap-back would otherwise land one past it and eat the newline, silently
+  // fusing the last preserved line onto the first repaired one.
+  const cut = Math.min(newline >= 0 ? newline + 1 : space > 0 ? space + 1 : 0, common);
+  return { shared: before.slice(0, cut), removed: before.slice(cut), added: after.slice(cut) };
+}
+
+/** Label/value row *inside* a Panel. AuditRow's 148px column and rules are the
+ * group-level idiom and read as a table; within a panel the same relationship
+ * needs to stay subordinate to the panel's own prose. Faint label against a dim
+ * value gives a scan column, which four consecutive `·`-joined dim runs did not. */
+function PanelRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "108px minmax(0, 1fr)",
+        gap: 8,
+        fontSize: 11,
+        lineHeight: 1.5,
+        marginTop: 3,
+      }}
+    >
+      <Faint>{label}</Faint>
+      <Dim style={{ minWidth: 0, overflowWrap: "anywhere" }}>{children}</Dim>
+    </div>
+  );
+}
+
+/** Provenance footer for a panel: identifiers, versions, supersession — true but
+ * never the point, so it sits below a rule rather than between the claim and the
+ * analysis of it. */
+function PanelFooter({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        marginTop: 9,
+        paddingTop: 7,
+        borderTop: `1px solid ${COLOR.border}`,
+        fontFamily: FONT_MONO,
+        fontSize: 10,
+        color: COLOR.textFaint,
+        overflowWrap: "anywhere",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** The band bleeds into the Panel's own padding by exactly its border plus its
+ * left padding, so highlighted text stays on the same left edge as the shared
+ * text above it. Inset instead, the band shifted its content 10px right and a
+ * single continuous numbered list visibly stepped sideways at the split — the
+ * highlight has to mark the text without moving it. */
+function DiffBlock({ accent, wash, children }: { accent: string; wash: string; children: ReactNode }) {
+  return (
+    <div
+      className="md-tight"
+      style={{
+        background: wash,
+        borderLeft: `2px solid ${accent}`,
+        padding: "4px 8px",
+        marginTop: 6,
+        marginLeft: -10,
+        marginRight: -10,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Side-by-side minimal repair. The repaired answer is composed server-side as
+ * the learner's preserved prefix plus a regenerated continuation, so the point
+ * where `after` stops matching `before` splits both traces at once: everything
+ * past it in `before` is what the repair discarded, everything past it in
+ * `after` is the repair itself. Washing the two tails red and green is the same
+ * signal RepairTraceBlocks already uses for the regenerated half, rather than
+ * leaving the reader to find the divergence in two walls of prose. */
+function MinimalRepairDiff({ before, after }: { before: string; after: string }) {
+  const { shared, removed, added } = splitDivergence(before, after);
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+        gap: 8,
+        marginTop: 12,
+      }}
+    >
+      <Panel tone="slate">
+        <SmallLabel>observed trace · before</SmallLabel>
+        <div
+          className="md-tight"
+          // `pre-wrap` also preserves runs of spaces, so any indented source
+          // line rendered indented on top of markdown's own block layout —
+          // whitespace handled twice. `pre-line` keeps the intentional line
+          // breaks and drops the phantom indent.
+          style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-line", overflowWrap: "anywhere" }}
+        >
+          {shared ? <MarkdownMath value={shared} /> : null}
+          {removed ? (
+            <DiffBlock accent={COLOR.red} wash={COLOR.washRed}>
+              <MarkdownMath value={removed} />
+            </DiffBlock>
+          ) : null}
+        </div>
+      </Panel>
+      <Panel tone="green">
+        <SmallLabel tone={COLOR.green}>minimal repair · after</SmallLabel>
+        <div
+          className="md-tight"
+          // `pre-wrap` also preserves runs of spaces, so any indented source
+          // line rendered indented on top of markdown's own block layout —
+          // whitespace handled twice. `pre-line` keeps the intentional line
+          // breaks and drops the phantom indent.
+          style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-line", overflowWrap: "anywhere" }}
+        >
+          {shared ? <MarkdownMath value={shared} /> : null}
+          {added ? (
+            <DiffBlock accent={COLOR.green} wash={COLOR.washGreen}>
+              <MarkdownMath value={added} />
+            </DiffBlock>
+          ) : null}
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -759,8 +914,7 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
         <Dim>{receipt.plausibleSet.length} concrete hypothesis{receipt.plausibleSet.length === 1 ? "" : "es"}</Dim>
       </AuditRow>
 
-      <div style={{ marginTop: 12 }}>
-        <SmallLabel>criterion outcomes</SmallLabel>
+      <AuditGroup label="criterion outcomes">
         <div style={{ display: "grid", gap: 5 }}>
           {receipt.criterionOutcomes.map((criterion) => {
             const tone = criterion.fullCredit ? COLOR.green : criterion.assessable ? COLOR.red : COLOR.textFaint;
@@ -786,10 +940,9 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
             );
           })}
         </div>
-      </div>
+      </AuditGroup>
 
-      <div style={{ marginTop: 14 }}>
-        <SmallLabel>three divergence anchors</SmallLabel>
+      <AuditGroup label="three divergence anchors">
         {([
           ["first_observable_divergence", receipt.divergenceAnchors.firstObservableDivergence],
           ["earliest_supported_faulty_commitment", receipt.divergenceAnchors.earliestSupportedFaultyCommitment],
@@ -799,10 +952,9 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
             <Dim>{formatDivergenceAnchor(anchor)}</Dim>
           </AuditRow>
         ))}
-      </div>
+      </AuditGroup>
 
-      <div style={{ marginTop: 14 }}>
-        <SmallLabel>candidate causes and evidence</SmallLabel>
+      <AuditGroup label="candidate causes and evidence">
         <div style={{ display: "grid", gap: 8 }}>
           {orderedRefs.map((ref, index) => {
             const hypothesis = hypothesisById.get(ref.id);
@@ -831,45 +983,41 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
                     </span>
                   </span>
                 </div>
-                <div style={{ marginTop: 6, lineHeight: 1.5 }}>
+                {/* The claim is what the panel is for; everything under it is
+                    apparatus. It was previously set at the same weight as its
+                    own metadata. */}
+                <div style={{ marginTop: 7, fontSize: 13, color: COLOR.text, lineHeight: 1.55 }}>
                   <MarkdownMath value={hypothesis.statement} />
                 </div>
-                <div style={{ marginTop: 7, fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>
-                  {hypothesis.id} · v{hypothesis.version}
-                  {hypothesis.supersedesId ? ` · supersedes ${hypothesis.supersedesId}` : ""}
-                </div>
-                <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textDim, lineHeight: 1.5 }}>
-                  resolution · {humanize(axis?.resolutionStatus)}
-                  {" · "}target · {formatCausalTarget(axis?.targetRef ?? hypothesis.targetRef)}
-                  {hypothesis.operation ? ` · operation · ${humanize(hypothesis.operation)}` : ""}
-                  {hypothesis.mechanism ? ` · mechanism · ${humanize(hypothesis.mechanism)}` : ""}
-                </div>
-                {evidence ? (
-                  <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textDim }}>
-                    evidence · {evidence}
-                  </div>
-                ) : null}
-                {errorType || severity != null || applicabilitySurface ? (
-                  <div style={{ marginTop: 4, fontSize: 11, color: COLOR.textDim }}>
-                    {errorType ? `error · ${humanize(errorType)}` : ""}
-                    {severity != null ? `${errorType ? " · " : ""}severity · ${severity.toFixed(2)}` : ""}
-                    {applicabilitySurface
-                      ? `${errorType || severity != null ? " · " : ""}surface · ${humanize(applicabilitySurface)}`
-                      : ""}
-                  </div>
-                ) : null}
-                {observedSignature || preregisteredSignature ? (
-                  <div style={{ marginTop: 4, fontSize: 11, color: COLOR.textDim }}>
-                    {observedSignature ? `observed signature · ${observedSignature}` : ""}
-                    {preregisteredSignature
-                      ? `${observedSignature ? " · " : ""}pre-registered · ${preregisteredSignature}`
-                      : ""}
-                  </div>
-                ) : null}
-                {hypothesis.postdictiveClaims.length ? (
-                  <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>
-                    <Faint>deterministic postdictive claims · </Faint>
-                    <Dim>
+                <div style={{ marginTop: 8 }}>
+                  <PanelRow label="resolution">{humanize(axis?.resolutionStatus)}</PanelRow>
+                  <PanelRow label="target">
+                    {formatCausalTarget(axis?.targetRef ?? hypothesis.targetRef)}
+                  </PanelRow>
+                  {hypothesis.operation ? (
+                    <PanelRow label="operation">{humanize(hypothesis.operation)}</PanelRow>
+                  ) : null}
+                  {hypothesis.mechanism ? (
+                    <PanelRow label="mechanism">{humanize(hypothesis.mechanism)}</PanelRow>
+                  ) : null}
+                  {evidence ? <PanelRow label="evidence">{evidence}</PanelRow> : null}
+                  {errorType ? <PanelRow label="error">{humanize(errorType)}</PanelRow> : null}
+                  {severity != null ? (
+                    <PanelRow label="severity">
+                      <span style={{ fontFamily: FONT_MONO }}>{severity.toFixed(2)}</span>
+                    </PanelRow>
+                  ) : null}
+                  {applicabilitySurface ? (
+                    <PanelRow label="surface">{humanize(applicabilitySurface)}</PanelRow>
+                  ) : null}
+                  {observedSignature ? (
+                    <PanelRow label="observed sig">{observedSignature}</PanelRow>
+                  ) : null}
+                  {preregisteredSignature ? (
+                    <PanelRow label="pre-registered">{preregisteredSignature}</PanelRow>
+                  ) : null}
+                  {hypothesis.postdictiveClaims.length ? (
+                    <PanelRow label="postdictive">
                       {hypothesis.postdictiveClaims
                         .map((claim) => {
                           const criterion =
@@ -879,17 +1027,20 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
                         })
                         .filter(Boolean)
                         .join(" · ")}
-                    </Dim>
-                  </div>
-                ) : null}
+                    </PanelRow>
+                  ) : null}
+                </div>
+                <PanelFooter>
+                  {hypothesis.id} · v{hypothesis.version}
+                  {hypothesis.supersedesId ? ` · supersedes ${hypothesis.supersedesId}` : ""}
+                </PanelFooter>
               </Panel>
             );
           })}
         </div>
-      </div>
+      </AuditGroup>
 
-      <div style={{ marginTop: 14 }}>
-        <SmallLabel>repair decision</SmallLabel>
+      <AuditGroup label="repair decision">
         {selected ? (
           <Panel tone="cyan">
             <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
@@ -900,7 +1051,7 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
               <Faint>{selected.repairClass.id}</Faint>
             </div>
             {selected.suggestion.rationale ? (
-              <div style={{ marginTop: 7, lineHeight: 1.5 }}>
+              <div style={{ marginTop: 7, fontSize: 13, color: COLOR.text, lineHeight: 1.55 }}>
                 <MarkdownMath value={selected.suggestion.rationale} />
               </div>
             ) : null}
@@ -922,115 +1073,109 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
                 value={selected.repairClass.answerRevealBudget}
               />
             </div>
-            <div style={{ marginTop: 8, fontSize: 11, lineHeight: 1.55 }}>
-              <Faint>targets · </Faint>
-              <Dim>
+            <div style={{ marginTop: 9 }}>
+              <PanelRow label="targets">
                 {selected.repairClass.targetRefs.map(formatCausalTarget).join(" · ") || "none"}
-              </Dim>
-              <br />
-              <Faint>preserves · </Faint>
-              <Dim>
+              </PanelRow>
+              <PanelRow label="preserves">
                 {selected.repairClass.preserveRefs.map(formatCausalTarget).join(" · ") || "none"}
-              </Dim>
+              </PanelRow>
+              {selected.minimality.preservedCriteria.length ? (
+                <PanelRow label="preserved">
+                  {selected.minimality.preservedCriteria.join(" · ")}
+                </PanelRow>
+              ) : null}
+              {selected.minimality.changedLatentClaims.length ? (
+                <PanelRow label="changed claims">
+                  {selected.minimality.changedLatentClaims.join(" · ")}
+                </PanelRow>
+              ) : null}
+              {selected.minimality.changedTraceSteps.length ? (
+                <PanelRow label="changed steps">
+                  {selected.minimality.changedTraceSteps.join(" · ")}
+                </PanelRow>
+              ) : null}
             </div>
-            {selected.minimality.preservedCriteria.length ? (
-              <div style={{ marginTop: 6, fontSize: 11 }}>
-                <Faint>preserved criteria · </Faint>
-                <Dim>{selected.minimality.preservedCriteria.join(" · ")}</Dim>
-              </div>
-            ) : null}
-            {selected.minimality.changedLatentClaims.length ? (
-              <div style={{ marginTop: 4, fontSize: 11 }}>
-                <Faint>changed latent claims · </Faint>
-                <Dim>{selected.minimality.changedLatentClaims.join(" · ")}</Dim>
-              </div>
-            ) : null}
-            {selected.minimality.changedTraceSteps.length ? (
-              <div style={{ marginTop: 4, fontSize: 11 }}>
-                <Faint>changed trace steps · </Faint>
-                <Dim>{selected.minimality.changedTraceSteps.join(" · ")}</Dim>
-              </div>
-            ) : null}
+            <PanelFooter>{selected.repairClass.id}</PanelFooter>
           </Panel>
         ) : (
           <Panel tone="red">
             <Dim>No safe structural repair was selected.</Dim>
           </Panel>
         )}
-        {receipt.repairSelection.rejected.map((rejected) => (
-          <div
-            key={rejected.repairClassId}
-            style={{
-              borderBottom: `1px solid ${COLOR.border}`,
-              padding: "7px 2px",
-              fontSize: 11,
-            }}
-          >
-            <span style={{ color: COLOR.red }}>rejected · </span>
-            <span style={{ fontFamily: FONT_MONO }}>{rejected.repairClassId}</span>
-            <Dim> · {rejected.reasons.map(humanize).join(", ")}</Dim>
-          </div>
-        ))}
-        <AuditRow label="common repair cover">
-          <Pill color={receipt.commonRepairCover.coversPlausibleSet ? "green" : "slate"}>
-            {receipt.commonRepairCover.coversPlausibleSet ? "covers plausible set" : "no common cover"}
-          </Pill>
-        </AuditRow>
-        <AuditRow label="probe need">
-          {receipt.probeNeed ? (
-            <>
-              <Pill color={receipt.probeNeed.divergent ? "amber" : "slate"}>
-                {receipt.probeNeed.divergent ? "divergent repairs" : "not divergent"}
-              </Pill>
-              {receipt.probeNeed.incompleteRepairMapping ? (
-                <Pill color="red">incomplete repair mapping</Pill>
-              ) : null}
-              <Dim> · {receipt.probeNeed.reason}</Dim>
-            </>
-          ) : (
-            <>
-              <span style={{ color: COLOR.amber }}>
-                {humanize(receipt.probeDecision.decision)}
-              </span>
-              <Dim> · {receipt.probeDecision.reason}</Dim>
-            </>
-          )}
-        </AuditRow>
-        {selected?.suggestion.repairedTrace ? (
-          <div style={{ marginTop: 8 }}>
-            <TraceView
-              trace={selected.suggestion.repairedTrace}
-              label="repaired trace audit · inspector only"
-            />
+        {/* The group is four distinct things — the decision, the alternatives it
+            beat, the coverage verdict, and the trace evidence. Under one group
+            header they ran together as an undifferentiated column. */}
+        {receipt.repairSelection.rejected.length ? (
+          <div style={{ marginTop: 12 }}>
+            <SmallLabel>rejected alternatives</SmallLabel>
+            {receipt.repairSelection.rejected.map((rejected) => (
+              <div
+                key={rejected.repairClassId}
+                style={{
+                  borderBottom: `1px solid ${COLOR.border}`,
+                  padding: "7px 2px",
+                  fontSize: 11,
+                }}
+              >
+                <span style={{ color: COLOR.red }}>rejected · </span>
+                <span style={{ fontFamily: FONT_MONO }}>{rejected.repairClassId}</span>
+                <Dim> · {rejected.reasons.map(humanize).join(", ")}</Dim>
+              </div>
+            ))}
           </div>
         ) : null}
-        {selected?.minimality.textDiff ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-              gap: 8,
-              marginTop: 8,
-            }}
-          >
-            <Panel tone="slate">
-              <SmallLabel>observed trace · before</SmallLabel>
-              <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                <MarkdownMath value={selected.minimality.textDiff.before} />
-              </div>
-            </Panel>
-            <Panel tone="green">
-              <SmallLabel>minimal repair · after</SmallLabel>
-              <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                <MarkdownMath value={selected.minimality.textDiff.after} />
-              </div>
-            </Panel>
+        <div style={{ marginTop: 12 }}>
+          <SmallLabel>coverage and probe need</SmallLabel>
+          <AuditRow label="common repair cover">
+            <Pill color={receipt.commonRepairCover.coversPlausibleSet ? "green" : "slate"}>
+              {receipt.commonRepairCover.coversPlausibleSet ? "covers plausible set" : "no common cover"}
+            </Pill>
+          </AuditRow>
+          <AuditRow label="probe need">
+            {receipt.probeNeed ? (
+              <>
+                <Pill color={receipt.probeNeed.divergent ? "amber" : "slate"}>
+                  {receipt.probeNeed.divergent ? "divergent repairs" : "not divergent"}
+                </Pill>
+                {receipt.probeNeed.incompleteRepairMapping ? (
+                  <Pill color="red">incomplete repair mapping</Pill>
+                ) : null}
+                <Dim> · {receipt.probeNeed.reason}</Dim>
+              </>
+            ) : (
+              <>
+                <span style={{ color: COLOR.amber }}>
+                  {humanize(receipt.probeDecision.decision)}
+                </span>
+                <Dim> · {receipt.probeDecision.reason}</Dim>
+              </>
+            )}
+          </AuditRow>
+        </div>
+        {selected?.suggestion.repairedTrace || selected?.minimality.textDiff ? (
+          <div style={{ marginTop: 12 }}>
+            {/* "inspector only" is an answer-reveal boundary, not a caption — it
+                does not belong at the faintest size on the screen, and it scopes
+                the whole sub-block rather than the trace panel alone. */}
+            <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+              <SmallLabel>trace evidence</SmallLabel>
+              <Pill color="amber">inspector only</Pill>
+            </div>
+            {selected.suggestion.repairedTrace ? (
+              <TraceView trace={selected.suggestion.repairedTrace} label="repaired trace audit" />
+            ) : null}
+            {selected.minimality.textDiff ? (
+              <MinimalRepairDiff
+                before={selected.minimality.textDiff.before}
+                after={selected.minimality.textDiff.after}
+              />
+            ) : null}
           </div>
         ) : null}
-      </div>
+      </AuditGroup>
 
-      <div style={{ marginTop: 14 }}>
-        <SmallLabel>mechanism taxonomy snapshot</SmallLabel>
+      <AuditGroup label="mechanism taxonomy snapshot">
         <AuditRow label="version">
           <Dim>{receipt.mechanismTaxonomyVersionId ?? "none pinned"}</Dim>
         </AuditRow>
@@ -1080,16 +1225,22 @@ export function CausalEpisodeInspector({ episode }: { episode: CausalEpisodeDto 
         </AuditRow>
           </>
         ) : null}
-      </div>
+      </AuditGroup>
     </>
   );
 }
 
+/** Stat tile, one rank below InspectorOverlay's `Stat` (11px label / 14px value)
+ * because it sits two panels deeper. Both parts previously inherited the 13px
+ * body size, so the tile had no internal hierarchy at all — the label read as
+ * loud as the number it captions, and the pair read louder than the panel prose
+ * above it. Faint 10 against mono 12 puts the measurement on top where it
+ * belongs and pulls the whole grid back under the rationale. */
 function AuditMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={{ border: `1px solid ${COLOR.border}`, padding: "6px 8px" }}>
-      <Faint>{label}</Faint>
-      <div style={{ marginTop: 3, color: COLOR.text, fontFamily: FONT_MONO }}>{value}</div>
+    <div style={{ border: `1px solid ${COLOR.border}`, padding: "5px 7px" }}>
+      <Faint style={{ fontSize: 10, display: "block", lineHeight: 1.3 }}>{label}</Faint>
+      <div style={{ marginTop: 2, fontSize: 12, color: COLOR.text, fontFamily: FONT_MONO }}>{value}</div>
     </div>
   );
 }

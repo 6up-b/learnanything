@@ -530,7 +530,7 @@ def test_sidecar_teach_back_finish_survives_post_step_failure(tmp_path, monkeypa
         def boom(*_args, **_kwargs):
             raise RuntimeError("follow-up evaluation exploded")
 
-        monkeypatch.setattr("learnloop_sidecar.handlers.practice._evaluate_followup", boom)
+        monkeypatch.setattr("learnloop.services.post_attempt.run_post_attempt_pipeline", boom)
         final = _call(
             vault_root,
             "submit_teach_back_turn",

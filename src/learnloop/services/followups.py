@@ -456,6 +456,7 @@ def evaluate_attempt_intervention_followup(
     session_id: str | None = None,
     manual_override: bool = False,
     ai_client: Any = None,
+    suppress_insertion_reason: str | None = None,
     clock: Clock | None = None,
 ) -> FollowupDecision:
     """Run the full post-attempt intervention policy for one attempt result.
@@ -512,6 +513,19 @@ def evaluate_attempt_intervention_followup(
     _run_causal_orchestrator_hooks(
         vault, repository, result, session_id=session_id, clock=clock
     )
+
+    if suppress_insertion_reason is not None:
+        # Batch doors (an exam sitting) cap how many follow-ups one batch may
+        # insert. Everything evidence-side above still ran — normalization,
+        # re-probe trigger, the causal hooks — only the queue/need insertion is
+        # withheld, as a typed suppression rather than silence.
+        suppressed = [f"{INTERVENTION_ACTION}:{suppress_insertion_reason}"]
+        repository.update_attempt_surprise_actions(
+            result.attempt_id, suppressed_actions=suppressed
+        )
+        return _decision(
+            False, None, suppressed[0], [], suppressed, intent=None
+        )
 
     debug_payload = result.debug_payload or {}
     facet_targets = _facet_targets_from_debug(debug_payload)

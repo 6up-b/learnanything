@@ -114,3 +114,91 @@ def test_exam_submit_advances_before_background_grade_finishes(
         release.set()
         ctx.exam_grading.shutdown()
         ctx.ingest_jobs.shutdown()
+
+
+def test_finished_report_carries_per_item_feedback_and_repairs(tmp_path):
+    """The graded answer's feedback and repair reach the learner's report.
+
+    Both were already written at grading time and persisted on the exam answer;
+    the report DTO simply never serialized them, so a validator-passed repair
+    suggestion was unreachable from any screen. Post-sitting only — this DTO is
+    built by ``finish_exam`` and by nothing the learner can reach mid-exam.
+    """
+
+    root = create_basic_vault(tmp_path / "vault").root
+    ctx = SidecarContext()
+    ctx.load(root)
+    vault, repository = ctx.require_vault()
+    reserve_exam_pool(vault, repository, vault.goals[0], item_count=1)
+    session = _call(ctx, "start_exam", {"goalId": "goal_linear_algebra_ml"})
+    item_id = session["items"][0]["practiceItemId"]
+    answer_md = "I know we need a transformation function"
+
+    graded = ResolvedGrade(
+        rubric_score=1,
+        criterion_points={"correctness": 1.0},
+        evidence_rows=[],
+        error_attributions=[],
+        grader_confidence=0.9,
+        confidence=2,
+        manual_review_reason=None,
+        feedback_md="The missing step is to choose L(x)=log x.",
+        repair_suggestions=[
+            {
+                "practice_mode": "guided_completion",
+                "rationale": "Complete the method the learner already recognized.",
+                "operator": "complete_log_transport",
+                "expected_minutes": 3.0,
+                "learning_object_id": None,
+                "repair_validation": {"id": "rv_internal", "status": "valid"},
+                "repaired_trace": {
+                    "learner_work_prefix": answer_md,
+                    "minimal_edit": "Append the choice L(x)=log x.",
+                    "regenerated_work": "\n\nTake L(x)=log x.",
+                    "repaired_answer_md": answer_md + "\n\nTake L(x)=log x.",
+                    "changed_latent_claims": ["The transformation is the logarithm."],
+                    "changed_checkpoint_ids": ["select_logarithm"],
+                    "prefix_basis": "derived_from_preserve_refs",
+                },
+            }
+        ],
+    )
+    try:
+        record_exam_answer(
+            vault,
+            repository,
+            session["sessionId"],
+            item_id,
+            answer_md=answer_md,
+            resolved_grade=graded,
+        )
+        report = _call(ctx, "finish_exam", {"sessionId": session["sessionId"]})
+    finally:
+        ctx.exam_grading.shutdown()
+        ctx.ingest_jobs.shutdown()
+
+    outcome = next(
+        entry
+        for entry in report["itemOutcomes"]
+        if entry["practiceItemId"] == item_id
+    )
+    assert outcome["answerMd"] == answer_md
+    assert outcome["feedbackMd"] == "The missing step is to choose L(x)=log x."
+    assert outcome["rubricScore"] == 1
+    assert outcome["maxPoints"] == 4
+    assert outcome["prompt"]
+
+    repair = outcome["repairSuggestions"][0]
+    assert repair["rationale"].startswith("Complete the method")
+    assert repair["practiceMode"] == "guided_completion"
+    assert repair["operator"] == "complete_log_transport"
+    trace = repair["repairedTrace"]
+    # The parts stay separate so the review pane can label them.
+    assert trace["learnerWorkPrefix"] == answer_md
+    assert trace["regeneratedWork"] == "\n\nTake L(x)=log x."
+    assert trace["repairedAnswerMd"] == answer_md + "\n\nTake L(x)=log x."
+    assert trace["minimalEdit"] == "Append the choice L(x)=log x."
+    # Internal audit structure stays server-side.
+    assert "repairValidation" not in repair
+    assert "changedCheckpointIds" not in trace
+    assert "prefixBasis" not in trace

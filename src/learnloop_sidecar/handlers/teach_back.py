@@ -271,11 +271,9 @@ def _finish(
 ) -> dict[str, Any]:
     # Imported lazily: practice.py imports queue.py which imports this module
     # (for the queue readiness filter), so a top-level import would be circular.
-    from learnloop_sidecar.handlers.practice import (
-        _evaluate_followup,
-        _log_attempt_recorded,
-        _persist_feedback_metadata,
-    )
+    from learnloop_sidecar.handlers.practice import _log_attempt_recorded
+
+    from learnloop.services.post_attempt import run_post_attempt_pipeline
 
     if ctx.grading_provider_override == MANUAL_PROVIDER:
         # Manual grading cannot grade a teach-back transcript (the AI plays
@@ -333,9 +331,16 @@ def _finish(
     repository.clear_session_checkpoint(params.session_id)
     # Post-steps are secondary: the attempt is recorded and the response must
     # report it, so failures here are logged, never raised.
+    # One composed pipeline like every other recording door; teach-back
+    # previously ran a subset by hand and silently skipped cold-probe
+    # scheduling.
     for post_step in (
-        lambda: _persist_feedback_metadata(repository, result.attempt, None),
-        lambda: _evaluate_followup(vault, repository, params.session_id, result.attempt),
+        lambda: run_post_attempt_pipeline(
+            vault,
+            repository,
+            result=result.attempt,
+            session_id=params.session_id,
+        ),
         lambda: _log_attempt_recorded(repository, params.session_id, result.transcript_md, result.attempt),
     ):
         try:

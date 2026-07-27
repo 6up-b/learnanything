@@ -56,7 +56,7 @@ from learnloop.services.exam_calibration import calibration_report as exam_calib
 from learnloop.ids import new_ulid
 from learnloop.services.concepts import ConceptMergeError, merge_concepts
 from learnloop.services.doctor import run_doctor
-from learnloop.services.followups import evaluate_attempt_intervention_followup
+from learnloop.services.post_attempt import run_post_attempt_pipeline
 from learnloop.services.hypothesis_claims import export_claim_events, purge_claim_events
 from learnloop.services.observations import (
     ObservationTemplateError,
@@ -5521,13 +5521,14 @@ def attempt(
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
-    evaluate_attempt_intervention_followup(
+    run_post_attempt_pipeline(
         loaded,
         repository,
         result=result,
-        available_minutes=available_minutes,
         session_id=session_id,
+        self_grade=fallback_grade,
         ai_client=client if runtime.ready else None,
+        available_minutes=available_minutes,
     )
     if json_output:
         typer.echo(_dump({"version": 1, "attempt": result.as_dict()}))

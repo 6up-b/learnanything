@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   CommandError,
+  ExamItemDto,
+  ExamItemOutcomeDto,
   ExamReportSnapshot,
   ExamSessionSnapshot,
   ExamFacetOutcomeDto
@@ -9,7 +11,9 @@ import type {
 import { COLOR, FONT_MONO, Faint, KeyBar } from "../components/term";
 import { Card, SectionHeader } from "../components/ui";
 import { ItemPresentation } from "../components/ItemPresentation";
+import { RepairTraceBlocks } from "../components/RepairTrace";
 import { masteryTone } from "../app/algoConfig";
+import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
 
 type Phase = "loading" | "error" | "exam" | "finishing" | "report";
@@ -178,7 +182,7 @@ export function ExamScreen({
   }
 
   if (phase === "report" && report) {
-    return <ExamReport report={report} onExit={onExit} />;
+    return <ExamReport report={report} items={items} onExit={onExit} />;
   }
 
   // phase === "exam"
@@ -266,7 +270,137 @@ function pct(value: number | null): string {
   return value == null ? "—" : `${Math.round(value * 100)}%`;
 }
 
-function ExamReport({ report, onExit }: { report: ExamReportSnapshot; onExit: () => void }) {
+// ── Per-item review (post-sitting only) ──────────────────────────────────────
+// The exam itself stays feedback-free: this pane is mounted from the finished
+// report and nowhere else. Everything it shows was already written at grading
+// time and simply never serialized — feedback_md and a validator-passed repair
+// suggestion sat in the attempt's grade JSON that the learner could not reach.
+function ItemReview({
+  outcome,
+  item,
+  index,
+  onClose
+}: {
+  outcome: ExamItemOutcomeDto;
+  item: ExamItemDto | undefined;
+  index: number;
+  onClose: () => void;
+}) {
+  const repair = outcome.repairSuggestions[0] ?? null;
+  const scoreLine =
+    outcome.rubricScore != null && outcome.maxPoints != null
+      ? `${outcome.rubricScore}/${outcome.maxPoints}`
+      : pct(outcome.observedCorrectness);
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        borderTop: `1px solid ${COLOR.borderStrong}`,
+        paddingTop: 12
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          fontFamily: FONT_MONO,
+          fontSize: 12
+        }}
+      >
+        <span style={{ color: COLOR.amber }}>
+          item {index + 1} · scored {scoreLine}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            color: COLOR.textFaint,
+            fontFamily: FONT_MONO,
+            fontSize: 11
+          }}
+        >
+          close
+        </button>
+      </div>
+
+      <div style={{ marginTop: 10 }}>
+        {item ? (
+          <ItemPresentation presentation={item.presentation} />
+        ) : outcome.prompt ? (
+          <MarkdownMath value={outcome.prompt} />
+        ) : (
+          <Faint>item unavailable</Faint>
+        )}
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <Faint>your answer</Faint>
+        <div
+          style={{
+            marginTop: 4,
+            border: `1px solid ${COLOR.border}`,
+            borderLeft: `2px solid ${COLOR.borderStrong}`,
+            padding: "7px 9px",
+            whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere"
+          }}
+        >
+          {outcome.answerMd?.trim() ? (
+            <MarkdownMath value={outcome.answerMd} />
+          ) : (
+            <Faint>left blank</Faint>
+          )}
+        </div>
+      </div>
+
+      {outcome.feedbackMd ? (
+        <div style={{ marginTop: 12 }}>
+          <Faint>feedback</Faint>
+          <div style={{ marginTop: 4, color: COLOR.text, lineHeight: 1.6, fontSize: 13 }}>
+            <MarkdownMath value={outcome.feedbackMd} />
+          </div>
+        </div>
+      ) : null}
+
+      {repair ? (
+        <div style={{ marginTop: 14 }}>
+          <Faint>suggested repair</Faint>
+          {repair.rationale ? (
+            <div style={{ marginTop: 4, color: COLOR.text, lineHeight: 1.55, fontSize: 13 }}>
+              {repair.rationale}
+            </div>
+          ) : null}
+          <div style={{ marginTop: 6, fontSize: 11, fontFamily: FONT_MONO, color: COLOR.textFaint }}>
+            {repair.practiceMode}
+            {repair.expectedMinutes != null ? ` · ~${repair.expectedMinutes} min` : ""}
+          </div>
+          {repair.repairedTrace ? <RepairTraceBlocks trace={repair.repairedTrace} /> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExamReport({
+  report,
+  items,
+  onExit
+}: {
+  report: ExamReportSnapshot;
+  items: ExamItemDto[];
+  onExit: () => void;
+}) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const itemsById = useMemo(() => {
+    const map = new Map<string, ExamItemDto>();
+    for (const item of items) map.set(item.practiceItemId, item);
+    return map;
+  }, [items]);
   const predicted = report.predictedScoreFraction;
   const scored = report.scoreFraction;
   // Worst-first: lowest observed correctness leads (nulls sink to the bottom).
@@ -362,11 +496,26 @@ function ExamReport({ report, onExit }: { report: ExamReportSnapshot; onExit: ()
                 const pred = it.predictedCorrectness;
                 const obs = it.observedCorrectness;
                 const obsTone = obs != null ? masteryTone(obs, COLOR) : COLOR.textFaint;
+                const open = openIndex === i;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={`${it.practiceItemId}-${i}`}
-                    title={`item ${i + 1} · predicted ${pct(pred)} · observed ${pct(obs)}`}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
+                    title={`item ${i + 1} · predicted ${pct(pred)} · observed ${pct(obs)} · review`}
+                    aria-label={`Review item ${i + 1}`}
+                    aria-expanded={open}
+                    onClick={() => setOpenIndex(open ? null : i)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 2,
+                      background: "none",
+                      border: `1px solid ${open ? COLOR.borderStrong : "transparent"}`,
+                      borderRadius: 2,
+                      padding: "3px 4px",
+                      cursor: "pointer"
+                    }}
                   >
                     <span style={{ display: "flex", gap: 3, alignItems: "center" }}>
                       <span
@@ -388,8 +537,16 @@ function ExamReport({ report, onExit }: { report: ExamReportSnapshot; onExit: ()
                         }}
                       />
                     </span>
-                    <span style={{ fontSize: 9, color: COLOR.textFaint, fontFamily: FONT_MONO }}>{i + 1}</span>
-                  </div>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        color: open ? COLOR.amber : COLOR.textFaint,
+                        fontFamily: FONT_MONO
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                  </button>
                 );
               })}
             </div>
@@ -421,7 +578,16 @@ function ExamReport({ report, onExit }: { report: ExamReportSnapshot; onExit: ()
               />
               observed
             </span>
+            <span style={{ marginLeft: 14 }}>select an item to review it</span>
           </div>
+          {openIndex != null && report.itemOutcomes[openIndex] ? (
+            <ItemReview
+              outcome={report.itemOutcomes[openIndex]}
+              item={itemsById.get(report.itemOutcomes[openIndex].practiceItemId)}
+              index={openIndex}
+              onClose={() => setOpenIndex(null)}
+            />
+          ) : null}
         </Card>
 
         <div className="form-row" style={{ marginTop: 18 }}>

@@ -380,8 +380,88 @@ def finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[st
     return versioned(_report_dto(vault, repository, report))
 
 
+#: The slice of a validated ``repaired_trace`` a learner is shown after the
+#: sitting. Deliberately excludes ``changed_checkpoint_ids``, ``target_refs``,
+#: ``preserve_refs``, ``repair_validation`` and every other internal id: those
+#: are audit structure for the diagnostician, not review material. The
+#: model-vs-computed telemetry keys stay out for the same reason — they belong
+#: to the audit events, not to the learner's page.
+_LEARNER_TRACE_FIELDS = (
+    "minimal_edit",
+    "learner_work_prefix",
+    "regenerated_work",
+    "repaired_answer_md",
+    "changed_latent_claims",
+)
+
+
+def _learner_repair_dto(suggestion: Any) -> dict[str, Any] | None:
+    """The learner-facing subset of one validated repair suggestion."""
+
+    if not isinstance(suggestion, dict):
+        return None
+    rationale = str(suggestion.get("rationale") or "").strip()
+    raw_trace = suggestion.get("repaired_trace")
+    trace: dict[str, Any] | None = None
+    if isinstance(raw_trace, dict):
+        trace = {
+            field: raw_trace.get(field)
+            for field in _LEARNER_TRACE_FIELDS
+            if raw_trace.get(field) not in (None, "", [])
+        }
+        trace = trace or None
+    if not rationale and trace is None:
+        return None
+    return {
+        "rationale": rationale,
+        "practice_mode": str(suggestion.get("practice_mode") or ""),
+        "learning_object_id": suggestion.get("learning_object_id"),
+        "operator": suggestion.get("operator"),
+        "expected_minutes": suggestion.get("expected_minutes"),
+        "repaired_trace": trace,
+    }
+
+
+def _item_review_fields(
+    vault, answer: dict[str, Any] | None, practice_item_id: str
+) -> dict[str, Any]:
+    """Post-sitting review payload for one exam item.
+
+    Derived from the durable ``exam_answers`` row rather than from the persisted
+    report snapshot, so a session completed BEFORE this field existed reviews
+    just as well as a fresh one — the grade JSON was always retained, only the
+    serializer dropped it. Nothing here is reachable mid-exam: the only caller
+    is the finished-report DTO.
+    """
+
+    item = vault.practice_items.get(practice_item_id)
+    rubric = vault.rubric_for_item(item) if item is not None else None
+    grade = (answer or {}).get("grade")
+    grade = grade if isinstance(grade, dict) else {}
+    repairs = [
+        dto
+        for dto in (
+            _learner_repair_dto(suggestion)
+            for suggestion in grade.get("repair_suggestions") or []
+        )
+        if dto is not None
+    ]
+    return {
+        "prompt": item.prompt if item is not None else None,
+        "answer_md": (answer or {}).get("answer_md"),
+        "rubric_score": (answer or {}).get("rubric_score"),
+        "max_points": rubric.max_points if rubric is not None else None,
+        "feedback_md": grade.get("feedback_md"),
+        "repair_suggestions": repairs,
+    }
+
+
 def _report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]:
     items = report.get("items", [])
+    answers_by_item = {
+        row["practice_item_id"]: row
+        for row in repository.exam_answers(report["session_id"])
+    }
     predicted_values = [
         entry["predicted_correctness"]
         for entry in items
@@ -415,6 +495,13 @@ def _report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]:
                 "practice_item_id": entry["practice_item_id"],
                 "predicted_correctness": entry.get("predicted_correctness"),
                 "observed_correctness": entry.get("correctness"),
+                # Additive review fields. The exam stays feedback-free while it
+                # is being sat — this DTO is only built by ``finish_exam``.
+                **_item_review_fields(
+                    vault,
+                    answers_by_item.get(entry["practice_item_id"]),
+                    entry["practice_item_id"],
+                ),
             }
             for entry in items
         ],

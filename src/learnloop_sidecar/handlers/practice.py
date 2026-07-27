@@ -15,7 +15,7 @@ from learnloop.services.attempts import (
     complete_attempt_with_codex_required,
     complete_self_graded_attempt,
 )
-from learnloop.services.followups import evaluate_attempt_intervention_followup
+from learnloop.services.post_attempt import run_post_attempt_pipeline
 from learnloop.services.tutor_qa import hint_equivalents_for_submission
 from learnloop.services.probe_episodes import (
     commit_item_presentation,
@@ -479,10 +479,13 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         )
     except (AttemptValidationError, ValueError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    _schedule_certification_probe(vault, repository, result.learning_object_id)
-    _persist_feedback_metadata(repository, result, self_grade)
-    _evaluate_followup(
-        vault, repository, params.session_id, result, ai_client=client if runtime.ready else None
+    run_post_attempt_pipeline(
+        vault,
+        repository,
+        result=result,
+        session_id=params.session_id,
+        self_grade=self_grade,
+        ai_client=client if runtime.ready else None,
     )
     # Clear the checkpoint in the same call that records the attempt, so a lost
     # client-side clear can never leave a submitted draft to replay on restart.
@@ -522,34 +525,18 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         result = complete_self_graded_attempt(vault, repository, draft, grade)
     except (AttemptValidationError, ValueError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    _schedule_certification_probe(vault, repository, result.learning_object_id)
-    _persist_feedback_metadata(repository, result, None)
-    _evaluate_followup(vault, repository, params.session_id, result)
+    run_post_attempt_pipeline(
+        vault,
+        repository,
+        result=result,
+        session_id=params.session_id,
+    )
     repository.clear_session_checkpoint(params.session_id)
     _log_attempt_recorded(repository, params.session_id, "", result)
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
     payload = _attempt_result(result, repository)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
-
-
-def _schedule_certification_probe(vault, repository, learning_object_id: str) -> None:
-    """Queue §5.7 verification as part of the desktop's live attempt path.
-
-    The service is certificate-idempotent. Keeping this at the sidecar
-    submission boundary also preserves the CLI's explicit schedule/report
-    command and keeps deterministic replay free of future-work writes.
-    """
-
-    from learnloop.services.certification_cold_probe import (
-        schedule_certification_cold_probes,
-    )
-
-    schedule_certification_cold_probes(
-        vault,
-        repository,
-        learning_object_id=learning_object_id,
-    )
 
 
 def _submission_id(client_id: str | None, presentation_id: str | None) -> str | None:
@@ -668,34 +655,6 @@ def _attempt_result(result, repository=None) -> dict[str, Any]:
             else None
         )
     return payload
-
-
-def _persist_feedback_metadata(repository, result, self_grade: SelfGradeInput | None) -> None:
-    feedback_md = result.feedback_md
-    if feedback_md is None and self_grade is not None and result.grading_source == "self":
-        feedback_md = self_grade.notes
-    fatal_errors = result.fatal_errors
-    if not fatal_errors and self_grade is not None and result.grading_source == "self":
-        fatal_errors = self_grade.fatal_errors or []
-    repository.upsert_attempt_feedback_metadata(
-        attempt_id=result.attempt_id,
-        grading_source=result.grading_source,
-        fallback_reason=result.fallback_reason,
-        agent_run_id=result.agent_run_id,
-        fatal_errors=fatal_errors,
-        feedback_md=feedback_md,
-        repair_suggestions=result.repair_suggestions,
-    )
-
-
-def _evaluate_followup(vault, repository, session_id: str, result, ai_client=None) -> None:
-    evaluate_attempt_intervention_followup(
-        vault,
-        repository,
-        result=result,
-        session_id=session_id,
-        ai_client=ai_client,
-    )
 
 
 def _log_attempt_recorded(repository, session_id: str, answer_md: str, result) -> None:

@@ -23,6 +23,7 @@ import { CardControls } from "../components/CardControls";
 import { modePillColor } from "../components/term";
 import { AttemptTraceView, UnresolvedCauseCard } from "../components/KnowledgeModel";
 import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
+import { RepairTraceBlocks } from "../components/RepairTrace";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -1980,6 +1981,13 @@ export function FeedbackScreen({
                     </>
                   )}
                 </div>
+                {/* The trace is stored as preserved prefix + regenerated
+                    continuation; showing only the fused string made a splice
+                    that landed mid-sentence read as the learner's own writing.
+                    Same blocks the exam per-item review mounts. */}
+                {f.repairSuggestions[0].repairedTrace && (
+                  <RepairTraceBlocks trace={f.repairSuggestions[0].repairedTrace} />
+                )}
               </>
             )}
           </div>

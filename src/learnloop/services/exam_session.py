@@ -18,6 +18,7 @@ provider-agnostic: ``record_exam_answer`` takes an already-resolved
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import UTC, timedelta
 from typing import Any
 
@@ -388,6 +389,7 @@ def finish_exam(
     # Apply answered items as exam_attempts, spaced seconds apart at finish time
     # (same deterministic backdating shape exam_seeding uses).
     base_instant = clock.now().astimezone(UTC).replace(microsecond=0)
+    applied_results = []
     for index, answer in enumerate(answers):
         if answer.get("attempt_id"):
             continue
@@ -420,13 +422,26 @@ def finish_exam(
                 attempt_id=attempt_id,
                 clock=attempt_clock,
             )
-        apply_attempt(
+        applied = apply_attempt(
             vault,
             repository,
             ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade),
             clock=attempt_clock,
         )
+        applied_results.append(applied)
         repository.set_exam_answer_attempt_id(session_id, item_id, attempt_id)
+
+    if applied_results:
+        # The one post-attempt pipeline every recording door runs. Exam-purpose
+        # gating: same evidence-side steps as practice (needs, causal hooks,
+        # certification cold probes), insertion capped per sitting, and
+        # learner-facing feedback deferred to the report below — the pipeline
+        # writes the metadata the report reads.
+        from learnloop.services.post_attempt import run_exam_sitting_pipeline
+
+        run_exam_sitting_pipeline(
+            vault, repository, results=applied_results, clock=clock
+        )
 
     report = _compute_report(vault, repository, session, goal)
     completed_at = utc_now_iso(clock)
@@ -602,20 +617,25 @@ def _session_view(repository: Repository, session_id: str, *, already_started: b
 
 
 def _grade_to_dict(grade: ResolvedGrade) -> dict[str, Any]:
+    """Serialize a resolved grade LOSSLESSLY into ``exam_answers.grade_json``.
+
+    This round-trip is the wire between grading time and ``finish_exam``'s
+    ``apply_attempt``. It used to keep only six attribution fields, silently
+    dropping every P0b causal axis the grader had already authored and paid
+    for (``candidate_causes``, ``misconception_statement``,
+    ``first_divergence``, …) — so exam error events carried no causal
+    material, ``_hypothesis_specs`` found nothing, and the remediation lane
+    stalled at a repair class with zero hypotheses. Attributions serialize via
+    ``dataclasses.asdict`` so a field added to ``GradeAttribution`` can never
+    be dropped here again.
+    """
+
     return {
         "rubric_score": grade.rubric_score,
         "criterion_points": dict(grade.criterion_points),
         "evidence_rows": [dict(row) for row in grade.evidence_rows],
         "error_attributions": [
-            {
-                "error_type": attribution.error_type,
-                "severity": attribution.severity,
-                "evidence": attribution.evidence,
-                "is_misconception": attribution.is_misconception,
-                "target_evidence_families": list(attribution.target_evidence_families),
-                "target_criterion_ids": list(attribution.target_criterion_ids),
-            }
-            for attribution in grade.error_attributions
+            dataclasses.asdict(attribution) for attribution in grade.error_attributions
         ],
         "grader_confidence": grade.grader_confidence,
         "confidence": grade.confidence,
@@ -623,7 +643,41 @@ def _grade_to_dict(grade: ResolvedGrade) -> dict[str, Any]:
         "feedback_md": grade.feedback_md,
         "repair_suggestions": list(grade.repair_suggestions),
         "fatal_errors": list(grade.fatal_errors),
+        "diagnosis_md": grade.diagnosis_md,
+        "attribution_audit_events": list(grade.attribution_audit_events),
+        "exercised_facets": list(grade.exercised_facets),
+        "clarification": grade.clarification,
+        "discrimination_profile_match": grade.discrimination_profile_match,
+        "error_hunt": grade.error_hunt,
     }
+
+
+_ATTRIBUTION_FIELD_NAMES = frozenset(
+    f.name for f in dataclasses.fields(GradeAttribution)
+)
+
+
+def _attribution_from_dict(payload: dict[str, Any]) -> GradeAttribution:
+    """Rebuild one attribution, tolerating legacy six-field rows.
+
+    Unknown keys are ignored (never a crash on a newer row), missing keys take
+    the dataclass defaults (never a crash on an older row); the historically
+    coerced fields keep their coercions.
+    """
+
+    kwargs = {
+        key: value for key, value in payload.items() if key in _ATTRIBUTION_FIELD_NAMES
+    }
+    kwargs["error_type"] = str(payload["error_type"])
+    kwargs["severity"] = float(payload.get("severity") or 0.0)
+    kwargs["evidence"] = payload.get("evidence")
+    kwargs["is_misconception"] = bool(payload.get("is_misconception"))
+    kwargs["target_evidence_families"] = list(payload.get("target_evidence_families") or [])
+    kwargs["target_criterion_ids"] = list(payload.get("target_criterion_ids") or [])
+    kwargs["candidate_causes"] = list(payload.get("candidate_causes") or [])
+    kwargs["postdictive_claims"] = list(payload.get("postdictive_claims") or [])
+    kwargs["soft_postdictive_claims"] = list(payload.get("soft_postdictive_claims") or [])
+    return GradeAttribution(**kwargs)
 
 
 def _grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade:
@@ -632,14 +686,7 @@ def _grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade:
         criterion_points={str(key): float(value) for key, value in (payload.get("criterion_points") or {}).items()},
         evidence_rows=[dict(row) for row in (payload.get("evidence_rows") or [])],
         error_attributions=[
-            GradeAttribution(
-                error_type=attribution["error_type"],
-                severity=float(attribution.get("severity") or 0.0),
-                evidence=attribution.get("evidence"),
-                is_misconception=bool(attribution.get("is_misconception")),
-                target_evidence_families=list(attribution.get("target_evidence_families") or []),
-                target_criterion_ids=list(attribution.get("target_criterion_ids") or []),
-            )
+            _attribution_from_dict(attribution)
             for attribution in (payload.get("error_attributions") or [])
         ],
         grader_confidence=float(payload.get("grader_confidence") or 1.0),
@@ -648,4 +695,10 @@ def _grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade:
         feedback_md=payload.get("feedback_md"),
         repair_suggestions=list(payload.get("repair_suggestions") or []),
         fatal_errors=list(payload.get("fatal_errors") or []),
+        diagnosis_md=payload.get("diagnosis_md"),
+        attribution_audit_events=list(payload.get("attribution_audit_events") or []),
+        exercised_facets=list(payload.get("exercised_facets") or []),
+        clarification=payload.get("clarification"),
+        discrimination_profile_match=payload.get("discrimination_profile_match"),
+        error_hunt=payload.get("error_hunt"),
     )

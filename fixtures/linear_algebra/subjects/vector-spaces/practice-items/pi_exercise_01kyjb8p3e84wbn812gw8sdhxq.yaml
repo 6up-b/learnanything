@@ -1,0 +1,158 @@
+schema_version: 1
+id: pi_exercise_01kyjb8p3e84wbn812gw8sdhxq
+learning_object_id: lo_compute_and_interpret_coordinate_vector_operatio
+subjects:
+practice_mode: textbook_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_for_x_x_1_x_n_compute_the_additive_inverse_by_ne
+  - facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo
+  - facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co
+evidence_weights:
+  facet_for_x_x_1_x_n_compute_the_additive_inverse_by_ne: 0.2
+  facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo: 0.4
+  facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co: 0.4
+criterion_facet_weights:
+  isolate_scaled_vector:
+    facet_for_x_x_1_x_n_compute_the_additive_inverse_by_ne: 0.4
+    facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co: 0.6
+  solve_for_x:
+    facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo: 1.0
+  verify_solution:
+    facet_scalar_multiplication_takes_a_scalar_λ_and_a_coo: 0.5
+    facet_for_x_and_y_in_f_n_coordinatewise_addition_is_co: 0.5
+trace_contract:
+  status: available
+  recipes:
+    - id: coordinate_solution
+      checkpoints:
+        - isolate_2x
+        - scale_coordinates
+        - check_original_equation
+      dependencies:
+        isolate_2x: []
+        scale_coordinates:
+          - isolate_2x
+        check_original_equation:
+          - scale_coordinates
+variant_contract:
+teach_back_source:
+prompt: Find $x \in R^4$ such that $(4, -3, 1,7) + 2x = (5,9,-6,8).$
+expected_answer: "Subtract $(4,-3,1,7)$ from both sides:\n\n$$2x=(5,9,-6,8)-(4,-3,1,7)=(1,12,-7,1).$$\n\
+  \nNow multiply each coordinate by $\\frac12$:\n\n$$x=\\frac12(1,12,-7,1)=\\left(\\\
+  frac12,6,-\\frac72,\\frac12\\right).$$\n\nIndeed,\n\n$$(4,-3,1,7)+2\\left(\\frac12,6,-\\\
+  frac72,\\frac12\\right)=(4,-3,1,7)+(1,12,-7,1)=(5,9,-6,8).$$"
+difficulty: 0.25
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Isolate the term containing $x$ by moving the known vector to the other 
+    side.
+  - Subtract the vectors coordinate by coordinate before dividing by the scalar 
+    coefficient.
+  - Once you have $2x$, multiply every coordinate by $\frac12$, then substitute 
+    your vector into the original equation to check it.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.05
+scaffold_level: 0.0
+capability: procedure_execution
+task_features:
+  complexity: 1
+  transfer: same_context
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: isolate_scaled_vector
+      points: 2.0
+      description: Correctly subtracts the given vector coordinatewise to obtain
+        $2x=(1,12,-7,1)$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+    - id: solve_for_x
+      points: 1.0
+      description: Correctly scales every coordinate by $\frac12$ to obtain 
+        $x=(\frac12,6,-\frac72,\frac12)$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: verify_solution
+      points: 1.0
+      description: Substitutes the proposed vector into the original equation 
+        and confirms coordinatewise equality with the right-hand side.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s181
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KY2YG27G1SDWA4FN939ZBB34
+      path:
+      locator: span:ext_01KY2ZX9193YPC73DT6HXFFNDC/s182
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-27T17:51:50Z'
+updated_at: '2026-07-27T17:51:51Z'

@@ -756,6 +756,38 @@ button { color: inherit; }
 .ask-user-message > :first-child { margin-top: 0; }
 .ask-user-message > :last-child { margin-bottom: 0; }
 
+/* Markdown rendered inside a tight band — repair diff bands, trace blocks.
+   MarkdownMath emits bare <p>, which the UA gives 1em top/bottom margins; at
+   band sizes that reads as stray padding around the quoted text rather than as
+   paragraph rhythm. Collapse it and let the container's own padding show. */
+.md-tight > :first-child { margin-top: 0; }
+.md-tight > :last-child { margin-bottom: 0; }
+.md-tight p { margin: 0; }
+.md-tight p + p { margin-top: 0.6em; }
+/* `outside` markers are laid out inside this padding, right-aligned to the
+   content edge — so the padding has to be wider than the widest marker or the
+   number overhangs it and lands on the band's accent border. At mono metrics a
+   two-digit `10.` plus its gap needs ~1.8em; 1.2em put a bare `3.` on the rule. */
+.md-tight ul, .md-tight ol { margin: 0.4em 0; padding-left: 1.9em; }
+.md-tight li { margin: 0.2em 0; }
+/* The numbering is structure, not content — it should not read as loud as the
+   learner's own words sitting next to it. */
+.md-tight li::marker { color: var(--faint); }
+
+/* KaTeX ships `.katex-display { margin: 1em 0; text-align: center }` and
+   `white-space: nowrap` on the inner span, and nothing in the app overrode it.
+   In a band this tight that means display math sits outside its own wash, reads
+   as indented against left-aligned prose, and — being unwrappable — runs a wide
+   matrix straight through the border. Left-align it, cut the margin to the
+   band's rhythm, and let anything too wide scroll inside its own box instead of
+   escaping. The vertical padding is what keeps tall fractions clear of the
+   overflow clip that `overflow-x` forces on the block. */
+.md-tight .katex-display { margin: 0.35em 0; padding: 3px 0; text-align: left; overflow-x: auto; overflow-y: hidden; }
+.md-tight .katex-display > .katex { text-align: left; }
+/* 1.21em of KaTeX against 12px band text sets math ~14.5px — taller line boxes
+   than the prose it is embedded in, which is the other half of the collision. */
+.md-tight .katex { font-size: 1.06em; }
+
 .placeholder-screen { flex: 1; display: grid; place-items: center; color: var(--faint); }
 .placeholder-title { border: 1px solid var(--border); padding: 16px 22px; }
 .spinner { color: var(--amber); margin-right: 8px; }

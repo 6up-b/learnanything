@@ -22,6 +22,7 @@ from typing import Any
 from pydantic import Field, ValidationError
 
 from learnloop.services.capability_grid import lo_blueprint_readiness
+from learnloop.services.certification import is_demonstrated_credit
 from learnloop.services.curriculum_locks import Operation, can_apply, identity_locks
 from learnloop.services.facet_state_reader import (
     CanonicalFacetStateReader,
@@ -51,7 +52,7 @@ def get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any
     lookup, so a retired-into-parent id still resolves to the surviving facet.
     ``lock`` mirrors ``can_apply(facet_merge)``; ``membership`` walks every LO
     blueprint recipe that references the facet; ``evidence`` folds the capability
-    ledger (``demonstrated`` = capability-matched certification credit > 0).
+    ledger (``demonstrated`` = ``is_demonstrated_credit``, credit ≥ 1.0).
     """
 
     vault, repository = ctx.require_vault()
@@ -244,10 +245,7 @@ def _facet_evidence(
             "direct_positive_mass": cell.direct_positive_mass,
             "direct_negative_mass": cell.direct_negative_mass,
             "certification_credit": cell.certification_credit,
-            # Demonstrated == capability-matched certification credit > 0 (the
-            # same test capability_grid / goal_certification use; the design's
-            # named ``is_demonstrated_credit`` helper does not exist in-tree).
-            "demonstrated": cell.certification_credit > 0.0,
+            "demonstrated": is_demonstrated_credit(cell.certification_credit),
         }
         for cell in repository.facet_capability_evidence_for_facet(facet_id)
     ]

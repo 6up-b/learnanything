@@ -26,6 +26,11 @@ from learnloop.services.error_hunt import (
     validate_error_hunt_report,
 )
 from learnloop.services.recall_coverage import criterion_facet_weights_for_item, resolve_coverage
+from learnloop.services.repair_splice import (
+    is_end_append,
+    preserved_prefix_from_refs,
+    splice_repaired_answer,
+)
 from learnloop.vault.models import (
     LoadedVault,
     PracticeItem,
@@ -1122,6 +1127,10 @@ def validate_codex_grading_proposal(
             )
         )
     validated_repair_suggestions: list[dict[str, Any]] = []
+    # Typed notes from the deterministic repair splice below. Collected here and
+    # merged after the firewall so they travel with the grade's other audit
+    # events rather than needing a second channel.
+    splice_audit_events: list[dict[str, Any]] = []
     for suggestion in proposal.repair_suggestions:
         target_evidence_families: list[str] = []
         for raw_target in suggestion.target_evidence_families:
@@ -1182,14 +1191,50 @@ def validate_codex_grading_proposal(
                 payload.pop(field_name, None)
         repaired_trace = payload.get("repaired_trace")
         if isinstance(repaired_trace, dict):
-            learner_prefix = str(
+            model_prefix = str(
                 repaired_trace.get("learner_work_prefix") or ""
             )
             answer = learner_answer_md or ""
-            if learner_prefix and not answer.startswith(learner_prefix):
-                raise GradingValidationError(
-                    "repaired-trace learner_work_prefix is not verbatim learner work"
-                )
+            # The prefix is DERIVED from the model's own preserve_refs whenever
+            # it declared any, not taken on report. Verbatim-ness alone let the
+            # live exhibit declare the learner's entire answer — hedge included
+            # — as preserved while its own preserve quote covered the first
+            # clause, and the certified "preserved learner work" then contained
+            # an admission of not knowing what to do.
+            derived_prefix = preserved_prefix_from_refs(
+                answer, payload.get("preserve_refs")
+            )
+            if derived_prefix is None:
+                learner_prefix = model_prefix
+                repaired_trace["prefix_basis"] = "model_reported"
+                if learner_prefix and not answer.startswith(learner_prefix):
+                    raise GradingValidationError(
+                        "repaired-trace learner_work_prefix is not verbatim learner work"
+                    )
+            else:
+                learner_prefix = derived_prefix.text
+                repaired_trace["learner_work_prefix"] = learner_prefix
+                repaired_trace["prefix_basis"] = derived_prefix.basis
+                if model_prefix != learner_prefix:
+                    # Audit note, never a rejection: the disagreement is the
+                    # measurement (same shape as the anchor fix's
+                    # ``model_reported_char_start``). A grade is not worth
+                    # failing over a prefix the server can compute itself.
+                    repaired_trace["model_reported_learner_work_prefix"] = (
+                        model_prefix
+                    )
+                    splice_audit_events.append(
+                        {
+                            "event": "repair_prefix_derived",
+                            "practice_item_id": item.id,
+                            "operator": payload.get("operator"),
+                            "declared_span_end": derived_prefix.declared_end,
+                            "snapped_end": derived_prefix.snapped_end,
+                            "model_reported_prefix_length": len(model_prefix),
+                            "derived_prefix_length": len(learner_prefix),
+                            "prefix_basis": derived_prefix.basis,
+                        }
+                    )
             repaired_answer = str(
                 repaired_trace.get("repaired_answer_md") or ""
             )
@@ -1202,8 +1247,31 @@ def validate_codex_grading_proposal(
                 repaired_trace.get("regenerated_work") or ""
             )
             if regenerated_work:
-                repaired_answer = learner_prefix + regenerated_work
+                spliced = splice_repaired_answer(
+                    learner_prefix,
+                    regenerated_work,
+                    end_append=is_end_append(repaired_trace),
+                )
+                repaired_answer = spliced.repaired_answer_md
                 repaired_trace["repaired_answer_md"] = repaired_answer
+                repaired_trace["splice_join"] = spliced.join
+                if spliced.regenerated_work != regenerated_work:
+                    # Keep prefix + regenerated_work == repaired_answer_md so
+                    # the trace stays auditable by construction after the join.
+                    repaired_trace["model_reported_regenerated_work"] = (
+                        regenerated_work
+                    )
+                    repaired_trace["regenerated_work"] = (
+                        spliced.regenerated_work
+                    )
+                    splice_audit_events.append(
+                        {
+                            "event": "repair_splice_separator_inserted",
+                            "practice_item_id": item.id,
+                            "operator": payload.get("operator"),
+                            "join": spliced.join,
+                        }
+                    )
             if learner_prefix and not repaired_answer.startswith(learner_prefix):
                 # With no regenerated suffix there is no authoritative
                 # downstream repair to compose, so keep failing closed.
@@ -1265,6 +1333,10 @@ def validate_codex_grading_proposal(
             vault=vault,
         )
     )
+    if splice_audit_events:
+        attribution_audit_events = list(attribution_audit_events or []) + [
+            dict(event) for event in splice_audit_events
+        ]
     from learnloop.services.causal_attribution import (
         validate_repair_candidate,
     )
