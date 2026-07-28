@@ -174,3 +174,111 @@ def _all_tasks(repository):
     with repository.connection() as connection:
         rows = connection.execute("SELECT * FROM followup_tasks ORDER BY created_at, id").fetchall()
     return [dict(row) for row in rows]
+
+
+# --- funnel unblockers (July 2026) -------------------------------------------
+
+
+def test_misconception_cold_context_carries_repair_class_from_fresh_receipt(tmp_path):
+    """Ordering fix: `record_remediation_attempt` now runs AFTER
+    `materialize_causal_episode`, so a primed attempt whose grading produced a
+    repair selection resolves a non-null repair_class_id into the §6.2 task
+    context (it was structurally NULL for misconception-kind episodes before)."""
+
+    from tests.test_guided_redo import failed_attempt_with_repair
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    episode = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))
+    prescribe_remediation(vault, repository, episode["id"], clock=FrozenClock(NOW))
+    treatment = start_remediation_treatment(vault, repository, episode["id"], clock=FrozenClock(NOW))
+
+    # The primed attempt fails again and its grade carries a repair suggestion:
+    # materialize writes the diagnosis receipt on THIS attempt, and the cold
+    # context (resolved in the same apply_attempt call) must see it.
+    primed = failed_attempt_with_repair(
+        vault,
+        repository,
+        "att_primed_receipt",
+        item_id=treatment["primed_item_id"],
+        primed=True,
+        clock=FrozenClock(NOW),
+    )
+    task = repository.active_followup_task_for_item(
+        treatment["cold_item_id"],
+        kind="cold_retry",
+        at=(NOW + timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+    )
+    assert task is not None
+    context = task["context"]
+    assert context["source_attempt_id"] == primed.attempt_id
+    assert context["repair_class_id"], "the fresh diagnosis receipt's repair class must be carried"
+
+
+def test_starting_the_same_repair_twice_reuses_one_episode(tmp_path):
+    """StrictMode double-mount hardening: the episode create is an atomic
+    get-or-create, so a doubled start mints exactly one episode."""
+
+    _vault, repository, misconception_id = _setup(tmp_path)
+    first = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))
+    second = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))
+    assert first["id"] == second["id"]
+
+    # The repository primitive itself is idempotent per open case.
+    third = repository.get_or_create_open_remediation_episode(
+        case_kind="misconception",
+        case_ref=misconception_id,
+        states=("diagnosis", "prescribed"),
+        clock=FrozenClock(NOW),
+    )
+    assert third["id"] == first["id"]
+    with repository.connection() as connection:
+        count = connection.execute(
+            "SELECT COUNT(*) AS n FROM remediation_episodes WHERE case_ref = ?",
+            (misconception_id,),
+        ).fetchone()["n"]
+    assert count == 1
+
+
+def test_exam_attempt_does_not_consume_the_cold_retry(tmp_path):
+    """An exam sitting that happens to serve the cold item must not burn the
+    one unassisted cold measurement on proctored, time-pressured context."""
+
+    from learnloop.services.attempts import ApplyAttemptInput, ResolvedGrade, apply_attempt
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    episode, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    due = FrozenClock(NOW + timedelta(days=1))
+
+    apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=cold_item,
+                learner_answer_md="U Sigma V transpose.",
+                attempt_type="exam_evidence",
+            ),
+            attempt_id="att_exam_cold",
+            grade=ResolvedGrade(
+                rubric_score=4,
+                criterion_points={"correctness": 4},
+                evidence_rows=[],
+                error_attributions=[],
+                grader_confidence=0.9,
+                confidence=4,
+                manual_review_reason=None,
+            ),
+        ),
+        clock=due,
+    )
+    task = next(task for task in _all_tasks(repository) if task["kind"] == "cold_retry")
+    assert task["status"] != "consumed"
+    assert task["consumed_attempt_id"] is None
+    assert repository.remediation_episode(episode["id"])["state"] == "cold_scheduled"
+
+    # The genuine unassisted retry still consumes it afterwards.
+    cold_result = _attempt(vault, repository, cold_item, clock=FrozenClock(NOW + timedelta(days=2)))
+    refreshed = repository.followup_task(task["id"])
+    assert refreshed["status"] == "consumed"
+    assert refreshed["consumed_attempt_id"] == cold_result.attempt_id
+    assert repository.remediation_episode(episode["id"])["state"] == "completed"

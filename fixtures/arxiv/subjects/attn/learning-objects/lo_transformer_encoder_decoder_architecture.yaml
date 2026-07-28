@@ -18,6 +18,59 @@ prerequisites:
 confusables:
   - encoder_decoder_transformer
   - recurrent_network
+blueprints:
+  - id: bp_transformer_layer_components
+    weight: 0.5
+    recipes:
+      - id: recipe_explain_encoder_decoder_layers
+        composition: conjunctive
+        all_of:
+          - facet: encoder_sublayers
+            capability: schema_interpretation
+            modality: hard
+          - facet: decoder_masked_self_attention
+            capability: schema_interpretation
+            modality: hard
+          - facet: encoder_decoder_attention
+            capability: schema_interpretation
+            modality: hard
+          - facet: decoder_ffn
+            capability: schema_interpretation
+            modality: hard
+          - facet: residual_connections
+            capability: schema_interpretation
+            modality: hard
+          - facet: layer_norm
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+  - id: bp_transformer_data_flow
+    weight: 0.5
+    recipes:
+      - id: recipe_trace_transformer_pipeline
+        composition: conjunctive
+        all_of:
+          - facet: tokenization_order
+            capability: schema_interpretation
+            modality: hard
+          - facet: embedding_order
+            capability: schema_interpretation
+            modality: hard
+          - facet: attention_role
+            capability: schema_interpretation
+            modality: hard
+          - facet: feed_forward_role
+            capability: schema_interpretation
+            modality: hard
+          - facet: unembedding_role
+            capability: schema_interpretation
+            modality: hard
+          - facet: softmax_role
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.55
 difficulty_source: llm_estimate
 tags:
@@ -35,5 +88,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:27Z'
-updated_at: '2026-05-28T22:11:47Z'
+updated_at: '2026-07-28T03:18:49Z'

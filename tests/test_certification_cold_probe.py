@@ -304,6 +304,108 @@ def test_the_only_instrument_being_the_certifying_one_is_unmeasurable(tmp_path):
     assert selection.rejected_as_used_surface == (CERTIFYING_ITEM,)
 
 
+def _add_diagnostic_cell_item(root, item_id="pi_diag_cert_probe"):
+    """A diagnostic_probe item that observes the certified cell.
+
+    The explicit ``capability`` annotation outranks the practice-mode default
+    (capability_mapping), so the item lands in the instrument pool for
+    (recall, schema_interpretation) despite its diagnostic mode."""
+
+    upsert_practice_item(
+        root,
+        {
+            "id": item_id,
+            "learning_object_id": LO_ID,
+            "subjects": None,
+            "practice_mode": "diagnostic_probe",
+            "capability": CAPABILITY,
+            "attempt_types_allowed": ["diagnostic_probe", "dont_know"],
+            "evidence_facets": [FACET],
+            "evidence_weights": {FACET: 1.0},
+            "prompt": "Fresh diagnostic surface probing the certified cell.",
+            "expected_answer": "U Sigma V transpose.",
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [
+                    {"id": "correctness", "points": 4, "description": "Correct."}
+                ],
+                "fatal_errors": [],
+            },
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        },
+        clock=FrozenClock(NOW),
+    )
+
+
+def test_selection_never_picks_an_administered_diagnostic_surface(tmp_path):
+    """Single-use freshness at task-creation time (owner Task B).
+
+    A ``diagnostic_probe`` surface that already carried its one administration
+    must not be selected by the certification probe — the follow-up serving
+    door would refuse the task — even in the legacy state shape where the row
+    predates deactivate-on-attempt (active=True, last_attempt_at set). The
+    ranking falls back to the next held-out ordinary item, and the refusal is
+    recorded in its own bucket rather than dropped."""
+
+    paths, vault, repository, _certificate = _certify(tmp_path)
+    _add_diagnostic_cell_item(paths.root)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    repository.upsert_practice_item_state(
+        "pi_diag_cert_probe", active=True, last_attempt_at=NOW_ISO
+    )
+    certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
+    assert certificate is not None
+
+    selection = select_held_out_probe_item(vault, repository, certificate)
+
+    assert selection.practice_item_id == HELD_OUT_ITEM
+    assert selection.rejected_as_administered_diagnostic == ("pi_diag_cert_probe",)
+
+
+def test_only_administered_diagnostic_candidates_means_no_held_out_surface(tmp_path):
+    """Fallback rule: never create a task the scheduler will refuse.
+
+    When the only held-out candidates are burned diagnostic surfaces, the
+    scheduler declines to create the probe task (typed decision, not silence)."""
+
+    paths, vault, repository, _certificate = _certify(tmp_path, second_item=False)
+    _add_diagnostic_cell_item(paths.root)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    repository.upsert_practice_item_state(
+        "pi_diag_cert_probe", active=True, last_attempt_at=NOW_ISO
+    )
+    certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
+    assert certificate is not None
+
+    selection = select_held_out_probe_item(vault, repository, certificate)
+    assert selection.practice_item_id is None
+    assert selection.decision == "no_held_out_surface"
+    assert selection.rejected_as_administered_diagnostic == ("pi_diag_cert_probe",)
+
+    report = schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
+    assert _tasks(repository) == []
+    assert report.counts["no_held_out_surface"] == 1
+
+
+def test_a_fresh_diagnostic_surface_remains_selectable_for_the_probe(tmp_path):
+    """Control: freshness is the rule, not the mode — a never-administered
+    diagnostic surface is a legitimate held-out probe instrument."""
+
+    paths, vault, repository, _certificate = _certify(tmp_path, second_item=False)
+    _add_diagnostic_cell_item(paths.root)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
+    assert certificate is not None
+
+    selection = select_held_out_probe_item(vault, repository, certificate)
+    assert selection.practice_item_id == "pi_diag_cert_probe"
+    assert selection.rejected_as_administered_diagnostic == ()
+
+
 def test_no_active_instrument_at_all_reports_no_candidate(tmp_path):
     """The other arm: retiring the instrument leaves nothing to reject.
 

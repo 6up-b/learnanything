@@ -1944,4 +1944,15 @@ def record_delayed_cold_verification(
         },
         clock=clock,
     )
+    # Bounded deferral exits (a)/(b-i): the one seam where the verification row
+    # and the repository are both in hand, whatever path recorded it. A success
+    # resolves matching open diagnostic factors as repair_confirmed (and
+    # withdraws the candidate belief); a failure escalates them toward
+    # promotion. Diagnosis support is untouched either way — the guard above
+    # that repair outcome alone cannot move it stands.
+    from learnloop.services.causal_factor_deferral import (
+        apply_cold_verification_to_factors,
+    )
+
+    apply_cold_verification_to_factors(repository, receipt=receipt, clock=clock)
     return receipt

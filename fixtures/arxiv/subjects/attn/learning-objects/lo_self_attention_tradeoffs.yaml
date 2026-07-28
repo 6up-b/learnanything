@@ -15,6 +15,30 @@ prerequisites:
 confusables:
   - restricted self-attention
   - dilated convolution
+blueprints:
+  - id: bp_compare_sequence_layers
+    weight: 1.0
+    recipes:
+      - id: recipe_compare_attention_recurrence_convolution
+        composition: conjunctive
+        all_of:
+          - facet: three_criteria
+            capability: schema_interpretation
+            modality: hard
+          - facet: self_attention_parallel
+            capability: schema_interpretation
+            modality: hard
+          - facet: complexity_tradeoff
+            capability: schema_interpretation
+            modality: hard
+          - facet: long_range_dependency_link
+            capability: schema_interpretation
+            modality: hard
+          - facet: balanced_comparison
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.62
 difficulty_source: llm_estimate
 tags:
@@ -32,5 +56,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:27Z'
-updated_at: '2026-05-28T21:34:27Z'
+updated_at: '2026-07-28T03:18:46Z'

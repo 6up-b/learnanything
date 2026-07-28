@@ -17,6 +17,47 @@ prerequisites:
 confusables:
   - argmax
   - linear_normalization
+blueprints:
+  - id: bp_logits_to_probabilities
+    weight: 0.55
+    recipes:
+      - id: recipe_explain_logits_softmax_pipeline
+        composition: conjunctive
+        all_of:
+          - facet: logits_raw_scores
+            capability: schema_interpretation
+            modality: hard
+          - facet: softmax_normalization
+            capability: schema_interpretation
+            modality: hard
+          - facet: probability_constraints
+            capability: schema_interpretation
+            modality: hard
+          - facet: next_token_distribution
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+  - id: bp_temperature_effects
+    weight: 0.45
+    recipes:
+      - id: recipe_interpret_temperature_change
+        composition: conjunctive
+        all_of:
+          - facet: lower_temperature_peakedness
+            capability: schema_interpretation
+            modality: hard
+          - facet: higher_temperature_uniformity
+            capability: schema_interpretation
+            modality: hard
+          - facet: lower_values_weight
+            capability: schema_interpretation
+            modality: hard
+          - facet: sampling_variability
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.52
 difficulty_source: llm_estimate
 tags:
@@ -35,5 +76,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:06:14Z'
-updated_at: '2026-05-28T22:06:14Z'
+updated_at: '2026-07-28T03:18:47Z'

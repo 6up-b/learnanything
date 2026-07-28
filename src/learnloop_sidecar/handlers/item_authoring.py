@@ -68,6 +68,10 @@ class RungVariantStatusInput(ParamsModel):
     request_id: str
 
 
+class RemintDiagnosticProbeInput(ParamsModel):
+    attempt_id: str
+
+
 def _root(ctx: SidecarContext):
     vault, repository = ctx.require_vault()
     return vault.root, repository
@@ -135,6 +139,29 @@ def get_rung_variant_status(ctx: SidecarContext, params: RungVariantStatusInput)
     if row["status"] == "applied" and created and created not in vault.practice_items:
         ctx.reload(maintenance=False)
     return versioned({"request": _variant_request_payload(row)})
+
+
+@method("remint_diagnostic_probe", RemintDiagnosticProbeInput)
+def remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeInput) -> dict[str, Any]:
+    """Keep an administered diagnostic probe as an ordinary practice item.
+
+    Learner-authority direct mint (see services/probe_remint.py for the
+    governance argument): synchronous, deterministic, no generation job. Stable
+    error codes: ``attempt_not_found``, ``item_not_found``,
+    ``not_a_diagnostic_probe``, ``already_reminted`` (details carry the existing
+    remint's practice item id)."""
+
+    from learnloop.services.probe_remint import ProbeRemintError, remint_probe_as_practice_item
+
+    vault, repository = ctx.require_vault()
+    try:
+        summary = remint_probe_as_practice_item(
+            vault.root, vault, repository, attempt_id=params.attempt_id
+        )
+    except ProbeRemintError as exc:
+        raise SidecarError(exc.code, str(exc), details=exc.details) from exc
+    ctx.reload(maintenance=False)
+    return versioned(summary)
 
 
 @method("author_practice_item", AuthorPracticeItemInput)

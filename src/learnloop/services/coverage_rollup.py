@@ -23,6 +23,13 @@ def coverage_rollup(
 
     supplied: set[str] = set()
     for item in vault.practice_items.values():
+        # Diagnostic surfaces are not ordinary practice supply: a
+        # diagnostic_probe item is single-use and reserved for diagnostic
+        # administrations (the scheduler excludes it from the ordinary pool),
+        # and a microprobe is an ephemeral dialogue-turn instance. Counting
+        # either would mark a facet "assessed"-able with nothing practicable.
+        if item.practice_mode in ("diagnostic_probe", "diagnostic_microprobe"):
+            continue
         state = repository.practice_item_state(item.id)
         if state is not None and not state.active:
             continue

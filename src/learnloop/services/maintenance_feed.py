@@ -56,6 +56,11 @@ NOTICE_TYPES: dict[str, NoticeType] = {
     # Graph editor (§8/§12): direction-resolution + locked-facet restructure intent.
     "ambiguous_edge_direction": NoticeType("ambiguous_edge_direction", "auto_resolution", "warning"),
     "restructure_request": NoticeType("restructure_request", "auto_resolution", "action_needed"),
+    # Diagnostic-probe supply: an open probe episode or pending replenishment
+    # need whose eligible surface pool is EMPTY (owner decision: never silent).
+    # Urgent because the measurement lane is stalled; auto-resolves when a
+    # fresh surface appears (the empty-pool sweep also self-resolves it).
+    "probe_pool_empty": NoticeType("probe_pool_empty", "auto_resolution", "action_needed"),
 }
 
 
@@ -288,6 +293,36 @@ def _graph_edit_notices(vault, repository) -> list[_Notice]:
     return out
 
 
+def _probe_pool_empty_notices(vault, repository) -> list[_Notice]:
+    """Empty diagnostic-probe pools (owner decision: never silent).
+
+    Delegates condition detection + the notice shape to
+    ``diagnostic_surface_supply`` so the feed and the scheduler-side sweep can
+    never disagree about when the notice exists or what it says."""
+
+    from learnloop.services.diagnostic_surface_supply import (
+        probe_pool_empty_conditions,
+        probe_pool_empty_notice_payload,
+    )
+
+    out: list[_Notice] = []
+    for condition in probe_pool_empty_conditions(vault, repository):
+        payload = probe_pool_empty_notice_payload(vault, condition)
+        out.append(
+            _Notice(
+                notice_type=payload["notice_type"],
+                dedup_key=payload["dedup_key"],
+                title=payload["title"],
+                action=payload["action"],
+                subject_id=payload["subject_id"],
+                entity_type=payload["entity_type"],
+                entity_id=payload["entity_id"],
+                detail=payload["detail"],
+            )
+        )
+    return out
+
+
 _COLLECTORS: tuple[Callable[[LoadedVault, Repository], list[_Notice]], ...] = (
     _stale_link_notices,
     _open_conflict_notices,
@@ -296,6 +331,7 @@ _COLLECTORS: tuple[Callable[[LoadedVault, Repository], list[_Notice]], ...] = (
     _taught_blueprint_without_assessment_notices,
     _source_outcome_notices,
     _graph_edit_notices,
+    _probe_pool_empty_notices,
 )
 
 

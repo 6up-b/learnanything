@@ -122,6 +122,99 @@ export function RungVariantActions({
   );
 }
 
+// "Keep as practice item": a diagnostic probe is single-use, but sometimes it
+// happens to be a genuinely good exercise. After its one administration the
+// learner can remint it as a NEW ordinary practice item (mechanical copy,
+// shared surface group; the probe itself stays retired with its history).
+// Mounted on the probe attempt's feedback (FeedbackScreen) and on the
+// diagnostic block review (ProbeBlockResult) — mirroring where the re-runging
+// affordance lives, minus the practice screen (pre-administration the probe
+// must stay fresh, so there is nothing to keep yet).
+export function ProbeRemintAction({
+  attemptId,
+  practiceItemId,
+  practiceMode,
+  disabled = false,
+  onError,
+  onKept
+}: {
+  attemptId: string;
+  practiceItemId: string;
+  /** Pass when known; otherwise the component fetches the item to decide
+   *  whether the affordance applies (diagnostic_probe surfaces only). */
+  practiceMode?: string | null;
+  disabled?: boolean;
+  onError: (message: string) => void;
+  /** Called with the new ordinary item's id once the remint lands. */
+  onKept?: (createdPracticeItemId: string) => void;
+}) {
+  const [mode, setMode] = useState<string | null>(practiceMode ?? null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (practiceMode !== undefined && practiceMode !== null) {
+      setMode(practiceMode);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getPracticeItem(practiceItemId)
+      .then((item) => {
+        if (!cancelled) setMode(item.practiceMode);
+      })
+      .catch(() => {
+        /* item unavailable — the affordance simply stays hidden */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [practiceItemId, practiceMode]);
+
+  if (mode !== "diagnostic_probe") return null;
+
+  const keep = async () => {
+    if (busy || disabled || notice !== null) return;
+    setBusy(true);
+    try {
+      const result = await api.remintDiagnosticProbe({ attemptId });
+      setNotice(`kept as ${result.practiceMode.replace(/_/g, " ")} — it joins your ordinary practice pool`);
+      onKept?.(result.practiceItemId);
+    } catch (error) {
+      const command = error as CommandError;
+      if (command.code === "already_reminted") {
+        setNotice("already kept as a practice item");
+      } else {
+        onError(command.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inactive = busy || disabled || notice !== null;
+  return (
+    <>
+      <span
+        onClick={() => void keep()}
+        title="this probe was good practice — keep a copy as an ordinary practice item (the diagnostic surface itself stays used up)"
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 11,
+          color: inactive ? COLOR.textFaint : COLOR.amberLink,
+          textDecoration: "underline",
+          textUnderlineOffset: 2,
+          cursor: inactive ? "default" : "pointer",
+          whiteSpace: "nowrap"
+        }}
+      >
+        {busy ? "…" : "◆ keep as practice item"}
+      </span>
+      {notice ? <Faint style={{ fontSize: 11 }}>{notice}</Faint> : null}
+    </>
+  );
+}
+
 // Learner opt-in to teach-back: the highest-mass conversational evidence.
 // Finds the LO's existing teach_back card or mints one server-side, then hands
 // the item id to the caller to open in practice.

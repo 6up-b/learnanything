@@ -548,6 +548,13 @@ class HeldOutSelection:
     #: and reported beside it: both answer "which items were considered and
     #: thrown away, and under which rule".
     rejected_as_unservable: tuple[str, ...] = ()
+    #: Single-use ``diagnostic_probe`` items that already carried their one
+    #: administration. A certification probe is a GENERIC selection (not a
+    #: repair journey — see ``scheduler.REPAIR_JOURNEY_TASK_KINDS``), so a
+    #: burned diagnostic surface is never selected: the scheduler's serving
+    #: door would refuse the task, leaving it consumed-but-unserved. Reported
+    #: beside the other rejection buckets rather than dropped silently.
+    rejected_as_administered_diagnostic: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -559,6 +566,9 @@ class HeldOutSelection:
             "candidates_considered": self.candidates_considered,
             "rejected_as_used_surface": list(self.rejected_as_used_surface),
             "rejected_as_unservable": list(self.rejected_as_unservable),
+            "rejected_as_administered_diagnostic": list(
+                self.rejected_as_administered_diagnostic
+            ),
             "covers_integration": self.covers_integration,
         }
 
@@ -603,6 +613,7 @@ def select_held_out_probe_item(
 
     rejected: list[str] = []
     unservable: list[str] = []
+    administered_diagnostic: list[str] = []
     ranked: list[tuple[tuple[Any, ...], str, str, bool]] = []
     for item_id, covered in cells_by_item.items():
         item = vault.practice_items.get(item_id)
@@ -620,6 +631,18 @@ def select_held_out_probe_item(
         group = surface_group_id(item)
         if group in excluded:
             rejected.append(item_id)
+            continue
+        # Single-use freshness: an administered diagnostic_probe surface is
+        # burned even when its state row predates the deactivate-on-attempt
+        # flip (state.active True, last_attempt_at set). The probe scheduler
+        # must not create a task the follow-up serving door will refuse, so the
+        # ranking falls through to the next held-out candidate instead.
+        if (
+            item.practice_mode == "diagnostic_probe"
+            and state is not None
+            and state.last_attempt_at is not None
+        ):
+            administered_diagnostic.append(item_id)
             continue
         # Meas §3.A2/§3.A3, checked AFTER the surface rule so the two buckets are
         # disjoint and each one means what it says: an id in `unservable` cleared
@@ -663,7 +686,11 @@ def select_held_out_probe_item(
         # would send someone authoring the variety they already have.
         if unservable:
             decision, basis = "no_servable_item", "distinct_surface_group"
-        elif rejected:
+        elif rejected or administered_diagnostic:
+            # An administered single-use diagnostic surface is not held out
+            # either: the learner has seen it, so it shares the burned-surface
+            # arm. The dedicated bucket in the detail keeps the two causes
+            # distinguishable (variety gap vs consumed diagnostic supply).
             decision, basis = "no_held_out_surface", "shared_surface_group"
         else:
             decision, basis = "no_candidate_item", "unknown"
@@ -676,6 +703,7 @@ def select_held_out_probe_item(
             candidates_considered=len(cells_by_item),
             rejected_as_used_surface=tuple(sorted(rejected)),
             rejected_as_unservable=tuple(sorted(unservable)),
+            rejected_as_administered_diagnostic=tuple(sorted(administered_diagnostic)),
         )
 
     ranked.sort(key=lambda entry: entry[0])
@@ -689,6 +717,7 @@ def select_held_out_probe_item(
         candidates_considered=len(cells_by_item),
         rejected_as_used_surface=tuple(sorted(rejected)),
         rejected_as_unservable=tuple(sorted(unservable)),
+        rejected_as_administered_diagnostic=tuple(sorted(administered_diagnostic)),
         covers_integration=covers_integration,
     )
 

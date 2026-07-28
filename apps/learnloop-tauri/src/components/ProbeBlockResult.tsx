@@ -7,6 +7,7 @@ import type {
 import { MarkdownMath } from "../render/MarkdownMath";
 import { COLOR, FONT_MONO, Faint } from "./term";
 import { Pill } from "./ui";
+import { ProbeRemintAction } from "./CardControls";
 import { CausalFeedbackPanel } from "./CausalAttribution";
 
 // Shared §5.7 block-end review: status/route banner + the withheld feedback
@@ -102,6 +103,16 @@ export function ProbeBlockResult({
                   <span style={{ color: COLOR.red, fontFamily: FONT_MONO, fontSize: 11 }}>
                     {feedback.fatalErrors.join(", ")}
                   </span>
+                ) : null}
+                {feedback.practiceItemId ? (
+                  // Renders only for single-use diagnostic_probe surfaces (the
+                  // component checks the item's mode itself): "this probe was
+                  // good practice — keep an ordinary copy".
+                  <ProbeRemintAction
+                    attemptId={feedback.attemptId}
+                    practiceItemId={feedback.practiceItemId}
+                    onError={(message) => onError?.(message)}
+                  />
                 ) : null}
               </div>
               {feedback.causalFeedback ? (

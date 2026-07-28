@@ -15,6 +15,27 @@ prerequisites:
 confusables:
   - encoder self-attention
   - encoder-decoder attention
+blueprints:
+  - id: bp_apply_decoder_causal_masking
+    weight: 1.0
+    recipes:
+      - id: recipe_apply_decoder_mask
+        composition: conjunctive
+        all_of:
+          - facet: allowed_positions
+            capability: procedure_execution
+            modality: hard
+          - facet: masking_mechanism
+            capability: procedure_execution
+            modality: hard
+          - facet: future_leakage
+            capability: procedure_execution
+            modality: hard
+          - facet: specific_to_decoder
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.42
 difficulty_source: llm_estimate
 tags:
@@ -32,5 +53,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:24Z'
-updated_at: '2026-05-28T21:34:24Z'
+updated_at: '2026-07-28T03:18:53Z'

@@ -581,7 +581,14 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
 def _pick_primed_sibling(
     vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None
 ) -> tuple[Any | None, list[dict[str, Any]]]:
-    """Sibling items on the same LO, best-first: target-facet coverage, then freshness.
+    """Sibling items on the same LO, best-first.
+
+    Ordering (deterministic, lowest key first): not attempted within the repair
+    lane's :data:`~learnloop.services.remediation.RECENT_ATTEMPT_WINDOW` (an
+    item answered minutes ago re-measures short-term memory, not the retry);
+    covers a checkpoint the attempt's own repair selection targets (the
+    checkpoint-precise signal the facet ranking used to ignore); covers the
+    intervention need's target facets; least recently attempted; item id.
 
     Returns the pick AND the servability skips, because a primed retry is a
     selection path: the right response to an unrenderable sibling is to choose a
@@ -596,9 +603,26 @@ def _pick_primed_sibling(
     the LO has items, none is offered, and nothing says which rule ate them.
     """
 
+    from learnloop.clock import SystemClock, parse_utc
+    from learnloop.services.guided_redo import (
+        _diagnosis_receipt,
+        _item_step_checkpoint_ids,
+        _selected_repair,
+    )
+    from learnloop.services.remediation import RECENT_ATTEMPT_WINDOW, _item_checkpoints
+
     target_facets = {
         vault.canonical_facet_id(facet) for facet in ((need or {}).get("target_facets") or [])
     }
+    selected = _selected_repair(_diagnosis_receipt(repository, str(attempt["id"])))
+    targeted_checkpoints = set(
+        _item_step_checkpoint_ids(
+            (selected or {}).get("repair_class")
+            if isinstance((selected or {}).get("repair_class"), dict)
+            else None
+        )
+    )
+    now = SystemClock().now()
     candidates = []
     skipped: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
@@ -612,11 +636,30 @@ def _pick_primed_sibling(
             skipped.append(refusal)
             continue
         covers = bool(target_facets & {vault.canonical_facet_id(facet) for facet in item.evidence_facets})
+        covers_checkpoint = (
+            bool(targeted_checkpoints & _item_checkpoints(item))
+            if targeted_checkpoints
+            else False
+        )
         last_attempt_at = state.last_attempt_at if state is not None else None
-        candidates.append((0 if covers else 1, last_attempt_at or "", item.id, item))
+        attempted_recently = False
+        if last_attempt_at:
+            parsed = parse_utc(last_attempt_at)
+            if parsed is not None:
+                attempted_recently = now - parsed < RECENT_ATTEMPT_WINDOW
+        candidates.append(
+            (
+                1 if attempted_recently else 0,
+                0 if covers_checkpoint else 1,
+                0 if covers else 1,
+                last_attempt_at or "",
+                item.id,
+                item,
+            )
+        )
     if not candidates:
         return None, skipped
-    return min(candidates)[3], skipped
+    return min(candidates, key=lambda entry: entry[:-1])[-1], skipped
 
 
 def _primed_retry_unavailable(
@@ -648,6 +691,47 @@ def _primed_retry_unavailable(
         "practice_item": None,
         "unservable_skips": skips,
     }
+
+
+class StartGuidedRedoInput(ParamsModel):
+    attempt_id: str
+
+
+@method("start_guided_redo", StartGuidedRedoInput)
+def start_guided_redo_handler(
+    ctx: SidecarContext, params: StartGuidedRedoInput
+) -> dict[str, Any]:
+    """Guided partial redo (Fix 3): serve the preserved-prefix redo context.
+
+    Returns the learner's preserved work, the redo instruction derived from the
+    stored repair selection, and — when an open remediation episode bound to the
+    diagnosed case exists — commits it to this item as the primed surface so the
+    subsequent primed submit schedules the §6.2 cold retry.
+    """
+
+    from learnloop.services.guided_redo import GuidedRedoUnavailable, start_guided_redo
+
+    vault, repository = ctx.require_vault()
+    try:
+        result = start_guided_redo(vault, repository, params.attempt_id)
+    except GuidedRedoUnavailable as exc:
+        raise SidecarError("guided_redo_unavailable", str(exc)) from exc
+    log_event(
+        "guided_redo_started",
+        attempt_id=params.attempt_id,
+        practice_item_id=result["practice_item_id"],
+        episode_id=result.get("episode_id"),
+        cold_item_id=result.get("cold_item_id"),
+        insertion_kind=result.get("insertion_kind"),
+    )
+    return versioned(
+        {
+            **{key: value for key, value in result.items() if key != "episode"},
+            "practice_item": practice_item_detail(
+                vault, repository, result["practice_item_id"]
+            ),
+        }
+    )
 
 
 @method("rate_followup", RateFollowupInput)

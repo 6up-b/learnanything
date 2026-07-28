@@ -31,7 +31,14 @@ class SourceRef(VaultModel):
 
 
 class Provenance(VaultModel):
-    origin: Literal["human", "codex_proposal", "canonical_extract", "import"] = "human"
+    # ``probe_remint``: a learner kept an administered single-use diagnostic
+    # probe as an ordinary practice item (services/probe_remint.py). The mint is
+    # a mechanical copy of already-served content, so it is neither ``human``
+    # authorship nor a model proposal; the source_refs carry the probe item id
+    # and the administering attempt.
+    origin: Literal[
+        "human", "codex_proposal", "canonical_extract", "import", "probe_remint"
+    ] = "human"
     source_refs: list[SourceRef] = Field(default_factory=list)
 
 

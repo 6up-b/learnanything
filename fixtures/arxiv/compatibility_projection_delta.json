@@ -1,0 +1,813 @@
+{
+  "changed_cells": [
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.250000125,
+        0.0,
+        0.208333437
+      ],
+      "cell": "('added_to_embeddings', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('alignment_interpretation', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.041666688,
+        0.16666675,
+        0.0
+      ],
+      "cell": "('allowed_positions', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.22916675,
+        0.08333325,
+        0.16666675
+      ],
+      "cell": "('autoregressive_property', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0,
+        0.2,
+        0.0
+      ],
+      "cell": "('averaging_limitation', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.125,
+        0.0,
+        0.125
+      ],
+      "cell": "('clarity', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.3125
+      ],
+      "cell": "('column_softmax_last', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0625,
+        0.25
+      ],
+      "cell": "('combined_result', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.25
+      ],
+      "cell": "('compatibility_weights', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.05,
+        0.25,
+        0.05
+      ],
+      "cell": "('context_free_start', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.1,
+        0.2,
+        0.05
+      ],
+      "cell": "('context_incorporation', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.1,
+        0.2,
+        0.05
+      ],
+      "cell": "('contextual_meaning', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.1375,
+        0.1125,
+        0.1
+      ],
+      "cell": "('correct_order', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0,
+        0.2,
+        0.0
+      ],
+      "cell": "('cost_reasoning', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.25
+      ],
+      "cell": "('different_relationships', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.25
+      ],
+      "cell": "('distinct_maps', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('dot_product_ab', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('dot_product_ac', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.2
+      ],
+      "cell": "('dot_products', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.3125
+      ],
+      "cell": "('dot_products_second', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.375,
+        0.0,
+        0.25
+      ],
+      "cell": "('embedding_direction', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.075,
+        0.225,
+        0.05
+      ],
+      "cell": "('embedding_lookup', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0625,
+        0.25
+      ],
+      "cell": "('embedding_weights', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.041666688,
+        0.208333437,
+        0.0
+      ],
+      "cell": "('extrapolation', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.0
+      ],
+      "cell": "('future_blocked', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.208333437,
+        0.0,
+        0.16666675
+      ],
+      "cell": "('future_leakage', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('higher_temperature_uniformity', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0416665,
+        0.083333,
+        0.02083325
+      ],
+      "cell": "('learned_comparison', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0625,
+        0.3125,
+        0.0
+      ],
+      "cell": "('logits_before_softmax', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.2,
+        0.1
+      ],
+      "cell": "('logits_raw_scores', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('lower_temperature_peakedness', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.1,
+        0.1,
+        0.1
+      ],
+      "cell": "('lower_values_weight', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.25
+      ],
+      "cell": "('masking_mechanism', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('multiply_sum_method', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.0
+      ],
+      "cell": "('negative_infinity_to_zero', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.4,
+        0.0,
+        0.3
+      ],
+      "cell": "('next_token_distribution', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.125,
+        0.25,
+        0.125
+      ],
+      "cell": "('no_recurrence_convolution', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.0
+      ],
+      "cell": "('normalization_preserved', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.1,
+        0.0,
+        0.1
+      ],
+      "cell": "('not_just_parallelism', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0,
+        0.104166563,
+        0.0
+      ],
+      "cell": "('offset_embeddings', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.250000125,
+        0.0,
+        0.208333437
+      ],
+      "cell": "('order_information', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.296875,
+        0.015625,
+        0.25
+      ],
+      "cell": "('parallel_updates', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0,
+        0.2,
+        0.0
+      ],
+      "cell": "('positions', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.0
+      ],
+      "cell": "('pre_softmax_logits', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.225,
+        0.175,
+        0.175
+      ],
+      "cell": "('probability_constraints', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.3125
+      ],
+      "cell": "('qk_first', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.375,
+        0.0,
+        0.375
+      ],
+      "cell": "('qkv_roles', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.250000125,
+        0.0,
+        0.208333437
+      ],
+      "cell": "('relative_positions', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('sampling_variability', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3125,
+        0.0,
+        0.3125
+      ],
+      "cell": "('scale_before_softmax', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0,
+        0.25,
+        0.0
+      ],
+      "cell": "('scaling', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.05,
+        0.2,
+        0.0
+      ],
+      "cell": "('softmax', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.4,
+        0.0,
+        0.3
+      ],
+      "cell": "('softmax_normalization', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.104166563,
+        0.0,
+        0.08333325
+      ],
+      "cell": "('specific_to_decoder', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.3,
+        0.0,
+        0.3
+      ],
+      "cell": "('subspaces', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.1,
+        0.2,
+        0.05
+      ],
+      "cell": "('transformer_updates', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.2,
+        0.1
+      ],
+      "cell": "('unembedding_connection', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.0625,
+        0.3125,
+        0.0
+      ],
+      "cell": "('unembedding_direction', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.2
+      ],
+      "cell": "('value_weighting', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.25,
+        0.0,
+        0.25
+      ],
+      "cell": "('weighted_sum', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.15,
+        0.05,
+        0.15
+      ],
+      "cell": "('zero_argmax_limit', 'schema_interpretation')"
+    },
+    {
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "before": [
+        0.2,
+        0.0,
+        0.2
+      ],
+      "cell": "('zero_interpretation', 'schema_interpretation')"
+    }
+  ],
+  "from_version": "mvp-0.7",
+  "matches": false,
+  "to_version": "mvp-0.8"
+}

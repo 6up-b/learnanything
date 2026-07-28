@@ -662,11 +662,13 @@ def test_relocking_an_open_episode_does_not_inherit_its_evidence(tmp_path):
     plain = enter_episode(vault, repository, LO_ID, trigger="initial", clock=CLOCK)
     assert plain.status == "in_progress"
     # Ordinary practice inside the open placement episode: incidental evidence
-    # under ITS locked set.
+    # under ITS locked set. On the LO's ordinary item, NOT the probe item — an
+    # administration of the probe surface itself would (correctly) trip the
+    # never-before-seen probe gate and leave the relock with no instrument.
     complete_self_graded_attempt(
         vault,
         repository,
-        AttemptDraft(practice_item_id=PROBE_ITEM, learner_answer_md="U Sigma Q"),
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="U Sigma Q"),
         SelfGradeInput(criterion_points={"correctness": 0}, confidence=3),
         clock=CLOCK,
     )

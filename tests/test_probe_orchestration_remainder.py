@@ -63,14 +63,15 @@ def _grade(score: int) -> ResolvedGrade:
 
 
 def _submit(loaded, repository, *, score=4, attempt_type="independent_attempt",
-            presentation_id=None, answer_confidence=None, session_id=None, clock=CLOCK):
+            presentation_id=None, answer_confidence=None, session_id=None, clock=CLOCK,
+            item_id=ITEM_ID):
     attempt_id = new_ulid()
     result = apply_attempt(
         loaded,
         repository,
         ApplyAttemptInput(
             draft=AttemptDraft(
-                practice_item_id=ITEM_ID,
+                practice_item_id=item_id,
                 learner_answer_md="answer",
                 attempt_type=attempt_type,
                 session_id=session_id,
@@ -287,11 +288,41 @@ def test_session_cap_blocks_further_probe_serving(tmp_path):
     session_cap_reached; other sessions and capless callers are unaffected."""
 
     from learnloop.services.probe_episodes import probe_serving_block_reason
+    from learnloop.vault.writer import upsert_practice_item
 
-    _, loaded, repository = _setup(tmp_path)
+    vault_root, loaded, repository = _setup(tmp_path)
+    # Ordinary practice must exist on a DIFFERENT surface: administering the
+    # instrument item itself would (correctly) trip the never-before-seen
+    # probe gate and empty the eligible slate.
+    upsert_practice_item(
+        vault_root,
+        {
+            "id": "pi_svd_ordinary_practice",
+            "learning_object_id": LO_ID,
+            "subjects": None,
+            "practice_mode": "short_answer",
+            "attempt_types_allowed": ["independent_attempt", "dont_know"],
+            "evidence_facets": ["recall"],
+            "evidence_weights": {"recall": 1.0},
+            "prompt": "Ordinary practice on a fresh surface.",
+            "expected_answer": "A matrix factorization into U, Sigma, and V transpose.",
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
+                "fatal_errors": [],
+            },
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        },
+        clock=CLOCK,
+    )
+    loaded = load_vault(vault_root)
     loaded.config.probe.episode.session_qualifying_observation_cap = 1
     # Ordinary practice exists, so the onboarding ceiling is not in play.
-    _submit(loaded, repository, score=3, attempt_type="independent_attempt")
+    _submit(
+        loaded, repository, score=3, attempt_type="independent_attempt",
+        item_id="pi_svd_ordinary_practice",
+    )
 
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     hypothesis_set = episode_hypothesis_set(repository, episode)

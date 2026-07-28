@@ -13,6 +13,27 @@ summary: A multi-head attention block runs many independent heads in parallel,
 prerequisites:
   - lo_value_updates
 confusables: []
+blueprints:
+  - id: bp_describe_multihead_attention
+    weight: 1.0
+    recipes:
+      - id: recipe_trace_multihead_combination
+        composition: conjunctive
+        all_of:
+          - facet: distinct_maps
+            capability: schema_interpretation
+            modality: hard
+          - facet: different_relationships
+            capability: schema_interpretation
+            modality: hard
+          - facet: parallel_updates
+            capability: schema_interpretation
+            modality: hard
+          - facet: combined_result
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.58
 difficulty_source: llm_estimate
 tags:
@@ -30,6 +51,13 @@ provenance:
       quote: multi-headed attention, where you run a lot of these operations in 
         parallel.
       quote_hash: sha256:src_multihead
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_parameter_scaling
       path: 
@@ -38,5 +66,12 @@ provenance:
       quote: 96 distinct layers... total sum to just under 58 billion... 
         extremely parallelizable.
       quote_hash: sha256:src_parameter_scaling
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:18Z'
-updated_at: '2026-05-28T21:34:18Z'
+updated_at: '2026-07-28T03:18:56Z'

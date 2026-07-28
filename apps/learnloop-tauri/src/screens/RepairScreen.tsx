@@ -225,6 +225,8 @@ export function RepairScreen({
   const kase = remediation?.case ?? null;
   const passages = remediation?.episode?.passagesShown ?? [];
   const primedItemId = remediation?.primedItemId ?? remediation?.episode?.primedItemId ?? null;
+  const coldItemId = remediation?.coldItemId ?? remediation?.episode?.coldItemId ?? null;
+  const coldUnmeasurableReason = remediation?.coldUnmeasurableReason ?? null;
   const returned = kase?.history.some((h) => h.label === "returned") ?? false;
 
   return (
@@ -369,14 +371,29 @@ export function RepairScreen({
                       ) : (
                         <div style={{ color: COLOR.textDim, fontSize: 12 }}>No primed item was available for this case.</div>
                       )}
-                      {/* d. Confirmation — unassisted cold retry scheduled */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-                        <Pill color="green">scheduled</Pill>
-                        <span style={{ fontSize: 12, color: COLOR.textDim }}>
-                          an unassisted cold retry is scheduled for a later session (tomorrow or later) — only that
-                          converts to Demonstrated credit
-                        </span>
-                      </div>
+                      {/* d. Cold-retry status — honest about unmeasurability.
+                          Only a paired independent surface converts to
+                          Demonstrated credit; promising "scheduled" while
+                          cold_item_id is NULL claimed a measurement that can
+                          never happen. */}
+                      {coldItemId ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+                          <Pill color="green">scheduled</Pill>
+                          <span style={{ fontSize: 12, color: COLOR.textDim }}>
+                            an unassisted cold retry is scheduled for a later session (tomorrow or later) — only that
+                            converts to Demonstrated credit
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+                          <Pill color="red">not measurable</Pill>
+                          <span style={{ fontSize: 12, color: COLOR.textDim }}>
+                            {coldUnmeasurableReason === "no_independent_surface"
+                              ? "no independent question exists on this topic yet, so no unassisted cold retry can be scheduled — this repair cannot convert to Demonstrated credit until another surface is authored"
+                              : "no unassisted cold retry could be scheduled for this repair, so it cannot convert to Demonstrated credit"}
+                          </span>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

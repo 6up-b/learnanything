@@ -136,7 +136,40 @@ def test_probe_eig_persisted_in_scheduler_explanation(tmp_path):
 
 
 def test_probe_eig_uses_prospective_familiarity_discount(tmp_path):
+    """Facet-overlap familiarity from a DIFFERENT surface discounts probe EIG.
+
+    An attempt on the probe item itself no longer merely discounts — the
+    never-before-seen gate hard-excludes the whole surface group from probe
+    candidacy (see test_diagnostic_probe_freshness.py). The discount path pinned
+    here is the surviving one: incidental practice on a sibling surface with
+    overlapping facets makes the probe's evidence less independent.
+    """
+
+    from learnloop.vault.writer import upsert_practice_item
+
     vault_root, repository = _setup_probe_vault(tmp_path)
+    upsert_practice_item(
+        vault_root,
+        {
+            "id": "pi_svd_sibling_surface",
+            "learning_object_id": "lo_svd_definition",
+            "subjects": None,
+            "practice_mode": "short_answer",
+            "attempt_types_allowed": ["independent_attempt", "dont_know"],
+            "evidence_facets": ["recall"],
+            "evidence_weights": {"recall": 1.0},
+            "prompt": "A fresh sibling surface on the same facet.",
+            "expected_answer": "A matrix factorization into U, Sigma, and V transpose.",
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
+                "fatal_errors": [],
+            },
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        },
+        clock=FrozenClock(NOW),
+    )
     loaded = load_vault(vault_root)
 
     baseline_queue = build_due_queue(
@@ -146,12 +179,14 @@ def test_probe_eig_uses_prospective_familiarity_discount(tmp_path):
         session=SchedulerSession(session_id="baseline"),
         persist_explanations=False,
     )
-    baseline_item = baseline_queue[0]
+    baseline_item = next(
+        i for i in baseline_queue if i.practice_item_id == "pi_svd_define_001"
+    )
     complete_self_graded_attempt(
         loaded,
         repository,
         AttemptDraft(
-            practice_item_id="pi_svd_define_001",
+            practice_item_id="pi_svd_sibling_surface",
             learner_answer_md="I do not know",
             attempt_type="dont_know",
         ),
@@ -166,7 +201,9 @@ def test_probe_eig_uses_prospective_familiarity_discount(tmp_path):
         session=SchedulerSession(session_id="discounted"),
         persist_explanations=False,
     )
-    discounted_item = discounted_queue[0]
+    discounted_item = next(
+        i for i in discounted_queue if i.practice_item_id == "pi_svd_define_001"
+    )
 
     assert discounted_item.components["probe_eig_familiarity_discount"] < 1.0
     assert discounted_item.components["probe_eig"] < baseline_item.components["probe_eig"]

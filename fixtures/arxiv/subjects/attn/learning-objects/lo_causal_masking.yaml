@@ -13,6 +13,27 @@ summary: For next-token prediction, later tokens must not influence earlier
 prerequisites:
   - lo_qk_attention_pattern
 confusables: []
+blueprints:
+  - id: bp_explain_causal_masking
+    weight: 1.0
+    recipes:
+      - id: recipe_explain_masked_softmax
+        composition: conjunctive
+        all_of:
+          - facet: future_blocked
+            capability: schema_interpretation
+            modality: hard
+          - facet: pre_softmax_logits
+            capability: schema_interpretation
+            modality: hard
+          - facet: negative_infinity_to_zero
+            capability: schema_interpretation
+            modality: hard
+          - facet: normalization_preserved
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.48
 difficulty_source: llm_estimate
 tags:
@@ -30,6 +51,13 @@ provenance:
       quote: never want to allow later words to influence earlier words... This 
         process is called masking.
       quote_hash: sha256:src_causal_masking
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_attention_quadratic
       path: 
@@ -38,5 +66,12 @@ provenance:
       quote: attention pattern... size is equal to the square of the context 
         size.
       quote_hash: sha256:src_attention_quadratic
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:17Z'
-updated_at: '2026-05-28T21:34:17Z'
+updated_at: '2026-07-28T03:18:50Z'

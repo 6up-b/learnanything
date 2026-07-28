@@ -14,6 +14,30 @@ prerequisites: []
 confusables:
   - additive attention
   - unscaled dot-product attention
+blueprints:
+  - id: bp_compute_scaled_dot_product_attention
+    weight: 1.0
+    recipes:
+      - id: recipe_execute_scaled_attention
+        composition: conjunctive
+        all_of:
+          - facet: dot_products
+            capability: procedure_execution
+            modality: hard
+          - facet: scaling
+            capability: procedure_execution
+            modality: hard
+          - facet: softmax
+            capability: procedure_execution
+            modality: hard
+          - facet: weighted_sum
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+          facet: correct_order
+          capability: procedure_execution
+          modality: hard
 difficulty_prior: 0.48
 difficulty_source: llm_estimate
 tags:
@@ -31,5 +55,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:26Z'
-updated_at: '2026-05-28T21:34:26Z'
+updated_at: '2026-07-28T03:18:45Z'

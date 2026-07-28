@@ -14,6 +14,27 @@ prerequisites:
   - lo_contextual_embeddings
 confusables:
   - concept_value_vectors
+blueprints:
+  - id: bp_compute_qk_attention_pattern
+    weight: 1.0
+    recipes:
+      - id: recipe_compute_attention_weights
+        composition: conjunctive
+        all_of:
+          - facet: qk_first
+            capability: procedure_execution
+            modality: hard
+          - facet: dot_products_second
+            capability: procedure_execution
+            modality: hard
+          - facet: scale_before_softmax
+            capability: procedure_execution
+            modality: hard
+          - facet: column_softmax_last
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.56
 difficulty_source: llm_estimate
 tags:
@@ -31,6 +52,13 @@ provenance:
       quote: query vector... key matrix... keys as potentially answering the 
         queries.
       quote_hash: sha256:src_queries_keys
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_dot_softmax_pattern
       path: 
@@ -39,6 +67,13 @@ provenance:
       quote: compute a dot product between each possible key-query pair... We 
         call this grid an attention pattern.
       quote_hash: sha256:src_dot_softmax_pattern
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_scaled_attention_formula
       path: 
@@ -47,5 +82,12 @@ provenance:
       quote: divide all of these values by the square root of the dimension... 
         softmax... column by column.
       quote_hash: sha256:src_scaled_attention_formula
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:18Z'
-updated_at: '2026-05-28T21:34:18Z'
+updated_at: '2026-07-28T03:18:44Z'

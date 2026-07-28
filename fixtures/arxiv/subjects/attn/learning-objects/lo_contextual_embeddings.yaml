@@ -17,6 +17,44 @@ prerequisites:
 confusables:
   - static_word_embedding
   - token_id
+blueprints:
+  - id: bp_contextualize_token_embeddings
+    weight: 0.7
+    recipes:
+      - id: recipe_trace_contextualization
+        composition: conjunctive
+        all_of:
+          - facet: embedding_lookup
+            capability: schema_interpretation
+            modality: hard
+          - facet: context_free_start
+            capability: schema_interpretation
+            modality: hard
+          - facet: context_incorporation
+            capability: schema_interpretation
+            modality: hard
+          - facet: contextual_meaning
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+  - id: bp_context_window_limits
+    weight: 0.3
+    recipes:
+      - id: recipe_explain_context_limit
+        composition: conjunctive
+        all_of:
+          - facet: fixed_context_window
+            capability: schema_interpretation
+            modality: hard
+          - facet: prediction_dependency
+            capability: schema_interpretation
+            modality: hard
+          - facet: long_conversation_loss
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.48
 difficulty_source: llm_estimate
 tags:
@@ -34,5 +72,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:17Z'
-updated_at: '2026-05-28T22:11:03Z'
+updated_at: '2026-07-28T03:18:52Z'

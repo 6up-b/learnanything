@@ -548,6 +548,16 @@ def _normalize_compositional(
         generation_agent_run_id=feedback.get("agent_run_id"),
         clock=clock,
     )
+    # Bounded deferral (exits b-ii/c): escalate or expire promotion-blocking
+    # factors BEFORE reading the block, so a signature that has already earned
+    # its K unengaged recurrences promotes on THIS materialization instead of
+    # deferring forever (the materialization above just opened a fresh factor
+    # for this very attempt). Same injected clock as the attempt — replay-safe.
+    from learnloop.services.causal_factor_deferral import (
+        sweep_promotion_blocking_factors,
+    )
+
+    sweep_promotion_blocking_factors(repository, clock=clock)
     events = repository.error_events_for_attempt(attempt_id)
     attempt = repository.fetch_practice_attempt(attempt_id)
     open_unresolved = bool(

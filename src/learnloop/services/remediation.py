@@ -131,10 +131,118 @@ def prescribe_remediation(
     ) or episode
 
 
+#: An item attempted within this window is still "hot" — serving it again as the
+#: primed half of a repair pair measures short-term memory of the question, not
+#: the repair. Mirrors the lane's own §6.2 day boundary: the cold retry is not
+#: schedulable before +1 day for exactly the same reason.
+RECENT_ATTEMPT_WINDOW = timedelta(days=1)
+
+
+def _item_step_checkpoint_ids(target_refs) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            str(ref["checkpoint_id"])
+            for ref in target_refs or []
+            if isinstance(ref, dict)
+            and ref.get("kind") == "item_step"
+            and ref.get("checkpoint_id")
+        )
+    )
+
+
+def _case_target_checkpoint_ids(
+    repository: Repository,
+    misconception,
+    *,
+    case_kind: str = "misconception",
+    case_ref: str | None = None,
+) -> tuple[str, ...]:
+    """The checkpoint ids the case's selected repair class targets, if known.
+
+    Misconception/candidate cases read the newest diagnosing attempt's receipt
+    (`repair_selection` / `common_repair_cover` live there): the repair class's
+    `item_step` target_refs carry `checkpoint_id`s, which is the
+    checkpoint-precise targeting signal the facet-overlap ranking used to
+    ignore. A diagnosis-kind case has no misconception-linked receipt path —
+    its case_ref IS the causal hypothesis id, so the hypothesis's own
+    `repair_class_id` resolves through the durable
+    `causal_repair_class_definitions` store (migration 133) instead. Empty for
+    legacy receipts — callers fall back to facet overlap alone."""
+
+    if case_kind == "diagnosis" and case_ref:
+        hypothesis = repository.causal_hypothesis(str(case_ref))
+        repair_class_id = str((hypothesis or {}).get("repair_class_id") or "")
+        if not repair_class_id:
+            return ()
+        definition = repository.causal_repair_class_definitions(
+            [repair_class_id]
+        ).get(repair_class_id)
+        return _item_step_checkpoint_ids((definition or {}).get("target_refs"))
+
+    case_id = str(_case_value(misconception, "id", "") or "")
+    if not case_id:
+        return ()
+    source_event_ids = list(
+        _case_value(misconception, "source_error_event_ids", None) or []
+    )
+    try:
+        attempt_ids = repository.attempt_ids_for_misconception(
+            case_id, event_ids=source_event_ids
+        )
+    except Exception:  # pragma: no cover - candidate cases have no events table row
+        return ()
+    for attempt_id in attempt_ids:
+        debug = repository.attempt_debug_payload(attempt_id) or {}
+        attribution = debug.get("causal_attribution")
+        if not isinstance(attribution, dict):
+            continue
+        receipt = attribution.get("diagnosis_receipt")
+        if not isinstance(receipt, dict):
+            continue
+        selection = receipt.get("repair_selection")
+        selected = selection.get("selected") if isinstance(selection, dict) else None
+        repair_class = (
+            selected.get("repair_class") if isinstance(selected, dict) else None
+        )
+        checkpoint_ids = _item_step_checkpoint_ids(
+            (repair_class or {}).get("target_refs")
+        )
+        if checkpoint_ids:
+            return checkpoint_ids
+    return ()
+
+
+def _item_checkpoints(item: Any) -> set[str]:
+    contract = getattr(item, "trace_contract", None)
+    if contract is None or getattr(contract, "status", None) != "available":
+        return set()
+    return {
+        str(checkpoint)
+        for recipe in contract.recipes
+        for checkpoint in recipe.checkpoints
+    }
+
+
 def _rank_items(
-    vault: LoadedVault, repository: Repository, misconception
+    vault: LoadedVault,
+    repository: Repository,
+    misconception,
+    *,
+    target_checkpoint_ids: tuple[str, ...] = (),
+    clock: Clock | None = None,
 ) -> tuple[list[Any], list[dict[str, Any]]]:
     """The repair's candidate items best-first, plus the servability skips.
+
+    Ordering (deterministic, lowest key first):
+
+    1. not attempted within :data:`RECENT_ATTEMPT_WINDOW` — an item the learner
+       answered minutes ago is a memory probe, not a repair measurement;
+    2. covers a targeted repair checkpoint — when the case's repair class names
+       `item_step` targets, an item whose trace-contract recipes exercise those
+       checkpoints measures the repaired step itself;
+    3. facet overlap with the confused pair;
+    4. least recently practiced;
+    5. item id (stable tie-break).
 
     Meas §3.A2/§3.A3: an item whose stimulus the practice surface cannot render
     is not schedulable, and a repair episode is the worst place to break that
@@ -161,6 +269,8 @@ def _rank_items(
         )
         if facet
     }
+    targeted = {str(value) for value in target_checkpoint_ids if value}
+    now = (clock or SystemClock()).now()
     ranked = []
     skipped: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
@@ -177,14 +287,29 @@ def _rank_items(
             target_facets
             & {vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets}
         )
+        covers_checkpoint = bool(targeted & _item_checkpoints(item)) if targeted else False
         # A seeded-but-never-attempted item has a state row whose
         # `last_attempt_at` is NULL; comparing that against another item's
         # timestamp raised TypeError and crashed the whole prescription. Treat
         # "never attempted" as the earliest possible time, which is also the
         # ordering this rank wants (least recently practiced first).
         last_attempt_at = (state.last_attempt_at or "") if state else ""
-        ranked.append((-overlap, last_attempt_at, item.id, item))
-    return [entry[3] for entry in sorted(ranked)], skipped
+        attempted_recently = False
+        if last_attempt_at:
+            parsed = parse_utc(last_attempt_at)
+            if parsed is not None:
+                attempted_recently = now - parsed < RECENT_ATTEMPT_WINDOW
+        ranked.append(
+            (
+                1 if attempted_recently else 0,
+                0 if covers_checkpoint else 1,
+                -overlap,
+                last_attempt_at,
+                item.id,
+                item,
+            )
+        )
+    return [entry[-1] for entry in sorted(ranked, key=lambda entry: entry[:-1])], skipped
 
 
 def start_remediation_treatment(
@@ -200,7 +325,18 @@ def start_remediation_treatment(
     misconception = _episode_case(repository, episode)
     if misconception is None:
         raise RemediationError("remediation case no longer exists")
-    ranked, unservable_skips = _rank_items(vault, repository, misconception)
+    ranked, unservable_skips = _rank_items(
+        vault,
+        repository,
+        misconception,
+        target_checkpoint_ids=_case_target_checkpoint_ids(
+            repository,
+            misconception,
+            case_kind=str(episode.get("case_kind") or "misconception"),
+            case_ref=str(episode.get("case_ref") or "") or None,
+        ),
+        clock=clock,
+    )
     if not ranked:
         if unservable_skips:
             # Name the rule that emptied the ranking. The bare message sends a
@@ -318,6 +454,15 @@ def record_remediation_attempt(
             context=context,
             clock=clock,
         )
+        return
+
+    # An exam sitting that happens to serve the cold item must not silently
+    # consume the one cold measurement: the sitting is proctored, time-pressured
+    # context — not the unassisted later-session retrieval the §6.2 receipt
+    # claims — and burning the task on it leaves the episode "completed" on
+    # contaminated evidence. Same taxonomy split the dual-write chokepoint uses
+    # (`exam_evidence` / `exam_attempt`, migrations 018/022).
+    if "exam" in str(attempt.get("attempt_type") or ""):
         return
 
     # Ask for the repair lane by name (migration 139 added a second `kind` to the

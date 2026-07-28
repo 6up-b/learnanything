@@ -2,7 +2,8 @@ schema_version: 2
 facets:
   - id: add_to_embedding
     title:
-    aliases: []
+    aliases:
+      - attention residual update
     description:
     tags: []
     concept_id:
@@ -25,7 +26,8 @@ facets:
       source_refs: []
   - id: added_to_embeddings
     title:
-    aliases: []
+    aliases:
+      - positional encoding addition
     description:
     tags: []
     concept_id:
@@ -48,7 +50,8 @@ facets:
       source_refs: []
   - id: alignment_interpretation
     title:
-    aliases: []
+    aliases:
+      - dot-product directional alignment
     description:
     tags: []
     concept_id:
@@ -72,7 +75,8 @@ facets:
       source_refs: []
   - id: allowed_positions
     title:
-    aliases: []
+    aliases:
+      - causal prefix attention
     description:
     tags: []
     concept_id:
@@ -95,7 +99,8 @@ facets:
       source_refs: []
   - id: append_step
     title:
-    aliases: []
+    aliases:
+      - append sampled token
     description:
     tags: []
     concept_id:
@@ -118,7 +123,8 @@ facets:
       source_refs: []
   - id: attention_refines
     title:
-    aliases: []
+    aliases:
+      - contextualization by attention
     description:
     tags: []
     concept_id:
@@ -141,7 +147,8 @@ facets:
       source_refs: []
   - id: attention_role
     title:
-    aliases: []
+    aliases:
+      - cross-token information exchange
     description:
     tags: []
     concept_id:
@@ -164,7 +171,8 @@ facets:
       source_refs: []
   - id: autoregressive_property
     title:
-    aliases: []
+    aliases:
+      - no future-token dependence
     description:
     tags: []
     concept_id:
@@ -187,7 +195,8 @@ facets:
       source_refs: []
   - id: averaging_limitation
     title:
-    aliases: []
+    aliases:
+      - single-head averaging limitation
     description:
     tags: []
     concept_id:
@@ -210,7 +219,8 @@ facets:
       source_refs: []
   - id: balanced_comparison
     title:
-    aliases: []
+    aliases:
+      - balanced sequence-layer comparison
     description:
     tags: []
     concept_id:
@@ -233,7 +243,8 @@ facets:
       source_refs: []
   - id: bottleneck_implication
     title:
-    aliases: []
+    aliases:
+      - long-context attention bottleneck
     description:
     tags: []
     concept_id:
@@ -256,7 +267,8 @@ facets:
       source_refs: []
   - id: clarity
     title:
-    aliases: []
+    aliases:
+      - query-key versus value roles
     description:
     tags: []
     concept_id:
@@ -279,7 +291,8 @@ facets:
       source_refs: []
   - id: column_softmax_last
     title:
-    aliases: []
+    aliases:
+      - attention-column softmax
     description:
     tags: []
     concept_id:
@@ -302,7 +315,8 @@ facets:
       source_refs: []
   - id: combined_result
     title:
-    aliases: []
+    aliases:
+      - multi-head output combination
     description:
     tags: []
     concept_id:
@@ -325,7 +339,8 @@ facets:
       source_refs: []
   - id: compatibility_weights
     title:
-    aliases: []
+    aliases:
+      - query-key compatibility weights
     description:
     tags: []
     concept_id:
@@ -348,7 +363,8 @@ facets:
       source_refs: []
   - id: complexity_tradeoff
     title:
-    aliases: []
+    aliases:
+      - attention-convolution cost tradeoff
     description:
     tags: []
     concept_id:
@@ -371,7 +387,8 @@ facets:
       source_refs: []
   - id: context_free_start
     title:
-    aliases: []
+    aliases:
+      - initial context-free embedding
     description:
     tags: []
     concept_id:
@@ -394,7 +411,8 @@ facets:
       source_refs: []
   - id: context_incorporation
     title:
-    aliases: []
+    aliases:
+      - context incorporation by transformer blocks
     description:
     tags: []
     concept_id:
@@ -417,7 +435,8 @@ facets:
       source_refs: []
   - id: contextual_meaning
     title:
-    aliases: []
+    aliases:
+      - later-layer contextual meaning
     description:
     tags: []
     concept_id:
@@ -440,7 +459,8 @@ facets:
       source_refs: []
   - id: convolution_path
     title:
-    aliases: []
+    aliases:
+      - convolution long-range path
     description:
     tags: []
     concept_id:
@@ -463,7 +483,8 @@ facets:
       source_refs: []
   - id: correct_order
     title:
-    aliases: []
+    aliases:
+      - scaled-attention operation order
     description:
     tags: []
     concept_id:
@@ -487,7 +508,8 @@ facets:
       source_refs: []
   - id: cost_reasoning
     title:
-    aliases: []
+    aliases:
+      - multi-head cost parity
     description:
     tags: []
     concept_id:
@@ -510,7 +532,8 @@ facets:
       source_refs: []
   - id: decoder_ffn
     title:
-    aliases: []
+    aliases:
+      - decoder feed-forward sublayer
     description:
     tags: []
     concept_id:
@@ -533,7 +556,8 @@ facets:
       source_refs: []
   - id: decoder_masked_self_attention
     title:
-    aliases: []
+    aliases:
+      - decoder masked self-attention sublayer
     description:
     tags: []
     concept_id:
@@ -556,7 +580,8 @@ facets:
       source_refs: []
   - id: different_contexts
     title:
-    aliases: []
+    aliases:
+      - context-dependent token representations
     description:
     tags: []
     concept_id:
@@ -579,7 +604,8 @@ facets:
       source_refs: []
   - id: different_relationships
     title:
-    aliases: []
+    aliases:
+      - head-specific contextual relationships
     description:
     tags: []
     concept_id:
@@ -602,7 +628,8 @@ facets:
       source_refs: []
   - id: dimension_consistency
     title:
-    aliases: []
+    aliases:
+      - residual dimension requirement
     description:
     tags: []
     concept_id:
@@ -625,7 +652,8 @@ facets:
       source_refs: []
   - id: distinct_maps
     title:
-    aliases: []
+    aliases:
+      - per-head QKV projections
     description:
     tags: []
     concept_id:
@@ -648,7 +676,8 @@ facets:
       source_refs: []
   - id: dot_product_ab
     title:
-    aliases: []
+    aliases:
+      - a·b dot-product computation
     description:
     tags: []
     concept_id:
@@ -671,7 +700,8 @@ facets:
       source_refs: []
   - id: dot_product_ac
     title:
-    aliases: []
+    aliases:
+      - a·c dot-product computation
     description:
     tags: []
     concept_id:
@@ -694,7 +724,8 @@ facets:
       source_refs: []
   - id: dot_products
     title:
-    aliases: []
+    aliases:
+      - query-key dot-product scoring
     description:
     tags: []
     concept_id:
@@ -717,7 +748,8 @@ facets:
       source_refs: []
   - id: dot_products_second
     title:
-    aliases: []
+    aliases:
+      - pairwise query-key scores
     description:
     tags: []
     concept_id:
@@ -740,7 +772,8 @@ facets:
       source_refs: []
   - id: doubling_quadruples
     title:
-    aliases: []
+    aliases:
+      - context doubling quadruples scores
     description:
     tags: []
     concept_id:
@@ -763,7 +796,8 @@ facets:
       source_refs: []
   - id: embedding_direction
     title:
-    aliases: []
+    aliases:
+      - token-to-model-space embedding
     description:
     tags: []
     concept_id:
@@ -786,7 +820,8 @@ facets:
       source_refs: []
   - id: embedding_lookup
     title:
-    aliases: []
+    aliases:
+      - embedding-matrix lookup
     description:
     tags: []
     concept_id:
@@ -809,7 +844,8 @@ facets:
       source_refs: []
   - id: embedding_order
     title:
-    aliases: []
+    aliases:
+      - embedding before transformer blocks
     description:
     tags: []
     concept_id:
@@ -832,7 +868,8 @@ facets:
       source_refs: []
   - id: embedding_weights
     title:
-    aliases: []
+    aliases:
+      - learned embedding parameters
     description:
     tags: []
     concept_id:
@@ -855,7 +892,8 @@ facets:
       source_refs: []
   - id: encoder_decoder_attention
     title:
-    aliases: []
+    aliases:
+      - encoder-decoder cross-attention
     description:
     tags: []
     concept_id:
@@ -878,7 +916,8 @@ facets:
       source_refs: []
   - id: encoder_sublayers
     title:
-    aliases: []
+    aliases:
+      - encoder attention and FFN sublayers
     description:
     tags: []
     concept_id:
@@ -901,7 +940,8 @@ facets:
       source_refs: []
   - id: extrapolation
     title:
-    aliases: []
+    aliases:
+      - sinusoidal position extrapolation
     description:
     tags: []
     concept_id:
@@ -925,7 +965,8 @@ facets:
       source_refs: []
   - id: feed_forward_role
     title:
-    aliases: []
+    aliases:
+      - position-wise feed-forward transformation
     description:
     tags: []
     concept_id:
@@ -948,7 +989,8 @@ facets:
       source_refs: []
   - id: fixed_context_window
     title:
-    aliases: []
+    aliases:
+      - maximum active context length
     description:
     tags: []
     concept_id:
@@ -971,7 +1013,8 @@ facets:
       source_refs: []
   - id: future_blocked
     title:
-    aliases: []
+    aliases:
+      - future positions blocked
     description:
     tags: []
     concept_id:
@@ -994,7 +1037,8 @@ facets:
       source_refs: []
   - id: future_leakage
     title:
-    aliases: []
+    aliases:
+      - future-token information leakage
     description:
     tags: []
     concept_id:
@@ -1017,7 +1061,8 @@ facets:
       source_refs: []
   - id: higher_temperature_uniformity
     title:
-    aliases: []
+    aliases:
+      - higher-temperature flattening
     description:
     tags: []
     concept_id:
@@ -1040,7 +1085,8 @@ facets:
       source_refs: []
   - id: iteration_loop
     title:
-    aliases: []
+    aliases:
+      - autoregressive generation loop
     description:
     tags: []
     concept_id:
@@ -1063,7 +1109,8 @@ facets:
       source_refs: []
   - id: layer_norm
     title:
-    aliases: []
+    aliases:
+      - post-residual layer normalization
     description:
     tags: []
     concept_id:
@@ -1086,7 +1133,8 @@ facets:
       source_refs: []
   - id: learned_comparison
     title:
-    aliases: []
+    aliases:
+      - learned versus sinusoidal positions
     description:
     tags: []
     concept_id:
@@ -1109,7 +1157,8 @@ facets:
       source_refs: []
   - id: logits_before_softmax
     title:
-    aliases: []
+    aliases:
+      - pre-softmax unembedding logits
     description:
     tags: []
     concept_id:
@@ -1132,7 +1181,8 @@ facets:
       source_refs: []
   - id: logits_raw_scores
     title:
-    aliases: []
+    aliases:
+      - raw token logits
     description:
     tags: []
     concept_id:
@@ -1155,7 +1205,8 @@ facets:
       source_refs: []
   - id: long_conversation_loss
     title:
-    aliases: []
+    aliases:
+      - context-window information loss
     description:
     tags: []
     concept_id:
@@ -1178,7 +1229,8 @@ facets:
       source_refs: []
   - id: long_range_dependency_link
     title:
-    aliases: []
+    aliases:
+      - short long-range dependency path
     description:
     tags: []
     concept_id:
@@ -1201,7 +1253,8 @@ facets:
       source_refs: []
   - id: lookup_context_free
     title:
-    aliases: []
+    aliases:
+      - context-independent lookup vector
     description:
     tags: []
     concept_id:
@@ -1224,7 +1277,8 @@ facets:
       source_refs: []
   - id: lower_temperature_peakedness
     title:
-    aliases: []
+    aliases:
+      - lower-temperature sharpening
     description:
     tags: []
     concept_id:
@@ -1247,7 +1301,8 @@ facets:
       source_refs: []
   - id: lower_values_weight
     title:
-    aliases: []
+    aliases:
+      - temperature redistribution of probability mass
     description:
     tags: []
     concept_id:
@@ -1270,7 +1325,8 @@ facets:
       source_refs: []
   - id: masking_mechanism
     title:
-    aliases: []
+    aliases:
+      - negative-infinity causal mask
     description:
     tags: []
     concept_id:
@@ -1293,7 +1349,8 @@ facets:
       source_refs: []
   - id: multiply_sum_method
     title:
-    aliases: []
+    aliases:
+      - componentwise multiply-and-sum
     description:
     tags: []
     concept_id:
@@ -1316,7 +1373,8 @@ facets:
       source_refs: []
   - id: negative_infinity_to_zero
     title:
-    aliases: []
+    aliases:
+      - negative-infinity softmax zero
     description:
     tags: []
     concept_id:
@@ -1339,7 +1397,8 @@ facets:
       source_refs: []
   - id: next_token_distribution
     title:
-    aliases: []
+    aliases:
+      - next-token probability distribution
     description:
     tags: []
     concept_id:
@@ -1362,7 +1421,8 @@ facets:
       source_refs: []
   - id: no_recurrence_convolution
     title:
-    aliases: []
+    aliases:
+      - attention lacks intrinsic order signal
     description:
     tags: []
     concept_id:
@@ -1385,7 +1445,8 @@ facets:
       source_refs: []
   - id: normalization_preserved
     title:
-    aliases: []
+    aliases:
+      - masked-softmax renormalization
     description:
     tags: []
     concept_id:
@@ -1408,7 +1469,8 @@ facets:
       source_refs: []
   - id: not_just_parallelism
     title:
-    aliases: []
+    aliases:
+      - multi-head diversity purpose
     description:
     tags: []
     concept_id:
@@ -1431,7 +1493,8 @@ facets:
       source_refs: []
   - id: offset_embeddings
     title:
-    aliases: []
+    aliases:
+      - shifted decoder targets
     description:
     tags: []
     concept_id:
@@ -1454,7 +1517,8 @@ facets:
       source_refs: []
   - id: order_information
     title:
-    aliases: []
+    aliases:
+      - positional order signal
     description:
     tags: []
     concept_id:
@@ -1477,7 +1541,8 @@ facets:
       source_refs: []
   - id: parallel_updates
     title:
-    aliases: []
+    aliases:
+      - parallel attention-head updates
     description:
     tags: []
     concept_id:
@@ -1500,7 +1565,8 @@ facets:
       source_refs: []
   - id: pattern_as_weights
     title:
-    aliases: []
+    aliases:
+      - attention pattern as normalized weights
     description:
     tags: []
     concept_id:
@@ -1523,7 +1589,8 @@ facets:
       source_refs: []
   - id: positions
     title:
-    aliases: []
+    aliases:
+      - head-specific attended positions
     description:
     tags: []
     concept_id:
@@ -1545,7 +1612,8 @@ facets:
       source_refs: []
   - id: pre_softmax_logits
     title:
-    aliases: []
+    aliases:
+      - mask before softmax
     description:
     tags: []
     concept_id:
@@ -1567,7 +1635,8 @@ facets:
       source_refs: []
   - id: prediction_dependency
     title:
-    aliases: []
+    aliases:
+      - active-context prediction dependence
     description:
     tags: []
     concept_id:
@@ -1590,7 +1659,8 @@ facets:
       source_refs: []
   - id: probability_constraints
     title:
-    aliases: []
+    aliases:
+      - probability simplex constraints
     description:
     tags: []
     concept_id:
@@ -1613,7 +1683,8 @@ facets:
       source_refs: []
   - id: qk_first
     title:
-    aliases: []
+    aliases:
+      - query-key projection first
     description:
     tags: []
     concept_id:
@@ -1636,7 +1707,8 @@ facets:
       source_refs: []
   - id: qkv_roles
     title:
-    aliases: []
+    aliases:
+      - query key value roles
     description:
     tags: []
     concept_id:
@@ -1659,7 +1731,8 @@ facets:
       source_refs: []
   - id: quadratic_scaling
     title:
-    aliases: []
+    aliases:
+      - quadratic attention-score count
     description:
     tags: []
     concept_id:
@@ -1682,7 +1755,8 @@ facets:
       source_refs: []
   - id: recurrent_sequential
     title:
-    aliases: []
+    aliases:
+      - sequential recurrent computation
     description:
     tags: []
     concept_id:
@@ -1705,7 +1779,8 @@ facets:
       source_refs: []
   - id: relative_positions
     title:
-    aliases: []
+    aliases:
+      - sinusoidal relative-position signal
     description:
     tags: []
     concept_id:
@@ -1728,7 +1803,8 @@ facets:
       source_refs: []
   - id: residual_connections
     title:
-    aliases: []
+    aliases:
+      - transformer residual addition
     description:
     tags: []
     concept_id:
@@ -1751,7 +1827,8 @@ facets:
       source_refs: []
   - id: sampling_step
     title:
-    aliases: []
+    aliases:
+      - next-token sampling step
     description:
     tags: []
     concept_id:
@@ -1774,7 +1851,8 @@ facets:
       source_refs: []
   - id: sampling_variability
     title:
-    aliases: []
+    aliases:
+      - temperature-controlled sampling variability
     description:
     tags: []
     concept_id:
@@ -1797,7 +1875,8 @@ facets:
       source_refs: []
   - id: scale_before_softmax
     title:
-    aliases: []
+    aliases:
+      - scale scores before softmax
     description:
     tags: []
     concept_id:
@@ -1820,7 +1899,8 @@ facets:
       source_refs: []
   - id: scaling
     title:
-    aliases: []
+    aliases:
+      - inverse-square-root attention scaling
     description:
     tags: []
     concept_id:
@@ -1843,7 +1923,8 @@ facets:
       source_refs: []
   - id: self_attention_parallel
     title:
-    aliases: []
+    aliases:
+      - parallel self-attention positions
     description:
     tags: []
     concept_id:
@@ -1866,7 +1947,8 @@ facets:
       source_refs: []
   - id: self_attention_path
     title:
-    aliases: []
+    aliases:
+      - constant-length self-attention path
     description:
     tags: []
     concept_id:
@@ -1889,7 +1971,8 @@ facets:
       source_refs: []
   - id: softmax
     title:
-    aliases: []
+    aliases:
+      - attention-score softmax
     description:
     tags: []
     concept_id:
@@ -1912,7 +1995,8 @@ facets:
       source_refs: []
   - id: softmax_normalization
     title:
-    aliases: []
+    aliases:
+      - logit-to-probability softmax
     description:
     tags: []
     concept_id:
@@ -1935,7 +2019,8 @@ facets:
       source_refs: []
   - id: softmax_role
     title:
-    aliases: []
+    aliases:
+      - output token-probability softmax
     description:
     tags: []
     concept_id:
@@ -1958,7 +2043,8 @@ facets:
       source_refs: []
   - id: specific_to_decoder
     title:
-    aliases: []
+    aliases:
+      - decoder-only causal masking
     description:
     tags: []
     concept_id:
@@ -1981,7 +2067,8 @@ facets:
       source_refs: []
   - id: stacked_layers
     title:
-    aliases: []
+    aliases:
+      - stacked transformer layers
     description:
     tags: []
     concept_id:
@@ -2003,7 +2090,8 @@ facets:
       source_refs: []
   - id: subspaces
     title:
-    aliases: []
+    aliases:
+      - head-specific representation subspaces
     description:
     tags: []
     concept_id:
@@ -2026,7 +2114,8 @@ facets:
       source_refs: []
   - id: text_limit
     title:
-    aliases: []
+    aliases:
+      - prior-text context limit
     description:
     tags: []
     concept_id:
@@ -2049,7 +2138,8 @@ facets:
       source_refs: []
   - id: three_criteria
     title:
-    aliases: []
+    aliases:
+      - sequence-layer comparison criteria
     description:
     tags: []
     concept_id:
@@ -2072,7 +2162,8 @@ facets:
       source_refs: []
   - id: tokenization_order
     title:
-    aliases: []
+    aliases:
+      - tokenize before embedding
     description:
     tags: []
     concept_id:
@@ -2095,7 +2186,8 @@ facets:
       source_refs: []
   - id: transformer_updates
     title:
-    aliases: []
+    aliases:
+      - repeated contextual vector updates
     description:
     tags: []
     concept_id:
@@ -2118,7 +2210,8 @@ facets:
       source_refs: []
   - id: unembedding_connection
     title:
-    aliases: []
+    aliases:
+      - unembedding-to-logits step
     description:
     tags: []
     concept_id:
@@ -2141,7 +2234,8 @@ facets:
       source_refs: []
   - id: unembedding_direction
     title:
-    aliases: []
+    aliases:
+      - model-space-to-vocabulary projection
     description:
     tags: []
     concept_id:
@@ -2164,7 +2258,8 @@ facets:
       source_refs: []
   - id: unembedding_role
     title:
-    aliases: []
+    aliases:
+      - vocabulary-score projection
     description:
     tags: []
     concept_id:
@@ -2187,7 +2282,8 @@ facets:
       source_refs: []
   - id: value_weighting
     title:
-    aliases: []
+    aliases:
+      - attention-weighted values
     description:
     tags: []
     concept_id:
@@ -2210,7 +2306,8 @@ facets:
       source_refs: []
   - id: values_as_content
     title:
-    aliases: []
+    aliases:
+      - values carry output content
     description:
     tags: []
     concept_id:
@@ -2233,7 +2330,8 @@ facets:
       source_refs: []
   - id: weighted_sum
     title:
-    aliases: []
+    aliases:
+      - weighted value-vector sum
     description:
     tags: []
     concept_id:
@@ -2256,7 +2354,8 @@ facets:
       source_refs: []
   - id: weighted_sum_column
     title:
-    aliases: []
+    aliases:
+      - per-token weighted value update
     description:
     tags: []
     concept_id:
@@ -2279,7 +2378,8 @@ facets:
       source_refs: []
   - id: zero_argmax_limit
     title:
-    aliases: []
+    aliases:
+      - zero-temperature argmax limit
     description:
     tags: []
     concept_id:
@@ -2302,7 +2402,8 @@ facets:
       source_refs: []
   - id: zero_interpretation
     title:
-    aliases: []
+    aliases:
+      - orthogonal-vector dot product
     description:
     tags: []
     concept_id:

@@ -1289,9 +1289,6 @@ def apply_attempt(
     _record_discrimination_profile_match(repository, application, clock=clock)
     _record_error_hunt_outcome(repository, application, vault=vault, clock=clock)
 
-    from learnloop.services.remediation import record_remediation_attempt
-
-    record_remediation_attempt(repository, application.attempt_record, clock=clock)
     # Measurement §5.7: the delayed cold probe's ground-truth label. Sits here,
     # beside the repair-scoped cold retry and deliberately BEFORE
     # `_project_canonical_belief` below, because the certificate state it records
@@ -1385,6 +1382,20 @@ def apply_attempt(
                 or application.result.debug_payload,
             ),
         )
+    # Repair-lane bookkeeping runs AFTER `materialize_causal_episode` on purpose.
+    # The primed branch of `record_remediation_attempt` resolves the §6.2
+    # cold-verification context, whose misconception-kind fallback reads THIS
+    # attempt's diagnosis receipt out of `attempt_debug_payloads` — a receipt
+    # materialize has only just written. Running the remediation hook first (as
+    # this function did before) made `context.repair_class_id` structurally NULL
+    # for every misconception-kind episode, and the delayed cold verification
+    # then refused with `missing_chain/no_repair_class` on consume. Nothing
+    # above depends on remediation state: the certification lane consumes its
+    # own task kind, and materialize/projection never read
+    # `remediation_episodes` or `followup_tasks`.
+    from learnloop.services.remediation import record_remediation_attempt
+
+    record_remediation_attempt(repository, application.attempt_record, clock=clock)
     if attempt.record_probe_update:
         # Probe redesign Checkpoint 0/1: episode accounting replaces the legacy
         # lo_probe_state advancement (`record_probe_attempt` is frozen for

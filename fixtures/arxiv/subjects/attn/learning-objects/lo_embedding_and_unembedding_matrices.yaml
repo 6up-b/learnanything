@@ -18,6 +18,27 @@ confusables:
   - embedding_lookup
   - one_hot_encoding
   - softmax
+blueprints:
+  - id: bp_compare_embedding_unembedding
+    weight: 1.0
+    recipes:
+      - id: recipe_compare_matrix_directions
+        composition: conjunctive
+        all_of:
+          - facet: embedding_direction
+            capability: schema_interpretation
+            modality: hard
+          - facet: embedding_weights
+            capability: schema_interpretation
+            modality: hard
+          - facet: unembedding_direction
+            capability: schema_interpretation
+            modality: hard
+          - facet: logits_before_softmax
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.5
 difficulty_source: llm_estimate
 tags:
@@ -35,5 +56,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:06:13Z'
-updated_at: '2026-05-28T22:06:13Z'
+updated_at: '2026-07-28T03:18:55Z'

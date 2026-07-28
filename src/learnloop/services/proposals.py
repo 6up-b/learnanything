@@ -992,6 +992,57 @@ def _is_diagnostic_probe_item(item: dict[str, Any]) -> bool:
     return False
 
 
+def _normalize_diagnostic_probe_mode(
+    vault: LoadedVault,
+    repository: Repository,
+    patch_id: str,
+    diagnostic_items: list[dict[str, Any]],
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Stamp ``practice_mode: diagnostic_probe`` on accepted diagnostic items.
+
+    The scheduler's freshness reserve (diagnostic surfaces are excluded from the
+    ordinary practice pool and served only through diagnostic flows) keys on
+    ``practice_mode`` alone. A generated payload can drift — declaring the
+    ``diagnostic_probe`` attempt type without the mode — and would then land in
+    the vault as an ordinary-pool item whose single-use freshness gets burned by
+    routine practice. Normalized at ACCEPTANCE, before apply, so the applied
+    YAML carries the marker; the edit is revalidated like any reviewer edit.
+    """
+
+    batch = repository.proposal_batch(patch_id)
+    for item in diagnostic_items:
+        payload = (
+            item.get("edited_payload")
+            if item.get("edited_payload") is not None
+            else item.get("payload")
+        )
+        if not isinstance(payload, dict) or payload.get("practice_mode") == "diagnostic_probe":
+            continue
+        normalized = {**payload, "practice_mode": "diagnostic_probe"}
+        validation_errors = _edited_payload_validation_errors(
+            item,
+            normalized,
+            vault,
+            batch_source_refs=batch.get("source_refs") if batch is not None else None,
+            repository=repository,
+        )
+        if validation_errors:
+            # Never trade a mode drift for an invalid (unacceptable) item; the
+            # un-normalized payload stays and the freshness reserve simply does
+            # not cover it.
+            continue
+        repository.update_proposal_item_edited_payload(
+            item["id"],
+            edited_payload=normalized,
+            validation_status="valid",
+            validation_errors=[],
+            clock=clock,
+        )
+        item["edited_payload"] = normalized
+
+
 def _reopen_diagnostic_needs_for_rejected_items(
     repository: Repository,
     patch_id: str,
@@ -1214,6 +1265,9 @@ def accept_items(
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     selected_items = repository.pending_proposal_items(patch_id, item_ids)
     diagnostic_items = [item for item in selected_items if _is_diagnostic_probe_item(item)]
+    _normalize_diagnostic_probe_mode(
+        vault, repository, patch_id, diagnostic_items, clock=clock
+    )
     result = apply_accepted_items(root, patch_id, item_ids, clock=clock)
     if result.applied_count and diagnostic_items:
         _queue_accepted_diagnostic_followups_for_patch(repository, patch_id, diagnostic_items)

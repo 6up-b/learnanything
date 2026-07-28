@@ -5,6 +5,7 @@ import type {
   CreateVaultInput,
   CreateVaultResult,
   LearnerProfileDto,
+  ProbeRemintResultDto,
   RungVariantRequestDto,
   RungVariantRequestResultDto,
   StartingLevel,
@@ -38,6 +39,7 @@ import type {
   CausalRepairStatusResultDto,
   StartRemediationDto,
   PrimedRetryResultDto,
+  GuidedRedoDto,
   GradingProviderResult,
   AnimationRuntimeDto,
   ConceptAnimationDto,
@@ -411,6 +413,8 @@ export const api = {
     }),
   startPrimedRetry: (attemptId: string) =>
     call<PrimedRetryResultDto>("start_primed_retry", { input: { attemptId } }),
+  startGuidedRedo: (attemptId: string) =>
+    call<GuidedRedoDto>("start_guided_redo", { input: { attemptId } }),
   inspectEntity: (id: string) => call<InspectorEntity>("inspect_entity", { id }),
   getConceptGraph: () => call<ConceptGraphSnapshot>("get_concept_graph"),
   getVaultTree: () => call<VaultTreeSnapshot>("get_vault_tree"),
@@ -676,6 +680,11 @@ export const api = {
     call<RungVariantRequestResultDto>("request_rung_variant", { input }),
   getRungVariantStatus: (input: { requestId: string }) =>
     call<{ request: RungVariantRequestDto }>("get_rung_variant_status", { input }),
+  // Keep an administered diagnostic probe as an ordinary practice item: a new
+  // item is minted (mechanical copy, shared surface group); the probe stays
+  // single-use/retired. Idempotent server-side ("already_reminted").
+  remintDiagnosticProbe: (input: { attemptId: string }) =>
+    call<ProbeRemintResultDto>("remint_diagnostic_probe", { input }),
   editPracticeItem: (input: { practiceItemId: string; prompt?: string; expectedAnswer?: string; hints?: string[]; reason?: string }) =>
     call<{ practiceItemId: string; changed: string[] }>("edit_practice_item", { input }),
   retirePracticeItem: (input: { practiceItemId: string; reason: RetirementReason; note?: string }) =>

@@ -5,6 +5,7 @@ import type {
   AttemptType,
   CandidateErrorTypeDto,
   CommandError,
+  GuidedRedoDto,
   PracticeItemDetail,
   ProbeBlockEndDto,
   ProbeContractDto,
@@ -42,12 +43,17 @@ export function PracticeScreen({
   onInspect,
   onAsk,
   onError,
-  primed = false
+  primed = false,
+  redo = null
 }: {
   session: SessionSnapshot;
   practiceItemId: string;
   /** This item is a primed retry launched from the feedback source panel. */
   primed?: boolean;
+  /** Fix 3 guided partial redo: the preserved learner work is rendered locked
+   *  above the editor and the learner rewrites only the failed portion; the
+   *  submit composes prefix + redo text as the primed answer. */
+  redo?: GuidedRedoDto | null;
   gradingReady: boolean;
   gradingProvider: string;
   restoredAnswer?: string;
@@ -405,7 +411,11 @@ export function PracticeScreen({
       const result = await api.submitAttempt({
         sessionId: session.sessionId,
         practiceItemId: item.id,
-        answerMd: answer,
+        // A guided redo submits the COMPOSED answer: the preserved (locked)
+        // prefix plus the learner's rewritten portion, separated by a paragraph
+        // break — mirroring repair_splice's end-append join. The grader sees
+        // one whole answer; only the redo text was written now.
+        answerMd: redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
         // Meas §3.A6 rule 3 made structural, and made structural on the WIRE:
         // the volunteered line is its own field, and the sidecar joins it into
         // the single trace the grader reads. This client never learns the
@@ -539,6 +549,19 @@ export function PracticeScreen({
               </div>
             </div>
           ) : null}
+          {/* 1f: a cold-lane follow-up (repair cold retry / certification cold
+              probe) is one delayed unassisted measurement. apply_attempt hard-
+              rejects it hinted or primed ("a cold retry must be unassisted and
+              unprimed"), so say that HERE, next to where the hint key lives,
+              before the learner voids it. */}
+          {item.activeFollowupKind === "cold_retry" || item.activeFollowupKind === "certification_cold_probe" ? (
+            <div className="hint-banner" style={{ borderColor: COLOR.amber }}>
+              <Pill tone="amber">{item.activeFollowupKind === "cold_retry" ? "cold retry" : "cold probe"}</Pill>{" "}
+              {primed
+                ? "this question is due as an unassisted cold check, but it was opened primed — the attempt will be rejected. Go back and open it from the queue instead."
+                : "this is an unassisted check — using a hint voids it and the attempt will be rejected. Answer with what you can retrieve on your own."}
+            </div>
+          ) : null}
           {item.mastery != null ? (
             <div className="queue-meta" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
               <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery</Faint>
@@ -600,14 +623,54 @@ export function PracticeScreen({
             />
           ) : (
           <>
+          {redo ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <Pill tone="amber">guided redo</Pill>
+                <span style={{ fontSize: 12, color: COLOR.textDim }}>
+                  your correct work is kept below — rewrite only the part that went wrong
+                </span>
+              </div>
+              {redo.redoInstruction ? (
+                <div style={{ marginTop: 6, fontSize: 12, color: COLOR.text, lineHeight: 1.55 }}>
+                  <Faint>what to fix:</Faint> {redo.redoInstruction}
+                </div>
+              ) : null}
+              {redo.failedCheckpointIds.length > 0 ? (
+                <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <Faint style={{ fontSize: 11 }}>failed steps</Faint>
+                  {redo.failedCheckpointIds.map((checkpointId) => (
+                    <Pill key={checkpointId} tone="red">{checkpointId}</Pill>
+                  ))}
+                </div>
+              ) : null}
+              <div
+                aria-label="your preserved work (read-only)"
+                style={{
+                  borderLeft: `3px solid ${COLOR.green}`,
+                  background: "rgba(255,255,255,0.03)",
+                  padding: "8px 12px",
+                  marginTop: 8,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  opacity: 0.85
+                }}
+              >
+                <Faint style={{ display: "block", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  your work so far — kept
+                </Faint>
+                <MarkdownMath value={redo.learnerWorkPrefix} />
+              </div>
+            </div>
+          ) : null}
           <div className="answer-editor-slot" ref={editorSlotRef}>
             <MathLiveEditor
               value={answer}
               onChange={setAnswer}
               disabled={submitting}
-              placeholder="type your answer — $math$ renders as you type"
+              placeholder={redo ? "continue from your kept work — rewrite only the failed part" : "type your answer — $math$ renders as you type"}
               maxHeight={editorMaxHeight}
-              ariaLabel="answer"
+              ariaLabel={redo ? "redo the failed part" : "answer"}
             />
           </div>
           <div ref={belowRef}>
@@ -1147,6 +1210,17 @@ function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType {
     if (!NON_RECORDING_ATTEMPT_TYPES.has(candidate)) return candidate;
   }
   return "independent_attempt";
+}
+
+// Guided redo (Fix 3): compose the preserved prefix and the learner's rewritten
+// portion into one answer. A paragraph break separates them unless one is
+// already there — the same end-append junction rule repair_splice enforces
+// server-side, so the graded text never runs the redo into the kept sentence.
+function composeRedoAnswer(prefix: string, redoText: string): string {
+  const suffix = redoText.replace(/^[ \t]+/, "");
+  if (!prefix.trim()) return redoText;
+  if (/\n[ \t]*\n[ \t]*$/.test(prefix) || /^[ \t]*\n/.test(redoText)) return prefix + redoText;
+  return `${prefix}\n\n${suffix}`;
 }
 
 // Prefer hinted_attempt when hints were used and the item allows it; otherwise

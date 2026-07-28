@@ -359,8 +359,11 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
         "id": "pi_spectral_boundary",
         "learning_object_id": "lo_svd_definition",
         "subjects": None,
-        "practice_mode": "diagnostic_probe",
-        "attempt_types_allowed": ["diagnostic_probe", "open_text", "dont_know"],
+        # Ordinary mode: diagnostic_probe surfaces are reserved for diagnostic
+        # serving and never enter the ordinary pool this test exercises (see
+        # test_diagnostic_probe_freshness.py); boundary targeting is mode-blind.
+        "practice_mode": "short_answer",
+        "attempt_types_allowed": ["independent_attempt", "open_text", "dont_know"],
         "evidence_facets": ["spectral-norm"],
         "evidence_weights": {"spectral-norm": 1.0},
         "criterion_facet_weights": {"c_spectral": {"spectral-norm": 1.0}},
@@ -369,7 +372,9 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
         "difficulty": 0.55,
         "difficulty_source": "author",
         "retrieval_demand": 0.85,
-        "transfer_distance": 0.1,
+        # Zero: a nonzero transfer distance would route the item through the
+        # TRANSFER intent; this test pins PRACTICE-intent boundary targeting.
+        "transfer_distance": 0.0,
         "scaffold_level": 0.0,
         "surface_family": "spectral_boundary",
         "repair_targets": ["spectral-norm"],
@@ -409,9 +414,7 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
         active=True,
         clock=clock,
     )
-    # The probe surface is deliberately never-administered: a diagnostic_probe
-    # item is single-use, and an already-attempted one is gated out of the pool
-    # (see test_diagnostic_probe_single_use.py).
+    # Never-attempted, so boundary fit (not forgetting risk) must carry it.
     repository.upsert_practice_item_state(
         "pi_spectral_boundary",
         difficulty=5.0,

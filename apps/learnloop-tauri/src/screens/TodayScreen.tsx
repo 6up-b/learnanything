@@ -1076,10 +1076,16 @@ function SurpriseInsertionBanner({
   // honest copy: don't tell the learner they tripped an intervention gate when
   // what actually happened is we came back to audit a certification.
   const coldProbe = followup.followupKind === "certification_cold_probe";
+  // A repair cold retry is the delayed unassisted measurement of an earlier
+  // repair — not a diagnostic insertion, and calling it one hid the one rule
+  // that matters here: hints or a primed open void the retry.
+  const coldRetry = followup.followupKind === "cold_retry";
   const heading = coldProbe
     ? "validity check - held-out cold probe inserted"
-    : "intervention gate - diagnostic follow-up inserted";
-  const noun = coldProbe ? "cold probe" : "follow-up";
+    : coldRetry
+      ? "cold retry - unassisted check on a repaired idea"
+      : "intervention gate - diagnostic follow-up inserted";
+  const noun = coldProbe ? "cold probe" : coldRetry ? "cold retry" : "follow-up";
   return (
     <div
       style={{
@@ -1124,6 +1130,17 @@ function SurpriseInsertionBanner({
               </EntityLink>
               , a skill you certified — no prep, that&apos;s the point. It is here to test the
               claim, not to repair it.
+            </>
+          ) : coldRetry ? (
+            <>
+              You repaired an idea on{" "}
+              <EntityLink id={followup.practiceItemId} onInspect={onInspect}>
+                {followup.learningObjectTitle}
+              </EntityLink>{" "}
+              recently — this is the delayed check that the repair stuck. Answer it cold:{" "}
+              <span style={{ color: COLOR.amber }}>using a hint (or opening it primed) voids the retry</span>{" "}
+              and the attempt will be rejected, because only an unassisted answer converts the repair to
+              Demonstrated credit.
             </>
           ) : (
             <>

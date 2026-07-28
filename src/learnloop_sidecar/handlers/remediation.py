@@ -253,6 +253,10 @@ def start_remediation_treatment_handler(ctx: SidecarContext, params: EpisodeInpu
     return versioned(
         {
             **result,
+            # `RemediationDto.case` is non-optional on the wire; omitting it here
+            # nulled the comparison block and status pill the moment treatment
+            # started (stage c of the repair overlay).
+            "case": _episode_case_payload(repository, result["episode"]),
             "practice_item": practice_item_detail(vault, repository, result["primed_item_id"]),
         }
     )

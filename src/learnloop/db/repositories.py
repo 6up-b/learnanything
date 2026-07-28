@@ -1675,6 +1675,43 @@ class Repository:
             ).fetchall()
         return [_decode_error_event(row) for row in rows]
 
+    def attempt_ids_for_misconception(
+        self,
+        misconception_id: str,
+        *,
+        event_ids: Sequence[str] = (),
+        limit: int = 5,
+    ) -> list[str]:
+        """Attempt ids whose error events minted/fed this misconception, newest first.
+
+        ``event_ids`` widens the match to the misconception record's own
+        ``source_error_event_ids`` provenance, because legacy events predate the
+        ``misconception_id`` backlink. The §6.2 cold-verification context uses
+        this as its case-level fallback: a clean primed attempt has no diagnosis
+        receipt of its own, but the attempts that DIAGNOSED the misconception
+        do, and their receipts carry the selected repair class."""
+
+        ids = [str(value) for value in event_ids if value]
+        clause = "misconception_id = ?"
+        params: list[Any] = [misconception_id]
+        if ids:
+            placeholders = ",".join("?" for _ in ids)
+            clause = f"(misconception_id = ? OR id IN ({placeholders}))"
+            params.extend(ids)
+        params.append(max(1, limit))
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT attempt_id, MAX(created_at) AS last_at FROM error_events
+                WHERE {clause} AND attempt_id IS NOT NULL
+                GROUP BY attempt_id
+                ORDER BY last_at DESC, attempt_id DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return [str(row["attempt_id"]) for row in rows]
+
     def insert_error_event(self, event: Mapping[str, Any]) -> None:
         with self.connection() as connection:
             self._insert_error_event(connection, event)
@@ -2747,6 +2784,58 @@ class Repository:
             ).fetchone()
         return _decode_remediation_episode(row) if row is not None else None
 
+    def get_or_create_open_remediation_episode(
+        self,
+        *,
+        case_kind: str,
+        case_ref: str,
+        states: Sequence[str],
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """The newest episode for the case in one of ``states``, else a new one.
+
+        Idempotent create, atomically: the SELECT and the INSERT run inside one
+        write transaction, so two near-simultaneous "start this repair" calls
+        (React StrictMode double-mounts the repair overlay) resolve to ONE
+        episode instead of minting a duplicate pair. A plain SELECT-then-INSERT
+        across two repository calls was exactly the race that left orphaned
+        `diagnosis`-state twins beside every committed episode."""
+
+        episode_id = new_ulid()
+        now = utc_now_iso(clock)
+        placeholders = ",".join("?" for _ in states)
+        with self.connection() as connection:
+            if not connection.in_transaction:
+                # Take the write lock BEFORE reading so the check-and-insert is
+                # one atomic step even across connections.
+                connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                f"""
+                SELECT id FROM remediation_episodes
+                 WHERE case_kind = ? AND case_ref = ?
+                   AND state IN ({placeholders})
+                 ORDER BY created_at DESC, id DESC
+                 LIMIT 1
+                """,
+                (case_kind, case_ref, *states),
+            ).fetchone()
+            if row is not None:
+                episode_id = str(row["id"])
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO remediation_episodes(
+                      id, case_kind, case_ref, state, passages_shown_json,
+                      created_at, updated_at
+                    ) VALUES (?, ?, ?, 'diagnosis', '[]', ?, ?)
+                    """,
+                    (episode_id, case_kind, case_ref, now, now),
+                )
+            connection.commit()
+        episode = self.remediation_episode(episode_id)
+        assert episode is not None
+        return episode
+
     def update_remediation_episode(
         self, episode_id: str, *, clock: Clock | None = None, **changes: Any
     ) -> dict[str, Any] | None:
@@ -2772,6 +2861,29 @@ class Repository:
             )
             connection.commit()
         return self.remediation_episode(episode_id)
+
+    def open_remediation_episode_for_case(
+        self, *, case_kind: str, case_ref: str
+    ) -> dict[str, Any] | None:
+        """The newest episode for the case that has not yet recorded a primed attempt.
+
+        Guided-redo binding (Fix 3): a redo on the ORIGINAL item may serve as
+        the episode's primed attempt when the episode is still open —
+        `diagnosis`/`prescribed` (uncommitted) or `treatment` with no primed
+        attempt recorded yet."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM remediation_episodes
+                WHERE case_kind = ? AND case_ref = ?
+                  AND primed_attempt_id IS NULL
+                  AND state IN ('diagnosis', 'prescribed', 'treatment')
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                (case_kind, case_ref),
+            ).fetchone()
+        return _decode_remediation_episode(row) if row is not None else None
 
     def open_remediation_episode_for_primed_item(self, practice_item_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -7191,6 +7303,109 @@ class Repository:
         with self.connection() as connection:
             connection.execute(
                 "UPDATE probe_generation_needs SET status = ?, resolved_at = ? WHERE id = ?",
+                (status, now, need_id),
+            )
+            connection.commit()
+
+    # --- diagnostic-surface replenishment needs (migration 147) ---------------
+
+    def upsert_diagnostic_surface_generation_need(
+        self,
+        *,
+        learning_object_id: str,
+        consumed_practice_item_id: str,
+        target_key: str,
+        missing_capability: str = "diagnostic_probe_surface",
+        facet_ids: list[str] | None = None,
+        misconception_ids: list[str] | None = None,
+        clock: Clock | None = None,
+    ) -> str:
+        """Record one deduplicated replacement need per consumed diagnostic surface.
+
+        Mirrors ``upsert_probe_generation_need`` but consumption-scoped: a
+        single-use ``diagnostic_probe`` surface carried its one administration,
+        so the learning object needs a fresh never-before-seen replacement
+        targeting the same facets/misconception pairs. Deduped on the consumed
+        item id, so the derive-from-attempts sweep is idempotent and replay-safe.
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM diagnostic_surface_generation_needs "
+                "WHERE consumed_practice_item_id = ?",
+                (consumed_practice_item_id,),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
+            need_id = new_ulid()
+            connection.execute(
+                """
+                INSERT INTO diagnostic_surface_generation_needs(
+                  id, learning_object_id, consumed_practice_item_id, target_key,
+                  missing_capability, facet_ids_json, misconception_ids_json,
+                  status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    need_id,
+                    learning_object_id,
+                    consumed_practice_item_id,
+                    target_key,
+                    missing_capability,
+                    _json(list(facet_ids or [])),
+                    _json(list(misconception_ids or [])),
+                    now,
+                ),
+            )
+            connection.commit()
+        return need_id
+
+    def diagnostic_surface_generation_needs(
+        self,
+        *,
+        learning_object_id: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        for column, value in (
+            ("learning_object_id", learning_object_id),
+            ("status", status),
+        ):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM diagnostic_surface_generation_needs{where} ORDER BY created_at, id",
+                parameters,
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "learning_object_id": row["learning_object_id"],
+                "consumed_practice_item_id": row["consumed_practice_item_id"],
+                "target_key": row["target_key"],
+                "missing_capability": row["missing_capability"],
+                "facet_ids": _loads(row["facet_ids_json"], []),
+                "misconception_ids": _loads(row["misconception_ids_json"], []),
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "resolved_at": row["resolved_at"],
+            }
+            for row in rows
+        ]
+
+    def resolve_diagnostic_surface_generation_need(
+        self, need_id: str, *, status: str = "resolved", clock: Clock | None = None
+    ) -> None:
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE diagnostic_surface_generation_needs SET status = ?, resolved_at = ? WHERE id = ?",
                 (status, now, need_id),
             )
             connection.commit()
@@ -14791,7 +15006,8 @@ class Repository:
             row = connection.execute(
                 """
                 SELECT id, attempt_id, observation_id, candidate_causes_json,
-                       status, resolution_observation_ids_json, algorithm_version,
+                       status, resolution_observation_ids_json, resolution_kind,
+                       resolution_detail_json, algorithm_version,
                        created_at, updated_at
                 FROM unresolved_cause_factors
                 WHERE id = ?
@@ -14806,6 +15022,9 @@ class Repository:
         )
         payload["resolution_observation_ids"] = _loads(
             payload.pop("resolution_observation_ids_json"), []
+        )
+        payload["resolution_detail"] = _loads(
+            payload.pop("resolution_detail_json"), None
         )
         return payload
 
@@ -14881,6 +15100,112 @@ class Repository:
                 (now, observation_id),
             )
             connection.commit()
+
+    # -- Bounded factor deferral (migration 148) -----------------------------
+
+    def close_unresolved_cause_factor(
+        self,
+        factor_id: str,
+        *,
+        status: str,
+        resolution_kind: str,
+        resolution_detail: Mapping[str, Any] | None = None,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Close an OPEN factor with an explicit evidence label.
+
+        The bounded-deferral exits (`causal_factor_deferral`) close factors as
+        'resolved' (repair_confirmed / escalated_unrepaired) or 'retired'
+        (expired_unengaged). Idempotent by construction: only an open factor
+        transitions, so re-running a sweep or replaying an attempt against an
+        already-closed factor is a no-op (returns False).
+        """
+
+        if status not in ("resolved", "retired"):
+            raise ValueError("factor close status must be 'resolved' or 'retired'")
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE unresolved_cause_factors
+                   SET status = ?,
+                       resolution_kind = ?,
+                       resolution_detail_json = ?,
+                       updated_at = ?
+                 WHERE id = ? AND status = 'open'
+                """,
+                (
+                    status,
+                    resolution_kind,
+                    _json(dict(resolution_detail or {})),
+                    utc_now_iso(clock),
+                    factor_id,
+                ),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def remediation_episodes_for_case_refs(
+        self, case_refs: Sequence[str]
+    ) -> list[dict[str, Any]]:
+        """Remediation episodes (any state) whose case_ref is in ``case_refs``.
+
+        Engagement probe for the bounded-deferral sweep: an episode existing at
+        all — whatever its state — proves the learner (or the TEACH_ME_NOW /
+        common-repair path acting for them) engaged the case's repair lane.
+        """
+
+        refs = [str(value) for value in case_refs if str(value)]
+        if not refs:
+            return []
+        placeholders = ",".join("?" for _ in refs)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM remediation_episodes
+                 WHERE case_ref IN ({placeholders})
+                 ORDER BY created_at, id
+                """,
+                refs,
+            ).fetchall()
+        return [_decode_remediation_episode(row) for row in rows]
+
+    def causal_attribution_reports_for_factor(
+        self, factor_id: str
+    ) -> list[dict[str, Any]]:
+        """Learner self-reports on one factor's diagnostic card, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM causal_attribution_reports
+                 WHERE factor_id = ?
+                 ORDER BY created_at, id
+                """,
+                (factor_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def primed_attempt_exists_for_learning_object(
+        self, learning_object_id: str, *, since: str
+    ) -> bool:
+        """Any primed attempt on the learning object at/after ``since``.
+
+        Engagement probe for the bounded-deferral sweep: a primed attempt is a
+        guided redo or the primed half of a repair pair — learner engagement
+        even when no remediation episode row exists (an unbound guided redo).
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT 1 FROM practice_attempts
+                 WHERE learning_object_id = ? AND primed = 1
+                   AND created_at >= ?
+                 LIMIT 1
+                """,
+                (learning_object_id, since),
+            ).fetchone()
+        return row is not None
 
     def proposal_batches(self) -> list[dict[str, Any]]:
         with self.connection() as connection:

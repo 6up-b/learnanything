@@ -12,14 +12,16 @@ import type {
   GradingClarificationDto,
   FollowupGateDiagnosticsDto,
   FollowupGateSignalDto,
+  GuidedRedoDto,
   MasteryDto,
+  MasteryStepDto,
   MatchedMisconceptionDto,
   PracticeItemDetail,
   ResolvedSourceRefDto,
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
 import { EntityLink, KeyBar, Pill } from "../components/ui";
-import { CardControls } from "../components/CardControls";
+import { CardControls, ProbeRemintAction } from "../components/CardControls";
 import { modePillColor } from "../components/term";
 import { AttemptTraceView, UnresolvedCauseCard } from "../components/KnowledgeModel";
 import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
@@ -458,6 +460,83 @@ function BeliefShiftChart({
   );
 }
 
+// ── Step breakdown ────────────────────────────────────────────────────────────
+// A full-credit attempt can still move the posterior very little, which reads as
+// a bug unless the weighting is visible. The backend sends the observation
+// weight's factor chain (product == weight); this renders it as a quiet strip so
+// the shift above is self-explaining. Each row's bar is the weight the factor
+// removed, so the dominant term is obvious without reading the numbers.
+function MasteryStepBreakdown({ step }: { step: MasteryStepDto }) {
+  if (step.factors.length === 0) return null;
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10.5 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", color: C.textFaint, marginBottom: 6 }}>
+        <span>why this magnitude</span>
+        <span>
+          evidence weight{" "}
+          <span style={{ color: step.atWeightFloor ? C.amber : C.textDim }}>
+            {step.observationWeight.toFixed(2)}
+          </span>
+          {" "}of 1.00
+        </span>
+      </div>
+
+      {step.factors.map((factor) => {
+        const dominant = factor.key === step.dominantFactorKey;
+        // Bar length is the weight this factor removed. A factor above 1.0 adds
+        // weight (error sharpening); show it in the other direction.
+        const removed = 1 - factor.multiplier;
+        const color = dominant ? C.amber : removed < 0 ? C.greenSoft : C.textDim;
+        return (
+          <div
+            key={factor.key}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(88px, auto) 1fr 46px 34px",
+              gap: 8,
+              alignItems: "center",
+              lineHeight: 1.9,
+            }}
+          >
+            <span style={{ color: dominant ? C.text : C.textDim }}>{factor.label}</span>
+            <span style={{ color: C.textFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {factor.detail}
+            </span>
+            <span style={{ color, textAlign: "right" }}>
+              ×{factor.multiplier.toFixed(2)}
+            </span>
+            <span aria-hidden style={{ display: "block", height: 3, background: C.border, borderRadius: 2 }}>
+              <span
+                style={{
+                  display: "block",
+                  height: "100%",
+                  width: `${Math.min(100, Math.abs(removed) * 100)}%`,
+                  background: color,
+                  borderRadius: 2,
+                  opacity: dominant ? 0.9 : 0.5,
+                }}
+              />
+            </span>
+          </div>
+        );
+      })}
+
+      <div style={{ color: C.textFaint, marginTop: 7, lineHeight: 1.6 }}>
+        {step.expectedCorrectness !== null && step.observedCorrectness !== null ? (
+          <div>
+            expected {pct(step.expectedCorrectness)} · scored {pct(step.observedCorrectness)}
+            <Faint> — a correct answer the model already expected is weak evidence</Faint>
+          </div>
+        ) : null}
+        {step.atWeightFloor ? <div style={{ color: C.amber }}>weight is at the noise floor — the step cannot shrink further</div> : null}
+        {!step.productReconciles ? <div>partial breakdown — some factors predate this attempt&apos;s trace</div> : null}
+      </div>
+    </div>
+  );
+}
+
 // ── MasteryDelta ──────────────────────────────────────────────────────────────
 function MasteryDelta({ f }: { f: FeedbackBundle }) {
   const { masteryBefore: before, masteryAfter: after, surprise } = f;
@@ -495,6 +574,8 @@ function MasteryDelta({ f }: { f: FeedbackBundle }) {
         <span style={{ color: hasSurprise ? (after.mean >= before.mean ? C.green : C.red) : C.amber, fontSize: 15 }}>→</span>
         <span style={{ color: postColor }}>{after.mean.toFixed(2)} ± {Math.sqrt(after.variance).toFixed(2)}</span>
       </div>
+
+      {f.masteryStep ? <MasteryStepBreakdown step={f.masteryStep} /> : null}
 
       {hasSurprise && (
         <div style={{
@@ -1088,6 +1169,7 @@ export function FeedbackScreen({
   onBack,
   onOpenNotes,
   onPrimedRetry,
+  onGuidedRedo,
   onOpenPractice,
   onOpenRepair,
   onOpenLibraryFile,
@@ -1105,6 +1187,9 @@ export function FeedbackScreen({
   onOpenNotes: () => void;
   /** Open a sibling practice item as a primed retry. */
   onPrimedRetry: (practiceItemId: string) => void;
+  /** Fix 3: redo ONLY the failed part of THIS item, primed, with the preserved
+   *  prefix locked (available when the attempt stored a repair selection). */
+  onGuidedRedo?: (redo: GuidedRedoDto) => void;
   /** Open a practice item cold (teach-back opt-in navigation). */
   onOpenPractice?: (practiceItemId: string) => void;
   /** Launch the §4.10 Repair flow for a matched misconception (the statement
@@ -1394,6 +1479,24 @@ export function FeedbackScreen({
     }
   };
 
+  // Fix 3 guided redo: redo only the failed portion of THIS item. Available
+  // when the grader stored a repair selection with a preserved prefix; the
+  // sidecar re-derives everything from the stored receipt, so this is a read
+  // plus (at most) an episode binding.
+  const [startingRedo, setStartingRedo] = useState(false);
+  const handleGuidedRedo = async () => {
+    if (!feedback || startingRedo || !onGuidedRedo) return;
+    setStartingRedo(true);
+    try {
+      const redo = await api.startGuidedRedo(feedback.attemptId);
+      onGuidedRedo(redo);
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setStartingRedo(false);
+    }
+  };
+
   // One-tap "was this follow-up useful?" — the label stream that lets
   // `learnloop fit gate` learn the trigger weights from real usage.
   const [ratingFollowup, setRatingFollowup] = useState(false);
@@ -1632,6 +1735,19 @@ export function FeedbackScreen({
               onRetired={() => {}}
               onTeachBack={onOpenPractice}
             />
+          ) : null}
+
+          {/* single-use probe → keep-a-copy affordance: only ever renders for
+              diagnostic_probe surfaces (the component gates on the mode) */}
+          {item && item.practiceMode === "diagnostic_probe" ? (
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+              <ProbeRemintAction
+                attemptId={f.attemptId}
+                practiceItemId={item.id}
+                practiceMode={item.practiceMode}
+                onError={onError}
+              />
+            </div>
           ) : null}
 
           {/* divider */}
@@ -1874,6 +1990,25 @@ export function FeedbackScreen({
             ))}
           </>
         )}
+
+        {/* ── redo the part you missed (Fix 3) ── */}
+        {onGuidedRedo && f.rubricScore < f.maxPoints &&
+          f.repairSuggestions.some((s) => s.repairedTrace?.learnerWorkPrefix) ? (
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 8 }}>
+            {startingRedo ? (
+              <span style={{ color: C.amber }}>preparing the redo…</span>
+            ) : (
+              <>
+                <span
+                  style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer" }}
+                  onClick={() => void handleGuidedRedo()}
+                >redo the part you missed</span>
+                {"   "}
+                <Faint>your correct work stays — you rewrite only the failed step (scored as primed evidence)</Faint>
+              </>
+            )}
+          </div>
+        ) : null}
 
         {/* ── review the source ── */}
         <SourceReviewPanel

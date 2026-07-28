@@ -14,6 +14,24 @@ prerequisites:
   - concept_transformer_architecture
 confusables:
   - token embeddings
+blueprints:
+  - id: bp_explain_positional_encoding_need
+    weight: 1.0
+    recipes:
+      - id: recipe_explain_order_signal
+        composition: conjunctive
+        all_of:
+          - facet: no_recurrence_convolution
+            capability: schema_interpretation
+            modality: hard
+          - facet: order_information
+            capability: schema_interpretation
+            modality: hard
+          - facet: added_to_embeddings
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.4
 difficulty_source: llm_estimate
 tags:
@@ -31,5 +49,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:25Z'
-updated_at: '2026-05-28T21:34:25Z'
+updated_at: '2026-07-28T03:18:44Z'

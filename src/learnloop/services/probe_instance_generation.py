@@ -1083,6 +1083,181 @@ def generate_instances_for_episode(
     return summary
 
 
+def mint_single_use_probe_surface(
+    repository: Repository,
+    vault: LoadedVault,
+    episode_id: str,
+    *,
+    ai_client: object,
+    clock: Clock | None = None,
+    seed: int = 0,
+) -> GeneratedInstance | None:
+    """Mint ONE fresh single-use ``diagnostic_probe`` surface for an open episode.
+
+    The probes-as-generated-surfaces path (owner Task C): when an open episode's
+    eligible pool is empty and a provider is routed, a never-before-seen surface
+    is minted at selection time — the full-item sibling of the ephemeral
+    ``diagnostic_microprobe`` dialogue-turn mint. Differences from
+    :func:`generate_instances_for_episode`, which seeds ordinary re-servable
+    probe instruments at episode entry:
+
+    * works for ``in_progress`` episodes too (mid-episode replenishment after
+      the pool was consumed), not only ``pending_items``;
+    * the minted item is ``practice_mode: diagnostic_probe``, so it inherits
+      the single-use semantics automatically — attempt recording deactivates it
+      and the freshness reserve keeps it out of the ordinary pool entirely;
+    * the freshness gate is checked AT MINT against the whole administration
+      history: a candidate whose surface family / surface group collides with
+      anything the learner has ever been administered is refused
+      (``instance_gate_errors`` already refuses duplicates of any existing
+      vault surface; this adds the administered-group check for orphaned
+      attempts whose item left the vault).
+
+    Everything else follows the microprobe/§10 precedent: measurement pattern,
+    rubric criteria, evidence facets, and signature fatal errors come from the
+    admitted family/card binding for the episode's locked hypothesis targets
+    (the grading/trace contract); LLM surfaces are validated by the same
+    structural gate with parametric templates as fallback; provenance persists
+    through ``probe_item_family_links`` + the item's ``codex_proposal`` origin.
+    The §10 trust policy still applies — only a ``trusted`` family version
+    serves immediately (``auto_admitted_provisional``); a provisional family
+    parks the mint behind review rather than serving AI output silently.
+
+    Returns the minted instance, or None when no admitted binding exists or no
+    candidate survived the gates.
+    """
+
+    from learnloop.services.probe_episodes import (
+        administered_surface_exclusions,
+        eligible_instruments,
+    )
+
+    episode = repository.probe_episode(episode_id)
+    if episode is None or episode.status not in ("pending_items", "in_progress"):
+        return None
+    learning_object = vault.learning_objects.get(episode.learning_object_id)
+    if learning_object is None:
+        return None
+
+    attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
+    families = [
+        template
+        for template in applicable_families(vault, learning_object, repository)
+        if template.id != DIALOGUE_MICROPROBE_V1.id
+    ]
+    for template in families:
+        resolved = ensure_instrument_card(
+            vault, repository, episode.learning_object_id, template, clock=clock
+        )
+        if resolved is None:
+            continue
+        card, resolved_template = resolved
+        family_record = repository.probe_family_template(
+            resolved_template.id, resolved_template.version
+        )
+        family_status = family_record.status if family_record is not None else "provisional"
+        review_status = (
+            "auto_admitted_provisional" if family_status == "trusted" else "pending_review"
+        )
+        candidates: list[tuple[dict[str, Any], str, str]] = []
+        if vault.config.probe.generation.llm_surfaces:
+            llm_payloads = llm_instance_payloads(
+                vault, card, resolved_template, count=1, ai_client=ai_client, clock=clock
+            )
+            for payload in llm_payloads or []:
+                candidates.append((payload, LLM_GENERATOR_ID, LLM_GENERATOR_VERSION))
+        for payload in parametric_instance_payloads(
+            vault, card, resolved_template, count=2, seed=seed, clock=clock
+        ):
+            candidates.append((payload, GENERATOR_ID, GENERATOR_VERSION))
+
+        for payload, generator_id, generator_version in candidates:
+            payload = {
+                **payload,
+                # The single-use stamp: the mode is what carries every
+                # freshness rule downstream (attempt recording deactivates,
+                # the scheduler's freshness reserve excludes it from the
+                # ordinary pool, the follow-up doors refuse it once burned).
+                "practice_mode": "diagnostic_probe",
+                "attempt_types_allowed": ["diagnostic_probe", "dont_know"],
+            }
+            if payload["id"] in vault.practice_items:
+                continue
+            if instance_gate_errors(vault, payload, card, resolved_template):
+                continue
+            # Never-before-seen gate at mint: no shared identity with anything
+            # the learner has been administered, by id or by surface group.
+            if payload["id"] in attempted_ids:
+                continue
+            surface_family = str(payload.get("surface_family") or "")
+            if surface_family and surface_family in attempted_surfaces:
+                continue
+
+            upsert_practice_item(vault.root, payload, clock=clock)
+            repository.link_probe_item_family(
+                practice_item_id=payload["id"],
+                instrument_card_id=card.id,
+                instrument_card_version=card.version,
+                generator_id=generator_id,
+                generator_version=generator_version,
+                generation_seed=str(seed),
+                instance_metadata={
+                    "review_status": review_status,
+                    "surface_family": payload["surface_family"],
+                    "family_status_at_generation": family_status,
+                    "single_use_probe_mint": True,
+                    "probe_episode_id": episode.id,
+                    **(
+                        {
+                            "generator_model": getattr(ai_client, "model", None),
+                            "prompt_version": _llm_prompt_version(),
+                        }
+                        if generator_id == LLM_GENERATOR_ID
+                        else {}
+                    ),
+                },
+                clock=clock,
+            )
+            repository.upsert_practice_item_state(
+                payload["id"],
+                active=review_status == "auto_admitted_provisional",
+                clock=clock,
+            )
+            # Serve through the probe branch: reload so the freshly minted
+            # surface is visible, unpark a pending episode when it now has an
+            # eligible instrument, and resolve the queued generation needs the
+            # mint just satisfied (the same tail generate_instances_for_episode
+            # runs).
+            refreshed_vault = load_vault(vault.root)
+            refreshed_vault.config = vault.config
+            refreshed = repository.probe_episode(episode.id)
+            if (
+                refreshed is not None
+                and refreshed.status == "pending_items"
+                and eligible_instruments(refreshed_vault, repository, refreshed)
+            ):
+                repository.update_probe_episode_status(
+                    episode.id, status="in_progress", clock=clock
+                )
+            if review_status == "auto_admitted_provisional":
+                for need in repository.probe_generation_needs(
+                    probe_episode_id=episode.id, status="pending"
+                ):
+                    repository.resolve_probe_generation_need(need.id, clock=clock)
+            return GeneratedInstance(
+                practice_item_id=payload["id"],
+                instrument_card_id=card.id,
+                instrument_card_version=card.version,
+                family_template_id=resolved_template.id,
+                family_template_version=resolved_template.version,
+                surface_family=str(payload["surface_family"]),
+                review_status=review_status,
+                generation_seed=str(seed),
+                generator_id=generator_id,
+            )
+    return None
+
+
 def approve_probe_instance(
     repository: Repository,
     vault: LoadedVault,

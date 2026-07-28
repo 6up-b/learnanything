@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { AppSnapshot, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
+import type { AppSnapshot, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
@@ -77,6 +77,10 @@ export function App() {
   // The current practice item is a primed retry (opened from the feedback
   // screen's source panel); the submit carries primed=true to the backend.
   const [primedRetry, setPrimedRetry] = useState(false);
+  // Fix 3 guided partial redo: when set, PracticeScreen renders the preserved
+  // learner work read-only and the learner rewrites only the failed portion;
+  // the composed answer is submitted primed on the SAME item.
+  const [redoContext, setRedoContext] = useState<GuidedRedoDto | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   // §5.7: the unified Diagnostic Check review, shown instead of single-attempt
   // feedback when a probe block just closed (releasedFeedback covers every
@@ -143,6 +147,11 @@ export function App() {
   // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
   // this" and Today cards as well (pass onRepair={openRepair}).
   const [repairMisconceptionId, setRepairMisconceptionId] = useState<string | null>(null);
+  // A primed item handed off from the repair overlay while NO session was open.
+  // Practice needs a session, but discarding the id here stranded the repair
+  // episode in `treatment` forever (it is never reused). Stash it, route the
+  // learner to session start, and resume the primed retry when a session begins.
+  const [pendingPrimedItemId, setPendingPrimedItemId] = useState<string | null>(null);
   const startupStartedRef = useRef(false);
   // Whether the practice screen is currently a teach-back conversation. Only
   // PracticeScreen knows the item's mode; it reports it up so the
@@ -380,6 +389,15 @@ export function App() {
     setTodayNoGoalBannerDismissed(false);
     setSession(next);
     setTab("today");
+    if (pendingPrimedItemId) {
+      // Resume the repair handoff that was waiting on a session: open the
+      // stashed primed retry directly instead of the queue.
+      setPrimedRetry(true);
+      setPracticeItemId(pendingPrimedItemId);
+      setPendingPrimedItemId(null);
+      setTodayStage("practice");
+      return;
+    }
     setTodayStage("queue");
   }
 
@@ -390,6 +408,7 @@ export function App() {
       return;
     }
     setPrimedRetry(false);
+    setRedoContext(null);
     setPracticeItemId(id);
     setTab("today");
     setTodayStage("practice");
@@ -402,13 +421,30 @@ export function App() {
       return;
     }
     setPrimedRetry(true);
+    setRedoContext(null);
     setPracticeItemId(id);
+    setTab("today");
+    setTodayStage("practice");
+  }
+
+  // Fix 3: reuse the primed-retry plumbing, but carry the redo context so
+  // PracticeScreen locks the preserved prefix and submits the composed answer.
+  function openGuidedRedo(redo: GuidedRedoDto) {
+    if (!session) {
+      setTab("start");
+      setToast("Start a session before opening practice.");
+      return;
+    }
+    setPrimedRetry(true);
+    setRedoContext(redo);
+    setPracticeItemId(redo.practiceItemId);
     setTab("today");
     setTodayStage("practice");
   }
 
   function openFeedback(id: string) {
     setPrimedRetry(false);
+    setRedoContext(null);
     setAttemptId(id);
     setTodayStage("feedback");
   }
@@ -434,6 +470,7 @@ export function App() {
     setSession(null);
     setLocalDraft(null);
     setPracticeItemId(null);
+    setRedoContext(null);
     setAttemptId(null);
     setBlockReview(null);
     // Calibration attaches to the practice session — drop the overlay with it.
@@ -546,12 +583,14 @@ export function App() {
         setSession(next.activeSession ?? null);
         setTodayNoGoalBannerDismissed(false);
         setPracticeItemId(null);
+        setRedoContext(null);
         setAttemptId(null);
         setBlockReview(null);
         setInspectorId(null);
         setSettingsOpen(false);
         setCalibrationSessionId(null);
         setRepairMisconceptionId(null);
+        setPendingPrimedItemId(null);
         setIngestJobId(null);
         setProposalFocusPatchId(null);
         setTodayStage("queue");
@@ -623,6 +662,7 @@ export function App() {
             session={session}
             practiceItemId={practiceItemId}
             primed={primedRetry}
+            redo={redoContext && redoContext.practiceItemId === practiceItemId ? redoContext : null}
             gradingReady={gradingReady}
             gradingProvider={gradingProvider}
             restoredAnswer={restored.answer}
@@ -668,6 +708,7 @@ export function App() {
             onBack={() => setTodayStage("queue")}
             onOpenNotes={() => gotoTab("library")}
             onPrimedRetry={openPrimedRetry}
+            onGuidedRedo={openGuidedRedo}
             onOpenPractice={openPractice}
             onOpenLibraryFile={openLibraryFile}
             onInspect={setInspectorId}
@@ -902,6 +943,16 @@ export function App() {
           sessionId={session?.sessionId ?? null}
           onClose={() => setRepairMisconceptionId(null)}
           onPractice={(practiceItemId) => {
+            // Check the session BEFORE unmounting the overlay: openPrimedRetry
+            // bails without a session, and losing the primed item id here used
+            // to strand the freshly committed episode in `treatment`.
+            if (!session) {
+              setPendingPrimedItemId(practiceItemId);
+              setRepairMisconceptionId(null);
+              setTab("start");
+              setToast("Start a session to practice the primed item — it will open automatically.");
+              return;
+            }
             setRepairMisconceptionId(null);
             openPrimedRetry(practiceItemId);
           }}

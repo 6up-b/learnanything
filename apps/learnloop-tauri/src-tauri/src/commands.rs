@@ -971,6 +971,14 @@ pub async fn start_primed_retry(
 }
 
 #[tauri::command]
+pub async fn start_guided_redo(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "start_guided_redo", input).await
+}
+
+#[tauri::command]
 pub async fn run_cli_command(
     input: Value,
     sidecar: State<'_, SidecarManager>,
@@ -1187,6 +1195,14 @@ pub async fn get_rung_variant_status(
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_rung_variant_status", input).await
+}
+
+#[tauri::command]
+pub async fn remint_diagnostic_probe(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "remint_diagnostic_probe", input).await
 }
 
 #[tauri::command]

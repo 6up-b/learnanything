@@ -9,6 +9,7 @@ from learnloop.db.repositories import GradingEvidenceRecord, Repository
 from learnloop.services.confusable_concepts import learner_observed_confusable_concepts
 from learnloop.services.grading import resolved_rubric
 from learnloop.services.mastery import display_mastery, sigmoid
+from learnloop.services.mastery_step_attribution import explain_mastery_step
 from learnloop.services.scheduler import (
     _FOLLOWUP_REASONS,
     ScheduledItem,
@@ -286,6 +287,14 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             "scheduler": scheduler_explanation_dto(scheduler) if scheduler is not None else None,
             "attempts": practice_item_attempts(repository, item.id, max_points),
             "assessment_contract_version_id": assessment_contract_version_id,
+            # Which delayed follow-up lane (if any) this item currently serves.
+            # A `cold_retry` / `certification_cold_probe` must be answered
+            # unassisted and unprimed (apply_attempt hard-rejects otherwise), so
+            # the practice surface needs to WARN before the learner burns the
+            # one measurement on a hint.
+            "active_followup_kind": (
+                (repository.active_followup_task_for_item(item.id) or {}).get("kind")
+            ),
         }
     )
 
@@ -586,6 +595,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "surprise": surprise_dto(surprise, vault.config.scheduler.followup.tau_followup_nats),
             "mastery_before": mastery_before_dto(surprise, mastery_after),
             "mastery_after": mastery_after,
+            "mastery_step": mastery_step_dto(repository, attempt_id, attempt["correctness"]),
             "feedback_md": metadata.get("feedback_md"),
             "feedback_shown_count": metadata.get("shown_count", 0),
             "feedback_first_shown_at": metadata.get("first_shown_at"),
@@ -741,6 +751,43 @@ def mastery_before_dto(
             "variance": variance,
             "evidence_count": evidence_count,
             "last_evidence_at": None,
+        }
+    )
+
+
+def mastery_step_dto(
+    repository: Repository, attempt_id: str, observed_correctness: float | None
+) -> dict[str, Any] | None:
+    """Why the posterior moved this far: the observation-weight factor chain.
+
+    Derived from the attempt's persisted debug payload, so it renders for older
+    attempts too. ``None`` when the payload is missing or carries no weight --
+    the panel then simply omits the strip.
+    """
+
+    explanation = explain_mastery_step(
+        repository.attempt_debug_payload(attempt_id),
+        observed_correctness=observed_correctness,
+    )
+    if explanation is None:
+        return None
+    return to_camel(
+        {
+            "observation_weight": explanation.observation_weight,
+            "factors": [
+                {
+                    "key": factor.key,
+                    "label": factor.label,
+                    "detail": factor.detail,
+                    "multiplier": factor.multiplier,
+                }
+                for factor in explanation.factors
+            ],
+            "expected_correctness": explanation.expected_correctness,
+            "observed_correctness": explanation.observed_correctness,
+            "dominant_factor_key": explanation.dominant_factor_key,
+            "at_weight_floor": explanation.at_weight_floor,
+            "product_reconciles": explanation.product_reconciles,
         }
     )
 

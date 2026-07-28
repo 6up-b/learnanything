@@ -14,6 +14,27 @@ prerequisites:
   - lo_qk_attention_pattern
 confusables:
   - concept_query_key
+blueprints:
+  - id: bp_compute_value_updates
+    weight: 1.0
+    recipes:
+      - id: recipe_form_and_add_value_update
+        composition: conjunctive
+        all_of:
+          - facet: pattern_as_weights
+            capability: procedure_execution
+            modality: hard
+          - facet: values_as_content
+            capability: procedure_execution
+            modality: hard
+          - facet: weighted_sum_column
+            capability: procedure_execution
+            modality: hard
+          - facet: add_to_embedding
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.61
 difficulty_source: llm_estimate
 tags:
@@ -31,6 +52,13 @@ provenance:
       quote: use a third matrix, what we call the value matrix... producing a 
         sequence of changes.
       quote_hash: sha256:src_values_update
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_low_rank_value
       path: 
@@ -39,5 +67,12 @@ provenance:
       quote: key, the query, and the value... constraining the overall value map
         to be a low rank transformation.
       quote_hash: sha256:src_low_rank_value
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:19Z'
-updated_at: '2026-05-28T21:34:19Z'
+updated_at: '2026-07-28T03:18:50Z'

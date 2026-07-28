@@ -16,6 +16,32 @@ prerequisites:
 confusables:
   - cosine_similarity
   - euclidean_distance
+blueprints:
+  - id: bp_compute_dot_product_alignment
+    weight: 0.55
+    recipes:
+      - id: recipe_compute_and_interpret_dot_product
+        composition: conjunctive
+        all_of:
+          - facet: multiply_sum_method
+            capability: procedure_execution
+            modality: hard
+          - facet: alignment_interpretation
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+  - id: bp_select_alignment_interpretation
+    weight: 0.45
+    recipes:
+      - id: recipe_interpret_alignment_sign
+        composition: conjunctive
+        all_of:
+          - facet: alignment_interpretation
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
 difficulty_prior: 0.42
 difficulty_source: llm_estimate
 tags:
@@ -33,5 +59,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:06:12Z'
-updated_at: '2026-05-28T22:06:12Z'
+updated_at: '2026-07-28T03:18:54Z'

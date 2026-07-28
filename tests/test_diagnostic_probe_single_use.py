@@ -1,13 +1,18 @@
 """Single-use diagnostic_probe surfaces (owner design intent).
 
 A vault-authored ``practice_mode: diagnostic_probe`` item exists to carry
-exactly one administration: re-serving it conflates memorization of the
-question with understanding. Diagnostic attempts are deliberately excluded
-from FSRS (measurement hygiene), so nothing ever re-dues the card — before
-these guards the item simply lived in the ordinary scheduler pool forever.
+exactly one *diagnostic* administration: re-serving it conflates memorization
+of the question with understanding. Diagnostic attempts are deliberately
+excluded from FSRS (measurement hygiene), so nothing ever re-dues the card —
+before these guards the item simply lived in the ordinary scheduler pool
+forever.
 
-Three doors are pinned here:
+Doors pinned here:
 
+* the freshness reserve: a diagnostic surface never enters the ordinary
+  scheduler pool at all — not even before its administration — so ordinary
+  practice cannot burn its freshness (probe/pack/follow-up flows serve it;
+  see test_diagnostic_probe_freshness.py);
 * attempt recording deactivates the item (shared compute path, so replay
   reproduces the flip);
 * the scheduler's candidate gate skips an already-administered diagnostic
@@ -155,7 +160,9 @@ def _queue_ids(vault, repository) -> set[str]:
 
 def test_diagnostic_probe_item_deactivates_after_its_attempt(tmp_path):
     vault, repository = _vault(tmp_path)
-    assert DIAG_ITEM in _queue_ids(vault, repository)
+    # Freshness reserve: even before its administration the surface is kept
+    # out of the ordinary pool (it is served through diagnostic flows only).
+    assert DIAG_ITEM not in _queue_ids(vault, repository)
 
     _diagnostic_attempt(vault, repository)
 
@@ -180,8 +187,10 @@ def test_attempted_diagnostic_probe_is_gated_even_while_still_active(tmp_path):
 
     ids = _queue_ids(vault, repository)
     assert attempted not in ids
-    # A never-administered diagnostic probe is still ordinarily schedulable.
-    assert fresh in ids
+    # A never-administered diagnostic probe is ALSO reserved out of the
+    # ordinary pool (freshness reserve); it is served through diagnostic
+    # flows only, so neither surface appears here.
+    assert fresh not in ids
 
 
 def test_vault_sync_does_not_reactivate_an_administered_diagnostic_probe(tmp_path):

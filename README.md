@@ -49,7 +49,24 @@ the source. The model fills in the answer, rubric, hints, and depth; the item
 lands scheduled, tagged with its facets and difficulty, and carries the source
 span with it.
 
-### 4. Grading that shows its evidence
+### 4. The best way to learn is to teach
+
+![Teach-back dialogue in which an AI student probes the learner's explanation of positional encodings before asking a transfer question about an unseen sequence length](docs/screenshots/practice-teach-back.png)
+
+Teach a deliberately naive student in your own words. It asks probing questions
+about the parts your earlier work showed you were shaky on, making you expose
+assumptions, connect steps, and close gaps instead of merely reciting a polished
+answer. The student also asks a transfer question: apply the idea to a novel edge
+case, changed assumption, or new context. That final turn tests whether the
+knowledge is flexible enough to use, not just familiar enough to repeat.
+
+![Teach-back results showing criterion-level evidence from the learner's explanation, follow-up answers, and transfer response](docs/screenshots/practice-teach-back-results.png)
+
+The whole dialogue is graded against the item's rubric. The results show which
+criteria were demonstrated and quote the relevant evidence, including the
+answer to the transfer question.
+
+### 5. Grading that shows its evidence
 
 ![Attempt inspector showing per-criterion grading evidence, the raw grader output, and the causal episode receipt](docs/screenshots/attempt-grading-evidence.png)
 
@@ -57,7 +74,7 @@ Every attempt is inspectable, in the app or via `learnloop show <attempt-id>`.
 The score is broken out per rubric criterion with the quoted evidence behind it,
 alongside the raw grader output and the causal episode's receipt.
 
-### 5. The minimal repair
+### 6. The minimal repair
 
 ![Side-by-side diff of the observed trace and the minimal repair, with the learner's correct work preserved and only the mistaken step rewritten](docs/screenshots/attempt-minimal-repair.png)
 
@@ -67,7 +84,7 @@ classification in step 3 is rewritten. Because one safe repair covers every
 plausible cause, the diagnosis is not divergent and no follow-up probe is
 needed. when it *is* divergent, that is what commissions a follow-up probe.
 
-### 6. The jagged boundary of what you know
+### 7. The jagged boundary of what you know
 
 ![Knowledge field "well" view: 39 evidence facets around a gravity well, with demonstrated facets as filled beads and unexplored ones flat](docs/screenshots/knowledge-field-well.png)
 

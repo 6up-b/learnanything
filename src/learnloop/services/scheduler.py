@@ -12,9 +12,11 @@ from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repos
 from learnloop.services.fitted_params import resolve_fsrs_weights
 from learnloop.services.instrument_serving import unservable_reason
 from learnloop.services.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve
+from learnloop.services.canonical_projection import surface_group_id
 from learnloop.services.probe_episodes import (
     EligibleInstrument,
     EpisodePosterior,
+    administered_surface_exclusions,
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
@@ -75,6 +77,27 @@ def build_due_queue(
     now = (clock or SystemClock()).now().astimezone(UTC)
     session = session or SchedulerSession()
     config = vault.config
+    if persist_explanations:
+        # Freshness supply reconciliation: a consumed (administered) single-use
+        # diagnostic_probe surface leaves a diagnostic-coverage hole; derive the
+        # deduplicated replacement-generation need here, on the path that always
+        # runs right after an attempt. Idempotent and replay-safe (needs are a
+        # function of attempts + item state), and guarded by persist_explanations
+        # so explicitly side-effect-free queue builds stay pure.
+        from learnloop.services.diagnostic_surface_supply import (
+            reconcile_diagnostic_surface_needs,
+            reconcile_empty_probe_pools,
+        )
+
+        reconcile_diagnostic_surface_needs(vault, repository, clock=clock)
+        # Owner decision: an EMPTY eligible pool behind an open probe episode or
+        # a pending diagnostic need must never be silent. Queue generation
+        # through the existing needs→commissioning path when an authoring
+        # provider is routed, and always raise one urgent deduplicated
+        # maintenance notice per LO (self-resolving when a fresh surface
+        # appears). Same guard as the supply sweep: side-effect-free builds
+        # stay pure.
+        reconcile_empty_probe_pools(vault, repository, clock=clock)
     cap_lifted = False
     if session.session_id is not None:
         from learnloop.services.calibration_sessions import calibration_cap_lifted
@@ -144,6 +167,13 @@ def build_due_queue(
             evaluated_head_ids.append(head.id)
 
     queue: list[ScheduledItem] = []
+    # Annotation-only rows for diagnostic surfaces the freshness rules kept out
+    # of the queue. Logged with the slate ("no silent caps"), never served.
+    probe_reserved_exclusions: list[ScheduledItem] = []
+    # Lazily built: (attempted item ids, attempted surface groups) — the
+    # never-before-seen probe gate's exclusion set. Only probe-eligible builds
+    # pay for it.
+    attempted_surface_exclusions: tuple[set[str], set[str]] | None = None
     probe_item_ids: dict[str, str] = {}
     probe_entropy_before: dict[str, float] = {}
     recent_attempts_by_lo: dict[str, list[dict[str, Any]]] = {}
@@ -197,6 +227,17 @@ def build_due_queue(
             and episode.status == "in_progress"
             and probe_block_reason is None
         )
+        # Freshness reserve (owner design intent): a diagnostic_probe surface
+        # exists to carry one *diagnostic* administration on a never-before-seen
+        # problem. Serving it as ordinary practice would burn that freshness on
+        # a non-diagnostic administration, so the mode is excluded from the
+        # ordinary pool ENTIRELY — not merely after administration. Diagnostic
+        # surfaces reach the learner only through explicit diagnostic flows:
+        # the probe-episode branch below, and the by-id injection doors that
+        # bypass this candidate gate (delayed follow-up tasks, exam pools, and
+        # repair paths that request a specific item).
+        if item.practice_mode == "diagnostic_probe" and not in_probe:
+            continue
         frontier_entry = frontier.by_lo.get(learning_object.id)
         # Cold-start gate: never-attempted LOs stay out of the routine queue —
         # EXCEPT when the LO is on an active goal's at-risk frontier or has an
@@ -243,7 +284,25 @@ def build_due_queue(
         components["goal_frontier"] = goal_frontier_component
         probe_familiarity_discount = 1.0
 
+        probe_surface_repeat = False
         if in_probe and episode.hypothesis_set_id is not None:
+            # Never-before-seen probe gate: familiarity merely DISCOUNTS
+            # ordinary priority, but a probe administered on an already-seen
+            # surface (same item, or any item in an attempted item's surface
+            # group) measures memorization of the question, not understanding.
+            # `eligible_instruments` enforces the same exclusion; the check here
+            # exists so the exclusion is annotated instead of silent.
+            if attempted_surface_exclusions is None:
+                attempted_surface_exclusions = administered_surface_exclusions(
+                    vault, repository
+                )
+            attempted_ids, attempted_surfaces = attempted_surface_exclusions
+            probe_surface_repeat = (
+                item.id in attempted_ids or surface_group_id(item) in attempted_surfaces
+            )
+            if probe_surface_repeat:
+                components["probe_surface_repeat_excluded"] = 1.0
+        if in_probe and episode.hypothesis_set_id is not None and not probe_surface_repeat:
             context = _load_episode_context(vault, repository, episode, episode_posterior_cache)
             eligible_entry = (
                 _load_episode_eligible(vault, repository, episode, context, episode_eligible_cache).get(item.id)
@@ -303,6 +362,31 @@ def build_due_queue(
                     components["probe_eig_familiarity_discount"] = probe_familiarity_discount
                     probe_item_ids[item.id] = episode.hypothesis_set_id
                     probe_entropy_before[item.id] = entropy_before
+
+        if item.practice_mode == "diagnostic_probe" and components.get("probe_eig", 0.0) <= 0.0:
+            # In an open probe episode but not servable as a probe this refresh
+            # (already-seen surface group, no eligible instrument binding, or a
+            # short session withholding probe EIG). The surface stays reserved
+            # rather than leaking into ordinary practice; the exclusion is
+            # logged with the slate so it never fails silently.
+            reason = (
+                "diagnostic probe excluded: surface group already administered"
+                if probe_surface_repeat
+                else "diagnostic probe reserved: no eligible probe binding this refresh"
+            )
+            probe_reserved_exclusions.append(
+                ScheduledItem(
+                    practice_item_id=item.id,
+                    learning_object_id=learning_object.id,
+                    priority=0.0,
+                    components={**components, "diagnostic_reserved_excluded": 1.0},
+                    readiness_factor=readiness_factor,
+                    selected_mode=item.practice_mode,
+                    plain_english=[reason],
+                    reward_debug=None,
+                )
+            )
+            continue
 
         legacy_priority = _priority(components, config)
         intent = _intent_for_item(item, in_probe=in_probe, components=components)
@@ -393,7 +477,9 @@ def build_due_queue(
         config.tutor_promotion.requested_items_per_session,
     )
     queue = _rotate_same_day_frontier_repeats(queue, item_states, now)
-    queue = _insert_pending_followups(vault, queue, pending_followups, readiness_factor)
+    queue = _insert_pending_followups(
+        vault, queue, pending_followups, readiness_factor, item_states=item_states
+    )
     queue = _apply_contrast_pair_order(vault, repository, queue, session, clock=clock)
     active_session_presentation = (
         repository.active_probe_presentation_for_session(session.session_id)
@@ -448,6 +534,12 @@ def build_due_queue(
                 selection_propensity=propensity_by_id.get(item.practice_item_id),
             )
             for item in considered_queue
+        ] + [
+            # "No silent caps": reserved diagnostic surfaces excluded by the
+            # freshness rules are logged as unselected candidates, so the slate
+            # says WHY a probe surface was withheld instead of omitting it.
+            _explanation_payload(excluded, selected=False, selection_propensity=None)
+            for excluded in probe_reserved_exclusions
         ]
         probe_presentation = None
         if queue:
@@ -536,12 +628,31 @@ _INTERVENTION_FOLLOWUP_KINDS: frozenset[str] = frozenset(
     {"intervention_followup", "cold_retry", "certification_cold_probe"}
 )
 
+#: Task kinds created by explicit repair/diagnostic JOURNEYS, whose by-id
+#: selections are honored even when they name a ``diagnostic_probe`` item the
+#: learner has already administered. Today that is exactly the remediation
+#: ``cold_retry`` lane: its cold item is chosen at prescription time as part of
+#: the repair measurement pair, and refusing the injection would strand the
+#: episode in ``cold_scheduled`` forever. (In practice the remediation ranker
+#: never picks an administered diagnostic item — attempt recording deactivates
+#: it and ``_rank_items`` skips inactive state — so the allowlist protects
+#: explicit-journey injections, not staleness.) Probe-episode serving does not
+#: ride ``followup_tasks`` at all (it commits presentations), so no episode
+#: kind appears here. Every OTHER kind — ``certification_cold_probe``,
+#: ``intervention_followup``, ``negative_surprise_followup`` — is a generic
+#: selection and must not resurrect a burned single-use surface: selection
+#: time refuses to pick one (followups / certification_cold_probe), and the
+#: serving door below refuses a stale task that still names one.
+REPAIR_JOURNEY_TASK_KINDS: frozenset[str] = frozenset({"cold_retry"})
+
 
 def _insert_pending_followups(
     vault: LoadedVault,
     queue: list[ScheduledItem],
     pending_followups: list[dict[str, str]],
     readiness_factor: float | None,
+    *,
+    item_states: dict[str, PracticeItemState] | None = None,
 ) -> list[ScheduledItem]:
     if not pending_followups:
         return queue
@@ -571,6 +682,22 @@ def _insert_pending_followups(
             continue
         if candidate_item is not None and unservable_reason(candidate_item) is not None:
             continue
+        action_type = pending.get("action_type") or "negative_surprise_followup"
+        # Single-use diagnostic surfaces stay single-use through this door too:
+        # a stale GENERIC delayed task naming an ALREADY-ADMINISTERED
+        # diagnostic_probe item must not resurrect the burned surface. A fresh
+        # (never-attempted) diagnostic surface remains injectable by id — that
+        # is a legitimate diagnostic serving path — and an explicit
+        # repair-journey kind (REPAIR_JOURNEY_TASK_KINDS) keeps its selection
+        # even post-administration, consistent with the selection-time rule.
+        if (
+            candidate_item.practice_mode == "diagnostic_probe"
+            and action_type not in REPAIR_JOURNEY_TASK_KINDS
+            and item_states is not None
+        ):
+            candidate_state = item_states.get(practice_item_id)
+            if candidate_state is not None and candidate_state.last_attempt_at is not None:
+                continue
         scheduled = by_id.get(practice_item_id)
         if scheduled is None:
             practice_item = candidate_item
@@ -593,7 +720,6 @@ def _insert_pending_followups(
                 reward_debug=None,
             )
         components = dict(scheduled.components)
-        action_type = pending.get("action_type") or "negative_surprise_followup"
         is_intervention = action_type in _INTERVENTION_FOLLOWUP_KINDS
         component = "intervention_followup" if is_intervention else "negative_surprise_followup"
         # The lane survives on the item itself, not only in the prose below.
@@ -1014,6 +1140,11 @@ def _intent_for_item(item: PracticeItem, *, in_probe: bool, components: dict[str
     if item.practice_mode == "teach_back":
         return SchedulerIntent.PROBE
     if item.practice_mode == "diagnostic_probe":
+        # Effectively dead in `build_due_queue` since the freshness reserve:
+        # diagnostic surfaces only reach intent scoring with probe_eig > 0
+        # (caught by the PROBE branch above). Kept for defense in depth — a
+        # diagnostic surface must never be scored as ordinary practice/repair
+        # supply by a future caller.
         if components.get("recent_error", 0.0) > 0 and item.repair_targets:
             return SchedulerIntent.REPAIR
         return SchedulerIntent.PRACTICE
@@ -1235,6 +1366,9 @@ def _plain_english(item: PracticeItem, components: dict[str, float]) -> list[str
         reasons.append(f"probe information gain {components['probe_eig']:.2f}")
     if components.get("boundary_target", 0.0) > 0:
         reasons.append(f"facet boundary fit {components['boundary_target']:.2f}")
+    if components.get("probe_surface_repeat_excluded", 0.0) > 0:
+        # Never-before-seen probe gate: the surface stays ordinary practice.
+        reasons.append("probe excluded: surface group already administered")
     if components.get("selection_reward", 0.0) > 0:
         reasons.append(f"selection reward {components['selection_reward']:.2f}")
     if not reasons:

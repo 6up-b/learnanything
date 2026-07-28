@@ -609,6 +609,25 @@ def episode_hypothesis_set(
 # --- Instrument resolution (§9, §7.2) ----------------------------------------------
 
 
+def administered_surface_exclusions(
+    vault: LoadedVault, repository: Repository
+) -> tuple[set[str], set[str]]:
+    """Surfaces the learner has already seen in ANY administration.
+
+    Returns ``(attempted_item_ids, attempted_surface_group_ids)``. Attempted
+    items no longer present in the vault still exclude by id (their surface
+    group cannot be resolved, but the exact item is certainly familiar).
+    """
+
+    attempted_ids = repository.attempted_practice_item_ids()
+    attempted_surfaces: set[str] = set()
+    for item_id in attempted_ids:
+        attempted_item = vault.practice_items.get(item_id)
+        if attempted_item is not None:
+            attempted_surfaces.add(surface_group_id(attempted_item))
+    return attempted_ids, attempted_surfaces
+
+
 def eligible_instruments(
     vault: LoadedVault,
     repository: Repository,
@@ -673,6 +692,18 @@ def eligible_instruments(
         family_id = row.get("probe_family_template_id")
         if family_id:
             observed_family_counts[str(family_id)] = observed_family_counts.get(str(family_id), 0) + 1
+    # Never-before-seen rule (owner design intent): a probe measures
+    # understanding only on a fresh surface — an item the learner has already
+    # answered in ANY administration (ordinary practice, exam, or a past
+    # episode), or a near-clone in an attempted item's surface group, would
+    # conflate memorization of the question with the capability under test.
+    # This widens the §5.4 within-episode exposure rule to the whole attempt
+    # history: familiarity DISCOUNTS ordinary-practice priority, but for probe
+    # candidacy it is a hard exclusion. The scheduler annotates the exclusion
+    # (`probe_surface_repeat_excluded`) so it never fails silently.
+    attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
+    used_item_ids |= attempted_ids
+    used_surfaces |= attempted_surfaces
 
     resolved: list[tuple[PracticeItem, CompiledInstrument, dict[str, str]]] = []
     for item in vault.practice_items.values():

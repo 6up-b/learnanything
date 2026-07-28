@@ -631,6 +631,11 @@ export interface PracticeItemDetail {
   attempts: AttemptHistoryRowDto[];
   assessmentContractVersionId: string | null;
   elicitation: ElicitationDecisionDto | null;
+  /** The delayed follow-up lane this item is currently serving, if any
+   *  ("cold_retry" | "certification_cold_probe" | ...). Cold lanes reject
+   *  hinted/primed attempts, so the practice surface warns near the hint
+   *  button. Optional: older sidecars omit it. */
+  activeFollowupKind?: string | null;
 }
 
 // ── Meas §3.A6 opportunistic trace evidence ─────────────────────────────────
@@ -733,6 +738,32 @@ export interface MasteryDto {
   plausibleMass?: number;
   evidenceCount: number;
   lastEvidenceAt: IsoTimestamp | null;
+}
+
+/** One multiplicative term in the observation weight. */
+export interface MasteryStepFactorDto {
+  key: string;
+  label: string;
+  detail: string;
+  multiplier: number;
+}
+
+/**
+ * Why the posterior moved as far as it did. The EKF step is governed by the
+ * observation weight; `factors` are the terms that produced it, in application
+ * order, and their product is `observationWeight`.
+ */
+export interface MasteryStepDto {
+  observationWeight: number;
+  factors: MasteryStepFactorDto[];
+  expectedCorrectness: number | null;
+  observedCorrectness: number | null;
+  /** Factor that cost the most weight — emphasised in the strip. */
+  dominantFactorKey: string | null;
+  /** Weight is at the noise floor; shrinking it further stops shrinking the step. */
+  atWeightFloor: boolean;
+  /** False when the payload predates a scoring change — chain is partial. */
+  productReconciles: boolean;
 }
 
 export interface SchedulerExplanationDto {
@@ -917,6 +948,8 @@ export interface FeedbackBundle {
   surprise: AttemptSurpriseDto;
   masteryBefore: MasteryDto | null;
   masteryAfter: MasteryDto | null;
+  /** Observation-weight breakdown behind the posterior shift; null pre-trace. */
+  masteryStep: MasteryStepDto | null;
   feedbackMd: string | null;
   repairSuggestions: RepairSuggestionDto[];
   interventionNeed: InterventionNeedDto | null;
@@ -1392,6 +1425,30 @@ export interface PrimedRetryResultDto {
   generated: boolean;
   reason?: string | null;
   practiceItem: PracticeItemDetail | null;
+}
+
+/** Result of start_guided_redo (Fix 3): redo ONLY the failed part of an
+ *  attempt. `learnerWorkPrefix` is the server-recomposed preserved work,
+ *  rendered read-only above the editor; the learner writes just the redo
+ *  portion and the composed answer is submitted primed on the SAME item. */
+export interface GuidedRedoDto {
+  version: number;
+  attemptId: string;
+  practiceItemId: string;
+  prompt: string;
+  learnerWorkPrefix: string;
+  /** The repair op's rationale — what went wrong and what to fix. */
+  redoInstruction: string | null;
+  failedCheckpointIds: string[];
+  /** Whether the repair appends after the preserved work or splices into it. */
+  insertionKind: "end_append" | "mid_splice";
+  repairClassId: string | null;
+  /** The open remediation episode this redo was bound to as the primed
+   *  attempt, when one existed for the diagnosed case. */
+  episodeId: string | null;
+  coldItemId: string | null;
+  coldUnmeasurableReason: string | null;
+  practiceItem: PracticeItemDetail;
 }
 
 // ── Tutor Q&A ("ask") ──────────────────────────────────────────────────────
@@ -2503,6 +2560,18 @@ export interface RungVariantRequestDto {
   createdPracticeItemId: string | null;
   failureReason: string | null;
   batchId: string | null;
+}
+
+/** Result of keeping an administered diagnostic probe as an ordinary practice
+ *  item (a new item; the probe stays retired with its history intact). */
+export interface ProbeRemintResultDto {
+  version?: number;
+  practiceItemId: string;
+  sourcePracticeItemId: string;
+  attemptId: string;
+  practiceMode: string;
+  learningObjectId: string;
+  created: boolean;
 }
 
 export interface RungVariantRequestResultDto {
@@ -4221,7 +4290,11 @@ export interface RemediationDto {
   episode: RemediationEpisodeDto;
   case: RemediationCaseDto;
   primedItemId?: string;
-  coldItemId?: string;
+  coldItemId?: string | null;
+  /** Set (e.g. "no_independent_surface") when NO cold item could be paired:
+   *  the repair cannot convert to Demonstrated credit and the UI must say so
+   *  instead of promising a scheduled cold retry. */
+  coldUnmeasurableReason?: string | null;
   practiceItem?: PracticeItemDetail;
 }
 
@@ -4234,7 +4307,8 @@ export interface StartRemediationDto {
   case: RemediationCaseDto | null;
   repairStatus?: CausalRepairStatusDto | null;
   primedItemId?: string;
-  coldItemId?: string;
+  coldItemId?: string | null;
+  coldUnmeasurableReason?: string | null;
   practiceItem?: PracticeItemDetail;
 }
 

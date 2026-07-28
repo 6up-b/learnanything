@@ -1,0 +1,23 @@
+-- Bounded deferral for promotion-blocking unresolved-cause factors.
+--
+-- `_open_diagnostic_repair_factor` opens a factor for every failed diagnostic
+-- administration with a mapped repair class, and `_normalize_compositional`
+-- defers durable-misconception promotion while the attempt's factor is open.
+-- Deferral stays the default, but the window is now finite and every exit is
+-- evidence-labeled. The table's only resolution column
+-- (`resolution_observation_ids_json`) carries discriminating-observation ids;
+-- it cannot name WHY a factor closed, so the label gets its own column:
+--
+--   repair_confirmed     — a cold verification succeeded on the factor's
+--                          repair class; the cause is confirmed-and-fixed.
+--   escalated_unrepaired — a cold verification failed on the repair class, or
+--                          the error signature kept recurring with no learner
+--                          engagement; promotion may proceed.
+--   expired_unengaged    — the factor sat open past the deferral TTL with no
+--                          engagement; retired, promotion unblocked.
+--
+-- `resolution_detail_json` references the triggering evidence (cold
+-- verification id / recurrence attempt ids / TTL), so the exit is auditable
+-- without re-deriving the trigger.
+ALTER TABLE unresolved_cause_factors ADD COLUMN resolution_kind TEXT;
+ALTER TABLE unresolved_cause_factors ADD COLUMN resolution_detail_json TEXT;

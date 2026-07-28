@@ -323,6 +323,12 @@ def goal_material_gaps(
     item_states = repository.practice_item_states()
     active_counts: dict[str, int] = {}
     for item in vault.practice_items.values():
+        # A diagnostic surface is not "something to practice": diagnostic_probe
+        # items are single-use and reserved for diagnostic serving (never the
+        # ordinary pool), and microprobes are ephemeral dialogue instances. An
+        # LO whose only items are diagnostic still has a fillable practice gap.
+        if item.practice_mode in ("diagnostic_probe", "diagnostic_microprobe"):
+            continue
         state = item_states.get(item.id)
         if state is not None and not state.active:
             continue

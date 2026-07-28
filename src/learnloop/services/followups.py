@@ -92,6 +92,12 @@ class InterventionSelection:
     # without it "no_suitable_item" is recorded for a learning object that
     # visibly has suitable items.
     unservable_skips: list[dict[str, Any]] = field(default_factory=list)
+    # Single-use freshness: ``diagnostic_probe`` items that already carried
+    # their one administration are never selectable for a generic follow-up —
+    # the scheduler's serving door would (correctly) refuse the task, leaving
+    # it consumed-but-unserved. Skipped at selection time and recorded here so
+    # the fallback to the next eligible ordinary item is visible, not silent.
+    administered_diagnostic_skips: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -1280,6 +1286,8 @@ def _choose_intervention_item(
 
     candidates = []
     unservable_skips: list[dict[str, Any]] = []
+    administered_diagnostic_skips: list[str] = []
+    item_states = repository.practice_item_states()
     for item in vault.practice_items.values():
         if item.learning_object_id != learning_object_id or item.id == exclude_practice_item_id:
             continue
@@ -1287,6 +1295,21 @@ def _choose_intervention_item(
         if refusal is not None:
             unservable_skips.append(refusal)
             continue
+        # A diagnostic probe is a single-use surface: once administered (or
+        # deactivated by its administration) it must not be re-selected by a
+        # generic follow-up — the scheduler's serving door refuses such tasks,
+        # so selecting one here would create a task that never serves. The
+        # ranking simply falls back to the next eligible ordinary item; the
+        # skip is recorded on the selection rather than dropped silently.
+        # (Explicit repair journeys — the remediation cold_retry lane — do not
+        # select through this function; see scheduler.REPAIR_JOURNEY_TASK_KINDS.)
+        if item.practice_mode == "diagnostic_probe":
+            state = item_states.get(item.id)
+            if state is not None and (
+                state.last_attempt_at is not None or not state.active
+            ):
+                administered_diagnostic_skips.append(item.id)
+                continue
         candidates.append(item)
     # Tutor-question evidence (question_signal): substantive unresolved
     # questions update the marginals BEFORE gating/EIG, so questioned facets
@@ -1399,6 +1422,7 @@ def _choose_intervention_item(
             active_misconception_ids=active_misconception_ids,
             eligible_slate_size=0,
             unservable_skips=unservable_skips,
+            administered_diagnostic_skips=administered_diagnostic_skips,
         )
 
     gate_applies = bool(diagnostic_states) and dominant_target_facet is not None
@@ -1572,6 +1596,7 @@ def _choose_intervention_item(
         active_misconception_ids=active_misconception_ids,
         eligible_slate_size=len(eligible),
         unservable_skips=unservable_skips,
+        administered_diagnostic_skips=administered_diagnostic_skips,
     )
 
 
@@ -1915,6 +1940,18 @@ def _record_followup_decision_features(
             **(
                 {"unservable_skips": selection.unservable_skips}
                 if selection.unservable_skips
+                else {}
+            ),
+            # Single-use freshness: present only when an administered
+            # diagnostic surface was actually refused at selection time, so
+            # pre-existing decision records stay byte-identical.
+            **(
+                {
+                    "administered_diagnostic_skips": (
+                        selection.administered_diagnostic_skips
+                    )
+                }
+                if selection.administered_diagnostic_skips
                 else {}
             ),
             # spec §4.2: surface a thin eligible slate (pool-of-one silently zeroes

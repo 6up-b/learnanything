@@ -627,6 +627,20 @@ def sweep_machine_checks(
         logging.getLogger(__name__).warning(
             "expired cold-retry reconciliation failed", exc_info=True
         )
+    # Bounded factor deferral rides the same per-attempt hook so abandoned
+    # cases expire even when no attempt on their own learning object ever
+    # re-materializes (the escalation-critical run happens earlier, inside
+    # `_normalize_compositional`, before the promotion-block read).
+    try:
+        from learnloop.services.causal_factor_deferral import (
+            sweep_promotion_blocking_factors,
+        )
+
+        sweep_promotion_blocking_factors(repository, clock=clock)
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        logging.getLogger(__name__).warning(
+            "promotion-blocking factor sweep failed", exc_info=True
+        )
 
     return _close_orphan_checks(repository, learning_object_id, live, clock=clock)
 
@@ -834,6 +848,32 @@ def _diagnosis_receipt(
     return receipt if isinstance(receipt, Mapping) else None
 
 
+def _receipt_repair_class_id(receipt: Mapping[str, Any] | None) -> str | None:
+    """The repair class one diagnosis receipt commits to, if any.
+
+    Prefers the §6 common-repair cover (safe for the whole plausible set), then
+    the §6.4 minimal-repair selection. The selection stores its winner NESTED
+    (``selected.repair_class.id``) — the previous reader looked for a flat
+    ``repair_selection.repair_class_id`` key that has never existed, so this
+    fallback silently never fired."""
+
+    if not isinstance(receipt, Mapping):
+        return None
+    cover = receipt.get("common_repair_cover")
+    if isinstance(cover, Mapping) and cover.get("repair_class_id"):
+        return str(cover["repair_class_id"])
+    selection = receipt.get("repair_selection")
+    if not isinstance(selection, Mapping):
+        return None
+    selected = selection.get("selected")
+    if not isinstance(selected, Mapping):
+        return None
+    repair_class = selected.get("repair_class")
+    if isinstance(repair_class, Mapping) and repair_class.get("id"):
+        return str(repair_class["id"])
+    return None
+
+
 def _repair_class_by_hypothesis(
     causes: Sequence[Mapping[str, Any]],
 ) -> dict[str, str]:
@@ -1031,24 +1071,6 @@ class CausalRepairError(ValueError):
 _UNCOMMITTED_REPAIR_STATES = ("diagnosis", "prescribed")
 
 
-def _open_repair_episode_id(
-    repository: Repository, *, case_kind: str, case_ref: str
-) -> str | None:
-    placeholders = ",".join("?" for _ in _UNCOMMITTED_REPAIR_STATES)
-    with repository.connection() as connection:
-        row = connection.execute(
-            f"""
-            SELECT id FROM remediation_episodes
-             WHERE case_kind = ? AND case_ref = ?
-               AND state IN ({placeholders})
-             ORDER BY created_at DESC, id DESC
-             LIMIT 1
-            """,
-            (case_kind, case_ref, *_UNCOMMITTED_REPAIR_STATES),
-        ).fetchone()
-    return str(row["id"]) if row is not None else None
-
-
 def _episode_for(
     repository: Repository,
     *,
@@ -1068,15 +1090,15 @@ def _episode_for(
     de-duplicating here de-duplicates the lane.
     """
 
-    existing = _open_repair_episode_id(
-        repository, case_kind=case_kind, case_ref=case_ref
-    )
-    if existing is not None:
-        episode = repository.remediation_episode(existing)
-        if episode is not None:
-            return episode
-    return repository.create_remediation_episode(
-        case_kind=case_kind, case_ref=case_ref, clock=clock
+    # Atomic get-or-create (StrictMode double-mount hardening): the read and
+    # the insert happen inside one repository write transaction, so two racing
+    # "start this repair" calls resolve to one episode instead of a duplicate
+    # pair whose orphan strands every downstream record.
+    return repository.get_or_create_open_remediation_episode(
+        case_kind=case_kind,
+        case_ref=case_ref,
+        states=_UNCOMMITTED_REPAIR_STATES,
+        clock=clock,
     )
 
 
@@ -2538,19 +2560,30 @@ def cold_verification_context(
             if candidates:
                 hypothesis_set_id = str(candidates[0]["hypothesis_set_id"])
     if repair_class_id is None:
-        receipt = _diagnosis_receipt(
-            repository, str(source_attempt.get("id") or "") or None
+        repair_class_id = _receipt_repair_class_id(
+            _diagnosis_receipt(
+                repository, str(source_attempt.get("id") or "") or None
+            )
         )
-        if isinstance(receipt, Mapping):
-            cover = receipt.get("common_repair_cover")
-            if isinstance(cover, Mapping) and cover.get("repair_class_id"):
-                repair_class_id = str(cover["repair_class_id"])
-            else:
-                selection = receipt.get("repair_selection")
-                if isinstance(selection, Mapping) and selection.get(
-                    "repair_class_id"
-                ):
-                    repair_class_id = str(selection["repair_class_id"])
+    if repair_class_id is None and episode.get("case_kind") == "misconception":
+        # Case-level fallback: a clean primed attempt materializes no causal
+        # episode and therefore has no diagnosis receipt of its own. The repair
+        # class the cold retry verifies was selected when the misconception was
+        # DIAGNOSED, so read it off the newest diagnosing attempt's receipt.
+        misconception = repository.misconception(case_ref)
+        source_event_ids = (
+            list(misconception.source_error_event_ids)
+            if misconception is not None
+            else []
+        )
+        for attempt_id in repository.attempt_ids_for_misconception(
+            case_ref, event_ids=source_event_ids
+        ):
+            repair_class_id = _receipt_repair_class_id(
+                _diagnosis_receipt(repository, attempt_id)
+            )
+            if repair_class_id is not None:
+                break
 
     # The affordances the primed source attempt had and the cold retry avoids.
     avoided: list[str] = ["primed_repair_context"]
