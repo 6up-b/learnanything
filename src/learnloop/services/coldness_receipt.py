@@ -31,9 +31,36 @@ dispositions (§4.3) get a final receipt with partial evidence too. Failure to
 CONSTRUCT a receipt records one with ``unknown`` dimensions rather than
 silently falling back to the pre-receipt behavior.
 
+v2 (telemetry adoption) closes the two channels that had writers nobody was
+reading and splits the blinding claim:
+
+* ``remediation_passages_render`` -> the prescribe RPC now records passage
+  DELIVERY (``source_exposure_events.context = 'remediation_delivery'``,
+  migration 150). A prescription DELIVERED inside the interval is a typed
+  exposure (``soft``, or ``hard`` when the delivered span is one the cold item
+  was authored from); a prescription with no delivery event anywhere stays
+  ``indeterminate``, because prepared-and-never-delivered and
+  prescribed-through-an-uninstrumented-path are the same silence. On-screen
+  dwell remains unobserved and remains declared.
+* ``feedback_screen_reopens`` -> ``attempt_feedback_metadata`` has counted
+  every ``get_feedback`` since migration 010; the scan now consumes it. A
+  reopen re-reveals that attempt's graded answer, feedback and repair
+  suggestions, so a reopen on the cold surface is ``hard`` and one on the
+  source/related attempts is ``soft``. Only the LAST reopen is timestamped, so
+  intermediate reopens stay declared unobserved.
+* ``verification_blinding`` -> the two halves are recorded separately.
+  ``run_separation`` compares the source attempt's grading ``agent_run`` (the
+  run that also authored the repair suggestions) with the cold attempt's;
+  ``context_blinding`` reads the cold grading call's Phase-C receipt
+  (migration 144) for the prior-attempt traces it was given. The dimension
+  passes only when BOTH halves pass, so a self-graded pair — where no model
+  identity exists at all — stays ``unknown`` exactly as before.
+
 Semantics are prospective-only: verifications recorded before this module keep
 their meaning, and consumers distinguish eras by receipt presence and
-``receipt_version``. The existing enforcement (the §6.2 guards) stays; this is
+``receipt_version``. A v1 receipt is not reinterpreted under v2 coverage — the
+``telemetry_coverage_version`` on the row says which channels were observable
+when it was written. The existing enforcement (the §6.2 guards) stays; this is
 the recorded line-item layer above it, plus exactly two NEW hard-fail causes
 (applied by ``causal_orchestrator.record_cold_verification_from_task``): the
 cold item's own answer revealed post-primed, and a hard same-surface exposure
@@ -60,8 +87,8 @@ from learnloop.vault.models import LoadedVault
 
 logger = logging.getLogger(__name__)
 
-COLDNESS_RECEIPT_VERSION = "coldness_receipt_v1"
-TELEMETRY_COVERAGE_VERSION = "coldness_telemetry_v1"
+COLDNESS_RECEIPT_VERSION = "coldness_receipt_v2"
+TELEMETRY_COVERAGE_VERSION = "coldness_telemetry_v2"
 
 #: The only lane with a producer today. The schema is lane-agnostic on purpose
 #: (certification §5.7 and teach-back are expected adopters).
@@ -112,15 +139,30 @@ SCANNED_LEDGERS = (
         "ledger": "source_exposure_events",
         "observes": (
             "span views (Open-in-source), including remediation-context "
-            "passage opens, keyed by entity and source span"
+            "passage opens, keyed by entity and source span; plus (v2, "
+            "migration 150) prescribed remediation passages DELIVERED for "
+            "render, under context 'remediation_delivery' and keyed by "
+            "remediation episode"
         ),
     },
     {
         "ledger": "remediation_episodes.passages_shown_json",
         "observes": (
-            "passages PREPARED at prescription time only; rendering is not "
-            "confirmed by any event, so in-interval preparations classify as "
-            "indeterminate, never as clear or contaminated"
+            "passages PREPARED at prescription time. v2 pairs each prepared "
+            "episode with its delivery events: delivered in-interval is a "
+            "typed exposure, delivered only outside is clear, and an episode "
+            "with no delivery event at all stays indeterminate — prepared-but-"
+            "never-shown and prescribed-through-an-uninstrumented-path are "
+            "indistinguishable"
+        ),
+    },
+    {
+        "ledger": "attempt_feedback_metadata",
+        "observes": (
+            "feedback-screen opens per attempt (shown_count, first/last "
+            "shown_at), written by every get_feedback since migration 010; a "
+            "reopen re-reveals that attempt's graded answer, feedback and "
+            "repair suggestions. Only the LAST reopen carries a timestamp"
         ),
     },
 )
@@ -128,11 +170,15 @@ SCANNED_LEDGERS = (
 #: Channels a scan cannot see. Their existence is why every clear result is
 #: `clear_in_observed_channels`, not "unseen universally".
 KNOWN_UNOBSERVED_CHANNELS = (
-    # passages_shown_json records prescription, not rendering.
-    "remediation_passages_render",
-    # Re-opening the feedback screen on an old attempt re-reveals its answer
-    # without a new event; only the original attempt row is recorded.
-    "feedback_screen_reopens",
+    # v2 observes DELIVERY of prescribed passages, not what happened on screen:
+    # nothing records how long the text stayed visible or whether it was read.
+    "remediation_passage_on_screen_dwell",
+    # A prescription with no delivery event could be one that was never shown
+    # or one prescribed outside the instrumented RPC (CLI, replay).
+    "remediation_prescription_without_delivery_record",
+    # `record_feedback_shown` keeps a counter plus first/last timestamps, so a
+    # reopen between the first and the last one has no visible time.
+    "feedback_reopen_intermediate_timestamps",
     # Read-only practice-item detail opens (inspector, retire dialogs) serve
     # expected_answer without an event — except the cold item itself, whose
     # serve now writes the administration snapshot.
@@ -203,6 +249,7 @@ def _scan_exposures(
     interval_end: str,
     source_attempt: Mapping[str, Any] | None,
     cold_item_id: str | None,
+    cold_attempt_id: str | None = None,
     case_ref: str | None,
     exclude_attempt_ids: set[str],
 ) -> dict[str, Any]:
@@ -211,10 +258,15 @@ def _scan_exposures(
     Event types: ``hard`` (the cold item's own answer reveal or a same
     surface-group administration), ``retrieval`` (an attempt on overlapping
     facets/LO — a co-intervention for attribution), ``soft`` (related passage
-    read, non-revealing tutor question), ``irrelevant`` (counted, not listed).
+    read or delivered, non-revealing tutor question, feedback reopen on a
+    related attempt), ``irrelevant`` (counted, not listed).
     """
 
     from learnloop.services.canonical_projection import surface_group_id
+    from learnloop.services.remediation import (
+        REMEDIATION_DELIVERY_CONTEXT,
+        REMEDIATION_DELIVERY_ENTITY_TYPE,
+    )
 
     cold_item = vault.practice_items.get(cold_item_id) if cold_item_id else None
     source_item = (
@@ -302,15 +354,53 @@ def _scan_exposures(
             }
         )
 
+    cold_item_spans = _item_source_spans(cold_item)
+    delivered_in_interval: set[str] = set()
     for event in repository.source_exposure_events():
         at = str(event.get("created_at") or "")
         if not at or at >= interval_end or at <= interval_start:
             continue
+        context = str(event.get("context") or "")
         entity_id = str(event.get("entity_id") or "")
+        if context == REMEDIATION_DELIVERY_CONTEXT:
+            # A prescribed passage's text was handed to the surface that renders
+            # it inline. Soft by default — the prescription shows the
+            # target/confused-with contrast, not the cold item's answer — and
+            # hard only when the delivered span is one the cold item was
+            # authored from, which is the strongest reveal claim the stored
+            # provenance can support.
+            episode_id = (
+                entity_id
+                if str(event.get("entity_type") or "")
+                == REMEDIATION_DELIVERY_ENTITY_TYPE
+                else ""
+            )
+            if episode_id:
+                delivered_in_interval.add(episode_id)
+            span_key = (
+                str(event.get("extraction_id") or ""),
+                str(event.get("span_id") or ""),
+            )
+            if cold_item_spans and span_key in cold_item_spans:
+                kind, why = "hard", "remediation_passage_revealed_cold_item_source_span"
+            else:
+                kind, why = "soft", "remediation_passage_delivered_for_render"
+            events.append(
+                {
+                    "type": kind,
+                    "ledger": "source_exposure_events",
+                    "event_id": str(event.get("id") or ""),
+                    "at": at,
+                    "remediation_episode_id": episode_id or None,
+                    "why": why,
+                    "cold_item_source_spans_resolvable": bool(cold_item_spans),
+                }
+            )
+            continue
         related = entity_id and (
             entity_id == (case_ref or "") or entity_id in relevant_los
         )
-        if related or str(event.get("context") or "") == "remediation":
+        if related or context == "remediation":
             events.append(
                 {
                     "type": "soft",
@@ -323,22 +413,74 @@ def _scan_exposures(
         else:
             irrelevant += 1
 
+    for row in repository.attempts_with_feedback_shown_between(
+        after=interval_start, before=interval_end
+    ):
+        attempt_id = str(row.get("attempt_id") or "")
+        if not attempt_id or attempt_id == (cold_attempt_id or ""):
+            continue
+        item_id = str(row.get("practice_item_id") or "")
+        item = vault.practice_items.get(item_id)
+        group = surface_group_id(item) if item is not None else None
+        facets = _canonical_facets(vault, getattr(item, "evidence_facets", None))
+        if cold_item_id and item_id == cold_item_id:
+            kind, why = "hard", "cold_item_feedback_reopened"
+        elif cold_group is not None and group == cold_group:
+            kind, why = "hard", "same_surface_group_feedback_reopened"
+        elif attempt_id == str((source_attempt or {}).get("id") or ""):
+            # The learner re-read their own graded repair attempt: its feedback
+            # carries the grader's repair suggestions for the diagnosed case.
+            kind, why = "soft", "source_attempt_feedback_reopened"
+        elif (facets & relevant_facets) or (
+            str(row.get("learning_object_id") or "") in relevant_los
+        ):
+            kind, why = "soft", "related_attempt_feedback_reopened"
+        else:
+            irrelevant += 1
+            continue
+        events.append(
+            {
+                "type": kind,
+                "ledger": "attempt_feedback_metadata",
+                "event_id": f"feedback_shown:{attempt_id}",
+                "at": str(row.get("last_shown_at") or ""),
+                "practice_item_id": item_id or None,
+                "attempt_id": attempt_id,
+                "shown_count": int(row.get("shown_count") or 0),
+                "why": why,
+            }
+        )
+
     prepared_unconfirmed: list[dict[str, Any]] = []
+    delivered_outside_interval: list[dict[str, Any]] = []
     for episode in repository.remediation_episodes_created_between(
         after=interval_start, before=interval_end
     ):
         passages = episode.get("passages_shown") or []
-        if not passages:
+        episode_id = str(episode["id"])
+        if not passages or episode_id in delivered_in_interval:
+            # Delivered in-interval: already recorded above as typed events.
             continue
-        prepared_unconfirmed.append(
-            {
-                "ledger": "remediation_episodes.passages_shown_json",
-                "remediation_episode_id": str(episode["id"]),
-                "at": str(episode.get("created_at") or ""),
-                "passage_count": len(passages),
-                "why": "passages_prepared_in_interval_render_unconfirmed",
-            }
+        deliveries = repository.source_exposure_events(
+            entity_type=REMEDIATION_DELIVERY_ENTITY_TYPE, entity_id=episode_id
         )
+        entry = {
+            "ledger": "remediation_episodes.passages_shown_json",
+            "remediation_episode_id": episode_id,
+            "at": str(episode.get("created_at") or ""),
+            "passage_count": len(passages),
+        }
+        if deliveries:
+            # Its passages have a delivery record, and none of it lands inside
+            # the interval: the silence here is observed, not missing.
+            entry["why"] = "passages_delivered_outside_interval"
+            entry["delivery_event_ids"] = [
+                str(delivery.get("id") or "") for delivery in deliveries
+            ]
+            delivered_outside_interval.append(entry)
+        else:
+            entry["why"] = "passages_prepared_in_interval_no_delivery_record"
+            prepared_unconfirmed.append(entry)
 
     hard = [event for event in events if event["type"] == "hard"]
     if hard:
@@ -350,10 +492,33 @@ def _scan_exposures(
     return {
         "events": events,
         "prepared_unconfirmed": prepared_unconfirmed,
+        "delivered_outside_interval": delivered_outside_interval,
         "irrelevant_count": irrelevant,
         "absence_status": absence_status,
         "interval": {"from": interval_start, "to": interval_end},
     }
+
+
+def _item_source_spans(item: Any) -> set[tuple[str, str]]:
+    """The (extraction, span) pairs an item was authored from, if any.
+
+    The strongest reveal test the stored provenance supports: a remediation
+    passage delivered on one of these spans is the source text the item's
+    expected answer was written from. Empty for hand-authored items, and the
+    emptiness travels on the event (`cold_item_source_spans_resolvable`) so a
+    reader can see the test could not bind rather than assuming it passed.
+    """
+
+    spans: set[tuple[str, str]] = set()
+    provenance = getattr(item, "provenance", None)
+    for ref in getattr(provenance, "source_refs", None) or []:
+        extraction_id = str(getattr(ref, "extraction_id", "") or "")
+        if not extraction_id:
+            continue
+        for span_id in getattr(ref, "span_ids", None) or []:
+            if span_id:
+                spans.add((extraction_id, str(span_id)))
+    return spans
 
 
 # --- dimension builders ------------------------------------------------------
@@ -423,6 +588,7 @@ def _exposure_isolation(scan: Mapping[str, Any]) -> dict[str, Any]:
             "absence_status": scan["absence_status"],
             "events": scan.get("events") or [],
             "prepared_unconfirmed": scan.get("prepared_unconfirmed") or [],
+            "delivered_outside_interval": scan.get("delivered_outside_interval") or [],
             "irrelevant_count": scan.get("irrelevant_count", 0),
             "interval": scan.get("interval"),
         },
@@ -536,12 +702,31 @@ def _selection_basis(task: Mapping[str, Any]) -> dict[str, Any]:
     return _dimension("pass" if carried else "unknown", evidence)
 
 
+#: Findings that reveal the COLD item's own answer (answer_leakage's claim),
+#: as opposed to a same-surface administration (exposure_isolation's).
+COLD_ITEM_REVEAL_REASONS = (
+    "cold_item_answer_reveal",
+    "tutor_answer_leak_suspected_on_cold_item",
+    # v2: the feedback screen for a prior attempt on the cold item was reopened
+    # inside the interval — the same reveal as the attempt row, at a later time.
+    "cold_item_feedback_reopened",
+    # v2: a delivered remediation passage sat on a span the cold item was
+    # authored from.
+    "remediation_passage_revealed_cold_item_source_span",
+)
+
+#: Hard findings that are same-surface EXPOSURE rather than an answer reveal.
+SAME_SURFACE_REASONS = (
+    "same_surface_group_administration",
+    "same_surface_group_feedback_reopened",
+)
+
+
 def _answer_leakage(scan: Mapping[str, Any]) -> dict[str, Any]:
     reveals = [
         event
         for event in scan.get("events") or []
-        if event.get("why")
-        in ("cold_item_answer_reveal", "tutor_answer_leak_suspected_on_cold_item")
+        if event.get("why") in COLD_ITEM_REVEAL_REASONS
     ]
     status = "fail" if reveals else "pass"
     return _dimension(
@@ -598,12 +783,175 @@ def _window_integrity(
     return _dimension("pass" if ok else "fail", evidence)
 
 
+def _grading_identity(
+    repository: Repository, attempt_id: str | None
+) -> dict[str, Any] | None:
+    """Who graded one attempt: channel, tiers, and the agent run behind it.
+
+    Repair generation has no run of its own — the repair suggestions the lane
+    acts on are produced by the grading call on the SOURCE attempt — so this
+    same read serves as the repair-generation identity for that attempt.
+    """
+
+    if not attempt_id:
+        return None
+    try:
+        rows = repository.fetch_grading_evidence(attempt_id)
+    except Exception:  # pragma: no cover - evidence-only lookup
+        rows = []
+    try:
+        metadata = repository.fetch_attempt_feedback_metadata(attempt_id) or {}
+    except Exception:  # pragma: no cover - evidence-only lookup
+        metadata = {}
+    tiers = sorted({int(row.grader_tier) for row in rows})
+    run_ids = sorted({str(row.agent_run_id) for row in rows if row.agent_run_id})
+    metadata_run_id = str(metadata.get("agent_run_id") or "") or None
+    if metadata_run_id and metadata_run_id not in run_ids:
+        run_ids.append(metadata_run_id)
+    run = None
+    if run_ids:
+        try:
+            run = repository.agent_run(run_ids[0])
+        except Exception:  # pragma: no cover - evidence-only lookup
+            run = None
+    return {
+        "attempt_id": attempt_id,
+        "grading_source": str(metadata.get("grading_source") or "") or None,
+        "grader_tiers": tiers,
+        # Tier >= 2 is the model-graded band; tier 1 is the learner grading
+        # their own work, where "blinding" has no subject.
+        "model_graded": any(tier >= 2 for tier in tiers),
+        "agent_run_ids": run_ids,
+        "agent_run": (
+            {
+                "id": str(run.get("id") or ""),
+                "purpose": run.get("purpose"),
+                "provider": run.get("provider"),
+                "provider_type": run.get("provider_type"),
+                "model": run.get("model"),
+                "prompt_template": run.get("prompt_template"),
+                "prompt_version": run.get("prompt_version"),
+                "started_at": run.get("started_at"),
+            }
+            if isinstance(run, dict)
+            else None
+        ),
+    }
+
+
+def _run_separation(
+    source: Mapping[str, Any] | None, cold: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """Half one: did a DIFFERENT run grade the cold attempt?"""
+
+    source_runs = set((source or {}).get("agent_run_ids") or [])
+    cold_runs = set((cold or {}).get("agent_run_ids") or [])
+    shared = sorted(source_runs & cold_runs)
+    if shared:
+        status, reason = "fail", "shared_agent_run"
+    elif source_runs and cold_runs:
+        status, reason = "pass", "disjoint_agent_runs"
+    else:
+        status = "unknown"
+        reason = (
+            "no_model_grading_run_recorded"
+            if not cold_runs
+            else "no_source_grading_run_recorded"
+        )
+    return {
+        "status": status,
+        "reason": reason,
+        "source_agent_run_ids": sorted(source_runs),
+        "cold_agent_run_ids": sorted(cold_runs),
+        "shared_agent_run_ids": shared,
+        "note": (
+            "a shared model between two distinct runs is recorded (see each "
+            "identity's model/provider), never failed — only a shared RUN is a "
+            "failure of separation"
+        ),
+    }
+
+
+def _context_blinding(
+    repository: Repository,
+    *,
+    source_attempt_id: str | None,
+    cold_attempt_id: str | None,
+) -> dict[str, Any]:
+    """Half two: was the cold grading call given repair/diagnosis context?
+
+    Answered from the Phase-C receipt (migration 144), which records what the
+    grading call was actually handed: the grader provider/model, the prompt
+    version, and the prior-attempt ids whose raw traces were attached as C4
+    history. ``augment_grading_context`` attaches those traces WITHOUT their
+    diagnoses by contract, so a receipt naming no prior attempt from this repair
+    chain is positive evidence of blinding. No receipt (self-graded, manual, or
+    a pre-Stage-7 attempt) is ``unknown``, never a pass.
+    """
+
+    evidence: dict[str, Any] = {
+        "ledger": "diagnostic_augmentation_receipts",
+        "basis": (
+            "the grading context is a closed structure; the only field that can "
+            "carry another attempt's material is the C4 diagnostic history, "
+            "whose attempt ids the receipt records. Prior DIAGNOSES are omitted "
+            "from that history by the augmentation contract — the grader is "
+            "given evidence of recurrence, not the system's earlier answer"
+        ),
+    }
+    if not cold_attempt_id:
+        evidence["reason"] = "no_cold_attempt"
+        evidence["status"] = "unknown"
+        return evidence
+    try:
+        receipt = repository.diagnostic_augmentation_receipt_for_attempt(
+            cold_attempt_id
+        )
+    except Exception:  # pragma: no cover - evidence-only lookup
+        receipt = None
+    if receipt is None:
+        evidence["status"] = "unknown"
+        evidence["reason"] = "no_grading_context_receipt"
+        evidence["note"] = (
+            "the cold attempt has no recorded model-grading context (self- or "
+            "deterministically graded, or graded before the Phase-C receipt "
+            "existed), so what its grader saw is not introspectable"
+        )
+        return evidence
+    history_ids = [str(value) for value in receipt.get("c4_history_attempt_ids") or []]
+    saw_source = bool(source_attempt_id) and source_attempt_id in history_ids
+    evidence.update(
+        {
+            "status": "fail" if saw_source else "pass",
+            "grading_prompt_version": receipt.get("grading_prompt_version"),
+            "grader_provider": receipt.get("grader_provider"),
+            "grader_model": receipt.get("grader_model"),
+            "diagnostic_history_attempt_ids": history_ids,
+            "source_attempt_in_grading_history": saw_source,
+            "prior_diagnoses_in_context": False,
+        }
+    )
+    if saw_source:
+        evidence["reason"] = "source_attempt_trace_in_cold_grading_history"
+    return evidence
+
+
 def _verification_blinding(
     repository: Repository,
     *,
     source_attempt_id: str | None,
+    cold_attempt_id: str | None,
     cold_attempt: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
+    """Two independent halves, recorded separately and reported separately.
+
+    v1 recorded a single ``unknown`` with a note. The halves fail and pass for
+    different reasons, and a consumer that cannot see WHICH half is established
+    has no way to tell "nothing is known" from "the runs are provably distinct
+    and only the prompt contents are unverified" — so both statuses travel, and
+    the dimension passes only when both do.
+    """
+
     diagnosis_receipt_present = False
     if source_attempt_id:
         try:
@@ -614,31 +962,57 @@ def _verification_blinding(
             )
         except Exception:  # pragma: no cover - evidence-only lookup
             diagnosis_receipt_present = False
+    source_identity = _grading_identity(repository, source_attempt_id)
+    cold_identity = _grading_identity(repository, cold_attempt_id)
+    separation = _run_separation(source_identity, cold_identity)
+    context = _context_blinding(
+        repository,
+        source_attempt_id=source_attempt_id,
+        cold_attempt_id=cold_attempt_id,
+    )
+    statuses = {str(separation["status"]), str(context["status"])}
+    if "fail" in statuses:
+        status = "fail"
+    elif statuses == {"pass"}:
+        status = "pass"
+    else:
+        status = "unknown"
     evidence = {
-        "cold_grading": (
-            {
-                "attempt_type": str(cold_attempt.get("attempt_type") or "") or None,
-                "manual_review": bool(cold_attempt.get("manual_review")),
-                "grader_confidence_recorded": cold_attempt.get("grader_confidence")
-                is not None,
-            }
-            if cold_attempt is not None
-            else None
-        ),
+        "run_separation": separation,
+        "context_blinding": context,
         "repair_generation": {
+            # Repair suggestions are authored by the grading call on the source
+            # attempt, so that call's identity IS the repair-generation identity.
+            "identity_is": "source_attempt_grading_run",
             "diagnosis_receipt_present": diagnosis_receipt_present,
-            "model_profile_agent_run_ids": "unrecorded",
+            "grading_identity": source_identity,
         },
-        "cold_grading_saw_repair_context": "unrecorded",
-        "note": (
-            "current telemetry does not capture per-call model/profile/"
-            "agent_run identities for repair generation vs cold grading, so "
-            "separation cannot be positively established; recorded as "
-            "unknown, never assumed. A shared calibration model would be "
-            "recorded here, not failed."
+        "cold_grading": {
+            "grading_identity": cold_identity,
+            "attempt_type": (
+                str(cold_attempt.get("attempt_type") or "") or None
+                if cold_attempt is not None
+                else None
+            ),
+            "manual_review": (
+                bool(cold_attempt.get("manual_review"))
+                if cold_attempt is not None
+                else None
+            ),
+            "grader_confidence_recorded": (
+                cold_attempt.get("grader_confidence") is not None
+                if cold_attempt is not None
+                else None
+            ),
+        },
+        "rule": (
+            "pass requires BOTH halves to pass: a cold grading run distinct "
+            "from the run that produced the repair, and a recorded cold "
+            "grading context free of this repair chain's material. Either half "
+            "unestablished leaves the dimension unknown"
         ),
     }
-    return _dimension("unknown", evidence)
+    return _dimension(status, evidence)
 
 
 def _unassisted(cold_attempt: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -720,7 +1094,7 @@ def _hard_contamination(scan: Mapping[str, Any]) -> dict[str, Any] | None:
     hard = [e for e in (scan.get("events") or []) if e.get("type") == "hard"]
     if not hard:
         return None
-    reveal = [e for e in hard if e.get("why") != "same_surface_group_administration"]
+    reveal = [e for e in hard if e.get("why") not in SAME_SURFACE_REASONS]
     return {
         "reason": (
             "cold_item_answer_revealed_post_primed"
@@ -785,6 +1159,7 @@ def _evaluate(
             interval_end=interval_end,
             source_attempt=source_attempt,
             cold_item_id=cold_item_id,
+            cold_attempt_id=cold_attempt_id,
             case_ref=str(task.get("case_ref") or "") or None,
             exclude_attempt_ids=exclude,
         )
@@ -821,6 +1196,7 @@ def _evaluate(
     dimensions["verification_blinding"] = _verification_blinding(
         repository,
         source_attempt_id=source_attempt_id,
+        cold_attempt_id=cold_attempt_id,
         cold_attempt=cold_attempt,
     )
     dimensions["unassisted"] = _unassisted(cold_attempt)

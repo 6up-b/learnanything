@@ -57,6 +57,47 @@ DEFAULT_HISTORY_LIMIT = 4
 SINGLE_SAMPLE_BASIS = "single_sample"
 SAMPLE_AGREEMENT_BASIS = "sample_agreement"
 
+#: The scopes ``CandidateCause``/``ErrorAttribution`` accept.  Kept here so the
+#: disagreement-arm re-validation below rejects a junk literal instead of
+#: raising out of a live grading call.
+CAUSE_SCOPES: frozenset[str] = frozenset(
+    {
+        "learner_state",
+        "transient_execution",
+        "interaction_context",
+        "item_contract",
+        "grader_interpretation",
+        "unknown",
+    }
+)
+
+#: G11 default for a disagreement arm whose grader left ``cause_scope`` unstated.
+#:
+#: Disagreement arms are competing diagnoses of ONE LEARNER'S attempt, and they
+#: are written onto the winning attribution's ``candidate_causes`` -- i.e. the
+#: arm set a later discriminating probe has to resolve.  Those arms are minted
+#: as ``causal_hypotheses`` rows, and ``_projected_causal_candidates`` projects
+#: only ``learner_state`` heads into the repair offer.  An arm minted "unknown"
+#: is therefore unreachable: the probe could separate the arms perfectly and the
+#: repair lane would still have nothing to offer.  A cause derived from a
+#: learner attempt is a claim about the learner unless the grader says
+#: otherwise, so an unstated scope defaults to ``learner_state`` -- matching
+#: ``causal_attribution._hypothesis_specs`` and
+#: ``canonical_projection._facet_target_cause``.
+#:
+#: This default applies ONLY when the grader left the scope unstated.  An
+#: explicit ``item_contract``/``grader_interpretation`` scope is a claim that
+#: the fault is NOT the learner's; it is preserved verbatim so it keeps being
+#: filtered out of the learner repair lane and routed to machine review.
+LEARNER_DERIVED_CAUSE_SCOPE = "learner_state"
+
+#: A sample that produced no attribution at all diagnosed nothing; its arm is
+#: the synthesized "diagnostic sample anchored at <anchor>" placeholder, not a
+#: belief about the learner.  It stays "unknown" for the same reason
+#: ``canonical_projection``'s open-set arm does: "some other cause" may be
+#: content- or instrument-side, and there is no target to repair.
+UNATTRIBUTED_CAUSE_SCOPE = "unknown"
+
 REGRESSION_SHAPES: tuple[str, ...] = (
     "exhibit",
     "genuine_facet_failure",
@@ -362,6 +403,23 @@ def _primary_attribution(proposal: GradingProposal) -> Any | None:
     )
 
 
+def _disagreement_cause_scope(attribution: Any | None) -> str:
+    """Scope for one disagreement arm (see ``LEARNER_DERIVED_CAUSE_SCOPE``).
+
+    ``str(getattr(attribution, "cause_scope", None))`` used to stand here, which
+    rendered a missing scope as the literal string ``"None"`` -- truthy, so the
+    ``or`` fallback never fired and the arm was stored with a nonsense scope that
+    the ``CandidateCause`` re-validation then flattened to ``"unknown"``,
+    silently dropping the arm out of the learner repair lane.
+    """
+
+    if attribution is None:
+        return UNATTRIBUTED_CAUSE_SCOPE
+    declared = getattr(attribution, "cause_scope", None)
+    declared = str(declared).strip() if declared is not None else ""
+    return declared or LEARNER_DERIVED_CAUSE_SCOPE
+
+
 def _repair_equivalence(proposal: GradingProposal) -> str | None:
     if not proposal.repair_suggestions:
         return None
@@ -411,6 +469,28 @@ def _sample(proposal: GradingProposal, index: int) -> DiagnosisSample:
     )
 
 
+def _disagreement_cause(sample: DiagnosisSample, votes: int) -> dict[str, Any]:
+    """One C3 disagreement arm, carrying its own scope and target."""
+
+    attribution = _primary_attribution(sample.proposal)
+    target_ref = getattr(attribution, "target_ref", None)
+    return {
+        "statement": (
+            sample.cause_key
+            or f"diagnostic sample anchored at {sample.anchor_key}"
+        ),
+        "cause_scope": _disagreement_cause_scope(attribution),
+        "target_ref": (
+            target_ref.model_dump(mode="json", exclude_none=True)
+            if target_ref is not None
+            else {"kind": "none"}
+        ),
+        "anchor_key": sample.anchor_key,
+        "repair_equivalence_id": sample.repair_equivalence_id,
+        "sample_votes": votes,
+    }
+
+
 def run_diagnosis_samples(
     client: Any,
     context: GradingContext,
@@ -456,29 +536,7 @@ def run_diagnosis_samples(
     for sample in samples:
         distinct.setdefault(sample.fingerprint, sample)
     disagreement_causes = tuple(
-        {
-            "statement": (
-                sample.cause_key
-                or f"diagnostic sample anchored at {sample.anchor_key}"
-            ),
-            "cause_scope": (
-                str(getattr(_primary_attribution(sample.proposal), "cause_scope", None))
-                if _primary_attribution(sample.proposal) is not None
-                else "unknown"
-            )
-            or "unknown",
-            "target_ref": (
-                _primary_attribution(sample.proposal).target_ref.model_dump(
-                    mode="json", exclude_none=True
-                )
-                if _primary_attribution(sample.proposal) is not None
-                and _primary_attribution(sample.proposal).target_ref is not None
-                else {"kind": "none"}
-            ),
-            "anchor_key": sample.anchor_key,
-            "repair_equivalence_id": sample.repair_equivalence_id,
-            "sample_votes": counts[sample.fingerprint],
-        }
+        _disagreement_cause(sample, counts[sample.fingerprint])
         for sample in distinct.values()
     )
     proposal = winner.proposal
@@ -488,17 +546,14 @@ def run_diagnosis_samples(
         candidates = [
             CandidateCause(
                 statement=str(cause["statement"]),
+                # Last-resort guard against a scope literal the wire schema does
+                # not accept.  `_disagreement_cause_scope` already supplies a
+                # valid one, so this only fires if a grader invents a scope --
+                # falling back to "unknown" keeps a junk label out of the repair
+                # lane rather than raising out of a live grading call.
                 cause_scope=(
                     cause["cause_scope"]
-                    if cause["cause_scope"]
-                    in {
-                        "learner_state",
-                        "transient_execution",
-                        "interaction_context",
-                        "item_contract",
-                        "grader_interpretation",
-                        "unknown",
-                    }
+                    if cause["cause_scope"] in CAUSE_SCOPES
                     else "unknown"
                 ),
                 target_ref=cause["target_ref"],

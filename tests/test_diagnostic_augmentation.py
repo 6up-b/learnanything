@@ -40,8 +40,11 @@ def _proposal(
     *,
     cause: str = "confuses SVD with an eigendecomposition",
     anchor_kind: str = "whole_answer",
+    cause_scope: str | None = "learner_state",
 ) -> GradingProposal:
-    return GradingProposal.model_validate(
+    """``cause_scope=None`` omits the field, as a grader that never scoped it would."""
+
+    proposal = GradingProposal.model_validate(
         {
             "diagnosis_md": f"The trace {cause}.",
             "repair_suggestions": [
@@ -82,7 +85,11 @@ def _proposal(
                     "misconception_statement": cause,
                     "target_criterion_ids": ["correctness"],
                     "resolution_status": "resolved",
-                    "cause_scope": "learner_state",
+                    **(
+                        {"cause_scope": cause_scope}
+                        if cause_scope is not None
+                        else {}
+                    ),
                     "target_ref": {
                         "kind": "criterion",
                         "criterion_id": "correctness",
@@ -98,6 +105,8 @@ def _proposal(
             "manual_review_recommended": False,
         }
     )
+    assert proposal.error_attributions[0].cause_scope == cause_scope
+    return proposal
 
 
 class _SequenceDiagnostician:
@@ -367,6 +376,110 @@ def test_c3_disagreement_becomes_unresolved_cause_set_and_real_support():
     assert len(primary.candidate_causes) == 2
     assert primary.causal_confidence == pytest.approx(2 / 3)
     assert "sample_agreement" not in APPROVED_SUPPORT_AUTHORITIES
+
+
+def test_c3_unscoped_disagreement_arm_defaults_to_learner_state():
+    """An unstated grader scope means learner_state, never the string "None".
+
+    ``str(getattr(attribution, "cause_scope", None))`` used to stand at this
+    site, so a grader that never scoped its attribution produced the literal
+    string ``"None"``.  That is truthy, so the ``or "unknown"`` fallback never
+    fired and the arm was stored on the receipt with a nonsense scope; the
+    ``CandidateCause`` re-validation then flattened it to ``"unknown"``.  Either
+    way the arm was excluded from ``_projected_causal_candidates`` (learner_state
+    heads only), so the probe that separated these arms had no repair to offer.
+    """
+
+    client = _SequenceDiagnostician(
+        [
+            _proposal("attempt_1", cause_scope=None),
+            _proposal("attempt_1", cause_scope=None),
+            _proposal(
+                "attempt_1",
+                cause="makes only a transient notation omission",
+                anchor_kind="between_spans",
+                cause_scope=None,
+            ),
+        ]
+    )
+
+    consensus = run_diagnosis_samples(client, _grading_context(), sample_count=3)
+
+    assert consensus.disagreed
+    scopes = [cause["cause_scope"] for cause in consensus.disagreement_causes]
+    assert scopes == ["learner_state", "learner_state"]
+    assert "None" not in scopes
+    # And the arms reach the attribution's candidate set with that same scope,
+    # which is the field `_projected_causal_candidates` filters on.
+    primary = consensus.proposal.error_attributions[0]
+    assert [candidate.cause_scope for candidate in primary.candidate_causes] == [
+        "learner_state",
+        "learner_state",
+    ]
+
+
+def test_c3_explicit_non_learner_scope_is_preserved_on_disagreement_arms():
+    """A declared content/instrument fault must not be relabelled learner_state.
+
+    ``item_contract`` says the item, not the learner, is at fault.  The
+    learner-derived default applies only to an UNSTATED scope; promoting an
+    explicit non-learner scope would push a machine-review case into the
+    learner repair lane.
+    """
+
+    client = _SequenceDiagnostician(
+        [
+            _proposal("attempt_1", cause_scope="item_contract"),
+            _proposal("attempt_1", cause_scope="item_contract"),
+            _proposal(
+                "attempt_1",
+                cause="reads the prompt as asking for the eigendecomposition",
+                anchor_kind="between_spans",
+                cause_scope="grader_interpretation",
+            ),
+        ]
+    )
+
+    consensus = run_diagnosis_samples(client, _grading_context(), sample_count=3)
+
+    assert consensus.disagreed
+    assert sorted(
+        cause["cause_scope"] for cause in consensus.disagreement_causes
+    ) == ["grader_interpretation", "item_contract"]
+    primary = consensus.proposal.error_attributions[0]
+    assert sorted(
+        candidate.cause_scope for candidate in primary.candidate_causes
+    ) == ["grader_interpretation", "item_contract"]
+
+
+def test_c3_arm_from_a_sample_with_no_attribution_stays_unknown():
+    """An abstaining sample contributes a placeholder arm, not a learner belief.
+
+    Its statement is the synthesized "anchored at <anchor>" placeholder and its
+    target_ref is ``{"kind": "none"}``: there is nothing to repair, so claiming
+    learner_state would put an empty arm in front of the learner.
+    """
+
+    abstained = _proposal("attempt_1").model_copy(
+        update={"error_attributions": []}
+    )
+    client = _SequenceDiagnostician(
+        [
+            _proposal("attempt_1", cause_scope=None),
+            _proposal("attempt_1", cause_scope=None),
+            abstained,
+        ]
+    )
+
+    consensus = run_diagnosis_samples(client, _grading_context(), sample_count=3)
+
+    by_scope = {
+        cause["cause_scope"]: cause for cause in consensus.disagreement_causes
+    }
+    assert set(by_scope) == {"learner_state", "unknown"}
+    placeholder = by_scope["unknown"]
+    assert placeholder["target_ref"] == {"kind": "none"}
+    assert placeholder["statement"].startswith("diagnostic sample anchored at")
 
 
 def test_same_model_family_invalidates_b1_without_running_diagnostician(tmp_path):

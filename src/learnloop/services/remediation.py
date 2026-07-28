@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Mapping
 from datetime import UTC, timedelta
 from typing import Any
 
@@ -11,6 +13,8 @@ from learnloop.ingest.locators import parse_block_span
 from learnloop.services.provenance import get_entity_provenance
 from learnloop.services.span_view import SpanViewError, build_span_view
 from learnloop.vault.models import LoadedVault
+
+logger = logging.getLogger(__name__)
 
 
 class RemediationError(ValueError):
@@ -129,6 +133,79 @@ def prescribe_remediation(
     return repository.update_remediation_episode(
         episode_id, state="prescribed", passages_shown=passages, clock=clock
     ) or episode
+
+
+#: Exposure discriminator for the delivery write (migration 150). Deliberately
+#: NOT `remediation`, which means the learner clicked Open-in-source on a span:
+#: this one claims only that the prescribed passage text was handed to the
+#: surface that renders it inline.
+REMEDIATION_DELIVERY_CONTEXT = "remediation_delivery"
+
+#: The entity a delivery event is keyed by, so a coldness scan can correlate
+#: deliveries with the episode whose prescription produced them (the case id is
+#: not enough — one case can have several episodes).
+REMEDIATION_DELIVERY_ENTITY_TYPE = "remediation_episode"
+
+
+def record_prescription_delivery(
+    repository: Repository,
+    episode: Mapping[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> list[str]:
+    """Record that this episode's prescribed passages were delivered for render.
+
+    ``passages_shown_json`` records a PRESCRIPTION; this records the one thing
+    about rendering that is actually observable server-side — that the passage
+    text left the sidecar for the surface that displays it. The repair overlay
+    renders the returned text inline with no further learner action, so delivery
+    is the closest honest proxy for exposure; time on screen is not observed and
+    stays declared as unobserved in the coldness receipt's coverage block.
+
+    Returns the ids of the events written (empty when the prescription carried
+    no resolvable spans). Never raises: a telemetry write must not be able to
+    fail a serve.
+    """
+
+    episode_id = str(episode.get("id") or "")
+    if not episode_id:
+        return []
+    written: list[str] = []
+    for passage in episode.get("passages_shown") or []:
+        if not isinstance(passage, Mapping):
+            continue
+        view = passage.get("span_view")
+        if not isinstance(view, Mapping):
+            continue
+        extraction_id = str(view.get("extraction_id") or "")
+        span_id = str(view.get("span_id") or "")
+        if not extraction_id or not span_id:
+            continue
+        try:
+            written.append(
+                repository.insert_source_exposure_event(
+                    {
+                        "context": REMEDIATION_DELIVERY_CONTEXT,
+                        "extraction_id": extraction_id,
+                        "span_id": span_id,
+                        "revision_id": view.get("revision_id"),
+                        "source_id": view.get("source_id"),
+                        "entity_type": REMEDIATION_DELIVERY_ENTITY_TYPE,
+                        "entity_id": episode_id,
+                        "page": view.get("page"),
+                        "locator": view.get("locator"),
+                        "section_path": list(view.get("section_path") or []),
+                    },
+                    clock=clock,
+                )
+            )
+        except Exception:  # pragma: no cover - telemetry never fails a serve
+            logger.warning(
+                "remediation delivery exposure write failed for episode %s",
+                episode_id,
+                exc_info=True,
+            )
+    return written
 
 
 #: An item attempted within this window is still "hot" — serving it again as the

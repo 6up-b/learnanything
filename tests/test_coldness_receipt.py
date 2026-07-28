@@ -28,10 +28,12 @@ from learnloop.services.causal_orchestrator import record_cold_verification_from
 from learnloop.services.coldness_receipt import (
     COLDNESS_RECEIPT_VERSION,
     TELEMETRY_COVERAGE_VERSION,
+    evaluate_final_coldness,
     record_administration_snapshot,
 )
 from learnloop.services.remediation import (
     prescribe_remediation,
+    record_prescription_delivery,
     start_remediation_episode,
     start_remediation_treatment,
 )
@@ -194,11 +196,23 @@ def test_happy_path_snapshot_verification_and_final_receipt(tmp_path):
         "selection_basis": "pass",
         "answer_leakage": "pass",
         "window_integrity": "pass",
-        # Model/profile/agent_run identities are not captured per call, so
-        # blinding is recorded unknown — never inferred to pass.
+        # Both attempts here are self-graded: there is no model grading run to
+        # separate and no grading-context receipt to read, so BOTH halves stay
+        # unknown — never inferred to pass.
         "verification_blinding": "unknown",
         "unassisted": "pass",
     }
+    blinding = final["dimensions"]["verification_blinding"]["evidence"]
+    assert blinding["run_separation"]["status"] == "unknown"
+    assert blinding["run_separation"]["reason"] == "no_model_grading_run_recorded"
+    assert blinding["context_blinding"]["status"] == "unknown"
+    assert blinding["context_blinding"]["reason"] == "no_grading_context_receipt"
+    assert blinding["repair_generation"]["identity_is"] == "source_attempt_grading_run"
+    assert (
+        blinding["repair_generation"]["grading_identity"]["attempt_id"]
+        == primed.attempt_id
+    )
+    assert blinding["cold_grading"]["grading_identity"]["attempt_id"] == cold.attempt_id
     derived = final["derived"]
     assert derived["outcome"] == "cold_success"
     assert derived["qualifies_as_cold_retrieval"] is True
@@ -215,8 +229,18 @@ def test_happy_path_snapshot_verification_and_final_receipt(tmp_path):
         "question_events",
         "source_exposure_events",
         "remediation_episodes.passages_shown_json",
+        # v2: feedback reopens have had a writer since migration 010.
+        "attempt_feedback_metadata",
     }
-    assert "remediation_passages_render" in coverage["known_unobserved_channels"]
+    channels = coverage["known_unobserved_channels"]
+    # v2 observes passage DELIVERY and feedback reopens; what stays unobserved
+    # is narrower and says so.
+    assert "remediation_passages_render" not in channels
+    assert "feedback_screen_reopens" not in channels
+    assert "remediation_passage_on_screen_dwell" in channels
+    assert "feedback_reopen_intermediate_timestamps" in channels
+    # No writer was added for read-only detail opens, so the channel stays.
+    assert "practice_item_detail_reads" in channels
     assert coverage["interval"] == {
         "from": "2026-05-19T12:00:00Z",
         "to": "2026-05-21T12:00:00Z",
@@ -325,7 +349,7 @@ def test_hard_same_surface_exposure_yields_disposition_not_verification(tmp_path
 # -- unknown telemetry --------------------------------------------------------
 
 
-def test_unconfirmed_render_channel_is_unknown_not_pass(tmp_path):
+def test_prescription_without_a_delivery_record_is_unknown_not_pass(tmp_path):
     _, vault, repository, misconception_id = _setup(tmp_path)
     treatment = _to_treatment(vault, repository, misconception_id)
     _attempt(
@@ -334,9 +358,10 @@ def test_unconfirmed_render_channel_is_unknown_not_pass(tmp_path):
     task = _cold_retry_task(repository)
     record_administration_snapshot(vault, repository, task=task, clock=DAY1)
 
-    # Passages PREPARED inside the interval for a sibling repair: no render
-    # telemetry exists, so the scan cannot call the interval clear — and must
-    # not call it contaminated either.
+    # Passages PREPARED inside the interval for a sibling repair, with NO
+    # delivery event anywhere: prepared-but-never-shown and prescribed-through-
+    # an-uninstrumented-path are the same silence, so the scan cannot call the
+    # interval clear — and must not call it contaminated either.
     sibling = repository.insert_misconception(
         learning_object_id=LO_ID,
         statement="Thinks singular values can be negative.",
@@ -367,9 +392,473 @@ def test_unconfirmed_render_channel_is_unknown_not_pass(tmp_path):
     assert isolation["evidence"]["absence_status"] == "indeterminate"
     prepared = isolation["evidence"]["prepared_unconfirmed"]
     assert len(prepared) == 1
-    assert prepared[0]["why"] == "passages_prepared_in_interval_render_unconfirmed"
+    assert prepared[0]["why"] == "passages_prepared_in_interval_no_delivery_record"
     # And the structurally-unobserved dimension stays unknown too.
     assert final["dimensions"]["verification_blinding"]["status"] == "unknown"
+
+
+# -- delivered passages (v2) --------------------------------------------------
+
+
+def _sibling_case(repository, *, clock):
+    return repository.insert_misconception(
+        learning_object_id=LO_ID,
+        statement="Thinks singular values can be negative.",
+        correction_statement="They are non-negative by construction.",
+        facet_ids=["recall"],
+        target_facet="recall",
+        confused_with_facet="application",
+        severity=0.5,
+        clock=clock,
+    )
+
+
+def _episode_with_passages(repository, *, clock, span_id="s1"):
+    """An episode whose prescription resolved to a real span view."""
+
+    return repository.create_remediation_episode(
+        case_kind="misconception",
+        case_ref=_sibling_case(repository, clock=clock),
+        passages_shown=[
+            {
+                "role": "confused_with",
+                "facet_id": "application",
+                "span_view": {
+                    "extraction_id": "ext_repair",
+                    "span_id": span_id,
+                    "revision_id": "rev1",
+                    "source_id": "src1",
+                    "page": 1,
+                    "locator": f"span:ext_repair/{span_id}",
+                    "section_path": ["Chapter 1"],
+                },
+            }
+        ],
+        clock=clock,
+    )
+
+
+def test_delivered_passages_in_interval_are_typed_exposure_not_indeterminate(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    record_administration_snapshot(vault, repository, task=task, clock=DAY1)
+
+    episode = _episode_with_passages(repository, clock=DAY1)
+    written = record_prescription_delivery(repository, episode, clock=DAY1)
+    assert len(written) == 1
+
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    receipt = record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    # A delivered comparison passage is a real, typed exposure — soft, so it
+    # records without starving the lane.
+    assert receipt is not None
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    isolation = final["dimensions"]["exposure_isolation"]
+    assert isolation["status"] == "pass"
+    assert isolation["evidence"]["absence_status"] == "clear_in_observed_channels"
+    # The prescription is no longer an unresolved gap.
+    assert isolation["evidence"]["prepared_unconfirmed"] == []
+    delivered = [
+        event
+        for event in isolation["evidence"]["events"]
+        if event["ledger"] == "source_exposure_events"
+    ]
+    assert len(delivered) == 1
+    assert delivered[0]["type"] == "soft"
+    assert delivered[0]["why"] == "remediation_passage_delivered_for_render"
+    assert delivered[0]["remediation_episode_id"] == episode["id"]
+
+    # A soft exposure still resets the cold-delay anchor: the retrieval is a day
+    # from the passage, not two days from the primed attempt.
+    delay = final["dimensions"]["retrieval_delay"]["evidence"]
+    assert delay["anchor_at"] == "2026-05-20T12:00:00Z"
+    assert delay["delay_seconds_from_anchor"] == 24 * 3600
+    assert delay["anchor_reset_by"]["ledger"] == "source_exposure_events"
+    assert final["derived"]["qualifies_as_cold_retrieval"] is True
+
+
+def test_delivery_outside_the_interval_is_observed_silence_not_indeterminate(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+
+    episode = _episode_with_passages(repository, clock=DAY1)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    # The prescription is only delivered AFTER the cold retrieval: its passages
+    # have a render record, and none of it lands inside the interval.
+    later = FrozenClock(NOW + timedelta(days=3))
+    record_prescription_delivery(repository, episode, clock=later)
+
+    record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=later
+    )
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    isolation = final["dimensions"]["exposure_isolation"]
+    assert isolation["status"] == "pass"
+    assert isolation["evidence"]["prepared_unconfirmed"] == []
+    outside = isolation["evidence"]["delivered_outside_interval"]
+    assert len(outside) == 1
+    assert outside[0]["why"] == "passages_delivered_outside_interval"
+    assert outside[0]["remediation_episode_id"] == episode["id"]
+
+
+def test_delivered_passage_on_the_cold_items_own_source_span_is_hard(tmp_path):
+    from learnloop.vault.models import Provenance, SourceRef
+
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+
+    # The cold item was authored from the very span the repair prescribes.
+    cold_id = treatment["cold_item_id"]
+    vault.practice_items[cold_id] = vault.practice_items[cold_id].model_copy(
+        update={
+            "provenance": Provenance(
+                origin="canonical_extract",
+                source_refs=[
+                    SourceRef(
+                        ref_type="canonical_source",
+                        ref_id="src1",
+                        extraction_id="ext_repair",
+                        span_ids=["s1"],
+                    )
+                ],
+            )
+        }
+    )
+    episode = _episode_with_passages(repository, clock=DAY1)
+    record_prescription_delivery(repository, episode, clock=DAY1)
+
+    cold = _attempt(vault, repository, cold_id, clock=DAY2)
+    result = record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    # Reveal of the cold item's own material: a refusal, not a verification.
+    assert result is None
+    row = repository.causal_cold_outcome_for_task(str(task["id"]))
+    assert row["outcome"] == "contaminated_or_assisted"
+    assert row["detail"]["reason"] == "cold_item_answer_revealed_post_primed"
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    assert final["dimensions"]["exposure_isolation"]["status"] == "fail"
+    leakage = final["dimensions"]["answer_leakage"]
+    assert leakage["status"] == "fail"
+    assert [event["why"] for event in leakage["evidence"]["reveal_events"]] == [
+        "remediation_passage_revealed_cold_item_source_span"
+    ]
+
+
+def test_prescribe_handler_records_the_delivery(tmp_path):
+    """The delivery seam is the sidecar handing passage text to the surface."""
+
+    from types import SimpleNamespace
+
+    from learnloop_sidecar.handlers.remediation import prescribe_remediation_handler
+    from learnloop_sidecar.handlers.remediation import EpisodeInput
+
+    from tests.test_source_inventory import _persist, _register_revision
+
+    from learnloop.ingest.ir import (
+        DocumentBlock,
+        DocumentIR,
+        DocumentUnit,
+        ExtractionHealth,
+    )
+
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    _register_revision(repository, source_id="src1", revision_id="rev1")
+    block = DocumentBlock.build(
+        span_id="s1",
+        block_type="Text",
+        text="Singular values are non-negative.",
+        ordinal=0,
+        page=1,
+        bbox=[10.0, 10.0, 200.0, 40.0],
+        section_path=["Chapter 1"],
+    )
+    ir = DocumentIR(
+        extractor="marker",
+        extractor_version="1",
+        units=[
+            DocumentUnit(
+                unit_id="u0",
+                label="SVD",
+                ordinal=0,
+                semantic_hash="sha256:svd",
+                page_start=1,
+                page_end=1,
+                span_ids=["s1"],
+            )
+        ],
+        blocks=[block],
+        assets=[],
+        health=ExtractionHealth(),
+    )
+    _persist(repository, ir, revision_id="rev1", extraction_id="ext1")
+    repository.insert_entity_source_link(
+        entity_type="facet",
+        entity_id="recall",
+        locator="span:ext1/s1",
+        locator_scheme="block_span_v1",
+        relation="primary",
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+    )
+    episode = start_remediation_episode(
+        repository, misconception_id, clock=FrozenClock(NOW)
+    )
+
+    ctx = SimpleNamespace(require_vault=lambda: (vault, repository))
+    payload = prescribe_remediation_handler(ctx, EpisodeInput(episode_id=episode["id"]))
+
+    assert payload["episode"]["passagesShown"]
+    events = repository.source_exposure_events(
+        entity_type="remediation_episode", entity_id=episode["id"]
+    )
+    assert [event["context"] for event in events] == ["remediation_delivery"]
+    assert events[0]["span_id"] == "s1"
+    # Prescribing does NOT claim the learner opened the span: the deliberate
+    # Open-in-source context stays unused by this path.
+    assert repository.source_exposure_events(extraction_id="ext1", span_id="s1") == events
+
+
+# -- feedback reopens (v2) ----------------------------------------------------
+
+
+def _record_feedback_view(repository, result, *, shown_clock):
+    """Mirror a real door: persist the feedback row, then open the screen."""
+
+    from learnloop.services.post_attempt import persist_attempt_feedback_metadata
+
+    persist_attempt_feedback_metadata(repository, result, clock=FrozenClock(NOW))
+    assert repository.record_feedback_shown(result.attempt_id, clock=shown_clock)
+
+
+def test_feedback_reopen_on_the_source_attempt_is_a_soft_exposure(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    primed = _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    record_administration_snapshot(vault, repository, task=task, clock=DAY1)
+
+    # The learner re-opened the graded repair attempt the day after it happened.
+    _record_feedback_view(repository, primed, shown_clock=DAY1)
+
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    receipt = record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    assert receipt is not None
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    events = final["dimensions"]["exposure_isolation"]["evidence"]["events"]
+    reopens = [
+        event for event in events if event["ledger"] == "attempt_feedback_metadata"
+    ]
+    assert len(reopens) == 1
+    assert reopens[0]["type"] == "soft"
+    assert reopens[0]["why"] == "source_attempt_feedback_reopened"
+    assert reopens[0]["event_id"] == f"feedback_shown:{primed.attempt_id}"
+    assert final["dimensions"]["exposure_isolation"]["status"] == "pass"
+    # Re-reading the repair resets the anchor without failing the retrieval.
+    delay = final["dimensions"]["retrieval_delay"]["evidence"]
+    assert delay["anchor_at"] == "2026-05-20T12:00:00Z"
+    assert final["derived"]["qualifies_as_cold_retrieval"] is True
+
+
+def test_feedback_reopen_on_the_cold_item_is_a_hard_answer_reveal(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    # An OLD attempt on the cold item, before the repair: outside the interval,
+    # so only its feedback reopen can put it inside.
+    old = _attempt(
+        vault,
+        repository,
+        treatment["cold_item_id"],
+        clock=FrozenClock(NOW - timedelta(hours=2)),
+    )
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    _record_feedback_view(repository, old, shown_clock=DAY1)
+
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    result = record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    assert result is None
+    row = repository.causal_cold_outcome_for_task(str(task["id"]))
+    assert row["outcome"] == "contaminated_or_assisted"
+    assert row["detail"]["reason"] == "cold_item_answer_revealed_post_primed"
+    assert row["detail"]["exposure_event_ids"] == [f"feedback_shown:{old.attempt_id}"]
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    assert final["dimensions"]["answer_leakage"]["status"] == "fail"
+    assert final["dimensions"]["exposure_isolation"]["status"] == "fail"
+
+
+# -- verification blinding (v2) -----------------------------------------------
+
+
+def _model_graded(repository, attempt_id, *, run_id, model="model-a"):
+    repository.insert_agent_run(
+        {
+            "id": run_id,
+            "purpose": "grading",
+            "provider": "codex",
+            "model": model,
+            "prompt_template": "grading",
+            "prompt_version": "g1",
+            "started_at": NOW_ISO,
+            "status": "completed",
+        }
+    )
+    repository.insert_grading_evidence(
+        attempt_id,
+        [
+            {
+                "criterion_id": "correctness",
+                "points_awarded": 4.0,
+                "grader_tier": 3,
+                "agent_run_id": run_id,
+                "created_at": NOW_ISO,
+            }
+        ],
+    )
+
+
+def _phase_c_receipt(repository, attempt_id, *, history):
+    repository.insert_diagnostic_augmentation_receipt(
+        {
+            "attempt_id": attempt_id,
+            "grading_prompt_version": "g1",
+            "grader_provider": "codex",
+            "grader_model": "model-b",
+            "c1_repair_before_structure": True,
+            "c2_verifier_observations": [],
+            "c3_sample_count": 1,
+            "c3_agreement_support": 1.0,
+            "c3_disagreement_causes": [],
+            "c4_history_attempt_ids": history,
+            "hypotheses": {},
+            "revert_criteria": {},
+            "created_at": NOW_ISO,
+        }
+    )
+
+
+def _blinding_evidence(vault, repository, *, history):
+    """Both attempts model-graded by distinct runs; `history` is what the cold
+    grading call was actually given."""
+
+    misconception_id = repository.insert_misconception(
+        learning_object_id=LO_ID,
+        statement="Confuses SVD with eigendecomposition.",
+        correction_statement="SVD applies to any matrix.",
+        facet_ids=["recall"],
+        target_facet="recall",
+        confused_with_facet="application",
+        severity=0.8,
+        clock=FrozenClock(NOW),
+    )
+    treatment = _to_treatment(vault, repository, misconception_id)
+    primed = _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    _model_graded(repository, primed.attempt_id, run_id="run_repair")
+    _model_graded(repository, cold.attempt_id, run_id="run_cold", model="model-b")
+    _phase_c_receipt(
+        repository,
+        cold.attempt_id,
+        history=[primed.attempt_id] if history == "source" else [],
+    )
+    evaluation = evaluate_final_coldness(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    return primed, cold, evaluation.dimensions["verification_blinding"]
+
+
+def test_verification_blinding_passes_when_both_halves_are_established(tmp_path):
+    _, vault, repository, _ = _setup(tmp_path)
+    primed, cold, dimension = _blinding_evidence(vault, repository, history="none")
+
+    assert dimension["status"] == "pass"
+    evidence = dimension["evidence"]
+    separation = evidence["run_separation"]
+    assert separation["status"] == "pass"
+    assert separation["source_agent_run_ids"] == ["run_repair"]
+    assert separation["cold_agent_run_ids"] == ["run_cold"]
+    assert separation["shared_agent_run_ids"] == []
+    context = evidence["context_blinding"]
+    assert context["status"] == "pass"
+    assert context["diagnostic_history_attempt_ids"] == []
+    assert context["prior_diagnoses_in_context"] is False
+    # Both identities travel, so a consumer can see WHICH run graded what.
+    assert evidence["repair_generation"]["grading_identity"]["agent_run"]["id"] == (
+        "run_repair"
+    )
+    assert evidence["repair_generation"]["grading_identity"]["attempt_id"] == (
+        primed.attempt_id
+    )
+    assert evidence["cold_grading"]["grading_identity"]["model_graded"] is True
+    assert evidence["cold_grading"]["grading_identity"]["attempt_id"] == cold.attempt_id
+
+
+def test_verification_blinding_fails_when_the_cold_grader_saw_the_repair_trace(
+    tmp_path,
+):
+    _, vault, repository, _ = _setup(tmp_path)
+    primed, _cold, dimension = _blinding_evidence(vault, repository, history="source")
+
+    # Run separation is established; the context half is not — and the split is
+    # visible rather than collapsed into one verdict.
+    assert dimension["evidence"]["run_separation"]["status"] == "pass"
+    context = dimension["evidence"]["context_blinding"]
+    assert context["status"] == "fail"
+    assert context["source_attempt_in_grading_history"] is True
+    assert context["diagnostic_history_attempt_ids"] == [primed.attempt_id]
+    assert dimension["status"] == "fail"
+
+
+def test_verification_blinding_is_unknown_without_a_grading_context_receipt(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    primed = _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    _model_graded(repository, primed.attempt_id, run_id="run_repair")
+    _model_graded(repository, cold.attempt_id, run_id="run_cold", model="model-b")
+
+    dimension = evaluate_final_coldness(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    ).dimensions["verification_blinding"]
+
+    # Distinct runs are proved; what the cold grader was shown is not recorded.
+    # One established half never carries the dimension.
+    assert dimension["evidence"]["run_separation"]["status"] == "pass"
+    assert dimension["evidence"]["context_blinding"]["status"] == "unknown"
+    assert dimension["status"] == "unknown"
 
 
 # -- serving-time hook --------------------------------------------------------

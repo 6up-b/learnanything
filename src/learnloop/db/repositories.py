@@ -1023,6 +1023,41 @@ class Repository:
             connection.commit()
             return cursor.rowcount > 0
 
+    def attempts_with_feedback_shown_between(
+        self, *, after: str, before: str
+    ) -> list[dict[str, Any]]:
+        """Attempts whose feedback screen was last opened inside the interval.
+
+        The feedback surface re-reveals a graded answer, the grader's feedback
+        and its repair suggestions, so a reopen is exposure in its own right —
+        but `record_feedback_shown` keeps only a counter plus first/last
+        timestamps, so this sees the LAST reopen and nothing between it and the
+        first. Consumers that scan for intervening exposure (the coldness
+        receipt) must declare the intermediate reopens as still unobserved.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT m.attempt_id AS attempt_id,
+                       m.shown_count AS shown_count,
+                       m.first_shown_at AS first_shown_at,
+                       m.last_shown_at AS last_shown_at,
+                       m.grading_source AS grading_source,
+                       a.practice_item_id AS practice_item_id,
+                       a.learning_object_id AS learning_object_id,
+                       a.created_at AS attempt_created_at
+                  FROM attempt_feedback_metadata m
+                  JOIN practice_attempts a ON a.id = m.attempt_id
+                 WHERE m.last_shown_at IS NOT NULL
+                   AND m.last_shown_at > ?
+                   AND m.last_shown_at < ?
+                 ORDER BY m.last_shown_at, m.attempt_id
+                """,
+                (after, before),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def list_recent_attempts_by_practice_item(self, practice_item_id: str, limit: int = 10) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -23926,6 +23961,29 @@ class Repository:
             )
             connection.commit()
         return row_id if cursor.rowcount else None
+
+    def diagnostic_augmentation_receipt_for_attempt(
+        self, attempt_id: str
+    ) -> dict[str, Any] | None:
+        """The Phase-C receipt for one graded attempt, or None.
+
+        The receipt is the record of what the grading call was actually given —
+        the grader provider/model, the prompt version, and the prior-attempt
+        ids whose traces were attached as C4 history. That makes it the only
+        stored answer to "was this grading run blind to the repair episode?",
+        which the coldness receipt's `verification_blinding` dimension consumes.
+        Absent for self-graded and pre-Stage-7 attempts: absence is `unknown`,
+        never a pass.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM diagnostic_augmentation_receipts WHERE attempt_id = ?",
+                (attempt_id,),
+            ).fetchone()
+        return (
+            _decode_diagnostic_augmentation_receipt(row) if row is not None else None
+        )
 
     def diagnostic_augmentation_receipt_rows(self) -> list[dict[str, Any]]:
         with self.connection() as connection:

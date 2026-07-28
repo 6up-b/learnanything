@@ -8,8 +8,11 @@
 //      authored correction, one visual unit) and the mechanism.
 //   b. Open the source — side-by-side spans for BOTH the target and the
 //      confused-with facet (a misconception is a confusion between two things).
-//      prescribeRemediation writes the `remediation` exposure; we render what it
-//      returns.
+//      prescribeRemediation returns the passage text and records a
+//      `remediation_delivery` exposure for it (migration 150) — that is the
+//      claim this screen supports, since we render the returned text inline
+//      with no further action. The stronger `remediation` exposure is written
+//      only when the learner actually clicks "open in source" below.
 //   c. Try a related item now — one tap into the primed attempt the treatment
 //      RPC returns, handed off to the normal primed practice loop.
 //   d. Confirmation that an unassisted cold retry is scheduled (tomorrow or

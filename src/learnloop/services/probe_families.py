@@ -638,8 +638,13 @@ def map_episode_labels_to_slots(
     bindings = bindings or {}
     slots = set(instrument.rows)
     slot_map: dict[str, str] = {}
-    bound_confusable = str(bindings.get("confusable_concept", "")) or None
-    bound_misconception = str(bindings.get("misconception_id", "")) or None
+    # `or ""` INSIDE the str(): an explicitly null binding stringifies to the
+    # literal "None", which is truthy, so the `or None` fallback would never
+    # fire and the card would compare episode labels against a phantom
+    # "None" concept -- silently abstaining every contrast label onto the
+    # open-set row.
+    bound_confusable = str(bindings.get("confusable_concept") or "") or None
+    bound_misconception = str(bindings.get("misconception_id") or "") or None
     for label in episode_labels:
         if label in slots:
             slot_map[label] = label

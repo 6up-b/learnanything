@@ -16,6 +16,7 @@ from learnloop.services.remediation import (
     _episode_case,
     misconception_status_history,
     prescribe_remediation,
+    record_prescription_delivery,
     start_remediation_episode,
     start_remediation_treatment,
 )
@@ -235,11 +236,33 @@ def causal_teach_me_now_handler(
 
 @method("prescribe_remediation", EpisodeInput)
 def prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]:
+    """Prescribe the comparison passages AND record their delivery.
+
+    `passages_shown_json` records a prescription, not a rendering, which is why
+    the coldness receipt (migration 149) could only call an in-interval
+    prescription `indeterminate`. This handler is the delivery seam: RepairScreen
+    renders the returned passage text inline with no further learner action, so
+    the passage text leaving here is the closest honestly-observable event to it
+    reaching the screen — recorded under its own `remediation_delivery` context
+    (migration 150) rather than the stronger `remediation` open-in-source one.
+    The write is best-effort: telemetry must never fail the serve.
+    """
+
     vault, repository = ctx.require_vault()
     try:
         episode = prescribe_remediation(vault, repository, params.episode_id)
     except RemediationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
+    try:
+        record_prescription_delivery(repository, episode)
+    except Exception:  # pragma: no cover - serve must not fail on telemetry
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "remediation delivery telemetry failed for %s",
+            params.episode_id,
+            exc_info=True,
+        )
     return versioned({"episode": episode, "case": _episode_case_payload(repository, episode)})
 
 

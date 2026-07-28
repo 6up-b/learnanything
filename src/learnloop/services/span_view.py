@@ -45,6 +45,10 @@ _VALID_CONTEXTS = {
     # P3 reader (§3, §11): render-view open + post-cold reader restoration.
     "reader",
     "reader_restoration",
+    # Coldness receipts v2 (migration 150): a prescribed remediation passage's
+    # text was DELIVERED to the surface that renders it inline. Weaker than
+    # `remediation`, which means the learner opened the span deliberately.
+    "remediation_delivery",
 }
 
 
