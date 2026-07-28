@@ -400,16 +400,27 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
             updated_at=NOW_ISO,
         )
     )
-    for item_id in ("pi_svd_define_001", "pi_spectral_boundary"):
-        repository.upsert_practice_item_state(
-            item_id,
-            difficulty=5.0,
-            stability=2.0,
-            due_at=None,
-            last_attempt_at="2026-05-16T12:00:00Z",
-            active=True,
-            clock=clock,
-        )
+    repository.upsert_practice_item_state(
+        "pi_svd_define_001",
+        difficulty=5.0,
+        stability=2.0,
+        due_at=None,
+        last_attempt_at="2026-05-16T12:00:00Z",
+        active=True,
+        clock=clock,
+    )
+    # The probe surface is deliberately never-administered: a diagnostic_probe
+    # item is single-use, and an already-attempted one is gated out of the pool
+    # (see test_diagnostic_probe_single_use.py).
+    repository.upsert_practice_item_state(
+        "pi_spectral_boundary",
+        difficulty=5.0,
+        stability=2.0,
+        due_at=None,
+        last_attempt_at=None,
+        active=True,
+        clock=clock,
+    )
     _insert_facet_state(repository, "recall", alpha=9.0, beta=1.0)
     _insert_facet_state(repository, "spectral-norm", alpha=2.0, beta=3.0)
 

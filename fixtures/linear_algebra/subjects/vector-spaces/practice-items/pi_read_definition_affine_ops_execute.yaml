@@ -137,10 +137,10 @@ grading_rubric:
       recipe_ids: []
       measurement_status: direct
   fatal_errors: []
-status: active
-status_reason:
+status: retired
+status_reason: superseded_by_better_activity
 provenance:
   origin: human
   source_refs: []
 created_at: '2026-07-27T08:36:19Z'
-updated_at: '2026-07-27T08:36:19Z'
+updated_at: '2026-07-27T23:38:26Z'

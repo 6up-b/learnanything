@@ -20,6 +20,7 @@ from typing import Any, Mapping
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.reanchor import reanchor_spans, reanchor_subblock
+from learnloop.services.math_text import locate_by_canonical
 
 ALGO_VERSION = "anchor-v1"
 _context_chars = 32
@@ -177,7 +178,14 @@ def _locate_quote(
     if matches:
         return _disambiguate(text, [(m.start(), m.end()) for m in matches], prefix, suffix)
     # Zero verbatim occurrences means the surfaces genuinely diverge (rendered
-    # glyphs vs extraction text) — only then is fuzzy alignment in play.
+    # glyphs vs extraction text). Bridge the Unicode-math ↔ LaTeX divide in a
+    # shared canonical symbol space first — this is what lets a pdf.js
+    # selection carrying ``𝑧 = (𝑧1, …, 𝑧𝑛) ∈ 𝐂𝑛`` anchor onto the extraction's
+    # ``$z = (z_1, \dots, z_n) \in \mathbf{C}^n$`` and return the LaTeX slice
+    # as the exact quote — then fall back to loose word alignment.
+    located = locate_by_canonical(text, quote)
+    if located is not None:
+        return located
     return _fuzzy_locate(text, quote)
 
 

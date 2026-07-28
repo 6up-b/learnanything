@@ -1208,6 +1208,14 @@ button { color: inherit; }
   -webkit-user-select: none;
 }
 
+/* Ctrl held: the marquee owns the pointer (native selection is suppressed at
+   mousedown, so only the cursor needs to change). */
+.ll-marquee-armed,
+.ll-marquee-armed .textLayer,
+.ll-marquee-armed .textLayer span {
+  cursor: crosshair !important;
+}
+
 /* A quick check can arrive while the learner is in Ask or Notes, or with
    their eyes on the page and the rail in peripheral vision. The signal
    borrows the check card's own construction — probe-pink edge over the

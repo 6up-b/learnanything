@@ -258,8 +258,8 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [activeSpan, setActiveSpan] = useState<string | null>(null);
   // A selection may span several blocks (transcript cues are sentence
   // fragments, so in watch mode it almost always does). `nodes` carries one
-  // per-block sub-quote per covered block; absent for single-block sources
-  // (e.g. the PDF pane's own selection callback).
+  // per-block sub-quote per covered block, whether it came from a native
+  // selection, a ctrl-marquee union, or a block sweep.
   const [selection, setSelection] = useState<{
     spanId: string;
     quote: string;
@@ -1024,6 +1024,11 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     if (!quote) return;
     const nodes = collectSelectionNodes();
     if (!nodes.length) return;
+    // A fresh native selection replaces any marquee boxes still painted.
+    if (domBoxesRef.current.length) {
+      domBoxesRef.current = [];
+      setDomBoxes([]);
+    }
     setSelection({ spanId: nodes[0].spanId, quote, nodes });
     setSelectionActions([]);
     setEditingCapture(false);
@@ -1033,6 +1038,190 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     // exposes the annotation actions.
     setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
   }, [collectSelectionNodes]);
+
+  // ---- ctrl-marquee union capture (markdown + transcript surfaces) --------
+  // Hold ctrl (or cmd) and drag any number of boxes over the reading column;
+  // releasing ctrl commits their union as one selection — the same gesture the
+  // PDF pane implements page-anchored. Boxes live in bodyRef content
+  // coordinates so they scroll with the text; words are clipped per box
+  // against each [data-span-id] block. Escape cancels.
+  const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline);
+  const [domBoxes, setDomBoxes] = useState<number[][]>([]);
+  const [domDraft, setDomDraft] = useState<number[] | null>(null);
+  const [domArmed, setDomArmed] = useState(false);
+  const domBoxesRef = useRef<number[][]>([]);
+  const domDragRef = useRef<{ x0: number; y0: number } | null>(null);
+
+  const domPointFromClient = useCallback((clientX: number, clientY: number): [number, number] | null => {
+    const host = bodyRef.current;
+    if (!host) return null;
+    const rect = host.getBoundingClientRect();
+    return [clientX - rect.left + host.scrollLeft, clientY - rect.top + host.scrollTop];
+  }, []);
+
+  const onBodyMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      if (pdfSurfaceActive) return; // the PDF pane runs its own page-anchored marquee
+      if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) return;
+      const target = event.target as Node;
+      if (target instanceof HTMLElement && target.closest("button, input, textarea, select, a, iframe")) return;
+      const point = domPointFromClient(event.clientX, event.clientY);
+      if (!point) return;
+      // The marquee owns this drag — no native selection underneath.
+      event.preventDefault();
+      window.getSelection()?.removeAllRanges();
+      domDragRef.current = { x0: point[0], y0: point[1] };
+      setDomDraft([point[0], point[1], point[0], point[1]]);
+    },
+    [pdfSurfaceActive, domPointFromClient],
+  );
+
+  const domDrafting = domDraft !== null;
+  useEffect(() => {
+    if (!domDrafting) return;
+    const rectFrom = (drag: { x0: number; y0: number }, point: [number, number]): number[] => [
+      Math.min(drag.x0, point[0]),
+      Math.min(drag.y0, point[1]),
+      Math.max(drag.x0, point[0]),
+      Math.max(drag.y0, point[1]),
+    ];
+    const onMove = (event: MouseEvent) => {
+      const drag = domDragRef.current;
+      if (!drag) return;
+      const point = domPointFromClient(event.clientX, event.clientY);
+      if (point) setDomDraft(rectFrom(drag, point));
+    };
+    const onUp = (event: MouseEvent) => {
+      const drag = domDragRef.current;
+      domDragRef.current = null;
+      setDomDraft(null);
+      if (!drag) return;
+      const point = domPointFromClient(event.clientX, event.clientY);
+      if (!point) return;
+      const rect = rectFrom(drag, point);
+      // A bare ctrl+click is not a box.
+      if (rect[2] - rect[0] < 6 || rect[3] - rect[1] < 6) return;
+      const next = [...domBoxesRef.current, rect];
+      domBoxesRef.current = next;
+      setDomBoxes(next);
+      // Ctrl already released mid-drag: this box completes the gesture.
+      if (!(event.ctrlKey || event.metaKey)) commitDomBoxesRef.current();
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [domDrafting, domPointFromClient]);
+
+  // Boxes → per-block nodes: word-level clipping against every [data-span-id]
+  // block (markdown paragraphs, transcript cues), in document order. Hidden
+  // text (KaTeX MathML mirrors) drops out via the zero-rect filter.
+  const resolveDomBoxes = useCallback((boxes: number[][]): Array<{ spanId: string; quote: string }> => {
+    const host = bodyRef.current;
+    if (!host || !boxes.length) return [];
+    const hostRect = host.getBoundingClientRect();
+    const clientBoxes = boxes.map((b) => [
+      b[0] + hostRect.left - host.scrollLeft,
+      b[1] + hostRect.top - host.scrollTop,
+      b[2] + hostRect.left - host.scrollLeft,
+      b[3] + hostRect.top - host.scrollTop,
+    ]);
+    const nodes: Array<{ spanId: string; quote: string }> = [];
+    const seen = new Set<string>();
+    for (const el of Array.from(host.querySelectorAll<HTMLElement>("[data-span-id]"))) {
+      const spanId = el.dataset.spanId;
+      if (!spanId || seen.has(spanId)) continue;
+      const elRect = el.getBoundingClientRect();
+      const touches = clientBoxes.some(
+        (b) => b[0] < elRect.right && b[2] > elRect.left && b[1] < elRect.bottom && b[3] > elRect.top,
+      );
+      if (!touches) continue;
+      const words: string[] = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node as Text;
+        const wordPattern = /\S+/g;
+        let match: RegExpExecArray | null;
+        while ((match = wordPattern.exec(text.data))) {
+          const range = document.createRange();
+          range.setStart(text, match.index);
+          range.setEnd(text, match.index + match[0].length);
+          const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0.5 && r.height > 0.5);
+          if (!rects.length) continue;
+          const cx = (Math.min(...rects.map((r) => r.left)) + Math.max(...rects.map((r) => r.right))) / 2;
+          const cy = (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2;
+          if (clientBoxes.some((b) => cx >= b[0] && cx <= b[2] && cy >= b[1] && cy <= b[3])) words.push(match[0]);
+        }
+      }
+      const quote = words.join(" ").replace(/\s+/g, " ").trim();
+      if (quote) {
+        seen.add(spanId);
+        nodes.push({ spanId, quote });
+      }
+    }
+    return nodes;
+  }, []);
+
+  const commitDomBoxes = useCallback(() => {
+    const boxes = domBoxesRef.current;
+    if (!boxes.length) return;
+    const nodes = resolveDomBoxes(boxes);
+    if (!nodes.length) {
+      domBoxesRef.current = [];
+      setDomBoxes([]);
+      return;
+    }
+    const quote = nodes.map((n) => n.quote).join(" ");
+    setSelection({ spanId: nodes[0].spanId, quote, nodes });
+    setSelectionActions([]);
+    setEditingCapture(false);
+    setActiveSpan(nodes[0].spanId);
+    setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
+  }, [resolveDomBoxes]);
+  const commitDomBoxesRef = useRef(commitDomBoxes);
+  useEffect(() => {
+    commitDomBoxesRef.current = commitDomBoxes;
+  }, [commitDomBoxes]);
+
+  // Releasing ctrl commits the union; Escape abandons it. Armed state drives
+  // the crosshair affordance while ctrl/cmd is down.
+  useEffect(() => {
+    const clearDomBoxes = () => {
+      domDragRef.current = null;
+      domBoxesRef.current = [];
+      setDomDraft(null);
+      setDomBoxes([]);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Control" || event.key === "Meta") setDomArmed(true);
+      if (event.key === "Escape" && (domBoxesRef.current.length || domDragRef.current)) clearDomBoxes();
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== "Control" && event.key !== "Meta") return;
+      setDomArmed(false);
+      // A drag still in flight commits from its own mouseup instead.
+      if (!domDragRef.current) commitDomBoxesRef.current();
+    };
+    const onBlur = () => setDomArmed(false);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  // The capture was cleared — drop the painted boxes with it.
+  useEffect(() => {
+    if (selection === null && domBoxesRef.current.length) {
+      domBoxesRef.current = [];
+      setDomBoxes([]);
+    }
+  }, [selection]);
 
   const refreshRequests = useCallback(async () => {
     if (!render || offline) return;
@@ -1477,19 +1666,26 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   );
 
   const ask = useCallback(async () => {
-    if (!activeSpan || !question.trim() || !render) return;
+    // Grounding span = the capture selection's primary block (the same
+    // selection Notes>Capture acts on); activeSpan is the jump/resume fallback.
+    const groundingSpan = selection?.spanId ?? activeSpan;
+    if (!groundingSpan || !question.trim() || !render) return;
     const asked = question.trim();
     setBusy(true);
     try {
       const answer = await api.readerAsk({
         extractionId: render.extractionId,
-        spanId: activeSpan,
+        spanId: groundingSpan,
         question: asked,
         answerMode,
+        // The full capture selection widens the tutor's citable context to
+        // every selected block, not just the primary one.
+        selectionSpanIds: selection ? [...new Set(selectionNodes(selection).map((n) => n.spanId))] : [],
+        selectionQuote: selection ? (selection.editedText ?? selection.quote).trim() || null : null,
       });
       const exchange: ReaderExchange = {
         id: answer.readerAnswerEventId,
-        spanId: activeSpan,
+        spanId: groundingSpan,
         question: asked,
         answerMd: answer.answerMd,
         answerMode: answer.answerMode,
@@ -1512,7 +1708,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     } finally {
       setBusy(false);
     }
-  }, [activeSpan, question, answerMode, render, onError]);
+  }, [selection, activeSpan, question, answerMode, render, onError]);
 
   const chooseDisposition = useCallback(
     async (d: ReaderDisposition) => {
@@ -1731,11 +1927,54 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
         <div
           ref={bodyRef}
+          onMouseDown={onBodyMouseDown}
           onMouseUp={onMouseUp}
           onScroll={onReadingScroll}
           className="ll-scroll"
-          style={{ flex: 1, overflowY: "auto", padding: "18px 32px", display: "flex", flexDirection: "column", gap: 12 }}
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "18px 32px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            position: "relative",
+            cursor: domArmed && !pdfSurfaceActive ? "crosshair" : undefined,
+          }}
         >
+          {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
+            <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
+              {domBoxes.map((b, i) => (
+                <div
+                  key={`dom-box-${i}`}
+                  style={{
+                    position: "absolute",
+                    left: b[0] - 2,
+                    top: b[1] - 1.5,
+                    width: b[2] - b[0] + 4,
+                    height: b[3] - b[1] + 3,
+                    background: "rgba(245, 166, 35, 0.14)",
+                    border: "1.5px solid rgba(215, 135, 15, 0.85)",
+                    borderRadius: 3,
+                  }}
+                />
+              ))}
+              {domDraft ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: domDraft[0] - 2,
+                    top: domDraft[1] - 1.5,
+                    width: domDraft[2] - domDraft[0] + 4,
+                    height: domDraft[3] - domDraft[1] + 3,
+                    background: "rgba(245, 166, 35, 0.08)",
+                    border: "1.5px dashed rgba(215, 135, 15, 0.75)",
+                    borderRadius: 3,
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
           {watch ? (
             <YouTubeWatchPanel
               ref={watchRef}
@@ -1763,18 +2002,12 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               guidanceSpans={revealedGuidanceSpans}
               selectedSpans={selectedSpanSet}
               activeSpan={activeSpan}
-              onSelectSpan={setActiveSpan}
               onTextSelection={(sel) => {
                 setSelection(sel);
                 setSelectionActions([]);
                 setEditingCapture(false);
                 setActiveSpan(sel.spanId);
                 setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-              }}
-              onSelectionCleared={() => {
-                setSelection(null);
-                setSelectionActions([]);
-                setEditingCapture(false);
               }}
               onTagMenu={setTagMenu}
               onError={onError}
@@ -1796,7 +2029,6 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               <div
                 data-span-id={block.spanId ?? undefined}
                 data-extraction-id={render?.extractionId}
-                onClick={() => setActiveSpan(block.spanId)}
                 onContextMenu={(e) => {
                   if (!block.spanId) return;
                   e.preventDefault();
@@ -2158,9 +2390,9 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
             </div>
           ) : (
             <Faint style={{ fontSize: 12 }}>
-              {pdfView && surface === "pdf" && !offline
-                ? "drag across the page to select whole blocks (an exercise, a proof) · ctrl+click a word or equation for fine capture, ctrl+shift+click to extend · alt+drag for free text selection."
-                : "select text in the reading column to capture it."}
+              {pdfSurfaceActive
+                ? "drag to select text like a browser · hold ctrl and drag one or more boxes, release ctrl to capture their union (best for exercises) · alt+drag to sweep whole blocks · right-click to tag."
+                : "select text to capture it · hold ctrl and drag one or more boxes, release ctrl to capture their union."}
             </Faint>
           )}
 
@@ -2600,10 +2832,21 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {activeSpan ? (
                 <>
-                  {activeBlock ? (
+                  {/* The Ask grounding is the SAME selection Capture uses —
+                      the learner never targets extraction blocks directly. */}
+                  {selection ? (
+                    <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
+                      <Faint style={{ fontSize: 10 }}>ASKING ABOUT YOUR SELECTION</Faint>
+                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                        <MarkdownMath value={clip((selection.editedText ?? selection.quote).replace(/\s+/g, " ").trim(), 300)} />
+                      </div>
+                    </Card>
+                  ) : activeBlock ? (
                     <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
                       <Faint style={{ fontSize: 10 }}>ASKING ABOUT</Faint>
-                      <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(activeBlock.markdown.replace(/\s+/g, " "), 150)}”</span>
+                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                        <MarkdownMath value={clip(activeBlock.markdown.replace(/\s+/g, " "), 150)} />
+                      </div>
                     </Card>
                   ) : null}
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2626,13 +2869,13 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                     ref={askComposerRef}
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="ask about this span…"
+                    placeholder="ask about this passage…"
                     style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
                   />
                   <PrimaryButton onClick={ask} disabled={busy || !question.trim()}>ask ↵</PrimaryButton>
                 </>
               ) : (
-                <Faint style={{ fontSize: 12 }}>select a paragraph to ask about it.</Faint>
+                <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
               )}
 
               <SectionHeader>Previous asks</SectionHeader>
@@ -2685,6 +2928,12 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                     </button>
                     {expanded ? (
                       <>
+                        {/* Expanded question renders its LaTeX (the collapsed
+                            header stays plain text — clipping mid-$ would
+                            break KaTeX). */}
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                          <MarkdownMath value={exchange.question} />
+                        </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                           <Pill color="cyan">{exchange.answerMode}</Pill>
                           <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
@@ -2760,7 +3009,25 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         </div>
       ) : null}
 
-      <KeyBar keys={[{ key: "select", label: "capture text" }, { key: "right-click", label: "tag" }]} right={{ key: "^p", label: "palette" }} />
+      <KeyBar
+        keys={
+          pdfSurfaceActive
+            ? [
+                { key: "drag", label: "select text" },
+                { key: "ctrl+drag", label: "draw capture boxes" },
+                { key: "release ctrl", label: "capture box union" },
+                { key: "alt+drag", label: "sweep blocks" },
+                { key: "right-click", label: "tag" },
+              ]
+            : [
+                { key: "select", label: "capture text" },
+                { key: "ctrl+drag", label: "draw capture boxes" },
+                { key: "release ctrl", label: "capture box union" },
+                { key: "right-click", label: "tag" },
+              ]
+        }
+        right={{ key: "^p", label: "palette" }}
+      />
     </div>
   );
 }

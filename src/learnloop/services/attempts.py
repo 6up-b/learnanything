@@ -2601,7 +2601,13 @@ def _compute_resolved_grade_application(
         stability=next_memory.stability if next_memory is not None else None,
         retrievability=next_memory.retrievability if next_memory is not None else None,
         due_at=due_at,
-        active=True,
+        # A diagnostic probe is a single-use surface: it exists to carry exactly
+        # one administration, and re-serving it would conflate memorization of
+        # the question with understanding. The FSRS skip above already leaves it
+        # unscheduled (due_at stays as it was); this closes the pool door too.
+        # Living in the shared compute path, the flip replays identically under
+        # `rebuild-derived-state`.
+        active=item.practice_mode != "diagnostic_probe",
         content_hash=practice_item_hash(item),
         last_attempt_at=now_iso,
         updated_at=now_iso,

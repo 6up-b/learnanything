@@ -5140,6 +5140,10 @@ export interface ReaderAskInput {
   answerMode?: ReaderAnswerMode;
   targetKey?: string | null;
   revealedSurfaceIds?: string[];
+  /** Full capture selection: spanId stays the primary grounding block; these
+   *  widen the tutor's citable context to every selected block + exact quote. */
+  selectionSpanIds?: string[];
+  selectionQuote?: string | null;
   coldActive?: boolean;
 }
 export interface ReaderAnswerDto {

@@ -77,6 +77,26 @@ def test_manifest_carries_span_and_mode_but_never_ability_or_reserved(tmp_path):
     assert "rubric" not in flat and "ability" not in flat.replace("ability_estimate", "")
 
 
+def test_manifest_carries_full_multiblock_selection(tmp_path):
+    _vault, repo = _setup(tmp_path)
+    manifest = RD.build_reader_manifest(
+        repo, extraction_id="ext1", span_id="s1",
+        question_md="Why symmetric?", answer_mode="answer_directly",
+        selection_span_ids=["s1", "s2"],
+        selection_quote_md="symmetric when A^T = A. The spectral theorem",
+    )
+    assert manifest["selection"] == {
+        "span_ids": ["s1", "s2"],
+        "quote_md": "symmetric when A^T = A. The spectral theorem",
+    }
+    spans = manifest["source_spans"]
+    # The exact selected passage leads, then every covered block is in view.
+    assert spans[0]["relation"] == "selected_text"
+    assert spans[0]["text"] == "symmetric when A^T = A. The spectral theorem"
+    in_view = {s["span_id"] for s in spans if s["relation"] == "in_view"}
+    assert {"s1", "s2"} <= in_view
+
+
 def test_prompt_contract_is_deterministic_and_walls_off_ability():
     contract = RD.reader_prompt_contract()
     assert contract == RD.reader_prompt_contract()  # deterministic artifact

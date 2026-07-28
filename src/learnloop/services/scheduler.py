@@ -171,6 +171,17 @@ def build_due_queue(
         # committed diagnostic attempt; they are never ordinary practice.
         if item.practice_mode == "diagnostic_microprobe":
             continue
+        # Vault-authored diagnostic probes are single-use surfaces: once the
+        # item has carried an attempt, re-serving it would conflate memorization
+        # of the question with understanding. Attempt recording deactivates the
+        # item; this gate also covers vaults whose administration predates that
+        # deactivation (state.active is True but the attempt already happened).
+        if (
+            item.practice_mode == "diagnostic_probe"
+            and state is not None
+            and state.last_attempt_at is not None
+        ):
+            continue
         # Meas §3.A2/§3.A3: an item whose stimulus the practice surface cannot
         # render is not schedulable. Serving one produces a silent harmful write
         # rather than a visible failure -- see `services/instrument_serving`.

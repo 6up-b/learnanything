@@ -1946,6 +1946,60 @@ def _attempt_trace_contract(
     return item.trace_contract if item is not None else None
 
 
+def _open_diagnostic_repair_factor(
+    repository: Repository,
+    *,
+    attempt: Mapping[str, Any],
+    concrete: Sequence[Mapping[str, Any]],
+    clock: Clock | None,
+) -> None:
+    """Open the repair-lane factor a failed diagnostic administration owes.
+
+    P0 opens unresolved-cause factors only through the canonical projection's
+    multi-target ambiguity gate (§5.3), which a vault-authored
+    ``diagnostic_probe`` item's single-target contract never trips. The episode
+    materialized above still names concrete causes with mapped repair classes,
+    but with no open factor ``causal_orchestrator.causal_repair_status`` has no
+    case to decide and the post-attempt consultation
+    (``followups._consult_common_repair``) bails — the repair lane is
+    unreachable exactly where a diagnosis just succeeded.
+
+    Mirrors ``record_causal_diagnosis_contest``: the thinnest possible factor,
+    hypothesis refs plus the open-set arm. ``observation_id`` stays NULL so the
+    projection's observation-keyed reconciliation
+    (``canonical_projection._sync_unresolved_cause_factors``) neither
+    duplicates nor retires it; idempotency is the any-status per-attempt check
+    below, which also keeps replay and re-materialization from re-opening a
+    factor the learner already resolved or retired.
+    """
+
+    if str(attempt.get("attempt_type") or "") != "diagnostic_probe":
+        return
+    if float(attempt.get("correctness") or 0.0) >= 1.0:
+        return
+    if not concrete or not any(value.get("repair_class_id") for value in concrete):
+        # No mapped repair class -> nothing the repair lane could act on
+        # differently; the machine-side backfill obligation owns this gap.
+        return
+    attempt_id = str(attempt["id"])
+    if any(
+        repository.unresolved_cause_factors_for_attempt(attempt_id, status=status)
+        for status in ("open", "resolved", "retired")
+    ):
+        return
+    refs: list[dict[str, Any]] = [
+        {"hypothesis_id": value["id"], "version": value["version"]}
+        for value in concrete
+    ]
+    refs.append({"hypothesis_id": OPEN_SET_CAUSE_ID, "open_set": True})
+    repository.insert_unresolved_cause_factor(
+        attempt_id=attempt_id,
+        candidate_causes=refs,
+        algorithm_version="causal_attribution_p2",
+        clock=clock,
+    )
+
+
 def materialize_causal_episode(
     vault: LoadedVault,
     repository: Repository,
@@ -2284,6 +2338,12 @@ def materialize_causal_episode(
     }
     if repository.attempt_debug_payload(attempt_id) is not None:
         repository.append_attempt_diagnosis_receipt(attempt_id, receipt)
+    # Journey B reachability: a failed diagnostic administration whose episode
+    # carries a mapped repair class owes the repair lane an open cause factor
+    # (see the helper's docstring for why the projection never opens one).
+    _open_diagnostic_repair_factor(
+        repository, attempt=attempt, concrete=concrete, clock=clock
+    )
     return receipt
 
 

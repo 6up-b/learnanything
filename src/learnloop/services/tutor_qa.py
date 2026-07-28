@@ -36,7 +36,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from datetime import timedelta
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.codex.client import TutorQAContext
@@ -77,6 +77,10 @@ _LEAK_OVERLAP_THRESHOLD = 0.8
 # ING M8 (§9.2): total source-span citations offered to one tutor turn. Bounded so
 # the grading/tutor context does not grow with source count (KM §12.9).
 _MAX_CITATION_SPANS = 4
+# A multi-block reader selection may legitimately cover more blocks than the
+# neighbour-window citation cap — bounded separately so a selected exercise
+# list arrives whole without unbounding the manifest.
+_MAX_SELECTION_SPANS = 8
 
 
 class TutorQAError(ValueError):
@@ -162,6 +166,8 @@ def ask_question(
     extraction_id: str | None = None,
     span_id: str | None = None,
     answer_mode: str | None = None,
+    selection_span_ids: Sequence[str] = (),
+    selection_quote_md: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -246,6 +252,8 @@ def ask_question(
         extraction_id=extraction_id,
         span_id=span_id,
         answer_mode=answer_mode,
+        selection_span_ids=selection_span_ids,
+        selection_quote_md=selection_quote_md,
     )
 
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -677,19 +685,28 @@ def _build_context(
     extraction_id: str | None = None,
     span_id: str | None = None,
     answer_mode: str | None = None,
+    selection_span_ids: Sequence[str] = (),
+    selection_quote_md: str | None = None,
 ) -> TutorQAContext:
     if context == "reader":
         # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
-        # (current block + neighbours) + the question + the chosen mode. It MUST
-        # NOT carry the learner ability estimate, any assessment-reserved surface's
-        # statement/rubric, or any cold in-flight response -- so no note body, no
-        # rubric, no expected answer, no diagnostic decision, no candidate facets.
+        # (the learner's selection + neighbours) + the question + the chosen
+        # mode. It MUST NOT carry the learner ability estimate, any
+        # assessment-reserved surface's statement/rubric, or any cold in-flight
+        # response -- so no note body, no rubric, no expected answer, no
+        # diagnostic decision, no candidate facets.
         return TutorQAContext(
             context="reader",
             question_md=question_md,
             candidate_facets=[],
             thread=thread,
-            source_spans=_reader_source_spans(repository, extraction_id, span_id),
+            source_spans=_reader_source_spans(
+                repository,
+                extraction_id,
+                span_id,
+                selection_span_ids=selection_span_ids,
+                selection_quote_md=selection_quote_md,
+            ),
             answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
         )
 
@@ -781,10 +798,16 @@ def _source_spans(
 
 
 def _reader_source_spans(
-    repository: Repository, extraction_id: str | None, span_id: str | None
+    repository: Repository,
+    extraction_id: str | None,
+    span_id: str | None,
+    *,
+    selection_span_ids: Sequence[str] = (),
+    selection_quote_md: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Block-level span views for the reader manifest (§7.6): the current source
-    block plus its immediate neighbours, as citable {extraction_id, span_id, label,
+    """Block-level span views for the reader manifest (§7.6): the learner's
+    selection (exact quote first, then every covered block), plus the primary
+    block's immediate neighbours, as citable {extraction_id, span_id, label,
     text} spans. NOT the P3 annotation layer -- just ``span_view`` geometry. The
     tutor may cite ONLY these. Degrades to [] when the span cannot be resolved."""
 
@@ -802,6 +825,20 @@ def _reader_source_spans(
         text = " ".join((text or "").split())
         return text[:59].rstrip() + "…" if len(text) > 60 else text
 
+    # The exact selected passage leads: it tells the tutor which PART of the
+    # in-view blocks the question is about (a multi-block selection is joined
+    # client-side in reading order). Anchored to the primary block, so the
+    # citation contract (extraction_id/span_id pairs from this list) holds.
+    if selection_quote_md and selection_quote_md.strip():
+        spans.append(
+            {
+                "extraction_id": extraction_id,
+                "span_id": span_id,
+                "label": "learner selection",
+                "text": selection_quote_md,
+                "relation": "selected_text",
+            }
+        )
     spans.append(
         {
             "extraction_id": extraction_id,
@@ -811,6 +848,24 @@ def _reader_source_spans(
             "relation": "in_view",
         }
     )
+    # Every other block the selection covers is in view too (bounded).
+    for extra_id in list(dict.fromkeys(selection_span_ids))[:_MAX_SELECTION_SPANS]:
+        if extra_id == span_id:
+            continue
+        try:
+            extra = build_span_view(repository, extraction_id, extra_id, record=False)
+        except SpanViewError:
+            continue
+        spans.append(
+            {
+                "extraction_id": extraction_id,
+                "span_id": extra_id,
+                "label": _label(extra.get("text")),
+                "text": extra.get("text"),
+                "relation": "in_view",
+            }
+        )
+    max_spans = max(_MAX_CITATION_SPANS, len(spans) + 2)
     for neighbour in (view.get("previous_spans") or []) + (view.get("next_spans") or []):
         nid = neighbour.get("span_id")
         if nid is None:
@@ -824,7 +879,7 @@ def _reader_source_spans(
                 "relation": "surrounding",
             }
         )
-        if len(spans) >= _MAX_CITATION_SPANS:
+        if len(spans) >= max_spans:
             break
     return spans
 

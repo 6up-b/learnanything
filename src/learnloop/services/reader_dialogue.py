@@ -189,21 +189,35 @@ def build_reader_manifest(
     question_md: str,
     answer_mode: str,
     goal_invariants: Mapping[str, Any] | None = None,
+    selection_span_ids: Sequence[str] = (),
+    selection_quote_md: str | None = None,
 ) -> dict[str, Any]:
     """The exact bounded context handed to the reader tutor (design A.2).
 
-    Carries the in-view span + surrounding blocks, the question, the chosen mode,
-    the read-only goal-contract invariants, and the prior same-span exchanges. It
+    Carries the learner's selection (exact quote + every covered block) with the
+    primary span's surrounding blocks, the question, the chosen mode, the
+    read-only goal-contract invariants, and the prior same-span exchanges. It
     deliberately carries NO ability estimate and NO assessment-reserved content."""
 
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
-    source_spans = tutor_qa._reader_source_spans(repository, extraction_id, span_id)
+    source_spans = tutor_qa._reader_source_spans(
+        repository,
+        extraction_id,
+        span_id,
+        selection_span_ids=selection_span_ids,
+        selection_quote_md=selection_quote_md,
+    )
     prior = repository.question_events(
         context="reader", note_id=span_key, answer_status="answered"
     )
     return {
         "version": READER_PROMPT_CONTRACT_VERSION,
         "span": {"extraction_id": extraction_id, "span_id": span_id, "key": span_key},
+        "selection": (
+            {"span_ids": list(dict.fromkeys(selection_span_ids)), "quote_md": selection_quote_md}
+            if (selection_span_ids or selection_quote_md)
+            else None
+        ),
         "source_spans": source_spans,
         "question_md": question_md,
         "answer_mode": answer_mode,
@@ -383,11 +397,18 @@ def ask(
     target_key: str | None = None,
     goal_invariants: Mapping[str, Any] | None = None,
     revealed_surface_ids: Sequence[str] = (),
+    selection_span_ids: Sequence[str] = (),
+    selection_quote_md: str | None = None,
     cold_active: bool = False,
     cold_attempt_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``selection_span_ids``/``selection_quote_md`` carry the learner's full
+    multi-block capture selection: ``span_id`` stays the primary grounding
+    block, the extra spans and the exact quote widen the tutor's citable
+    context to everything that was actually selected.
 
     The learner question is elicitation about the source, never ability evidence
     (the reader context attaches no facets). On answer commit the revealed cues
@@ -415,6 +436,8 @@ def ask(
         question_md=question_md,
         answer_mode=answer_mode,
         goal_invariants=goal_invariants,
+        selection_span_ids=selection_span_ids,
+        selection_quote_md=selection_quote_md,
     )
 
     # Signal ordering: mode + asked land before the (possibly failing) provider call.
@@ -426,7 +449,12 @@ def ask(
         origin="learner",
         subject_type="reader_span",
         subject_id=span_key,
-        payload={"question_md": question_md, "extraction_id": extraction_id, "span_id": span_id},
+        payload={
+            "question_md": question_md,
+            "extraction_id": extraction_id,
+            "span_id": span_id,
+            "selection_span_ids": list(dict.fromkeys(selection_span_ids)),
+        },
         clock=clock,
     )
 
@@ -439,6 +467,8 @@ def ask(
         extraction_id=extraction_id,
         span_id=span_id,
         answer_mode=answer_mode,
+        selection_span_ids=selection_span_ids,
+        selection_quote_md=selection_quote_md,
         clock=clock,
     )
 

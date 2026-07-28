@@ -83,6 +83,10 @@ class ReaderAskInput(ParamsModel):
     answer_mode: str = RD.READER_ANSWER_MODE_DEFAULT
     target_key: str | None = None
     revealed_surface_ids: list[str] = []
+    # Full capture selection: span_id stays the primary grounding block; these
+    # widen the tutor's citable context to every selected block + exact quote.
+    selection_span_ids: list[str] = []
+    selection_quote: str | None = None
     cold_active: bool = False
     cold_attempt_id: str | None = None
 
@@ -111,6 +115,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             answer_mode=params.answer_mode,
             target_key=params.target_key,
             revealed_surface_ids=params.revealed_surface_ids,
+            selection_span_ids=params.selection_span_ids,
+            selection_quote_md=params.selection_quote,
             cold_active=params.cold_active,
             cold_attempt_id=params.cold_attempt_id,
         )

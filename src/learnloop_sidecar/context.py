@@ -197,6 +197,7 @@ class SidecarContext:
                         item,
                         review_parked=review_parked,
                         measurement_superseded=measurement_superseded,
+                        state=state,
                     )
                     if state is None:
                         repository.upsert_practice_item_state(

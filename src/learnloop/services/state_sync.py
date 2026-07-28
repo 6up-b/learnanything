@@ -32,10 +32,22 @@ def practice_item_activatable(
     *,
     review_parked: set[str],
     measurement_superseded: set[str],
+    state=None,
 ) -> bool:
-    """The one lifecycle gate shared by full and incremental vault sync."""
+    """The one lifecycle gate shared by full and incremental vault sync.
+
+    ``state`` is the item's existing ``PracticeItemState`` row, when the caller
+    holds one: an administered ``diagnostic_probe`` surface is single-use, so a
+    sync must never force-reactivate it after attempt recording retired it.
+    """
 
     if getattr(item, "status", "active") != "active":
+        return False
+    if (
+        item.practice_mode == "diagnostic_probe"
+        and state is not None
+        and state.last_attempt_at is not None
+    ):
         return False
     return (
         item_id not in review_parked
@@ -96,6 +108,7 @@ def sync_vault_state(
             item,
             review_parked=review_parked,
             measurement_superseded=measurement_superseded,
+            state=state,
         )
         if state.active != activatable or state.content_hash != content_hash:
             repository.upsert_practice_item_state(

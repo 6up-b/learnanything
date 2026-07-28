@@ -42,6 +42,7 @@ from learnloop.services.activity_patterns import (
 )
 from learnloop.services.annotations import translate_selection
 from learnloop.services.depth_rungs import TASK_FEATURE_SCHEMA_SLUG
+from learnloop.services.math_text import contains_unicode_math, unicode_math_to_latex
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
 from learnloop.vault.writer import upsert_practice_item
@@ -278,15 +279,26 @@ def import_exercises(
             edited_quotes.setdefault(span, []).append(quote)
     parts: list[str] = []
     consumed: dict[str, int] = {}
+    transliterated = False
     for segment in segments:
         span = str(segment.get("span_id") or "")
         queue = edited_quotes.get(span) or []
         index = consumed.get(span, 0)
         if index < len(queue):
+            # Learner-authority text is never rewritten — not even Unicode math.
             parts.append(queue[index])
             consumed[span] = index + 1
         else:
-            parts.append(str(segment["exact_quote"]))
+            part = str(segment["exact_quote"])
+            # Anchored slices normally carry the extraction's own LaTeX; a
+            # pypdf-fallback block's text IS rendered Unicode math, and that
+            # must not become a practice surface as ``𝜆``. Deterministic and
+            # lossy only where the text already was (flattened scripts stay
+            # flattened); surfaced as a warning below.
+            if contains_unicode_math(part):
+                part, changed = unicode_math_to_latex(part)
+                transliterated = transliterated or changed
+            parts.append(part)
     exercise_text = "\n\n".join(parts)
 
     # The capture editor combines a multi-block selection into ONE passage; a
@@ -296,7 +308,9 @@ def import_exercises(
         raw_selection.get("edited_text") or raw_selection.get("editedText") or ""
     ).strip()
     if edited_text:
+        # Learner-authority override — used verbatim, Unicode and all.
         exercise_text = edited_text
+        transliterated = False
 
     span_ids: list[str] = []
     for segment in segments:
@@ -327,6 +341,8 @@ def import_exercises(
     result = run(context)
 
     warnings = [str(warning) for warning in result.warnings if str(warning).strip()]
+    if transliterated:
+        warnings.insert(0, "converted Unicode math in the exercise text to LaTeX — check sub/superscripts")
     if not result.items:
         raise ExerciseAuthoringError("the provider returned no authored exercises")
 

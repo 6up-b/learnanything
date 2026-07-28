@@ -262,3 +262,230 @@ def test_attempt_without_factors_is_untouched(tmp_path):
     bundle = _bundle("hyp_none")
     _attach_common_repair(repository, "att_no_factor", bundle)
     assert "commonRepair" not in bundle["causalFeedback"]
+
+
+# --- diagnostic administrations reach the repair lane -----------------------
+#
+# A vault-authored ``diagnostic_probe`` item's single-target contract never
+# trips the canonical projection's multi-target ambiguity gate, so before
+# ``causal_attribution._open_diagnostic_repair_factor`` a failed diagnostic
+# attempt materialized hypotheses WITH mapped repair classes but no factor —
+# ``causal_repair_status`` raised and the consultation above bailed at its
+# first check.
+
+DIAG_ITEM = "pi_diag_transpose_probe"
+DIAG_REF = {
+    "kind": "facet_capability",
+    "facet_id": "recall",
+    "capability": "retrieval",
+}
+
+
+def _diagnostic_vault(tmp_path):
+    from learnloop.vault.yaml_io import write_yaml
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    write_yaml(
+        paths.practice_item_path("linear-algebra", DIAG_ITEM),
+        {
+            "schema_version": 1,
+            "id": DIAG_ITEM,
+            "learning_object_id": LO_ID,
+            "subjects": None,
+            "practice_mode": "diagnostic_probe",
+            "attempt_types_allowed": ["diagnostic_probe", "dont_know"],
+            "evidence_facets": ["recall"],
+            "evidence_weights": {"recall": 1.0},
+            "prompt": "Which SVD factor is transposed in the product?",
+            "expected_answer": "V",
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [
+                    {
+                        "id": "correctness",
+                        "points": 4,
+                        "description": "Correct selection.",
+                    }
+                ],
+                "fatal_errors": [],
+            },
+            "created_at": "2026-05-19T12:00:00Z",
+            "updated_at": "2026-05-19T12:00:00Z",
+        },
+    )
+    vault = load_vault(root)
+    repository = Repository(paths.sqlite_path)
+    return vault, repository
+
+
+def _diagnostic_attempt(
+    vault,
+    repository,
+    *,
+    attempt_id: str,
+    rubric_score: int = 2,
+    with_diagnosis: bool = True,
+):
+    from learnloop.services.attempts import (
+        ApplyAttemptInput,
+        AttemptDraft,
+        GradeAttribution,
+        ResolvedGrade,
+        apply_attempt,
+    )
+
+    now_iso = "2026-05-19T12:00:00Z"
+    attributions = (
+        [
+            GradeAttribution(
+                error_type="conceptual_slip",
+                severity=0.7,
+                evidence="The learner named an untransposed factor.",
+                resolution_status="unresolved",
+                cause_scope="learner_state",
+                operation="recall_omission",
+                target_criterion_ids=["correctness"],
+                candidate_causes=[
+                    {
+                        "statement": (
+                            "The learner does not recall which factor is transposed."
+                        ),
+                        "cause_scope": "learner_state",
+                        "target_ref": DIAG_REF,
+                    }
+                ],
+            )
+        ]
+        if with_diagnosis
+        else []
+    )
+    return apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=DIAG_ITEM,
+                learner_answer_md="U",
+                attempt_type="diagnostic_probe",
+            ),
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(
+                rubric_score=rubric_score,
+                criterion_points={"correctness": float(rubric_score)},
+                evidence_rows=[
+                    {
+                        "id": f"ge_{attempt_id}",
+                        "criterion_id": "correctness",
+                        "points_awarded": float(rubric_score),
+                        "evidence": "Selection judged against the transpose rule.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": now_iso,
+                    }
+                ],
+                error_attributions=attributions,
+                grader_confidence=0.9,
+                confidence=3,
+                manual_review_reason=None,
+                feedback_md="Check which factor carries the transpose.",
+                repair_suggestions=[
+                    {
+                        "practice_mode": "targeted_review",
+                        "operator": "restate_transpose_rule",
+                        "rationale": "Re-establish which factor is transposed.",
+                        "target_refs": [DIAG_REF],
+                        "expected_minutes": 3.0,
+                    }
+                ],
+            ),
+        ),
+        clock=CLOCK,
+    )
+
+
+def _all_status_factors(repository, attempt_id: str) -> list[dict]:
+    return [
+        factor
+        for status in ("open", "resolved", "retired")
+        for factor in repository.unresolved_cause_factors_for_attempt(
+            attempt_id, status=status
+        )
+    ]
+
+
+def test_failed_diagnostic_attempt_opens_the_repair_lane(tmp_path):
+    from learnloop.services.causal_orchestrator import causal_repair_status
+
+    vault, repository = _diagnostic_vault(tmp_path)
+    result = _diagnostic_attempt(
+        vault, repository, attempt_id="att_diag_repair_lane"
+    )
+
+    factors = repository.unresolved_cause_factors_for_attempt(result.attempt_id)
+    assert len(factors) == 1
+    causes = factors[0]["candidate_causes"]
+    concrete_ids = [
+        str(c["hypothesis_id"]) for c in causes if not c.get("open_set")
+    ]
+    assert concrete_ids
+    # Hydrated refs carry the mapped repair class, and the open-set arm rides
+    # along (mirroring record_causal_diagnosis_contest's thinnest factor).
+    assert any(c.get("repair_class_id") for c in causes)
+    assert any(c.get("open_set") for c in causes)
+
+    # The consultation the hook runs post-attempt now records its receipt.
+    _consult_common_repair(
+        vault, repository, _result(result.attempt_id), session_id=None, clock=CLOCK
+    )
+    receipts = repository.causal_probe_decision_receipts(
+        factor_id=str(factors[0]["id"])
+    )
+    assert [receipt["decision"] for receipt in receipts] == ["skip_common_repair"]
+    assert receipts[0]["repair_status"] == "safe_common_repair_available"
+
+    # And the learner-initiated read returns a real status instead of raising.
+    status = causal_repair_status(
+        vault,
+        repository,
+        misconception_id=concrete_ids[0],
+        start_repair=False,
+        clock=CLOCK,
+    )
+    assert status.status == "safe_common_repair_available"
+    assert status.factor_id == str(factors[0]["id"])
+
+
+def test_diagnostic_factor_is_not_reopened_by_rematerialization(tmp_path):
+    from learnloop.services.causal_attribution import materialize_causal_episode
+
+    vault, repository = _diagnostic_vault(tmp_path)
+    result = _diagnostic_attempt(
+        vault, repository, attempt_id="att_diag_idempotent"
+    )
+    assert len(_all_status_factors(repository, result.attempt_id)) == 1
+
+    stored = repository.fetch_attempt_feedback_metadata(result.attempt_id) or {}
+    for _ in range(3):
+        materialize_causal_episode(
+            vault,
+            repository,
+            attempt_id=result.attempt_id,
+            repair_suggestions=list(stored.get("repair_suggestions") or []),
+            clock=CLOCK,
+        )
+
+    assert len(_all_status_factors(repository, result.attempt_id)) == 1
+
+
+def test_fully_correct_diagnostic_attempt_opens_no_factor(tmp_path):
+    vault, repository = _diagnostic_vault(tmp_path)
+    result = _diagnostic_attempt(
+        vault,
+        repository,
+        attempt_id="att_diag_correct",
+        rubric_score=4,
+        with_diagnosis=False,
+    )
+    assert _all_status_factors(repository, result.attempt_id) == []
