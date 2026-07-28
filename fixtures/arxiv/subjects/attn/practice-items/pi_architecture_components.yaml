@@ -36,6 +36,9 @@ criterion_facet_weights:
     dimension_consistency: 1.0
   stacked_layers:
     stacked_layers: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Describe the main sublayers in a Transformer encoder layer and decoder 
   layer. Include which attention mechanisms appear in each and how residual 
   connections and layer normalization are used.
@@ -62,6 +65,9 @@ hint_policy:
 retrieval_demand: 0.65
 transfer_distance: 0.45
 scaffold_level: 0.1
+capability:
+task_features:
+task_feature_schema:
 surface_family: architecture_component_explanation
 evidence_fingerprint:
   source_family:
@@ -70,6 +76,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - encoder_sublayers
   - decoder_masked_self_attention
@@ -87,67 +98,99 @@ grading_rubric:
       description: Correctly identifies encoder self-attention and feed-forward 
         sublayers.
       tier: core
-      targets: []
+      targets:
+        - facet: encoder_sublayers
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: decoder_masked_self_attention
       points: 0.75
       description: Correctly identifies masked decoder self-attention.
       tier: core
-      targets: []
+      targets:
+        - facet: decoder_masked_self_attention
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: encoder_decoder_attention
       points: 0.5
       description: Correctly identifies decoder attention over encoder outputs.
       tier: core
-      targets: []
+      targets:
+        - facet: encoder_decoder_attention
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: decoder_ffn
       points: 0.5
       description: Includes the decoder position-wise feed-forward network.
       tier: core
-      targets: []
+      targets:
+        - facet: decoder_ffn
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: residual_connections
       points: 0.5
       description: Mentions residual connections around sublayers.
       tier: core
-      targets: []
+      targets:
+        - facet: residual_connections
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: layer_norm
       points: 0.5
       description: Mentions layer normalization after residual addition.
       tier: core
-      targets: []
+      targets:
+        - facet: layer_norm
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: dimension_consistency
       points: 0.25
       description: Mentions shared model dimension enabling residual 
         connections.
       tier: core
-      targets: []
+      targets:
+        - facet: dimension_consistency
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: stacked_layers
       points: 0.25
       description: Mentions that layers are stacked and repeated.
       tier: core
-      targets: []
+      targets:
+        - facet: stacked_layers
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_no_decoder_cross_attention
       description: Omits encoder-decoder attention from the decoder.
@@ -158,6 +201,8 @@ grading_rubric:
         stack rather than attention/feed-forward layers.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -169,5 +214,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:28Z'
-updated_at: '2026-07-15T01:10:38Z'
+updated_at: '2026-07-28T03:46:07Z'

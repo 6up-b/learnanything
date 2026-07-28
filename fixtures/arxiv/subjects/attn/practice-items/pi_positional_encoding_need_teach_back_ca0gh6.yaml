@@ -110,7 +110,10 @@ grading_rubric:
         information when the model has no recurrence, convolution, or positional
         signal.
       tier: core
-      targets: []
+      targets:
+        - facet: no_recurrence_convolution
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
@@ -121,7 +124,10 @@ grading_rubric:
         performed similarly or nearly identically to sinusoidal positional 
         encodings in the original Transformer experiments.
       tier: core
-      targets: []
+      targets:
+        - facet: learned_comparison
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
@@ -132,7 +138,10 @@ grading_rubric:
         because their fixed structure was expected to support generalization or 
         extrapolation to sequence lengths not encountered during training.
       tier: core
-      targets: []
+      targets:
+        - facet: extrapolation
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
@@ -150,7 +159,16 @@ grading_rubric:
         and about choosing between learned positional embeddings and fixed sinusoidal
         encodings for this test."
       tier: transfer
-      targets: []
+      targets:
+        - facet: no_recurrence_convolution
+          capability: method_selection
+          role: supporting
+        - facet: learned_comparison
+          capability: method_selection
+          role: supporting
+        - facet: extrapolation
+          capability: method_selection
+          role: supporting
       depends_on: []
       correlation_group:
       recipe_ids: []
@@ -175,4 +193,4 @@ provenance:
       section_id:
       learning_object_ids: []
 created_at: '2026-07-28T02:48:26Z'
-updated_at: '2026-07-28T02:48:26Z'
+updated_at: '2026-07-28T03:46:33Z'

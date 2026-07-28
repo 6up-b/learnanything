@@ -10,6 +10,7 @@ from learnloop.codex.schemas import AuthoringProposal
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.services.doctor import run_doctor
+from learnloop.services.error_taxonomy_map import MECHANISM_TAXONOMY_CARD_JSON
 from learnloop.services.proposals import persist_authoring_proposal
 from learnloop.services.replay import rebuild_derived_state
 from learnloop.services.state_sync import sync_vault_state
@@ -154,6 +155,49 @@ def test_doctor_warns_on_unaligned_error_event_type(tmp_path):
     assert "errors:unaligned_error_type" in {issue.code for issue in report.issues}
 
 
+def test_doctor_resolves_legacy_error_event_through_causal_taxonomy(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    error_types = read_yaml(paths.error_types_path)
+    error_types["error_types"].extend(
+        {
+            "id": card["id"],
+            "title": card["title"],
+            "description": card["use_when"],
+            "related_concepts": [],
+            "severity_default": card["severity_default"],
+            "is_misconception": card["is_misconception"],
+            "tags": ["canonical_mechanism"],
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        }
+        for card in MECHANISM_TAXONOMY_CARD_JSON
+    )
+    write_yaml(paths.error_types_path, error_types)
+    repository = Repository(paths.sqlite_path)
+    repository.insert_error_event(
+        {
+            "id": "err_legacy_conceptual_slip",
+            "learning_object_id": "lo_svd_definition",
+            "error_type": "conceptual_slip",
+            "severity": 0.7,
+            "is_misconception": True,
+            "status": "active",
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        }
+    )
+
+    report = run_doctor(vault_root, fix_state=True)
+
+    assert not [
+        issue
+        for issue in report.issues
+        if issue.code == "errors:unaligned_error_type"
+        and issue.entity_id == "err_legacy_conceptual_slip"
+    ]
+
+
 def test_doctor_flags_bad_item_suspicion_after_evidence_gate(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -223,6 +267,76 @@ def test_doctor_surfaces_likely_facet_merge_candidates(tmp_path):
         "id": "frobenius-error",
         "aliases": ["frobenius-error-formula"],
     }
+
+
+def test_doctor_does_not_merge_unrelated_equal_length_facet_ids(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    practice_item_path = paths.practice_item_path(
+        "linear-algebra", "pi_svd_define_001"
+    )
+    item = read_yaml(practice_item_path)
+    item["evidence_facets"] = ["clarity", "scaling"]
+    item["evidence_weights"] = {"clarity": 0.5, "scaling": 0.5}
+    write_yaml(practice_item_path, item)
+
+    report = run_doctor(vault_root, fix_state=True)
+
+    assert not [
+        issue
+        for issue in report.issues
+        if issue.code.startswith("evidence_facet:merge_candidate")
+    ]
+
+
+def test_doctor_does_not_merge_opposite_registered_facet_contracts(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    facets = read_yaml(paths.facets_path)
+    facets["facets"].extend(
+        [
+            {
+                "id": "embedding_direction",
+                "kind": "definition",
+                "claim": "The embedding maps a token id into model space.",
+                "aliases": [],
+                "status": "proposed",
+                "version": 1,
+                "provenance": {"origin": "manual", "source_refs": []},
+            },
+            {
+                "id": "unembedding_direction",
+                "kind": "definition",
+                "claim": "The output map projects model space into vocabulary logits.",
+                "aliases": [],
+                "status": "proposed",
+                "version": 1,
+                "provenance": {"origin": "manual", "source_refs": []},
+            },
+        ]
+    )
+    write_yaml(paths.facets_path, facets)
+    practice_item_path = paths.practice_item_path(
+        "linear-algebra", "pi_svd_define_001"
+    )
+    item = read_yaml(practice_item_path)
+    item["evidence_facets"] = [
+        "embedding_direction",
+        "unembedding_direction",
+    ]
+    item["evidence_weights"] = {
+        "embedding_direction": 0.5,
+        "unembedding_direction": 0.5,
+    }
+    write_yaml(practice_item_path, item)
+
+    report = run_doctor(vault_root, fix_state=True)
+
+    assert not [
+        issue
+        for issue in report.issues
+        if issue.code.startswith("evidence_facet:merge_candidate")
+    ]
 
 
 def test_doctor_warns_on_duplicate_diagnostic_practice_proposals(tmp_path):

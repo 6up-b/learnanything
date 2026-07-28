@@ -24,6 +24,9 @@ criterion_facet_weights:
     prediction_dependency: 1.0
   long_conversation_effect:
     long_conversation_loss: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: The source says GPT-3 was trained with a context size of 2048. What does
   context size limit, and why can this make long conversations feel like the 
   model is losing the thread?
@@ -50,6 +53,9 @@ hint_policy:
 retrieval_demand: 0.45
 transfer_distance: 0.2
 scaffold_level: 0.1
+capability:
+task_features:
+task_feature_schema:
 surface_family: context_size_explanation
 evidence_fingerprint:
   source_family:
@@ -58,6 +64,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - fixed_context_window
   - text_limit
@@ -72,42 +83,60 @@ grading_rubric:
       description: Defines context size as a fixed number of vectors/tokens 
         processed at once.
       tier: core
-      targets: []
+      targets:
+        - facet: fixed_context_window
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: limits_text_used
       points: 1.0
       description: States that it limits how much text can be incorporated into 
         a prediction.
       tier: core
-      targets: []
+      targets:
+        - facet: text_limit
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: connects_to_prediction
       points: 1.0
       description: Connects the limit specifically to next-token prediction.
       tier: core
-      targets: []
+      targets:
+        - facet: prediction_dependency
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: long_conversation_effect
       points: 1.0
       description: Explains why long conversations may lose earlier thread or 
         context.
       tier: core
-      targets: []
+      targets:
+        - facet: long_conversation_loss
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_parameter_count_confusion
       description: Defines context size as the number of model weights or 
         parameters instead of the number of processed token vectors.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -119,5 +148,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:11:51Z'
-updated_at: '2026-07-15T01:10:45Z'
+updated_at: '2026-07-28T03:46:11Z'

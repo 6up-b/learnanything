@@ -10,11 +10,26 @@ when an open remediation episode exists for the diagnosed case, the redo binds
 as that episode's primed attempt so the §6.2 cold retry on a *different*
 surface is scheduled exactly as in the sibling-item treatment flow.
 
-Everything served here is a pure read of stored grading artifacts
+When NO open episode exists for the diagnosed case, one is established through
+the sanctioned entry (``remediation.start_remediation_episode`` →
+``causal_orchestrator.causal_repair_status``) before binding, so a redo taken
+straight from the feedback screen — without ever visiting the Repair overlay —
+still closes the primed → cold funnel. A held or blocked repair (probe first,
+budget, no adjudicated case) degrades gracefully: the redo still serves as a
+plain primed attempt, and ``remediation.record_remediation_attempt`` leaves a
+typed ``causal_cold_outcomes`` disposition instead of dropping the evidence.
+
+The composed answer is always ``learner_work_prefix + rewrite``: the repaired
+trace schema can only express a *prefix* (see
+``repair_splice.preserved_prefix_from_refs``), so there is never preserved
+trailing text to splice the rewrite into — a "mid-splice" redo would have to
+fabricate work the learner did not keep.
+
+Everything else served here is a pure read of stored grading artifacts
 (``attempt_debug_payloads`` → ``causal_attribution.diagnosis_receipt`` →
-``repair_selection``); the only writes are the episode (re)binding, which
-commits an open, not-yet-primed episode to the original item as its primed
-surface.
+``repair_selection``); the writes are the episode establishment and
+(re)binding, which commit an open, not-yet-primed episode to the original item
+as its primed surface.
 """
 
 from __future__ import annotations
@@ -23,7 +38,6 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.services.repair_splice import is_end_append
 from learnloop.vault.models import LoadedVault
 
 
@@ -54,6 +68,32 @@ def _selected_repair(receipt: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
     selected = selection.get("selected")
     return selected if isinstance(selected, dict) else None
+
+
+def _preserved_prefix(selected: dict[str, Any] | None) -> str:
+    """The SELECTED repair's ``learner_work_prefix``, or ``""``."""
+
+    suggestion = (selected or {}).get("suggestion")
+    suggestion = suggestion if isinstance(suggestion, dict) else {}
+    trace = suggestion.get("repaired_trace")
+    trace = trace if isinstance(trace, dict) else {}
+    return str(trace.get("learner_work_prefix") or "")
+
+
+def guided_redo_available(repository: Repository, attempt_id: str) -> bool:
+    """Whether :func:`start_guided_redo` would serve this attempt.
+
+    The exact server-side availability rule — a stored repair *selection* whose
+    selected repair preserves a non-empty prefix — exposed so the feedback
+    surface can gate its button on the truth instead of on "any suggestion has
+    a prefix", which is visible-but-unavailable whenever the selected class
+    differs (or nothing was selected at all).
+    """
+
+    selected = _selected_repair(_diagnosis_receipt(repository, attempt_id))
+    if selected is None:
+        return False
+    return bool(_preserved_prefix(selected).strip())
 
 
 def _item_step_checkpoint_ids(repair_class: dict[str, Any] | None) -> list[str]:
@@ -119,6 +159,11 @@ def _bind_episode_to_redo(
             continue
         case = _episode_case(repository, episode)
         cold = None
+        # Distinct honest reasons: a case that no longer resolves is not the
+        # same fact as "the case is fine but every sibling shares the redo's
+        # surface", and reporting the latter for the former sends a reader
+        # authoring surfaces that would change nothing.
+        cold_unmeasurable_reason = "case_unresolvable"
         if case is not None:
             ranked, _skips = _rank_items(
                 vault,
@@ -137,6 +182,7 @@ def _bind_episode_to_redo(
                 ),
                 None,
             )
+            cold_unmeasurable_reason = "no_independent_surface"
         updated = repository.update_remediation_episode(
             episode["id"],
             state="treatment",
@@ -149,7 +195,7 @@ def _bind_episode_to_redo(
             "episode": updated,
             "cold_item_id": cold.id if cold is not None else None,
             "cold_unmeasurable_reason": (
-                None if cold is not None else "no_independent_surface"
+                None if cold is not None else cold_unmeasurable_reason
             ),
         }
     return {
@@ -160,6 +206,69 @@ def _bind_episode_to_redo(
     }
 
 
+def _establish_episode(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt: dict[str, Any],
+    clock: Clock | None,
+) -> bool:
+    """Mint an open episode for the attempt's diagnosed case, where permitted.
+
+    Episodes used to be minted only by the Repair overlay, so a redo taken
+    directly from the feedback screen bound nothing and its primed submit was a
+    silent dead end. This goes through the sanctioned entry —
+    ``start_remediation_episode`` → ``causal_repair_status(start_repair=True)``
+    — with the case resolved exactly as :func:`_case_candidates` orders them:
+    the matched durable misconception for misconception-kind diagnoses, the
+    hypothesis (candidate belief) id for diagnosis-kind ones.
+
+    Returns whether any episode is now open. The holding/blocked arms (probe
+    first, session budget, no adjudicatable case) raise typed errors that are
+    deliberately swallowed here: they mean "no episode may exist yet", and the
+    redo must still serve as a plain primed attempt in that world.
+
+    If ANY candidate case already has an open episode, establishment stands
+    down entirely: binding just declined it, which can only mean it is
+    committed to a sibling pair — and the sanctioned entry only reuses
+    *uncommitted* episodes, so starting the repair again would mint a parallel
+    episode measuring the same diagnosis twice (the orphan-twin failure
+    ``get_or_create_open_remediation_episode`` exists to prevent). The sibling
+    flow keeps its measurement; the redo stays unbound.
+    """
+
+    from learnloop.services.remediation import (
+        RemediationError,
+        start_remediation_episode,
+    )
+
+    candidates = _case_candidates(repository, str(attempt["id"]))
+    for case_kind, case_ref in candidates:
+        if (
+            repository.open_remediation_episode_for_case(
+                case_kind=case_kind, case_ref=case_ref
+            )
+            is not None
+        ):
+            return False
+    for _case_kind, case_ref in candidates:
+        try:
+            episode = start_remediation_episode(
+                repository,
+                case_ref,
+                vault=vault,
+                session_id=str(attempt.get("session_id") or "") or None,
+                clock=clock,
+            )
+        except RemediationError:
+            # Includes RemediationBlocked (held: probe/budget) and the
+            # unadjudicated-case refusal — both are honest "not yet" arms.
+            continue
+        if episode is not None:
+            return True
+    return False
+
+
 def start_guided_redo(
     vault: LoadedVault,
     repository: Repository,
@@ -167,7 +276,11 @@ def start_guided_redo(
     *,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """The redo context for one failed attempt, binding an open episode if any.
+    """The redo context for one failed attempt, binding an episode when possible.
+
+    When no open episode exists for the diagnosed case, one is established via
+    the sanctioned repair entry first; a held/blocked repair leaves the binding
+    null and the redo serves as a plain primed attempt.
 
     Raises :class:`GuidedRedoUnavailable` (stable ``reason``) when the attempt
     has no usable repair selection: ``attempt_not_found``, ``item_not_found``,
@@ -194,7 +307,7 @@ def start_guided_redo(
     suggestion = suggestion if isinstance(suggestion, dict) else {}
     trace = suggestion.get("repaired_trace")
     trace = trace if isinstance(trace, dict) else {}
-    prefix = str(trace.get("learner_work_prefix") or "")
+    prefix = _preserved_prefix(selected)
     if not prefix.strip():
         # Nothing was preserved: a "partial" redo would be a full retry, and the
         # existing primed-retry path already covers that honestly.
@@ -207,7 +320,6 @@ def start_guided_redo(
     failed_checkpoint_ids = [
         str(value) for value in trace.get("changed_checkpoint_ids") or [] if value
     ] or _item_step_checkpoint_ids(repair_class)
-    insertion_kind = "end_append" if is_end_append(trace) else "mid_splice"
     binding = _bind_episode_to_redo(
         vault,
         repository,
@@ -216,6 +328,17 @@ def start_guided_redo(
         target_checkpoint_ids=tuple(failed_checkpoint_ids),
         clock=clock,
     )
+    if binding["episode_id"] is None and _establish_episode(
+        vault, repository, attempt=attempt, clock=clock
+    ):
+        binding = _bind_episode_to_redo(
+            vault,
+            repository,
+            attempt=attempt,
+            item=item,
+            target_checkpoint_ids=tuple(failed_checkpoint_ids),
+            clock=clock,
+        )
     return {
         "attempt_id": str(attempt["id"]),
         "practice_item_id": item.id,
@@ -225,7 +348,6 @@ def start_guided_redo(
         # the checkpoint-precise targets when the item has a decomposition.
         "redo_instruction": str(suggestion.get("rationale") or "") or None,
         "failed_checkpoint_ids": failed_checkpoint_ids,
-        "insertion_kind": insertion_kind,
         "repair_class_id": str(repair_class.get("id") or "") or None,
         **binding,
     }

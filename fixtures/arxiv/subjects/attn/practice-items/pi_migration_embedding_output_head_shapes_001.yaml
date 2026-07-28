@@ -1,0 +1,159 @@
+schema_version: 1
+id: pi_migration_embedding_output_head_shapes_001
+learning_object_id: lo_embedding_and_unembedding_matrices
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - embedding_direction
+  - embedding_weights
+  - logits_before_softmax
+  - unembedding_direction
+evidence_weights:
+  embedding_direction: 0.25
+  embedding_weights: 0.25
+  logits_before_softmax: 0.25
+  unembedding_direction: 0.25
+criterion_facet_weights:
+  criterion_embedding_direction:
+    embedding_direction: 1.0
+  criterion_embedding_weights:
+    embedding_weights: 1.0
+  criterion_logits_before_softmax:
+    logits_before_softmax: 1.0
+  criterion_unembedding_direction:
+    unembedding_direction: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A model-interface document says the token embedding maps hidden states 
+  to vocabulary probabilities and the output matrix maps token IDs to hidden 
+  vectors. Correct the document using matrix directions, explain what is 
+  learned, and identify the output quantity immediately before softmax.
+expected_answer: "A complete response establishes each required point:\n- embedding_direction:
+  The embedding matrix maps a vocabulary token to a vector in the model's representation
+  space.\n- embedding_weights: The columns or rows used by the embedding lookup are
+  learned model weights.\n- logits_before_softmax: The unembedding output consists
+  of raw logits before softmax normalization.\n- unembedding_direction: The unembedding
+  matrix maps a model-space vector to one score for each vocabulary token."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: tensor_shape_interface_review
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - embedding_direction
+  - embedding_weights
+  - logits_before_softmax
+  - unembedding_direction
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_embedding_direction
+      points: 1.0
+      description: The embedding matrix maps a vocabulary token to a vector in 
+        the model's representation space.
+      tier: core
+      targets:
+        - facet: embedding_direction
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_matrix_directions
+      measurement_status: direct
+    - id: criterion_embedding_weights
+      points: 1.0
+      description: The columns or rows used by the embedding lookup are learned 
+        model weights.
+      tier: core
+      targets:
+        - facet: embedding_weights
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_matrix_directions
+      measurement_status: direct
+    - id: criterion_logits_before_softmax
+      points: 1.0
+      description: The unembedding output consists of raw logits before softmax 
+        normalization.
+      tier: core
+      targets:
+        - facet: logits_before_softmax
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_matrix_directions
+      measurement_status: direct
+    - id: criterion_unembedding_direction
+      points: 1.0
+      description: The unembedding matrix maps a model-space vector to one score
+        for each vocabulary token.
+      tier: core
+      targets:
+        - facet: unembedding_direction
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_matrix_directions
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:45Z'
+updated_at: '2026-07-28T03:59:26Z'

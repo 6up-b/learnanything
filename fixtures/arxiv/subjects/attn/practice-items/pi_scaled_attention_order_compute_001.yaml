@@ -29,6 +29,9 @@ criterion_facet_weights:
   weighted_sum_final:
     weighted_sum: 0.5
     correct_order: 0.5
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: For one query q = [1, 1, 0, 0] and two keys k1 = [1, 1, 0, 0], k2 = [1, 
   -1, 0, 0], compute the raw dot products and the scaled scores when d_k = 4. 
   Then name the next two operations in scaled dot-product attention.
@@ -53,6 +56,9 @@ hint_policy:
 retrieval_demand: 0.45
 transfer_distance: 0.3
 scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
 surface_family: scaled_attention_partial_compute
 evidence_fingerprint:
   source_family:
@@ -62,6 +68,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: First average the values, then use softmax to 
   decide which key was closest.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - dot_products
   - scaling
@@ -76,41 +87,65 @@ grading_rubric:
       points: 1.0
       description: Correctly computes raw dot products as 2 and 0.
       tier: core
-      targets: []
+      targets:
+        - facet: dot_products
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: scaling_correct
       points: 1.0
       description: Correctly divides by sqrt(4)=2 to get scaled scores 1 and 0.
       tier: core
-      targets: []
+      targets:
+        - facet: scaling
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: softmax_next
       points: 1.0
       description: Identifies softmax as the next operation after scaling.
       tier: core
-      targets: []
+      targets:
+        - facet: softmax
+          capability: procedure_execution
+          role: primary
+        - facet: correct_order
+          capability: procedure_execution
+          role: supporting
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
     - id: weighted_sum_final
       points: 1.0
       description: Identifies weighted sum of value vectors as the operation 
         after softmax.
       tier: core
-      targets: []
+      targets:
+        - facet: weighted_sum
+          capability: procedure_execution
+          role: supporting
+        - facet: correct_order
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
   fatal_errors:
     - id: fatal_values_before_softmax
       description: Claims value vectors are summed before attention weights are 
         produced by softmax.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -121,6 +156,13 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_source_attention_is_all_you_need_fc4584d5
       path: 
@@ -128,5 +170,12 @@ provenance:
       locator:
       quote: Attention Is All You Need
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:09Z'
-updated_at: '2026-07-15T01:11:27Z'
+updated_at: '2026-07-28T03:46:35Z'

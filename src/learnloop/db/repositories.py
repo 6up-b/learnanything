@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -2073,6 +2074,18 @@ class Repository:
             if row["status"] != "candidate":
                 continue
             if row.get("cause_scope") != "learner_state":
+                # Content/instrument-scoped (and legacy "unknown") causes are
+                # not candidate learner beliefs and never reach the repair
+                # offer. Deliberate — but never silent again (G11): the
+                # learner-derived defaults now land as learner_state at mint
+                # time, so anything dropped here was explicitly scoped away.
+                logging.getLogger(__name__).debug(
+                    "projected-candidate filter dropped hypothesis %s "
+                    "(cause_scope=%r, learning_object=%s)",
+                    row.get("id"),
+                    row.get("cause_scope"),
+                    learning_object_id,
+                )
                 continue
             normalized = str(row["statement_normalized"])
             if normalized in validated_statements:
@@ -13285,6 +13298,38 @@ class Repository:
             ).fetchall()
         return [_decode_causal_hypothesis(row) for row in rows]
 
+    def all_causal_hypotheses(
+        self,
+        *,
+        latest_only: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Return causal-hypothesis rows across episodes in stable order.
+
+        Migration and audit services need a vault-wide view, while ordinary
+        runtime consumers should continue to use the attempt/LO-scoped reads.
+        """
+
+        latest_clause = (
+            """
+            WHERE h.version = (
+              SELECT MAX(head.version)
+                FROM causal_hypotheses head
+               WHERE head.episode_key = h.episode_key
+            )
+            """
+            if latest_only
+            else ""
+        )
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT h.* FROM causal_hypotheses h
+                {latest_clause}
+                ORDER BY h.created_at, h.id
+                """
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
+
     def causal_hypotheses_for_learning_object(
         self,
         learning_object_id: str,
@@ -14467,6 +14512,171 @@ class Repository:
             ).fetchall()
         return [_decode_followup_task(row) for row in rows]
 
+    # -- coldness receipts (migration 149) ----------------------------------
+    #
+    # Append-only administration receipts for the cold retrieval lane: one
+    # `administration` snapshot per follow-up task at serving time, one `final`
+    # receipt per terminal disposition. INSERT OR IGNORE over content ids plus
+    # the partial unique (task, stage) index makes both writes idempotent.
+
+    def insert_coldness_receipt(
+        self,
+        *,
+        receipt_id: str,
+        lane: str,
+        stage: str,
+        followup_task_id: str | None,
+        remediation_episode_id: str | None,
+        source_attempt_id: str | None,
+        cold_attempt_id: str | None,
+        cold_verification_id: str | None,
+        dimensions: Mapping[str, Any],
+        derived: Mapping[str, Any],
+        telemetry_coverage: Mapping[str, Any],
+        receipt_version: str,
+        clock: Clock | None = None,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO coldness_receipts(
+                  id, lane, stage, followup_task_id, remediation_episode_id,
+                  source_attempt_id, cold_attempt_id, cold_verification_id,
+                  dimensions_json, derived_json, telemetry_coverage_json,
+                  receipt_version, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt_id,
+                    lane,
+                    stage,
+                    followup_task_id,
+                    remediation_episode_id,
+                    source_attempt_id,
+                    cold_attempt_id,
+                    cold_verification_id,
+                    _json(dict(dimensions)),
+                    _json(dict(derived)),
+                    _json(dict(telemetry_coverage)),
+                    receipt_version,
+                    utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        # The unique (task, stage) index may have kept an earlier row instead
+        # of this id; return whichever row holds the slot.
+        if followup_task_id is not None:
+            return self.coldness_receipt_for_task_stage(followup_task_id, stage)
+        return self.coldness_receipt(receipt_id)
+
+    @staticmethod
+    def _decode_coldness_receipt(row: Any) -> dict[str, Any]:
+        payload = dict(row)
+        payload["dimensions"] = _loads(payload.pop("dimensions_json"), {})
+        payload["derived"] = _loads(payload.pop("derived_json"), {})
+        payload["telemetry_coverage"] = _loads(
+            payload.pop("telemetry_coverage_json"), {}
+        )
+        return payload
+
+    def coldness_receipt(self, receipt_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM coldness_receipts WHERE id = ?", (receipt_id,)
+            ).fetchone()
+        return self._decode_coldness_receipt(row) if row is not None else None
+
+    def coldness_receipt_for_task_stage(
+        self, followup_task_id: str, stage: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM coldness_receipts
+                 WHERE followup_task_id = ? AND stage = ?
+                """,
+                (followup_task_id, stage),
+            ).fetchone()
+        return self._decode_coldness_receipt(row) if row is not None else None
+
+    def coldness_receipts_for_task(
+        self, followup_task_id: str
+    ) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM coldness_receipts
+                 WHERE followup_task_id = ?
+                 ORDER BY created_at, id
+                """,
+                (followup_task_id,),
+            ).fetchall()
+        return [self._decode_coldness_receipt(row) for row in rows]
+
+    def coldness_receipt_for_verification(
+        self, cold_verification_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM coldness_receipts WHERE cold_verification_id = ?",
+                (cold_verification_id,),
+            ).fetchone()
+        return self._decode_coldness_receipt(row) if row is not None else None
+
+    def practice_attempts_between(
+        self, *, after: str | None, before: str | None
+    ) -> list[dict[str, Any]]:
+        """Attempts in an open interval, oldest first — the exposure-scan read.
+
+        Boundaries are EXCLUSIVE so the scan's anchor attempts (the primed
+        source and the cold attempt itself, which sit exactly on the interval
+        ends) never classify as their own intervening exposure; same-timestamp
+        strangers are excluded by id in the service instead.
+        """
+
+        clauses: list[str] = []
+        params: list[Any] = []
+        if after is not None:
+            clauses.append("created_at > ?")
+            params.append(after)
+        if before is not None:
+            clauses.append("created_at < ?")
+            params.append(before)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM practice_attempts {where}
+                ORDER BY created_at, id
+                """,
+                params,
+            ).fetchall()
+        return [_decode_attempt(row) for row in rows]
+
+    def remediation_episodes_created_between(
+        self, *, after: str, before: str
+    ) -> list[dict[str, Any]]:
+        """Episodes CREATED inside the interval, for the prepared-passages scan.
+
+        Creation time is the only trustworthy boundary: `updated_at` is
+        overwritten by every later state transition (including the very cold
+        completion the scan runs for), and there is no per-passage prescription
+        timestamp — which is exactly why passages prepared in-interval land as
+        `indeterminate`, never as a silent pass.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM remediation_episodes
+                 WHERE created_at > ? AND created_at < ?
+                 ORDER BY created_at, id
+                """,
+                (after, before),
+            ).fetchall()
+        return [_decode_remediation_episode(row) for row in rows]
+
     # -- certification cold probes (migration 139) --------------------------
     #
     # The §5.7 ground-truth store. Append-only: the table's triggers refuse an
@@ -14802,13 +15012,25 @@ class Repository:
         return {str(row["observation_id"]) for row in rows}
 
     def unresolved_cause_observation_ids(self) -> set[str]:
-        """Observation ids with an open or learner-resolved causal episode."""
+        """Observation ids the projection sync must NOT (re-)insert a factor for.
+
+        Open or learner-resolved factors, plus any factor closed with a
+        bounded-deferral ``resolution_kind`` (migration 148) whatever its
+        status: a factor the deferral machinery labeled repair_confirmed /
+        escalated_unrepaired / expired_unengaged stays closed even while its
+        failure still appears in the projection — re-inserting it would undo
+        the deferral bound on the next projection pass.  A factor the sync
+        itself retired (no ``resolution_kind``) remains re-insertable when its
+        failure reappears, which is the pre-existing reconciliation contract.
+        """
 
         with self.connection() as connection:
             rows = connection.execute(
                 """
                 SELECT observation_id FROM unresolved_cause_factors
-                WHERE status IN ('open', 'resolved') AND observation_id IS NOT NULL
+                WHERE observation_id IS NOT NULL
+                  AND (status IN ('open', 'resolved')
+                       OR resolution_kind IS NOT NULL)
                 """
             ).fetchall()
         return {str(row["observation_id"]) for row in rows}

@@ -23,6 +23,9 @@ criterion_facet_weights:
     learned_comparison: 1.0
   criterion_extrapolation:
     extrapolation: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: 'Imagine two Transformer inputs contain the same token embeddings but in different
   orders. The self-attention block has no recurrence, no convolution, and no positional
   signal added. What information about order is missing from the computation? Then
@@ -53,6 +56,9 @@ hint_policy:
 retrieval_demand: 0.9
 transfer_distance: 0.3
 scaffold_level: 0.32
+capability:
+task_features:
+task_feature_schema:
 surface_family: architecture_counterfactual_comparison
 evidence_fingerprint:
   source_family:
@@ -63,6 +69,11 @@ evidence_fingerprint:
 misconception_consistent_answer: The model can infer order from token identities
   alone, and sinusoidal encodings were selected because learned embeddings 
   worked poorly.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - extrapolation
   - learned_comparison
@@ -76,30 +87,42 @@ grading_rubric:
         ordering because there is no recurrence or convolution carrying 
         position/order information.
       tier: core
-      targets: []
+      targets:
+        - facet: no_recurrence_convolution
+          capability: method_selection
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: criterion_learned_comparison
       points: 1.0
       description: States that learned positional embeddings performed nearly 
         identically or similarly to sinusoidal encodings in the original 
         comparison.
       tier: core
-      targets: []
+      targets:
+        - facet: learned_comparison
+          capability: method_selection
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: criterion_extrapolation
       points: 1.5
       description: Explains that sinusoidal encodings were favored because their
         fixed structure was expected to support generalization to longer 
         sequence lengths than seen during training.
       tier: core
-      targets: []
+      targets:
+        - facet: extrapolation
+          capability: method_selection
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_order_is_in_token_embedding
       description: Claims the token embedding itself is sufficient to determine 
@@ -112,6 +135,8 @@ grading_rubric:
         much better experimental accuracy, with no extrapolation rationale.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -121,17 +146,38 @@ provenance:
       locator:
       quote:
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: existing_entity
       ref_id: lo_positional_encoding_need
       path:
       locator:
       quote:
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: existing_entity
       ref_id: pi_positional_encoding_reason
       path:
       locator:
       quote:
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-15T00:41:58Z'
-updated_at: '2026-07-15T01:10:55Z'
+updated_at: '2026-07-28T03:46:17Z'

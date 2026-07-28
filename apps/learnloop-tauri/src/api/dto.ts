@@ -831,7 +831,13 @@ export interface ProbeBlockEndDto {
     rubricScore: number | null;
     feedbackMd: string | null;
     fatalErrors: string[];
+    /** Carries `commonRepair` exactly like the FeedbackScreen bundle (G3):
+     *  the block-end hook resumes the deferred repair consultation and the
+     *  released payload reads the recorded decision receipt. */
     causalFeedback?: CausalFeedbackDto | null;
+    /** Server truth for "redo the part you missed" — same rule
+     *  `start_guided_redo` enforces (the SELECTED repair preserves a prefix). */
+    guidedRedoAvailable?: boolean;
   }[];
   normalizedMisconceptionIds: string[];
   openSet: Record<string, unknown> | null;
@@ -952,6 +958,10 @@ export interface FeedbackBundle {
   masteryStep: MasteryStepDto | null;
   feedbackMd: string | null;
   repairSuggestions: RepairSuggestionDto[];
+  /** Server truth for the "redo the part you missed" button: computed with the
+   * same rule start_guided_redo enforces (the SELECTED repair preserves a
+   * prefix), so a visible button cannot fail with guided_redo_unavailable. */
+  guidedRedoAvailable: boolean;
   interventionNeed: InterventionNeedDto | null;
   /** This attempt was itself a primed retry. */
   primed: boolean;
@@ -1430,7 +1440,10 @@ export interface PrimedRetryResultDto {
 /** Result of start_guided_redo (Fix 3): redo ONLY the failed part of an
  *  attempt. `learnerWorkPrefix` is the server-recomposed preserved work,
  *  rendered read-only above the editor; the learner writes just the redo
- *  portion and the composed answer is submitted primed on the SAME item. */
+ *  portion and the composed answer is submitted primed on the SAME item.
+ *  Composition is always prefix + rewrite (end-append): the repaired-trace
+ *  schema can only preserve a prefix, so there is never trailing learner text
+ *  to splice the rewrite into. */
 export interface GuidedRedoDto {
   version: number;
   attemptId: string;
@@ -1440,13 +1453,15 @@ export interface GuidedRedoDto {
   /** The repair op's rationale — what went wrong and what to fix. */
   redoInstruction: string | null;
   failedCheckpointIds: string[];
-  /** Whether the repair appends after the preserved work or splices into it. */
-  insertionKind: "end_append" | "mid_splice";
   repairClassId: string | null;
-  /** The open remediation episode this redo was bound to as the primed
-   *  attempt, when one existed for the diagnosed case. */
+  /** The remediation episode this redo was bound to as the primed attempt —
+   *  an already-open one for the diagnosed case, or one the server established
+   *  through the repair entry. Null when the repair is held/blocked, in which
+   *  case the redo is a plain primed attempt (no cold retry). */
   episodeId: string | null;
   coldItemId: string | null;
+  /** Why no cold retry could be scheduled despite a bound episode:
+   *  "no_independent_surface" | "case_unresolvable". */
   coldUnmeasurableReason: string | null;
   practiceItem: PracticeItemDetail;
 }

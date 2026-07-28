@@ -3,11 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.clock import utc_now_iso
-from learnloop.services.causal_orchestrator import SAFE_COMMON_REPAIR_MESSAGE
 from learnloop.services.instrument_serving import unservable_refusal
-from learnloop.services.surfaced_beliefs import mark_belief_surfaced
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import attempt_detail, feedback_bundle, practice_item_detail
 from learnloop_sidecar.logging import log_event
@@ -53,81 +51,37 @@ class ContestCausalDiagnosisInput(ParamsModel):
     response: str
 
 
-# Learner copy per skip verb. `STARTED_MESSAGE` ("Starting the targeted
-# repair.") would be untrue here — the post-attempt consultation is a read and
-# mints no episode; starting is the learner's action on this card.
-_COMMON_REPAIR_MESSAGES = {
-    "skip_common_repair": SAFE_COMMON_REPAIR_MESSAGE,
-    "skip_action_equivalent": (
-        "Every explanation that fits points to the same fix, so there is "
-        "nothing to disambiguate first."
-    ),
-}
-
-
 def _attach_common_repair(
     repository: Any, attempt_id: str, bundle: dict[str, Any]
 ) -> None:
     """Journey B: surface the already-decided common-repair recommendation.
 
-    Reads the decision receipt the post-attempt hook recorded
-    (``followups._consult_common_repair``) — never calls the orchestrator, so
-    re-viewing feedback cannot mint another receipt. Divergent and
-    incomplete-mapping factors keep the existing learner-initiated
-    ``causal_repair_status`` flow untouched.
+    Thin camel-casing shim over the shared read
+    (``followups.common_repair_recommendation``), which the §5.7 block-end
+    released-feedback payload also uses — it reads the decision receipt the
+    post-attempt hook recorded (``followups._consult_common_repair``) and never
+    calls the orchestrator, so re-viewing feedback cannot mint another receipt.
+    Divergent and incomplete-mapping factors keep the existing
+    learner-initiated ``causal_repair_status`` flow untouched.
     """
+
+    from learnloop.services.followups import common_repair_recommendation
 
     causal = bundle.get("causalFeedback")
     if not isinstance(causal, dict):
         return
-    need = causal.get("probeNeed")
-    if not isinstance(need, dict):
-        return
-    if need.get("divergent") or need.get("incompleteRepairMapping"):
-        return
-    factors = repository.unresolved_cause_factors_for_attempt(attempt_id)
-    if not factors:
-        return
-    factor_id = str(factors[0]["id"])
-    recommendation = None
-    for receipt in reversed(
-        repository.causal_probe_decision_receipts(factor_id=factor_id)
-    ):
-        if str(receipt.get("decision") or "") in _COMMON_REPAIR_MESSAGES:
-            recommendation = receipt
-            break
-    if recommendation is None:
-        return
     hypotheses = causal.get("causalHypotheses") or [{}]
-    misconception_id = str(
-        recommendation.get("misconception_id")
-        or (hypotheses[0] or {}).get("hypothesisId")
-        or ""
+    recommendation = common_repair_recommendation(
+        repository,
+        attempt_id,
+        probe_need=causal.get("probeNeed"),
+        fallback_misconception_id=str(
+            (hypotheses[0] or {}).get("hypothesisId") or ""
+        ),
+        surface="feedback_common_repair",
     )
-    if not misconception_id:
-        return
-    # A6 capture: this card names the belief and its fix outside a ClaimSurface
-    # mount, so stamp exactly as the Repair screen's `_case_dto` does — durable
-    # beliefs only; a provisional belief has no disposition lifecycle to be
-    # withdrawn from.
-    record = repository.misconception(misconception_id)
-    if record is not None:
-        mark_belief_surfaced(
-            repository,
-            belief_id=misconception_id,
-            claim_text=getattr(record, "statement", None),
-            surface="feedback_common_repair",
-        )
-    decision = str(recommendation.get("decision"))
-    causal["commonRepair"] = {
-        "status": str(recommendation.get("repair_status") or ""),
-        "decision": decision,
-        "reason": str(recommendation.get("reason") or ""),
-        "message": _COMMON_REPAIR_MESSAGES[decision],
-        "misconceptionId": misconception_id,
-        "factorId": factor_id,
-        "decisionReceiptId": str(recommendation.get("id") or ""),
-    }
+    if recommendation is not None:
+        causal["commonRepair"] = to_camel(recommendation)
 
 
 @method("get_feedback", AttemptInput)
@@ -703,10 +657,12 @@ def start_guided_redo_handler(
 ) -> dict[str, Any]:
     """Guided partial redo (Fix 3): serve the preserved-prefix redo context.
 
-    Returns the learner's preserved work, the redo instruction derived from the
-    stored repair selection, and — when an open remediation episode bound to the
-    diagnosed case exists — commits it to this item as the primed surface so the
-    subsequent primed submit schedules the §6.2 cold retry.
+    Returns the learner's preserved work and the redo instruction derived from
+    the stored repair selection, and commits a remediation episode for the
+    diagnosed case (establishing one through the sanctioned repair entry when
+    none is open) to this item as the primed surface, so the subsequent primed
+    submit schedules the §6.2 cold retry. A held/blocked repair leaves the
+    binding null and the redo serves as a plain primed attempt.
     """
 
     from learnloop.services.guided_redo import GuidedRedoUnavailable, start_guided_redo
@@ -722,7 +678,7 @@ def start_guided_redo_handler(
         practice_item_id=result["practice_item_id"],
         episode_id=result.get("episode_id"),
         cold_item_id=result.get("cold_item_id"),
-        insertion_kind=result.get("insertion_kind"),
+        cold_unmeasurable_reason=result.get("cold_unmeasurable_reason"),
     )
     return versioned(
         {

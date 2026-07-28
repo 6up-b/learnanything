@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { CommandError, ProbeBlockEndDto } from "../api/dto";
+import type { CommandError, GuidedRedoDto, ProbeBlockEndDto } from "../api/dto";
 import { ProbeBlockResult } from "../components/ProbeBlockResult";
 import { KeyBar } from "../components/term";
 import { Card, SectionHeader } from "../components/ui";
@@ -24,6 +24,8 @@ export function DiagnosticReviewScreen({
   sessionId,
   onContinueDiagnostic,
   onAsk,
+  onOpenRepair,
+  onGuidedRedo,
   onBack,
   onError
 }: {
@@ -38,6 +40,10 @@ export function DiagnosticReviewScreen({
     sessionId: string;
     proactiveOpen?: boolean;
   }) => void;
+  /** Repair-journey entrances on released failures — App's openRepair /
+   *  openGuidedRedo (both stash-and-resume the session). */
+  onOpenRepair?: (misconceptionId: string) => void;
+  onGuidedRedo?: (redo: GuidedRedoDto) => void;
   onBack: () => void;
   onError: (message: string) => void;
 }) {
@@ -97,6 +103,8 @@ export function DiagnosticReviewScreen({
             completionReason={blockEnd.completionReason}
             route={blockEnd.route}
             releasedFeedback={blockEnd.releasedFeedback}
+            onOpenRepair={onOpenRepair}
+            onGuidedRedo={onGuidedRedo}
             onError={onError}
           />
           <div className="form-row" style={{ marginTop: 14 }}>

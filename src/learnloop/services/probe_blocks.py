@@ -311,15 +311,65 @@ def end_diagnostic_block(
                 clock=clock,
             )
         )
+    # 2b. Resume the deferred per-attempt causal-orchestrator hooks (§5.7):
+    # the live path deferred them for every in-block attempt, and without this
+    # no decision receipt — `skip_common_repair` / `skip_action_equivalent` /
+    # `start_durable_repair` — ever existed for the block's failures, so the
+    # review surface had no repair recommendation to read. Runs AFTER
+    # normalization so factors/hypotheses/durable records are settled, and
+    # before the claim-checked render below so it reads the recorded receipts.
+    # Idempotent on a repeated block-end call: a terminal episode returns
+    # early above, a continuing one opened a fresh segment (so this block's
+    # rows are no longer the active segment's), and the consultation itself
+    # skips factors that already carry a common-repair receipt.
+    from learnloop.services.followups import (
+        common_repair_recommendation,
+        run_deferred_block_repair_hooks,
+    )
+
+    for row in rows:
+        run_deferred_block_repair_hooks(
+            vault,
+            repository,
+            attempt_id=str(row["attempt_id"]),
+            learning_object_id=episode.learning_object_id,
+            clock=clock,
+        )
     # P1 claim-checking happens after normalization, because normalization may
     # append a newer hypothesis/receipt version. Diagnostic-block review must
     # never bypass the learner-facing authority gate by rendering the withheld
     # raw grader prose directly.
     from learnloop.services.causal_attribution import claim_checked_feedback
+    from learnloop.services.guided_redo import guided_redo_available
 
     for released in released_feedback:
-        released["causal_feedback"] = claim_checked_feedback(
-            vault, repository, str(released["attempt_id"])
+        attempt_id = str(released["attempt_id"])
+        causal = claim_checked_feedback(vault, repository, attempt_id)
+        if isinstance(causal, dict):
+            # Same repair affordance the FeedbackScreen bundle carries: the
+            # already-recorded recommendation rides inside the claim-checked
+            # overlay (mirroring `causalFeedback.commonRepair`), gated on the
+            # receipt's own probe-need shape.
+            hypotheses = causal.get("causal_hypotheses") or []
+            recommendation = common_repair_recommendation(
+                repository,
+                attempt_id,
+                probe_need=causal.get("probe_need"),
+                fallback_misconception_id=str(
+                    (hypotheses[0] or {}).get("hypothesis_id") or ""
+                )
+                if hypotheses
+                else "",
+                surface="diagnostic_block_common_repair",
+                clock=clock,
+            )
+            if recommendation is not None:
+                causal["common_repair"] = recommendation
+        released["causal_feedback"] = causal
+        # Server truth for "redo the part you missed" — the same rule
+        # `start_guided_redo` enforces, so a visible affordance cannot refuse.
+        released["guided_redo_available"] = guided_redo_available(
+            repository, attempt_id
         )
 
     # 3+4. Open-set trigger and completion policy run on the

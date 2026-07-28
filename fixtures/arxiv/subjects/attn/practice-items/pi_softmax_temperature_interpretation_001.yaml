@@ -27,6 +27,9 @@ criterion_facet_weights:
     zero_argmax_limit: 1.0
   sampling_consequence:
     sampling_variability: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: A next-token sampler uses softmax with temperature. What happens to the 
   output distribution when temperature is increased? What happens when it is 
   decreased toward zero?
@@ -52,6 +55,9 @@ hint_policy:
 retrieval_demand: 0.5
 transfer_distance: 0.25
 scaffold_level: 0.05
+capability:
+task_features:
+task_feature_schema:
 surface_family: softmax_temperature_interpretation
 evidence_fingerprint:
   source_family:
@@ -60,6 +66,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - higher_temperature_uniformity
   - lower_values_weight
@@ -75,46 +86,66 @@ grading_rubric:
       description: States that higher temperature makes the distribution more 
         uniform or spread out.
       tier: core
-      targets: []
+      targets:
+        - facet: higher_temperature_uniformity
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: higher_lower_values_weight
       points: 0.8
       description: States that higher temperature gives more relative weight to 
         lower-logit/lower-value tokens.
       tier: core
-      targets: []
+      targets:
+        - facet: lower_values_weight
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: lower_more_peaked
       points: 0.8
       description: States that lower temperature makes the distribution more 
         peaked around larger values.
       tier: core
-      targets: []
+      targets:
+        - facet: lower_temperature_peakedness
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: zero_argmax_limit
       points: 0.8
       description: States that near zero temperature puts all or nearly all 
         weight on the maximum value.
       tier: core
-      targets: []
+      targets:
+        - facet: zero_argmax_limit
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: sampling_consequence
       points: 0.8
       description: Connects the distribution shape to more varied versus more 
         predictable sampling.
       tier: core
-      targets: []
+      targets:
+        - facet: sampling_variability
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_temperature_reversed
       description: Reverses the effect of temperature, saying higher temperature
@@ -122,6 +153,8 @@ grading_rubric:
         uniform.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -133,5 +166,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:11:58Z'
-updated_at: '2026-07-15T01:11:37Z'
+updated_at: '2026-07-28T03:46:41Z'

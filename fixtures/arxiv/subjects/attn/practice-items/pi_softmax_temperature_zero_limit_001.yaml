@@ -28,6 +28,9 @@ criterion_facet_weights:
   argmax_probability_distinction:
     zero_argmax_limit: 0.5
     softmax_normalization: 0.5
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: A model has next-token logits where one token is clearly highest. As 
   temperature approaches 0, what happens to the softmax distribution? Explain 
   why this resembles argmax while still referring to probabilities.
@@ -56,6 +59,9 @@ hint_policy:
 retrieval_demand: 0.55
 transfer_distance: 0.45
 scaffold_level: 0.1
+capability:
+task_features:
+task_feature_schema:
 surface_family: temperature_zero_argmax_limit
 evidence_fingerprint:
   source_family:
@@ -65,6 +71,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: At temperature 0, softmax makes every token 
   equally likely because all randomness is removed.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - zero_argmax_limit
   - lower_temperature_peakedness
@@ -78,42 +89,69 @@ grading_rubric:
       description: Explains that very low temperature amplifies differences 
         between logits.
       tier: core
-      targets: []
+      targets:
+        - facet: lower_temperature_peakedness
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: top_probability_approaches_one
       points: 1.0
       description: States that the highest-logit token's probability approaches 
         1.
       tier: core
-      targets: []
+      targets:
+        - facet: zero_argmax_limit
+          capability: procedure_execution
+          role: primary
+        - facet: probability_constraints
+          capability: procedure_execution
+          role: supporting
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
     - id: other_probabilities_approach_zero
       points: 1.0
       description: States that lower-logit token probabilities approach 0.
       tier: core
-      targets: []
+      targets:
+        - facet: zero_argmax_limit
+          capability: procedure_execution
+          role: supporting
+        - facet: probability_constraints
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
     - id: argmax_probability_distinction
       points: 1.0
       description: Explains why the limit behaves like argmax while still being 
         framed through softmax probabilities.
       tier: transfer
-      targets: []
+      targets:
+        - facet: zero_argmax_limit
+          capability: method_selection
+          role: primary
+        - facet: softmax_normalization
+          capability: method_selection
+          role: supporting
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
   fatal_errors:
     - id: fatal_zero_temperature_uniform
       description: Claims temperature approaching 0 makes all token 
         probabilities equal or uniform.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -124,6 +162,13 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_tutor_qa_01kx1ssdt65kpw5rb797cpf5sk
       path: subjects/attn/notes/note_tutor_qa_01kx1ssdt65kpw5rb797cpf5sk.md
@@ -131,5 +176,12 @@ provenance:
       quote: If (T) is small, then the gap between a high logit and low logit 
         should be high.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:28Z'
-updated_at: '2026-07-15T01:11:40Z'
+updated_at: '2026-07-28T03:46:43Z'

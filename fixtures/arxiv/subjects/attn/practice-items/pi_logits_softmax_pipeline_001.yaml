@@ -27,6 +27,9 @@ criterion_facet_weights:
     softmax_normalization: 1.0
   next_token_use:
     next_token_distribution: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: In the source's vocabulary, what are logits, and why is softmax applied 
   to them before sampling a next token?
 expected_answer: Logits are the raw, unnormalized output scores produced after 
@@ -51,6 +54,9 @@ hint_policy:
 retrieval_demand: 0.45
 transfer_distance: 0.25
 scaffold_level: 0.05
+capability:
+task_features:
+task_feature_schema:
 surface_family: logits_softmax_definition
 evidence_fingerprint:
   source_family:
@@ -59,6 +65,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - logits_raw_scores
   - unembedding_connection
@@ -73,51 +84,73 @@ grading_rubric:
       points: 0.8
       description: Defines logits as raw scores or unnormalized outputs.
       tier: core
-      targets: []
+      targets:
+        - facet: logits_raw_scores
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: mentions_unembedding
       points: 0.8
       description: Connects logits to the final unembedding-matrix 
         multiplication.
       tier: core
-      targets: []
+      targets:
+        - facet: unembedding_connection
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: invalid_probability_reason
       points: 0.8
       description: Explains that logits need not be between 0 and 1 or sum to 1.
       tier: core
-      targets: []
+      targets:
+        - facet: probability_constraints
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: softmax_valid_distribution
       points: 0.8
       description: States that softmax converts logits into a valid probability 
         distribution.
       tier: core
-      targets: []
+      targets:
+        - facet: softmax_normalization
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: next_token_use
       points: 0.8
       description: Connects the distribution to next-token sampling or 
         prediction.
       tier: core
-      targets: []
+      targets:
+        - facet: next_token_distribution
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_logits_are_probabilities
       description: Claims logits already are probabilities that sum to 1 before 
         softmax.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -129,5 +162,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:11:56Z'
-updated_at: '2026-07-15T01:11:19Z'
+updated_at: '2026-07-28T03:46:30Z'

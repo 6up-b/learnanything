@@ -133,6 +133,44 @@ def test_writer_upserts_graph_error_lo_and_practice_item(tmp_path):
     assert "pi_svd_shapes_001" in loaded.practice_items
 
 
+def test_writer_updates_depth_rung_metadata_on_existing_practice_item(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    upsert_practice_item(
+        vault_root,
+        {
+            "id": "pi_svd_define_001",
+            "learning_object_id": "lo_svd_definition",
+            "capability": "procedure_execution",
+            "task_features": {
+                "complexity": 2,
+                "transfer": "near",
+                "representation": ["symbolic"],
+                "response": "structured_steps",
+                "scaffolding": "cue",
+                "span": "multi_step",
+                "tools": ["closed_book"],
+            },
+            "task_feature_schema": "p1_launch@1",
+        },
+        clock=FrozenClock(NOW),
+    )
+
+    item = load_vault(vault_root).practice_items["pi_svd_define_001"]
+    assert item.capability == "procedure_execution"
+    assert item.task_features == {
+        "complexity": 2,
+        "transfer": "near",
+        "representation": ["symbolic"],
+        "response": "structured_steps",
+        "scaffolding": "cue",
+        "span": "multi_step",
+        "tools": ["closed_book"],
+    }
+    assert item.task_feature_schema == "p1_launch@1"
+
+
 def test_writer_refuses_implicit_entity_moves(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)

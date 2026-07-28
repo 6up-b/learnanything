@@ -21,6 +21,9 @@ criterion_facet_weights:
     doubling_quadruples: 1.0
   bottleneck_implication:
     bottleneck_implication: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: If a self-attention pattern stores one score for every pair of positions
   in a context, what happens to the number of attention scores when the context 
   length doubles, and why does this matter?
@@ -45,6 +48,9 @@ hint_policy:
 retrieval_demand: 0.34
 transfer_distance: 0.36
 scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
 surface_family: attention_scaling_application
 evidence_fingerprint:
   source_family:
@@ -53,6 +59,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - quadratic_scaling
   - doubling_quadruples
@@ -66,33 +77,47 @@ grading_rubric:
       description: States that score count scales with the square of context 
         length.
       tier: core
-      targets: []
+      targets:
+        - facet: quadratic_scaling
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: doubling_quadruples
       points: 1.0
       description: Correctly says doubling context length quadruples the number 
         of scores.
       tier: core
-      targets: []
+      targets:
+        - facet: doubling_quadruples
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: bottleneck_implication
       points: 1.0
       description: Connects this to memory or compute bottlenecks for long 
         contexts.
       tier: core
-      targets: []
+      targets:
+        - facet: bottleneck_implication
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_linear_scaling
       description: Claims doubling context only doubles attention scores.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -104,6 +129,13 @@ provenance:
       quote: attention pattern... size is equal to the square of the context 
         size.
       quote_hash: sha256:src_attention_quadratic
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_parameter_scaling
       path: 
@@ -112,5 +144,12 @@ provenance:
       quote: 96 distinct layers... total sum to just under 58 billion... 
         extremely parallelizable.
       quote_hash: sha256:src_parameter_scaling
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:19Z'
-updated_at: '2026-07-15T01:10:41Z'
+updated_at: '2026-07-28T03:46:08Z'

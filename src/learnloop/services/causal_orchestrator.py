@@ -835,6 +835,88 @@ def open_factors_for_hypothesis(
     return factors
 
 
+def _durable_case_factor(
+    repository: Repository, misconception: Any
+) -> dict[str, Any] | None:
+    """The open cause factor a durable misconception's case rides on, if any.
+
+    The G12 decision receipt must be keyed on the factor the feedback attach
+    reads (``unresolved_cause_factors_for_attempt(attempt_id)[0]``), and the
+    receipt table's ``factor_id`` is NOT NULL — so with no open factor on the
+    case's learning object there is honestly no receipt to write (and nothing
+    the attach could surface anyway).  Prefers a factor whose hydrated
+    candidate statements match the misconception's statement; falls back to
+    the learning object's first open factor, which is the same
+    "the case is on this LO" scope every other reader of
+    ``open_unresolved_cause_factors`` uses.
+    """
+
+    from learnloop.services.causal_attribution import _normalized
+
+    factors = repository.open_unresolved_cause_factors(
+        learning_object_id=str(misconception.learning_object_id)
+    )
+    if not factors:
+        return None
+    wanted = _normalized(str(getattr(misconception, "statement", "") or ""))
+    for factor in factors:
+        for candidate in factor.get("candidate_causes") or []:
+            if not isinstance(candidate, Mapping) or candidate.get("open_set"):
+                continue
+            if _normalized(str(candidate.get("statement") or "")) == wanted:
+                return factor
+    return factors[0]
+
+
+def _case_repair_class_id(
+    repository: Repository, hypothesis: Mapping[str, Any]
+) -> str | None:
+    """The repair class a factor-less diagnosis case would cold-verify (G14).
+
+    Resolution order mirrors ``cold_verification_context`` exactly — the
+    hypothesis's own mapped ``repair_class_id``, then the diagnosing attempt's
+    receipt — because that is the chain the scheduled cold retry will walk
+    when it lands; if nothing resolves HERE, nothing will resolve THEN either,
+    and the episode would be unmeasurable from birth.
+    """
+
+    if hypothesis.get("repair_class_id"):
+        return str(hypothesis["repair_class_id"])
+    return _receipt_repair_class_id(
+        _diagnosis_receipt(
+            repository, str(hypothesis.get("attempt_id") or "") or None
+        )
+    )
+
+
+def _unmapped_case_obligation(hypothesis: Mapping[str, Any]) -> dict[str, Any]:
+    """The typed mapping obligation for a factor-less unmapped diagnosis case.
+
+    Same shape as :func:`backfill_obligation` (the queue consumers key on
+    ``kind`` / ``hypothesis_ids`` / ``unresolved_reasons``), with
+    ``factor_id`` honestly None — there is no factor; that absence is the
+    arm's defining feature.
+    """
+
+    hypothesis_id = str(hypothesis["id"])
+    return {
+        "kind": MACHINE_CHECK_REPAIR_MAPPING,
+        "state": "unmapped_diagnosis_case",
+        "coherence_gate_state": None,
+        "factor_id": None,
+        "attempt_id": str(hypothesis.get("attempt_id") or "") or None,
+        "hypothesis_ids": [hypothesis_id],
+        "unresolved_reasons": {
+            hypothesis_id: str(
+                hypothesis.get("repair_class_unresolved_reason") or "unrecorded"
+            )
+        },
+        "repair_class_ids": [],
+        "reason": "diagnosis case has no resolvable repair class",
+        "learner_actionable": False,
+    }
+
+
 def _diagnosis_receipt(
     repository: Repository, attempt_id: str | None
 ) -> Mapping[str, Any] | None:
@@ -1153,7 +1235,37 @@ def causal_repair_status(
         "resolving",
     }:
         # A durable, already-adjudicated misconception is not a causal
-        # ambiguity: there is nothing left to disambiguate.
+        # ambiguity: there is nothing left to disambiguate.  The decision is
+        # still a decision (G12): without a receipt the feedback surface's
+        # commonRepair attach (which READS `causal_probe_decision_receipts`,
+        # never calls this function) could not show the misconception path at
+        # all.  The receipt is keyed on the case's factor when one exists —
+        # exactly the row `_attach_common_repair` looks under — and is written
+        # for BOTH the read-only consultation (start_repair=False, which mints
+        # no episode) and the overlay start (which mints exactly one through
+        # the get-or-create below).
+        factor = _durable_case_factor(repository, misconception)
+        receipt: dict[str, Any] | None = None
+        if factor is not None:
+            receipt = repository.insert_causal_probe_decision_receipt(
+                factor_id=str(factor["id"]),
+                decision="start_durable_repair",
+                reason="durable_misconception",
+                repair_status="started",
+                decision_policy_version=CAUSAL_DECISION_POLICY_VERSION,
+                formula_version=CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
+                inputs={
+                    "case_kind": "misconception",
+                    "misconception_status": str(misconception.status),
+                    "start_repair": bool(start_repair),
+                },
+                parameters={},
+                hypothesis_ids=[],
+                learning_object_id=str(misconception.learning_object_id),
+                attempt_id=str(factor.get("attempt_id") or "") or None,
+                misconception_id=misconception_id,
+                clock=clock,
+            )
         episode = (
             _episode_for(
                 repository,
@@ -1169,6 +1281,12 @@ def causal_repair_status(
             reason="durable_misconception",
             message=STARTED_MESSAGE,
             misconception_id=misconception_id,
+            factor_id=str(factor["id"]) if factor is not None else None,
+            learning_object_id=str(misconception.learning_object_id),
+            decision_receipt_id=(
+                str(receipt["id"]) if receipt is not None else None
+            ),
+            probe_decision="start_durable_repair" if receipt is not None else None,
             episode=episode,
         )
 
@@ -1180,6 +1298,41 @@ def causal_repair_status(
 
     factors = open_factors_for_hypothesis(repository, misconception_id)
     if not factors:
+        # G14: with no factor there is no cause-set classification, so this
+        # arm used to start a measurable diagnosis-kind episode with NO
+        # repair-mapping check — a clean primed redo then scheduled a 30-day
+        # cold retry whose context carried `repair_class_id=None`, and the
+        # measurement could only ever land as `missing_chain`.  Mirror the
+        # CAUSE_SET_INCOMPLETE_MAPPING arm instead: publish the typed mapping
+        # obligation and defer; the machine buys the missing mapping, not the
+        # learner's time.  A legacy candidate with no causal hypothesis at all
+        # (pre-P1 vault) keeps the started path — it has no repair-class
+        # vocabulary to check, exactly like MAPPING_BASIS_LEGACY_FACET.
+        hypothesis = repository.causal_hypothesis(misconception_id)
+        if hypothesis is not None and _case_repair_class_id(
+            repository, hypothesis
+        ) is None:
+            check = enqueue_backfill_obligation(
+                repository,
+                _unmapped_case_obligation(hypothesis),
+                learning_object_id=str(hypothesis["learning_object_id"]),
+                source="causal_repair_status",
+                clock=clock,
+            )
+            return RepairStatus(
+                status="deferred_machine_checks",
+                reason="incomplete_repair_mapping",
+                message=DEFERRED_MACHINE_CHECKS_MESSAGE,
+                misconception_id=misconception_id,
+                learning_object_id=str(hypothesis["learning_object_id"]),
+                attempt_id=str(hypothesis.get("attempt_id") or "") or None,
+                probe_decision="defer_machine_checks",
+                probe_decision_reason=(
+                    "diagnosis case has no resolvable repair class; a cold "
+                    "retry would be unmeasurable (missing_chain)"
+                ),
+                pending_machine_check_ids=(str(check["id"]),),
+            )
         episode = (
             _episode_for(
                 repository,
@@ -2535,11 +2688,12 @@ def cold_verification_context(
     hypothesis_ids: list[str] = []
     if hypothesis is not None:
         hypothesis_ids = [str(hypothesis["id"])]
-        repair_class_id = (
-            str(hypothesis["repair_class_id"])
-            if hypothesis.get("repair_class_id")
-            else None
-        )
+        # Same resolution the G14 episode gate uses (`_case_repair_class_id`):
+        # the hypothesis's own mapping, then its DIAGNOSING attempt's receipt.
+        # The primed source attempt's receipt (the generic fallback below) is
+        # empty for a clean primed redo, so without this the gate and the
+        # carried context could disagree about measurability.
+        repair_class_id = _case_repair_class_id(repository, hypothesis)
         factors = open_factors_for_hypothesis(repository, case_ref)
         if factors:
             factor_id = str(factors[0]["id"])
@@ -2629,6 +2783,16 @@ def record_cold_verification_from_task(
     (migration 145), because expiry, decline, contamination and same-surface
     reuse being indistinguishable from "no row" is exactly how the repair
     lane's cold corpus stayed empty.
+
+    Migration 149: every terminal path — measured verification or refusal —
+    also lands a FINAL coldness receipt (``coldness_receipts``), so "cold" is
+    positive recorded evidence rather than an inference from ``hints_used ==
+    0``.  Two receipt findings hard-fail (typed ``contaminated_or_assisted``
+    disposition instead of a verification): the cold item's own answer was
+    revealed post-primed, or a hard same-surface exposure landed post-primed.
+    Everything else (co-interventions, indeterminate telemetry, unknown
+    blinding) records as evidence without blocking, so the lane is never
+    starved by its own receipts.
     """
 
     from learnloop.services.causal_probe_coherence import (
@@ -2636,6 +2800,32 @@ def record_cold_verification_from_task(
         record_causal_cold_outcome,
         record_delayed_cold_verification,
     )
+    from learnloop.services.coldness_receipt import (
+        evaluate_final_coldness,
+        record_final_receipt,
+    )
+
+    evaluation = evaluate_final_coldness(
+        vault, repository, task=task, cold_attempt_id=cold_attempt_id, clock=clock
+    )
+
+    def _final_receipt(outcome: str, *, cold_verification_id: str | None = None) -> None:
+        try:
+            record_final_receipt(
+                repository,
+                task=task,
+                evaluation=evaluation,
+                outcome=outcome,
+                cold_attempt_id=cold_attempt_id,
+                cold_verification_id=cold_verification_id,
+                clock=clock,
+            )
+        except Exception:  # pragma: no cover - receipts must not fail an attempt
+            logging.getLogger(__name__).warning(
+                "coldness final receipt failed for task %s",
+                task.get("id"),
+                exc_info=True,
+            )
 
     def _disposition(
         outcome: str,
@@ -2679,6 +2869,7 @@ def record_cold_verification_from_task(
             "missing_chain",
             detail={"reason": "no_causal_cold_verification_context"},
         )
+        _final_receipt("missing_chain")
         return None
     repair_class_id = context.get("repair_class_id")
     source_attempt_id = context.get("source_attempt_id")
@@ -2694,6 +2885,30 @@ def record_cold_verification_from_task(
             },
             context=context,
         )
+        _final_receipt("missing_chain")
+        return None
+    # Migration 149 hard-fail set — the ONLY receipt findings that block: the
+    # cold item's own answer revealed post-primed, or a hard same-surface
+    # exposure post-primed.  Checked only for an otherwise-clean attempt so an
+    # assisted retry still lands the assistance-shaped detail below.
+    cold_attempt = repository.fetch_practice_attempt(cold_attempt_id)
+    attempt_clean = (
+        cold_attempt is not None
+        and not cold_attempt.get("primed")
+        and not int(cold_attempt.get("hints_used") or 0)
+    )
+    if evaluation.hard_contamination is not None and attempt_clean:
+        _disposition(
+            "contaminated_or_assisted",
+            detail={
+                "reason": evaluation.hard_contamination["reason"],
+                "exposure_event_ids": list(
+                    evaluation.hard_contamination.get("event_ids") or []
+                ),
+            },
+            context=context,
+        )
+        _final_receipt("contaminated_or_assisted")
         return None
     try:
         receipt = record_delayed_cold_verification(
@@ -2712,16 +2927,20 @@ def record_cold_verification_from_task(
         )
     except ColdVerificationPrecondition as exc:
         _disposition(exc.reason, detail={"message": str(exc), **exc.detail}, context=context)
+        _final_receipt(exc.reason)
         return None
     except ValueError as exc:
         # A caller-contract violation with no §4.3 disposition of its own.
         _disposition("missing_chain", detail={"message": str(exc)}, context=context)
+        _final_receipt("missing_chain")
         return None
+    outcome = "cold_success" if receipt.get("success") else "cold_failure"
     _disposition(
-        "cold_success" if receipt.get("success") else "cold_failure",
+        outcome,
         cold_verification_id=str(receipt["id"]),
         context=context,
     )
+    _final_receipt(outcome, cold_verification_id=str(receipt["id"]))
     return receipt
 
 
@@ -2742,6 +2961,10 @@ def sweep_expired_cold_retries(
 
     from learnloop.services.canonical_projection import surface_group_id
     from learnloop.services.causal_probe_coherence import record_causal_cold_outcome
+    from learnloop.services.coldness_receipt import (
+        evaluate_final_coldness,
+        record_final_receipt,
+    )
     from learnloop.services.instrument_serving import unservable_reason
 
     recorded: list[dict[str, Any]] = []
@@ -2813,6 +3036,30 @@ def sweep_expired_cold_retries(
         )
         if row is not None:
             recorded.append(row)
+            # Migration 149: an expiry is a terminal disposition too, so it
+            # gets a final receipt with partial evidence — notably whether an
+            # administration snapshot exists (the task was OPENED but never
+            # answered) versus no snapshot at all (never served).
+            try:
+                record_final_receipt(
+                    repository,
+                    task=task,
+                    evaluation=evaluate_final_coldness(
+                        vault,
+                        repository,
+                        task=task,
+                        cold_attempt_id=None,
+                        clock=clock,
+                    ),
+                    outcome=outcome,
+                    clock=clock,
+                )
+            except Exception:  # pragma: no cover - receipts must not fail sweeps
+                logging.getLogger(__name__).warning(
+                    "coldness final receipt failed for expired task %s",
+                    task.get("id"),
+                    exc_info=True,
+                )
     return recorded
 
 

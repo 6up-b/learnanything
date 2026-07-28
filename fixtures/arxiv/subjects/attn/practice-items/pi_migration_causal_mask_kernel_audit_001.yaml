@@ -1,0 +1,158 @@
+schema_version: 1
+id: pi_migration_causal_mask_kernel_audit_001
+learning_object_id: lo_causal_masking
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - future_blocked
+  - negative_infinity_to_zero
+  - normalization_preserved
+  - pre_softmax_logits
+evidence_weights:
+  future_blocked: 0.25
+  negative_infinity_to_zero: 0.25
+  normalization_preserved: 0.25
+  pre_softmax_logits: 0.25
+criterion_facet_weights:
+  criterion_future_blocked:
+    future_blocked: 1.0
+  criterion_negative_infinity_to_zero:
+    negative_infinity_to_zero: 1.0
+  criterion_normalization_preserved:
+    normalization_preserved: 1.0
+  criterion_pre_softmax_logits:
+    pre_softmax_logits: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: 'A GPU kernel receives an attention-score row before softmax. Its author proposes
+  zeroing future entries after softmax. Audit the proposal: state where the mask belongs,
+  what value represents a forbidden logit, what probability it becomes, and why the
+  permitted entries must still normalize.'
+expected_answer: "A complete response establishes each required point:\n- future_blocked:
+  In causal attention, later tokens must not influence representations at earlier
+  positions.\n- negative_infinity_to_zero: A logit of negative infinity contributes
+  zero probability after softmax.\n- normalization_preserved: Applying a causal mask
+  before softmax renormalizes probability over only the allowed positions.\n- pre_softmax_logits:
+  Causal masking is applied to attention logits before softmax."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: masked_softmax_kernel_audit
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - future_blocked
+  - negative_infinity_to_zero
+  - normalization_preserved
+  - pre_softmax_logits
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_future_blocked
+      points: 1.0
+      description: In causal attention, later tokens must not influence 
+        representations at earlier positions.
+      tier: core
+      targets:
+        - facet: future_blocked
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_masked_softmax
+      measurement_status: direct
+    - id: criterion_negative_infinity_to_zero
+      points: 1.0
+      description: A logit of negative infinity contributes zero probability 
+        after softmax.
+      tier: core
+      targets:
+        - facet: negative_infinity_to_zero
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_masked_softmax
+      measurement_status: direct
+    - id: criterion_normalization_preserved
+      points: 1.0
+      description: Applying a causal mask before softmax renormalizes 
+        probability over only the allowed positions.
+      tier: core
+      targets:
+        - facet: normalization_preserved
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_masked_softmax
+      measurement_status: direct
+    - id: criterion_pre_softmax_logits
+      points: 1.0
+      description: Causal masking is applied to attention logits before softmax.
+      tier: core
+      targets:
+        - facet: pre_softmax_logits
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_masked_softmax
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:39Z'
+updated_at: '2026-07-28T03:59:22Z'

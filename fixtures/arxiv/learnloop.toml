@@ -169,26 +169,6 @@ lo_mastery_delta = 0.0
 local_severity_gain = 0.35
 
 # Cross-LO propagation gates per error type (spec §"Error-type gate").
-[cross_lo_propagation.default]
-max_depth = 3
-hop_decay = 0.5
-total_propagated_weight_cap = 0.7
-
-[cross_lo_propagation.error_gates.recall_failure]
-mean_factor = 0.0          # forgetting a definition is not evidence prereqs are weak
-variance_factor = 0.25
-scope = "all"
-
-[cross_lo_propagation.error_gates.scaffold_failure]
-mean_factor = 0.0
-variance_factor = 0.35
-scope = "all"
-
-[cross_lo_propagation.error_gates.arithmetic_slip]
-mean_factor = 0.0
-variance_factor = 0.10
-scope = "all"
-
 [recall_coverage.severity_examples.first_dont_know]
 attempt_type = "dont_know"
 hints_used = 0

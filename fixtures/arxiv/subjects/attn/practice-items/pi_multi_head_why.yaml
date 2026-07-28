@@ -27,6 +27,9 @@ criterion_facet_weights:
     cost_reasoning: 1.0
   not_just_parallelism:
     not_just_parallelism: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Why does the Transformer use multi-head attention instead of a single 
   attention head with the full model dimension?
 expected_answer: Multi-head attention lets the model attend jointly to 
@@ -51,6 +54,9 @@ hint_policy:
 retrieval_demand: 0.5
 transfer_distance: 0.35
 scaffold_level: 0.1
+capability:
+task_features:
+task_feature_schema:
 surface_family: mechanism_rationale
 evidence_fingerprint:
   source_family:
@@ -59,6 +65,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - subspaces
   - positions
@@ -73,43 +84,63 @@ grading_rubric:
       points: 1.2
       description: Mentions different representation subspaces.
       tier: core
-      targets: []
+      targets:
+        - facet: subspaces
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: positions
       points: 0.8
       description: Mentions attending to different positions.
       tier: core
-      targets: []
+      targets:
+        - facet: positions
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: averaging_limitation
       points: 0.8
       description: Explains that a single head can inhibit distinct attention 
         patterns through averaging.
       tier: core
-      targets: []
+      targets:
+        - facet: averaging_limitation
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: cost_reasoning
       points: 0.8
       description: Notes reduced per-head dimensions keep cost similar.
       tier: core
-      targets: []
+      targets:
+        - facet: cost_reasoning
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: not_just_parallelism
       points: 0.4
       description: Does not reduce the answer to hardware parallelism alone.
       tier: core
-      targets: []
+      targets:
+        - facet: not_just_parallelism
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_only_speed
       description: Claims the only purpose of multiple heads is faster 
@@ -121,6 +152,8 @@ grading_rubric:
         voted on.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -132,5 +165,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:30Z'
-updated_at: '2026-07-15T01:11:20Z'
+updated_at: '2026-07-28T03:46:31Z'

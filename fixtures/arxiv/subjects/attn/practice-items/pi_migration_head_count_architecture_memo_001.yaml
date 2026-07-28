@@ -1,0 +1,181 @@
+schema_version: 1
+id: pi_migration_head_count_architecture_memo_001
+learning_object_id: lo_multi_head_attention_purpose
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - averaging_limitation
+  - cost_reasoning
+  - not_just_parallelism
+  - positions
+  - subspaces
+evidence_weights:
+  averaging_limitation: 0.2
+  cost_reasoning: 0.2
+  not_just_parallelism: 0.2
+  positions: 0.2
+  subspaces: 0.19999999999999996
+criterion_facet_weights:
+  criterion_averaging_limitation:
+    averaging_limitation: 1.0
+  criterion_cost_reasoning:
+    cost_reasoning: 1.0
+  criterion_not_just_parallelism:
+    not_just_parallelism: 1.0
+  criterion_positions:
+    positions: 1.0
+  criterion_subspaces:
+    subspaces: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A team proposes replacing eight attention heads with one wider head 
+  because both can run dot products in parallel. Write a design memo explaining 
+  what representational capacity is lost, what positions/subspaces have to do 
+  with it, and why head count still has a compute/quality tradeoff.
+expected_answer: "A complete response establishes each required point:\n- averaging_limitation:
+  A single attention head can blur distinct relationships because one attention distribution
+  must average competing patterns.\n- cost_reasoning: Using reduced per-head dimensions
+  keeps multi-head attention's total computational cost comparable to a single full-dimensional
+  head.\n- not_just_parallelism: The purpose of multiple attention heads is representational
+  diversity, not merely hardware parallelism.\n- positions: Different attention heads
+  can attend to different token positions.\n- subspaces: Different attention heads
+  project representations into different learned subspaces."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: head_count_architecture_memo
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - averaging_limitation
+  - cost_reasoning
+  - not_just_parallelism
+  - positions
+  - subspaces
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_averaging_limitation
+      points: 0.8
+      description: A single attention head can blur distinct relationships 
+        because one attention distribution must average competing patterns.
+      tier: core
+      targets:
+        - facet: averaging_limitation
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_head_diversity
+      measurement_status: direct
+    - id: criterion_cost_reasoning
+      points: 0.8
+      description: Using reduced per-head dimensions keeps multi-head 
+        attention's total computational cost comparable to a single 
+        full-dimensional head.
+      tier: core
+      targets:
+        - facet: cost_reasoning
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_head_diversity
+      measurement_status: direct
+    - id: criterion_not_just_parallelism
+      points: 0.8
+      description: The purpose of multiple attention heads is representational 
+        diversity, not merely hardware parallelism.
+      tier: core
+      targets:
+        - facet: not_just_parallelism
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_head_diversity
+      measurement_status: direct
+    - id: criterion_positions
+      points: 0.8
+      description: Different attention heads can attend to different token 
+        positions.
+      tier: core
+      targets:
+        - facet: positions
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_head_diversity
+      measurement_status: direct
+    - id: criterion_subspaces
+      points: 0.7999999999999998
+      description: Different attention heads project representations into 
+        different learned subspaces.
+      tier: core
+      targets:
+        - facet: subspaces
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_head_diversity
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:46Z'
+updated_at: '2026-07-28T03:59:27Z'

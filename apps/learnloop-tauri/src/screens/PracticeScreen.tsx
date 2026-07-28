@@ -661,6 +661,31 @@ export function PracticeScreen({
                 </Faint>
                 <MarkdownMath value={redo.learnerWorkPrefix} />
               </div>
+              {/* Cold-retry status for the bound episode — the same honesty
+                  RepairScreen renders: only a scheduled independent cold retry
+                  converts this repair to Demonstrated credit. */}
+              {redo.episodeId ? (
+                redo.coldItemId ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 12, color: COLOR.textDim }}>
+                    <Pill tone="green">cold retry scheduled</Pill>
+                    <span>
+                      an unassisted cold retry on a different question is scheduled for a later session
+                      (tomorrow or later) — only that converts to Demonstrated credit
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 12, color: COLOR.textDim }}>
+                    <Pill tone="red">not measurable</Pill>
+                    <span>
+                      {redo.coldUnmeasurableReason === "no_independent_surface"
+                        ? "no independent question exists on this topic yet, so no unassisted cold retry can be scheduled — this repair cannot convert to Demonstrated credit until another surface is authored"
+                        : redo.coldUnmeasurableReason === "case_unresolvable"
+                        ? "the diagnosed cause behind this repair could no longer be resolved, so no unassisted cold retry can be scheduled — this redo counts as primed practice only"
+                        : "no unassisted cold retry could be scheduled for this repair, so it cannot convert to Demonstrated credit"}
+                    </span>
+                  </div>
+                )
+              ) : null}
             </div>
           ) : null}
           <div className="answer-editor-slot" ref={editorSlotRef}>

@@ -13,6 +13,9 @@ evidence_weights:
 criterion_facet_weights:
   correctness:
     alignment_interpretation: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Two embedding vectors have a large positive dot product. What should you
   conclude about their vector alignment?
 expected_answer: They are strongly aligned in embedding space. A large positive 
@@ -30,6 +33,9 @@ hint_policy:
 retrieval_demand:
 transfer_distance: 0.0
 scaffold_level:
+capability:
+task_features:
+task_feature_schema:
 surface_family: dialogue_microprobe_dialogue_commit
 evidence_fingerprint:
   source_family:
@@ -38,6 +44,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets: []
 grading_rubric:
   max_points: 4
@@ -46,18 +57,24 @@ grading_rubric:
       points: 4.0
       description: Response demonstrates the target idea with a decisive reason.
       tier: core
-      targets: []
+      targets:
+        - facet: alignment_interpretation
+          capability: method_selection
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: confusable_signature
       description: Answer is consistent with the confusable neighbor concept, 
         not the target.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs: []
 created_at: '2026-07-13T16:56:07Z'
-updated_at: '2026-07-15T01:11:03Z'
+updated_at: '2026-07-28T03:46:21Z'

@@ -25,7 +25,11 @@ from learnloop.services.attempts import (
     complete_self_graded_attempt,
 )
 from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.guided_redo import GuidedRedoUnavailable, start_guided_redo
+from learnloop.services.guided_redo import (
+    GuidedRedoUnavailable,
+    guided_redo_available,
+    start_guided_redo,
+)
 from learnloop.services.remediation import _rank_items, start_remediation_episode
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -214,11 +218,10 @@ def test_guided_redo_serves_prefix_and_instruction(tmp_path):
     assert redo["redo_instruction"] == (
         "Preserve the factorization and repair only the transpose."
     )
-    # A span-anchored insertion point is a mid-splice, not an end-append.
-    assert redo["insertion_kind"] == "mid_splice"
+    # G9: composition is always prefix + rewrite — the trace schema preserves
+    # only a prefix, so the dead "mid_splice" signal is gone from the contract.
+    assert "insertion_kind" not in redo
     assert redo["repair_class_id"]
-    # No open episode for the case yet: the redo still serves, unbound.
-    assert redo["episode_id"] is None
 
 
 # --- episode binding + the full funnel ---------------------------------------
@@ -282,6 +285,144 @@ def test_guided_redo_binds_open_episode_and_closes_the_funnel(tmp_path):
     assert verification["source_attempt_id"] == primed.attempt_id
     assert verification["repair_class_id"] == redo["repair_class_id"]
     assert verification["success"] is True
+
+
+def test_guided_redo_establishes_episode_without_overlay(tmp_path):
+    """G6 E2E: fail → guided redo DIRECTLY (no Repair overlay visit).
+
+    An episode is established through the sanctioned entry
+    (``start_remediation_episode`` → ``causal_repair_status``), the primed
+    redo schedules the cold retry with a non-null repair class, and the cold
+    attempt lands a ``causal_cold_verifications`` row — no dead end."""
+
+    vault, repository = _setup(tmp_path)
+    failed = failed_attempt_with_repair(vault, repository, "att_redo_direct")
+    _link_misconception(repository, failed.attempt_id)
+
+    redo = start_guided_redo(vault, repository, failed.attempt_id)
+    assert redo["episode_id"] is not None
+    episode = repository.remediation_episode(redo["episode_id"])
+    assert episode["state"] == "treatment"
+    # Durable misconceptions rank first among the attempt's case candidates.
+    assert episode["case_kind"] == "misconception"
+    assert episode["primed_item_id"] == ITEM
+    assert redo["cold_item_id"] == SIBLING
+    assert redo["repair_class_id"]
+
+    primed = _self_graded(
+        vault,
+        repository,
+        ITEM,
+        clock=FrozenClock(NOW + timedelta(minutes=10)),
+        primed=True,
+    )
+    scheduled = repository.remediation_episode(redo["episode_id"])
+    assert scheduled["state"] == "cold_scheduled"
+    assert scheduled["primed_attempt_id"] == primed.attempt_id
+    task = repository.active_followup_task_for_item(
+        SIBLING,
+        kind="cold_retry",
+        at=(NOW + timedelta(days=2)).isoformat().replace("+00:00", "Z"),
+    )
+    assert task is not None
+    assert task["context"]["repair_class_id"] == redo["repair_class_id"]
+
+    cold_clock = FrozenClock(NOW + timedelta(days=2))
+    cold = _self_graded(vault, repository, SIBLING, clock=cold_clock)
+    evaluate_attempt_intervention_followup(
+        vault, repository, result=cold, clock=cold_clock
+    )
+    completed = repository.remediation_episode(redo["episode_id"])
+    assert completed["state"] == "completed"
+    verification = repository.causal_cold_verification_for_attempt(cold.attempt_id)
+    assert verification is not None
+    assert verification["repair_class_id"] == redo["repair_class_id"]
+
+
+def test_guided_redo_establishes_diagnosis_episode_from_hypothesis(tmp_path):
+    """With NO durable misconception, the hypothesis (candidate belief) case
+    still establishes a diagnosis-kind episode where the causal state permits."""
+
+    vault, repository = _setup(tmp_path)
+    failed = failed_attempt_with_repair(vault, repository, "att_redo_hyp")
+    redo = start_guided_redo(vault, repository, failed.attempt_id)
+    assert redo["episode_id"] is not None
+    episode = repository.remediation_episode(redo["episode_id"])
+    assert episode["case_kind"] == "diagnosis"
+    assert episode["state"] == "treatment"
+    assert episode["primed_item_id"] == ITEM
+    assert redo["cold_item_id"] == SIBLING
+
+
+def test_primed_attempt_without_episode_records_typed_disposition(tmp_path):
+    """G6 fallback: a primed attempt carrying a diagnosed repair class that
+    finds NO episode leaves a typed §4.3 disposition (reason ``no_episode``)
+    instead of silently dropping the repair activity."""
+
+    vault, repository = _setup(tmp_path)
+    primed = failed_attempt_with_repair(
+        vault, repository, "att_primed_orphan", primed=True
+    )
+    outcomes = repository.causal_cold_outcomes(
+        outcome="unmeasurable_no_held_out_surface"
+    )
+    assert len(outcomes) == 1
+    outcome = outcomes[0]
+    assert outcome["source_attempt_id"] == primed.attempt_id
+    assert outcome["remediation_episode_id"] is None
+    assert outcome["repair_class_id"]
+    assert outcome["servable_opportunity"] is False
+    assert outcome["detail"] == {"stage": "schedule", "reason": "no_episode"}
+
+
+def test_clean_primed_attempt_without_receipt_records_nothing(tmp_path):
+    """An ordinary primed attempt with no diagnosed repair class is not repair
+    activity — no disposition is fabricated for it."""
+
+    vault, repository = _setup(tmp_path)
+    _self_graded(vault, repository, ITEM, clock=FrozenClock(NOW), primed=True)
+    assert repository.causal_cold_outcomes() == []
+
+
+def test_guided_redo_reports_case_unresolvable(tmp_path, monkeypatch):
+    """G7: an episode whose case no longer resolves reports
+    ``case_unresolvable`` — not ``no_independent_surface``, which would send a
+    reader authoring surfaces that change nothing."""
+
+    import learnloop.services.remediation as remediation
+
+    vault, repository = _setup(tmp_path)
+    failed = failed_attempt_with_repair(vault, repository, "att_redo_nocase")
+    misconception_id = _link_misconception(repository, failed.attempt_id)
+    episode = start_remediation_episode(
+        repository, misconception_id, clock=FrozenClock(NOW)
+    )
+    monkeypatch.setattr(remediation, "_episode_case", lambda repository, episode: None)
+    redo = start_guided_redo(vault, repository, failed.attempt_id)
+    assert redo["episode_id"] == episode["id"]
+    assert redo["cold_item_id"] is None
+    assert redo["cold_unmeasurable_reason"] == "case_unresolvable"
+
+
+def test_feedback_reports_guided_redo_availability(tmp_path):
+    """G4: the feedback bundle carries the server truth the button gates on —
+    the same rule ``start_guided_redo`` enforces."""
+
+    from learnloop_sidecar.handlers.serializers import feedback_bundle
+
+    vault, repository = _setup(tmp_path)
+    clean = _self_graded(vault, repository, ITEM, clock=FrozenClock(NOW))
+    failed = failed_attempt_with_repair(vault, repository, "att_redo_avail")
+    assert guided_redo_available(repository, clean.attempt_id) is False
+    assert guided_redo_available(repository, failed.attempt_id) is True
+    assert (
+        feedback_bundle(vault, repository, clean.attempt_id)["guidedRedoAvailable"]
+        is False
+    )
+    assert (
+        feedback_bundle(vault, repository, failed.attempt_id)["guidedRedoAvailable"]
+        is True
+    )
 
 
 def test_guided_redo_never_steals_a_sibling_committed_episode(tmp_path):

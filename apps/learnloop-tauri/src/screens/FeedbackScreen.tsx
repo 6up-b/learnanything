@@ -35,6 +35,7 @@ import {
   formatDivergenceAnchor,
   useCausalRepairActions,
 } from "../components/CausalAttribution";
+import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -1905,35 +1906,26 @@ export function FeedbackScreen({
             {/* Journey B: every plausible cause shares one fix — deliver the
                 repair instead of holding or interrogating. Rendering reads the
                 recommendation off the feedback payload (recorded post-attempt);
-                "Start the fix" is the same handoff "Teach me now" uses. */}
-            {f.causalFeedback.commonRepair && !commonRepairDismissed && !repairStatus ? (
-              <div style={{
-                marginTop: 14, padding: "10px 12px",
-                background: C.bgElev, borderLeft: `3px solid ${C.greenSoft}`,
-                fontFamily: MONO, fontSize: 12, lineHeight: 1.6,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <Pill tone="green">same fix</Pill>
-                  <Faint>these explanations point to the same fix</Faint>
-                </div>
-                <div style={{ color: C.text }}>{f.causalFeedback.commonRepair.message}</div>
-                <div style={{ marginTop: 8, display: "flex", gap: 16, alignItems: "center" }}>
-                  <span
-                    style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer" }}
-                    onClick={() => onOpenRepair?.(f.causalFeedback!.commonRepair!.misconceptionId)}
-                  >start the fix</span>
-                  <span
-                    style={{ color: C.textDim, textDecoration: "underline", cursor: "pointer" }}
-                    onClick={() => setCommonRepairDismissed(true)}
-                  >not now</span>
-                </div>
-              </div>
+                "Start the fix" is the same handoff "Teach me now" uses.
+                Suppressed when it targets the SAME misconception the Diagnosis
+                card below already offers to repair — two adjacent CTAs to one
+                repair are redundant; a different target shows both. */}
+            {f.causalFeedback.commonRepair && !commonRepairDismissed && !repairStatus &&
+              f.causalFeedback.commonRepair.misconceptionId !== matchedMisconception?.id ? (
+              <CommonRepairCard
+                commonRepair={f.causalFeedback.commonRepair}
+                onStartFix={(misconceptionId) => onOpenRepair?.(misconceptionId)}
+                onDismiss={() => setCommonRepairDismissed(true)}
+              />
             ) : null}
           </>
         ) : null}
 
-        {/* ── diagnosis (§4.7 fallback + P0 self-report) ── */}
-        {!f.causalFeedback && matchedMisconception ? (
+        {/* ── diagnosis (durable misconception + P0 self-report) ──
+            A matched durable misconception renders its card ALONGSIDE the
+            causal panel (owner decision): the panel types the hypotheses, the
+            card carries the adjudicated belief pair and its "repair this →". */}
+        {matchedMisconception ? (
           <MisconceptionStatementCard
             m={matchedMisconception}
             attemptId={f.attemptId}
@@ -1991,23 +1983,12 @@ export function FeedbackScreen({
           </>
         )}
 
-        {/* ── redo the part you missed (Fix 3) ── */}
-        {onGuidedRedo && f.rubricScore < f.maxPoints &&
-          f.repairSuggestions.some((s) => s.repairedTrace?.learnerWorkPrefix) ? (
-          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 8 }}>
-            {startingRedo ? (
-              <span style={{ color: C.amber }}>preparing the redo…</span>
-            ) : (
-              <>
-                <span
-                  style={{ color: C.amberLink, textDecoration: "underline", cursor: "pointer" }}
-                  onClick={() => void handleGuidedRedo()}
-                >redo the part you missed</span>
-                {"   "}
-                <Faint>your correct work stays — you rewrite only the failed step (scored as primed evidence)</Faint>
-              </>
-            )}
-          </div>
+        {/* ── redo the part you missed (Fix 3) ──
+            Gated on the server-computed availability (the SELECTED repair
+            preserves a prefix), not on "any suggestion has a prefix" — the
+            latter showed buttons start_guided_redo would refuse. */}
+        {onGuidedRedo && f.rubricScore < f.maxPoints && f.guidedRedoAvailable ? (
+          <GuidedRedoAffordance starting={startingRedo} onStart={() => void handleGuidedRedo()} />
         ) : null}
 
         {/* ── review the source ── */}

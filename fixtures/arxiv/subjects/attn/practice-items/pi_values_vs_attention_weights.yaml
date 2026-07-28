@@ -24,6 +24,9 @@ criterion_facet_weights:
     weighted_sum_column: 1.0
   add_to_embedding:
     add_to_embedding: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: In one attention head, what different roles do the attention pattern and
   the value vectors play when updating the embedding for a token such as 
   'creature'?
@@ -50,6 +53,9 @@ hint_policy:
 retrieval_demand: 0.52
 transfer_distance: 0.3
 scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
 surface_family: qkv_role_comparison
 evidence_fingerprint:
   source_family:
@@ -58,6 +64,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - pattern_as_weights
   - values_as_content
@@ -72,43 +83,61 @@ grading_rubric:
       description: Identifies the attention pattern as weights or relevance 
         scores.
       tier: core
-      targets: []
+      targets:
+        - facet: pattern_as_weights
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: values_as_content
       points: 1.0
       description: Identifies value vectors as carrying the information/update 
         directions.
       tier: core
-      targets: []
+      targets:
+        - facet: values_as_content
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: weighted_sum_column
       points: 1.0
       description: Describes taking a weighted sum for the target token's 
         column.
       tier: core
-      targets: []
+      targets:
+        - facet: weighted_sum_column
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: add_to_embedding
       points: 1.0
       description: States that the resulting change is added to the original 
         embedding.
       tier: core
-      targets: []
+      targets:
+        - facet: add_to_embedding
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_values_are_scores
       description: Equates value vectors with the query-key attention scores 
         instead of update content.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -120,6 +149,13 @@ provenance:
       quote: compute a dot product between each possible key-query pair... We 
         call this grid an attention pattern.
       quote_hash: sha256:src_dot_softmax_pattern
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_values_update
       path: 
@@ -128,5 +164,12 @@ provenance:
       quote: use a third matrix, what we call the value matrix... producing a 
         sequence of changes.
       quote_hash: sha256:src_values_update
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:21Z'
-updated_at: '2026-07-15T01:11:44Z'
+updated_at: '2026-07-28T03:46:45Z'

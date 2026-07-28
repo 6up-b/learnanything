@@ -1,0 +1,221 @@
+schema_version: 1
+id: pi_qk_attention_pattern_execute_001
+learning_object_id: lo_qk_attention_pattern
+subjects:
+  - attn
+practice_mode: worked_computation
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - qk_first
+  - dot_products_second
+  - scale_before_softmax
+  - column_softmax_last
+evidence_weights:
+  column_softmax_last: 0.25
+  dot_products_second: 0.25
+  qk_first: 0.25
+  scale_before_softmax: 0.25
+criterion_facet_weights:
+  compute_dot_products:
+    dot_products_second: 1.0
+  form_query_and_keys:
+    qk_first: 1.0
+  normalize_attention_column:
+    column_softmax_last: 1.0
+  scale_scores:
+    scale_before_softmax: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_compute_attention_weights
+      checkpoints:
+        - form_query_and_keys
+        - compute_dot_products
+        - scale_scores
+        - normalize_attention_column
+      dependencies:
+        compute_dot_products:
+          - form_query_and_keys
+        form_query_and_keys: []
+        normalize_attention_column:
+          - scale_scores
+        scale_scores:
+          - compute_dot_products
+variant_contract:
+teach_back_source:
+prompt: 'Use column-vector convention. Let x1=[1,0]^T and x2=[0,1]^T, with W_Q=W_K=I_2
+  and d_k=2. For the target token x1: (1) form q1 and keys k1,k2; (2) compute q1^T
+  k1 and q1^T k2; (3) divide both scores by sqrt(d_k); and (4) apply softmax to that
+  two-entry score column. Show every intermediate vector and give the final attention
+  weights to three decimals.'
+expected_answer: q1=W_Q x1=[1,0]^T, k1=W_K x1=[1,0]^T, and k2=W_K x2=[0,1]^T. 
+  The raw score column is [1,0]^T. After scaling it is [1/sqrt(2),0]^T, 
+  approximately [0.7071,0]^T. Column-wise softmax gives 
+  [exp(1/sqrt(2))/(exp(1/sqrt(2))+1), 1/(exp(1/sqrt(2))+1)]^T, approximately 
+  [0.670,0.330]^T.
+difficulty: 0.62
+difficulty_source: author
+tags:
+  - attn
+  - qk
+  - procedure-execution
+  - numeric-trace
+hints:
+  - Apply W_Q and W_K before taking any dot products.
+  - Softmax is applied only after every score has been divided by sqrt(d_k).
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.3
+scaffold_level: 0.3
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - calculator
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: attention_weight_numeric_trace
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - qk_first
+  - dot_products_second
+  - scale_before_softmax
+  - column_softmax_last
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: form_query_and_keys
+      points: 1.0
+      description: Forms the target query and both key vectors before computing 
+        scores.
+      tier: core
+      targets:
+        - facet: qk_first
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+    - id: compute_dot_products
+      points: 1.0
+      description: Computes the two key-query dot products from those projected 
+        vectors.
+      tier: core
+      targets:
+        - facet: dot_products_second
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - form_query_and_keys
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+    - id: scale_scores
+      points: 1.0
+      description: Divides every raw score by sqrt(d_k) before normalization.
+      tier: core
+      targets:
+        - facet: scale_before_softmax
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - compute_dot_products
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+    - id: normalize_attention_column
+      points: 1.0
+      description: Applies softmax to the scaled score column and reports 
+        normalized weights.
+      tier: core
+      targets:
+        - facet: column_softmax_last
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - scale_scores
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_queries_keys
+      path: 
+        subjects/attn/notes/note_source_youtube_video_emlx5ffnoyc_082cbd99.md
+      locator: t=374.1-506.7
+      quote: query vector... key matrix... keys as potentially answering the 
+        queries.
+      quote_hash: sha256:src_queries_keys
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+    - ref_type: canonical_source
+      ref_id: src_dot_softmax_pattern
+      path: 
+        subjects/attn/notes/note_source_youtube_video_emlx5ffnoyc_082cbd99.md
+      locator: t=507.2-616.8
+      quote: compute a dot product between each possible key-query pair... We 
+        call this grid an attention pattern.
+      quote_hash: sha256:src_dot_softmax_pattern
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+    - ref_type: canonical_source
+      ref_id: src_scaled_attention_formula
+      path: 
+        subjects/attn/notes/note_source_youtube_video_emlx5ffnoyc_082cbd99.md
+      locator: t=618.1-660.8
+      quote: divide all of these values by the square root of the dimension... 
+        softmax... column by column.
+      quote_hash: sha256:src_scaled_attention_formula
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+created_at: '2026-07-28T03:46:05Z'
+updated_at: '2026-07-28T03:46:58Z'

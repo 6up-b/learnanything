@@ -1,0 +1,140 @@
+schema_version: 1
+id: pi_migration_autoregressive_trace_review_001
+learning_object_id: lo_autoregressive_next_token_generation
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - append_step
+  - iteration_loop
+  - sampling_step
+evidence_weights:
+  append_step: 0.3333333333333333
+  iteration_loop: 0.3333333333333333
+  sampling_step: 0.33333333333333337
+criterion_facet_weights:
+  criterion_append_step:
+    append_step: 1.0
+  criterion_iteration_loop:
+    iteration_loop: 1.0
+  criterion_sampling_step:
+    sampling_step: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: 'A streaming text service emits one token and then predicts again. Review
+  its trace as a state-transition system: identify what is sampled, what is appended
+  to state, and what repeats. Explain why predicting repeatedly from the unchanged
+  prefix is not autoregressive generation.'
+expected_answer: "A complete response establishes each required point:\n- append_step:
+  Autoregressive generation appends the selected next token to the existing sequence
+  before the next prediction.\n- iteration_loop: Autoregressive generation repeats
+  prediction, token selection, and append steps on the updated sequence.\n- sampling_step:
+  Autoregressive generation selects or samples one token from the predicted next-token
+  distribution."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: streaming_decoder_trace_review
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - append_step
+  - iteration_loop
+  - sampling_step
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_append_step
+      points: 1.3333333333333333
+      description: Autoregressive generation appends the selected next token to 
+        the existing sequence before the next prediction.
+      tier: core
+      targets:
+        - facet: append_step
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_generation_loop
+      measurement_status: direct
+    - id: criterion_iteration_loop
+      points: 1.3333333333333333
+      description: Autoregressive generation repeats prediction, token 
+        selection, and append steps on the updated sequence.
+      tier: core
+      targets:
+        - facet: iteration_loop
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_generation_loop
+      measurement_status: direct
+    - id: criterion_sampling_step
+      points: 1.3333333333333335
+      description: Autoregressive generation selects or samples one token from 
+        the predicted next-token distribution.
+      tier: core
+      targets:
+        - facet: sampling_step
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_generation_loop
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:38Z'
+updated_at: '2026-07-28T03:59:22Z'

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type {
+  CommandError,
+  GuidedRedoDto,
   ProbeBlockEndDto,
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
@@ -9,6 +11,7 @@ import { COLOR, FONT_MONO, Faint } from "./term";
 import { Pill } from "./ui";
 import { ProbeRemintAction } from "./CardControls";
 import { CausalFeedbackPanel } from "./CausalAttribution";
+import { CommonRepairCard, GuidedRedoAffordance } from "./RepairAffordances";
 
 // Shared §5.7 block-end review: status/route banner + the withheld feedback
 // released for every attempt in the block. Extracted from DialogueProbe's
@@ -27,6 +30,8 @@ export function ProbeBlockResult({
   route,
   releasedFeedback,
   labelForIndex,
+  onOpenRepair,
+  onGuidedRedo,
   onError,
 }: {
   status: string;
@@ -35,14 +40,33 @@ export function ProbeBlockResult({
   releasedFeedback: ProbeBlockEndDto["releasedFeedback"];
   /** Per-entry caption (defaults to "observation N"); dialogue turns label by kind. */
   labelForIndex?: (index: number) => string;
+  /** "Start the fix" on a released entry's commonRepair card — App's openRepair. */
+  onOpenRepair?: (misconceptionId: string) => void;
+  /** "Redo the part you missed" on a released entry — App's openGuidedRedo. */
+  onGuidedRedo?: (redo: GuidedRedoDto) => void;
   onError?: (message: string) => void;
 }) {
   const [entries, setEntries] = useState(releasedFeedback);
   const [reportingAttemptId, setReportingAttemptId] = useState<string | null>(null);
+  const [dismissedRepairs, setDismissedRepairs] = useState<string[]>([]);
+  const [redoAttemptId, setRedoAttemptId] = useState<string | null>(null);
 
   useEffect(() => {
     setEntries(releasedFeedback);
   }, [releasedFeedback]);
+
+  const startGuidedRedo = async (attemptId: string) => {
+    if (!onGuidedRedo || redoAttemptId) return;
+    setRedoAttemptId(attemptId);
+    try {
+      const redo = await api.startGuidedRedo(attemptId);
+      onGuidedRedo(redo);
+    } catch (error) {
+      onError?.((error as CommandError).message ?? String(error));
+    } finally {
+      setRedoAttemptId(null);
+    }
+  };
 
   const reportContest = async (
     attemptId: string,
@@ -129,6 +153,29 @@ export function ProbeBlockResult({
                 <div className="markdown" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5 }}>
                   <MarkdownMath value={feedback.feedbackMd} />
                 </div>
+              ) : null}
+              {/* Journey B (G3): the block-end hook resumed the deferred repair
+                  consultation, so a released failure carries the same "same
+                  fix" card the FeedbackScreen shows — same components, same
+                  handoff into App's repair flow. */}
+              {onOpenRepair &&
+                feedback.causalFeedback?.commonRepair &&
+                !dismissedRepairs.includes(feedback.attemptId) ? (
+                <CommonRepairCard
+                  commonRepair={feedback.causalFeedback.commonRepair}
+                  onStartFix={onOpenRepair}
+                  onDismiss={() =>
+                    setDismissedRepairs((current) => [...current, feedback.attemptId])
+                  }
+                />
+              ) : null}
+              {/* Server-gated exactly like FeedbackScreen: the SELECTED repair
+                  preserves a prefix, and the attempt lost points. */}
+              {onGuidedRedo && feedback.guidedRedoAvailable && (feedback.rubricScore ?? 0) < 4 ? (
+                <GuidedRedoAffordance
+                  starting={redoAttemptId === feedback.attemptId}
+                  onStart={() => void startGuidedRedo(feedback.attemptId)}
+                />
               ) : null}
             </div>
           ))}

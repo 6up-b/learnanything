@@ -383,6 +383,48 @@ def start_remediation_treatment(
     }
 
 
+def _record_unbound_primed_disposition(
+    repository: Repository,
+    attempt: dict[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Typed §4.3 disposition for a primed repair attempt with NO episode.
+
+    Only fires when the attempt's own diagnosis receipt selected a repair
+    class: that is the mark of primed *repair activity* (a guided redo or a
+    diagnosed retry), as opposed to an ordinary primed attempt with nothing to
+    measure. Mirrors the schedule-time ``unmeasurable_no_held_out_surface``
+    pattern above — with no episode, no held-out cold surface was ever picked,
+    so the repair structurally cannot convert to a cold verification — and the
+    ``no_episode`` detail keeps the two schedule-time facts distinguishable.
+    """
+
+    from learnloop.services.causal_probe_coherence import record_causal_cold_outcome
+    from learnloop.services.guided_redo import _diagnosis_receipt, _selected_repair
+
+    selected = _selected_repair(_diagnosis_receipt(repository, str(attempt["id"])))
+    repair_class = (selected or {}).get("repair_class")
+    repair_class = repair_class if isinstance(repair_class, dict) else {}
+    repair_class_id = str(repair_class.get("id") or "") or None
+    if repair_class_id is None:
+        return
+    record_causal_cold_outcome(
+        repository,
+        outcome="unmeasurable_no_held_out_surface",
+        source_attempt_id=str(attempt["id"]),
+        repair_class_id=repair_class_id,
+        hypothesis_ids=[
+            str(row["id"])
+            for row in repository.causal_hypotheses_for_attempt(str(attempt["id"]))
+            if row.get("id")
+        ],
+        servable_opportunity=False,
+        detail={"stage": "schedule", "reason": "no_episode"},
+        clock=clock,
+    )
+
+
 def record_remediation_attempt(
     repository: Repository,
     attempt: dict[str, Any],
@@ -396,6 +438,11 @@ def record_remediation_attempt(
             str(attempt["practice_item_id"])
         )
         if episode is None:
+            # G6: a primed attempt that carries a diagnosed repair class but
+            # found no episode (the guided redo's held/blocked arm, or any
+            # primed retry taken with the repair lane closed) must not vanish —
+            # nothing downstream would ever say why no cold retry exists.
+            _record_unbound_primed_disposition(repository, attempt, clock=clock)
             return
         cold_item_id = str(episode.get("cold_item_id") or "")
         if not cold_item_id or cold_item_id == str(attempt["practice_item_id"]):
@@ -442,6 +489,32 @@ def record_remediation_attempt(
         context = cold_verification_context(
             None, repository, episode=episode, source_attempt=attempt
         )
+        # A diagnosis-kind episode whose context resolves no repair class would
+        # schedule a 30-day retry doomed to land `missing_chain` at verification
+        # (§4.3). New episodes can no longer be minted unmapped, but episodes
+        # created before that gate — or through other entry points — still reach
+        # here; record the refusal now instead of wasting the measurement.
+        if str(episode.get("case_kind") or "") == "diagnosis" and not context.get(
+            "repair_class_id"
+        ):
+            from learnloop.services.causal_probe_coherence import (
+                record_causal_cold_outcome,
+            )
+
+            record_causal_cold_outcome(
+                repository,
+                outcome="missing_chain",
+                remediation_episode_id=str(episode["id"]),
+                case_kind=str(episode["case_kind"]),
+                case_ref=str(episode["case_ref"]),
+                source_attempt_id=str(attempt["id"]),
+                repair_class_id=None,
+                hypothesis_ids=[str(episode["case_ref"])],
+                servable_opportunity=False,
+                detail={"stage": "schedule", "reason": "no_repair_class"},
+                clock=clock,
+            )
+            return
         repository.create_followup_task(
             kind="cold_retry",
             case_kind=episode["case_kind"],

@@ -24,6 +24,9 @@ criterion_facet_weights:
     append_step: 1.0
   mentions_repeat:
     iteration_loop: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: A model has just produced a probability distribution over possible next 
   tokens for a seed text. In one or two sentences, describe how this prediction 
   model can generate a longer passage.
@@ -46,6 +49,9 @@ hint_policy:
 retrieval_demand: 0.35
 transfer_distance: 0.2
 scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
 surface_family: autoregressive_generation_explanation
 evidence_fingerprint:
   source_family:
@@ -54,6 +60,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - next_token_distribution
   - sampling_step
@@ -68,41 +79,59 @@ grading_rubric:
       description: Mentions that the model produces a probability distribution 
         over possible next tokens.
       tier: core
-      targets: []
+      targets:
+        - facet: next_token_distribution
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: mentions_sampling
       points: 1.0
       description: Mentions sampling or choosing a token from that distribution.
       tier: core
-      targets: []
+      targets:
+        - facet: sampling_step
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: mentions_append
       points: 1.0
       description: Mentions appending the selected token to the existing text.
       tier: core
-      targets: []
+      targets:
+        - facet: append_step
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: mentions_repeat
       points: 1.0
       description: Mentions repeating the prediction process using the updated 
         text.
       tier: core
-      targets: []
+      targets:
+        - facet: iteration_loop
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_training_loop_confusion
       description: Describes retraining or changing model weights at each 
         generated token rather than inference-time prediction and sampling.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -114,5 +143,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:11:57Z'
-updated_at: '2026-07-15T01:10:42Z'
+updated_at: '2026-07-28T03:46:09Z'

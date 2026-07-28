@@ -115,8 +115,8 @@ grading_rubric:
       recipe_ids: []
       measurement_status: direct
   fatal_errors: []
-status: active
-status_reason:
+status: retired
+status_reason: duplicate_surface
 provenance:
   origin: codex_proposal
   source_refs:
@@ -139,4 +139,4 @@ provenance:
         - lo_read_and_apply_the_vector_space_definition
         - lo_what_makes_a_vector_space
 created_at: '2026-07-27T09:20:19Z'
-updated_at: '2026-07-27T09:20:19Z'
+updated_at: '2026-07-28T05:04:44Z'

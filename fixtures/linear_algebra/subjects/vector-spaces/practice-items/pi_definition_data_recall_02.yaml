@@ -58,6 +58,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer: Subtraction and division.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - facet_a_vector_space_is_a_set_with_addition_and_scalar
 grading_rubric:
@@ -74,10 +79,10 @@ grading_rubric:
       recipe_ids: []
       measurement_status: direct
   fatal_errors: []
-status: active
-status_reason:
+status: retired
+status_reason: too_easy
 provenance:
   origin: human
   source_refs: []
 created_at: '2026-07-25T23:50:09Z'
-updated_at: '2026-07-25T23:50:09Z'
+updated_at: '2026-07-28T04:58:54Z'

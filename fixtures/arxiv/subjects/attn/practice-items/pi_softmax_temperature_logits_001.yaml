@@ -25,6 +25,9 @@ criterion_facet_weights:
     probability_constraints: 1.0
   next_token_distribution_use:
     next_token_distribution: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: A language model produces logits for possible next tokens before 
   sampling. What are logits, and what does softmax change about them so they can
   be used as a next-token distribution?
@@ -51,6 +54,9 @@ hint_policy:
 retrieval_demand: 0.4
 transfer_distance: 0.15
 scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
 surface_family: logits_to_softmax_distribution
 evidence_fingerprint:
   source_family:
@@ -60,6 +66,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: Logits are the percentages for each next token,
   and softmax just picks the biggest one.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - logits_raw_scores
   - softmax_normalization
@@ -73,42 +84,60 @@ grading_rubric:
       description: Defines logits as raw unnormalized scores for candidate next 
         tokens.
       tier: core
-      targets: []
+      targets:
+        - facet: logits_raw_scores
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: softmax_nonnegative_probabilities
       points: 1.0
       description: Explains that softmax converts scores into nonnegative 
         probabilities.
       tier: core
-      targets: []
+      targets:
+        - facet: softmax_normalization
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: probabilities_sum_one
       points: 1.0
       description: States that the resulting probabilities sum to 1.
       tier: core
-      targets: []
+      targets:
+        - facet: probability_constraints
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: next_token_distribution_use
       points: 0.75
       description: Connects the probabilities to next-token sampling or 
         selection.
       tier: core
-      targets: []
+      targets:
+        - facet: next_token_distribution
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_logits_already_probabilities
       description: Claims logits are already normalized probabilities before 
         softmax.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -119,11 +148,25 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_tutor_qa_01kx1pec2nhz65ccybh1xjnm82
       path: subjects/attn/notes/note_tutor_qa_01kx1pec2nhz65ccybh1xjnm82.md
       locator:
       quote: temperature controls the distribution output from softmax
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:16Z'
-updated_at: '2026-07-15T01:11:38Z'
+updated_at: '2026-07-28T03:46:42Z'

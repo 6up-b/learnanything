@@ -1,0 +1,261 @@
+schema_version: 1
+id: pi_migration_temperature_dashboard_review_001
+learning_object_id: lo_softmax_logits_temperature
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - higher_temperature_uniformity
+  - logits_raw_scores
+  - lower_temperature_peakedness
+  - lower_values_weight
+  - probability_constraints
+  - sampling_variability
+  - softmax_normalization
+  - unembedding_connection
+  - zero_argmax_limit
+evidence_weights:
+  higher_temperature_uniformity: 0.1111111111111111
+  logits_raw_scores: 0.1111111111111111
+  lower_temperature_peakedness: 0.1111111111111111
+  lower_values_weight: 0.1111111111111111
+  probability_constraints: 0.1111111111111111
+  sampling_variability: 0.1111111111111111
+  softmax_normalization: 0.1111111111111111
+  unembedding_connection: 0.1111111111111111
+  zero_argmax_limit: 0.11111111111111116
+criterion_facet_weights:
+  criterion_higher_temperature_uniformity:
+    higher_temperature_uniformity: 1.0
+  criterion_logits_raw_scores:
+    logits_raw_scores: 1.0
+  criterion_lower_temperature_peakedness:
+    lower_temperature_peakedness: 1.0
+  criterion_lower_values_weight:
+    lower_values_weight: 1.0
+  criterion_probability_constraints:
+    probability_constraints: 1.0
+  criterion_sampling_variability:
+    sampling_variability: 1.0
+  criterion_softmax_normalization:
+    softmax_normalization: 1.0
+  criterion_unembedding_connection:
+    unembedding_connection: 1.0
+  criterion_zero_argmax_limit:
+    zero_argmax_limit: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A dashboard labels pre-softmax output-head values as probabilities and 
+  claims increasing temperature makes the largest value more certain. Correct 
+  the full pipeline from unembedding through logits, temperature and softmax, 
+  including probability constraints, effects on lower logits and variability, 
+  and the zero-temperature limit.
+expected_answer: "A complete response establishes each required point:\n- higher_temperature_uniformity:
+  Increasing softmax temperature flattens the next-token probability distribution.\n\
+  - logits_raw_scores: Logits are raw, unnormalized scores assigned to candidate next
+  tokens.\n- lower_temperature_peakedness: Decreasing softmax temperature concentrates
+  probability on higher-logit tokens.\n- lower_values_weight: At lower temperature,
+  lower-logit tokens receive less relative probability mass; at higher temperature
+  they receive more.\n- probability_constraints: Unlike logits, probabilities are
+  nonnegative and sum to one across candidate tokens.\n- sampling_variability: Lower
+  temperature makes sampling more predictable, while higher temperature increases
+  variation.\n- softmax_normalization: Softmax converts a vector of logits into a
+  nonnegative probability distribution that sums to one.\n- unembedding_connection:
+  The final representation is multiplied by the unembedding matrix to produce vocabulary
+  logits.\n- zero_argmax_limit: As positive softmax temperature approaches zero, probability
+  concentrates on the maximum-logit token."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: sampling_dashboard_semantic_review
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - higher_temperature_uniformity
+  - logits_raw_scores
+  - lower_temperature_peakedness
+  - lower_values_weight
+  - probability_constraints
+  - sampling_variability
+  - softmax_normalization
+  - unembedding_connection
+  - zero_argmax_limit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_higher_temperature_uniformity
+      points: 0.4444444444444444
+      description: Increasing softmax temperature flattens the next-token 
+        probability distribution.
+      tier: core
+      targets:
+        - facet: higher_temperature_uniformity
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_interpret_temperature_change
+      measurement_status: direct
+    - id: criterion_logits_raw_scores
+      points: 0.4444444444444444
+      description: Logits are raw, unnormalized scores assigned to candidate 
+        next tokens.
+      tier: core
+      targets:
+        - facet: logits_raw_scores
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_logits_softmax_pipeline
+      measurement_status: direct
+    - id: criterion_lower_temperature_peakedness
+      points: 0.4444444444444444
+      description: Decreasing softmax temperature concentrates probability on 
+        higher-logit tokens.
+      tier: core
+      targets:
+        - facet: lower_temperature_peakedness
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_interpret_temperature_change
+      measurement_status: direct
+    - id: criterion_lower_values_weight
+      points: 0.4444444444444444
+      description: At lower temperature, lower-logit tokens receive less 
+        relative probability mass; at higher temperature they receive more.
+      tier: core
+      targets:
+        - facet: lower_values_weight
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_interpret_temperature_change
+      measurement_status: direct
+    - id: criterion_probability_constraints
+      points: 0.4444444444444444
+      description: Unlike logits, probabilities are nonnegative and sum to one 
+        across candidate tokens.
+      tier: core
+      targets:
+        - facet: probability_constraints
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_logits_softmax_pipeline
+      measurement_status: direct
+    - id: criterion_sampling_variability
+      points: 0.4444444444444444
+      description: Lower temperature makes sampling more predictable, while 
+        higher temperature increases variation.
+      tier: core
+      targets:
+        - facet: sampling_variability
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_interpret_temperature_change
+      measurement_status: direct
+    - id: criterion_softmax_normalization
+      points: 0.4444444444444444
+      description: Softmax converts a vector of logits into a nonnegative 
+        probability distribution that sums to one.
+      tier: core
+      targets:
+        - facet: softmax_normalization
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_logits_softmax_pipeline
+      measurement_status: direct
+    - id: criterion_unembedding_connection
+      points: 0.4444444444444444
+      description: The final representation is multiplied by the unembedding 
+        matrix to produce vocabulary logits.
+      tier: core
+      targets:
+        - facet: unembedding_connection
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_zero_argmax_limit
+      points: 0.44444444444444464
+      description: As positive softmax temperature approaches zero, probability 
+        concentrates on the maximum-logit token.
+      tier: core
+      targets:
+        - facet: zero_argmax_limit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:55Z'
+updated_at: '2026-07-28T03:59:32Z'

@@ -1,0 +1,117 @@
+schema_version: 1
+id: pi_migration_temperature_policy_selection_001
+learning_object_id: lo_softmax_logits_temperature
+subjects:
+  - attn
+practice_mode: deployment_choice
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - softmax_normalization
+  - zero_argmax_limit
+evidence_weights:
+  softmax_normalization: 0.5
+  zero_argmax_limit: 0.5
+criterion_facet_weights:
+  criterion_softmax_normalization:
+    softmax_normalization: 1.0
+  criterion_zero_argmax_limit:
+    zero_argmax_limit: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A production policy must choose between ordinary temperature sampling 
+  and deterministic greedy decoding. State when softmax normalization is still 
+  required, analyze the T→0 limit, and explain why the limiting distribution 
+  should not be confused with taking an argmax before forming probabilities.
+expected_answer: "A complete response establishes each required point:\n- softmax_normalization:
+  Softmax converts a vector of logits into a nonnegative probability distribution
+  that sums to one.\n- zero_argmax_limit: As positive softmax temperature approaches
+  zero, probability concentrates on the maximum-logit token."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - method-selection
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: method_selection
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: sampling_policy_selection
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - softmax_normalization
+  - zero_argmax_limit
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_softmax_normalization
+      points: 2.0
+      description: Softmax converts a vector of logits into a nonnegative 
+        probability distribution that sums to one.
+      tier: core
+      targets:
+        - facet: softmax_normalization
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_zero_argmax_limit
+      points: 2.0
+      description: As positive softmax temperature approaches zero, probability 
+        concentrates on the maximum-logit token.
+      tier: core
+      targets:
+        - facet: zero_argmax_limit
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:56Z'
+updated_at: '2026-07-28T03:59:33Z'

@@ -9,6 +9,7 @@ from learnloop.services.settings_store import (
     copy_ai_settings,
     openrouter_profile_name,
     openrouter_task_profile_values,
+    remove_config_paths,
     save_ai_settings_to,
     upsert_env_var,
 )
@@ -90,6 +91,26 @@ def test_apply_config_updates_missing_file(tmp_path):
     with pytest.raises(SettingsStoreError) as excinfo:
         apply_config_updates(tmp_path / "absent.toml", {("ai", "active_provider"): "x"})
     assert excinfo.value.code == "config_missing"
+
+
+def test_remove_config_paths_removes_retired_table_and_is_idempotent(tmp_path):
+    path = tmp_path / "learnloop.toml"
+    path.write_text(
+        "# keep me\nschema_version = 1\n\n"
+        "[retired]\nvalue = 2\n\n"
+        "[active]\nvalue = 3\n",
+        encoding="utf-8",
+    )
+
+    removed = remove_config_paths(path, (("retired",), ("missing",)))
+    second = remove_config_paths(path, (("retired",),))
+
+    updated = path.read_text(encoding="utf-8")
+    assert removed == (("retired",),)
+    assert second == ()
+    assert "[retired]" not in updated
+    assert "[active]" in updated
+    assert "# keep me" in updated
 
 
 def _configure_openrouter_ingest(config_path, model="anthropic/claude-sonnet-4.5"):

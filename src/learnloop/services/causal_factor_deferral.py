@@ -1,8 +1,9 @@
 """Bounded deferral for promotion-blocking unresolved-cause factors.
 
-``causal_attribution._open_diagnostic_repair_factor`` opens an
+``causal_attribution._open_repair_factor`` opens an
 ``unresolved_cause_factors`` row (``observation_id`` NULL) for every failed
-diagnostic administration with a mapped repair class, and
+diagnostic administration — and, since G10, every ordinary failed attempt
+with a nontrivial error — with a mapped repair class, and
 ``misconceptions._normalize_compositional`` defers durable-misconception
 promotion while the attempt's factor is open. Deferral stays the default —
 an ambiguous failure should route to repair, not mint a durable belief — but
@@ -38,11 +39,17 @@ like ``causal_orchestrator.sweep_expired_cold_retries``. Re-running the sweep
 (or replaying attempts) reproduces identical factor outcomes; closing an
 already-closed factor is a no-op.
 
-Scope guard: only ``observation_id IS NULL`` factors are touched. The
-observation-keyed factors are owned by the canonical projection's
-``_sync_unresolved_cause_factors`` reconciliation, and closing one here could
-fight that sync (a 'retired' observation factor would be re-opened on the
-next projection pass).
+Scope (G15): BOTH factor families exit here — the attempt-keyed rows
+(``observation_id`` NULL) this lane opens itself AND the observation-keyed
+rows the canonical projection's ``_sync_unresolved_cause_factors`` owns. The
+two owners no longer fight: a factor closed here carries a
+``resolution_kind``, ``unresolved_cause_observation_ids`` counts any
+deferral-labeled row as existing (so the sync cannot re-insert it while its
+failure persists), and the sync's ``retire_unresolved_cause_factor`` touches
+only OPEN rows (so it can neither stomp a ``resolution_kind`` nor resurrect a
+closed factor). Conversely, a factor the sync already retired is not open and
+is therefore invisible to every exit below — closing here stays idempotent
+against the sync's retirement.
 """
 
 from __future__ import annotations
@@ -86,12 +93,18 @@ def _concrete_refs(factor: Mapping[str, Any]) -> list[dict[str, Any]]:
     return refs
 
 
-def _open_diagnostic_factors(repository: Repository) -> list[dict[str, Any]]:
-    return [
-        factor
-        for factor in repository.unresolved_cause_factors(status="open")
-        if factor.get("observation_id") is None
-    ]
+def _open_factors(repository: Repository) -> list[dict[str, Any]]:
+    """Every open factor, attempt-keyed AND observation-keyed (G15).
+
+    Observation-keyed rows join the deferral exits: their candidate refs are
+    rewritten to hydrated hypothesis refs by
+    ``causal_attribution.materialize_causal_episode`` exactly like the
+    attempt-keyed rows', so ``_concrete_refs``/withdrawal work identically. A
+    not-yet-materialized factor has no hypothesis refs and simply matches
+    nothing below — safe, not wrong.
+    """
+
+    return repository.unresolved_cause_factors(status="open")
 
 
 def _withdraw_candidate_hypothesis(
@@ -172,6 +185,11 @@ def apply_cold_verification_to_factors(
     * success=False → exit (b-i): resolve as ``escalated_unrepaired`` so the
       recurring signature may promote on its next materialization.
 
+    Covers observation-keyed factors too (G15): a cold success on the repair
+    class an ordinary-attempt factor names confirms-and-fixes that factor the
+    same way, and the projection sync will not resurrect a
+    ``resolution_kind``-closed row (see module docstring).
+
     Idempotent: factors already closed are skipped, and re-recording the same
     (content-addressed) verification finds nothing left open to act on.
     """
@@ -182,7 +200,7 @@ def apply_cold_verification_to_factors(
     success = bool(receipt.get("success"))
     verification_id = str(receipt.get("id") or "")
     actions: list[dict[str, Any]] = []
-    for factor in _open_diagnostic_factors(repository):
+    for factor in _open_factors(repository):
         matched = [
             ref
             for ref in _concrete_refs(factor)
@@ -331,7 +349,12 @@ def sweep_promotion_blocking_factors(
     *,
     clock: Clock | None = None,
 ) -> list[dict[str, Any]]:
-    """Attempt-time sweep: exits (b-ii) and (c) for open diagnostic factors.
+    """Attempt-time sweep: exits (b-ii) and (c) for every open factor.
+
+    Observation-keyed factors are swept too (G15): an unengaged case defers
+    promotion identically whichever gate opened its factor, so the recurrence
+    and TTL bounds apply to both families. The projection sync cannot re-open
+    a swept factor (module docstring).
 
     Runs from the same seams as ``sweep_expired_cold_retries`` (the per-attempt
     orchestrator hook) and from ``_normalize_compositional`` between episode
@@ -349,15 +372,11 @@ def sweep_promotion_blocking_factors(
     place forever.
     """
 
-    open_factors = _open_diagnostic_factors(repository)
+    open_factors = _open_factors(repository)
     if not open_factors:
         return []
     now = (clock or SystemClock()).now()
-    all_factors = [
-        factor
-        for factor in repository.unresolved_cause_factors(status=None)
-        if factor.get("observation_id") is None
-    ]
+    all_factors = repository.unresolved_cause_factors(status=None)
     actions: list[dict[str, Any]] = []
     for factor in open_factors:
         factor_id = str(factor["id"])

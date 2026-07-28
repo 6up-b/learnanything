@@ -25,6 +25,9 @@ criterion_facet_weights:
     lower_values_weight: 1.0
   sampling_variability_effect:
     sampling_variability: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: For the same logits, compare a low-temperature softmax with a 
   high-temperature softmax. Which one is more peaked, which one is more uniform,
   and how does that affect sampling variability?
@@ -52,6 +55,9 @@ hint_policy:
 retrieval_demand: 0.45
 transfer_distance: 0.2
 scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
 surface_family: temperature_effect_comparison
 evidence_fingerprint:
   source_family:
@@ -61,6 +67,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: High temperature makes the model more confident
   in the top token, while low temperature spreads probability more evenly.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - lower_temperature_peakedness
   - higher_temperature_uniformity
@@ -74,43 +85,61 @@ grading_rubric:
       description: States that lower temperature makes the distribution more 
         peaked around high-logit tokens.
       tier: core
-      targets: []
+      targets:
+        - facet: lower_temperature_peakedness
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: high_temperature_uniform
       points: 1.0
       description: States that higher temperature makes the distribution more 
         uniform or flatter.
       tier: core
-      targets: []
+      targets:
+        - facet: higher_temperature_uniformity
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: lower_values_less_weight
       points: 0.75
       description: Explains that lower-scoring tokens receive less weight at low
         temperature and relatively more at high temperature.
       tier: core
-      targets: []
+      targets:
+        - facet: lower_values_weight
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: sampling_variability_effect
       points: 1.25
       description: Connects low temperature to less sampling variability and 
         high temperature to more sampling variability.
       tier: core
-      targets: []
+      targets:
+        - facet: sampling_variability
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_temperature_effect_reversed
       description: Reverses the temperature effect by saying high temperature is
         more peaked and low temperature is more uniform.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -121,12 +150,26 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_tutor_qa_01kx1pec2nhz65ccybh1xjnm82
       path: subjects/attn/notes/note_tutor_qa_01kx1pec2nhz65ccybh1xjnm82.md
       locator:
       quote: temperature controls the distribution output from softmax
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_tutor_qa_01kx1ssdt65kpw5rb797cpf5sk
       path: subjects/attn/notes/note_tutor_qa_01kx1ssdt65kpw5rb797cpf5sk.md
@@ -134,5 +177,12 @@ provenance:
       quote: If (T) is small, then the gap between a high logit and low logit 
         should be high.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:15Z'
-updated_at: '2026-07-15T01:11:35Z'
+updated_at: '2026-07-28T03:46:40Z'

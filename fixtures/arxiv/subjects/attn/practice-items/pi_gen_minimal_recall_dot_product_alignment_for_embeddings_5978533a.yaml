@@ -13,6 +13,9 @@ evidence_weights:
 criterion_facet_weights:
   correctness:
     alignment_interpretation: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: From memory, in the Learning Object "Interpret Dot Products As Vector 
   Alignment," what is the alignment interpretation of a dot product between two 
   embedding vectors?
@@ -31,6 +34,9 @@ hint_policy:
 retrieval_demand:
 transfer_distance: 0.0
 scaffold_level:
+capability:
+task_features:
+task_feature_schema:
 surface_family: minimal_recall_llm_embedding_score_meaning_recall
 evidence_fingerprint:
   source_family:
@@ -39,6 +45,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets: []
 grading_rubric:
   max_points: 4
@@ -47,13 +58,19 @@ grading_rubric:
       points: 4.0
       description: Response demonstrates the target idea with a decisive reason.
       tier: core
-      targets: []
+      targets:
+        - facet: alignment_interpretation
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors: []
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs: []
 created_at: '2026-07-13T16:32:41Z'
-updated_at: '2026-07-15T01:11:14Z'
+updated_at: '2026-07-28T03:46:27Z'

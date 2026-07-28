@@ -36,6 +36,9 @@ criterion_facet_weights:
   output_functions:
     unembedding_role: 0.5
     softmax_role: 0.5
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: 'Put these GPT-style transformer steps in order and briefly say what each
   does: attention block, softmax distribution, tokenization, feed-forward layer, embedding
   vectors, unembedding matrix.'
@@ -60,6 +63,9 @@ hint_policy:
 retrieval_demand: 0.55
 transfer_distance: 0.3
 scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
 surface_family: transformer_pipeline_ordering
 evidence_fingerprint:
   source_family:
@@ -68,6 +74,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - tokenization_order
   - embedding_order
@@ -84,53 +95,77 @@ grading_rubric:
       points: 0.666667
       description: Places tokenization before embedding vectors.
       tier: core
-      targets: []
+      targets:
+        - facet: tokenization_order
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: correct_block_order
       points: 0.666667
       description: Places attention before or alongside repeated feed-forward 
         processing as part of transformer blocks.
       tier: core
-      targets: []
+      targets:
+        - facet: attention_role
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: correct_output_order
       points: 0.666667
       description: Places unembedding before softmax distribution.
       tier: core
-      targets: []
+      targets:
+        - facet: unembedding_role
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: token_embedding_functions
       points: 0.666667
       description: Correctly describes tokenization and embeddings.
       tier: core
-      targets: []
+      targets:
+        - facet: embedding_order
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: block_functions
       points: 0.666667
       description: Correctly describes attention as context exchange and 
         feed-forward as parallel per-vector processing.
       tier: core
-      targets: []
+      targets:
+        - facet: feed_forward_role
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: output_functions
       points: 0.666665
       description: Correctly describes unembedding as raw scores/logits and 
         softmax as probabilities.
       tier: core
-      targets: []
+      targets:
+        - facet: softmax_role
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_softmax_before_unembedding
       description: Places softmax before the unembedding/raw-score step in a way
@@ -141,6 +176,8 @@ grading_rubric:
       description: Claims attention is what breaks text into tokens.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -152,5 +189,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:11:59Z'
-updated_at: '2026-07-15T01:11:42Z'
+updated_at: '2026-07-28T03:46:44Z'

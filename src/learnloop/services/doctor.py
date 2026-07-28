@@ -23,6 +23,7 @@ from learnloop.services.instrument_serving import (
     UNSERVABLE_REMEDIES,
     unservable_reason,
 )
+from learnloop.services.error_taxonomy_map import map_legacy_error_type
 from learnloop.services.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import (
@@ -473,7 +474,6 @@ def _check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None:
     concept_ids = set(vault.concepts)
     subject_ids = set(vault.subjects)
     learning_object_ids = set(vault.learning_objects)
-    error_type_ids = set(vault.error_types)
 
     for goal in vault.goals:
         for concept_id in goal.facet_scope.concepts:
@@ -495,10 +495,6 @@ def _check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None:
         rubric = vault.rubric_for_item(item)
         if rubric is None:
             issues.append(_issue("warning", "practice_item:missing_rubric", f"{item.id} has no resolved grading rubric", entity_id=item.id))
-        else:
-            for fatal_error in rubric.fatal_errors:
-                if fatal_error.id not in error_type_ids:
-                    issues.append(_issue("warning", "rubric:unaligned_error_type", f"{item.id} fatal error {fatal_error.id} is not in errors/error_types.yaml", entity_id=item.id))
     for note in vault.notes.values():
         for subject_id in note.subjects:
             if subject_id not in subject_ids:
@@ -570,13 +566,31 @@ def _check_sql_state(vault: LoadedVault, repository: Repository, issues: list[He
         if learning_object_id not in vault.learning_objects:
             issues.append(_issue("warning", "sql:mastery_for_missing_learning_object", f"SQL mastery exists for missing Learning Object {learning_object_id}", entity_id=learning_object_id))
     known_error_types = set(vault.error_types)
+    rubric_signature_ids = {
+        fatal_error.id
+        for item in vault.practice_items.values()
+        for fatal_error in (
+            vault.rubric_for_item(item).fatal_errors
+            if vault.rubric_for_item(item) is not None
+            else ()
+        )
+    }
     for error in repository.active_error_events():
-        if error.error_type not in known_error_types:
+        canonical = map_legacy_error_type(error.error_type)
+        if (
+            error.error_type not in known_error_types
+            and canonical not in known_error_types
+            and error.error_type not in rubric_signature_ids
+        ):
             issues.append(
                 _issue(
                     "warning",
                     "errors:unaligned_error_type",
-                    f"Active error event {error.id} uses unknown error_type {error.error_type}",
+                    (
+                        f"Active error event {error.id} uses unknown error_type "
+                        f"{error.error_type}; it resolves to no registered causal "
+                        "mechanism or rubric detector signature"
+                    ),
                     entity_id=error.id,
                 )
             )
@@ -1308,6 +1322,23 @@ def _check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue])
                 score = _facet_similarity(left, right)
                 if score < 0.68:
                     continue
+                left_contract = vault.evidence_facets.get(left)
+                right_contract = vault.evidence_facets.get(right)
+                if (
+                    left_contract is not None
+                    and right_contract is not None
+                    and left_contract.claim
+                    and right_contract.claim
+                    and _text_similarity(
+                        left_contract.claim, right_contract.claim
+                    )
+                    < 0.35
+                ):
+                    # Similar ids can encode an intentional contrast (for
+                    # example embedding_direction vs unembedding_direction).
+                    # Once both semantic contracts exist, a lexical id overlap
+                    # alone is not enough to recommend destructive coarsening.
+                    continue
                 code = "evidence_facet:merge_candidate:auto_propose" if score >= 0.82 else "evidence_facet:merge_candidate:needs_review"
                 issues.append(
                     _issue(
@@ -1542,8 +1573,13 @@ def _facet_similarity(left: str, right: str) -> float:
     if not left_tokens or not right_tokens:
         return 0.0
     jaccard = len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
-    short = min(left, right, key=len)
-    long = max(left, right, key=len)
+    # ``min`` and ``max`` both return the first argument on a key tie. The old
+    # code therefore compared every pair of equal-length ids with *itself* and
+    # assigned a bogus 0.85 containment score. Preserve both operands.
+    if len(left) <= len(right):
+        short, long = left, right
+    else:
+        short, long = right, left
     containment = 1.0 if short and short in long else 0.0
     return max(jaccard, containment * 0.85)
 

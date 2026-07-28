@@ -24,6 +24,9 @@ criterion_facet_weights:
     future_leakage: 1.0
   renormalize_allowed_positions:
     allowed_positions: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: A decoder attention row has raw scores for positions 1 through 4, but 
   position 4 is future information for the current token. Describe what the mask
   changes before softmax and what effect that has after softmax.
@@ -51,6 +54,9 @@ hint_policy:
 retrieval_demand: 0.45
 transfer_distance: 0.25
 scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
 surface_family: pre_softmax_masking_explanation
 evidence_fingerprint:
   source_family:
@@ -60,6 +66,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: The model computes attention to all tokens and 
   then deletes the future token from the final output.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - masking_mechanism
   - future_leakage
@@ -72,44 +83,65 @@ grading_rubric:
       description: States that masking is applied to attention scores/logits 
         before softmax.
       tier: core
-      targets: []
+      targets:
+        - facet: masking_mechanism
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: forbidden_score_negative_infinity
       points: 1.0
       description: Explains that the future position is made effectively 
         impossible, commonly by adding negative infinity or a very large 
         negative value.
       tier: core
-      targets: []
+      targets:
+        - facet: masking_mechanism
+          capability: procedure_execution
+          role: primary
+        - facet: future_leakage
+          capability: procedure_execution
+          role: supporting
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
     - id: zero_weight_after_softmax
       points: 1.0
       description: States that the forbidden future position receives zero 
         attention probability after softmax.
       tier: core
-      targets: []
+      targets:
+        - facet: future_leakage
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: renormalize_allowed_positions
       points: 1.0
       description: Explains that softmax probability mass is distributed over 
         the allowed current and previous positions.
       tier: core
-      targets: []
+      targets:
+        - facet: allowed_positions
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_mask_after_weighted_sum
       description: Places the causal mask only after values have already been 
         mixed, missing the attention-probability mechanism.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -120,6 +152,13 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_source_attention_is_all_you_need_fc4584d5
       path: 
@@ -127,11 +166,25 @@ provenance:
       locator:
       quote: Attention Is All You Need
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_tutor_qa_01kx3ntda8mxpfw9gtzk63zdt6
       path: subjects/attn/notes/note_tutor_qa_01kx3ntda8mxpfw9gtzk63zdt6.md
       locator:
       quote: Why do we need to hide future tokens from past tokens?
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:05Z'
-updated_at: '2026-07-15T01:10:51Z'
+updated_at: '2026-07-28T03:46:14Z'

@@ -24,6 +24,9 @@ criterion_facet_weights:
     scale_before_softmax: 1.0
   column_softmax_last:
     column_softmax_last: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: 'Put these steps in order for producing an attention pattern from embeddings:
   apply softmax column-wise; compute query and key vectors; take all key-query dot
   products; scale scores by the square root of the key-query dimension.'
@@ -48,6 +51,9 @@ hint_policy:
 retrieval_demand: 0.55
 transfer_distance: 0.22
 scaffold_level: 0.35
+capability:
+task_features:
+task_feature_schema:
 surface_family: attention_computation_ordering
 evidence_fingerprint:
   source_family:
@@ -56,6 +62,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - qk_first
   - dot_products_second
@@ -69,39 +80,57 @@ grading_rubric:
       points: 1.0
       description: Places query/key projection before scoring.
       tier: core
-      targets: []
+      targets:
+        - facet: qk_first
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: dot_products_second
       points: 1.0
       description: Places all pairwise dot products after Q/K projection.
       tier: core
-      targets: []
+      targets:
+        - facet: dot_products_second
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: scale_before_softmax
       points: 1.0
       description: Places scaling before softmax.
       tier: core
-      targets: []
+      targets:
+        - facet: scale_before_softmax
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: column_softmax_last
       points: 1.0
       description: Places column-wise softmax last as normalization.
       tier: core
-      targets: []
+      targets:
+        - facet: column_softmax_last
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_softmax_before_scores
       description: Applies softmax before key-query scores exist.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -113,6 +142,13 @@ provenance:
       quote: query vector... key matrix... keys as potentially answering the 
         queries.
       quote_hash: sha256:src_queries_keys
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_dot_softmax_pattern
       path: 
@@ -121,6 +157,13 @@ provenance:
       quote: compute a dot product between each possible key-query pair... We 
         call this grid an attention pattern.
       quote_hash: sha256:src_dot_softmax_pattern
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_scaled_attention_formula
       path: 
@@ -129,5 +172,12 @@ provenance:
       quote: divide all of these values by the square root of the dimension... 
         softmax... column by column.
       quote_hash: sha256:src_scaled_attention_formula
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:21Z'
-updated_at: '2026-07-15T01:11:25Z'
+updated_at: '2026-07-28T03:46:35Z'

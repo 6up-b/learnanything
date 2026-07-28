@@ -342,7 +342,13 @@ def _facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None:
         return None
     return {
         "statement": f"Failure of {target.facet} at {target.capability}",
-        "cause_scope": "unknown",
+        # A synthesized arm names a facet THIS LEARNER failed — a learner-state
+        # claim.  "unknown" silently excluded the materialized hypothesis from
+        # `_projected_causal_candidates` (learner_state heads only), which
+        # killed the repair offer for every open-world arm.  The open-set arm
+        # below stays "unknown": "another cause not represented" may genuinely
+        # be content- or instrument-side.
+        "cause_scope": "learner_state",
         "target_ref": {
             "kind": "facet_capability",
             "facet_id": target.facet,
@@ -1034,7 +1040,17 @@ def _sync_unresolved_cause_factors(
 
     Keyed by observation_id (stable per grading revision), so a re-run neither
     duplicates nor loses an open cause set. Factors whose failure no longer
-    appears are retired; new ambiguous failures are inserted (§5.3)."""
+    appears are retired; new ambiguous failures are inserted (§5.3).
+
+    Coexistence with the bounded-deferral exits (G15): an observation-keyed
+    factor the deferral machinery closed with a ``resolution_kind``
+    (repair_confirmed / escalated_unrepaired / expired_unengaged) must stay
+    closed even while its failure still appears in the projection —
+    ``unresolved_cause_observation_ids`` therefore includes deferral-labeled
+    rows of ANY status, so the insert below cannot resurrect one.  The
+    retirement path is already safe: ``retire_unresolved_cause_factor``
+    touches only OPEN rows, so it can neither stomp a ``resolution_kind`` nor
+    re-open a closed factor."""
 
     existing = repository.unresolved_cause_observation_ids()
     existing_open = repository.open_unresolved_cause_observation_ids()

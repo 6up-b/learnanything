@@ -13,6 +13,9 @@ evidence_weights:
 criterion_facet_weights:
   correctness:
     alignment_interpretation: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: "For the learning object \"Interpret Dot Products As Vector Alignment,\" treat
   these three feature-weight rows as embedding vectors:\n\n| item | novelty | rigor
   | speed |\n|---|---:|---:|---:|\n| query q | 2 | -1 | 3 |\n| note A | 1 | 4 | 0
@@ -35,6 +38,9 @@ hint_policy:
 retrieval_demand:
 transfer_distance: 0.35
 scaffold_level:
+capability:
+task_features:
+task_feature_schema:
 surface_family: perturbation_llm_feature_table_projection
 evidence_fingerprint:
   source_family:
@@ -43,6 +49,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets: []
 grading_rubric:
   max_points: 4
@@ -51,18 +62,24 @@ grading_rubric:
       points: 4.0
       description: Response demonstrates the target idea with a decisive reason.
       tier: core
-      targets: []
+      targets:
+        - facet: alignment_interpretation
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: surface_bound_error
       description: Answer reproduces the familiar surface and breaks on the 
         shifted surface.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs: []
 created_at: '2026-07-13T16:32:56Z'
-updated_at: '2026-07-15T01:11:16Z'
+updated_at: '2026-07-28T03:46:28Z'

@@ -1,0 +1,257 @@
+schema_version: 1
+id: pi_migration_scaled_attention_api_review_001
+learning_object_id: lo_scaled_dot_product_attention
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - clarity
+  - compatibility_weights
+  - correct_order
+  - dot_products
+  - qkv_roles
+  - scaling
+  - softmax
+  - value_weighting
+  - weighted_sum
+evidence_weights:
+  clarity: 0.1111111111111111
+  compatibility_weights: 0.1111111111111111
+  correct_order: 0.1111111111111111
+  dot_products: 0.1111111111111111
+  qkv_roles: 0.1111111111111111
+  scaling: 0.1111111111111111
+  softmax: 0.1111111111111111
+  value_weighting: 0.1111111111111111
+  weighted_sum: 0.11111111111111116
+criterion_facet_weights:
+  criterion_clarity:
+    clarity: 1.0
+  criterion_compatibility_weights:
+    compatibility_weights: 1.0
+  criterion_correct_order:
+    correct_order: 1.0
+  criterion_dot_products:
+    dot_products: 1.0
+  criterion_qkv_roles:
+    qkv_roles: 1.0
+  criterion_scaling:
+    scaling: 1.0
+  criterion_softmax:
+    softmax: 1.0
+  criterion_value_weighting:
+    value_weighting: 1.0
+  criterion_weighted_sum:
+    weighted_sum: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: 'An API names Q, K, and V but its documentation says values determine compatibility
+  and keys are averaged into the output. Rewrite the documentation as a precise dataflow:
+  assign each tensor its role, explain score construction and scaling, normalization,
+  and the final value mixture in an unambiguous order.'
+expected_answer: "A complete response establishes each required point:\n- clarity:
+  A technically coherent attention explanation distinguishes how query-key comparisons
+  form weights from how values supply output content.\n- compatibility_weights: Query-key
+  compatibility scores determine the normalized attention weights.\n- correct_order:
+  Scaled dot-product attention computes query-key dot products, scales the scores,
+  applies softmax, and then forms a weighted sum of values in that order.\n- dot_products:
+  Scaled dot-product attention scores each key by taking its dot product with the
+  query.\n- qkv_roles: Queries express what a position seeks, keys are compared with
+  queries to form weights, and values carry the content mixed into the output.\n-
+  scaling: Scaled dot-product attention divides query-key dot products by the square
+  root of the key dimension.\n- softmax: Scaled dot-product attention applies softmax
+  to scaled compatibility scores to obtain attention weights.\n- value_weighting:
+  An attention output multiplies each value vector by its corresponding attention
+  weight.\n- weighted_sum: An attention output is the weighted sum of value vectors
+  using normalized attention weights."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: attention_api_semantic_review
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - clarity
+  - compatibility_weights
+  - correct_order
+  - dot_products
+  - qkv_roles
+  - scaling
+  - softmax
+  - value_weighting
+  - weighted_sum
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_clarity
+      points: 0.4444444444444444
+      description: A technically coherent attention explanation distinguishes 
+        how query-key comparisons form weights from how values supply output 
+        content.
+      tier: core
+      targets:
+        - facet: clarity
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_compatibility_weights
+      points: 0.4444444444444444
+      description: Query-key compatibility scores determine the normalized 
+        attention weights.
+      tier: core
+      targets:
+        - facet: compatibility_weights
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_correct_order
+      points: 0.4444444444444444
+      description: Scaled dot-product attention computes query-key dot products,
+        scales the scores, applies softmax, and then forms a weighted sum of 
+        values in that order.
+      tier: core
+      targets:
+        - facet: correct_order
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_dot_products
+      points: 0.4444444444444444
+      description: Scaled dot-product attention scores each key by taking its 
+        dot product with the query.
+      tier: core
+      targets:
+        - facet: dot_products
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_qkv_roles
+      points: 0.4444444444444444
+      description: Queries express what a position seeks, keys are compared with
+        queries to form weights, and values carry the content mixed into the 
+        output.
+      tier: core
+      targets:
+        - facet: qkv_roles
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_scaling
+      points: 0.4444444444444444
+      description: Scaled dot-product attention divides query-key dot products 
+        by the square root of the key dimension.
+      tier: core
+      targets:
+        - facet: scaling
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_softmax
+      points: 0.4444444444444444
+      description: Scaled dot-product attention applies softmax to scaled 
+        compatibility scores to obtain attention weights.
+      tier: core
+      targets:
+        - facet: softmax
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_value_weighting
+      points: 0.4444444444444444
+      description: An attention output multiplies each value vector by its 
+        corresponding attention weight.
+      tier: core
+      targets:
+        - facet: value_weighting
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_weighted_sum
+      points: 0.44444444444444464
+      description: An attention output is the weighted sum of value vectors 
+        using normalized attention weights.
+      tier: core
+      targets:
+        - facet: weighted_sum
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:52Z'
+updated_at: '2026-07-28T03:59:30Z'

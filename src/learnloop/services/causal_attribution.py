@@ -1580,10 +1580,18 @@ def _hypothesis_specs(
                 "attempt_id": attempt_id,
                 "error_event_id": str(event["id"]),
                 "learning_object_id": learning_object_id,
+                # A hypothesis minted from a learner attempt's error event is a
+                # claim about the LEARNER unless the grader explicitly scoped
+                # the cause elsewhere (item_contract / grader_interpretation
+                # stay whatever they were declared as). Defaulting to
+                # "unknown" here silently excluded the belief from
+                # `_projected_causal_candidates` (which projects only
+                # learner_state heads), which killed the repair offer for
+                # every under-specified diagnosis.
                 "cause_scope": str(
                     candidate.get("cause_scope")
                     or plan.get("cause_scope")
-                    or "unknown"
+                    or "learner_state"
                 ),
                 "statement": statement,
                 "statement_normalized": _normalized(statement),
@@ -1685,7 +1693,13 @@ def _hypothesis_specs(
                 "attempt_id": attempt_id,
                 "error_event_id": None,
                 "learning_object_id": learning_object_id,
-                "cause_scope": str(candidate.get("cause_scope") or "unknown"),
+                # Same learner-derived default as the event branch above: a
+                # factor's candidate causes come from this learner's failed
+                # observation, so a missing scope means learner_state, not
+                # "unknown" (which the candidate projection excludes).
+                "cause_scope": str(
+                    candidate.get("cause_scope") or "learner_state"
+                ),
                 "statement": statement,
                 "statement_normalized": _normalized(statement),
                 "operation": candidate.get("operation"),
@@ -1946,23 +1960,112 @@ def _attempt_trace_contract(
     return item.trace_contract if item is not None else None
 
 
-def _open_diagnostic_repair_factor(
+#: G10 — which canonical error mechanisms count as NONTRIVIAL for the purpose
+#: of opening a repair-lane factor on an ORDINARY (non-``diagnostic_probe``)
+#: failed attempt.  The inclusion list is exactly the §10.1 mechanisms whose
+#: ``MECHANISM_IS_MISCONCEPTION`` default is True — a durable wrong belief or
+#: method fault the repair lane can act on:
+#:
+#:   conceptual_schema_error, procedure_execution_error,
+#:   selection_planning_error, condition_assumption_error,
+#:   representation_notation_error, transfer_context_error.
+#:
+#: EXCLUDED (trivial or non-learner):
+#:   local_slip           — a local arithmetic/sign/completeness slip; setup and
+#:                          method were right, so there is no cause to repair
+#:                          (legacy spellings ``arithmetic_slip`` /
+#:                          ``incomplete_answer`` map here);
+#:   retrieval_failure    — a retrieval lapse routes to spacing/retrieval, not
+#:                          the causal repair lane (legacy ``recall_failure`` /
+#:                          ``scaffold_failure`` map here);
+#:   assessment_ambiguity — the fault is the item/grader
+#:                          (``ASSESSMENT_SIDE_ERROR_TYPES``), never a
+#:                          learner-repair signal.
+#:
+#: Legacy names are resolved through ``map_legacy_error_type`` before the test,
+#: so the vocabulary is the canonical nine.  An UNKNOWN vault-specific id is
+#: treated as nontrivial: it is not a known slip, and the conservative
+#: direction for the repair lane is to open the factor and let the bounded
+#: deferral exits (`causal_factor_deferral`) close it.
+NONTRIVIAL_REPAIR_ERROR_TYPES = frozenset(
+    {
+        "conceptual_schema_error",
+        "procedure_execution_error",
+        "selection_planning_error",
+        "condition_assumption_error",
+        "representation_notation_error",
+        "transfer_context_error",
+    }
+)
+
+#: The complement: canonical mechanisms that must NOT open a repair factor.
+TRIVIAL_REPAIR_ERROR_TYPES = frozenset(
+    {"local_slip", "retrieval_failure", "assessment_ambiguity"}
+)
+
+
+def _attempt_has_nontrivial_error(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    concrete: Sequence[Mapping[str, Any]],
+) -> bool:
+    """True when the attempt's recorded error types include a nontrivial one.
+
+    Reads the ``error_type`` each concrete hypothesis carried out of its source
+    error event (``evidence.error_type``), falling back to the attempt's error
+    events for factor-derived hypotheses whose evidence has no event.  With NO
+    typed error evidence at all the answer is False: the machine cannot
+    distinguish the failure from a slip, and opening a promotion-deferring
+    factor on an untyped error would widen the deferral without evidence.
+    """
+
+    from learnloop.services.error_taxonomy_map import map_legacy_error_type
+
+    error_types: set[str] = set()
+    for value in concrete:
+        evidence = value.get("evidence")
+        if isinstance(evidence, Mapping) and evidence.get("error_type"):
+            error_types.add(str(map_legacy_error_type(str(evidence["error_type"]))))
+    if not error_types:
+        for event in repository.error_events_for_attempt(attempt_id):
+            if event.get("error_type"):
+                error_types.add(
+                    str(map_legacy_error_type(str(event["error_type"])))
+                )
+    return any(
+        value not in TRIVIAL_REPAIR_ERROR_TYPES for value in error_types
+    )
+
+
+def _open_repair_factor(
     repository: Repository,
     *,
     attempt: Mapping[str, Any],
     concrete: Sequence[Mapping[str, Any]],
     clock: Clock | None,
 ) -> None:
-    """Open the repair-lane factor a failed diagnostic administration owes.
+    """Open the repair-lane factor a failed attempt owes.
 
     P0 opens unresolved-cause factors only through the canonical projection's
-    multi-target ambiguity gate (§5.3), which a vault-authored
-    ``diagnostic_probe`` item's single-target contract never trips. The episode
-    materialized above still names concrete causes with mapped repair classes,
-    but with no open factor ``causal_orchestrator.causal_repair_status`` has no
-    case to decide and the post-attempt consultation
-    (``followups._consult_common_repair``) bails — the repair lane is
-    unreachable exactly where a diagnosis just succeeded.
+    multi-target ambiguity gate (§5.3), which a single-target contract never
+    trips. The episode materialized above still names concrete causes with
+    mapped repair classes, but with no open factor
+    ``causal_orchestrator.causal_repair_status`` has no case to decide and the
+    post-attempt consultation (``followups._consult_common_repair``) bails —
+    the repair lane is unreachable exactly where a diagnosis just succeeded.
+
+    Two producers feed this gate:
+
+    * a failed ``diagnostic_probe`` administration — unconditionally (the item
+      was authored to diagnose; its finding is the point);
+    * G10: an ORDINARY failed attempt whose recorded error is NONTRIVIAL
+      (:data:`NONTRIVIAL_REPAIR_ERROR_TYPES`) — a local slip or retrieval lapse
+      must not open a promotion-deferring repair case.  This widens promotion
+      deferral (`misconceptions._normalize_compositional` blocks on the
+      attempt's open factor) to ordinary attempts; the bounded-deferral exits
+      (K recurrences / TTL / cold outcomes in ``causal_factor_deferral``)
+      keep the window finite.
 
     Mirrors ``record_causal_diagnosis_contest``: the thinnest possible factor,
     hypothesis refs plus the open-set arm. ``observation_id`` stays NULL so the
@@ -1970,11 +2073,12 @@ def _open_diagnostic_repair_factor(
     (``canonical_projection._sync_unresolved_cause_factors``) neither
     duplicates nor retires it; idempotency is the any-status per-attempt check
     below, which also keeps replay and re-materialization from re-opening a
-    factor the learner already resolved or retired.
+    factor the learner already resolved or retired — and which likewise skips
+    attempts whose multi-target failure already opened an observation-keyed
+    factor through the projection gate (the projection fold runs before
+    materialization on the live path).
     """
 
-    if str(attempt.get("attempt_type") or "") != "diagnostic_probe":
-        return
     if float(attempt.get("correctness") or 0.0) >= 1.0:
         return
     if not concrete or not any(value.get("repair_class_id") for value in concrete):
@@ -1982,6 +2086,12 @@ def _open_diagnostic_repair_factor(
         # differently; the machine-side backfill obligation owns this gap.
         return
     attempt_id = str(attempt["id"])
+    if str(
+        attempt.get("attempt_type") or ""
+    ) != "diagnostic_probe" and not _attempt_has_nontrivial_error(
+        repository, attempt_id=attempt_id, concrete=concrete
+    ):
+        return
     if any(
         repository.unresolved_cause_factors_for_attempt(attempt_id, status=status)
         for status in ("open", "resolved", "retired")
@@ -2338,10 +2448,11 @@ def materialize_causal_episode(
     }
     if repository.attempt_debug_payload(attempt_id) is not None:
         repository.append_attempt_diagnosis_receipt(attempt_id, receipt)
-    # Journey B reachability: a failed diagnostic administration whose episode
-    # carries a mapped repair class owes the repair lane an open cause factor
-    # (see the helper's docstring for why the projection never opens one).
-    _open_diagnostic_repair_factor(
+    # Journey B reachability: a failed administration whose episode carries a
+    # mapped repair class (and, for ordinary attempts, a nontrivial error)
+    # owes the repair lane an open cause factor (see the helper's docstring
+    # for why the projection's multi-target gate never opens one here).
+    _open_repair_factor(
         repository, attempt=attempt, concrete=concrete, clock=clock
     )
     return receipt

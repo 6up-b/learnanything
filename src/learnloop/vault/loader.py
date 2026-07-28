@@ -206,20 +206,11 @@ def _validate_loaded_vault(loaded: LoadedVault) -> None:
         for subject in learning_object.subjects:
             if subject not in loaded.subjects:
                 loaded.issues.append(DoctorIssue("learning_object:missing_subject", f"{lo_id} references missing subject {subject}", None))
-    known_error_types = set(loaded.error_types)
-    for item_id, item in loaded.practice_items.items():
-        rubric = loaded.rubric_for_item(item)
-        if rubric is None:
-            continue
-        for fatal_error in rubric.fatal_errors:
-            if fatal_error.id not in known_error_types:
-                loaded.issues.append(
-                    DoctorIssue(
-                        "rubric:unaligned_error_type",
-                        f"{item_id} fatal error {fatal_error.id} is not in errors/error_types.yaml",
-                        None,
-                    )
-                )
+    # Rubric fatal ids are item-local observable signatures, not entries in the
+    # domain-general causal mechanism taxonomy. A signature may optionally link
+    # to a durable misconception via ``misconception_id``; forcing its id into
+    # errors/error_types.yaml conflates the detector with the cause it helps
+    # discriminate.
 
 
 def _facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]:

@@ -25,6 +25,9 @@ criterion_facet_weights:
     future_leakage: 1.0
   autoregressive_property_preserved:
     autoregressive_property: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: During training, a decoder is given shifted target inputs so each 
   position is used to predict the next token. Why is causal masking still needed
   even though the inputs are offset?
@@ -54,6 +57,9 @@ hint_policy:
 retrieval_demand: 0.45
 transfer_distance: 0.35
 scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
 surface_family: offset_inputs_plus_masking
 evidence_fingerprint:
   source_family:
@@ -63,6 +69,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: The offset already hides the future, so the 
   decoder does not need a causal mask during training.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - offset_embeddings
   - masking_mechanism
@@ -76,43 +87,61 @@ grading_rubric:
       description: Explains that shifted or offset inputs align each position 
         with a next-token prediction target.
       tier: core
-      targets: []
+      targets:
+        - facet: offset_embeddings
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: mask_still_needed
       points: 1.25
       description: Explains that offsetting alone does not stop self-attention 
         from reading later target positions.
       tier: core
-      targets: []
+      targets:
+        - facet: masking_mechanism
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: future_leakage_prevention
       points: 1.0
       description: States that causal masking prevents future-answer leakage 
         during training.
       tier: core
-      targets: []
+      targets:
+        - facet: future_leakage
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: autoregressive_property_preserved
       points: 0.75
       description: Connects the mechanism to preserving autoregressive 
         generation or prediction order.
       tier: core
-      targets: []
+      targets:
+        - facet: autoregressive_property
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_offset_replaces_mask
       description: Claims shifted inputs make causal masking unnecessary in 
         decoder self-attention.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -123,11 +152,25 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: note
       ref_id: note_tutor_qa_01kx3ntda8mxpfw9gtzk63zdt6
       path: subjects/attn/notes/note_tutor_qa_01kx3ntda8mxpfw9gtzk63zdt6.md
       locator:
       quote: Why do we need to hide future tokens from past tokens?
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:06Z'
-updated_at: '2026-07-15T01:10:52Z'
+updated_at: '2026-07-28T03:46:15Z'

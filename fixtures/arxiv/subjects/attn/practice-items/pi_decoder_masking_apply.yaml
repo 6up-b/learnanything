@@ -30,6 +30,9 @@ criterion_facet_weights:
     offset_embeddings: 1.0
   specific_to_decoder:
     specific_to_decoder: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: A Transformer decoder is training on a target sentence and its 
   self-attention layer is allowed to attend to all target positions, including 
   later words. What property is broken, and how does the paper’s decoder prevent
@@ -56,6 +59,9 @@ hint_policy:
 retrieval_demand: 0.55
 transfer_distance: 0.4
 scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
 surface_family: masking_failure_scenario
 evidence_fingerprint:
   source_family:
@@ -64,6 +70,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - autoregressive_property
   - future_leakage
@@ -79,53 +90,77 @@ grading_rubric:
       description: Identifies the broken property as autoregressive prediction 
         or no future leakage.
       tier: core
-      targets: []
+      targets:
+        - facet: autoregressive_property
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: future_leakage
       points: 0.666667
       description: Explains that later target tokens would leak information.
       tier: core
-      targets: []
+      targets:
+        - facet: future_leakage
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: masking_mechanism
       points: 1.0
       description: States that future positions are masked out in 
         self-attention.
       tier: core
-      targets: []
+      targets:
+        - facet: masking_mechanism
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: allowed_positions
       points: 0.666667
       description: States that a position may attend only to earlier positions 
         and itself.
       tier: core
-      targets: []
+      targets:
+        - facet: allowed_positions
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: offset_embeddings
       points: 0.333333
       description: Mentions the offset output embeddings if included.
       tier: core
-      targets: []
+      targets:
+        - facet: offset_embeddings
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: specific_to_decoder
       points: 0.333333
       description: Keeps the explanation specific to decoder self-attention, not
         encoder attention.
       tier: core
-      targets: []
+      targets:
+        - facet: specific_to_decoder
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_encoder_masking
       description: Claims the encoder must use this same causal mask for the 
@@ -136,6 +171,8 @@ grading_rubric:
       description: Does not identify autoregression or future-token leakage.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -147,5 +184,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:29Z'
-updated_at: '2026-07-15T01:10:54Z'
+updated_at: '2026-07-28T03:46:16Z'

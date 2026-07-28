@@ -268,7 +268,7 @@ def test_attempt_without_factors_is_untouched(tmp_path):
 #
 # A vault-authored ``diagnostic_probe`` item's single-target contract never
 # trips the canonical projection's multi-target ambiguity gate, so before
-# ``causal_attribution._open_diagnostic_repair_factor`` a failed diagnostic
+# ``causal_attribution._open_repair_factor`` a failed diagnostic
 # attempt materialized hypotheses WITH mapped repair classes but no factor —
 # ``causal_repair_status`` raised and the consultation above bailed at its
 # first check.
@@ -489,3 +489,252 @@ def test_fully_correct_diagnostic_attempt_opens_no_factor(tmp_path):
         with_diagnosis=False,
     )
     assert _all_status_factors(repository, result.attempt_id) == []
+
+
+# --- G11: learner-derived hypotheses default to learner_state ----------------
+
+
+def test_learner_derived_hypothesis_defaults_learner_state_and_offer_survives(
+    tmp_path,
+):
+    """A grader diagnosis that never names a cause_scope is still a claim about
+    the LEARNER. Before G11 the event-derived spec defaulted to "unknown", the
+    candidate projection (learner_state heads only) silently dropped it, and
+    ``causal_repair_status`` raised — the repair offer died without a trace."""
+
+    from learnloop.services.attempts import (
+        ApplyAttemptInput,
+        AttemptDraft,
+        GradeAttribution,
+        ResolvedGrade,
+        apply_attempt,
+    )
+    from learnloop.services.causal_orchestrator import causal_repair_status
+
+    vault, repository = _vault(tmp_path)
+    statement = "The learner does not recall which factor is transposed."
+    result = apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id="pi_svd_define_001",
+                learner_answer_md="U Sigma Q",
+            ),
+            attempt_id="att_scopeless",
+            grade=ResolvedGrade(
+                rubric_score=0,
+                criterion_points={"correctness": 0},
+                evidence_rows=[
+                    {
+                        "id": "ge_att_scopeless",
+                        "criterion_id": "correctness",
+                        "points_awarded": 0.0,
+                        "evidence": "The final factor is not transposed.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": "2026-05-19T12:00:00Z",
+                    }
+                ],
+                error_attributions=[
+                    GradeAttribution(
+                        error_type="conceptual_slip",
+                        severity=0.7,
+                        evidence="The final factor is not transposed.",
+                        resolution_status="unresolved",
+                        operation="recall_omission",
+                        target_criterion_ids=["correctness"],
+                        # Deliberately NO cause_scope anywhere: neither the
+                        # attribution nor the candidate cause names one.
+                        candidate_causes=[
+                            {"statement": statement, "target_ref": DIAG_REF}
+                        ],
+                    )
+                ],
+                grader_confidence=0.9,
+                confidence=3,
+                manual_review_reason=None,
+                feedback_md="Check the transpose.",
+                repair_suggestions=[
+                    {
+                        "practice_mode": "targeted_review",
+                        "operator": "restate_transpose_rule",
+                        "rationale": "Re-establish which factor is transposed.",
+                        "target_refs": [DIAG_REF],
+                        "expected_minutes": 3.0,
+                    }
+                ],
+            ),
+        ),
+        clock=CLOCK,
+    )
+
+    concrete = [
+        value
+        for value in repository.causal_hypotheses_for_attempt(result.attempt_id)
+        if value["status"] != "open_set"
+    ]
+    assert concrete
+    assert {str(value["cause_scope"]) for value in concrete} == {"learner_state"}
+
+    # The projected candidate exists, so the repair offer survives: the
+    # learner-initiated read returns a real status instead of raising
+    # CausalRepairError("...requires an active durable misconception...").
+    case = repository.misconception_candidate_by_id(str(concrete[0]["id"]))
+    assert case is not None and case["status"] == "candidate"
+    status = causal_repair_status(
+        vault,
+        repository,
+        misconception_id=str(concrete[0]["id"]),
+        start_repair=False,
+        clock=CLOCK,
+    )
+    assert status.status in {
+        "started",
+        "safe_common_repair_available",
+        "needs_disambiguation",
+        "deferred_machine_checks",
+        "blocked_pending_review",
+    }
+
+
+# --- G12: the durable-misconception arm writes a decision receipt ------------
+
+
+def test_durable_case_records_receipt_readable_by_feedback_attach(tmp_path):
+    from learnloop.services.causal_orchestrator import causal_repair_status
+
+    vault, repository = _vault(tmp_path)
+    factor_id, first_id, _second = _seed_factor(
+        repository, first_repair="repair:recall", second_repair="repair:recall"
+    )
+    repository.insert_misconception(
+        id=first_id,
+        learning_object_id=LO_ID,
+        statement="The transpose rule was not available.",
+        clock=CLOCK,
+    )
+
+    # Read-only consultation (`_consult_common_repair` passes start_repair=False
+    # through this same function): the receipt exists, the episode does not.
+    status = causal_repair_status(
+        vault,
+        repository,
+        misconception_id=first_id,
+        start_repair=False,
+        clock=CLOCK,
+    )
+    assert status.status == "started"
+    assert status.reason == "durable_misconception"
+    assert status.probe_decision == "start_durable_repair"
+    assert status.factor_id == factor_id
+    assert status.decision_receipt_id
+    assert status.episode is None
+    assert _episode_count(repository) == 0
+
+    # The exact read `_attach_common_repair` performs: receipts keyed on the
+    # attempt's factor, carrying the misconception id to name the belief.
+    receipts = repository.causal_probe_decision_receipts(factor_id=factor_id)
+    assert [receipt["decision"] for receipt in receipts] == [
+        "start_durable_repair"
+    ]
+    assert receipts[0]["misconception_id"] == first_id
+    assert receipts[0]["repair_status"] == "started"
+    assert receipts[0]["id"] == status.decision_receipt_id
+
+    # The overlay's start path mints exactly ONE episode, even when asked
+    # twice (StrictMode double-mount) — no duplicate-episode regression.
+    started = causal_repair_status(
+        vault,
+        repository,
+        misconception_id=first_id,
+        start_repair=True,
+        clock=CLOCK,
+    )
+    assert started.episode is not None
+    causal_repair_status(
+        vault,
+        repository,
+        misconception_id=first_id,
+        start_repair=True,
+        clock=CLOCK,
+    )
+    assert _episode_count(repository) == 1
+
+
+# --- G14: unmapped factor-less diagnosis cases defer, not measure ------------
+
+
+def test_unmapped_diagnosis_case_defers_machine_checks(tmp_path):
+    from learnloop.services.causal_orchestrator import causal_repair_status
+
+    vault, repository = _vault(tmp_path)
+    hypothesis = repository.append_causal_hypothesis(
+        episode_key="att_unmapped:cause",
+        attempt_id="att_unmapped",
+        learning_object_id=LO_ID,
+        cause_scope="learner_state",
+        statement="The transpose rule was not available.",
+        statement_normalized="the transpose rule was not available",
+        target_ref={"kind": "facet_capability", "facet_id": "recall", "capability": "retrieval"},
+        applicability={},
+        evidence={},
+        repair_class_id=None,
+        repair_class_unresolved_reason="no_matching_repair_target",
+        status="candidate",
+        clock=CLOCK,
+    )
+
+    status = causal_repair_status(
+        vault,
+        repository,
+        misconception_id=str(hypothesis["id"]),
+        start_repair=True,
+        clock=CLOCK,
+    )
+    # No measurable episode: a diagnosis-kind episode with no repair class
+    # yields a cold retry whose context carries repair_class_id=None — a
+    # guaranteed 30-day `missing_chain`. The machine owes the mapping first.
+    assert status.status == "deferred_machine_checks"
+    assert status.reason == "incomplete_repair_mapping"
+    assert status.episode is None
+    assert _episode_count(repository) == 0
+    assert status.pending_machine_check_ids
+    check = repository.causal_machine_check(status.pending_machine_check_ids[0])
+    assert check is not None
+    assert check["kind"] == "repair_class_mapping_backfill"
+    assert check["status"] == "pending"
+    assert check["payload"]["state"] == "unmapped_diagnosis_case"
+    assert check["payload"]["hypothesis_ids"] == [str(hypothesis["id"])]
+
+
+def test_mapped_factorless_diagnosis_case_still_starts(tmp_path):
+    from learnloop.services.causal_orchestrator import causal_repair_status
+
+    vault, repository = _vault(tmp_path)
+    hypothesis = repository.append_causal_hypothesis(
+        episode_key="att_mapped:cause",
+        attempt_id="att_mapped",
+        learning_object_id=LO_ID,
+        cause_scope="learner_state",
+        statement="The transpose rule was not available.",
+        statement_normalized="the transpose rule was not available",
+        target_ref={"kind": "facet_capability", "facet_id": "recall", "capability": "retrieval"},
+        applicability={},
+        evidence={},
+        repair_class_id="repair:recall",
+        status="candidate",
+        clock=CLOCK,
+    )
+    status = causal_repair_status(
+        vault,
+        repository,
+        misconception_id=str(hypothesis["id"]),
+        start_repair=True,
+        clock=CLOCK,
+    )
+    assert status.status == "started"
+    assert status.reason == "no_open_causal_factor"
+    assert status.episode is not None
+    assert _episode_count(repository) == 1

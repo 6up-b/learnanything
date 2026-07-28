@@ -30,6 +30,9 @@ criterion_facet_weights:
     extrapolation: 1.0
   learned_comparison:
     learned_comparison: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Why does the Transformer add positional encodings to token embeddings, 
   and why did the paper choose sinusoidal encodings as the main version?
 expected_answer: Because the model has no recurrence or convolution, token order
@@ -57,6 +60,9 @@ hint_policy:
 retrieval_demand: 0.55
 transfer_distance: 0.35
 scaffold_level: 0.1
+capability:
+task_features:
+task_feature_schema:
 surface_family: mechanism_reasoning
 evidence_fingerprint:
   source_family:
@@ -65,6 +71,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - no_recurrence_convolution
   - order_information
@@ -81,52 +92,76 @@ grading_rubric:
       description: Connects the need for positions to the absence of recurrence 
         and convolution.
       tier: core
-      targets: []
+      targets:
+        - facet: no_recurrence_convolution
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: order_information
       points: 0.666667
       description: States that positional encodings inject sequence order.
       tier: core
-      targets: []
+      targets:
+        - facet: order_information
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: added_to_embeddings
       points: 0.666667
       description: States that encodings are added to token embeddings.
       tier: core
-      targets: []
+      targets:
+        - facet: added_to_embeddings
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: relative_positions
       points: 0.666667
       description: Mentions easier learning of relative positions as a 
         hypothesis.
       tier: core
-      targets: []
+      targets:
+        - facet: relative_positions
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: extrapolation
       points: 0.666667
       description: Mentions possible extrapolation to longer sequences.
       tier: core
-      targets: []
+      targets:
+        - facet: extrapolation
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: learned_comparison
       points: 0.333332
       description: Notes learned positional embeddings had nearly identical 
         results.
       tier: core
-      targets: []
+      targets:
+        - facet: learned_comparison
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_positions_as_vocab
       description: Describes positional encodings as replacing token embeddings 
@@ -138,6 +173,8 @@ grading_rubric:
         networks cannot represent order.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -149,5 +186,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:31Z'
-updated_at: '2026-07-15T01:11:23Z'
+updated_at: '2026-07-28T03:46:34Z'

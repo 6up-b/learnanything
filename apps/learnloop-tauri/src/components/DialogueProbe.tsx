@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { CommandError, DialogueTurnDto, ProbeBlockEndDto } from "../api/dto";
+import type { CommandError, DialogueTurnDto, GuidedRedoDto, ProbeBlockEndDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ProbeBlockResult } from "./ProbeBlockResult";
 import { COLOR, FONT_MONO, Faint } from "./term";
@@ -32,12 +32,17 @@ export function DialogueProbePanel({
   learningObjectId,
   sessionId,
   onDone,
+  onOpenRepair,
+  onGuidedRedo,
   onError
 }: {
   learningObjectId: string;
   sessionId: string;
   /** Block finished (or failed to start): blockEnd is the §5.7 payload when one ran. */
   onDone: (blockEnd: ProbeBlockEndDto | null) => void;
+  /** Repair-journey entrances on the released turns (App's openRepair / openGuidedRedo). */
+  onOpenRepair?: (misconceptionId: string) => void;
+  onGuidedRedo?: (redo: GuidedRedoDto) => void;
   onError: (message: string) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("starting");
@@ -210,6 +215,8 @@ export function DialogueProbePanel({
               completionReason={blockEnd.completionReason}
               route={blockEnd.route}
               releasedFeedback={blockEnd.releasedFeedback}
+              onOpenRepair={onOpenRepair}
+              onGuidedRedo={onGuidedRedo}
               onError={onError}
               labelForIndex={(index) =>
                 `turn ${index + 1}` +

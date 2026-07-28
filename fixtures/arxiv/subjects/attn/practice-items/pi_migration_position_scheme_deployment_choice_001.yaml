@@ -1,0 +1,139 @@
+schema_version: 1
+id: pi_migration_position_scheme_deployment_choice_001
+learning_object_id: lo_positional_encoding_need
+subjects:
+  - attn
+practice_mode: diagnostic_probe
+attempt_types_allowed:
+  - diagnostic_probe
+  - open_text
+  - dont_know
+evidence_facets:
+  - extrapolation
+  - learned_comparison
+  - no_recurrence_convolution
+evidence_weights:
+  extrapolation: 0.3333333333333333
+  learned_comparison: 0.3333333333333333
+  no_recurrence_convolution: 0.33333333333333337
+criterion_facet_weights:
+  criterion_extrapolation:
+    extrapolation: 1.0
+  criterion_learned_comparison:
+    learned_comparison: 1.0
+  criterion_no_recurrence_convolution:
+    no_recurrence_convolution: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: You must choose a positional scheme for an attention-only service 
+  trained on length 512 but expected to see longer sequences. Compare learned 
+  and sinusoidal encodings using the original empirical result, explain why 
+  attention alone lacks order, and justify which property matters for the 
+  deployment choice.
+expected_answer: "A complete response establishes each required point:\n- extrapolation:
+  Fixed sinusoidal positional encodings were chosen in part because their structure
+  may extrapolate to sequence lengths not seen during training.\n- learned_comparison:
+  In the original Transformer experiments, learned positional embeddings performed
+  similarly to sinusoidal encodings.\n- no_recurrence_convolution: Because a Transformer
+  has neither recurrence nor convolution, self-attention alone does not encode token
+  order."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - method-selection
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: method_selection
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: position_scheme_deployment_choice
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - extrapolation
+  - learned_comparison
+  - no_recurrence_convolution
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_extrapolation
+      points: 1.3333333333333333
+      description: Fixed sinusoidal positional encodings were chosen in part 
+        because their structure may extrapolate to sequence lengths not seen 
+        during training.
+      tier: core
+      targets:
+        - facet: extrapolation
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_learned_comparison
+      points: 1.3333333333333333
+      description: In the original Transformer experiments, learned positional 
+        embeddings performed similarly to sinusoidal encodings.
+      tier: core
+      targets:
+        - facet: learned_comparison
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_no_recurrence_convolution
+      points: 1.3333333333333335
+      description: Because a Transformer has neither recurrence nor convolution,
+        self-attention alone does not encode token order.
+      tier: core
+      targets:
+        - facet: no_recurrence_convolution
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:49Z'
+updated_at: '2026-07-28T03:59:29Z'

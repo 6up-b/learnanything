@@ -1,0 +1,240 @@
+schema_version: 1
+id: pi_migration_sequence_layer_selection_matrix_001
+learning_object_id: lo_self_attention_tradeoffs
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - balanced_comparison
+  - complexity_tradeoff
+  - convolution_path
+  - long_range_dependency_link
+  - recurrent_sequential
+  - self_attention_parallel
+  - self_attention_path
+  - three_criteria
+evidence_weights:
+  balanced_comparison: 0.125
+  complexity_tradeoff: 0.125
+  convolution_path: 0.125
+  long_range_dependency_link: 0.125
+  recurrent_sequential: 0.125
+  self_attention_parallel: 0.125
+  self_attention_path: 0.125
+  three_criteria: 0.125
+criterion_facet_weights:
+  criterion_balanced_comparison:
+    balanced_comparison: 1.0
+  criterion_complexity_tradeoff:
+    complexity_tradeoff: 1.0
+  criterion_convolution_path:
+    convolution_path: 1.0
+  criterion_long_range_dependency_link:
+    long_range_dependency_link: 1.0
+  criterion_recurrent_sequential:
+    recurrent_sequential: 1.0
+  criterion_self_attention_parallel:
+    self_attention_parallel: 1.0
+  criterion_self_attention_path:
+    self_attention_path: 1.0
+  criterion_three_criteria:
+    three_criteria: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Build a decision matrix comparing self-attention, recurrence, and 
+  convolution for parallelism, path length between distant tokens, and 
+  sequence-length cost. Use it to reject the claim that one layer type dominates
+  under every constraint.
+expected_answer: "A complete response establishes each required point:\n- balanced_comparison:
+  Self-attention has tradeoffs and does not dominate recurrent and convolutional layers
+  under every computational condition.\n- complexity_tradeoff: The relative cost of
+  self-attention and convolution depends on sequence length, representation width,
+  and the convolution design.\n- convolution_path: A convolutional sequence model
+  generally needs multiple layers or dilation to connect distant positions.\n- long_range_dependency_link:
+  Shorter computational paths between distant positions can make long-range dependencies
+  easier to learn.\n- recurrent_sequential: A recurrent sequence model processes token
+  positions sequentially rather than all positions in parallel.\n- self_attention_parallel:
+  Self-attention can compute representations for all sequence positions with a constant
+  number of sequential operations.\n- self_attention_path: Self-attention provides
+  a short computational path between any two sequence positions.\n- three_criteria:
+  Sequence-layer comparisons consider computational complexity, parallelizability,
+  and path length between dependencies."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: sequence_layer_selection_matrix
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - balanced_comparison
+  - complexity_tradeoff
+  - convolution_path
+  - long_range_dependency_link
+  - recurrent_sequential
+  - self_attention_parallel
+  - self_attention_path
+  - three_criteria
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_balanced_comparison
+      points: 0.5
+      description: Self-attention has tradeoffs and does not dominate recurrent 
+        and convolutional layers under every computational condition.
+      tier: core
+      targets:
+        - facet: balanced_comparison
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_attention_recurrence_convolution
+      measurement_status: direct
+    - id: criterion_complexity_tradeoff
+      points: 0.5
+      description: The relative cost of self-attention and convolution depends 
+        on sequence length, representation width, and the convolution design.
+      tier: core
+      targets:
+        - facet: complexity_tradeoff
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_attention_recurrence_convolution
+      measurement_status: direct
+    - id: criterion_convolution_path
+      points: 0.5
+      description: A convolutional sequence model generally needs multiple 
+        layers or dilation to connect distant positions.
+      tier: core
+      targets:
+        - facet: convolution_path
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_long_range_dependency_link
+      points: 0.5
+      description: Shorter computational paths between distant positions can 
+        make long-range dependencies easier to learn.
+      tier: core
+      targets:
+        - facet: long_range_dependency_link
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_attention_recurrence_convolution
+      measurement_status: direct
+    - id: criterion_recurrent_sequential
+      points: 0.5
+      description: A recurrent sequence model processes token positions 
+        sequentially rather than all positions in parallel.
+      tier: core
+      targets:
+        - facet: recurrent_sequential
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_self_attention_parallel
+      points: 0.5
+      description: Self-attention can compute representations for all sequence 
+        positions with a constant number of sequential operations.
+      tier: core
+      targets:
+        - facet: self_attention_parallel
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_attention_recurrence_convolution
+      measurement_status: direct
+    - id: criterion_self_attention_path
+      points: 0.5
+      description: Self-attention provides a short computational path between 
+        any two sequence positions.
+      tier: core
+      targets:
+        - facet: self_attention_path
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_three_criteria
+      points: 0.5
+      description: Sequence-layer comparisons consider computational complexity,
+        parallelizability, and path length between dependencies.
+      tier: core
+      targets:
+        - facet: three_criteria
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compare_attention_recurrence_convolution
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:54Z'
+updated_at: '2026-07-28T03:59:31Z'

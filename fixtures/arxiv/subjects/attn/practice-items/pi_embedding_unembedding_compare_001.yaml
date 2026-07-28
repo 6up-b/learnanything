@@ -24,6 +24,9 @@ criterion_facet_weights:
     unembedding_direction: 1.0
   wu_before_softmax:
     logits_before_softmax: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Compare the embedding matrix W_E and the unembedding matrix W_U in a 
   GPT-style transformer. What direction does each mapping go?
 expected_answer: The embedding matrix W_E maps each vocabulary token to its 
@@ -47,6 +50,9 @@ hint_policy:
 retrieval_demand: 0.5
 transfer_distance: 0.2
 scaffold_level: 0.1
+capability:
+task_features:
+task_feature_schema:
 surface_family: matrix_role_comparison
 evidence_fingerprint:
   source_family:
@@ -55,6 +61,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - embedding_direction
   - embedding_weights
@@ -68,43 +79,61 @@ grading_rubric:
       points: 1.0
       description: States that W_E maps tokens/words to vectors.
       tier: core
-      targets: []
+      targets:
+        - facet: embedding_direction
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: we_learned_weights
       points: 1.0
       description: Mentions that W_E is learned or consists of learned weight 
         columns.
       tier: core
-      targets: []
+      targets:
+        - facet: embedding_weights
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: wu_vector_to_vocab_scores
       points: 1.0
       description: States that W_U maps a vector to one score per vocabulary 
         token.
       tier: core
-      targets: []
+      targets:
+        - facet: unembedding_direction
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: wu_before_softmax
       points: 1.0
       description: Mentions that W_U output is raw/unormalized logits before 
         softmax.
       tier: core
-      targets: []
+      targets:
+        - facet: logits_before_softmax
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_reverse_mappings
       description: Reverses both mappings, saying W_E maps vectors to tokens and
         W_U maps tokens to vectors.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -116,5 +145,12 @@ provenance:
       quote: people often refer to the inputs as logits... raw, unnormalized 
         output
       quote_hash: sha256:src_logits
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T22:11:55Z'
-updated_at: '2026-07-15T01:11:11Z'
+updated_at: '2026-07-28T03:46:26Z'

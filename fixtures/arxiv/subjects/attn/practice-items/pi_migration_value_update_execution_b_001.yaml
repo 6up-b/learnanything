@@ -1,0 +1,170 @@
+schema_version: 1
+id: pi_migration_value_update_execution_b_001
+learning_object_id: lo_value_updates
+subjects:
+  - attn
+practice_mode: worked_computation
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - add_to_embedding
+  - pattern_as_weights
+  - values_as_content
+  - weighted_sum_column
+evidence_weights:
+  add_to_embedding: 0.25
+  pattern_as_weights: 0.25
+  values_as_content: 0.25
+  weighted_sum_column: 0.25
+criterion_facet_weights:
+  criterion_add_to_embedding:
+    add_to_embedding: 1.0
+  criterion_pattern_as_weights:
+    pattern_as_weights: 1.0
+  criterion_values_as_content:
+    values_as_content: 1.0
+  criterion_weighted_sum_column:
+    weighted_sum_column: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: trace_value_update_execution_b
+      checkpoints:
+        - criterion_add_to_embedding
+        - criterion_pattern_as_weights
+        - criterion_values_as_content
+        - criterion_weighted_sum_column
+      dependencies:
+        criterion_add_to_embedding: []
+        criterion_pattern_as_weights: []
+        criterion_values_as_content: []
+        criterion_weighted_sum_column: []
+variant_contract:
+teach_back_source:
+prompt: A target column has attention weights [0.6,0.1,0.3] and value vectors 
+  [1,0], [0,2], and [-1,1]. Identify weights versus content, compute the 
+  weighted update column, and add it to the target embedding [2,-1]. Show the 
+  vector arithmetic.
+expected_answer: The attention-pattern entries are weights and the value vectors
+  are content. The update column is 
+  0.6[1,0]+0.1[0,2]+0.3[-1,1]=[0.6,0]+[0,0.2]+[-0.3,0.3]=[0.3,0.5]. Residual 
+  addition gives [2,-1]+[0.3,0.5]=[2.3,-0.5].
+difficulty: 0.62
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - procedure-execution
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: value_update_execution_trace_b
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - add_to_embedding
+  - pattern_as_weights
+  - values_as_content
+  - weighted_sum_column
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_add_to_embedding
+      points: 1.0
+      description: An attention head's weighted value update is added to the 
+        token's original embedding through a residual update.
+      tier: core
+      targets:
+        - facet: add_to_embedding
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+    - id: criterion_pattern_as_weights
+      points: 1.0
+      description: An attention pattern is a set of normalized relevance weights
+        over source token positions.
+      tier: core
+      targets:
+        - facet: pattern_as_weights
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+    - id: criterion_values_as_content
+      points: 1.0
+      description: Value vectors carry the content or update directions that 
+        attention mixes into an output.
+      tier: core
+      targets:
+        - facet: values_as_content
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+    - id: criterion_weighted_sum_column
+      points: 1.0
+      description: For a target token, the attention output column is the 
+        weighted sum of source value vectors.
+      tier: core
+      targets:
+        - facet: weighted_sum_column
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:56:00Z'
+updated_at: '2026-07-28T03:59:34Z'

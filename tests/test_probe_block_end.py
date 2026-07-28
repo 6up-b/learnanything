@@ -332,6 +332,176 @@ def test_end_diagnostic_block_noop_on_terminal_episode(tmp_path):
     assert payload["route"] is None
 
 
+# --- §5.7 deferred repair consultation resumes at block end (audit G1–G3) ------------
+
+REPAIR_REF = {
+    "kind": "facet_capability",
+    "facet_id": "recall",
+    "capability": "retrieval",
+}
+
+
+def _repairable_attribution() -> GradeAttribution:
+    """A localized diagnosis whose single candidate cause maps to one repair —
+    the shape whose consultation records ``skip_common_repair``."""
+
+    return GradeAttribution(
+        error_type="conceptual_slip",
+        severity=0.9,
+        evidence="The learner named the eigendecomposition.",
+        is_misconception=True,
+        misconception_statement=MISCONCEPTION_STATEMENT,
+        resolution_status="unresolved",
+        cause_scope="learner_state",
+        operation="recall_omission",
+        target_criterion_ids=["correctness"],
+        candidate_causes=[
+            {
+                "statement": MISCONCEPTION_STATEMENT,
+                "cause_scope": "learner_state",
+                "target_ref": REPAIR_REF,
+            }
+        ],
+    )
+
+
+def _submit_repairable(loaded, repository, *, item_id, presentation_id):
+    return apply_attempt(
+        loaded,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=item_id,
+                learner_answer_md="It is the eigendecomposition.",
+                attempt_type="diagnostic_probe",
+                probe_presentation_id=presentation_id,
+            ),
+            attempt_id=new_ulid(),
+            grade=ResolvedGrade(
+                rubric_score=1,
+                criterion_points={"correctness": 1.0},
+                evidence_rows=[],
+                error_attributions=[_repairable_attribution()],
+                grader_confidence=1.0,
+                confidence=4,
+                manual_review_reason=None,
+                feedback_md="SVD and eigendecomposition are different factorizations.",
+                repair_suggestions=[
+                    {
+                        "practice_mode": "targeted_review",
+                        "operator": "restate_svd_definition",
+                        "rationale": "Re-establish the SVD's three factors.",
+                        "target_refs": [REPAIR_REF],
+                        "expected_minutes": 3.0,
+                    }
+                ],
+            ),
+            grading_source="ai",
+        ),
+        clock=CLOCK,
+    )
+
+
+def _common_repair_receipts(repository, attempt_id: str) -> list[str]:
+    from learnloop.services.followups import COMMON_REPAIR_DECISIONS
+
+    decisions: list[str] = []
+    for factor in repository.unresolved_cause_factors_for_attempt(attempt_id):
+        for receipt in repository.causal_probe_decision_receipts(
+            factor_id=str(factor["id"])
+        ):
+            if str(receipt.get("decision") or "") in COMMON_REPAIR_DECISIONS:
+                decisions.append(str(receipt["decision"]))
+    return decisions
+
+
+def test_in_block_failure_gets_decision_receipt_at_block_end_not_before(tmp_path):
+    loaded, repository = _setup(tmp_path)
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+
+    first = _commit(loaded, repository, episode, item_id=ITEM_ID)
+    result = _submit_repairable(
+        loaded, repository, item_id=ITEM_ID, presentation_id=first.id
+    )
+    first_attempt_id = result.attempt_id
+    assert result.probe_block_end is None
+    # The failed diagnostic attempt opened its repair-lane factor…
+    assert repository.unresolved_cause_factors_for_attempt(first_attempt_id)
+
+    # …but the mid-block follow-up path defers, so no decision receipt yet:
+    # the consultation must not leak "your answer was wrong" into the block.
+    decision = evaluate_attempt_intervention_followup(
+        loaded, repository, result=result, clock=CLOCK
+    )
+    assert decision.reason == "deferred_to_block_end"
+    assert _common_repair_receipts(repository, first_attempt_id) == []
+
+    second = _commit(loaded, repository, episode, item_id=ITEM_2)
+    result = _submit_repairable(
+        loaded, repository, item_id=ITEM_2, presentation_id=second.id
+    )
+    block_end = result.probe_block_end
+    assert block_end is not None
+
+    # Block end resumed the deferred consultation: the shared-repair factor got
+    # exactly one decision receipt.
+    assert _common_repair_receipts(repository, first_attempt_id) == [
+        "skip_common_repair"
+    ]
+
+    # G3: the released-feedback payload carries the same repair affordances the
+    # FeedbackScreen bundle does.
+    entry = next(
+        entry
+        for entry in block_end["released_feedback"]
+        if entry["attempt_id"] == first_attempt_id
+    )
+    recommendation = entry["causal_feedback"]["common_repair"]
+    assert recommendation["decision"] == "skip_common_repair"
+    assert recommendation["status"] == "safe_common_repair_available"
+    assert recommendation["message"]
+    assert recommendation["factor_id"]
+    assert recommendation["decision_receipt_id"]
+    assert isinstance(entry["guided_redo_available"], bool)
+
+
+def test_block_end_repair_consultation_is_idempotent(tmp_path):
+    loaded, repository = _setup(tmp_path)
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+
+    attempt_ids: list[str] = []
+    for item_id in (ITEM_ID, ITEM_2):
+        presentation = _commit(loaded, repository, episode, item_id=item_id)
+        result = _submit_repairable(
+            loaded, repository, item_id=item_id, presentation_id=presentation.id
+        )
+        attempt_ids.append(result.attempt_id)
+    assert result.probe_block_end is not None
+
+    before = {
+        attempt_id: _common_repair_receipts(repository, attempt_id)
+        for attempt_id in attempt_ids
+    }
+    assert any(decisions for decisions in before.values())
+    assert all(len(decisions) <= 1 for decisions in before.values())
+
+    # A repeated block-end call releases nothing again (terminal episode, or a
+    # fresh segment for a continuing one) and records no duplicate receipts.
+    refreshed = repository.probe_episode(episode.id)
+    end_diagnostic_block(loaded, repository, refreshed, clock=CLOCK)
+    # The block-closing attempt's ordinary post-attempt path also re-runs the
+    # hooks once the episode is no longer measuring; the per-factor receipt
+    # dedup keeps that single too.
+    evaluate_attempt_intervention_followup(
+        loaded, repository, result=result, clock=CLOCK
+    )
+    after = {
+        attempt_id: _common_repair_receipts(repository, attempt_id)
+        for attempt_id in attempt_ids
+    }
+    assert after == before
+
+
 # --- §6.3 open-set trigger ------------------------------------------------------------
 
 

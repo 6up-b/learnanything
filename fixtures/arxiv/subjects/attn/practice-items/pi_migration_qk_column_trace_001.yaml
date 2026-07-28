@@ -1,0 +1,170 @@
+schema_version: 1
+id: pi_migration_qk_column_trace_001
+learning_object_id: lo_qk_attention_pattern
+subjects:
+  - attn
+practice_mode: worked_computation
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - column_softmax_last
+  - dot_products_second
+  - qk_first
+  - scale_before_softmax
+evidence_weights:
+  column_softmax_last: 0.25
+  dot_products_second: 0.25
+  qk_first: 0.25
+  scale_before_softmax: 0.25
+criterion_facet_weights:
+  criterion_column_softmax_last:
+    column_softmax_last: 1.0
+  criterion_dot_products_second:
+    dot_products_second: 1.0
+  criterion_qk_first:
+    qk_first: 1.0
+  criterion_scale_before_softmax:
+    scale_before_softmax: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: trace_qk_column_trace
+      checkpoints:
+        - criterion_column_softmax_last
+        - criterion_dot_products_second
+        - criterion_qk_first
+        - criterion_scale_before_softmax
+      dependencies:
+        criterion_column_softmax_last: []
+        criterion_dot_products_second: []
+        criterion_qk_first: []
+        criterion_scale_before_softmax: []
+variant_contract:
+teach_back_source:
+prompt: For x1=[1,1], x2=[1,-1], WQ=I, WK=diag(2,1), and query position 1, form 
+  q1 and both keys, compute the two key-query dot products, divide them by 
+  sqrt(2), and softmax the resulting column. Show every intermediate vector and 
+  score.
+expected_answer: q1=WQx1=[1,1]. k1=WKx1=[2,1] and k2=WKx2=[2,-1]. The dot scores
+  are k1·q1=3 and k2·q1=1. Dividing by sqrt(2) gives approximately 
+  [2.121,0.707]. Softmax of that column is approximately [0.804,0.196], which is
+  normalized only after projection, dot products, and scaling.
+difficulty: 0.62
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - procedure-execution
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: qk_column_execution_trace_b
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - column_softmax_last
+  - dot_products_second
+  - qk_first
+  - scale_before_softmax
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_column_softmax_last
+      points: 1.0
+      description: After query-key projection, dot products, and scaling, 
+        softmax normalizes each attention-score column into weights.
+      tier: core
+      targets:
+        - facet: column_softmax_last
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+    - id: criterion_dot_products_second
+      points: 1.0
+      description: After forming query and key projections, an attention head 
+        computes their pairwise dot products.
+      tier: core
+      targets:
+        - facet: dot_products_second
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+    - id: criterion_qk_first
+      points: 1.0
+      description: An attention head forms query and key projections before 
+        computing compatibility scores.
+      tier: core
+      targets:
+        - facet: qk_first
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+    - id: criterion_scale_before_softmax
+      points: 1.0
+      description: Scaled dot-product attention divides query-key scores by the 
+        key-dimension scale before applying softmax.
+      tier: core
+      targets:
+        - facet: scale_before_softmax
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_compute_attention_weights
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:50Z'
+updated_at: '2026-07-28T03:59:29Z'

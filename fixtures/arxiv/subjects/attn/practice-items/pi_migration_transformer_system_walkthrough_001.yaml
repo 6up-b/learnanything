@@ -1,0 +1,362 @@
+schema_version: 1
+id: pi_migration_transformer_system_walkthrough_001
+learning_object_id: lo_transformer_encoder_decoder_architecture
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - attention_role
+  - decoder_ffn
+  - decoder_masked_self_attention
+  - dimension_consistency
+  - embedding_order
+  - encoder_decoder_attention
+  - encoder_sublayers
+  - feed_forward_role
+  - layer_norm
+  - residual_connections
+  - softmax_role
+  - stacked_layers
+  - tokenization_order
+  - unembedding_role
+evidence_weights:
+  attention_role: 0.07142857142857142
+  decoder_ffn: 0.07142857142857142
+  decoder_masked_self_attention: 0.07142857142857142
+  dimension_consistency: 0.07142857142857142
+  embedding_order: 0.07142857142857142
+  encoder_decoder_attention: 0.07142857142857142
+  encoder_sublayers: 0.07142857142857142
+  feed_forward_role: 0.07142857142857142
+  layer_norm: 0.07142857142857142
+  residual_connections: 0.07142857142857142
+  softmax_role: 0.07142857142857142
+  stacked_layers: 0.07142857142857142
+  tokenization_order: 0.07142857142857142
+  unembedding_role: 0.07142857142857151
+criterion_facet_weights:
+  criterion_attention_role:
+    attention_role: 1.0
+  criterion_decoder_ffn:
+    decoder_ffn: 1.0
+  criterion_decoder_masked_self_attention:
+    decoder_masked_self_attention: 1.0
+  criterion_dimension_consistency:
+    dimension_consistency: 1.0
+  criterion_embedding_order:
+    embedding_order: 1.0
+  criterion_encoder_decoder_attention:
+    encoder_decoder_attention: 1.0
+  criterion_encoder_sublayers:
+    encoder_sublayers: 1.0
+  criterion_feed_forward_role:
+    feed_forward_role: 1.0
+  criterion_layer_norm:
+    layer_norm: 1.0
+  criterion_residual_connections:
+    residual_connections: 1.0
+  criterion_softmax_role:
+    softmax_role: 1.0
+  criterion_stacked_layers:
+    stacked_layers: 1.0
+  criterion_tokenization_order:
+    tokenization_order: 1.0
+  criterion_unembedding_role:
+    unembedding_role: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Review an encoder-decoder system diagram from raw text to next-token 
+  probabilities. Correct the order and interfaces, name the encoder and decoder 
+  sublayers, distinguish masked self-attention from encoder-decoder attention, 
+  and explain residual, normalization, feed-forward, stacking, output projection
+  and softmax roles while preserving dimensions.
+expected_answer: "A complete response establishes each required point:\n- attention_role:
+  Within a Transformer block, attention exchanges information across token positions.\n\
+  - decoder_ffn: Each Transformer decoder layer includes a position-wise feed-forward
+  sublayer.\n- decoder_masked_self_attention: Each Transformer decoder layer includes
+  masked self-attention over the target sequence.\n- dimension_consistency: A residual
+  connection requires its sublayer input and output to share the same model dimension.\n\
+  - embedding_order: Transformer data flow embeds tokens before repeated attention
+  and feed-forward processing.\n- encoder_decoder_attention: A Transformer decoder
+  layer attends to encoder outputs through encoder-decoder cross-attention.\n- encoder_sublayers:
+  A Transformer encoder layer contains multi-head self-attention and a position-wise
+  feed-forward network.\n- feed_forward_role: A Transformer's feed-forward sublayer
+  applies the same learned transformation independently at each token position.\n\
+  - layer_norm: In the original Transformer architecture, layer normalization follows
+  each residual addition around a sublayer.\n- residual_connections: Transformer sublayers
+  use residual connections that add the sublayer input to its output.\n- softmax_role:
+  At a Transformer's output, softmax converts unembedding logits into token probabilities.\n\
+  - stacked_layers: A Transformer repeats encoder and decoder layer structures in
+  stacks.\n- tokenization_order: Transformer processing tokenizes input text before
+  mapping token IDs to embeddings.\n- unembedding_role: Unembedding projects contextual
+  token representations into raw vocabulary scores."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: transformer_system_walkthrough
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - attention_role
+  - decoder_ffn
+  - decoder_masked_self_attention
+  - dimension_consistency
+  - embedding_order
+  - encoder_decoder_attention
+  - encoder_sublayers
+  - feed_forward_role
+  - layer_norm
+  - residual_connections
+  - softmax_role
+  - stacked_layers
+  - tokenization_order
+  - unembedding_role
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_attention_role
+      points: 0.2857142857142857
+      description: Within a Transformer block, attention exchanges information 
+        across token positions.
+      tier: core
+      targets:
+        - facet: attention_role
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_transformer_pipeline
+      measurement_status: direct
+    - id: criterion_decoder_ffn
+      points: 0.2857142857142857
+      description: Each Transformer decoder layer includes a position-wise 
+        feed-forward sublayer.
+      tier: core
+      targets:
+        - facet: decoder_ffn
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_encoder_decoder_layers
+      measurement_status: direct
+    - id: criterion_decoder_masked_self_attention
+      points: 0.2857142857142857
+      description: Each Transformer decoder layer includes masked self-attention
+        over the target sequence.
+      tier: core
+      targets:
+        - facet: decoder_masked_self_attention
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_encoder_decoder_layers
+      measurement_status: direct
+    - id: criterion_dimension_consistency
+      points: 0.2857142857142857
+      description: A residual connection requires its sublayer input and output 
+        to share the same model dimension.
+      tier: core
+      targets:
+        - facet: dimension_consistency
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_embedding_order
+      points: 0.2857142857142857
+      description: Transformer data flow embeds tokens before repeated attention
+        and feed-forward processing.
+      tier: core
+      targets:
+        - facet: embedding_order
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_transformer_pipeline
+      measurement_status: direct
+    - id: criterion_encoder_decoder_attention
+      points: 0.2857142857142857
+      description: A Transformer decoder layer attends to encoder outputs 
+        through encoder-decoder cross-attention.
+      tier: core
+      targets:
+        - facet: encoder_decoder_attention
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_encoder_decoder_layers
+      measurement_status: direct
+    - id: criterion_encoder_sublayers
+      points: 0.2857142857142857
+      description: A Transformer encoder layer contains multi-head 
+        self-attention and a position-wise feed-forward network.
+      tier: core
+      targets:
+        - facet: encoder_sublayers
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_encoder_decoder_layers
+      measurement_status: direct
+    - id: criterion_feed_forward_role
+      points: 0.2857142857142857
+      description: A Transformer's feed-forward sublayer applies the same 
+        learned transformation independently at each token position.
+      tier: core
+      targets:
+        - facet: feed_forward_role
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_transformer_pipeline
+      measurement_status: direct
+    - id: criterion_layer_norm
+      points: 0.2857142857142857
+      description: In the original Transformer architecture, layer normalization
+        follows each residual addition around a sublayer.
+      tier: core
+      targets:
+        - facet: layer_norm
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_encoder_decoder_layers
+      measurement_status: direct
+    - id: criterion_residual_connections
+      points: 0.2857142857142857
+      description: Transformer sublayers use residual connections that add the 
+        sublayer input to its output.
+      tier: core
+      targets:
+        - facet: residual_connections
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_encoder_decoder_layers
+      measurement_status: direct
+    - id: criterion_softmax_role
+      points: 0.2857142857142857
+      description: At a Transformer's output, softmax converts unembedding 
+        logits into token probabilities.
+      tier: core
+      targets:
+        - facet: softmax_role
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_transformer_pipeline
+      measurement_status: direct
+    - id: criterion_stacked_layers
+      points: 0.2857142857142857
+      description: A Transformer repeats encoder and decoder layer structures in
+        stacks.
+      tier: core
+      targets:
+        - facet: stacked_layers
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_tokenization_order
+      points: 0.2857142857142857
+      description: Transformer processing tokenizes input text before mapping 
+        token IDs to embeddings.
+      tier: core
+      targets:
+        - facet: tokenization_order
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_transformer_pipeline
+      measurement_status: direct
+    - id: criterion_unembedding_role
+      points: 0.28571428571428603
+      description: Unembedding projects contextual token representations into 
+        raw vocabulary scores.
+      tier: core
+      targets:
+        - facet: unembedding_role
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_transformer_pipeline
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:59Z'
+updated_at: '2026-07-28T03:59:34Z'

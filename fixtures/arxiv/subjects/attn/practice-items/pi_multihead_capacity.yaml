@@ -24,6 +24,9 @@ criterion_facet_weights:
     parallel_updates: 1.0
   combined_result:
     combined_result: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Why does a transformer attention block run many attention heads in 
   parallel instead of relying on a single head?
 expected_answer: Different heads can learn different query, key, and value maps,
@@ -48,6 +51,9 @@ hint_policy:
 retrieval_demand: 0.44
 transfer_distance: 0.22
 scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
 surface_family: multihead_attention_explanation
 evidence_fingerprint:
   source_family:
@@ -56,6 +62,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - distinct_maps
   - different_relationships
@@ -69,41 +80,59 @@ grading_rubric:
       points: 1.0
       description: Mentions that heads have distinct Q/K/V maps or parameters.
       tier: core
-      targets: []
+      targets:
+        - facet: distinct_maps
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: different_relationships
       points: 1.0
       description: Explains that heads can learn different contextual 
         relationships.
       tier: core
-      targets: []
+      targets:
+        - facet: different_relationships
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: parallel_updates
       points: 1.0
       description: States that heads run in parallel and each proposes updates.
       tier: core
-      targets: []
+      targets:
+        - facet: parallel_updates
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: combined_result
       points: 1.0
       description: States that the updates are combined for each token position.
       tier: core
-      targets: []
+      targets:
+        - facet: combined_result
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_identical_heads
       description: Claims all attention heads necessarily compute the same 
         pattern and update.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -115,6 +144,13 @@ provenance:
       quote: multi-headed attention, where you run a lot of these operations in 
         parallel.
       quote_hash: sha256:src_multihead
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_parameter_scaling
       path: 
@@ -123,5 +159,12 @@ provenance:
       quote: 96 distinct layers... total sum to just under 58 billion... 
         extremely parallelizable.
       quote_hash: sha256:src_parameter_scaling
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:20Z'
-updated_at: '2026-07-15T01:11:22Z'
+updated_at: '2026-07-28T03:46:32Z'

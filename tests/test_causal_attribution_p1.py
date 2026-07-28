@@ -768,7 +768,14 @@ def test_feedback_overlay_and_cli_are_receipt_checked(tmp_path):
         "contamination_status_not_authorized"
     )
     assert overlay["contest_action"]["available"] is True
-    assert overlay["contest_action"]["factor_id"] is None
+    # G10: an ordinary failed attempt with a nontrivial error (conceptual_slip
+    # -> conceptual_schema_error) and a mapped repair class now opens the
+    # repair-lane factor, so the contest action binds to it instead of None.
+    open_factors = repository.unresolved_cause_factors_for_attempt(
+        result.attempt_id
+    )
+    assert len(open_factors) == 1
+    assert overlay["contest_action"]["factor_id"] == str(open_factors[0]["id"])
     detail = attempt_detail(vault, repository, result.attempt_id)
     assert detail["causalEpisode"]["receipt"]["id"] == overlay["receipt_id"]
     assert (

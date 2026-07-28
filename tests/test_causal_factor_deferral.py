@@ -186,6 +186,88 @@ def _failed_diagnostic(vault, repository, *, attempt_id, item_id, clock):
     return result
 
 
+def _failed_ordinary(
+    vault,
+    repository,
+    *,
+    attempt_id,
+    item_id,
+    clock,
+    error_type="conceptual_slip",
+    is_misconception=True,
+    candidate_cause_scope="learner_state",
+):
+    """A failed ORDINARY attempt (G10), through the live post-attempt path."""
+
+    from learnloop.services.followups import evaluate_attempt_intervention_followup
+
+    now_iso = clock.now().isoformat().replace("+00:00", "Z")
+    candidate_cause = {"statement": STATEMENT, "target_ref": DIAG_REF}
+    if candidate_cause_scope is not None:
+        candidate_cause["cause_scope"] = candidate_cause_scope
+    result = apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=item_id,
+                learner_answer_md="U",
+                attempt_type="independent_attempt",
+            ),
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(
+                rubric_score=0,
+                criterion_points={"correctness": 0.0},
+                evidence_rows=[
+                    {
+                        "id": f"ge_{attempt_id}",
+                        "criterion_id": "correctness",
+                        "points_awarded": 0.0,
+                        "evidence": "Named an untransposed factor.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": now_iso,
+                    }
+                ],
+                error_attributions=[
+                    GradeAttribution(
+                        error_type=error_type,
+                        severity=0.7,
+                        evidence="The learner named an untransposed factor.",
+                        resolution_status="unresolved",
+                        operation="recall_omission",
+                        target_criterion_ids=["correctness"],
+                        is_misconception=is_misconception,
+                        misconception_statement=(
+                            STATEMENT if is_misconception else None
+                        ),
+                        candidate_causes=[candidate_cause],
+                    )
+                ],
+                grader_confidence=0.9,
+                confidence=3,
+                manual_review_reason=None,
+                feedback_md="Check which factor carries the transpose.",
+                repair_suggestions=[
+                    {
+                        "practice_mode": "targeted_review",
+                        "operator": "restate_transpose_rule",
+                        "rationale": "Re-establish which factor is transposed.",
+                        "target_refs": [DIAG_REF],
+                        "expected_minutes": 3.0,
+                    }
+                ],
+            ),
+        ),
+        clock=clock,
+    )
+    evaluate_attempt_intervention_followup(
+        vault, repository, result=result, clock=clock
+    )
+    return result
+
+
 def _clean_attempt(vault, repository, *, attempt_id, item_id, clock, rubric_score=4):
     now_iso = clock.now().isoformat().replace("+00:00", "Z")
     return apply_attempt(
@@ -646,3 +728,221 @@ def test_diagnosis_case_without_repair_class_falls_back_to_facets(tmp_path):
         case_kind="diagnosis",
         case_ref=str(hypothesis["id"]),
     ) == ()
+
+
+# --- G10: ordinary nontrivial failures open the repair lane ------------------
+
+
+def test_ordinary_nontrivial_failure_opens_repair_factor(tmp_path):
+    vault, repository = _vault(tmp_path)
+    result = _failed_ordinary(
+        vault, repository, attempt_id="att_ord", item_id=ITEM_A, clock=_clock()
+    )
+    factor = _open_factor(repository, result.attempt_id)
+    assert factor["observation_id"] is None
+    repair_class_id, hypothesis_ids = _factor_repair_class(factor)
+    assert repair_class_id and hypothesis_ids
+    # G11 rides along: the learner-derived hypotheses are learner_state, so
+    # the candidate projection (and therefore the repair offer) sees them.
+    assert repository.misconception_candidate_by_normalized(LO_ID, STATEMENT)
+
+
+def test_ordinary_trivial_slip_opens_no_factor(tmp_path):
+    vault, repository = _vault(tmp_path)
+    result = _failed_ordinary(
+        vault,
+        repository,
+        attempt_id="att_slip",
+        item_id=ITEM_A,
+        clock=_clock(),
+        error_type="arithmetic_slip",  # -> local_slip: excluded
+        is_misconception=False,
+    )
+    for status in ("open", "resolved", "retired"):
+        assert (
+            repository.unresolved_cause_factors_for_attempt(
+                result.attempt_id, status=status
+            )
+            == []
+        )
+
+
+def test_ordinary_failure_escalation_still_promotes(tmp_path):
+    """G10 widens promotion deferral to ordinary attempts; the bounded exits
+    still bound it — a cold failure escalates, and the recurring signature
+    promotes on its next materialization."""
+
+    vault, repository = _vault(tmp_path)
+    _failed_ordinary(
+        vault, repository, attempt_id="att_oe1", item_id=ITEM_A, clock=_clock()
+    )
+    factor = _open_factor(repository, "att_oe1")
+    repair_class_id, hypothesis_ids = _factor_repair_class(factor)
+    assert _durable_misconceptions(repository) == []
+
+    _clean_attempt(
+        vault,
+        repository,
+        attempt_id="att_oe_cold",
+        item_id=ITEM_B,
+        clock=_clock(days=2),
+        rubric_score=0,
+    )
+    receipt = _cold_verification(
+        vault,
+        repository,
+        source_attempt_id="att_oe1",
+        cold_attempt_id="att_oe_cold",
+        repair_class_id=repair_class_id,
+        hypothesis_ids=hypothesis_ids,
+        clock=_clock(days=2),
+    )
+    assert receipt["success"] is False
+    escalated = repository.unresolved_cause_factor(str(factor["id"]))
+    assert escalated["resolution_kind"] == "escalated_unrepaired"
+
+    _failed_ordinary(
+        vault, repository, attempt_id="att_oe2", item_id=ITEM_B, clock=_clock(days=3)
+    )
+    durable = _durable_misconceptions(repository)
+    assert [record.statement for record in durable] == [STATEMENT]
+    assert durable[0].promotion_reason == "independent_surface"
+
+
+# --- G15: observation-keyed factors join the deferral exits ------------------
+
+
+def _seed_observation_factor(
+    repository, *, attempt_id: str, observation_id: str, repair_class_id: str
+):
+    hypothesis = repository.append_causal_hypothesis(
+        episode_key=f"{attempt_id}:cause",
+        attempt_id=attempt_id,
+        learning_object_id=LO_ID,
+        cause_scope="learner_state",
+        statement=STATEMENT,
+        statement_normalized=STATEMENT,
+        operation="recall_omission",
+        target_ref=DIAG_REF,
+        applicability={"observation_id": observation_id},
+        evidence={},
+        repair_class_id=repair_class_id,
+        status="candidate",
+        clock=_clock(),
+    )
+    factor_id = repository.insert_unresolved_cause_factor(
+        attempt_id=attempt_id,
+        candidate_causes=[
+            {"hypothesis_id": hypothesis["id"], "version": hypothesis["version"]},
+            {"hypothesis_id": "H_OTHER", "open_set": True},
+        ],
+        algorithm_version="mvp-0.8",
+        observation_id=observation_id,
+        clock=_clock(),
+    )
+    return factor_id, hypothesis
+
+
+def test_cold_success_resolves_observation_keyed_factor(tmp_path):
+    _vault_obj, repository = _vault(tmp_path)
+    factor_id, hypothesis = _seed_observation_factor(
+        repository,
+        attempt_id="att_obs",
+        observation_id="obs_g15",
+        repair_class_id="rc_obs",
+    )
+    actions = apply_cold_verification_to_factors(
+        repository,
+        receipt={"id": "cv_g15", "repair_class_id": "rc_obs", "success": True},
+        clock=_clock(days=2),
+    )
+    assert [
+        (action["factor_id"], action["resolution_kind"]) for action in actions
+    ] == [(factor_id, "repair_confirmed")]
+
+    closed = repository.unresolved_cause_factor(factor_id)
+    assert closed["status"] == "resolved"
+    assert closed["resolution_kind"] == "repair_confirmed"
+    # Belief withdrawal uses the same retired-hypothesis-version mechanism as
+    # the attempt-keyed factors — refs hydrate identically.
+    head = repository.latest_causal_hypothesis_for_episode(
+        str(hypothesis["episode_key"])
+    )
+    assert head["status"] == "retired"
+    assert head["evidence"]["withdrawal"]["reason"] == "repair_confirmed"
+
+    # Idempotent re-application: nothing left open to act on.
+    assert (
+        apply_cold_verification_to_factors(
+            repository,
+            receipt={"id": "cv_g15", "repair_class_id": "rc_obs", "success": True},
+            clock=_clock(days=2),
+        )
+        == []
+    )
+
+
+def test_projection_sync_does_not_resurrect_deferral_closed_factors(tmp_path):
+    from learnloop.services.canonical_projection import (
+        _sync_unresolved_cause_factors,
+    )
+
+    _vault_obj, repository = _vault(tmp_path)
+    resolved_id, _hyp = _seed_observation_factor(
+        repository,
+        attempt_id="att_obs_r",
+        observation_id="obs_resolved",
+        repair_class_id="rc_r",
+    )
+    apply_cold_verification_to_factors(
+        repository,
+        receipt={"id": "cv_r", "repair_class_id": "rc_r", "success": True},
+        clock=_clock(days=2),
+    )
+    retired_id, _hyp2 = _seed_observation_factor(
+        repository,
+        attempt_id="att_obs_t",
+        observation_id="obs_retired",
+        repair_class_id="rc_t",
+    )
+    assert repository.close_unresolved_cause_factor(
+        retired_id,
+        status="retired",
+        resolution_kind="expired_unengaged",
+        resolution_detail={"ttl_days": FACTOR_DEFERRAL_TTL.days},
+        clock=_clock(days=31),
+    )
+
+    # The projection still sees both failures (and one genuinely new one).
+    wanted = [
+        {
+            "attempt_id": "att_obs_r",
+            "observation_id": "obs_resolved",
+            "candidate_causes": [{"statement": STATEMENT}],
+        },
+        {
+            "attempt_id": "att_obs_t",
+            "observation_id": "obs_retired",
+            "candidate_causes": [{"statement": STATEMENT}],
+        },
+        {
+            "attempt_id": "att_obs_new",
+            "observation_id": "obs_new",
+            "candidate_causes": [{"statement": STATEMENT}],
+        },
+    ]
+    _sync_unresolved_cause_factors(repository, wanted, clock=_clock(days=31))
+
+    # Neither deferral-closed factor is re-opened or duplicated; the sync
+    # still inserts the genuinely new failure.
+    factors = repository.unresolved_cause_factors(status=None)
+    by_observation = {
+        str(factor.get("observation_id")): factor for factor in factors
+    }
+    assert by_observation["obs_resolved"]["id"] == resolved_id
+    assert by_observation["obs_resolved"]["status"] == "resolved"
+    assert by_observation["obs_retired"]["id"] == retired_id
+    assert by_observation["obs_retired"]["status"] == "retired"
+    assert by_observation["obs_retired"]["resolution_kind"] == "expired_unengaged"
+    assert by_observation["obs_new"]["status"] == "open"
+    assert len(factors) == 3

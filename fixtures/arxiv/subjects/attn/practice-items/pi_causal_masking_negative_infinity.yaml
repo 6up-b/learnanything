@@ -24,6 +24,9 @@ criterion_facet_weights:
     negative_infinity_to_zero: 1.0
   normalization_preserved:
     normalization_preserved: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: In GPT-style attention, why are forbidden future-token scores set to 
   negative infinity before softmax instead of simply setting their final weights
   to zero first?
@@ -49,6 +52,9 @@ hint_policy:
 retrieval_demand: 0.5
 transfer_distance: 0.28
 scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
 surface_family: masking_explanation
 evidence_fingerprint:
   source_family:
@@ -57,6 +63,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - future_blocked
   - pre_softmax_logits
@@ -71,37 +82,53 @@ grading_rubric:
       points: 1.0
       description: States that later tokens must not influence earlier tokens.
       tier: core
-      targets: []
+      targets:
+        - facet: future_blocked
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: pre_softmax_logits
       points: 1.0
       description: Specifies that masking is applied before softmax to logits or
         scores.
       tier: core
-      targets: []
+      targets:
+        - facet: pre_softmax_logits
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: negative_infinity_to_zero
       points: 1.0
       description: Explains that negative infinity becomes zero probability 
         after softmax.
       tier: core
-      targets: []
+      targets:
+        - facet: negative_infinity_to_zero
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: normalization_preserved
       points: 1.0
       description: Explains that columns or distributions remain normalized over
         allowed tokens.
       tier: core
-      targets: []
+      targets:
+        - facet: normalization_preserved
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_all_future_allowed
       description: Says causal attention permits future tokens to affect earlier
@@ -113,6 +140,8 @@ grading_rubric:
         preserving normalization.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -124,5 +153,12 @@ provenance:
       quote: never want to allow later words to influence earlier words... This 
         process is called masking.
       quote_hash: sha256:src_causal_masking
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:19Z'
-updated_at: '2026-07-15T01:10:44Z'
+updated_at: '2026-07-28T03:46:10Z'

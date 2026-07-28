@@ -245,6 +245,29 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
         assessment_contract_version_id = snapshot_for_presentation(
             repository, vault, item, rubric=rubric
         )
+    active_followup = repository.active_followup_task_for_item(item.id)
+    if active_followup is not None and active_followup.get("kind") == "cold_retry":
+        # Migration 149 stage 1: serving the detail for an item carrying an
+        # active cold-retry task IS the administration open — record the
+        # coldness snapshot (window state, surface eligibility, selection
+        # basis, render-time exposure scan). Idempotent per task, and a
+        # bookkeeping failure must never block the serve.
+        try:
+            from learnloop.services.coldness_receipt import (
+                record_administration_snapshot,
+            )
+
+            record_administration_snapshot(
+                vault, repository, task=active_followup
+            )
+        except Exception:  # pragma: no cover - serve must not fail on receipts
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "coldness administration snapshot failed for %s",
+                item.id,
+                exc_info=True,
+            )
     return versioned(
         {
             "id": item.id,
@@ -293,7 +316,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             # the practice surface needs to WARN before the learner burns the
             # one measurement on a hint.
             "active_followup_kind": (
-                (repository.active_followup_task_for_item(item.id) or {}).get("kind")
+                active_followup.get("kind") if active_followup is not None else None
             ),
         }
     )
@@ -522,6 +545,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     rating = repository.followup_rating(attempt_id)
     error_events = repository.error_events_for_attempt(attempt_id)
     from learnloop.services.causal_attribution import claim_checked_feedback
+    from learnloop.services.guided_redo import guided_redo_available
 
     causal_feedback = claim_checked_feedback(vault, repository, attempt_id)
     matched_misconception = None
@@ -601,6 +625,12 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "feedback_first_shown_at": metadata.get("first_shown_at"),
             "feedback_last_shown_at": metadata.get("last_shown_at"),
             "repair_suggestions": metadata.get("repair_suggestions") or [],
+            # Server truth for the "redo the part you missed" button: computed
+            # with the same rule `start_guided_redo` enforces (the SELECTED
+            # repair preserves a prefix), so a visible button cannot fail with
+            # `guided_redo_unavailable`. Gating on "any suggestion has a
+            # prefix" did exactly that whenever the selection differed.
+            "guided_redo_available": guided_redo_available(repository, attempt_id),
             "intervention_need": intervention_need_dto(intervention_need),
             "primed": bool(attempt.get("primed")),
             # Canonical-source sections that spawned this item, for the

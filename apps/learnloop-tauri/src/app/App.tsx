@@ -152,6 +152,11 @@ export function App() {
   // episode in `treatment` forever (it is never reused). Stash it, route the
   // learner to session start, and resume the primed retry when a session begins.
   const [pendingPrimedItemId, setPendingPrimedItemId] = useState<string | null>(null);
+  // Same stash-and-resume for a guided redo begun with NO session open:
+  // start_guided_redo has already committed the repair episode to treatment on
+  // the redo item, so dropping the DTO here would strand that episode exactly
+  // like a discarded primed handoff. Stash it, route to session start, resume.
+  const [pendingRedo, setPendingRedo] = useState<GuidedRedoDto | null>(null);
   const startupStartedRef = useRef(false);
   // Whether the practice screen is currently a teach-back conversation. Only
   // PracticeScreen knows the item's mode; it reports it up so the
@@ -389,6 +394,16 @@ export function App() {
     setTodayNoGoalBannerDismissed(false);
     setSession(next);
     setTab("today");
+    if (pendingRedo) {
+      // Resume the guided redo that was waiting on a session: its episode is
+      // already committed to this item as the primed surface.
+      setPrimedRetry(true);
+      setRedoContext(pendingRedo);
+      setPracticeItemId(pendingRedo.practiceItemId);
+      setPendingRedo(null);
+      setTodayStage("practice");
+      return;
+    }
     if (pendingPrimedItemId) {
       // Resume the repair handoff that was waiting on a session: open the
       // stashed primed retry directly instead of the queue.
@@ -431,8 +446,11 @@ export function App() {
   // PracticeScreen locks the preserved prefix and submits the composed answer.
   function openGuidedRedo(redo: GuidedRedoDto) {
     if (!session) {
+      // The redo's episode is already committed server-side; stash the context
+      // and resume it when a session begins (mirrors pendingPrimedItemId).
+      setPendingRedo(redo);
       setTab("start");
-      setToast("Start a session before opening practice.");
+      setToast("Start a session to begin the redo.");
       return;
     }
     setPrimedRetry(true);
@@ -639,6 +657,8 @@ export function App() {
         <CalibrationScreen
           calibrationSessionId={calibrationSessionId}
           onPractice={openPractice}
+          onOpenRepair={openRepair}
+          onGuidedRedo={openGuidedRedo}
           onExit={exitCalibration}
           onError={onError}
         />
@@ -690,6 +710,8 @@ export function App() {
             sessionId={session.sessionId}
             onContinueDiagnostic={openPractice}
             onAsk={setAskTarget}
+            onOpenRepair={openRepair}
+            onGuidedRedo={openGuidedRedo}
             onBack={() => {
               setBlockReview(null);
               setTodayStage("queue");

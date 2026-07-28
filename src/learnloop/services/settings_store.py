@@ -114,6 +114,56 @@ def apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], An
     tmp.replace(config_path)
 
 
+def remove_config_paths(
+    config_path: Path,
+    key_paths: tuple[tuple[str, ...], ...],
+) -> tuple[tuple[str, ...], ...]:
+    """Remove retired config keys/tables with atomic, comment-preserving edits.
+
+    Missing paths are idempotent no-ops. The return value names only paths that
+    were present and removed.
+    """
+
+    import tomlkit
+    from tomlkit.exceptions import TOMLKitError
+
+    try:
+        text = config_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise SettingsStoreError(
+            "config_missing", f"{config_path} does not exist"
+        ) from exc
+    try:
+        document = tomlkit.parse(text)
+    except TOMLKitError as exc:
+        raise SettingsStoreError(
+            "config_unreadable", f"{config_path} is not valid TOML: {exc}"
+        ) from exc
+
+    removed: list[tuple[str, ...]] = []
+    for key_path in key_paths:
+        if not key_path:
+            raise SettingsStoreError("invalid_key_path", "empty config key path")
+        node: Any = document
+        for part in key_path[:-1]:
+            existing = node.get(part)
+            if existing is None or isinstance(
+                existing, (str, int, float, bool, list)
+            ):
+                node = None
+                break
+            node = existing
+        if node is not None and key_path[-1] in node:
+            del node[key_path[-1]]
+            removed.append(key_path)
+
+    if removed:
+        tmp = config_path.with_suffix(config_path.suffix + ".tmp")
+        tmp.write_text(tomlkit.dumps(document), encoding="utf-8")
+        tmp.replace(config_path)
+    return tuple(removed)
+
+
 def copy_ai_settings(source_path: Path, target_path: Path) -> bool:
     """Copy the persisted ``[ai]`` provider selection from one vault's
     ``learnloop.toml`` into another's. Returns True when anything was applied.

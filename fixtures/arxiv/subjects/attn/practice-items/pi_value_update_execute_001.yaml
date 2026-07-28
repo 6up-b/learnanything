@@ -1,0 +1,206 @@
+schema_version: 1
+id: pi_value_update_execute_001
+learning_object_id: lo_value_updates
+subjects:
+  - attn
+practice_mode: worked_computation
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - pattern_as_weights
+  - values_as_content
+  - weighted_sum_column
+  - add_to_embedding
+evidence_weights:
+  add_to_embedding: 0.25
+  pattern_as_weights: 0.25
+  values_as_content: 0.25
+  weighted_sum_column: 0.25
+criterion_facet_weights:
+  add_residual_update:
+    add_to_embedding: 1.0
+  compute_weighted_update:
+    weighted_sum_column: 1.0
+  use_pattern_as_coefficients:
+    pattern_as_weights: 1.0
+  use_values_as_content:
+    values_as_content: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_form_and_add_value_update
+      checkpoints:
+        - use_pattern_as_coefficients
+        - use_values_as_content
+        - compute_weighted_update
+        - add_residual_update
+      dependencies:
+        add_residual_update:
+          - compute_weighted_update
+        compute_weighted_update:
+          - use_pattern_as_coefficients
+          - use_values_as_content
+        use_pattern_as_coefficients: []
+        use_values_as_content: []
+variant_contract:
+teach_back_source:
+prompt: For a target token, the attention-pattern column is alpha=[0.25,0.75]^T.
+  The source value vectors are v1=[2,0]^T and v2=[0,4]^T, and the target's 
+  original embedding is x=[1,1]^T. State which quantities supply weights and 
+  which supply content, compute the weighted update Delta x, then apply the 
+  residual addition to obtain the updated embedding. Show the coefficient-vector
+  products and both vector sums.
+expected_answer: alpha supplies the scalar weights, while v1 and v2 supply the 
+  content/update directions. Delta 
+  x=0.25v1+0.75v2=0.25[2,0]^T+0.75[0,4]^T=[0.5,0]^T+[0,3]^T=[0.5,3]^T. The 
+  residual update is x'=x+Delta x=[1,1]^T+[0.5,3]^T=[1.5,4]^T.
+difficulty: 0.56
+difficulty_source: author
+tags:
+  - attn
+  - values
+  - procedure-execution
+  - numeric-trace
+hints:
+  - The pattern entries multiply vectors; they are not themselves content 
+    vectors.
+  - Compute the weighted value sum before adding the original embedding.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.28
+scaffold_level: 0.28
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+  response: structured_steps
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: value_update_numeric_trace
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - pattern_as_weights
+  - values_as_content
+  - weighted_sum_column
+  - add_to_embedding
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: use_pattern_as_coefficients
+      points: 1.0
+      description: Uses the attention-pattern entries as scalar mixing 
+        coefficients.
+      tier: core
+      targets:
+        - facet: pattern_as_weights
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+    - id: use_values_as_content
+      points: 1.0
+      description: Uses the value vectors as the content directions being mixed.
+      tier: core
+      targets:
+        - facet: values_as_content
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+    - id: compute_weighted_update
+      points: 1.0
+      description: Computes the weighted value-vector sum for the target column.
+      tier: core
+      targets:
+        - facet: weighted_sum_column
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - use_pattern_as_coefficients
+        - use_values_as_content
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+    - id: add_residual_update
+      points: 1.0
+      description: Adds the computed update to the target token's original 
+        embedding.
+      tier: core
+      targets:
+        - facet: add_to_embedding
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - compute_weighted_update
+      correlation_group:
+      recipe_ids:
+        - recipe_form_and_add_value_update
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_dot_softmax_pattern
+      path: 
+        subjects/attn/notes/note_source_youtube_video_emlx5ffnoyc_082cbd99.md
+      locator: t=507.2-616.8
+      quote: compute a dot product between each possible key-query pair... We 
+        call this grid an attention pattern.
+      quote_hash: sha256:src_dot_softmax_pattern
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+    - ref_type: canonical_source
+      ref_id: src_values_update
+      path: 
+        subjects/attn/notes/note_source_youtube_video_emlx5ffnoyc_082cbd99.md
+      locator: t=790.6-943.5
+      quote: use a third matrix, what we call the value matrix... producing a 
+        sequence of changes.
+      quote_hash: sha256:src_values_update
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+created_at: '2026-07-28T03:46:06Z'
+updated_at: '2026-07-28T03:46:58Z'

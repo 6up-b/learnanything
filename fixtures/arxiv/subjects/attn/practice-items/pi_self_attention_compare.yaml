@@ -36,6 +36,9 @@ criterion_facet_weights:
     long_range_dependency_link: 1.0
   balanced_comparison:
     balanced_comparison: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: 'Compare self-attention with recurrent and convolutional layers using the
   paper’s three motivation criteria: computational complexity, parallelization, and
   path length for long-range dependencies.'
@@ -65,6 +68,9 @@ hint_policy:
 retrieval_demand: 0.7
 transfer_distance: 0.55
 scaffold_level: 0.05
+capability:
+task_features:
+task_feature_schema:
 surface_family: architecture_tradeoff_comparison
 evidence_fingerprint:
   source_family:
@@ -73,6 +79,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - three_criteria
   - self_attention_parallel
@@ -92,73 +103,105 @@ grading_rubric:
       description: 'Names all three comparison criteria: complexity, parallelism,
         and path length.'
       tier: core
-      targets: []
+      targets:
+        - facet: three_criteria
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: self_attention_parallel
       points: 0.5
       description: Explains self-attention’s constant sequential operations 
         across positions.
       tier: core
-      targets: []
+      targets:
+        - facet: self_attention_parallel
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: self_attention_path
       points: 0.5
       description: Explains the short path length benefit for long-range 
         dependencies.
       tier: core
-      targets: []
+      targets:
+        - facet: self_attention_path
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: recurrent_sequential
       points: 0.5
       description: Explains recurrence requires sequential computation by 
         position.
       tier: core
-      targets: []
+      targets:
+        - facet: recurrent_sequential
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: convolution_path
       points: 0.5
       description: Explains convolution needs multiple layers or dilation to 
         connect distant positions.
       tier: core
-      targets: []
+      targets:
+        - facet: convolution_path
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: complexity_tradeoff
       points: 0.5
       description: Mentions computational cost conditions or kernel/separable 
         convolution tradeoffs.
       tier: core
-      targets: []
+      targets:
+        - facet: complexity_tradeoff
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: long_range_dependency_link
       points: 0.5
       description: Connects shorter paths to easier learning of long-range 
         dependencies.
       tier: core
-      targets: []
+      targets:
+        - facet: long_range_dependency_link
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: balanced_comparison
       points: 0.25
       description: Avoids claiming self-attention dominates every setting 
         without tradeoffs.
       tier: core
-      targets: []
+      targets:
+        - facet: balanced_comparison
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_single_criterion
       description: Only discusses one criterion and ignores the multi-criterion 
@@ -175,6 +218,8 @@ grading_rubric:
         entirely.
       max_grade: 3
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -186,5 +231,12 @@ provenance:
       quote: While single-head attention is 0.9 BLEU worse than the best 
         setting, quality also drops off with too many heads.
       quote_hash: sha256:head_count_ablation
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:33Z'
-updated_at: '2026-07-15T01:11:33Z'
+updated_at: '2026-07-28T03:46:39Z'

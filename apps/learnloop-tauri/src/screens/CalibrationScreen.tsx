@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { CalibrationSessionProgressDto, CommandError } from "../api/dto";
+import type { CalibrationSessionProgressDto, CommandError, GuidedRedoDto } from "../api/dto";
 import { DialogueProbePanel } from "../components/DialogueProbe";
 import { BlockBar, COLOR, FONT_MONO, Faint, KeyBar } from "../components/term";
 import { Card, Pill, SectionHeader } from "../components/ui";
@@ -34,11 +34,17 @@ function minutes(value: number): string {
 export function CalibrationScreen({
   calibrationSessionId,
   onPractice,
+  onOpenRepair,
+  onGuidedRedo,
   onExit,
   onError
 }: {
   calibrationSessionId: string;
   onPractice: (practiceItemId: string) => void;
+  /** Repair-journey entrances on a dialogue block's released turns
+   *  (App's openRepair / openGuidedRedo). */
+  onOpenRepair?: (misconceptionId: string) => void;
+  onGuidedRedo?: (redo: GuidedRedoDto) => void;
   onExit: () => void;
   onError: (message: string) => void;
 }) {
@@ -144,6 +150,8 @@ export function CalibrationScreen({
               setDialogueLo(null);
               refresh();
             }}
+            onOpenRepair={onOpenRepair}
+            onGuidedRedo={onGuidedRedo}
             onError={onError}
           />
         </div>

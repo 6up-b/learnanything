@@ -43,6 +43,41 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 FOLLOWUP_ACTION = "negative_surprise_followup"
 INTERVENTION_ACTION = "intervention_followup"
 
+# Journey B decision verbs whose receipt IS the feedback surface's commonRepair
+# card. Receipts are per-factor: one of these on the attempt's factor means the
+# lane was already consulted, and consulting again would append a duplicate
+# decision for the same view (`insert_causal_probe_decision_receipt` never
+# deduplicates by design — frequency is P4 training signal).
+COMMON_REPAIR_DECISIONS = (
+    "skip_common_repair",
+    "skip_action_equivalent",
+    "start_durable_repair",
+)
+
+
+def common_repair_messages() -> dict[str, str]:
+    """Learner copy per skip verb, keyed by the recorded decision.
+
+    `STARTED_MESSAGE` ("Starting the targeted repair.") would be untrue here —
+    the post-attempt consultation is a read and mints no episode; starting is
+    the learner's action on the card. Lazy import: `causal_orchestrator` is
+    only ever imported function-level from this module.
+    """
+
+    from learnloop.services.causal_orchestrator import SAFE_COMMON_REPAIR_MESSAGE
+
+    return {
+        "skip_common_repair": SAFE_COMMON_REPAIR_MESSAGE,
+        "skip_action_equivalent": (
+            "Every explanation that fits points to the same fix, so there is "
+            "nothing to disambiguate first."
+        ),
+        "start_durable_repair": (
+            "This looks like a belief you've shown before — I can start the "
+            "targeted repair now."
+        ),
+    }
+
 
 INTENT_PRIORITY = [
     "guided_reconstruction",
@@ -586,6 +621,51 @@ def evaluate_attempt_intervention_followup(
     )
 
 
+def run_deferred_block_repair_hooks(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    learning_object_id: str,
+    session_id: str | None = None,
+    clock: Clock | None = None,
+) -> None:
+    """§5.7 block-end resumption of the deferred per-attempt causal hooks.
+
+    ``evaluate_attempt_intervention_followup`` defers everything for an
+    attempt inside an active diagnostic block, and nothing ever resumed the
+    causal-orchestrator hooks — so no decision receipt (``skip_common_repair``
+    / ``skip_action_equivalent`` / ``start_durable_repair``) was ever recorded
+    for in-block probe attempts, and the block-review surface had no repair
+    recommendation to read. ``probe_blocks.end_diagnostic_block`` calls this
+    once per released attempt, AFTER misconception normalization so
+    factors/hypotheses/durable records are settled.
+
+    The cold-verification arm is deliberately excluded: a cold retry is an
+    ordinary scheduled attempt, never an in-block probe, and its typed
+    cold-outcome rows are appended per invocation — the live per-attempt path
+    (which runs for the block-closing attempt once its episode completes)
+    remains that arm's only producer. Idempotency for the rest:
+    ``auto_classify_pinned_probe`` declines re-classifying an observed
+    presentation, ``sweep_machine_checks`` is an upserting sweep, and
+    ``_consult_common_repair`` skips factors that already carry a
+    common-repair decision receipt.
+    """
+
+    from types import SimpleNamespace
+
+    _run_causal_orchestrator_hooks(
+        vault,
+        repository,
+        SimpleNamespace(
+            attempt_id=attempt_id, learning_object_id=learning_object_id
+        ),
+        session_id=session_id,
+        clock=clock,
+        include_cold_verification=False,
+    )
+
+
 def _run_causal_orchestrator_hooks(
     vault: LoadedVault,
     repository: Repository,
@@ -593,6 +673,7 @@ def _run_causal_orchestrator_hooks(
     *,
     session_id: str | None = None,
     clock: Clock | None = None,
+    include_cold_verification: bool = True,
 ) -> None:
     """Live-path P2 hooks: the machine-check producer and cold verification.
 
@@ -645,8 +726,12 @@ def _run_causal_orchestrator_hooks(
     try:
         # Ask for the repair lane by name: migration 139 put a second `kind` on
         # the same table, and one attempt can discharge a task in each.
-        task = repository.consumed_followup_task_for_attempt(
-            result.attempt_id, kind="cold_retry"
+        task = (
+            repository.consumed_followup_task_for_attempt(
+                result.attempt_id, kind="cold_retry"
+            )
+            if include_cold_verification
+            else None
         )
         if task is not None:
             record_cold_verification_from_task(
@@ -707,10 +792,23 @@ def _consult_common_repair(
 
     Read-only by construction (``start_repair=False``): no episode is minted,
     no probe is offered, and every existing gate is inside ``decide_probe``.
+
+    Idempotent per factor: a common-repair decision receipt already recorded on
+    one of this attempt's factors means the lane was consulted (whether by the
+    live per-attempt path or the §5.7 block-end resumption), and this returns
+    without re-deciding — the receipt table appends by design, so the guard
+    lives here.
     """
 
-    if not repository.unresolved_cause_factors_for_attempt(result.attempt_id):
+    factors = repository.unresolved_cause_factors_for_attempt(result.attempt_id)
+    if not factors:
         return
+    for factor in factors:
+        for receipt in repository.causal_probe_decision_receipts(
+            factor_id=str(factor["id"])
+        ):
+            if str(receipt.get("decision") or "") in COMMON_REPAIR_DECISIONS:
+                return
 
     from learnloop.services.causal_attribution import causal_episode_for_attempt
     from learnloop.services.causal_orchestrator import (
@@ -748,6 +846,82 @@ def _consult_common_repair(
         # No candidate case (e.g. resolved between diagnosis and this hook):
         # nothing is being held, so there is nothing to recommend.
         return
+
+
+def common_repair_recommendation(
+    repository: Repository,
+    attempt_id: str,
+    *,
+    probe_need: Any,
+    fallback_misconception_id: str = "",
+    surface: str = "feedback_common_repair",
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Journey B read: the already-decided common-repair card for one attempt.
+
+    Shared by the feedback bundle (``handlers.feedback._attach_common_repair``)
+    and the §5.7 block-end released-feedback payload — both read the decision
+    receipt the post-attempt/block-end consultation recorded
+    (``_consult_common_repair``); neither ever calls the orchestrator, so
+    re-viewing a surface cannot mint another receipt. Divergent and
+    incomplete-mapping factors keep the existing learner-initiated
+    ``causal_repair_status`` flow untouched.
+
+    ``probe_need`` is the claim-checked feedback's probe-need mapping in either
+    spelling (snake from the service payload, camel from the serialized
+    bundle). Returns a snake_case payload (camelized at the wire) or ``None``.
+    """
+
+    from learnloop.services.surfaced_beliefs import mark_belief_surfaced
+
+    if isinstance(probe_need, dict) and (
+        probe_need.get("divergent")
+        or probe_need.get("incomplete_repair_mapping")
+        or probe_need.get("incompleteRepairMapping")
+    ):
+        return None
+    factors = repository.unresolved_cause_factors_for_attempt(attempt_id)
+    if not factors:
+        return None
+    factor_id = str(factors[0]["id"])
+    messages = common_repair_messages()
+    recommendation = None
+    for receipt in reversed(
+        repository.causal_probe_decision_receipts(factor_id=factor_id)
+    ):
+        if str(receipt.get("decision") or "") in messages:
+            recommendation = receipt
+            break
+    if recommendation is None:
+        return None
+    misconception_id = str(
+        recommendation.get("misconception_id") or fallback_misconception_id or ""
+    )
+    if not misconception_id:
+        return None
+    # A6 capture: this card names the belief and its fix outside a ClaimSurface
+    # mount, so stamp exactly as the Repair screen's `_case_dto` does — durable
+    # beliefs only; a provisional belief has no disposition lifecycle to be
+    # withdrawn from.
+    record = repository.misconception(misconception_id)
+    if record is not None:
+        mark_belief_surfaced(
+            repository,
+            belief_id=misconception_id,
+            claim_text=getattr(record, "statement", None),
+            surface=surface,
+            clock=clock,
+        )
+    decision = str(recommendation.get("decision"))
+    return {
+        "status": str(recommendation.get("repair_status") or ""),
+        "decision": decision,
+        "reason": str(recommendation.get("reason") or ""),
+        "message": messages[decision],
+        "misconception_id": misconception_id,
+        "factor_id": factor_id,
+        "decision_receipt_id": str(recommendation.get("id") or ""),
+    }
 
 
 def _probe_unfamiliar_probability(

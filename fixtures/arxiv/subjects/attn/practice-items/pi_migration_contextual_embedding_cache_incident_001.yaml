@@ -1,0 +1,321 @@
+schema_version: 1
+id: pi_migration_contextual_embedding_cache_incident_001
+learning_object_id: lo_contextual_embeddings
+subjects:
+  - attn
+practice_mode: transfer_audit
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - attention_refines
+  - context_free_start
+  - context_incorporation
+  - contextual_meaning
+  - different_contexts
+  - embedding_lookup
+  - fixed_context_window
+  - long_conversation_loss
+  - lookup_context_free
+  - prediction_dependency
+  - text_limit
+  - transformer_updates
+evidence_weights:
+  attention_refines: 0.08333333333333333
+  context_free_start: 0.08333333333333333
+  context_incorporation: 0.08333333333333333
+  contextual_meaning: 0.08333333333333333
+  different_contexts: 0.08333333333333333
+  embedding_lookup: 0.08333333333333333
+  fixed_context_window: 0.08333333333333333
+  long_conversation_loss: 0.08333333333333333
+  lookup_context_free: 0.08333333333333333
+  prediction_dependency: 0.08333333333333333
+  text_limit: 0.08333333333333333
+  transformer_updates: 0.08333333333333337
+criterion_facet_weights:
+  criterion_attention_refines:
+    attention_refines: 1.0
+  criterion_context_free_start:
+    context_free_start: 1.0
+  criterion_context_incorporation:
+    context_incorporation: 1.0
+  criterion_contextual_meaning:
+    contextual_meaning: 1.0
+  criterion_different_contexts:
+    different_contexts: 1.0
+  criterion_embedding_lookup:
+    embedding_lookup: 1.0
+  criterion_fixed_context_window:
+    fixed_context_window: 1.0
+  criterion_long_conversation_loss:
+    long_conversation_loss: 1.0
+  criterion_lookup_context_free:
+    lookup_context_free: 1.0
+  criterion_prediction_dependency:
+    prediction_dependency: 1.0
+  criterion_text_limit:
+    text_limit: 1.0
+  criterion_transformer_updates:
+    transformer_updates: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A serving team caches one vector per vocabulary token and reuses it as 
+  the final representation in every sentence and throughout arbitrarily long 
+  chats. Write an incident review explaining which representation can be cached,
+  how Transformer layers contextualize it, why the same token can end 
+  differently across contexts, and what a fixed context window loses.
+expected_answer: "A complete response establishes each required point:\n- attention_refines:
+  Attention refines a token representation by incorporating information from surrounding
+  token representations.\n- context_free_start: A token's initial embedding represents
+  the token identity before surrounding context is incorporated.\n- context_incorporation:
+  Transformer blocks incorporate information from surrounding and distant tokens into
+  each token representation.\n- contextual_meaning: A later-layer token vector expresses
+  a richer context-specific meaning than its initial lookup embedding.\n- different_contexts:
+  The same token can require different representations when its surrounding context
+  selects different meanings.\n- embedding_lookup: A token's initial vector is obtained
+  by looking up its learned entry in the embedding matrix.\n- fixed_context_window:
+  Context size is the fixed maximum number of token positions the model processes
+  together for a prediction.\n- long_conversation_loss: Text outside the model's context
+  window cannot directly inform the next prediction, so earlier parts of a long conversation
+  can be lost.\n- lookup_context_free: The initial lookup embedding for a token is
+  the same before phrase-specific context is incorporated.\n- prediction_dependency:
+  A next-token prediction can depend directly only on text represented inside the
+  active context window.\n- text_limit: The context-window limit bounds how much prior
+  text can be incorporated into one prediction.\n- transformer_updates: Attention
+  and feed-forward blocks repeatedly transform each token vector through the network."
+difficulty: 0.58
+difficulty_source: author
+tags:
+  - attn
+  - migration
+  - independent-surface
+  - schema-interpretation
+hints:
+  - Separate the observable dataflow or decision from the explanation of why it 
+    is valid.
+  - Check every requested interface or checkpoint against the stated scenario.
+hint_policy:
+  max_useful_hints: 2
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.72
+scaffold_level: 0.24
+capability: schema_interpretation
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: embedding_cache_incident_report
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - attention_refines
+  - context_free_start
+  - context_incorporation
+  - contextual_meaning
+  - different_contexts
+  - embedding_lookup
+  - fixed_context_window
+  - long_conversation_loss
+  - lookup_context_free
+  - prediction_dependency
+  - text_limit
+  - transformer_updates
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_attention_refines
+      points: 0.3333333333333333
+      description: Attention refines a token representation by incorporating 
+        information from surrounding token representations.
+      tier: core
+      targets:
+        - facet: attention_refines
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_context_free_start
+      points: 0.3333333333333333
+      description: A token's initial embedding represents the token identity 
+        before surrounding context is incorporated.
+      tier: core
+      targets:
+        - facet: context_free_start
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_contextualization
+      measurement_status: direct
+    - id: criterion_context_incorporation
+      points: 0.3333333333333333
+      description: Transformer blocks incorporate information from surrounding 
+        and distant tokens into each token representation.
+      tier: core
+      targets:
+        - facet: context_incorporation
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_contextualization
+      measurement_status: direct
+    - id: criterion_contextual_meaning
+      points: 0.3333333333333333
+      description: A later-layer token vector expresses a richer 
+        context-specific meaning than its initial lookup embedding.
+      tier: core
+      targets:
+        - facet: contextual_meaning
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_contextualization
+      measurement_status: direct
+    - id: criterion_different_contexts
+      points: 0.3333333333333333
+      description: The same token can require different representations when its
+        surrounding context selects different meanings.
+      tier: core
+      targets:
+        - facet: different_contexts
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_embedding_lookup
+      points: 0.3333333333333333
+      description: A token's initial vector is obtained by looking up its 
+        learned entry in the embedding matrix.
+      tier: core
+      targets:
+        - facet: embedding_lookup
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_trace_contextualization
+      measurement_status: direct
+    - id: criterion_fixed_context_window
+      points: 0.3333333333333333
+      description: Context size is the fixed maximum number of token positions 
+        the model processes together for a prediction.
+      tier: core
+      targets:
+        - facet: fixed_context_window
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_context_limit
+      measurement_status: direct
+    - id: criterion_long_conversation_loss
+      points: 0.3333333333333333
+      description: Text outside the model's context window cannot directly 
+        inform the next prediction, so earlier parts of a long conversation can 
+        be lost.
+      tier: core
+      targets:
+        - facet: long_conversation_loss
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_context_limit
+      measurement_status: direct
+    - id: criterion_lookup_context_free
+      points: 0.3333333333333333
+      description: The initial lookup embedding for a token is the same before 
+        phrase-specific context is incorporated.
+      tier: core
+      targets:
+        - facet: lookup_context_free
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_prediction_dependency
+      points: 0.3333333333333333
+      description: A next-token prediction can depend directly only on text 
+        represented inside the active context window.
+      tier: core
+      targets:
+        - facet: prediction_dependency
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids:
+        - recipe_explain_context_limit
+      measurement_status: direct
+    - id: criterion_text_limit
+      points: 0.3333333333333333
+      description: The context-window limit bounds how much prior text can be 
+        incorporated into one prediction.
+      tier: core
+      targets:
+        - facet: text_limit
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_transformer_updates
+      points: 0.3333333333333335
+      description: Attention and feed-forward blocks repeatedly transform each 
+        token vector through the network.
+      tier: core
+      targets:
+        - facet: transformer_updates
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-07-28T03:55:40Z'
+updated_at: '2026-07-28T03:59:23Z'

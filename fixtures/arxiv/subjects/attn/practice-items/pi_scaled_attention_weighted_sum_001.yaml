@@ -27,6 +27,9 @@ criterion_facet_weights:
   keys_for_compatibility:
     qkv_roles: 0.5
     compatibility_weights: 0.5
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Softmax has already produced attention weights [0.75, 0.25] over value 
   vectors v1 = [2, 0] and v2 = [0, 4]. Compute the attention output and explain 
   why this step uses values rather than keys.
@@ -52,6 +55,9 @@ hint_policy:
 retrieval_demand: 0.3
 transfer_distance: 0.25
 scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
 surface_family: value_weighted_sum_compute
 evidence_fingerprint:
   source_family:
@@ -61,6 +67,11 @@ evidence_fingerprint:
   answer_structure:
 misconception_consistent_answer: The output is the average [1,2], and keys are 
   used because keys represent the positions.
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - weighted_sum
   - value_weighting
@@ -73,43 +84,67 @@ grading_rubric:
       points: 1.5
       description: Correctly computes the output vector as [1.5, 1].
       tier: core
-      targets: []
+      targets:
+        - facet: weighted_sum
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: uses_attention_weights
       points: 0.75
       description: Shows that each value vector is multiplied by its 
         corresponding attention weight.
       tier: core
-      targets: []
+      targets:
+        - facet: value_weighting
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: values_as_content
       points: 1.0
       description: Explains that values carry the content being mixed into the 
         output.
       tier: core
-      targets: []
+      targets:
+        - facet: qkv_roles
+          capability: procedure_execution
+          role: supporting
+        - facet: value_weighting
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
     - id: keys_for_compatibility
       points: 0.75
       description: Distinguishes keys as used earlier for compatibility scoring 
         rather than final content mixing.
       tier: core
-      targets: []
+      targets:
+        - facet: qkv_roles
+          capability: procedure_execution
+          role: supporting
+        - facet: compatibility_weights
+          capability: procedure_execution
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: composite
   fatal_errors:
     - id: fatal_unweighted_average_values
       description: Computes an unweighted average instead of using the supplied 
         attention weights.
       max_grade: 2
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: codex_proposal
   source_refs:
@@ -120,5 +155,12 @@ provenance:
       quote: Generate additional LearnLoop Practice Items after completed probe 
         phases.
       quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-07-13T01:00:14Z'
-updated_at: '2026-07-15T01:11:32Z'
+updated_at: '2026-07-28T03:46:38Z'

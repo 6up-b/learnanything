@@ -21,6 +21,9 @@ criterion_facet_weights:
     different_contexts: 1.0
   attention_refines:
     attention_refines: 1.0
+trace_contract:
+variant_contract:
+teach_back_source:
 prompt: Why would the initial embedding for the word 'mole' be the same in 
   'American shrew mole', 'one mole of carbon dioxide', and 'biopsy of the mole',
   and what is attention supposed to change about it?
@@ -46,6 +49,9 @@ hint_policy:
 retrieval_demand: 0.42
 transfer_distance: 0.18
 scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
 surface_family: contextual_embedding_explanation
 evidence_fingerprint:
   source_family:
@@ -54,6 +60,11 @@ evidence_fingerprint:
   solution_recipe_family:
   answer_structure:
 misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
 repair_targets:
   - lookup_context_free
   - different_contexts
@@ -67,34 +78,48 @@ grading_rubric:
       description: States that the initial embedding is context-free or 
         lookup-like.
       tier: core
-      targets: []
+      targets:
+        - facet: lookup_context_free
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: different_contexts
       points: 1.0
       description: Identifies that the phrases imply different meanings of 
         'mole'.
       tier: core
-      targets: []
+      targets:
+        - facet: different_contexts
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
     - id: attention_refines
       points: 1.0
       description: Explains that attention updates the embedding using 
         surrounding context.
       tier: core
-      targets: []
+      targets:
+        - facet: attention_refines
+          capability: schema_interpretation
+          role: primary
       depends_on: []
       correlation_group:
       recipe_ids: []
+      measurement_status: direct
   fatal_errors:
     - id: fatal_initial_contextual
       description: Claims the initial token embedding already fully encodes 
         phrase-specific context.
       max_grade: 1
       misconception_id:
+status: active
+status_reason:
 provenance:
   origin: canonical_extract
   source_refs:
@@ -105,6 +130,13 @@ provenance:
       locator: t=120.1-207.5
       quote: the word mole has different meanings... based on the context.
       quote_hash: sha256:src_mole_tower_examples
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
     - ref_type: canonical_source
       ref_id: src_embeddings_context
       path: 
@@ -113,5 +145,12 @@ provenance:
       quote: associate each token with a high-dimensional vector, what we call 
         its embedding... richer contextual meaning.
       quote_hash: sha256:src_embeddings_context
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
 created_at: '2026-05-28T21:34:20Z'
-updated_at: '2026-07-15T01:10:48Z'
+updated_at: '2026-07-28T03:46:13Z'
