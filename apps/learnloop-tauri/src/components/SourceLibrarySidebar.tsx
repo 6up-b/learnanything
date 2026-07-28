@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   CommandError,
+  SourceDeletionPlanDto,
   SourceLibraryCard,
   SourceReadiness,
   SourceSetDto,
@@ -62,6 +63,8 @@ export function SourceLibrarySidebar({
   // token that bumps to re-fetch the collections list after a membership change.
   const [addTarget, setAddTarget] = useState<string | null>(null);
   const [collectionsRefresh, setCollectionsRefresh] = useState(0);
+  // The source whose delete confirmation is open (null = no dialog).
+  const [deleteTarget, setDeleteTarget] = useState<SourceLibraryCard | null>(null);
   const firstLoad = useRef(true);
 
   // ── Data load — keep last data on error, surface only first-load failures ──
@@ -155,6 +158,7 @@ export function SourceLibrarySidebar({
                 selected={selected === card.sourceId}
                 onSelect={() => selectCard(card)}
                 onAddToCollection={() => setAddTarget((cur) => (cur === card.sourceId ? null : card.sourceId))}
+                onDelete={() => setDeleteTarget(card)}
               />
               {addTarget === card.sourceId && (
                 <div style={{ padding: "0 10px 10px" }}>
@@ -184,6 +188,200 @@ export function SourceLibrarySidebar({
           }}
         />
       </div>
+
+      {deleteTarget && (
+        <DeleteSourceDialog
+          card={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={() => {
+            setDeleteTarget(null);
+            if (selected === deleteTarget.sourceId) setSelected(null);
+            // The source is gone from the library AND from any collection it was
+            // pinned into, so both lists need re-reading.
+            void refresh();
+            setCollectionsRefresh((n) => n + 1);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Delete a source (§4.1) ───────────────────────────────────────────────
+// Two-step and never undoable: the dialog opens on the backend's impact report
+// (what disappears, which study-map citations are lost, which collections it
+// leaves) and only then offers the confirm. Blockers — an ingest job still
+// running against this source — disable the confirm outright.
+function DeleteSourceDialog({
+  card,
+  onClose,
+  onDeleted
+}: {
+  card: SourceLibraryCard;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [plan, setPlan] = useState<SourceDeletionPlanDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .previewSourceDeletion(card.sourceId)
+      .then((response) => {
+        if (!cancelled) setPlan(response.plan);
+      })
+      .catch((e) => {
+        if (!cancelled) setError((e as CommandError).message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [card.sourceId]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteSource(card.sourceId);
+      onDeleted();
+    } catch (e) {
+      setError((e as CommandError).message);
+      setBusy(false);
+    }
+  }
+
+  const canDelete = plan !== null && plan.deletable && !busy;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 400
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 460,
+          maxWidth: "90vw",
+          background: COLOR.bg,
+          border: `1px solid ${COLOR.red}`,
+          padding: "18px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12
+        }}
+      >
+        <div style={{ color: COLOR.red, fontSize: 14, fontWeight: 600 }}>Delete source</div>
+        <span style={{ fontSize: 12, lineHeight: 1.5, color: COLOR.text }} title={card.title}>
+          {readableTitle(card.title)}
+        </span>
+
+        {plan === null && error === null && <Faint style={{ fontSize: 12 }}>◐ checking what this removes…</Faint>}
+
+        {plan && (
+          <>
+            <div style={{ fontSize: 11, fontFamily: FONT_MONO, color: COLOR.textDim, lineHeight: 1.7 }}>
+              <div>
+                removes {plan.revisionCount} revision(s) · {plan.extractionCount} extraction(s) ·{" "}
+                {plan.unitCount} units · {plan.blockCount} blocks
+              </div>
+              {plan.annotationCount > 0 && <div>removes {plan.annotationCount} reader annotation(s)</div>}
+              {plan.removesStoredOriginal && <div>removes the stored original file</div>}
+            </div>
+
+            {plan.citationCount > 0 && (
+              <div
+                style={{
+                  border: `1px solid ${COLOR.amber}`,
+                  background: "#241d12",
+                  padding: "8px 12px",
+                  fontSize: 11,
+                  color: COLOR.amber,
+                  lineHeight: 1.6
+                }}
+              >
+                ⚠ {plan.citationCount} study-map citation(s) point at this source. The learning objects and
+                facets stay; they lose their link back to the source text.
+                {plan.citedEntities.length > 0 && (
+                  <div style={{ marginTop: 4, fontFamily: FONT_MONO, color: COLOR.textDim }}>
+                    {plan.citedEntities.map((entity) => `${entity.entityType} ${entity.entityId}`).join(", ")}
+                    {plan.citedEntities.length < plan.citationCount ? " …" : ""}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {plan.collections.length > 0 && (
+              <div style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.6 }}>
+                leaves {plan.collections.length} collection(s):{" "}
+                {plan.collections
+                  .map((c) => `${c.title}${c.leavesEmpty ? " (left empty)" : ""}`)
+                  .join(", ")}
+              </div>
+            )}
+
+            {plan.blockers.length > 0 && (
+              <div style={{ border: `1px solid ${COLOR.red}`, padding: "8px 12px", fontSize: 11, color: COLOR.red }}>
+                {plan.blockers.map((blocker) => (
+                  <div key={blocker}>{blocker}</div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {error && <div style={{ color: COLOR.red, fontSize: 12 }}>{error}</div>}
+
+        <Faint style={{ fontSize: 11 }}>This cannot be undone. Re-importing re-extracts from scratch.</Faint>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <span
+            onClick={onClose}
+            style={{
+              padding: "5px 12px",
+              border: `1px solid ${COLOR.border}`,
+              color: COLOR.textDim,
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              cursor: "pointer"
+            }}
+          >
+            cancel
+          </span>
+          <span
+            onClick={() => {
+              if (canDelete) void confirm();
+            }}
+            style={{
+              padding: "5px 12px",
+              border: `1px solid ${canDelete ? COLOR.red : COLOR.border}`,
+              background: canDelete ? "#2a1414" : "transparent",
+              color: canDelete ? COLOR.red : COLOR.textFaint,
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              cursor: canDelete ? "pointer" : "default"
+            }}
+          >
+            {busy ? "deleting…" : "delete source"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -193,12 +391,14 @@ function SourceRow({
   card,
   selected,
   onSelect,
-  onAddToCollection
+  onAddToCollection,
+  onDelete
 }: {
   card: SourceLibraryCard;
   selected: boolean;
   onSelect: () => void;
   onAddToCollection: () => void;
+  onDelete: () => void;
 }) {
   const readiness = READINESS_META[card.readiness];
   const isReady = card.readiness === "ready";
@@ -255,34 +455,49 @@ function SourceRow({
         {card.updateAvailable && <Pill color="amber">update</Pill>}
       </div>
 
-      {/* line 3: readiness label, or the outline + add-to-collection affordances */}
-      {isReady ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span
-            style={{
-              fontSize: 11,
-              fontFamily: FONT_MONO,
-              color: COLOR.amberLink,
-              textDecoration: "underline",
-              textUnderlineOffset: 2
-            }}
-          >
-            outline &amp; select →
-          </span>
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCollection();
-            }}
-            title="pin this source (at its current revision) into a collection with a role — the unit that synthesis groups and reads"
-            style={{ fontSize: 11, fontFamily: FONT_MONO, color: COLOR.textFaint, cursor: "pointer" }}
-          >
-            ＋ collection
-          </span>
-        </div>
-      ) : (
-        <Faint style={{ fontSize: 11 }}>{readiness.label}</Faint>
-      )}
+      {/* line 3: readiness label, or the outline + add-to-collection affordances.
+          Delete sits on every row — a half-extracted or failed import is exactly
+          the one a learner most wants to remove. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {isReady ? (
+          <>
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: FONT_MONO,
+                color: COLOR.amberLink,
+                textDecoration: "underline",
+                textUnderlineOffset: 2
+              }}
+            >
+              outline &amp; select →
+            </span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCollection();
+              }}
+              title="pin this source (at its current revision) into a collection with a role — the unit that synthesis groups and reads"
+              style={{ fontSize: 11, fontFamily: FONT_MONO, color: COLOR.textFaint, cursor: "pointer" }}
+            >
+              ＋ collection
+            </span>
+          </>
+        ) : (
+          <Faint style={{ fontSize: 11 }}>{readiness.label}</Faint>
+        )}
+        <span style={{ flex: 1 }} />
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="delete this source and everything extracted from it"
+          style={{ fontSize: 11, fontFamily: FONT_MONO, color: COLOR.textFaint, cursor: "pointer" }}
+        >
+          ✕ delete
+        </span>
+      </div>
     </div>
   );
 }

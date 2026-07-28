@@ -1758,6 +1758,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             auto_apply=bool(payload.get("apply", payload.get("auto_apply", True))),
             repository=ctx.repo,
             clock=ctx.clock,
+            budget_overrides=dict(payload.get("synthesis_budgets") or {}),
             unlimited_token_budget=bool(payload.get("unlimited_token_budget", False)),
         )
     except StudyMapError as exc:

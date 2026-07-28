@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import type {
   BuildPlan,
@@ -6,6 +6,9 @@ import type {
   CommandError,
   EffectiveOutlineDto,
   EffectiveUnitDto,
+  IngestBudgetBoundsDto,
+  IngestBudgetField,
+  IngestBudgetsDto,
   OutlineUnit,
   SelectionPreviewDto,
   SourceOutline,
@@ -43,6 +46,25 @@ function Card({ children, style = {} }: { children: ReactNode; style?: CSSProper
 }
 
 const SIGNAL_ORDER = ["examples", "exercises", "equations", "figures", "definitions", "theorems", "tables"];
+
+// The [ingest.budgets] ceilings the plan charts, in the order the stages run.
+const BUDGET_FIELDS: IngestBudgetField[] = [
+  "inventoryInputTokens",
+  "inventoryOutputTokens",
+  "synthesisShardInputTokens",
+  "synthesisShardOutputTokens",
+  "synthesisTotalInputCeiling"
+];
+const BUDGET_LABELS: Record<IngestBudgetField, string> = {
+  inventoryInputTokens: "inventory input",
+  inventoryOutputTokens: "inventory output",
+  synthesisShardInputTokens: "synthesis shard in",
+  synthesisShardOutputTokens: "synthesis shard out",
+  synthesisTotalInputCeiling: "synthesis total in"
+};
+
+// The collection this build writes into, resolved by pinning on this screen.
+type PinnedCollection = { setId: string; title: string; subjectId: string };
 
 // ── Model-input preview ──────────────────────────────────────────────────
 // The byte-exact display markdown the authoring batch feeds the model for the
@@ -165,17 +187,15 @@ function PreviewToggle({ open, onToggle }: { open: boolean; onToggle: () => void
   );
 }
 
-// ── Flow shell: outline → build plan → start batch ──────────────────────
+// ── Flow shell: outline → build plan → start build ──────────────────────
 export function OutlinePlanFlow({
   sourceRef,
-  sourceUri,
   subjectId,
   suggestedRole = null,
   onClose,
   onOpenBatch
 }: {
   sourceRef: string;
-  sourceUri: string | null;
   subjectId: string | null;
   suggestedRole?: string | null;
   onClose: () => void;
@@ -384,7 +404,6 @@ export function OutlinePlanFlow({
       ) : (
         <BuildPlanView
           outline={outline}
-          sourceUri={sourceUri}
           selectedUnitIds={[...selected]}
           subjectId={subjectId}
           role={role}
@@ -795,7 +814,6 @@ function SingleUnitSummary({
 // ── Build plan ───────────────────────────────────────────────────────────
 function BuildPlanView({
   outline,
-  sourceUri,
   selectedUnitIds,
   subjectId,
   role,
@@ -804,7 +822,6 @@ function BuildPlanView({
   onOpenBatch
 }: {
   outline: SourceOutline;
-  sourceUri: string | null;
   selectedUnitIds: string[];
   subjectId: string | null;
   role: string;
@@ -813,43 +830,104 @@ function BuildPlanView({
   onOpenBatch: (batchId: string) => void;
 }) {
   const [plan, setPlan] = useState<BuildPlan | null>(null);
+  // A plan that won't load replaces the screen; a build that won't start is
+  // recoverable (pick another collection, fix a ceiling) so it stays a banner.
   const [error, setError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [addedTo, setAddedTo] = useState<string | null>(null);
+  // Synthesis is scoped to a collection (which carries the subject), so the
+  // build cannot start until this source is pinned into one.
+  const [pinned, setPinned] = useState<PinnedCollection | null>(null);
+  // Vault [ingest.budgets] defaults + accepted ranges, and the learner's per-run
+  // edit of them. Only the diff travels as an override.
+  const [defaults, setDefaults] = useState<IngestBudgetsDto | null>(null);
+  const [bounds, setBounds] = useState<IngestBudgetBoundsDto | null>(null);
+  const [ceilings, setCeilings] = useState<IngestBudgetsDto | null>(null);
+  const [unlimited, setUnlimited] = useState(false);
+  const firstPlanFetch = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
     api
-      .getBuildPlan([{ extractionId: outline.extractionId, selectedUnitIds }], subjectId)
-      .then((next) => {
-        if (!cancelled) setPlan(next);
+      .getSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        setDefaults(settings.ingest.budgets);
+        setBounds(settings.ingest.budgetBounds);
+        setCeilings(settings.ingest.budgets);
       })
-      .catch((e) => {
-        if (!cancelled) setError((e as CommandError).message);
-      });
+      // Unreadable settings only cost the override controls; the build still runs
+      // on the vault defaults, so this must not block the plan.
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [outline.extractionId, subjectId, selectedUnitIds.join(",")]);
+  }, []);
 
-  const canStart = Boolean(sourceUri);
-  async function startBatch() {
-    if (!plan || !sourceUri) return;
+  const invalidCeilings = useMemo(() => {
+    if (!ceilings || !bounds) return [] as IngestBudgetField[];
+    return BUDGET_FIELDS.filter((field) => {
+      const value = ceilings[field];
+      return !Number.isFinite(value) || value < bounds[field].min || value > bounds[field].max;
+    });
+  }, [ceilings, bounds]);
+
+  const overrides = useMemo(() => {
+    if (!ceilings || !defaults || invalidCeilings.length > 0) return {} as Partial<IngestBudgetsDto>;
+    const diff: Partial<IngestBudgetsDto> = {};
+    for (const field of BUDGET_FIELDS) {
+      if (ceilings[field] !== defaults[field]) diff[field] = ceilings[field];
+    }
+    return diff;
+  }, [ceilings, defaults, invalidCeilings]);
+
+  const overridesKey = JSON.stringify(overrides);
+  // A pinned collection supplies the real subject; before that the plan routes
+  // against whatever the caller passed (null on the ingest screen).
+  const planSubjectId = pinned?.subjectId ?? subjectId;
+
+  useEffect(() => {
+    let cancelled = false;
+    const isFirst = firstPlanFetch.current;
+    firstPlanFetch.current = false;
+    const run = () => {
+      api
+        .getBuildPlan([{ extractionId: outline.extractionId, selectedUnitIds }], planSubjectId, overrides)
+        .then((next) => {
+          if (!cancelled) setPlan(next);
+        })
+        .catch((e) => {
+          if (!cancelled) setError((e as CommandError).message);
+        });
+    };
+    // Debounce ceiling edits so a half-typed number doesn't spam the estimator.
+    const timer = window.setTimeout(run, isFirst ? 0 : 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+    // `overrides` is read fresh whenever its serialized key changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outline.extractionId, planSubjectId, selectedUnitIds.join(","), overridesKey]);
+
+  const canStart = pinned !== null && invalidCeilings.length === 0;
+  async function startBuild() {
+    if (!plan || !pinned) return;
     setStarting(true);
-    setError(null);
+    setStartError(null);
     try {
-      // The source is already imported; re-importing is idempotent and snapshots
-      // the plan estimate onto the batch payload (§8.6.2).
-      const batch = await api.startImportBatch({
-        sources: [sourceUri],
-        subjectId,
-        estimate: plan.totals as unknown as Record<string, unknown>
+      // The real authoring batch: inventory every selected unit, then synthesize
+      // (or append into) the collection's study map.
+      const batch = await api.buildStudyMap({
+        sourceSetId: pinned.setId,
+        ...(Object.keys(overrides).length > 0 ? { budgetOverrides: overrides } : {}),
+        unlimitedTokenBudget: unlimited
       });
       onOpenBatch(batch.id);
     } catch (e) {
-      setError((e as CommandError).message);
+      setStartError((e as CommandError).message);
     } finally {
       setStarting(false);
     }
@@ -893,6 +971,20 @@ function BuildPlanView({
         </span>
       </div>
 
+      {ceilings && bounds && (
+        <CeilingControls
+          ceilings={ceilings}
+          bounds={bounds}
+          defaults={defaults}
+          invalid={invalidCeilings}
+          unlimited={unlimited}
+          disabled={starting}
+          onChange={(field, value) => setCeilings((current) => (current ? { ...current, [field]: value } : current))}
+          onReset={() => defaults && setCeilings(defaults)}
+          onUnlimitedChange={setUnlimited}
+        />
+      )}
+
       <ConsentSummary plan={plan} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
@@ -902,9 +994,17 @@ function BuildPlanView({
           title="pin this source (at its current revision) and the selected units into a collection with a role — the collection is what synthesis reads and groups"
           style={{ color: COLOR.amberLink, cursor: "pointer", fontSize: 12, fontFamily: FONT_MONO }}
         >
-          {addOpen ? "hide add to collection" : "add to collection →"}
+          {addOpen ? "hide add to collection" : pinned ? "change collection →" : "add to collection →"}
         </span>
-        {addedTo && <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ pinned to {addedTo}</Faint>}
+        {pinned ? (
+          <Faint style={{ fontSize: 11, color: COLOR.green }}>
+            ✓ building into {pinned.title} · subject {pinned.subjectId}
+          </Faint>
+        ) : (
+          <Faint style={{ fontSize: 11, color: COLOR.amber }}>
+            pin this source to a collection to start the build — synthesis reads collections
+          </Faint>
+        )}
       </div>
 
       {addOpen && (
@@ -914,8 +1014,8 @@ function BuildPlanView({
           scopeUnitIds={selectedUnitIds}
           seedRole={role || suggestedRole}
           onClose={() => setAddOpen(false)}
-          onAdded={(_setId, setTitle) => {
-            setAddedTo(setTitle);
+          onAdded={(setId, setTitle, pinnedSubjectId) => {
+            setPinned({ setId, title: setTitle, subjectId: pinnedSubjectId });
             setAddOpen(false);
           }}
         />
@@ -938,6 +1038,12 @@ function BuildPlanView({
         </div>
       )}
 
+      {startError && (
+        <div style={{ border: `1px solid ${COLOR.red}`, padding: "8px 14px", fontSize: 12, color: COLOR.red }}>
+          {startError}
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <button onClick={onBack} style={buttonStyle(false)}>
           ← units
@@ -947,12 +1053,18 @@ function BuildPlanView({
           will create: {plan.whatWillBeCreated.selectedUnits} unit(s) from {plan.whatWillBeCreated.sources} source(s)
         </Faint>
         <button
-          onClick={() => void startBatch()}
+          onClick={() => void startBuild()}
           style={buttonStyle(canStart)}
           disabled={starting || !canStart}
-          title={canStart ? "" : "no canonical URI to re-import from"}
+          title={
+            pinned === null
+              ? "pin this source to a collection first"
+              : invalidCeilings.length > 0
+                ? "a token ceiling is out of range"
+                : ""
+          }
         >
-          {starting ? "starting…" : "start batch →"}
+          {starting ? "starting…" : "start build →"}
         </button>
       </div>
     </div>
@@ -988,12 +1100,108 @@ function StageRow({ stage }: { stage: BuildPlanStage }) {
 }
 
 function ConsentSummary({ plan }: { plan: BuildPlan }) {
-  // Everything in a build plan stays on-device; the only egress in M3 is a
-  // consent-gated page repair, surfaced separately. This makes that explicit.
+  // Computing the plan is on-device, but STARTING the build is the one action
+  // here that spends tokens against the configured provider (mirrors the
+  // external_ai_synthesis consent Quick add records). Say so rather than
+  // claiming nothing leaves the device.
   return (
     <div style={{ fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO }}>
-      ▪ nothing in this plan leaves the device — synthesis runs against the local provider ({plan.provider}); external page
-      repair is a separate, consent-gated action.
+      ▪ this estimate is computed on-device; starting the build sends the selected units to the configured provider (
+      {plan.provider}) for unit inventory and study-map synthesis.
+    </div>
+  );
+}
+
+// ── Per-run token ceilings (§3.1) ────────────────────────────────────────
+// Seeded from the vault's [ingest.budgets]; only fields the learner moves away
+// from the default travel with the build. Settings → Token budgets edits the
+// defaults themselves.
+function CeilingControls({
+  ceilings,
+  bounds,
+  defaults,
+  invalid,
+  unlimited,
+  disabled,
+  onChange,
+  onReset,
+  onUnlimitedChange
+}: {
+  ceilings: IngestBudgetsDto;
+  bounds: IngestBudgetBoundsDto;
+  defaults: IngestBudgetsDto | null;
+  invalid: IngestBudgetField[];
+  unlimited: boolean;
+  disabled: boolean;
+  onChange: (field: IngestBudgetField, value: number) => void;
+  onReset: () => void;
+  onUnlimitedChange: (next: boolean) => void;
+}) {
+  const dirty = defaults != null && BUDGET_FIELDS.some((field) => ceilings[field] !== defaults[field]);
+  return (
+    <div style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bg }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+          background: COLOR.bgElev,
+          borderBottom: `1px solid ${COLOR.border}`,
+          padding: "8px 14px",
+          flexWrap: "wrap"
+        }}
+      >
+        <Faint style={{ fontFamily: FONT_MONO, fontSize: 12 }}>token ceilings · this build</Faint>
+        {dirty && <Faint style={{ fontSize: 11, color: COLOR.amber }}>overriding vault defaults</Faint>}
+        <span style={{ flex: 1 }} />
+        {dirty && (
+          <span onClick={onReset} style={{ cursor: "pointer", color: COLOR.amberLink, fontSize: 11, fontFamily: FONT_MONO }}>
+            reset to defaults
+          </span>
+        )}
+      </div>
+      <div style={{ padding: "10px 14px", display: "flex", flexWrap: "wrap", gap: 14 }}>
+        {BUDGET_FIELDS.map((field) => {
+          const bad = invalid.includes(field);
+          const { min, max } = bounds[field];
+          return (
+            <label key={field} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11 }}>
+              <Faint style={{ fontFamily: FONT_MONO, fontSize: 11 }}>{BUDGET_LABELS[field]}</Faint>
+              <input
+                type="number"
+                min={min}
+                max={max}
+                step={1000}
+                value={Number.isFinite(ceilings[field]) ? ceilings[field] : ""}
+                disabled={disabled || unlimited}
+                onChange={(e) => onChange(field, Number.parseInt(e.target.value, 10))}
+                style={{
+                  width: 130,
+                  padding: "5px 7px",
+                  background: COLOR.bgInput,
+                  border: `1px solid ${bad ? COLOR.red : COLOR.border}`,
+                  color: unlimited ? COLOR.textFaint : bad ? COLOR.red : COLOR.text,
+                  fontFamily: FONT_MONO,
+                  fontSize: 11,
+                  opacity: unlimited ? 0.55 : 1
+                }}
+              />
+              <Faint style={{ fontSize: 10, color: bad ? COLOR.red : undefined }}>
+                {min.toLocaleString()}–{max.toLocaleString()}
+              </Faint>
+            </label>
+          );
+        })}
+      </div>
+      <div style={{ padding: "0 14px 12px" }}>
+        <TermCheckbox
+          checked={unlimited}
+          onChange={onUnlimitedChange}
+          disabled={disabled}
+          label="no LearnLoop synthesis ceiling · provider limits still apply"
+          style={{ justifyContent: "flex-start" }}
+        />
+      </div>
     </div>
   );
 }

@@ -247,3 +247,80 @@ def test_new_vault_inherits_ai_routes_but_existing_vault_is_untouched(
         == "anthropic/claude-sonnet-4.5"
     )
     assert existing_config.ai.routing.authoring == "codex_medium"
+
+
+def test_get_settings_reports_ingest_budgets_and_provider_limits(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    settings = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]
+
+    budgets = settings["ingest"]["budgets"]
+    assert budgets["inventoryInputTokens"] == 20000
+    assert budgets["synthesisTotalInputCeiling"] == 48000
+    # The UI validates against the same ranges the handler enforces.
+    assert settings["ingest"]["budgetBounds"]["inventoryOutputTokens"] == {
+        "min": 1000,
+        "max": 100000,
+    }
+    # `[ingest.providers.*]` is commented out by default, which is exactly the
+    # state that silently disables the build plan's context checks.
+    limits = settings["ingest"]["providerLimits"]
+    assert limits["provider"] == "codex_medium"
+    assert limits["contextTokens"] is None
+
+
+def test_update_ingest_settings_persists_budgets_and_provider_limits(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        (
+            "update_ingest_settings",
+            {
+                "budgets": {
+                    "inventoryOutputTokens": 4500,
+                    "synthesisTotalInputCeiling": 120000,
+                },
+                "providerContextTokens": 128000,
+                "providerMaxOutputTokens": 32768,
+            },
+        ),
+    )
+    result = responses[0]["result"]
+    assert result["ingest"]["budgets"]["inventoryOutputTokens"] == 4500
+    assert result["ingest"]["budgets"]["synthesisTotalInputCeiling"] == 120000
+    assert result["ingest"]["providerLimits"]["contextTokens"] == 128000
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ingest.budgets.inventory_output_tokens == 4500
+    assert config.ingest.budgets.synthesis_total_input_ceiling == 120000
+    # Untouched ceilings keep their defaults, so one row can be applied alone.
+    assert config.ingest.budgets.inventory_input_tokens == 20000
+    assert config.ingest.providers["codex_medium"].context_tokens == 128000
+    assert config.ingest.providers["codex_medium"].max_output_tokens == 32768
+
+
+def test_update_ingest_settings_rejects_bad_budgets_without_persisting(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        ("update_ingest_settings", {"budgets": {"inventoryOutputTokens": 10}}),
+        ("update_ingest_settings", {"budgets": {"notACeiling": 4000}}),
+        ("update_ingest_settings", {"providerContextTokens": 0}),
+    )
+
+    assert [response["error"]["data"]["code"] for response in responses] == [
+        "invalid_inventory_budget",
+        "invalid_budget_override",
+        "invalid_provider_limit",
+    ]
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ingest.budgets.inventory_output_tokens == 3000
+    assert "codex_medium" not in config.ingest.providers

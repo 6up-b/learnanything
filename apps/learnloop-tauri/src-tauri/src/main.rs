@@ -251,6 +251,8 @@ fn main() {
             retry_synthesis,
             get_synthesis_candidate,
             get_source_library,
+            preview_source_deletion,
+            delete_source,
             get_source_outline,
             get_selection_preview,
             get_effective_outline,

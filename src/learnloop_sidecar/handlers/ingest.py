@@ -17,13 +17,77 @@ from learnloop.services.source_unit_selection import (
     save_unit_selection,
 )
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, camel_name, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.ingest_jobs import _APPLYING_JOB_TYPES, ActiveIngestJobError
 from learnloop_sidecar.registry import method
 
 # How many recent ingests the screen shows; the vault keeps everything.
 _RECENT_LIMIT = 30
+
+# Accepted range for every learner-movable `[ingest.budgets]` ceiling, as
+# (min, max, label, error code). Three entry points let a ceiling be moved — the
+# failed-synthesis retry panel, the build-plan per-run override, and Settings →
+# Token budgets — and they previously carried their own copies of these numbers.
+# One table so they cannot drift; the frontend reads them off `get_settings`.
+BUDGET_BOUNDS: dict[str, tuple[int, int, str, str]] = {
+    "inventory_input_tokens": (1_000, 2_000_000, "Inventory input ceiling", "invalid_inventory_budget"),
+    "inventory_output_tokens": (1_000, 100_000, "Inventory output budget", "invalid_inventory_budget"),
+    "synthesis_shard_input_tokens": (10_000, 2_000_000, "Synthesis shard-input ceiling", "invalid_synthesis_budget"),
+    "synthesis_shard_output_tokens": (1_000, 200_000, "Synthesis shard-output ceiling", "invalid_synthesis_budget"),
+    "synthesis_total_input_ceiling": (10_000, 2_000_000, "Synthesis total-input ceiling", "invalid_synthesis_budget"),
+    "synthesis_output_tokens": (1_000, 200_000, "Synthesis merged-output ceiling", "invalid_synthesis_budget"),
+}
+
+# The ceilings the build-plan stage rows chart, and therefore the ones the plan
+# screen and Settings expose. The rest of `[ingest.budgets]` stays config-only.
+PLAN_BUDGET_FIELDS: tuple[str, ...] = (
+    "inventory_input_tokens",
+    "inventory_output_tokens",
+    "synthesis_shard_input_tokens",
+    "synthesis_shard_output_tokens",
+    "synthesis_total_input_ceiling",
+)
+
+
+def validate_budget(field: str, value: int | None) -> None:
+    """Raise a typed error when a ceiling falls outside its accepted range."""
+
+    if value is None:
+        return
+    low, high, label, code = BUDGET_BOUNDS[field]
+    if not low <= value <= high:
+        raise SidecarError(code, f"{label} must be between {low:,} and {high:,} tokens.")
+
+
+# Responses run through `versioned()`, which camelizes every nested mapping key,
+# so a ceiling leaves as `inventoryOutputTokens` and would come back in that form.
+# Accept either spelling and normalize to the config field name.
+_BUDGET_FIELD_BY_ALIAS: dict[str, str] = {
+    alias: field
+    for field in PLAN_BUDGET_FIELDS
+    for alias in (field, camel_name(field))
+}
+
+
+def validated_budget_overrides(overrides: dict[str, int] | None) -> dict[str, int]:
+    """Accept only the plan-charted ceilings, each within its bounds.
+
+    Unknown keys are rejected rather than ignored: a typo would otherwise pass
+    silently through ``model_copy(update=...)`` (IngestBudgetsConfig allows
+    extras) and the run would quietly use the vault default."""
+
+    validated: dict[str, int] = {}
+    for alias, value in (overrides or {}).items():
+        field = _BUDGET_FIELD_BY_ALIAS.get(alias)
+        if field is None:
+            raise SidecarError(
+                "invalid_budget_override",
+                f"Unknown token ceiling {alias!r}. Valid: {', '.join(PLAN_BUDGET_FIELDS)}.",
+            )
+        validate_budget(field, value)
+        validated[field] = value
+    return validated
 
 
 class ClassifyIngestSourceInput(ParamsModel):
@@ -325,20 +389,9 @@ def retry_synthesis(ctx: SidecarContext, params: RetrySynthesisInput) -> dict[st
                 "invalid_synthesis_budget",
                 "A synthesis total-input ceiling is required for a model rerun.",
             )
-        if not 10_000 <= params.synthesis_total_input_tokens <= 2_000_000:
-            raise SidecarError(
-                "invalid_synthesis_budget",
-                "Synthesis total-input ceiling must be between 10,000 and 2,000,000 tokens.",
-            )
-        for label, value in (
-            ("Synthesis shard-output ceiling", params.synthesis_shard_output_tokens),
-            ("Synthesis merged-output ceiling", params.synthesis_output_tokens),
-        ):
-            if value is not None and not 1_000 <= value <= 200_000:
-                raise SidecarError(
-                    "invalid_synthesis_budget",
-                    f"{label} must be between 1,000 and 200,000 tokens.",
-                )
+        validate_budget("synthesis_total_input_ceiling", params.synthesis_total_input_tokens)
+        validate_budget("synthesis_shard_output_tokens", params.synthesis_shard_output_tokens)
+        validate_budget("synthesis_output_tokens", params.synthesis_output_tokens)
         budgets = {"synthesis_total_input_ceiling": params.synthesis_total_input_tokens}
         if params.synthesis_shard_output_tokens is not None:
             budgets["synthesis_shard_output_tokens"] = params.synthesis_shard_output_tokens
@@ -454,6 +507,50 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
     return versioned({"sources": cards})
 
 
+class SourceDeletionInput(ParamsModel):
+    source_id: str
+
+
+@method("preview_source_deletion", SourceDeletionInput)
+def preview_source_deletion(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str, Any]:
+    """What deleting this source would remove, cost, and currently block (§4.1).
+
+    Read-only: the Source library shows this before asking for confirmation, so
+    the learner sees the study-map citations and collection memberships that go
+    with it rather than discovering them afterwards."""
+
+    from learnloop.services.source_deletion import SourceDeletionError, plan_source_deletion
+
+    vault, repository = ctx.require_vault()
+    try:
+        plan = plan_source_deletion(vault, repository, params.source_id)
+    except SourceDeletionError as exc:
+        raise SidecarError(exc.code, str(exc), details=exc.details) from exc
+    return versioned({"plan": plan.as_dict()})
+
+
+@method("delete_source", SourceDeletionInput)
+def delete_source(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str, Any]:
+    """Delete an imported source and everything derived from it (§4.1).
+
+    Destructive and not undoable, so the caller is expected to have shown
+    ``preview_source_deletion`` first; the service re-checks the blockers either
+    way so this can never delete out from under a running ingest job."""
+
+    from learnloop.services.source_deletion import SourceDeletionError
+    from learnloop.services.source_deletion import delete_source as run_delete
+
+    vault, repository = ctx.require_vault()
+    try:
+        result = run_delete(vault, repository, params.source_id, vault_root=vault.root)
+    except SourceDeletionError as exc:
+        raise SidecarError(exc.code, str(exc), details=exc.details, retryable=True) from exc
+    # source_sets.yaml and the loaded vault both changed; screens reading the
+    # in-memory vault must not keep serving the deleted membership.
+    ctx.reload(maintenance=False)
+    return versioned({"deleted": result.as_dict()})
+
+
 # ---------------------------------------------------------------------------
 # Outline, selection, budget planning, and repair (ING M3, §3/§5.3/§5.7/§8.6)
 # ---------------------------------------------------------------------------
@@ -482,6 +579,9 @@ class BuildPlanSelection(ParamsModel):
 class BuildPlanInput(ParamsModel):
     selections: list[BuildPlanSelection]
     subject_id: str | None = None
+    # Per-run ceilings the plan should chart instead of the vault defaults, so
+    # the stage bars track the overrides the learner is about to build under.
+    budget_overrides: dict[str, int] = {}
 
 
 class StartExtractionRepairInput(ParamsModel):
@@ -620,6 +720,7 @@ def get_build_plan(ctx: SidecarContext, params: BuildPlanInput) -> dict[str, Any
     vault, repository = ctx.require_vault()
     if params.subject_id is not None and params.subject_id not in vault.subjects:
         raise SidecarError("unknown_subject", f"Subject '{params.subject_id}' does not exist.")
+    overrides = validated_budget_overrides(params.budget_overrides)
     try:
         plan = build_build_plan(
             repository,
@@ -627,6 +728,7 @@ def get_build_plan(ctx: SidecarContext, params: BuildPlanInput) -> dict[str, Any
             vault,
             subject_id=params.subject_id,
             selections=[selection.model_dump() for selection in params.selections],
+            budget_overrides=overrides,
         )
     except OutlineNotFound as exc:
         raise SidecarError("extraction_not_found", str(exc)) from exc
@@ -823,6 +925,9 @@ class BuildStudyMapInput(ParamsModel):
     brief: dict[str, Any] = {}
     mode: str = "auto"
     inventory_output_tokens: int | None = None
+    # Per-run ceilings for this build. Omitted keys fall back to [ingest.budgets];
+    # inventory_output_tokens above stays as the pre-existing shorthand.
+    budget_overrides: dict[str, int] = {}
     unlimited_token_budget: bool = False
 
 
@@ -844,8 +949,23 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
     from learnloop.services.source_outline import resolve_extraction_id
 
     vault, repository = ctx.require_vault()
+    overrides = validated_budget_overrides(params.budget_overrides)
     if not params.unlimited_token_budget:
         _validate_inventory_output_budget(params.inventory_output_tokens)
+    # The two inventory ceilings ride their own enqueue arguments (the job reads
+    # them off its payload, not off `synthesis_budgets`); everything else layers
+    # onto the vault budgets inside the synthesis/append job.
+    inventory_input_tokens = overrides.get(
+        "inventory_input_tokens", vault.config.ingest.budgets.inventory_input_tokens
+    )
+    inventory_output_tokens = overrides.get(
+        "inventory_output_tokens", params.inventory_output_tokens
+    )
+    synthesis_budgets = {
+        field: value
+        for field, value in overrides.items()
+        if field not in ("inventory_input_tokens", "inventory_output_tokens")
+    }
     source_set = _source_set_or_error(vault, params.source_set_id)
     if not source_set.members:
         raise SidecarError("empty_source_set", "This collection has no members to synthesize.")
@@ -895,8 +1015,9 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
             new_revision_ids=new_revision_ids or None,
             subject_id=source_set.subject_id,
             brief=_validated_brief(params.brief),
-            input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
-            output_budget_tokens=params.inventory_output_tokens,
+            input_budget_tokens=inventory_input_tokens,
+            output_budget_tokens=inventory_output_tokens,
+            synthesis_budgets=synthesis_budgets or None,
             unlimited_token_budget=params.unlimited_token_budget,
         )
     else:
@@ -906,8 +1027,9 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
             subject_id=source_set.subject_id,
             brief=_validated_brief(params.brief),
             mode=params.mode,
-            input_budget_tokens=vault.config.ingest.budgets.inventory_input_tokens,
-            output_budget_tokens=params.inventory_output_tokens,
+            input_budget_tokens=inventory_input_tokens,
+            output_budget_tokens=inventory_output_tokens,
+            synthesis_budgets=synthesis_budgets or None,
             unlimited_token_budget=params.unlimited_token_budget,
         )
     batch_view = ctx.ingest_jobs.get_batch(batch_id) or {}
@@ -1243,11 +1365,7 @@ def start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[st
 
 
 def _validate_inventory_output_budget(value: int | None) -> None:
-    if value is not None and not 1_000 <= value <= 100_000:
-        raise SidecarError(
-            "invalid_inventory_budget",
-            "Inventory output budget must be between 1,000 and 100,000 tokens per unit.",
-        )
+    validate_budget("inventory_output_tokens", value)
 
 
 def _artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str:

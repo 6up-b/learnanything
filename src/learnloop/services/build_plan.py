@@ -162,18 +162,23 @@ def build_build_plan(
     *,
     subject_id: str | None,
     selections: list[Mapping[str, object]],
+    budget_overrides: Mapping[str, int] | None = None,
 ) -> BuildPlan:
     """Assemble the deterministic build plan for a set of selected extractions.
 
     ``selections`` is a list of ``{"extraction_id", "selected_unit_ids"}`` (an empty
-    or missing ``selected_unit_ids`` means "all units of that extraction")."""
+    or missing ``selected_unit_ids`` means "all units of that extraction").
+
+    ``budget_overrides`` layers per-run ceilings over ``[ingest.budgets]`` so the
+    plan charts the ceilings the batch will actually run under — the same
+    ``model_copy(update=...)`` seam synthesis uses for its own overrides."""
 
     routing = route_create_or_update(vault, subject_id)
     provider = config.ai.routing.canonical_ingest or config.ai.active_provider
     limits = config.ingest.providers.get(provider)
     provider_context = limits.context_tokens if limits else None
     provider_max_output = limits.max_output_tokens if limits else None
-    budgets = config.ingest.budgets
+    budgets = config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
     planned: list[PlannedSource] = []
     unit_tokens: list[int] = []
@@ -343,7 +348,14 @@ def _over_context(inputs: list[int], provider_context: int | None) -> bool:
 
 def _provider_warnings(stages: list[StageEstimate], provider: str, provider_context: int | None) -> list[str]:
     if provider_context is None:
-        return []
+        # `[ingest.providers.<name>]` is commented out in the default config, so a
+        # vault routed at (say) openrouter silently loses every context check
+        # below. Say so instead of rendering a plan that looks unconditionally
+        # safe — Settings > Token budgets writes this limit.
+        return [
+            f"no context limit configured for {provider} — context checks are off; "
+            "set it under Settings → Token budgets"
+        ]
     warnings: list[str] = []
     for stage in stages:
         if stage.input_tokens > provider_context:

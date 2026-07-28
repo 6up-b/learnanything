@@ -34,6 +34,11 @@ logger = logging.getLogger(__name__)
 from learnloop_sidecar.context import SidecarContext, runtime_health
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.ingest import (
+    BUDGET_BOUNDS,
+    PLAN_BUDGET_FIELDS,
+    validated_budget_overrides,
+)
 from learnloop_sidecar.registry import method
 
 OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
@@ -93,7 +98,39 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "transcription_model": config.ingest.audio.transcription_model,
             "transcription_base_url": config.ingest.audio.transcription_base_url,
             "transcription_key": _key_state(config.ingest.audio.transcription_api_key_env),
+            "budgets": {
+                field: getattr(config.ingest.budgets, field) for field in PLAN_BUDGET_FIELDS
+            },
+            # Accepted range per ceiling, so the UI validates with the same
+            # numbers the handler enforces instead of its own copies.
+            "budget_bounds": {
+                field: {"min": BUDGET_BOUNDS[field][0], "max": BUDGET_BOUNDS[field][1]}
+                for field in PLAN_BUDGET_FIELDS
+            },
+            "provider_limits": _provider_limits(config),
         },
+    }
+
+
+def _ingest_provider_name(config) -> str:
+    """The provider the build plan measures its ceilings against (§3.1)."""
+
+    return config.ai.routing.canonical_ingest or config.ai.active_provider
+
+
+def _provider_limits(config) -> dict[str, Any]:
+    """`[ingest.providers.<routed>]` context/output limits.
+
+    These are commented out in the default config, which leaves the build plan
+    with no context number and silently disables its overflow checks — so the
+    payload always names the provider whose block needs filling in."""
+
+    provider = _ingest_provider_name(config)
+    limits = config.ingest.providers.get(provider)
+    return {
+        "provider": provider,
+        "context_tokens": limits.context_tokens if limits else None,
+        "max_output_tokens": limits.max_output_tokens if limits else None,
     }
 
 
@@ -202,6 +239,13 @@ class UpdateIngestSettingsParams(ParamsModel):
     transcription_provider: str | None = None
     transcription_model: str | None = None
     transcription_base_url: str | None = None
+    # Durable `[ingest.budgets]` defaults. Omitted fields are left untouched, so
+    # the UI can apply one row at a time.
+    budgets: dict[str, int] | None = None
+    # `[ingest.providers.<routed>]` limits. Omit a field to leave it as-is; there
+    # is no clear (the config writer sets keys, it cannot remove them).
+    provider_context_tokens: int | None = None
+    provider_max_output_tokens: int | None = None
 
 
 TRANSCRIPTION_PROVIDERS = ("openai_compatible", "openrouter")
@@ -251,6 +295,23 @@ def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsPara
                 "invalid_model",
                 'OpenRouter transcription models are slugs like "vendor/model" and must accept audio input.',
             )
+    for field, value in validated_budget_overrides(params.budgets).items():
+        updates[("ingest", "budgets", field)] = value
+    provider = _ingest_provider_name(vault.config)
+    for param, key in (
+        (params.provider_context_tokens, "context_tokens"),
+        (params.provider_max_output_tokens, "max_output_tokens"),
+    ):
+        if param is None:
+            continue
+        # apply_config_updates can set but not delete, so there is no "clear"
+        # here — an unset limit stays unset by simply not sending the field.
+        if param < 1:
+            raise SidecarError(
+                "invalid_provider_limit",
+                f"{provider} {key} must be a positive number of tokens.",
+            )
+        updates[("ingest", "providers", provider, key)] = param
     if updates:
         try:
             apply_config_updates(vault.root / "learnloop.toml", updates)

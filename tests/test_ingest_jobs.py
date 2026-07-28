@@ -553,3 +553,74 @@ def test_reader_drain_client_routes_via_canonical_ingest(tmp_path, monkeypatch):
     assert client is not None
     assert client.provider_type == "openrouter"
     assert callable(getattr(client, "run_reader_preset_synthesis", None))
+
+
+def test_import_batch_is_not_a_build_and_its_ladder_says_so(tmp_path):
+    """Regression for the build-plan screen's old "start batch" (§8.6.2).
+
+    An import batch carries a single `import` job — no inventory, no synthesis —
+    and for an already-imported source it finishes on the extraction cache with
+    ZERO model calls. Its checkpoint ladder must therefore stop at `extracted`,
+    or the Activity card renders the inventoried/synthesized/applied rungs it can
+    never reach and reads as a completed study-map build.
+    """
+
+    jobs = DurableIngestJobs()
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+
+    batch_id = jobs.enqueue_import(["notes.md"], subject_id="linear-algebra")
+    batch = jobs.get_batch(batch_id)
+
+    assert [job["job_type"] for job in batch["jobs"]] == ["import"]
+    assert batch["jobs"][0]["checkpoint_ladder"] == ["acquired", "registered", "extracted"]
+
+
+def test_source_set_build_enqueues_inventory_then_synthesis_with_budgets(tmp_path):
+    """The build-plan screen's "start build" path: the batch that actually spends
+    tokens is [inventory per member -> bootstrap_synthesis], with any per-run
+    ceilings snapshotted onto the synthesis job's payload (§1/§8)."""
+
+    jobs = DurableIngestJobs()
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+
+    batch_id = jobs.enqueue_source_set_build(
+        members=[{"extraction_id": "ext_a", "units": [{"unit_id": "u_a", "role": "primary_textbook"}]}],
+        source_set_id="set_x",
+        subject_id="linear-algebra",
+        input_budget_tokens=15_000,
+        output_budget_tokens=4_000,
+        synthesis_budgets={"synthesis_total_input_ceiling": 120_000},
+    )
+    batch = jobs.get_batch(batch_id)
+    runner = jobs._require_runner()
+    rows = {job["job_type"]: job for job in runner.repo.ingest_jobs_for_batch(batch_id)}
+
+    assert [job["job_type"] for job in batch["jobs"]] == ["inventory", "bootstrap_synthesis"]
+    # Synthesis waits on the inventory it reads, so gates run once.
+    assert runner.repo.ingest_job_dependency_ids(rows["bootstrap_synthesis"]["id"]) == [
+        rows["inventory"]["id"]
+    ]
+    assert rows["inventory"]["payload"]["input_budget_tokens"] == 15_000
+    assert rows["inventory"]["payload"]["output_budget_tokens"] == 4_000
+    assert rows["bootstrap_synthesis"]["payload"]["synthesis_budgets"] == {
+        "synthesis_total_input_ceiling": 120_000
+    }
+    # The synthesis job can reach every rung, so it keeps the full ladder.
+    synthesis_view = next(j for j in batch["jobs"] if j["job_type"] == "bootstrap_synthesis")
+    assert synthesis_view["checkpoint_ladder"][-1] == "applied"
+
+
+def test_source_set_append_snapshots_budget_overrides(tmp_path):
+    jobs = DurableIngestJobs()
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+
+    batch_id = jobs.enqueue_source_set_append(
+        members=[],
+        source_set_id="set_x",
+        subject_id="linear-algebra",
+        synthesis_budgets={"synthesis_shard_output_tokens": 20_000},
+    )
+    rows = jobs._require_runner().repo.ingest_jobs_for_batch(batch_id)
+
+    assert [job["job_type"] for job in rows] == ["append_synthesis"]
+    assert rows[0]["payload"]["synthesis_budgets"] == {"synthesis_shard_output_tokens": 20_000}

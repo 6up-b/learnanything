@@ -81,12 +81,39 @@ export interface KeyStateDto {
   keyHint: string | null;
 }
 
+// The five `[ingest.budgets]` ceilings the build plan charts and the Settings
+// modal edits. Keys match the sidecar's camelized config field names.
+export interface IngestBudgetsDto {
+  inventoryInputTokens: number;
+  inventoryOutputTokens: number;
+  synthesisShardInputTokens: number;
+  synthesisShardOutputTokens: number;
+  synthesisTotalInputCeiling: number;
+}
+
+export type IngestBudgetField = keyof IngestBudgetsDto;
+
+// Accepted range per ceiling, served by the backend so the UI validates with the
+// same numbers the handler enforces.
+export type IngestBudgetBoundsDto = Record<IngestBudgetField, { min: number; max: number }>;
+
+// `[ingest.providers.<routed>]`. Null limits mean the block is absent, which
+// silently disables the build plan's context-overflow checks.
+export interface IngestProviderLimitsDto {
+  provider: string;
+  contextTokens: number | null;
+  maxOutputTokens: number | null;
+}
+
 export interface SettingsIngestDto {
   nativeMultimodal: boolean;
   transcriptionProvider: string;
   transcriptionModel: string;
   transcriptionBaseUrl: string;
   transcriptionKey: KeyStateDto;
+  budgets: IngestBudgetsDto;
+  budgetBounds: IngestBudgetBoundsDto;
+  providerLimits: IngestProviderLimitsDto;
 }
 
 export interface SettingsDto {
@@ -102,6 +129,10 @@ export interface UpdateIngestSettingsInput {
   transcriptionProvider?: string;
   transcriptionModel?: string;
   transcriptionBaseUrl?: string;
+  // Omitted ceilings are left untouched, so a row can be applied on its own.
+  budgets?: Partial<IngestBudgetsDto>;
+  providerContextTokens?: number;
+  providerMaxOutputTokens?: number;
 }
 
 export interface TranscriptionKeyResult {
@@ -2199,6 +2230,43 @@ export interface SourceLibraryCard {
   updateAvailable: boolean;
 }
 
+// ── Source deletion (§4.1) ───────────────────────────────────────────────
+// The impact report shown before the confirmation. `blockers` non-empty means
+// deletion is refused right now (a worker is still writing rows for it).
+export interface SourceDeletionCollectionImpact {
+  sourceSetId: string;
+  title: string;
+  subjectId: string;
+  /** This source is the collection's only member, so it is left empty. */
+  leavesEmpty: boolean;
+}
+
+export interface SourceDeletionPlanDto {
+  sourceId: string;
+  title: string;
+  canonicalUri: string | null;
+  revisionCount: number;
+  extractionCount: number;
+  unitCount: number;
+  blockCount: number;
+  /** Study-map entities citing this source; they survive, the citation does not. */
+  citationCount: number;
+  citedEntities: Array<{ entityType: string; entityId: string; relation: string }>;
+  collections: SourceDeletionCollectionImpact[];
+  annotationCount: number;
+  blockers: string[];
+  deletable: boolean;
+  removesStoredOriginal: boolean;
+}
+
+export interface SourceDeletionResultDto {
+  sourceId: string;
+  title: string;
+  deletedRows: Record<string, number>;
+  collectionsUpdated: string[];
+  removedOriginal: boolean;
+}
+
 export interface SourceLibrarySnapshot {
   version: number;
   sources: SourceLibraryCard[];
@@ -2373,6 +2441,8 @@ export interface BuildStudyMapInput {
   brief?: Record<string, unknown>;
   mode?: "auto" | "bootstrap";
   inventoryOutputTokens?: number;
+  // Per-run ceilings for this build; omitted keys fall back to [ingest.budgets].
+  budgetOverrides?: Partial<IngestBudgetsDto>;
   unlimitedTokenBudget?: boolean;
 }
 

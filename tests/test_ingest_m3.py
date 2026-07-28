@@ -335,6 +335,49 @@ def test_build_plan_warns_when_stage_exceeds_provider_context(tmp_path):
     assert plan.warnings
 
 
+def test_build_plan_warns_when_provider_has_no_configured_context_limit(tmp_path):
+    # `[ingest.providers.<name>]` is commented out in the default config, so a
+    # vault routed at (say) openrouter has no context number and every overflow
+    # check below silently no-ops. The plan must say so rather than look safe.
+    repo = _repo(tmp_path)
+    _, extraction_id = _markdown_extraction(repo, _TEXTBOOK_MD)
+    config = LearnLoopConfig()  # no [ingest.providers.*] entry at all
+    vault = SimpleNamespace(learning_objects={})
+
+    plan = build_build_plan(repo, config, vault, subject_id=None, selections=[{"extraction_id": extraction_id}])
+
+    assert plan.provider_context_tokens is None
+    assert any("no context limit configured" in warning for warning in plan.warnings)
+
+
+def test_build_plan_charts_per_run_budget_overrides(tmp_path):
+    # The plan screen lets a learner move a ceiling for one build; the estimate
+    # has to reflect that, not the vault default.
+    repo = _repo(tmp_path)
+    _, extraction_id = _markdown_extraction(repo, _TEXTBOOK_MD)
+    config = _config_with_provider()
+    vault = SimpleNamespace(learning_objects={})
+    selections = [{"extraction_id": extraction_id}]
+
+    default_plan = build_build_plan(repo, config, vault, subject_id=None, selections=selections)
+    override_plan = build_build_plan(
+        repo,
+        config,
+        vault,
+        subject_id=None,
+        selections=selections,
+        budget_overrides={"inventory_input_tokens": 1234, "synthesis_shard_input_tokens": 10_000},
+    )
+
+    inventory = next(stage for stage in override_plan.stages if stage.stage == "inventory")
+    synthesis = next(stage for stage in override_plan.stages if stage.stage == "synthesis")
+    assert inventory.ceiling == 1234
+    assert synthesis.ceiling == 10_000
+    # The defaults are untouched by the override — no shared mutable budget.
+    assert next(s for s in default_plan.stages if s.stage == "inventory").ceiling == 20_000
+    assert config.ingest.budgets.inventory_input_tokens == 20_000
+
+
 # --------------------------------------------------------------------------
 # Extraction health analysis (§2.5)
 # --------------------------------------------------------------------------

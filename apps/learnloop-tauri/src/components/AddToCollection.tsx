@@ -43,7 +43,9 @@ export function AddToCollectionPanel({
   scopeUnitIds: string[];
   seedRole: string | null;
   onClose: () => void;
-  onAdded: (setId: string, setTitle: string) => void;
+  // The subject rides along because synthesis is subject-scoped: the build-plan
+  // step needs it to route create-vs-update once a collection is pinned.
+  onAdded: (setId: string, setTitle: string, subjectId: string) => void;
 }): JSX.Element {
   const [sets, setSets] = useState<SourceSetSummaryDto[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
@@ -125,7 +127,7 @@ export function AddToCollectionPanel({
       }
       const { sourceSet } = await api.upsertSourceSet(payload);
       setDone(sourceSet.title);
-      onAdded(sourceSet.id, title);
+      onAdded(sourceSet.id, title, sourceSet.subjectId);
     } catch (e) {
       setError((e as CommandError).message);
     } finally {

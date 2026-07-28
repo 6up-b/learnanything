@@ -537,3 +537,25 @@ def test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged(tmp
     v = load_vault(root)
     assert "facet_spectral_applicability" in v.evidence_facets
     assert "facet_spectral_legacy_dup" in v.evidence_facets
+
+
+def test_append_budget_overrides_reach_the_manifest(tmp_path):
+    """A per-run ceiling set on the build-plan screen must bind on the UPDATE
+    path too. `mode="auto"` routes to append whenever the subject already has a
+    map, so without this seam the override silently did nothing there."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    default_budget = load_vault(root).config.ingest.budgets.append_neighborhood_input_tokens
+
+    result = append_source(
+        root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"],
+        repository=repo, clock=_CLOCK,
+        budget_overrides={"append_neighborhood_input_tokens": default_budget // 2},
+    )
+
+    manifest = repo.synthesis_manifest_by_hash(result.manifest_hash)
+    assert manifest["token_budget"]["append_neighborhood_input_tokens"] == default_budget // 2
+    # The vault default is untouched — the override is per run, not a mutation.
+    assert (
+        load_vault(root).config.ingest.budgets.append_neighborhood_input_tokens == default_budget
+    )

@@ -562,6 +562,7 @@ class DurableIngestJobs:
         mode: str = "auto",
         input_budget_tokens: int | None = None,
         output_budget_tokens: int | None = None,
+        synthesis_budgets: dict[str, int] | None = None,
         unlimited_token_budget: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
@@ -601,6 +602,8 @@ class DurableIngestJobs:
             # mirroring Quick add rather than leaving a second review step.
             "apply": True,
         }
+        if synthesis_budgets:
+            synthesis_payload["synthesis_budgets"] = dict(synthesis_budgets)
         if unlimited_token_budget:
             synthesis_payload["unlimited_token_budget"] = True
         specs.append(
@@ -627,6 +630,7 @@ class DurableIngestJobs:
         brief: dict[str, Any] | None = None,
         input_budget_tokens: int | None = None,
         output_budget_tokens: int | None = None,
+        synthesis_budgets: dict[str, int] | None = None,
         unlimited_token_budget: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
@@ -665,6 +669,8 @@ class DurableIngestJobs:
             # stays a pending review proposal.
             "apply": True,
         }
+        if synthesis_budgets:
+            append_payload["synthesis_budgets"] = dict(synthesis_budgets)
         if unlimited_token_budget:
             append_payload["unlimited_token_budget"] = True
         specs.append(
@@ -1024,6 +1030,16 @@ class DurableIngestJobs:
 
 from learnloop.services.ingest_runner import CHECKPOINT_LADDER  # noqa: E402
 
+# The rungs each job type can actually reach. Reporting the full ladder for every
+# job made an import-only batch advertise `inventoried`/`synthesized`/`applied`
+# rungs no import handler ever reports, so the card read as a whole study-map
+# build that had merely stalled. Anything not listed keeps the full ladder.
+_LADDER_BY_JOB_TYPE: dict[str, tuple[str, ...]] = {
+    "import": CHECKPOINT_LADDER[: CHECKPOINT_LADDER.index("extracted") + 1],
+    "extraction_repair": CHECKPOINT_LADDER[: CHECKPOINT_LADDER.index("extracted") + 1],
+    "inventory": CHECKPOINT_LADDER[: CHECKPOINT_LADDER.index("inventoried") + 1],
+}
+
 
 def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
     """One job as the Batch-progress screen needs it: the checkpoint ladder, live
@@ -1062,7 +1078,9 @@ def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
         "current_window": job.get("current_window"),
         "total_windows": job.get("total_windows"),
         "attempt_count": job.get("attempt_count", 0),
-        "checkpoint_ladder": list(CHECKPOINT_LADDER),
+        "checkpoint_ladder": list(
+            _LADDER_BY_JOB_TYPE.get(job["job_type"], CHECKPOINT_LADDER)
+        ),
         "usage": job.get("usage") or {},
         "estimate": payload.get("estimate") or {},
         "source": payload.get("source"),

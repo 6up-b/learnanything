@@ -67,6 +67,8 @@ import type {
   RetrySynthesisInput,
   SynthesisCandidateSummary,
   StartImportBatchInput,
+  SourceDeletionPlanDto,
+  SourceDeletionResultDto,
   SourceLibrarySnapshot,
   SourceOutline,
   SelectionPreviewDto,
@@ -76,6 +78,7 @@ import type {
   AcquisitionPreview,
   BuildPlan,
   BuildPlanSelectionInput,
+  IngestBudgetsDto,
   StartExtractionRepairInput,
   RuntimeHealth,
   SchedulerExplanationDto,
@@ -428,6 +431,12 @@ export const api = {
   getSynthesisCandidate: (batchId: string) =>
     call<SynthesisCandidateSummary>("get_synthesis_candidate", { batchId }),
   getSourceLibrary: () => call<SourceLibrarySnapshot>("get_source_library"),
+  // Read-only impact report; `delete_source` is the destructive half and
+  // re-checks the same blockers, so the preview is advisory, not a token.
+  previewSourceDeletion: (sourceId: string) =>
+    call<{ version: number; plan: SourceDeletionPlanDto }>("preview_source_deletion", { sourceId }),
+  deleteSource: (sourceId: string) =>
+    call<{ version: number; deleted: SourceDeletionResultDto }>("delete_source", { sourceId }),
   getSourceOutline: (extractionRef: string) =>
     call<SourceOutline>("get_source_outline", { extractionRef }),
   getSelectionPreview: (extractionRef: string, selectedUnitIds?: string[] | null) =>
@@ -440,8 +449,16 @@ export const api = {
     call<{ version: number } & UnitSelectionState & { extractionId: string }>("save_unit_selection", { input }),
   getAcquisitionPreview: (inputs: string[]) =>
     call<AcquisitionPreview>("get_acquisition_preview", { input: { inputs } }),
-  getBuildPlan: (selections: BuildPlanSelectionInput[], subjectId?: string | null) =>
-    call<BuildPlan>("get_build_plan", { input: { selections, subjectId: subjectId ?? null } }),
+  // `budgetOverrides` makes the plan chart the per-run ceilings the learner set
+  // on the plan screen rather than the vault's [ingest.budgets] defaults.
+  getBuildPlan: (
+    selections: BuildPlanSelectionInput[],
+    subjectId?: string | null,
+    budgetOverrides?: Partial<IngestBudgetsDto>
+  ) =>
+    call<BuildPlan>("get_build_plan", {
+      input: { selections, subjectId: subjectId ?? null, budgetOverrides: budgetOverrides ?? {} }
+    }),
   startExtractionRepair: (input: StartExtractionRepairInput) =>
     call<IngestBatchDto>("start_extraction_repair", { input }),
   listSourceSets: () => call<SourceSetsSnapshot>("list_source_sets"),

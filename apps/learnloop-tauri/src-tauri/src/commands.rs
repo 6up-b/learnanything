@@ -462,6 +462,22 @@ pub async fn get_source_library(sidecar: State<'_, SidecarManager>) -> Result<Va
     blocking_sidecar_call(sidecar, "get_source_library", json!({})).await
 }
 
+#[tauri::command]
+pub async fn preview_source_deletion(
+    source_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "preview_source_deletion", json!({"sourceId": source_id})).await
+}
+
+#[tauri::command]
+pub async fn delete_source(
+    source_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "delete_source", json!({"sourceId": source_id})).await
+}
+
 // ── ING M3: outline, unit selection, budget planning, repair (§3/§5.3/§8.6) ──
 
 #[tauri::command]
