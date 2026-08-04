@@ -258,7 +258,8 @@ def test_invalid_depth_and_rubric_degrade_without_blocking_the_item(tmp_path):
                     grading_rubric=RubricPatchPayload(
                         max_points=4,
                         criteria=[
-                            RubricCriterionPayload(id="only", points=1.0, description="Sums wrong.")
+                            RubricCriterionPayload(id="only", points=1.0, description="First duplicate."),
+                            RubricCriterionPayload(id="only", points=1.0, description="Second duplicate."),
                         ],
                     ),
                 )

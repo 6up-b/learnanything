@@ -507,7 +507,7 @@ def test_generated_practice_missing_reward_metadata_is_invalid(tmp_path):
     ]
 
 
-def test_generated_practice_rubric_points_cannot_exceed_grading_scale(tmp_path):
+def test_generated_practice_rubric_criterion_total_defines_grading_scale(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
     proposal = AuthoringProposal.model_validate(
@@ -534,8 +534,9 @@ def test_generated_practice_rubric_points_cannot_exceed_grading_scale(tmp_path):
     patch_id = persist_authoring_proposal(vault_root, proposal, provider="codex", clock=FrozenClock(NOW))
     item = Repository(vault_root / "state.sqlite").proposal_items(patch_id)[0]
 
-    assert item["validation_status"] == "invalid"
-    assert item["validation_errors"] == ["invalid_grading_rubric:criteria_points_exceed_max_points"]
+    assert item["validation_status"] == "valid"
+    assert item["validation_errors"] == []
+    assert item["payload"]["grading_rubric"]["max_points"] == 6
 
 
 def test_generated_practice_rejects_unknown_metadata_keys(tmp_path):

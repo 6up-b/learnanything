@@ -151,13 +151,10 @@ def _catalog(vault: LoadedVault, hint: str | None) -> list[dict[str, Any]]:
 
 def _validated_rubric(payload: Any) -> dict[str, Any] | None:
     """Admit the model rubric only when the arithmetic holds (points sum to
-    max_points ≤ 4, unique non-empty criteria); otherwise the caller falls
+    a positive integer, unique non-empty criteria); otherwise the caller falls
     back to the plain correctness rubric."""
 
     if payload is None or not payload.criteria:
-        return None
-    max_points = int(payload.max_points)
-    if not 1 <= max_points <= 4:
         return None
     criteria: list[dict[str, Any]] = []
     total = 0.0
@@ -178,7 +175,8 @@ def _validated_rubric(payload: Any) -> dict[str, Any] | None:
         )
     if len({criterion["id"] for criterion in criteria}) != len(criteria):
         return None
-    if abs(total - max_points) > 1e-6:
+    max_points = int(round(total))
+    if max_points < 1 or abs(total - max_points) > 1e-6:
         return None
     return {"max_points": max_points, "criteria": criteria}
 

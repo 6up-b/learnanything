@@ -1,12 +1,12 @@
-AUTHORING_PROMPT_VERSION = "mvp-0.8-causal-attribution-honesty"
-CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.5-canonical-ingest-audit-facet-weights"
+AUTHORING_PROMPT_VERSION = "mvp-0.9-criterion-total-scoring"
+CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.6-criterion-total-scoring"
 # Meas §3.A5/§3.A3 (plan item 6.4): the grading contract gains a discrimination-
 # profile match with a first-class `no_profile_applies` arm, and an error-hunt
 # report. Both change what the grader is ASKED, so both change the prompt
 # identity: telemetry is grouped by (prompt_version, model), and pooling
 # pre-A5 grades with post-A5 ones would compute the profile rejection rate over a
 # population half of which was never offered a profile.
-GRADING_PROMPT_VERSION = "mvp-1.3-anchors-server-side"
+GRADING_PROMPT_VERSION = "mvp-1.4-localized-mechanism-derived-score"
 # ING M8: cross-source practice generation with hard leakage controls (§8.5). The
 # authoring path grows a bounded multi-source grounding context + blueprint task-family
 # shaping, and generated surfaces are screened against the held-out inventory by a
@@ -16,7 +16,7 @@ GRADING_PROMPT_VERSION = "mvp-1.3-anchors-server-side"
 # contrast pairs and discrimination profiles. Four new instrument classes with
 # four new payload contracts is a different authoring task, and the generation
 # cache is keyed on this string.
-PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.1-conjunctive-authored-targets-and-instrument-classes"
+PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.2-criterion-total-scoring"
 # ING M8: tutor answers may cite bounded entity_source_links spans (§9.2). Bumped
 # for the citations contract (validated against provided spans, never invented).
 TUTOR_QA_PROMPT_VERSION = "mvp-0.7-tutor-qa-source-citations"
@@ -35,7 +35,7 @@ READING_QUICK_CHECK_PROMPT_VERSION = "mvp-0.1-reading-quick-check"
 READER_PRESET_SYNTHESIS_PROMPT_VERSION = "mvp-0.3-reader-preset-multi-span-focus"
 DEPTH_EDGE_INSTANCE_PROMPT_VERSION = "mvp-0.1-depth-edge-instance"
 RUNG_BACKFILL_PROMPT_VERSION = "mvp-0.1-rung-backfill"
-EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.1-exercise-authoring"
+EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.2-criterion-total-scoring"
 SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.1-brief-authoring-presets"
 CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1"
 APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.8-append-brief-authoring-presets"
@@ -371,7 +371,7 @@ is a list of {facet_id, weight} pairs over exactly those facets, weights
 summing to 1.0.
 4. GRADING: `expected_answer_md` is a complete, correct model answer (worked
 solution for computations, full argument for proofs). `grading_rubric` has
-1-4 criteria totalling `max_points` (max 4), each criterion graded from the
+1-4 criteria; `max_points` is their positive integral point total, and each criterion is graded from the
 answer text alone. Declare each criterion's `measurement_status` and include
 `criterion_facet_weights` only when the criterion genuinely measures a listed
 facet. `item_local` and `no_canonical_facet` criteria intentionally have no

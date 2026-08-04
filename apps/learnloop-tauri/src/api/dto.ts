@@ -831,6 +831,7 @@ export interface ProbeBlockEndDto {
     attemptId: string;
     practiceItemId: string | null;
     rubricScore: number | null;
+    maxPoints: number;
     feedbackMd: string | null;
     fatalErrors: string[];
     /** Carries `commonRepair` exactly like the FeedbackScreen bundle (G3):

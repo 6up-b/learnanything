@@ -47,6 +47,39 @@ def test_self_grade_writes_tier_one_evidence(tmp_path):
     assert all(row.agent_run_id is None for row in evidence)
 
 
+def test_self_grade_uses_criterion_total_as_item_scale(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    item_payload = read_yaml(item_path)
+    item_payload["grading_rubric"] = {
+        "max_points": 4,
+        "criteria": [
+            {"id": "formula", "points": 2, "description": "Formula."},
+            {"id": "explanation", "points": 3, "description": "Explanation."},
+        ],
+        "fatal_errors": [],
+    }
+    write_yaml(item_path, item_payload)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+
+    result = complete_self_graded_attempt(
+        loaded,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="complete"),
+        SelfGradeInput(
+            criterion_points={"formula": 2, "explanation": 3},
+            confidence=5,
+        ),
+        clock=FrozenClock(NOW),
+    )
+
+    assert loaded.practice_items["pi_svd_define_001"].grading_rubric.max_points == 5
+    assert result.rubric_score == 5
+    assert repository.fetch_practice_attempt(result.attempt_id)["correctness"] == 1.0
+
+
 def test_confidence_maps_to_grader_confidence(tmp_path):
     _, result = _attempt(tmp_path, points={"correctness": 2}, confidence=3)
     assert result.grader_confidence == 0.6

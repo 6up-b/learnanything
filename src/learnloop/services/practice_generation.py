@@ -1871,7 +1871,7 @@ _TEACH_BACK_GENERATION_GUIDANCE = (
     "tier='transfer' criteria that stress-test edge cases, what-if scenarios, or transfer to new situations "
     "(each transfer criterion also mapped to the facet(s) it stresses). "
     "criterion_facet_weights MUST carry one entry per rubric criterion (core and transfer) naming its facet(s), "
-    "evidence_facets/evidence_weights must be set, and criterion points must sum to max_points (4 or less)."
+    "evidence_facets/evidence_weights must be set, and max_points must equal the positive integral sum of criterion points."
 )
 
 

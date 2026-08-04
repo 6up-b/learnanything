@@ -140,8 +140,18 @@ MECHANISM_TAXONOMY_CARD: tuple[dict[str, object], ...] = (
     {
         "id": "retrieval_failure",
         "title": "Retrieval failure",
-        "use_when": "The learner cannot retrieve the requested fact, formula, step, or facet (including after hints).",
-        "avoid_when": "The answer gives a wrong model or rule; use conceptual_schema_error or selection_planning_error.",
+        "use_when": (
+            "The localized trace supports a failure to access previously learned, "
+            "task-relevant knowledge for the affected facet, including after an "
+            "appropriate cue or hint."
+        ),
+        "avoid_when": (
+            "A more specific observed breakdown explains the failure, such as "
+            "misunderstanding; unsuitable selection or organization; incorrect "
+            "execution or application; transfer, context, or representation "
+            "difficulty; or a local omission or slip. Uncertainty or inability to "
+            "continue alone is not evidence of failed retrieval."
+        ),
     },
     {
         "id": "conceptual_schema_error",

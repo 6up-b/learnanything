@@ -828,7 +828,7 @@ def append_adjudication_evidence_revision(
         rubric_total = sum(points_by_criterion.values()) or 1.0
         repository.update_attempt_grade(
             attempt_id,
-            rubric_score=min(4, max(0, round(fraction * rubric_total))),
+            rubric_score=max(0, round(fraction * rubric_total)),
             correctness=fraction,
             grader_confidence=float(attempt.get("grader_confidence") or 0.0),
             manual_review=bool(attempt.get("manual_review")),

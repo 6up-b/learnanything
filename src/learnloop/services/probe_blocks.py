@@ -287,11 +287,14 @@ def end_diagnostic_block(
     for row in rows:
         attempt_id = str(row["attempt_id"])
         metadata = repository.fetch_attempt_feedback_metadata(attempt_id) or {}
+        item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+        rubric = vault.rubric_for_item(item) if item is not None else None
         released_feedback.append(
             {
                 "attempt_id": attempt_id,
                 "practice_item_id": row.get("practice_item_id"),
                 "rubric_score": row.get("rubric_score"),
+                "max_points": rubric.max_points if rubric is not None else 4,
                 "feedback_md": metadata.get("feedback_md"),
                 "fatal_errors": metadata.get("fatal_errors") or [],
             }

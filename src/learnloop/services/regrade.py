@@ -200,6 +200,7 @@ def _regrade_attempt(
             attempt_id=attempt["id"],
             item=item,
             vault=vault,
+            learner_answer_md=attempt.get("learner_answer_md") or "",
         )
     except Exception as exc:
         finish_agent_run(

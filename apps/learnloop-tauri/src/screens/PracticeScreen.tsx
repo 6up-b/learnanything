@@ -332,7 +332,7 @@ export function PracticeScreen({
   const scorePreview = useMemo(() => {
     if (!item?.rubric) return 0;
     let score = Math.round(Object.values(selfGrade.criterionPoints).reduce((sum, value) => sum + Number(value || 0), 0));
-    score = Math.max(0, Math.min(item.rubric.maxPoints, score, 4));
+    score = Math.max(0, Math.min(item.rubric.maxPoints, score));
     for (const fatalId of selfGrade.fatalErrors ?? []) {
       const fatal = item.rubric.fatalErrors.find((candidate) => candidate.id === fatalId);
       if (fatal) score = Math.min(score, fatal.maxGrade);
@@ -796,7 +796,9 @@ export function PracticeScreen({
               <button className="queue-row focused" type="button" onClick={submit} disabled={submitting}>
                 <span className="queue-hotkey">^↵</span>
                 <span className="queue-title">Submit</span>
-                <span className="queue-score">{selfGradeVisible ? `${scorePreview}/4` : ""}</span>
+                <span className="queue-score">
+                  {selfGradeVisible ? `${scorePreview}/${item.rubric?.maxPoints ?? 4}` : ""}
+                </span>
               </button>
             </div>
           </div>
@@ -1075,7 +1077,10 @@ function SelfGradePanel({
 }) {
   return (
     <div className="self-grade-panel">
-      <div><b>AI grading is unavailable</b> · grade your answer to continue · live score {scorePreview}/4</div>
+      <div>
+        <b>AI grading is unavailable</b> · grade your answer to continue · live score{" "}
+        {scorePreview}/{item.rubric?.maxPoints ?? 4}
+      </div>
       <div className="self-grade-grid">
         {item.rubric?.criteria.map((criterion) => {
           const awarded = value.criterionPoints[criterion.id] ?? 0;

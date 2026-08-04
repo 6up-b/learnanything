@@ -398,6 +398,7 @@ def record_probe_regrade_check(
     *,
     attempt_id: str,
     regrade_rubric_score: int | None,
+    max_points: int = 4,
     regrade_error_types: list[str] | None = None,
     attempt_type: str = "diagnostic_probe",
     clock: Clock | None = None,
@@ -425,6 +426,7 @@ def record_probe_regrade_check(
     regrade_outcome = classify_outcome(
         instrument,
         rubric_score=regrade_rubric_score,
+        max_points=max_points,
         attempt_type=attempt_type,
         fired_error_types=regrade_error_types or [],
     )
@@ -500,6 +502,11 @@ def run_probe_regrade_checks(
                 repository,
                 attempt_id=attempt_id,
                 regrade_rubric_score=validated.rubric_score,
+                max_points=(
+                    vault.rubric_for_item(item).max_points
+                    if vault.rubric_for_item(item) is not None
+                    else 4
+                ),
                 regrade_error_types=[
                     attribution.error_type for attribution in validated.error_attributions
                 ],

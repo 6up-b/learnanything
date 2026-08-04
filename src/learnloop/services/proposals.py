@@ -1986,8 +1986,6 @@ def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
         return ["invalid_grading_rubric:max_points"]
     if max_points <= 0:
         errors.append("invalid_grading_rubric:max_points")
-    if max_points > 4:
-        errors.append("invalid_grading_rubric:max_points_exceeds_grading_scale")
 
     total_points = 0.0
     criteria = rubric.get("criteria")
@@ -2006,7 +2004,7 @@ def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
             except (TypeError, ValueError):
                 errors.append(f"invalid_grading_rubric:criterion_points:{criterion.get('id') or 'unknown'}")
                 continue
-            if points <= 0 or points > 4:
+            if points <= 0:
                 errors.append(f"invalid_grading_rubric:criterion_points:{criterion.get('id') or 'unknown'}")
             tier = criterion.get("tier")
             if tier is not None and tier not in _RUBRIC_CRITERION_TIERS:
@@ -2017,8 +2015,11 @@ def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
                 )
             )
             total_points += max(points, 0.0)
-    if criteria and total_points > max_points + 1e-6:
-        errors.append("invalid_grading_rubric:criteria_points_exceed_max_points")
+    # Criterion points are authoritative. Wire-model validation normalizes
+    # ``max_points`` to this total before persistence; raw audit callers may
+    # still carry a stale declared maximum, which is not a reason to reject an
+    # otherwise coherent rubric.
+    effective_max_points = total_points if criteria and total_points > 0 else max_points
 
     fatal_errors = rubric.get("fatal_errors")
     if isinstance(fatal_errors, list):
@@ -2030,7 +2031,7 @@ def _practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]:
             except (TypeError, ValueError):
                 errors.append(f"invalid_grading_rubric:fatal_max_grade:{fatal_error.get('id') or 'unknown'}")
                 continue
-            if max_grade < 0 or max_grade > min(max_points, 4):
+            if max_grade < 0 or max_grade > effective_max_points:
                 errors.append(f"invalid_grading_rubric:fatal_max_grade:{fatal_error.get('id') or 'unknown'}")
     return errors
 

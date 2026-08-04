@@ -922,12 +922,13 @@ class ProbePosterior:
         return max(self.posterior.values(), default=0.0)
 
 
-def score_bucket(rubric_score: int) -> str:
-    """Bucketize a rubric score per spec §14.4: {0,1}->low, {2,3}->mid, {4}->high."""
+def score_bucket(rubric_score: int, max_points: int = 4) -> str:
+    """Bucketize on the legacy quarter-scale after ratio normalization."""
 
-    if rubric_score <= 1:
+    normalized = 4.0 * rubric_score / max(max_points, 1)
+    if normalized <= 1:
         return "low"
-    if rubric_score <= 3:
+    if normalized <= 3:
         return "mid"
     return "high"
 
@@ -1176,7 +1177,10 @@ def probe_posterior(
         if item is None:
             continue
         rubric = vault.rubric_for_item(item)
-        bucket = score_bucket(int(attempt.get("rubric_score") or 0))
+        bucket = score_bucket(
+            int(attempt.get("rubric_score") or 0),
+            rubric.max_points if rubric is not None else 4,
+        )
         error_type = attempt.get("error_type")
         item_a, item_b, probe_irt = resolve_item_irt(vault, item)
         tag_weight = _resolve_self_tag_weight(vault, item, rubric, hypothesis_set, error_type, bucket)

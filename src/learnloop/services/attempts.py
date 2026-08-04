@@ -3056,11 +3056,11 @@ def _validate_fatal_errors(rubric: Rubric, fatal_errors: list[str]) -> None:
 
 def _rubric_score(rubric: Rubric, criterion_points: dict[str, float], fatal_errors: list[str]) -> int:
     score = int(round(sum(criterion_points.values())))
-    score = max(0, min(int(rubric.max_points), score, 4))
+    score = max(0, min(int(rubric.max_points), score))
     fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
     for fatal_error_id in fatal_errors:
         score = min(score, fatal_by_id[fatal_error_id].max_grade)
-    return max(0, min(score, 4))
+    return max(0, min(score, int(rubric.max_points)))
 
 
 def _evidence_coverage(item: PracticeItem, criterion_points: dict[str, float]) -> float:

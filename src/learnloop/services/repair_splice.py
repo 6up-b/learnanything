@@ -180,7 +180,10 @@ def _resolved_span_end(answer: str, ref: dict[str, Any]) -> int | None:
 
 
 def preserved_prefix_from_refs(
-    answer: str, preserve_refs: list[Any] | None
+    answer: str,
+    preserve_refs: list[Any] | None,
+    *,
+    before_offset: int | None = None,
 ) -> PreservedPrefix | None:
     """Derive the preserved prefix from a suggestion's ``preserve_refs``.
 
@@ -196,17 +199,27 @@ def preserved_prefix_from_refs(
 
     if not answer:
         return None
+    limit = (
+        max(0, min(len(answer), int(before_offset)))
+        if before_offset is not None
+        else None
+    )
     ends: list[int] = []
     for ref in preserve_refs or []:
         if not isinstance(ref, dict) or ref.get("kind") != "answer_span":
             continue
         resolved = _resolved_span_end(answer, ref)
-        if resolved is not None:
+        # A later preserved citation is still useful evidence, but it cannot
+        # move a prefix-only splice past the divergence being repaired.  It
+        # belongs in regenerated downstream work instead.
+        if resolved is not None and (limit is None or resolved <= limit):
             ends.append(resolved)
     if not ends:
         return None
     declared_end = max(ends)
     snapped_end = snap_prefix_end(answer, declared_end)
+    if limit is not None:
+        snapped_end = min(snapped_end, limit)
     return PreservedPrefix(
         text=answer[:snapped_end],
         basis="derived_from_preserve_refs",
@@ -226,6 +239,8 @@ def is_end_append(repaired_trace: dict[str, Any]) -> bool:
     insertion = repaired_trace.get("repair_insertion_point")
     if not isinstance(insertion, dict):
         return False
+    if "end_append" in insertion:
+        return bool(insertion["end_append"])
     if insertion.get("anchor_kind") == "missing_required_step":
         return True
     return insertion.get("char_start") is None and insertion.get("char_end") is None

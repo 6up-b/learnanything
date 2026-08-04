@@ -62,6 +62,41 @@ def test_deferred_regrade_supersedes_self_grade_and_updates_mastery(tmp_path):
     assert after_mastery.logit_mean > before_mastery.logit_mean
 
 
+def test_deferred_regrade_validates_repaired_trace_against_learner_answer(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repository, clock=clock)
+    attempt = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id="pi_svd_define_001",
+            learner_answer_md="SVD uses U, Sigma, and V transpose.",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 2}, confidence=3),
+        clock=clock,
+    )
+
+    result = run_deferred_regrades(
+        vault,
+        repository,
+        runtime=_ready_runtime(),
+        codex_client=_RepairingRegradeClient(score=4, points=4),
+        clock=clock,
+    )
+
+    assert result.as_dict() == {
+        "attempted": 1,
+        "regraded": 1,
+        "failed": 0,
+        "skipped_reason": None,
+    }
+    assert repository.fetch_practice_attempt(attempt.attempt_id)["rubric_score"] == 4
+
+
 def test_deferred_regrade_replays_attempt_derived_state(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -413,6 +448,32 @@ class _AIRegradeClient(_RegradeClient):
     provider_name = "deepseek_flash"
     provider_type = "openai_chat"
     model = "deepseek-v4-flash"
+
+
+class _RepairingRegradeClient(_RegradeClient):
+    def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
+        proposal = super().run_grading_proposal(context)
+        suffix = "\n\nThis completes the requested definition."
+        return GradingProposal.model_validate(
+            {
+                **proposal.model_dump(mode="json"),
+                "repair_suggestions": [
+                    {
+                        "practice_mode": "targeted_repair",
+                        "rationale": "Append the missing conclusion.",
+                        "operator": "append_conclusion",
+                        "repaired_trace": {
+                            "learner_work_prefix": context.learner_answer_md,
+                            "minimal_edit": "Append the missing conclusion.",
+                            "regenerated_work": suffix,
+                            "repaired_answer_md": context.learner_answer_md + suffix,
+                            "changed_latent_claims": ["The definition is complete."],
+                            "changed_checkpoint_ids": [],
+                        },
+                    }
+                ],
+            }
+        )
 
 
 class _InvalidRegradeClient:

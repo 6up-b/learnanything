@@ -1523,6 +1523,7 @@ def _observation_likelihoods_from_row(
         outcome = classify_outcome(
             instrument,
             rubric_score=attempt.get("rubric_score"),
+            max_points=_item_max_points(vault, str(attempt.get("practice_item_id") or "")),
             attempt_type=str(attempt.get("attempt_type") or ""),
             fired_error_types=_fired_error_types(repository, str(attempt.get("id"))),
         )
@@ -1541,6 +1542,14 @@ def _fired_error_types(repository: Repository, attempt_id: str) -> list[str]:
     return fired
 
 
+def _item_max_points(vault: LoadedVault, practice_item_id: str) -> int:
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        return 4
+    rubric = vault.rubric_for_item(item)
+    return rubric.max_points if rubric is not None else 4
+
+
 def _incidental_likelihoods(
     vault: LoadedVault,
     repository: Repository,
@@ -1552,7 +1561,11 @@ def _incidental_likelihoods(
         return None
     item_a, item_b, irt = resolve_item_irt(vault, item)
     context = item_observation_context(item)
-    bucket = score_bucket(int(attempt.get("rubric_score") or 0))
+    rubric = vault.rubric_for_item(item)
+    bucket = score_bucket(
+        int(attempt.get("rubric_score") or 0),
+        rubric.max_points if rubric is not None else 4,
+    )
     likelihoods: dict[str, float] = {}
     for hypothesis in hypothesis_set.hypotheses:
         marginals = generic_bucket_marginals(
@@ -1826,6 +1839,7 @@ def _record_presentation_observation(
     outcome = classify_outcome(
         instrument,
         rubric_score=_attempt_rubric_score(repository, attempt_id),
+        max_points=_item_max_points(vault, practice_item_id),
         attempt_type=outcome_attempt_type,
         fired_error_types=_fired_error_types(repository, attempt_id),
     )

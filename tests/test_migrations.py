@@ -78,6 +78,62 @@ def test_repair_opportunity_bridge_applies_after_opportunity_substrate(tmp_path)
     assert "cold_measurement_opportunity_id" in after
 
 
+def test_variable_rubric_scale_migration_allows_scores_above_four(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        _insert_attempt(
+            connection,
+            attempt_id="attempt_five_point_source",
+            attempt_type="independent_attempt",
+        )
+        _insert_attempt(
+            connection,
+            attempt_id="attempt_five_point_outcome",
+            attempt_type="independent_attempt",
+        )
+        connection.execute(
+            "UPDATE practice_attempts SET rubric_score = 5 WHERE id = ?",
+            ("attempt_five_point_outcome",),
+        )
+        connection.execute(
+            """
+            INSERT INTO learning_outcome_labels(
+              id, source_attempt_id, outcome_attempt_id, label_type,
+              practice_item_id, learning_object_id, label_value,
+              outcome_correctness, outcome_rubric_score, metadata_json,
+              algorithm_version, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "label_five_point",
+                "attempt_five_point_source",
+                "attempt_five_point_outcome",
+                "same_item_retention",
+                "pi_svd",
+                "lo_svd",
+                1.0,
+                1.0,
+                5,
+                "{}",
+                "test",
+                "2026-05-19T12:00:00Z",
+            ),
+        )
+        connection.commit()
+
+    with connect(sqlite_path) as connection:
+        assert connection.execute(
+            "SELECT rubric_score FROM practice_attempts WHERE id = ?",
+            ("attempt_five_point_outcome",),
+        ).fetchone()["rubric_score"] == 5
+        assert connection.execute(
+            "SELECT outcome_rubric_score FROM learning_outcome_labels WHERE id = ?",
+            ("label_five_point",),
+        ).fetchone()["outcome_rubric_score"] == 5
+
+
 def test_first_error_cleanup_is_semantically_demoted_not_learned(tmp_path):
     sqlite_path = tmp_path / "state.sqlite"
     old_migrations = tmp_path / "old_migrations"

@@ -606,20 +606,20 @@ def asked_rubric_score(
 
     Unasked criteria must not depress LO-level correctness, so the score
     fraction is computed over the asked subset and projected back onto the
-    rubric's 0..max_points scale, then fatal-error caps apply as usual.
+    rubric's own 0..max_points scale, then fatal-error caps apply as usual.
     """
 
     asked_max = sum(max(float(criterion.points), 0.0) for criterion in asked_criteria)
     awarded = sum(max(float(points), 0.0) for points in criterion_points.values())
     fraction = min(1.0, awarded / asked_max) if asked_max > 0 else 0.0
     score = int(round(fraction * float(rubric.max_points)))
-    score = max(0, min(int(rubric.max_points), score, 4))
+    score = max(0, min(int(rubric.max_points), score))
     fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
     for fatal_error_id in fatal_errors:
         fatal = fatal_by_id.get(fatal_error_id)
         if fatal is not None:
             score = min(score, fatal.max_grade)
-    return max(0, min(score, 4))
+    return max(0, min(score, int(rubric.max_points)))
 
 
 def _teach_back_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:

@@ -723,6 +723,7 @@ def classify_outcome(
     rubric_score: int | None,
     attempt_type: str,
     fired_error_types: list[str],
+    max_points: int = 4,
 ) -> str:
     """Map one graded attempt onto the instrument's outcome alphabet.
 
@@ -736,7 +737,7 @@ def classify_outcome(
     if attempt_type == "dont_know" and "unanswered" in alphabet:
         return "unanswered"
     fired = set(fired_error_types)
-    score = int(rubric_score or 0)
+    score = 4.0 * int(rubric_score or 0) / max(int(max_points), 1)
     # Signature classes fire on their declared error types regardless of the
     # (low/mid) grade band; a high grade with a fired fatal never happens by
     # rubric construction.

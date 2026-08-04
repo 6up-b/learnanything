@@ -14,6 +14,7 @@ from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, Grading
 from learnloop.db.repositories import Repository
 from learnloop.services.error_taxonomy_map import (
     MECHANISM_TAXONOMY,
+    MECHANISM_TAXONOMY_CARD,
     map_legacy_error_type,
 )
 from learnloop.services.misconceptions import normalize_attempt_misconceptions
@@ -118,6 +119,23 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
     # a retrieval lapse that failed despite support (severity, not mechanism).
     assert map_legacy_error_type("arithmetic_slip") == "local_slip"
     assert map_legacy_error_type("scaffold_failure") == "retrieval_failure"
+
+
+def test_retrieval_boundary_is_mechanism_based_and_domain_neutral():
+    from learnloop.services.grading import CANONICAL_ERROR_TYPES
+
+    mechanism_card = next(
+        card for card in MECHANISM_TAXONOMY_CARD if card["id"] == "retrieval_failure"
+    )
+    legacy_card = next(
+        card for card in CANONICAL_ERROR_TYPES if card["id"] == "recall_failure"
+    )
+
+    for card in (mechanism_card, legacy_card):
+        guidance = f"{card['use_when']} {card['avoid_when']}".casefold()
+        assert "previously learned" in guidance
+        assert "uncertainty" in guidance
+        assert "derivation" not in guidance
 
 
 def test_grader_prompt_version_bumped():

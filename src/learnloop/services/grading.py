@@ -177,8 +177,16 @@ CANONICAL_ERROR_TYPES: tuple[dict[str, object], ...] = (
         "title": "Recall failure",
         "severity_default": 0.4,
         "is_misconception": False,
-        "use_when": "The learner explicitly cannot retrieve the requested fact, formula, step, or facet.",
-        "avoid_when": "The answer gives a wrong model or wrong rule; use conceptual_slip or procedure_misapplication instead.",
+        "use_when": (
+            "The localized trace supports a failure to access previously learned, "
+            "task-relevant knowledge for the affected facet."
+        ),
+        "avoid_when": (
+            "A more specific observed breakdown explains the failure, such as "
+            "misunderstanding, unsuitable selection or organization, incorrect "
+            "execution or application, or a local omission or slip. Uncertainty or "
+            "inability to continue alone is not evidence of failed recall."
+        ),
     },
     {
         "id": "conceptual_slip",
@@ -210,7 +218,10 @@ CANONICAL_ERROR_TYPES: tuple[dict[str, object], ...] = (
         "severity_default": 0.35,
         "is_misconception": False,
         "use_when": "The answer is partially correct but omits a required value, justification, condition, unit, or explanation.",
-        "avoid_when": "The omitted part is explicitly unknown to the learner; use recall_failure for that facet.",
+        "avoid_when": (
+            "Use recall_failure only when localized evidence supports that the "
+            "omitted facet is learned material the learner cannot access from memory."
+        ),
     },
 )
 
@@ -811,15 +822,18 @@ def validate_codex_grading_proposal(
             )
         )
 
+    # Criterion evidence is the scoring authority.  The model-reported total is
+    # retained only as audit telemetry; trusting it created impossible states
+    # such as an overall 4/4 "success" while a 3-point criterion was partial in
+    # a rubric whose criteria were actually worth five points.
+    derived_score = int(round(sum(evidence.points_awarded for evidence in validated_evidence)))
+    derived_score = max(0, min(int(rubric.max_points), derived_score))
     fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
     unknown_fatal = sorted(set(proposal.fatal_errors) - set(fatal_by_id))
     if unknown_fatal:
         raise GradingValidationError(f"Unknown fatal errors: {', '.join(unknown_fatal)}")
-    capped_score = proposal.rubric_score
     for fatal_error_id in proposal.fatal_errors:
-        capped_score = min(capped_score, fatal_by_id[fatal_error_id].max_grade)
-    if capped_score != proposal.rubric_score:
-        raise GradingValidationError("Fatal errors must cap rubric_score")
+        derived_score = min(derived_score, fatal_by_id[fatal_error_id].max_grade)
 
     known_facets = set(item.evidence_facets)
     known_facets.update(
@@ -827,6 +841,8 @@ def validate_codex_grading_proposal(
     )
     unknown_target_families: set[str] = set()
     unknown_target_criteria: set[str] = set()
+    unanchored_diagnosis_facets: set[str] = set()
+    grounding_audit_events: list[dict[str, Any]] = []
     machine_review_scopes: set[str] = set()
     validated_errors: list[ValidatedErrorAttribution] = []
     for attribution in proposal.error_attributions:
@@ -1079,21 +1095,34 @@ def validate_codex_grading_proposal(
                 named_facets.add(str(cause_ref.get("facet_id") or ""))
         if named_facets:
             diagnosis = (proposal.diagnosis_md or "").casefold()
+            unanchored: set[str] = set()
             for facet in named_facets:
                 record = vault.evidence_facets.get(facet)
                 anchors = [
                     facet,
                     getattr(record, "title", None),
                     getattr(record, "claim", None),
+                    *(getattr(record, "aliases", None) or []),
                 ]
                 if not any(
                     str(anchor).casefold() in diagnosis
                     for anchor in anchors
                     if anchor
                 ):
-                    raise GradingValidationError(
-                        f"facet {facet} is not anchored in diagnosis_md"
-                    )
+                    unanchored.add(facet)
+            if unanchored:
+                # Facet targeting is an optional causal channel, not a reason
+                # to discard a valid criterion grade. Keep the structured target
+                # (it may be clearer than free prose), but surface the grounding
+                # disagreement for review and telemetry instead of turning it
+                # into an internal sidecar error.
+                unanchored_diagnosis_facets.update(unanchored)
+                grounding_audit_events.append(
+                    {
+                        "event": "unanchored_diagnosis_facets_reviewed",
+                        "facets": sorted(unanchored),
+                    }
+                )
 
         cause_scope = attribution.cause_scope or "unknown"
         if cause_scope in {"item_contract", "grader_interpretation"}:
@@ -1195,6 +1224,47 @@ def validate_codex_grading_proposal(
                 repaired_trace.get("learner_work_prefix") or ""
             )
             answer = learner_answer_md or ""
+            insertion = repaired_trace.get("repair_insertion_point")
+            prefix_limit: int | None = None
+            if isinstance(insertion, dict):
+                criterion_id = str(insertion.get("criterion_id") or "")
+                if criterion_id not in criteria:
+                    raise GradingValidationError(
+                        f"Unknown repaired-trace criterion {criterion_id}"
+                    )
+                anchor_kind = insertion.get("anchor_kind")
+                quote = insertion.get("quote")
+                if quote:
+                    resolution = resolve_quote_anchor(
+                        answer,
+                        str(quote),
+                        hint_start=(
+                            insertion.get("char_start")
+                            if isinstance(insertion.get("char_start"), int)
+                            else None
+                        ),
+                    )
+                    if resolution.char_start is None or resolution.char_end is None:
+                        raise GradingValidationError(
+                            "repaired-trace insertion quote does not anchor in learner answer"
+                        )
+                    insertion["char_start"] = resolution.char_start
+                    insertion["char_end"] = resolution.char_end
+                    insertion["anchor_basis"] = resolution.basis
+                    if anchor_kind == "span":
+                        # A span is replaced; preserving anything after its
+                        # start would retain the very work the repair targets.
+                        prefix_limit = resolution.char_start
+                        insertion["end_append"] = False
+                    elif anchor_kind == "between_spans":
+                        # The quoted span is the left side of the boundary.
+                        prefix_limit = resolution.char_end
+                        insertion["end_append"] = resolution.char_end == len(answer)
+                elif anchor_kind == "whole_answer":
+                    prefix_limit = 0
+                    insertion["end_append"] = False
+                elif anchor_kind == "missing_required_step":
+                    insertion["end_append"] = True
             # The prefix is DERIVED from the model's own preserve_refs whenever
             # it declared any, not taken on report. Verbatim-ness alone let the
             # live exhibit declare the learner's entire answer — hedge included
@@ -1202,7 +1272,9 @@ def validate_codex_grading_proposal(
             # clause, and the certified "preserved learner work" then contained
             # an admission of not knowing what to do.
             derived_prefix = preserved_prefix_from_refs(
-                answer, payload.get("preserve_refs")
+                answer,
+                payload.get("preserve_refs"),
+                before_offset=prefix_limit,
             )
             if derived_prefix is None:
                 learner_prefix = model_prefix
@@ -1303,21 +1375,6 @@ def validate_codex_grading_proposal(
                     "Unknown repaired-trace checkpoint "
                     + ", ".join(unknown_changed)
                 )
-            insertion = repaired_trace.get("repair_insertion_point")
-            if isinstance(insertion, dict):
-                criterion_id = str(insertion.get("criterion_id") or "")
-                if criterion_id not in criteria:
-                    raise GradingValidationError(
-                        f"Unknown repaired-trace criterion {criterion_id}"
-                    )
-                quote = insertion.get("quote")
-                answer = learner_answer_md or ""
-                if quote and str(quote) not in answer and " ".join(
-                    str(quote).split()
-                ) not in " ".join(answer.split()):
-                    raise GradingValidationError(
-                        "repaired-trace insertion quote does not anchor in learner answer"
-                    )
         validated_repair_suggestions.append(payload)
 
     criterion_points = {
@@ -1336,6 +1393,10 @@ def validate_codex_grading_proposal(
     if splice_audit_events:
         attribution_audit_events = list(attribution_audit_events or []) + [
             dict(event) for event in splice_audit_events
+        ]
+    if grounding_audit_events:
+        attribution_audit_events = list(attribution_audit_events or []) + [
+            dict(event) for event in grounding_audit_events
         ]
     from learnloop.services.causal_attribution import (
         validate_repair_candidate,
@@ -1358,6 +1419,10 @@ def validate_codex_grading_proposal(
         manual_review_reason = "unknown_target_evidence_family:" + ",".join(sorted(unknown_target_families))
     if manual_review_reason is None and unknown_target_criteria:
         manual_review_reason = "unknown_target_criterion:" + ",".join(sorted(unknown_target_criteria))
+    if manual_review_reason is None and unanchored_diagnosis_facets:
+        manual_review_reason = "unanchored_diagnosis_facet:" + ",".join(
+            sorted(unanchored_diagnosis_facets)
+        )
     if manual_review_reason is None and machine_review_scopes:
         manual_review_reason = "attribution_scope:" + ",".join(sorted(machine_review_scopes))
     builtin_defaults = builtin_error_type_defaults(vault)
@@ -1413,7 +1478,7 @@ def validate_codex_grading_proposal(
         ]
 
     return ValidatedCodexGrade(
-        rubric_score=proposal.rubric_score,
+        rubric_score=derived_score,
         criterion_evidence=validated_evidence,
         fatal_errors=proposal.fatal_errors,
         error_attributions=validated_errors,
@@ -1784,7 +1849,12 @@ def _normalized_recall_error_type(
 
     if is_misconception:
         return _finalize(error_type)
-    text = f"{error_type} {evidence} {learner_answer_md or ''}".lower()
+    # Recall wording must be local to this attribution.  Scanning the entire
+    # answer let an earlier "I'm not sure" relabel a later, unrelated omitted
+    # conclusion as retrieval failure.  The grader's evidence is the localized
+    # citation; whole-answer don't-know attempts already use the deterministic
+    # attempt-type path.
+    text = f"{error_type} {evidence}".lower()
     if _RECALL_FAILURE_PATTERN.search(text):
         return _finalize("recall_failure")
     if error_type in vault.error_types or error_type in builtin_error_type_defaults(vault):
@@ -1798,10 +1868,9 @@ def _normalized_recall_error_type(
 
 _RECALL_FAILURE_PATTERN = re.compile(
     r"\b("
-    r"i\s+(do\s+not|don'?t)\s+(know|remember|recall)|"
-    r"(do\s+not|don'?t)\s+(know|remember|recall)|"
+    r"i\s+(do\s+not|don'?t)\s+(remember|recall)|"
+    r"(do\s+not|don'?t)\s+(remember|recall)|"
     r"cannot\s+(remember|recall)|"
-    r"can'?t\s+(remember|recall)|"
-    r"not\s+sure\s+how"
+    r"can'?t\s+(remember|recall)"
     r")\b"
 )

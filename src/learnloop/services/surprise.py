@@ -96,7 +96,7 @@ def compute_surprise(
         observed_at=observation.observed_at,
     )
     observed = {
-        "score_bucket": score_bucket(observation.rubric_score),
+        "score_bucket": score_bucket(observation.rubric_score, observation.max_points),
         "error_type": observed_error_type,
     }
     if (
@@ -153,9 +153,10 @@ def predicted_error_type_distribution(
     return {key: value / total for key, value in sorted(weights.items())}
 
 
-def score_bucket(rubric_score: int) -> str:
-    if rubric_score <= 1:
+def score_bucket(rubric_score: int, max_points: int = 4) -> str:
+    normalized = 4.0 * rubric_score / max(max_points, 1)
+    if normalized <= 1:
         return "low"
-    if rubric_score <= 3:
+    if normalized <= 3:
         return "mid"
     return "high"

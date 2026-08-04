@@ -247,6 +247,26 @@ class Rubric(VaultModel):
     criteria: list[RubricCriterion] = Field(default_factory=list)
     fatal_errors: list[RubricFatalError] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def derive_max_points_from_criteria(self) -> "Rubric":
+        """Treat criterion weights as the scoring authority.
+
+        ``max_points`` remains on the wire for backwards compatibility, but it
+        must not silently turn a 2+3 rubric into a four-point instrument.  All
+        authored rubrics currently have integral totals even when individual
+        criteria use fractional weights, which lets the persisted attempt score
+        remain an integer while supporting scales other than 0..4.
+        """
+
+        if not self.criteria:
+            return self
+        total = sum(float(criterion.points) for criterion in self.criteria)
+        rounded = int(round(total))
+        if total <= 0 or abs(total - rounded) > 1e-6:
+            raise ValueError("rubric criterion points must sum to a positive integer")
+        self.max_points = rounded
+        return self
+
 
 class RubricAppliesTo(VaultModel):
     practice_mode: str

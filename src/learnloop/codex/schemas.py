@@ -342,7 +342,7 @@ class CriterionTargetPayload(WireModel):
 
 class RubricCriterionPayload(WireModel):
     id: str
-    points: float = Field(gt=0.0, le=4.0)
+    points: float = Field(gt=0.0)
     description: str
     # Teach-back rubrics are two-tiered: "core" probes one evidence facet,
     # "transfer" stress-tests solid knowledge (discounted evidence mass).
@@ -367,16 +367,27 @@ class RubricCriterionPayload(WireModel):
 class RubricFatalErrorPayload(WireModel):
     id: str
     description: str
-    max_grade: int = Field(ge=0, le=4)
+    max_grade: int = Field(ge=0)
     # spec §1.2: authored link from a fatal error to the registry belief it catches.
     misconception_id: str | None = None
 
 
 class RubricPatchPayload(WireModel):
     target_practice_item_id: str | None = None
-    max_points: int = Field(default=4, ge=1, le=4)
+    max_points: int = Field(default=4, ge=1)
     criteria: list[RubricCriterionPayload]
     fatal_errors: list[RubricFatalErrorPayload] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def derive_max_points_from_criteria(self) -> "RubricPatchPayload":
+        if not self.criteria:
+            return self
+        total = sum(float(criterion.points) for criterion in self.criteria)
+        rounded = int(round(total))
+        if total <= 0 or abs(total - rounded) > 1e-6:
+            raise ValueError("rubric criterion points must sum to a positive integer")
+        self.max_points = rounded
+        return self
 
 
 class TaskFeaturesPayload(WireModel):
@@ -1176,7 +1187,10 @@ class GradingProposal(WireModel):
     repair_suggestions: list[RepairSuggestion] = Field(default_factory=list)
     attempt_id: str
     practice_item_id: str
-    rubric_score: int = Field(ge=0, le=4)
+    # The server derives the authoritative score from criterion evidence.  This
+    # reported copy remains useful for disagreement telemetry, but the rubric's
+    # criterion total—not a global four-point ceiling—defines its upper bound.
+    rubric_score: int = Field(ge=0)
     criterion_evidence: list[CriterionEvidence] = Field(default_factory=list)
     fatal_errors: list[str] = Field(default_factory=list)
     error_attributions: list[ErrorAttribution] = Field(default_factory=list)
