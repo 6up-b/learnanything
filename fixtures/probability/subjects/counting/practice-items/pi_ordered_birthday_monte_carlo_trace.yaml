@@ -1,0 +1,213 @@
+schema_version: 1
+id: pi_ordered_birthday_monte_carlo_trace
+learning_object_id: lo_simulate_a_counting_probability_model
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+evidence_weights:
+  facet_for_a_finite_sample_space_s_whose_elementary_out: 0.3
+  facet_to_estimate_an_event_probability_by_monte_carlo_: 0.7
+criterion_facet_weights:
+  monte_carlo_procedure:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 0.25
+    facet_to_estimate_an_event_probability_by_monte_carlo_: 0.75
+  simulation_model:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+  trace_execution:
+    facet_to_estimate_an_event_probability_by_monte_carlo_: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: monte_carlo_ordered_birthday_model
+      checkpoints:
+        - define_trial_generator
+        - define_event_indicator
+        - define_estimator
+        - execute_fixed_trace
+      dependencies:
+        define_estimator:
+          - define_event_indicator
+        define_event_indicator:
+          - define_trial_generator
+        define_trial_generator: []
+        execute_fixed_trace:
+          - define_event_indicator
+          - define_estimator
+variant_contract:
+teach_back_source:
+prompt: 'A simplified model gives each of three labeled people an independent, uniformly
+  random birthday in {1,2,3,4}. Design pseudocode for a Monte Carlo estimate of the
+  probability that all three birthdays are different. Your response must explain why
+  one trial samples an ordered triple rather than an unordered birthday list, state
+  the success test and estimator, and then apply that test to this fixed eight-trial
+  trace: (1,2,3), (1,1,2), (4,2,1), (3,3,3), (2,4,3), (4,1,4), (2,3,1), (1,2,1). Report
+  the trace estimate.'
+expected_answer: 'One trial independently samples b1, b2, and b3 uniformly from {1,2,3,4},
+  preserving which labeled person receives each value. It records success when b1,
+  b2, and b3 are pairwise distinct. Repeat for N trials, keep a success counter, and
+  return successes/N. Ordered triples are used because they are the equally likely
+  elementary outcomes; unordered birthday lists have unequal numbers of ordered representatives.
+  In the supplied trace, trials 1, 3, 5, and 7 succeed, so the estimate is 4/8=0.5.
+  Example pseudocode: successes=0; repeat N times: sample b1,b2,b3 independently;
+  if size(set(b1,b2,b3))=3 then successes+=1; return successes/N.'
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u7
+  - capstone
+  - monte_carlo
+  - birthday_model
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.34
+scaffold_level: 0.08
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: ordered_birthday_simulation_trace
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_uniform_unordered_simulation
+    hypothesis: Believes an unordered birthday list can be sampled uniformly to 
+      represent independent labeled birthdays.
+    observable_signature: Pseudocode samples uniformly from unordered multisets 
+      of three values from {1,2,3,4} and treats those multisets as equally 
+      likely trials.
+    misconception_id:
+    facet_id: facet_for_a_finite_sample_space_s_whose_elementary_out
+    fails_criteria:
+      - simulation_model
+      - monte_carlo_procedure
+    distinguishing_features:
+      - uniform sampling over unordered lists
+      - does not generate three independent labeled birthdays
+    source: facet_error_signature
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: simulation_model
+      points: 1.0
+      description: Samples three independent uniform birthdays as an ordered 
+        triple and correctly explains why unordered lists are not equiprobable 
+        elementary outcomes.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: monte_carlo_procedure
+      points: 1.5
+      description: Provides an executable loop with a pairwise-distinct success 
+        test, success counter, and successes/N estimator.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - simulation_model
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: trace_execution
+      points: 1.5
+      description: Correctly classifies the fixed trials and reports four 
+        successes and an estimate of 0.5.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - monte_carlo_procedure
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_simulate_a_counting_probability_model:s216-s221
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s216
+      quote: "one at a time, with replacement and with equal probabilities. Then the
+        $n^k$ ordered samples are equally likely, making the naive definition applicable,
+        but the $\\binom{n+k-1}{k}$ unordered samples (where all that matters is how
+        many times each person was sampled) are not equally likely.\nAs another example,
+        with n=365 days in a year and k people, how many possible unordered birthday
+        lists are there? For example, for k=3, we want to count lists like (May 1,
+        March 31, April 11), where all permutations are considered equivalent. We
+        can't do a simple adjustment for overcounting such as $n^k/3!$ since, e.g.,
+        there are 6 permutations of (May 1, March 31, April 11) but only 3 permutations
+        of (March 31, March 31, April 11). By Bose-Einstein, the number of lists is
+        $\\binom{n+k-1}{k}$. But the ordered birthday lists are equally likely, not
+        the unordered lists, so the Bose-Einstein value should not be used in calculating
+        birthday probabilities.\n1.5 Story proofs\nA story proof is a proof by interpretation.
+        For counting problems, this often means counting the same thing in two different
+        ways, rather than doing tedious algebra. A story proof often avoids messy
+        calculations and goes further than an algebraic proof toward explaining why
+        the result is true. The word \"story\" has several meanings, some more mathematical
+        than others, but a story proof (in the sense in which we're using the term)
+        is a fully valid mathematical proof. Here are some examples of story proofs,
+        which also serve as further examples of counting.\nExample 1.5.1 (Choosing
+        the complement). For any nonnegative integers n and k with $k \\leq n$, we
+        have\n$$\\binom{n}{k} = \\binom{n}{n-k}.$$"
+      quote_hash: 
+        sha256:6b5f9288238152c412272f755eeb4c1f7931cf40b8f8f0d4db83479a7d221bad
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s216
+        - s217
+        - s218
+        - s219
+        - s220
+        - s221
+      span_hash: 
+        sha256:d0823b71a64ecfde6043971c4d2584ae1bc326f8f75a8494956274374bbb45dc
+      section_id: u7
+      learning_object_ids:
+        - lo_simulate_a_counting_probability_model
+created_at: '2026-07-28T20:07:53Z'
+updated_at: '2026-07-28T20:07:53Z'

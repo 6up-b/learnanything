@@ -1,0 +1,70 @@
+schema_version: 1
+id: lo_count_unordered_selections_without_replacement
+title: Count unordered selections without replacement
+subjects:
+  - counting
+concept: concept_uniform_overcounting_and_binomial_coefficients
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Use a constant overcounting factor to pass from ordered selections to 
+  binomial coefficients, including the k>n boundary case.
+prerequisites:
+  - concept_multiplication_rule_and_ordered_sampling
+confusables:
+  - concept_stars_and_bars
+blueprints:
+  - id: bp_01KYMWND_7
+    weight: 1.1
+    recipes:
+      - id: recipe-count-unordered-selections
+        composition: conjunctive
+        all_of:
+          - facet: facet_if_an_auxiliary_counting_method_represents_every
+            capability: method_selection
+            modality: hard
+          - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s147
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s159
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+created_at: '2026-07-28T17:34:37Z'
+updated_at: '2026-07-28T17:34:41Z'

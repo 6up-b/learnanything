@@ -1,0 +1,126 @@
+schema_version: 1
+id: pi_a_device_records_three_o
+learning_object_id: lo_construct_a_complete_sample_space
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_the_sample_space_s_of_an_experiment_is_the_set_o
+  - facet_an_ordered_sequence_of_repeated_binary_trials_ca
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A device records three ordered binary trials as H or T. Write the 
+  complete sample space. Then state why HHT and HTH must be treated as different
+  outcomes.
+expected_answer: S = {HHH, HHT, HTH, HTT, THH, THT, TTH, TTT}. HHT and HTH 
+  differ in which trial produced T, so they are distinct when trial order is 
+  part of the experiment.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.2
+scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
+surface_family: binary_trial_sample_space
+evidence_fingerprint:
+  source_family: primary-textbook-plus-problem-set
+  shared_stimulus_id: three_ordered_binary_trials
+  representation: finite H/T sequence set
+  solution_recipe_family: systematic binary enumeration
+  answer_structure: explicit sample space plus distinction explanation
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_the_sample_space_s_of_an_experiment_is_the_set_o
+  - facet_an_ordered_sequence_of_repeated_binary_trials_ca
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_sample_space_complete
+      points: 2.0
+      description: Lists all eight length-three strings with no omission or 
+        duplication.
+      tier: core
+      targets:
+        - facet: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+          capability: procedure_execution
+          role: primary
+        - facet: facet_an_ordered_sequence_of_repeated_binary_trials_ca
+          capability: procedure_execution
+          role: supporting
+      depends_on: []
+      correlation_group: binary_sequence_modeling
+      recipe_ids:
+        - recipe_construct_sample_space
+      measurement_status:
+    - id: criterion_order_distinction
+      points: 1.0
+      description: Explains that different coordinate positions make HHT and HTH
+        distinct ordered outcomes.
+      tier: core
+      targets:
+        - facet: facet_an_ordered_sequence_of_repeated_binary_trials_ca
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - criterion_sample_space_complete
+      correlation_group: binary_sequence_modeling
+      recipe_ids:
+        - recipe_construct_sample_space
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s31
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSJRTYSED51WVFSVDW1Y0J
+      path:
+      locator: span:ext_01KYMSJTTDG45Z7WEMEMKHYJPQ/s7
+      quote:
+      quote_hash:
+      source_id: src_01KYMSJRTYSED51WVFSVDW1Y0J
+      revision_id: rev_01KYMSJRXY5PXB0982TH6XNFN9
+      extraction_id: ext_01KYMSJTTDG45Z7WEMEMKHYJPQ
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: problem_set
+created_at: '2026-07-28T17:34:45Z'
+updated_at: '2026-07-28T17:34:45Z'

@@ -734,6 +734,7 @@ class ScheduleDecision:
     learning_object_id: str
     decision: str
     certificate_id: str | None = None
+    measurement_opportunity_id: str | None = None
     followup_task_id: str | None = None
     not_before: str | None = None
     expires_at: str | None = None
@@ -745,6 +746,7 @@ class ScheduleDecision:
             "learning_object_id": self.learning_object_id,
             "decision": self.decision,
             "certificate_id": self.certificate_id,
+            "measurement_opportunity_id": self.measurement_opportunity_id,
             "followup_task_id": self.followup_task_id,
             "not_before": self.not_before,
             "expires_at": self.expires_at,
@@ -801,6 +803,10 @@ def schedule_certification_cold_probes(
     decisions: list[ScheduleDecision] = []
     learning_objects = _target_learning_objects(vault, learning_object_id)
     from learnloop.services.goal_certification import lo_certification
+    from learnloop.services.coldness_receipt import (
+        LANE_CERTIFICATION_COLD_PROBE,
+        record_schedule_refusal_receipt,
+    )
 
     for learning_object in learning_objects:
         certificate = current_certificate(vault, repository, learning_object)
@@ -811,10 +817,35 @@ def schedule_certification_cold_probes(
                 # nothing is probed and the disagreement is reported rather than
                 # filed under "not certified" where it would look like ordinary
                 # absence.
+                opportunity = repository.get_or_create_cold_measurement_opportunity(
+                    lane=LANE_CERTIFICATION_COLD_PROBE,
+                    trigger_kind="certification_recipe_resolution",
+                    trigger_ref=(
+                        f"{learning_object.id}:{COLD_PROBE_POLICY_VERSION}"
+                    ),
+                    learning_object_id=learning_object.id,
+                    case_kind=COLD_PROBE_CASE_KIND,
+                    policy_version=COLD_PROBE_POLICY_VERSION,
+                    clock=clock,
+                )
+                repository.record_cold_measurement_opportunity_decision(
+                    measurement_opportunity_id=str(opportunity["id"]),
+                    decision="policy_refused",
+                    reason="certificate_recipe_unresolved",
+                    clock=clock,
+                )
+                record_schedule_refusal_receipt(
+                    repository,
+                    opportunity=opportunity,
+                    decision="policy_refused",
+                    reason="certificate_recipe_unresolved",
+                    clock=clock,
+                )
                 decisions.append(
                     ScheduleDecision(
                         learning_object_id=learning_object.id,
                         decision="certificate_recipe_unresolved",
+                        measurement_opportunity_id=str(opportunity["id"]),
                     )
                 )
                 continue
@@ -856,11 +887,52 @@ def schedule_certification_cold_probes(
             kind=COLD_PROBE_TASK_KIND, case_ref=certificate.certificate_id
         )
         if existing is not None:
+            opportunity_id = (
+                str(existing.get("measurement_opportunity_id") or "") or None
+            )
+            opportunity = (
+                repository.cold_measurement_opportunity(opportunity_id)
+                if opportunity_id
+                else None
+            )
+            if opportunity is None:
+                opportunity = repository.get_or_create_cold_measurement_opportunity(
+                    lane=LANE_CERTIFICATION_COLD_PROBE,
+                    trigger_kind="certificate_legacy_task",
+                    trigger_ref=certificate.certificate_id,
+                    learning_object_id=learning_object.id,
+                    case_kind=COLD_PROBE_CASE_KIND,
+                    case_ref=certificate.certificate_id,
+                    certificate_id=certificate.certificate_id,
+                    policy_version=COLD_PROBE_POLICY_VERSION,
+                    clock=clock,
+                )
+            existing = (
+                repository.attach_followup_task_measurement_opportunity(
+                    str(existing["id"]), str(opportunity["id"]), clock=clock
+                )
+                or existing
+            )
+            repository.record_cold_measurement_opportunity_decision(
+                measurement_opportunity_id=str(opportunity["id"]),
+                decision="scheduled",
+                reason="existing_task",
+                followup_task_id=str(existing["id"]),
+                selected_item_id=(
+                    str(existing.get("selected_item_id") or "") or None
+                ),
+                scheduled_not_before=str(existing["not_before"]),
+                scheduled_expires_at=(
+                    str(existing.get("expires_at") or "") or None
+                ),
+                clock=clock,
+            )
             decisions.append(
                 ScheduleDecision(
                     learning_object_id=learning_object.id,
                     decision="already_scheduled",
                     certificate_id=certificate.certificate_id,
+                    measurement_opportunity_id=str(opportunity["id"]),
                     followup_task_id=str(existing["id"]),
                     not_before=str(existing["not_before"]),
                     expires_at=existing.get("expires_at"),
@@ -869,13 +941,48 @@ def schedule_certification_cold_probes(
                 )
             )
             continue
+        opportunity = repository.get_or_create_cold_measurement_opportunity(
+            lane=LANE_CERTIFICATION_COLD_PROBE,
+            trigger_kind="certificate_selection_inventory",
+            trigger_ref=_selection_inventory_trigger(
+                vault, repository, certificate
+            ),
+            learning_object_id=learning_object.id,
+            case_kind=COLD_PROBE_CASE_KIND,
+            case_ref=certificate.certificate_id,
+            certificate_id=certificate.certificate_id,
+            policy_version=COLD_PROBE_POLICY_VERSION,
+            clock=clock,
+        )
         selection = select_held_out_probe_item(vault, repository, certificate)
         if selection.practice_item_id is None:
+            decision = (
+                "operationally_unavailable"
+                if selection.decision == "no_servable_item"
+                else "structurally_refused"
+            )
+            candidate_summary = selection.as_dict()
+            repository.record_cold_measurement_opportunity_decision(
+                measurement_opportunity_id=str(opportunity["id"]),
+                decision=decision,
+                reason=selection.decision,
+                candidate_summary=candidate_summary,
+                clock=clock,
+            )
+            record_schedule_refusal_receipt(
+                repository,
+                opportunity=opportunity,
+                decision=decision,
+                reason=selection.decision,
+                candidate_summary=candidate_summary,
+                clock=clock,
+            )
             decisions.append(
                 ScheduleDecision(
                     learning_object_id=learning_object.id,
                     decision=selection.decision,
                     certificate_id=certificate.certificate_id,
+                    measurement_opportunity_id=str(opportunity["id"]),
                     detail=selection.as_dict(),
                 )
             )
@@ -893,6 +1000,9 @@ def schedule_certification_cold_probes(
             selected_item_id=selection.practice_item_id,
             context=context,
             learning_object_id=learning_object.id,
+            measurement_opportunity_id=str(opportunity["id"]),
+            measurement_decision_reason="held_out_surface_selected",
+            measurement_candidate_summary=selection.as_dict(),
             clock=clock,
         )
         decisions.append(
@@ -900,6 +1010,7 @@ def schedule_certification_cold_probes(
                 learning_object_id=learning_object.id,
                 decision="scheduled",
                 certificate_id=certificate.certificate_id,
+                measurement_opportunity_id=str(opportunity["id"]),
                 followup_task_id=str(task["id"]),
                 not_before=not_before,
                 expires_at=expires_at,
@@ -909,6 +1020,52 @@ def schedule_certification_cold_probes(
         )
     return ScheduleReport(
         decisions=tuple(decisions), parameters=parameters.manifest()
+    )
+
+
+def _selection_inventory_trigger(
+    vault: LoadedVault,
+    repository: Repository,
+    certificate: Certificate,
+) -> str:
+    """Stable pre-selection identity for the currently available item pool.
+
+    A structural refusal is terminal for one opportunity, but authoring or
+    activating a genuinely new instrument should create a new opportunity.
+    The trigger fingerprints exactly the inventory facts selection can observe;
+    replay against unchanged state resolves to the same denominator row.
+    """
+
+    from learnloop.services.canonical_projection import surface_group_id
+    from learnloop.services.instrument_serving import unservable_reason
+
+    inventory: list[dict[str, Any]] = []
+    for item in sorted(vault.practice_items.values(), key=lambda value: value.id):
+        if item.learning_object_id != certificate.learning_object_id:
+            continue
+        state = repository.practice_item_state(item.id)
+        inventory.append(
+            {
+                "practice_item_id": item.id,
+                "practice_mode": item.practice_mode,
+                "capability": getattr(item, "capability", None),
+                "evidence_facets": sorted(str(value) for value in item.evidence_facets),
+                "surface_group": surface_group_id(item),
+                "unservable_reason": unservable_reason(item),
+                "active": state.active if state is not None else None,
+                "last_attempt_at": (
+                    state.last_attempt_at
+                    if state is not None and item.practice_mode == "diagnostic_probe"
+                    else None
+                ),
+            }
+        )
+    return _content_id(
+        "cert_inventory",
+        {
+            "certificate_id": certificate.certificate_id,
+            "inventory": inventory,
+        },
     )
 
 
@@ -986,6 +1143,12 @@ def _probe_context(
     inputs.
     """
 
+    not_before_dt = parse_utc(not_before)
+    measurement_anchor_at = (
+        _iso(not_before_dt - timedelta(days=parameters.horizon_days))
+        if not_before_dt is not None
+        else certificate.certified_at
+    )
     return {
         "kind": COLD_PROBE_CONTEXT_KIND,
         "store_version": COLD_PROBE_STORE_VERSION,
@@ -996,6 +1159,7 @@ def _probe_context(
         "blueprint_id": certificate.blueprint_id,
         "recipe_id": certificate.recipe_id,
         "certified_at": certificate.certified_at,
+        "measurement_anchor_at": measurement_anchor_at,
         "excluded_surface_groups": list(certificate.used_surface_groups()),
         "probe_practice_item_id": selection.practice_item_id,
         "probe_surface_group": selection.surface_group,
@@ -1171,7 +1335,7 @@ def _record_probe_outcome(
         "followup_task_id": str(task["id"]),
         "probe_attempt_id": attempt_id,
     }
-    return repository.insert_certification_cold_probe_outcome(
+    outcome_row = repository.insert_certification_cold_probe_outcome(
         outcome_id=_content_id("ccp", identity),
         certificate_id=str(context.get("certificate_id") or ""),
         learning_object_id=learning_object_id,
@@ -1209,6 +1373,35 @@ def _record_probe_outcome(
         clock=clock,
         **stamp,
     )
+    try:
+        from learnloop.services.coldness_receipt import (
+            LANE_CERTIFICATION_COLD_PROBE,
+            evaluate_final_coldness,
+            record_final_receipt,
+        )
+
+        record_final_receipt(
+            repository,
+            task=task,
+            evaluation=evaluate_final_coldness(
+                vault,
+                repository,
+                task=task,
+                cold_attempt_id=attempt_id,
+                clock=clock,
+            ),
+            outcome=verdict,
+            cold_attempt_id=attempt_id,
+            lane=LANE_CERTIFICATION_COLD_PROBE,
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - receipt cannot erase ground truth
+        logger.warning(
+            "certification coldness final receipt failed for task %s",
+            task.get("id"),
+            exc_info=True,
+        )
+    return outcome_row
 
 
 def _attempt_is_assisted(attempt: Mapping[str, Any]) -> bool:

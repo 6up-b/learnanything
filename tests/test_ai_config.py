@@ -173,8 +173,10 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
     assert in_memory.algorithms.algorithm_version == "mvp-0.6"
 
     for config in (loaded, in_memory):
+        assert config.ai.timeout_seconds == 180
         assert config.codex.model == "gpt-5.6-sol"
         assert config.codex.reasoning_effort == "low"
+        assert config.codex.timeout_seconds == 180
         assert config.ai.providers["codex"].model == "gpt-5.6-sol"
         assert config.ai.providers["codex"].reasoning_effort == "low"
         assert config.ai.providers["codex_low"].reasoning_effort == "low"

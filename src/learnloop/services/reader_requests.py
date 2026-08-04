@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso, parse_utc
 from learnloop.db.repositories import Repository
@@ -38,7 +38,7 @@ TOKEN_CAP = 6000
 # Non-numeric contract versions (not decision params).
 INVENTORY_SCHEMA_VERSION = "reader-inventory-v1"
 SYNTHESIS_SCHEMA_VERSION = "reader-synthesis-v1"
-PROMPT_VERSION = "reader-demand-paged-v2-selection-focus"
+PROMPT_VERSION = "reader-demand-paged-v3-multi-span-focus"
 _chars_per_token = 4
 
 # preset -> proposed source-object type for the demand-paged synthesis result.
@@ -58,33 +58,66 @@ class ReaderRequestError(ValueError):
     """Domain error for the demand-paged synthesis service."""
 
 
-def neighborhood(repository: Repository, *, extraction_id: str, span_id: str) -> dict[str, Any]:
-    """Resolve the smallest sufficient window (§6.3): the exact block, its enclosing
-    heading/section, up to ``MAX_ADJACENT_BLOCKS`` adjacent blocks per side, and cited
-    assets -- never unrelated chapter content."""
+def neighborhood(
+    repository: Repository,
+    *,
+    extraction_id: str,
+    span_id: str,
+    selected_span_ids: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Resolve the bounded union around every selected source block (§6.3).
+
+    ``span_id`` remains the primary/backward-compatible focus. A multi-block
+    reader capture also supplies ``selected_span_ids``; each selected block gets
+    up to ``MAX_ADJACENT_BLOCKS`` neighbors from its own enclosing section. The
+    merged result stays in document order and never fills unrelated gaps between
+    distant selections.
+    """
 
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
         raise ReaderRequestError(f"extraction has no IR: {extraction_id!r}")
     blocks = sorted(ir.blocks, key=lambda b: b.ordinal)
-    idx = next((i for i, b in enumerate(blocks) if b.span_id == span_id), None)
-    if idx is None:
+    index_by_span = {block.span_id: index for index, block in enumerate(blocks)}
+    if span_id not in index_by_span:
         raise ReaderRequestError(f"unknown span: {span_id!r}")
-    target = blocks[idx]
-    section_path = list(target.section_path)
-    lo = max(0, idx - MAX_ADJACENT_BLOCKS)
-    hi = min(len(blocks), idx + MAX_ADJACENT_BLOCKS + 1)
-    window = blocks[lo:hi]
-    # Keep only blocks that share the enclosing section (no unrelated chapter).
-    kept = [b for b in window if list(b.section_path)[: len(section_path)] == section_path] or [target]
-    span_ids = [b.span_id for b in kept]
+
+    requested = list(dict.fromkeys([span_id, *[str(value) for value in selected_span_ids if value]]))
+    missing = [selected for selected in requested if selected not in index_by_span]
+    if missing:
+        raise ReaderRequestError(f"unknown selected spans: {missing!r}")
+
+    kept_indices: set[int] = set()
+    section_paths: list[list[str]] = []
+    for selected in requested:
+        idx = index_by_span[selected]
+        target = blocks[idx]
+        section_path = list(target.section_path)
+        if section_path not in section_paths:
+            section_paths.append(section_path)
+        lo = max(0, idx - MAX_ADJACENT_BLOCKS)
+        hi = min(len(blocks), idx + MAX_ADJACENT_BLOCKS + 1)
+        local = [
+            index
+            for index in range(lo, hi)
+            if list(blocks[index].section_path)[: len(section_path)] == section_path
+        ]
+        kept_indices.update(local or [idx])
+
+    kept = [blocks[index] for index in sorted(kept_indices)]
+    window_span_ids = [block.span_id for block in kept]
     assets = sorted({a for b in kept for a in b.asset_ids})
     text = "\n\n".join(b.text for b in kept)
     return {
-        "span_ids": span_ids,
-        "section_path": section_path,
+        # ``span_ids`` is the citation allow-list/context window retained for
+        # compatibility; ``selected_span_ids`` distinguishes learner focus from
+        # adjacent context.
+        "span_ids": window_span_ids,
+        "selected_span_ids": requested,
+        "section_path": list(blocks[index_by_span[span_id]].section_path),
+        "section_paths": section_paths,
         "assets": assets,
-        "adjacent_count": len(kept) - 1,
+        "adjacent_count": max(0, len(kept) - len(requested)),
         "text": text,
         "char_count": len(text),
     }
@@ -108,6 +141,7 @@ def request_key(
         {
             "revision_id": revision_id,
             "span_ids": window.get("span_ids", []),
+            "selected_span_ids": window.get("selected_span_ids", []),
             # A span is often a whole exercise list. Two different selections
             # inside it must never reuse one another's worked example.
             "selected_text_hash": hashlib.sha256(
@@ -146,13 +180,19 @@ def enqueue_request(
     client_idempotency_key: str | None = None,
     selected_text: str = "",
     selection_edited: bool = False,
+    selected_span_ids: Sequence[str] = (),
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Enqueue a demand-paged synthesis request (§6). Idempotent on the canonical
     request key; returns visible scope + token/cap metadata (§6.3). The reading path
     never blocks on this -- it only writes a durable ``queued`` row."""
 
-    window = neighborhood(repository, extraction_id=extraction_id, span_id=span_id)
+    window = neighborhood(
+        repository,
+        extraction_id=extraction_id,
+        span_id=span_id,
+        selected_span_ids=selected_span_ids,
+    )
     window["selected_text"] = selected_text.strip()
     window["selection_edited"] = bool(selection_edited)
     window["prompt_char_count"] = window["char_count"] + len(window["selected_text"])
@@ -338,8 +378,13 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
             preset=str(request.get("preset") or ""),
             selected_text=str(window.get("selected_text") or ""),
             selection_edited=bool(window.get("selection_edited")),
+            selected_span_ids=[str(span) for span in window.get("selected_span_ids") or []],
             learner_text=learner_text,
             section_path=list(window.get("section_path") or []),
+            section_paths=[
+                list(path) for path in window.get("section_paths") or []
+                if isinstance(path, list)
+            ],
             blocks=blocks,
         ))
         content_md = (result.content_md or "").strip()
@@ -369,7 +414,9 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
                 "content_md": content_md,
                 "selected_text": window.get("selected_text", ""),
                 "selection_edited": bool(window.get("selection_edited")),
+                "selected_span_ids": window.get("selected_span_ids", []),
                 "section_path": window.get("section_path", []),
+                "section_paths": window.get("section_paths", []),
             },
             span_ids=cited,
             # Provenance names the client that actually ran, not the enqueue-time
@@ -417,7 +464,9 @@ def _deterministic_synthesis(
             "preset": preset,
             "selected_text": window.get("selected_text", ""),
             "selection_edited": bool(window.get("selection_edited")),
+            "selected_span_ids": window.get("selected_span_ids", []),
             "section_path": window.get("section_path", []),
+            "section_paths": window.get("section_paths", []),
         },
         span_ids=[str(sid) for sid in span_ids],
         model_provenance={"provider": request.get("provider"), "model": request.get("model"),

@@ -708,7 +708,7 @@ function CollectionsSection({
                         e.stopPropagation();
                         setBriefEditorFor(set.id);
                       }}
-                      title="the synthesis brief: your level, target depth, outcome, notation, topics — the model reads it when proposing the study map"
+                      title="the synthesis brief: your level, target depth, scope/authoring instructions, practice timing, notation, and topics"
                       style={{
                         fontFamily: FONT_MONO,
                         fontSize: 10,
@@ -756,6 +756,7 @@ function CollectionsSection({
       {briefEditorFor ? (
         <StudyMapBriefWizard
           initialBrief={briefs[briefEditorFor]}
+          defaultPracticeItems="upfront"
           submitLabel="Use brief"
           onSubmit={(brief) => {
             setBriefs((prev) => ({ ...prev, [briefEditorFor]: brief }));

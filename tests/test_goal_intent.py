@@ -76,3 +76,38 @@ def test_study_map_brief_preserves_camel_case_learner_intent():
 
     assert brief["goal_title"] == "Signals final"
     assert brief["intent_sentence"] == "I want to understand signal processing."
+
+
+def test_study_map_brief_preserves_scope_and_explicit_practice_timing():
+    brief = validate_brief(
+        {
+            "outcome": "general_learning",
+            "scope": "Treat this as a narrow adjunct; preserve the existing map.",
+            "practiceItems": "upfront",
+        }
+    )
+
+    assert brief["scope"] == "Treat this as a narrow adjunct; preserve the existing map."
+    assert brief["practice_items"] == "upfront"
+
+
+def test_narrow_adjunct_preset_expands_defaults_but_allows_explicit_edits():
+    generated = validate_brief({"authoringPreset": "narrow_adjunct"})
+
+    assert generated["authoring_preset"] == "narrow_adjunct"
+    assert generated["outcome"] == "general_learning"
+    assert generated["depth"] == "intro"
+    assert generated["practice_items"] == "upfront"
+    assert "at most one focused learning object" in generated["scope"]
+
+    edited = validate_brief(
+        {
+            "authoringPreset": "narrow_adjunct",
+            "depth": "standard",
+            "practiceItems": "as_you_read",
+            "scope": "Only add the elevator paradox.",
+        }
+    )
+    assert edited["depth"] == "standard"
+    assert edited["practice_items"] == "as_you_read"
+    assert edited["scope"] == "Only add the elevator paradox."

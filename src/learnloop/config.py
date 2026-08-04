@@ -498,7 +498,7 @@ auto_repair = true
 [ai]
 active_provider = "codex"
 fallback_provider = ""
-timeout_seconds = 60
+timeout_seconds = 180
 
 [ai.routing]
 grading = "codex_low"
@@ -1488,7 +1488,7 @@ class CodexConfig(BaseModel):
     startup_command: str = ""
     startup_timeout_seconds: int = 20
     healthcheck_timeout_seconds: int = 5
-    timeout_seconds: float = 60
+    timeout_seconds: float = 180
     auth_mode: str = "chatgpt"
     model: str = "gpt-5.6-sol"
     reasoning_effort: str = "low"
@@ -1568,7 +1568,7 @@ class AIRoutingConfig(BaseModel):
 class AIConfig(BaseModel):
     active_provider: str = "codex"
     fallback_provider: str | None = None
-    timeout_seconds: int = 60
+    timeout_seconds: int = 180
     providers: dict[str, AIProviderConfig] = Field(default_factory=dict)
     routing: AIRoutingConfig = Field(default_factory=AIRoutingConfig)
 

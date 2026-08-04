@@ -69,6 +69,26 @@ def test_codex_teach_back_authoring_schema_is_strict_response_format_compatible(
     assert not _non_strict_objects(schema)
 
 
+def test_append_schema_declares_properties_on_bare_restructure_payload():
+    """Regression for the provider's misleading extra-required-key 400.
+
+    A bare ``dict`` has no Pydantic ``properties`` member. Strict Responses
+    schemas still require that member, even when it is empty; without it the
+    provider rejected the enclosing ``AppendRestructure`` as though its
+    required ``payload`` key were not declared.
+    """
+
+    schema = _codex_output_schema(codex_schemas.AppendReconciliation)
+
+    assert schema["$defs"]["AppendRestructure"]["properties"]["payload"] == {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": False,
+    }
+    assert not _non_strict_objects(schema)
+
+
 def test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt(tmp_path):
     client = SdkCodexClient(
         CodexConfig(checkout_path=str(tmp_path / "codex")),
@@ -719,6 +739,8 @@ def _non_strict_objects(value: Any) -> list[dict[str, Any]]:
     failures: list[dict[str, Any]] = []
     if value.get("type") == "object" or "properties" in value:
         properties = value.get("properties", {})
+        if "properties" not in value:
+            failures.append(value)
         if value.get("additionalProperties") is not False:
             failures.append(value)
         if set(value.get("required", [])) != set(properties):

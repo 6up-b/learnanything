@@ -148,6 +148,25 @@ def test_no_independent_surface_records_unmeasurable_and_schedules_nothing(tmp_p
     assert rows[0]["servable_opportunity"] is False
     assert rows[0]["detail"]["stage"] == "schedule"
     assert rows[0]["followup_task_id"] is None
+    with repository.connection() as connection:
+        opportunity = dict(
+            connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunities
+                 WHERE lane = 'repair_cold_retry'
+                """
+            ).fetchone()
+        )
+    decision = repository.cold_measurement_opportunity_decision(opportunity["id"])
+    assert decision["decision"] == "structurally_refused"
+    assert decision["reason"] == "no_independent_surface"
+    final = repository.coldness_receipt_for_opportunity_stage(
+        opportunity["id"], "final"
+    )
+    assert final is not None
+    assert final["followup_task_id"] is None
+    assert final["derived"]["schedule_decision"] == "structurally_refused"
+    assert final["derived"]["schedule_reason"] == "no_independent_surface"
 
 
 def test_cold_pick_refuses_distinct_item_in_same_surface_group(tmp_path):

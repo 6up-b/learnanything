@@ -16,6 +16,7 @@ from learnloop.services.scheduler import (
     dominant_scheduler_reason,
     explain_practice_item,
 )
+from learnloop.services.source_refs import source_ref_display_dto
 from learnloop.services.source_review import resolve_source_refs
 from learnloop.services.tutor_qa import hint_equivalents_for_attempt
 from learnloop.vault.models import ErrorType, LearningObject, LoadedVault, PracticeItem, Rubric
@@ -245,8 +246,10 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
         assessment_contract_version_id = snapshot_for_presentation(
             repository, vault, item, rubric=rubric
         )
-    active_followup = repository.active_followup_task_for_item(item.id)
-    if active_followup is not None and active_followup.get("kind") == "cold_retry":
+    active_cold_retry = repository.active_followup_task_for_item(
+        item.id, kind="cold_retry"
+    )
+    if active_cold_retry is not None:
         # Migration 149 stage 1: serving the detail for an item carrying an
         # active cold-retry task IS the administration open — record the
         # coldness snapshot (window state, surface eligibility, selection
@@ -258,13 +261,33 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             )
 
             record_administration_snapshot(
-                vault, repository, task=active_followup
+                vault, repository, task=active_cold_retry
             )
         except Exception:  # pragma: no cover - serve must not fail on receipts
             import logging
 
             logging.getLogger(__name__).warning(
                 "coldness administration snapshot failed for %s",
+                item.id,
+                exc_info=True,
+            )
+    active_certification_probe = repository.active_followup_task_for_item(
+        item.id, kind="certification_cold_probe"
+    )
+    if active_certification_probe is not None:
+        try:
+            from learnloop.services.coldness_receipt import (
+                record_certification_administration_snapshot,
+            )
+
+            record_certification_administration_snapshot(
+                vault, repository, task=active_certification_probe
+            )
+        except Exception:  # pragma: no cover - serve must not fail on receipts
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "certification coldness administration snapshot failed for %s",
                 item.id,
                 exc_info=True,
             )
@@ -304,7 +327,10 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             "rubric": rubric_dto(rubric),
             "candidate_error_types": _candidate_error_types(vault, learning_object.concept),
             "tags": item.tags,
-            "source_refs": [source_ref.model_dump() for source_ref in item.provenance.source_refs],
+            "source_refs": [
+                source_ref_display_dto(vault, repository, source_ref)
+                for source_ref in item.provenance.source_refs
+            ],
             "state": practice_item_state_dto(repository, item.id),
             "mastery": mastery_dto(repository, learning_object.id, vault),
             "scheduler": scheduler_explanation_dto(scheduler) if scheduler is not None else None,
@@ -316,7 +342,13 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             # the practice surface needs to WARN before the learner burns the
             # one measurement on a hint.
             "active_followup_kind": (
-                active_followup.get("kind") if active_followup is not None else None
+                active_cold_retry.get("kind")
+                if active_cold_retry is not None
+                else (
+                    active_certification_probe.get("kind")
+                    if active_certification_probe is not None
+                    else None
+                )
             ),
         }
     )
@@ -635,7 +667,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "primed": bool(attempt.get("primed")),
             # Canonical-source sections that spawned this item, for the
             # source-review panel (text section or video timestamp range).
-            "source_refs": resolve_source_refs(vault, item),
+            "source_refs": resolve_source_refs(vault, item, repository),
             # Non-null when this attempt is itself a follow-up: the rating
             # strip renders and rate_followup joins back to the gate decision.
             "followup_source": ({"gate_attempt_id": gate_attempt_id} if gate_attempt_id is not None else None),

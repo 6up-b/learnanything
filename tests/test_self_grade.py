@@ -4,6 +4,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.ingest.source_library import register_source_revision
 from learnloop.services.attempts import (
     AttemptDraft,
     AttemptValidationError,
@@ -12,6 +13,7 @@ from learnloop.services.attempts import (
     complete_self_graded_attempt,
 )
 from learnloop.vault.loader import load_vault
+from learnloop.vault.models import SourceRef
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop_sidecar.handlers.serializers import practice_item_detail
 
@@ -172,6 +174,33 @@ def test_practice_item_detail_lists_candidate_error_types(tmp_path):
     assert slip["relevant"] is True
     assert slip["isMisconception"] is True
     assert slip["severityDefault"] == 0.7
+
+
+def test_practice_item_detail_displays_source_name_instead_of_id(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    registered = register_source_revision(
+        repository,
+        acquisition_kind="pdf",
+        canonical_uri="file:///home/learner/problem-set.pdf",
+        raw_bytes=b"%PDF-problem-set",
+        original_uri="file:///home/learner/problem-set.pdf",
+    )
+    loaded.practice_items["pi_svd_define_001"].provenance.source_refs = [
+        SourceRef(
+            ref_type="canonical_source",
+            ref_id=registered.source_id,
+            revision_id=registered.revision_id,
+            locator="span:ext_1/block_1",
+        )
+    ]
+
+    detail = practice_item_detail(loaded, repository, "pi_svd_define_001")
+
+    assert detail["sourceRefs"][0]["displayName"] == "problem-set.pdf"
+    assert detail["sourceRefs"][0]["refId"] == registered.source_id
 
 
 def test_self_grade_uses_default_rubric_when_inline_rubric_is_omitted(tmp_path):

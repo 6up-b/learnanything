@@ -26,10 +26,11 @@ def _ingest(repo: Repository) -> None:
     _register_revision(repo, source_id="src1", revision_id="rev1")
     blocks = [
         DocumentBlock.build(span_id="s1", block_type="Text", text="Symmetric matrices have real eigenvalues.", ordinal=1, page=0, bbox=[10, 50, 300, 90], section_path=["Ch1"]),
+        DocumentBlock.build(span_id="s2", block_type="Text", text="Orthogonal eigenvectors form a basis.", ordinal=2, page=0, bbox=[10, 100, 300, 140], section_path=["Ch1"]),
     ]
     ir = DocumentIR(
         extractor="marker", extractor_version="1",
-        units=[DocumentUnit(unit_id="u1", label="x", ordinal=0, semantic_hash="sha256:s", span_ids=["s1"])],
+        units=[DocumentUnit(unit_id="u1", label="x", ordinal=0, semantic_hash="sha256:s", span_ids=["s1", "s2"])],
         blocks=blocks, assets=[], health=ExtractionHealth(),
     )
     _persist(repo, ir, revision_id="rev1", extraction_id="ext1")
@@ -154,6 +155,34 @@ def test_worked_example_preserves_edited_latex_selection_through_outbox(tmp_path
     window = json.loads(request["window_json"])
     assert window["selected_text"] == selected
     assert window["selection_edited"] is True
+
+
+def test_background_request_preserves_all_captured_spans_through_outbox(tmp_path: Path) -> None:
+    repo = Repository(tmp_path / "state.sqlite")
+    _ingest(repo)
+    RC.invoke_preset(
+        repo,
+        preset="worked_example",
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+        client_idempotency_key="multi-selection",
+        raw_selection={
+            "nodes": [
+                {"span_id": "s1", "quote": "Symmetric matrices"},
+                {"span_id": "s2", "quote": "Orthogonal eigenvectors"},
+            ]
+        },
+        subject_id="s1",
+    )
+
+    RC.drain_outbox(repo)
+
+    request = repo.reader_requests_for_source("src1")[0]
+    window = json.loads(request["window_json"])
+    assert window["selected_span_ids"] == ["s1", "s2"]
+    assert {"s1", "s2"}.issubset(window["span_ids"])
+    assert window["selected_text"] == "Symmetric matrices\n\nOrthogonal eigenvectors"
 
 
 def test_ask_and_mark_presets_never_create_commitments(tmp_path: Path) -> None:

@@ -1,0 +1,131 @@
+schema_version: 1
+id: pi_how_many_ways_can_10_ide
+learning_object_id: lo_count_unordered_selections_with_repetition
+subjects:
+practice_mode: representation translation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_unordered_selection_of_k_objects_with_replacemen
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: How many ways can 10 identical tokens be distributed among 4 labeled 
+  boxes if boxes may be empty? Translate the problem into an equation and a 
+  stars-and-bars string before giving the count. Explain why 4^10 answers a 
+  different question.
+expected_answer: The configurations correspond to nonnegative solutions of 
+  x1+x2+x3+x4=10. Encode 10 stars and 3 bars, so the count is 
+  binom(13,10)=binom(13,3)=286. The value 4^10 counts assignments of 10 
+  distinguishable or sequentially selected tokens, retaining token-level order 
+  or identity rather than only box totals.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.4
+scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
+surface_family: occupancy-count
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-token-box-occupancy
+  representation: occupancy narrative and integer equation
+  solution_recipe_family: stars-and-bars-bijection
+  answer_structure: translation, encoding, count, contrast
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_unordered_selection_of_k_objects_with_replacemen
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-stars-bars-model
+      points: 3.0
+      description: Constructs the nonnegative integer equation and explains the 
+        bijection with ten stars and three bars.
+      tier: core
+      targets:
+        - facet: facet_unordered_selection_of_k_objects_with_replacemen
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet-stars-bars-bijection
+      correlation_group: stars-bars
+      recipe_ids:
+        - recipe-count-multisets
+      measurement_status:
+    - id: criterion-stars-bars-count
+      points: 2.0
+      description: Computes binom(13,10)=286 and contrasts multiplicity 
+        configurations with ordered assignments counted by 4^10.
+      tier: transfer
+      targets:
+        - facet: facet_unordered_selection_of_k_objects_with_replacemen
+          capability: procedure_execution
+          role: primary
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - facet-stars-bars-bijection
+        - facet-binomial-coefficient
+      correlation_group: stars-bars
+      recipe_ids:
+        - recipe-count-multisets
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s203
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s211
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:48Z'
+updated_at: '2026-07-28T17:34:48Z'

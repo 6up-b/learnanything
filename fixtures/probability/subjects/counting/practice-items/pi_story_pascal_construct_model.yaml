@@ -1,0 +1,262 @@
+schema_version: 1
+id: pi_story_pascal_construct_model
+learning_object_id: lo_construct_and_diagnose_story_proofs
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_construct_a_story_proof_specify_one_collectio
+evidence_weights:
+  facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+criterion_facet_weights:
+  close_double_count:
+    facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+  construct_partition:
+    facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+  count_parts:
+    facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+  specify_common_collection:
+    facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: constructed_pascal_story_trace
+      checkpoints:
+        - define_collection
+        - devise_partition
+        - count_cases
+        - verify_and_equate
+      dependencies:
+        count_cases:
+          - devise_partition
+        define_collection: []
+        devise_partition:
+          - define_collection
+        verify_and_equate:
+          - count_cases
+variant_contract:
+teach_back_source:
+prompt: An organization has n+1 people, one designated as president. Construct a
+  story proof of C(n,k)+C(n,k-1)=C(n+1,k). Your response must specify one common
+  collection, devise a partition of that collection, establish that the parts 
+  are disjoint and exhaustive, and count the same collection in both ways.
+expected_answer: Let the common collection be all k-person committees chosen 
+  from the n+1 people. Partition it according to whether the president is absent
+  or present. The absent case contributes C(n,k); the present case contributes 
+  C(n,k-1), since only the other k-1 members remain to be chosen. The cases are 
+  disjoint and exhaustive, while the whole collection has size C(n+1,k), proving
+  the identity.
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u11
+  - contrast_pair
+  - story_proof
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.76
+transfer_distance: 0.28
+scaffold_level: 0.03
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: president_model_construction
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_formula_without_common_collection
+    hypothesis: The learner believes that attaching a familiar verbal label to 
+      each binomial term is sufficient for a story proof, even without defining 
+      one collection partitioned into disjoint exhaustive cases.
+    observable_signature: C(n,k) counts committees without the president and 
+      C(n,k-1) counts committees with the president, so their sum is C(n+1,k).
+    misconception_id:
+    facet_id: facet_to_construct_a_story_proof_specify_one_collectio
+    fails_criteria:
+      - specify_common_collection
+      - construct_partition
+      - close_double_count
+    distinguishing_features:
+      - does not define the common collection before assigning terms
+      - does not establish that the cases exhaust that collection
+    source: authored
+contrast_of: pi_story_pascal_supplied_model
+differing_component:
+  facet: facet_to_construct_a_story_proof_specify_one_collectio
+  capability: procedure_execution
+  structural_change: The learner must construct the common collection and its 
+    disjoint partition here; the counterpart supplies them.
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_construct_a_story_proof_specify_one_collectio
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: specify_common_collection
+      points: 1.0
+      description: Specifies one collection counted by both sides.
+      tier: core
+      targets:
+        - facet: facet_to_construct_a_story_proof_specify_one_collectio
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: construct_partition
+      points: 1.0
+      description: Partitions the collection by president membership.
+      tier: core
+      targets:
+        - facet: facet_to_construct_a_story_proof_specify_one_collectio
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - specify_common_collection
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: count_parts
+      points: 1.0
+      description: Counts the two parts as C(n,k) and C(n,k-1).
+      tier: core
+      targets:
+        - facet: facet_to_construct_a_story_proof_specify_one_collectio
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - construct_partition
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: close_double_count
+      points: 1.0
+      description: Establishes disjointness and exhaustiveness and equates the 
+        two counts.
+      tier: core
+      targets:
+        - facet: facet_to_construct_a_story_proof_specify_one_collectio
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - count_parts
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_construct_and_diagnose_story_proofs:s393-s409
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s393
+      quote: "Hint: How many players need to be eliminated?\n6. There are 20 people
+        at a chess club on a certain day. They each find opponents and start playing.
+        How many possibilities are there for how they are matched up, assuming that
+        in each game it does matter who has the white pieces (in a chess game, one
+        player has the white pieces and the other player has the black pieces)?\n\
+        7. Two chess players, A and B, are going to play 7 games. Each game has three
+        possible outcomes: a win for A (which is a loss for B), a draw (tie), and
+        a loss for A (which is a win for B). A win is worth 1 point, a draw is worth
+        0.5 points, and a loss is worth 0 points. (a) How many possible outcomes for
+        the individual games are there, such that overall player A ends up with 3
+        wins, 2 draws, and 2 losses? (b) How many possible outcomes for the individual
+        games are there, such that A ends up with 4 points and B ends up with 3 points?
+        (c) Now assume that they are playing a best-of-7 match, where the match will
+        end when either player has 4 points or when 7 games have been played, whichever
+        is first. For example, if after 6 games the score is 4 to 2 in favor of A,
+        then A wins the match and they don't play a 7th game. How many possible outcomes
+        for the individual games are there, such that the match lasts for 7 games
+        and A wins by a score of 4 to 3? 8. s (a) How many ways are there to split
+        a dozen people into 3 teams, where one team has 2 people, and the other two
+        teams have 5 people each? (b) How many ways are there to split a dozen people
+        into 3 teams, where each team has 4 people? 9. s (a) How many paths are there
+        from the point (0, 0) to the point (110, 111) in the plane such that each
+        step either consists of going one unit up or one unit to the right? (b) How
+        many paths are there from (0, 0) to (210, 211), where each step consists of
+        going one unit up or one unit to the right, and the path has to go through
+        (110, 111)? 10. To fulfill the requirements for a certain degree, a student
+        can choose to take any 7 out of a list of 20 courses, with the constraint
+        that at least 1 of the 7 courses must be a statistics course. Suppose that
+        5 of the 20 courses are statistics courses. (a) How many choices are there
+        for which 7 courses to take? (b) Explain intuitively why the answer to (a)
+        is not 5 1 · 19 6 . 11. Let A and B be sets with |A| = n, |B| = m. (a) How
+        many functions are there from A to B (i.e., functions with domain A, assigning
+        an element of B to each element of A)? (b) How many one-to-one functions are
+        there from A to B? (See Section A.2.1 of the math appendix for information
+        about one-to-one functions.) 12. Four players, named A, B, C, and D, are playing
+        a card game. A standard, well-shuffled deck of cards is dealt to the players
+        (so each player receives a 13-card hand). (a) How many possibilities are there
+        for the hand that player A will get? (Within a hand, the order in which cards
+        were received doesn't matter.) (b) How many possibilities are there overall
+        for what hands everyone will get, assuming that it matters which player gets
+        which hand, but not the order of cards within a hand? (c) Explain intuitively
+        why the answer to Part (b) is not the fourth power of the answer to Part (a).
+        13. A certain casino uses 10 standard decks of cards mixed together into one
+        big deck, which we will call a superdeck. Thus, the superdeck has 52 · 10
+        = 520 cards, with 10 copies of each card. How many different 10-card hands
+        can be dealt from the superdeck? The order of the cards does not matter, nor
+        does it matter which of the original 10 decks the cards came from. Express
+        your answer as a binomial coefficient.\nHint: Bose-Einstein.\n14. You are
+        ordering two pizzas. A pizza can be small, medium, large, or extra large,
+        with any combination of 8 possible toppings (getting no toppings is allowed,
+        as is getting all 8). How many possibilities are there for your two pizzas?\n\
+        Story proofs\n15. (S) Give a story proof that $\\sum_{k=0}^{n} {n \\choose
+        k} = 2^n$. 16. (§) Show that for all positive integers n and k with $n \\\
+        ge k$,\n$$\\binom{n}{k} + \\binom{n}{k-1} = \\binom{n+1}{k},$$\ndoing this
+        in two ways: (a) algebraically and (b) with a story, giving an interpretation
+        for why both sides count the same thing.\nHint for the story proof: Imagine
+        an organization consisting of n+1 people, with one of them pre-designated
+        as the president of the organization.\n17. Give a story proof that\n$$\\sum_{k=0}^{n}
+        \\binom{n}{k}^2 = \\binom{2n}{n},$$\nfor all positive integers n.\n18. Give
+        a story proof that"
+      quote_hash: 
+        sha256:b9bcfb4e6a2ae9a1dcf5f305cc14e7d7290edbec13528a2ad23fda07b92f4efb
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s393
+        - s394
+        - s396
+        - s397
+        - s398
+        - s401
+        - s402
+        - s403
+        - s404
+        - s405
+        - s406
+        - s407
+        - s408
+        - s409
+      span_hash: 
+        sha256:7c38b279ba9eb38858c801aab060d7ca9d1538c8cd06a719113567d88000a279
+      section_id: u11
+      learning_object_ids:
+        - lo_construct_and_diagnose_story_proofs
+created_at: '2026-07-28T20:07:22Z'
+updated_at: '2026-07-28T20:07:22Z'

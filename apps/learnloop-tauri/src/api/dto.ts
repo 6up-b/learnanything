@@ -715,6 +715,8 @@ export interface AttemptHistoryRowDto {
 
 export interface SourceRefDto {
   refType: string;
+  /** Human-facing ingest identity (original filename or captured video title). */
+  displayName: string;
   refId: string;
   path: string | null;
   locator: string | null;
@@ -888,6 +890,7 @@ export interface ResolvedSourceRefDto {
   refType: string;
   /** canonical_source note kind (youtube_video | website_page | ...) or "note". */
   kind: string | null;
+  /** Human-facing ingest identity (original filename or captured video title). */
   title: string;
   externalUrl: string | null;
   /** Vault path of the backing note, for the "View in Library" jump. */
@@ -2538,9 +2541,11 @@ export interface StudyMapDto {
 // --- Quick add (§1) ---------------------------------------------------------
 
 export type StartingLevel = "new_to_this" | "some_exposure" | "comfortable" | "strong_background";
+export type AuthoringPreset = "narrow_adjunct";
 
 export interface StudyMapBriefDto {
   outcome?: "general_learning" | "reference_mastery" | "exam_prep" | string;
+  authoringPreset?: AuthoringPreset;
   level?: string;
   // Machine-readable learner level: seeds the global learner claim / initial
   // mastery. Defaults from the vault's profile/learner.yaml when unset.

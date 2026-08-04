@@ -36,6 +36,9 @@ from learnloop.services.certification_cold_probe import (
     schedule_certification_cold_probes,
     select_held_out_probe_item,
 )
+from learnloop.services.coldness_receipt import (
+    record_certification_administration_snapshot,
+)
 from learnloop.services.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -140,6 +143,13 @@ def test_probe_is_due_at_the_horizon_and_invisible_before_it(tmp_path):
     parameters = resolve_cold_probe_parameters(repository)
     horizon = timedelta(days=parameters.horizon_days)
     task = _tasks(repository)[0]
+    opportunity_id = task["measurement_opportunity_id"]
+    assert opportunity_id == report.decisions[0].measurement_opportunity_id
+    opportunity = repository.cold_measurement_opportunity(opportunity_id)
+    assert opportunity["certificate_id"] == certificate.certificate_id
+    decision = repository.cold_measurement_opportunity_decision(opportunity_id)
+    assert decision["decision"] == "scheduled"
+    assert decision["followup_task_id"] == task["id"]
     assert task["case_ref"] == certificate.certificate_id
     assert task["not_before"] == (NOW + horizon).isoformat().replace("+00:00", "Z")
     # "+2-3 weeks" is an interval, not a point: the probe expires window_days
@@ -283,6 +293,17 @@ def test_shared_surface_group_makes_the_certificate_unmeasurable(tmp_path):
     report = schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
     assert report.counts["no_held_out_surface"] == 1
     assert _tasks(repository) == []
+    opportunity_id = report.decisions[-1].measurement_opportunity_id
+    decision = repository.cold_measurement_opportunity_decision(opportunity_id)
+    assert (decision["decision"], decision["reason"]) == (
+        "structurally_refused",
+        "no_held_out_surface",
+    )
+    refusal = repository.coldness_receipt_for_opportunity_stage(
+        opportunity_id, "final"
+    )
+    assert refusal["lane"] == "certification_cold_probe"
+    assert refusal["derived"]["outcome"] == "schedule_refused"
     # And the number that bounds the metric says so, so a rate over an
     # unmeasurable vault does not read as clean.
     coverage = certification_cold_probe_report(vault, repository)["coverage"]
@@ -302,6 +323,38 @@ def test_the_only_instrument_being_the_certifying_one_is_unmeasurable(tmp_path):
     # is already used: unmeasurable, not merely unscheduled.
     assert selection.decision == "no_held_out_surface"
     assert selection.rejected_as_used_surface == (CERTIFYING_ITEM,)
+
+
+def test_new_inventory_creates_a_fresh_opportunity_after_structural_refusal(
+    tmp_path,
+):
+    paths, vault, repository, _certificate = _certify(
+        tmp_path, second_item=False
+    )
+    first = schedule_certification_cold_probes(
+        vault, repository, clock=FrozenClock(NOW)
+    ).decisions[0]
+    assert first.decision == "no_held_out_surface"
+
+    # A refusal settles one inventory snapshot; it must not permanently block a
+    # later measurement after a genuinely new held-out instrument is authored.
+    add_followup_item(paths.root)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    second = schedule_certification_cold_probes(
+        vault,
+        repository,
+        clock=FrozenClock(NOW + timedelta(hours=1)),
+    ).decisions[0]
+
+    assert second.decision == "scheduled"
+    assert second.measurement_opportunity_id != first.measurement_opportunity_id
+    assert repository.cold_measurement_opportunity_decision(
+        first.measurement_opportunity_id
+    )["decision"] == "structurally_refused"
+    assert repository.cold_measurement_opportunity_decision(
+        second.measurement_opportunity_id
+    )["decision"] == "scheduled"
 
 
 def _add_diagnostic_cell_item(root, item_id="pi_diag_cert_probe"):
@@ -582,6 +635,11 @@ def test_probe_records_a_durable_versioned_label(
     task = _tasks(repository)[0]
     parameters = resolve_cold_probe_parameters(repository)
     due = FrozenClock(NOW + timedelta(days=parameters.horizon_days))
+    administration = record_certification_administration_snapshot(
+        vault, repository, task=task, clock=due
+    )
+    assert administration is not None
+    assert administration["lane"] == "certification_cold_probe"
 
     result = _attempt(vault, repository, HELD_OUT_ITEM, points=points, clock=due)
     outcome = repository.certification_cold_probe_outcome_for_attempt(result.attempt_id)
@@ -622,6 +680,15 @@ def test_probe_records_a_durable_versioned_label(
     consumed = repository.followup_task(task["id"])
     assert consumed["status"] == "consumed"
     assert consumed["consumed_attempt_id"] == result.attempt_id
+    final = repository.coldness_receipt_for_task_stage(task["id"], "final")
+    assert final is not None
+    assert final["lane"] == "certification_cold_probe"
+    assert final["measurement_opportunity_id"] == task["measurement_opportunity_id"]
+    assert final["cold_attempt_id"] == result.attempt_id
+    assert final["derived"]["outcome"] == verdict
+    assert final["derived"]["qualifies_as_certificate_validation"] is True
+    assert final["derived"]["qualifies_as_repair_effect_verification"] is None
+    assert final["derived"]["administration_receipt_id"] == administration["id"]
 
     # A second attempt on the same item finds no active task and appends nothing.
     later = _attempt(

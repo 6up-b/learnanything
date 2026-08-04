@@ -1,0 +1,148 @@
+schema_version: 1
+id: pi_design_pseudocode_or_r_s
+learning_object_id: lo_simulate_a_counting_probability_model
+subjects:
+practice_mode: simulation design audit
+attempt_types_allowed: []
+evidence_facets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Design pseudocode or R-style code to estimate the probability that a 
+  random permutation of 100 labeled cards has at least one positional match. 
+  Explain what one run returns, how the estimate is formed, and why a result 
+  near 0.63 is plausible rather than guaranteed.
+expected_answer: 'For each run, generate a uniform permutation p of 1:100, compare
+  p elementwise with 1:100, and record I=sum(p==1:100)>=1. Repeat many times and average
+  I. For example: hits <- replicate(10000, sum(sample(100)==1:100)>=1); mean(hits).
+  One run returns a Boolean event indicator; the mean estimates the event probability.
+  Values near 1-1/e≈0.632 are plausible, but the exact output varies because it is
+  a finite random simulation.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.15
+transfer_distance: 0.25
+scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
+surface_family: probability-simulation
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-simulated-matching
+  representation: pseudocode or R-style code
+  solution_recipe_family: monte-carlo-event-indicators
+  answer_structure: code plus interpretation
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-simulation-generator
+      points: 2.0
+      description: Generates a uniform random permutation and tests positional 
+        equality with the labeled positions.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet-monte-carlo-contract
+        - facet-naive-probability-contract
+      correlation_group: matching-simulation
+      recipe_ids:
+        - recipe-simulate-counting-probabilities
+      measurement_status:
+    - id: criterion-simulation-estimate
+      points: 2.0
+      description: Averages event indicators across replications and 
+        distinguishes stochastic estimation from an exact analytic value.
+      tier: transfer
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet-monte-carlo-contract
+      correlation_group: matching-simulation
+      recipe_ids:
+        - recipe-simulate-counting-probabilities
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s368
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s370
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s376
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+created_at: '2026-07-28T17:34:47Z'
+updated_at: '2026-07-28T17:34:47Z'

@@ -266,6 +266,29 @@ def _append(
             subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
             unlimited_token_budget=unlimited_token_budget,
         )
+        preset_diagnostics: list[dict[str, Any]] = []
+        if brief.get("authoring_preset") == "narrow_adjunct":
+            # The preset's no-restructure promise is a deterministic boundary,
+            # not merely prompt advice. Preserve every additive candidate and
+            # drop only model-emitted restructure operations.
+            restructures = list(getattr(reconciliation, "restructures", []) or [])
+            if restructures:
+                if hasattr(reconciliation, "model_copy"):
+                    reconciliation = reconciliation.model_copy(update={"restructures": []})
+                elif isinstance(reconciliation, dict):
+                    reconciliation = {**reconciliation, "restructures": []}
+                preset_diagnostics.append(
+                    {
+                        "gate": "narrow_adjunct",
+                        "severity": "review",
+                        "entity_refs": [],
+                        "message": (
+                            f"dropped {len(restructures)} model-emitted restructure operation(s): "
+                            "the enrichment preset permits additive changes only"
+                        ),
+                        "suggested_action": "review the additive proposal; use a standard append to restructure",
+                    }
+                )
         # Same items-off resolution as the create lane (`_create_study_map`):
         # the brief decides, falling back to the vault's standing bootstrap
         # setting. Without this the append lane authored practice items
@@ -297,6 +320,7 @@ def _append(
         report = run_synthesis_gates(gate_proposal, gate_ctx)
         diagnostics = [d.to_dict() for d in report.diagnostics]
         diagnostics.extend(normalizer_diagnostics)
+        diagnostics.extend(preset_diagnostics)
         if report.blocked:
             repository.complete_synthesis_run(synthesis_run_id, status="failed",
                                               coverage_decisions={"gate_diagnostics": diagnostics})

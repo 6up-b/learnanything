@@ -1,0 +1,193 @@
+schema_version: 1
+id: pi_simulate_spinner_sum_eleven
+learning_object_id: lo_simulate_a_counting_probability_model
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+evidence_weights:
+  facet_for_a_finite_sample_space_s_whose_elementary_out: 0.35
+  facet_to_estimate_an_event_probability_by_monte_carlo_: 0.65
+criterion_facet_weights:
+  c_monte_carlo_estimator:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 0.3
+    facet_to_estimate_an_event_probability_by_monte_carlo_: 0.7
+  c_trial_generator:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: monte_carlo_event_mean
+      checkpoints:
+        - generate_labeled_trial
+        - evaluate_event_indicator
+        - accumulate_hits
+        - normalize_by_trials
+      dependencies:
+        accumulate_hits:
+          - evaluate_event_indicator
+        evaluate_event_indicator:
+          - generate_labeled_trial
+        generate_labeled_trial: []
+        normalize_by_trials:
+          - accumulate_hits
+variant_contract:
+teach_back_source:
+prompt: Design language-neutral pseudocode for a Monte Carlo estimate of the 
+  probability that two independent fair six-sector spinners, labeled A and B, 
+  sum to 11. Specify how one trial is generated, the event indicator, the 
+  accumulator, and the returned estimate.
+expected_answer: 'Set hits=0. Repeat N times: independently draw A and B uniformly
+  from {1,…,6}; if A+B=11, add 1 to hits. Return hits/N. Labeling the spinners preserves
+  the distinct favorable outcomes (5,6) and (6,5), and independent uniform draws reproduce
+  the 36 equally likely ordered outcomes.'
+difficulty: 0.23
+difficulty_source: llm_estimate
+tags:
+  - reader_section_u6
+  - monte_carlo
+  - capstone
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.75
+transfer_distance: 0.3
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: event_indicator_pseudocode
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c_trial_generator
+      points: 2.0
+      description: Generates two independent uniform labeled values for every 
+        trial.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c_monte_carlo_estimator
+      points: 2.0
+      description: Records the sum-11 indicator and returns its sample mean.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - c_trial_generator
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_simulate_a_counting_probability_model:s135-s147
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s135
+      quote: "Problems 26 and 27 show that the birthday problem is much more than
+        a fun party game, and much more than a way to build intuition about coincidences;
+        there are also important applications in statistics and computer science.
+        Problem 62 explores the more general setting in which the probability is not
+        necessarily 1/365 for each day. It turns out that in the non-equal probability
+        case, having at least one match becomes even more likely.\n* 1.4.11 (Labeling
+        objects). Drawing a sample from a population is a very fundamental concept
+        in statistics. It is important to think of the objects or people in the population
+        as named or labeled . For example, if there are n balls in a jar, we can imagine
+        that they have labels from 1 to n, even if the balls look the same to the
+        human eye. In the birthday problem, we can give each person an ID (identification)
+        number, rather than thinking of the people as indistinguishable particles
+        or a faceless mob.\nA related example is an instructive blunder made by Leibniz
+        in a seemingly simple problem (see Gorroochurn [14] for discussion of this
+        and a variety of other probability problems from a historical perspective).\n\
+        Example 1.4.12 (Leibniz's mistake). If we roll two fair dice, which is more
+        likely: a sum of 11 or a sum of 12?\nSolution:\nLabel the dice A and B, and
+        consider each die to be a sub-experiment. By the multiplication rule, there
+        are 36 possible outcomes for ordered pairs of the form (value of A, value
+        of B), and they are equally likely by symmetry. Of these, (5,6) and (6,5)
+        are favorable to a sum of 11, while only (6,6) is favorable to a sum of 12.
+        Therefore a sum of 11 is twice as likely as a sum of 12; the probability is
+        1/18 for the former, and 1/36 for the latter.\nHowever, Leibniz wrongly argued
+        that a sum of 11 and a sum of 12 are equally likely, claiming that each of
+        these sums can be attained in only one way. Here Leibniz was making the mistake
+        of treating the two dice as indistinguishable objects, viewing (5,6) and (6,5)
+        as the same outcome.\nWhat are the antidotes to Leibniz's mistake? First,
+        as explained in 2 1.4.11, we should label the objects in question instead
+        of treating them as indistinguishable. If Leibniz had labeled his dice A and
+        B, or green and orange, or left and right, he would not have made this mistake.
+        Second, before we use counting for probability, we should ask ourselves whether
+        the naive definition applies (see 2 1.4.23 for another example showing that
+        caution is needed before applying the naive definition).\n1.4.2 Adjusting
+        for overcounting\nIn many counting problems, it is not easy to directly count
+        each possibility once and only once. If, however, we are able to count each
+        possibility exactly c times\nfor some c, then we can adjust by dividing by
+        c. For example, if we have exactly double-counted each possibility, we can
+        divide by 2 to get the correct count. We call this adjusting for overcounting
+        ."
+      quote_hash: 
+        sha256:cc5c351e6acbc1e18fba37a71b0f0ba0b5abc892822d83ae9446d5d9133bd83f
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s135
+        - s136
+        - s137
+        - s138
+        - s139
+        - s140
+        - s141
+        - s142
+        - s143
+        - s144
+        - s147
+      span_hash: 
+        sha256:b6a9098c8ed65b0e47ad20f7cb321268ad494d2160bbf91b2215748dccf29ce1
+      section_id: u6
+      learning_object_ids:
+        - lo_simulate_a_counting_probability_model
+created_at: '2026-07-28T20:08:11Z'
+updated_at: '2026-07-28T20:08:11Z'

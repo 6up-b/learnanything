@@ -1,4 +1,4 @@
-"""Explicit coldness administration receipts for the repair lane (migration 149).
+"""Explicit coldness administration receipts for delayed retrieval lanes.
 
 "Cold" used to be an inference: the §6.2 preconditions (chronology, surface
 group difference, unprimed + ``hints_used == 0``, the +1-day ``not_before``)
@@ -56,12 +56,26 @@ reading and splits the blinding claim:
   passes only when BOTH halves pass, so a self-graded pair — where no model
   identity exists at all — stays ``unknown`` exactly as before.
 
+v3 (migration 151) makes the denominator and freshness claim auditable too:
+
+* a durable measurement opportunity exists before surface selection and is
+  settled as scheduled or with a typed refusal;
+* retrieval practice is a memory-refreshing exposure and therefore resets the
+  delay anchor as well as remaining a repair-attribution co-intervention;
+* remediation deliveries, passage preparations, and source views affect a
+  receipt only after resolving to the target case, LO, facets, or source spans;
+* every large-vault ledger scan is time-bounded and indexed, while surface
+  novelty queries only the candidate's finite canonical surface group;
+* certification cold probes share the opportunity, administration, and final
+  receipt schema instead of publishing only their outcome label.
+
 Semantics are prospective-only: verifications recorded before this module keep
 their meaning, and consumers distinguish eras by receipt presence and
-``receipt_version``. A v1 receipt is not reinterpreted under v2 coverage — the
-``telemetry_coverage_version`` on the row says which channels were observable
-when it was written. The existing enforcement (the §6.2 guards) stays; this is
-the recorded line-item layer above it, plus exactly two NEW hard-fail causes
+``receipt_version``. Earlier receipts are not reinterpreted under v3 coverage
+— the ``telemetry_coverage_version`` on the row says which channels were
+observable when it was written. The existing enforcement (the §6.2 guards)
+stays; this is the recorded line-item layer above it, plus exactly two NEW
+hard-fail causes
 (applied by ``causal_orchestrator.record_cold_verification_from_task``): the
 cold item's own answer revealed post-primed, and a hard same-surface exposure
 post-primed. Everything else records without blocking, so the lane is never
@@ -87,12 +101,13 @@ from learnloop.vault.models import LoadedVault
 
 logger = logging.getLogger(__name__)
 
-COLDNESS_RECEIPT_VERSION = "coldness_receipt_v2"
-TELEMETRY_COVERAGE_VERSION = "coldness_telemetry_v2"
+COLDNESS_RECEIPT_VERSION = "coldness_receipt_v3"
+TELEMETRY_COVERAGE_VERSION = "coldness_telemetry_v3"
 
-#: The only lane with a producer today. The schema is lane-agnostic on purpose
-#: (certification §5.7 and teach-back are expected adopters).
+#: The repair and certification producers share one schema; lane remains open
+#: TEXT so later delayed-retrieval instruments can adopt it without a rebuild.
 LANE_REPAIR_COLD_RETRY = "repair_cold_retry"
+LANE_CERTIFICATION_COLD_PROBE = "certification_cold_probe"
 
 #: Mirrors the lane's own scheduling rule (`remediation.record_remediation_attempt`
 #: schedules `not_before` at +1 day): a retrieval closer than this to its anchor
@@ -241,6 +256,91 @@ def _indeterminate_dimensions(reason: str) -> dict[str, Any]:
 # --- exposure scan -----------------------------------------------------------
 
 
+def _case_scope(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    case_kind: str | None,
+    case_ref: str | None,
+) -> tuple[set[str], set[str]]:
+    """Resolve a case to the LO/facets whose study can refresh this target."""
+
+    if not case_kind or not case_ref:
+        return set(), set()
+    learning_objects: set[str] = set()
+    facets: set[str] = set()
+    try:
+        if case_kind == "misconception":
+            misconception = repository.misconception(case_ref)
+            if misconception is not None:
+                if misconception.learning_object_id:
+                    learning_objects.add(str(misconception.learning_object_id))
+                facets |= _canonical_facets(
+                    vault,
+                    [
+                        *misconception.facet_ids,
+                        misconception.target_facet,
+                        misconception.confused_with_facet,
+                    ],
+                )
+        elif case_kind == "diagnosis":
+            hypothesis = repository.causal_hypothesis(case_ref)
+            if hypothesis is not None:
+                learning_object_id = str(
+                    hypothesis.get("learning_object_id") or ""
+                )
+                if learning_object_id:
+                    learning_objects.add(learning_object_id)
+                target = hypothesis.get("target_ref")
+                if isinstance(target, Mapping):
+                    facets |= _canonical_facets(
+                        vault,
+                        [
+                            target.get("facet_id"),
+                            target.get("target_facet"),
+                            target.get("confused_with_facet"),
+                        ],
+                    )
+        elif case_kind == "certification":
+            # Certification events normally carry their indexed LO directly.
+            # A case ref is a certificate hash, not an LO, so it contributes no
+            # extra scope here.
+            pass
+    except Exception:  # pragma: no cover - relevance lookup is evidence-only
+        logger.warning(
+            "failed to resolve receipt relevance for %s/%s",
+            case_kind,
+            case_ref,
+            exc_info=True,
+        )
+    return learning_objects, facets
+
+
+def _episode_is_relevant(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: Mapping[str, Any] | None,
+    *,
+    relevant_los: set[str],
+    relevant_facets: set[str],
+    relevant_case_refs: set[str],
+) -> bool:
+    if episode is None:
+        return False
+    case_ref = str(episode.get("case_ref") or "")
+    if case_ref and case_ref in relevant_case_refs:
+        return True
+    episode_los, episode_facets = _case_scope(
+        vault,
+        repository,
+        case_kind=str(episode.get("case_kind") or "") or None,
+        case_ref=case_ref or None,
+    )
+    if episode_los and relevant_los:
+        return bool(episode_los & relevant_los)
+    return bool(episode_facets & relevant_facets)
+
+
 def _scan_exposures(
     vault: LoadedVault,
     repository: Repository,
@@ -252,6 +352,9 @@ def _scan_exposures(
     cold_attempt_id: str | None = None,
     case_ref: str | None,
     exclude_attempt_ids: set[str],
+    additional_relevant_los: set[str] | None = None,
+    additional_relevant_facets: set[str] | None = None,
+    additional_relevant_case_refs: set[str] | None = None,
 ) -> dict[str, Any]:
     """Typed intervening-exposure scan over the enumerated ledgers.
 
@@ -284,13 +387,33 @@ def _scan_exposures(
         )
         if value
     }
+    relevant_los |= {
+        str(value) for value in (additional_relevant_los or set()) if value
+    }
     relevant_facets: set[str] = set()
     for item in (cold_item, source_item):
         if item is not None:
             relevant_facets |= _canonical_facets(vault, item.evidence_facets)
+    relevant_facets |= _canonical_facets(
+        vault, additional_relevant_facets or set()
+    )
+    relevant_case_refs = {
+        str(value)
+        for value in ({case_ref} | (additional_relevant_case_refs or set()))
+        if value
+    }
+    source_item_spans = _item_source_spans(source_item)
+    cold_item_spans = _item_source_spans(cold_item)
+    related_item_spans = source_item_spans | cold_item_spans
 
     events: list[dict[str, Any]] = []
     irrelevant = 0
+    irrelevant_by_ledger: dict[str, int] = {}
+
+    def mark_irrelevant(ledger: str) -> None:
+        nonlocal irrelevant
+        irrelevant += 1
+        irrelevant_by_ledger[ledger] = irrelevant_by_ledger.get(ledger, 0) + 1
 
     for attempt in repository.practice_attempts_between(
         after=interval_start, before=interval_end
@@ -306,12 +429,14 @@ def _scan_exposures(
             kind, why = "hard", "cold_item_answer_reveal"
         elif cold_group is not None and group == cold_group:
             kind, why = "hard", "same_surface_group_administration"
-        elif (facets & relevant_facets) or (
+        elif (
             str(attempt.get("learning_object_id") or "") in relevant_los
+            if attempt.get("learning_object_id") and relevant_los
+            else bool(facets & relevant_facets)
         ):
             kind, why = "retrieval", "attempt_on_overlapping_facets"
         else:
-            irrelevant += 1
+            mark_irrelevant("practice_attempts")
             continue
         events.append(
             {
@@ -324,7 +449,9 @@ def _scan_exposures(
             }
         )
 
-    for event in repository.question_events(since=interval_start):
+    for event in repository.question_events(
+        since=interval_start, until=interval_end
+    ):
         at = str(event.get("created_at") or "")
         if not at or at >= interval_end or at <= interval_start:
             continue
@@ -338,10 +465,17 @@ def _scan_exposures(
             )
         else:
             item = vault.practice_items.get(item_id) if item_id else None
-            if item is not None and item.learning_object_id in relevant_los:
+            if item is not None and (
+                item.learning_object_id in relevant_los
+                if item.learning_object_id and relevant_los
+                else bool(
+                    _canonical_facets(vault, item.evidence_facets)
+                    & relevant_facets
+                )
+            ):
                 kind, why = "soft", "tutor_question_on_related_item"
             else:
-                irrelevant += 1
+                mark_irrelevant("question_events")
                 continue
         events.append(
             {
@@ -354,33 +488,48 @@ def _scan_exposures(
             }
         )
 
-    cold_item_spans = _item_source_spans(cold_item)
     delivered_in_interval: set[str] = set()
-    for event in repository.source_exposure_events():
+    episode_cache: dict[str, Mapping[str, Any] | None] = {}
+    for event in repository.source_exposure_events(
+        after=interval_start, before=interval_end
+    ):
         at = str(event.get("created_at") or "")
-        if not at or at >= interval_end or at <= interval_start:
-            continue
         context = str(event.get("context") or "")
         entity_id = str(event.get("entity_id") or "")
+        entity_type = str(event.get("entity_type") or "")
+        span_key = (
+            str(event.get("extraction_id") or ""),
+            str(event.get("span_id") or ""),
+        )
         if context == REMEDIATION_DELIVERY_CONTEXT:
-            # A prescribed passage's text was handed to the surface that renders
-            # it inline. Soft by default — the prescription shows the
-            # target/confused-with contrast, not the cold item's answer — and
-            # hard only when the delivered span is one the cold item was
-            # authored from, which is the strongest reveal claim the stored
-            # provenance can support.
             episode_id = (
                 entity_id
-                if str(event.get("entity_type") or "")
-                == REMEDIATION_DELIVERY_ENTITY_TYPE
+                if entity_type == REMEDIATION_DELIVERY_ENTITY_TYPE
                 else ""
             )
+            episode = None
+            if episode_id:
+                if episode_id not in episode_cache:
+                    episode_cache[episode_id] = repository.remediation_episode(
+                        episode_id
+                    )
+                episode = episode_cache[episode_id]
+            relevant_delivery = (
+                span_key in related_item_spans
+                or _episode_is_relevant(
+                    vault,
+                    repository,
+                    episode,
+                    relevant_los=relevant_los,
+                    relevant_facets=relevant_facets,
+                    relevant_case_refs=relevant_case_refs,
+                )
+            )
+            if not relevant_delivery:
+                mark_irrelevant("source_exposure_events")
+                continue
             if episode_id:
                 delivered_in_interval.add(episode_id)
-            span_key = (
-                str(event.get("extraction_id") or ""),
-                str(event.get("span_id") or ""),
-            )
             if cold_item_spans and span_key in cold_item_spans:
                 kind, why = "hard", "remediation_passage_revealed_cold_item_source_span"
             else:
@@ -397,21 +546,51 @@ def _scan_exposures(
                 }
             )
             continue
-        related = entity_id and (
-            entity_id == (case_ref or "") or entity_id in relevant_los
+        related = bool(
+            entity_id
+            and (entity_id in relevant_case_refs or entity_id in relevant_los)
         )
-        if related or context == "remediation":
+        if not related and entity_type == REMEDIATION_DELIVERY_ENTITY_TYPE:
+            if entity_id not in episode_cache:
+                episode_cache[entity_id] = repository.remediation_episode(entity_id)
+            related = _episode_is_relevant(
+                vault,
+                repository,
+                episode_cache[entity_id],
+                relevant_los=relevant_los,
+                relevant_facets=relevant_facets,
+                relevant_case_refs=relevant_case_refs,
+            )
+        elif not related and entity_type in {"misconception", "diagnosis"}:
+            entity_los, entity_facets = _case_scope(
+                vault,
+                repository,
+                case_kind=entity_type,
+                case_ref=entity_id or None,
+            )
+            related = (
+                bool(entity_los & relevant_los)
+                if entity_los and relevant_los
+                else bool(entity_facets & relevant_facets)
+            )
+        related = related or span_key in related_item_spans
+        if related:
+            kind = "hard" if span_key in cold_item_spans else "soft"
             events.append(
                 {
-                    "type": "soft",
+                    "type": kind,
                     "ledger": "source_exposure_events",
                     "event_id": str(event.get("id") or ""),
                     "at": at,
-                    "why": "related_source_passage_viewed",
+                    "why": (
+                        "cold_item_source_span_viewed"
+                        if kind == "hard"
+                        else "related_source_passage_viewed"
+                    ),
                 }
             )
         else:
-            irrelevant += 1
+            mark_irrelevant("source_exposure_events")
 
     for row in repository.attempts_with_feedback_shown_between(
         after=interval_start, before=interval_end
@@ -431,12 +610,14 @@ def _scan_exposures(
             # The learner re-read their own graded repair attempt: its feedback
             # carries the grader's repair suggestions for the diagnosed case.
             kind, why = "soft", "source_attempt_feedback_reopened"
-        elif (facets & relevant_facets) or (
+        elif (
             str(row.get("learning_object_id") or "") in relevant_los
+            if row.get("learning_object_id") and relevant_los
+            else bool(facets & relevant_facets)
         ):
             kind, why = "soft", "related_attempt_feedback_reopened"
         else:
-            irrelevant += 1
+            mark_irrelevant("attempt_feedback_metadata")
             continue
         events.append(
             {
@@ -458,6 +639,17 @@ def _scan_exposures(
     ):
         passages = episode.get("passages_shown") or []
         episode_id = str(episode["id"])
+        if not _episode_is_relevant(
+            vault,
+            repository,
+            episode,
+            relevant_los=relevant_los,
+            relevant_facets=relevant_facets,
+            relevant_case_refs=relevant_case_refs,
+        ):
+            if passages:
+                mark_irrelevant("remediation_episodes.passages_shown_json")
+            continue
         if not passages or episode_id in delivered_in_interval:
             # Delivered in-interval: already recorded above as typed events.
             continue
@@ -494,6 +686,7 @@ def _scan_exposures(
         "prepared_unconfirmed": prepared_unconfirmed,
         "delivered_outside_interval": delivered_outside_interval,
         "irrelevant_count": irrelevant,
+        "irrelevant_by_ledger": irrelevant_by_ledger,
         "absence_status": absence_status,
         "interval": {"from": interval_start, "to": interval_end},
     }
@@ -529,6 +722,8 @@ def _retrieval_delay(
     source_at: str | None,
     measured_to: str | None,
     scan: Mapping[str, Any],
+    minimum_delay: timedelta = MIN_COLD_DELAY,
+    anchor_kind: str = "primed_attempt",
 ) -> dict[str, Any]:
     source_dt = parse_utc(source_at) if source_at else None
     to_dt = parse_utc(measured_to) if measured_to else None
@@ -544,7 +739,7 @@ def _retrieval_delay(
     refresh = [
         event
         for event in scan.get("events") or []
-        if event.get("type") in ("hard", "soft") and event.get("at")
+        if event.get("type") in ("hard", "soft", "retrieval") and event.get("at")
     ]
     anchor_at, anchor_event = source_at, None
     for event in refresh:
@@ -553,7 +748,7 @@ def _retrieval_delay(
     anchor_dt = parse_utc(anchor_at) or source_dt
     delay_from_primed = (to_dt - source_dt).total_seconds()
     delay_from_anchor = (to_dt - anchor_dt).total_seconds()
-    status = "pass" if delay_from_anchor >= MIN_COLD_DELAY.total_seconds() else "fail"
+    status = "pass" if delay_from_anchor >= minimum_delay.total_seconds() else "fail"
     return _dimension(
         status,
         {
@@ -571,7 +766,8 @@ def _retrieval_delay(
                 else None
             ),
             "delay_seconds_from_anchor": delay_from_anchor,
-            "minimum_delay_seconds": MIN_COLD_DELAY.total_seconds(),
+            "minimum_delay_seconds": minimum_delay.total_seconds(),
+            "anchor_kind": anchor_kind,
         },
     )
 
@@ -590,6 +786,7 @@ def _exposure_isolation(scan: Mapping[str, Any]) -> dict[str, Any]:
             "prepared_unconfirmed": scan.get("prepared_unconfirmed") or [],
             "delivered_outside_interval": scan.get("delivered_outside_interval") or [],
             "irrelevant_count": scan.get("irrelevant_count", 0),
+            "irrelevant_by_ledger": scan.get("irrelevant_by_ledger") or {},
             "interval": scan.get("interval"),
         },
     )
@@ -630,11 +827,16 @@ def _surface_novelty(
         else None
     )
     source_group = surface_group_id(source_item) if source_item is not None else None
+    group_item_ids = [
+        item_id
+        for item_id, item in vault.practice_items.items()
+        if surface_group_id(item) == cold_group
+    ]
     prior_ids: list[str] = []
     item_seen = False
     group_seen = False
-    for attempt in repository.practice_attempts_between(
-        after=None, before=interval_end
+    for attempt in repository.practice_attempts_for_items_before(
+        group_item_ids, before=interval_end
     ):
         attempt_id = str(attempt["id"])
         if attempt_id in exclude_attempt_ids:
@@ -675,6 +877,38 @@ def _surface_novelty(
 def _selection_basis(task: Mapping[str, Any]) -> dict[str, Any]:
     context = task.get("context")
     context = context if isinstance(context, Mapping) else {}
+    if str(task.get("kind") or "") == "certification_cold_probe":
+        selected = str(task.get("selected_item_id") or "") or None
+        excluded = [
+            str(value)
+            for value in context.get("excluded_surface_groups") or []
+        ]
+        basis = str(context.get("held_out_basis") or "") or None
+        carried = (
+            context.get("kind") == "certification_cold_probe"
+            and bool(context.get("certificate_id"))
+            and bool(selected)
+        )
+        return _dimension(
+            "pass" if carried and basis == "distinct_surface_group" else "unknown",
+            {
+                "selection_policy": context.get("policy_version"),
+                "certificate_id": context.get("certificate_id"),
+                "selected_item_id": selected,
+                "probe_surface_group": context.get("probe_surface_group"),
+                "excluded_certifying_surface_groups": excluded,
+                "held_out_basis": basis,
+                "personalization_basis": (
+                    "selected for certificate-cell and integration coverage "
+                    "after excluding certifying, unservable, and already "
+                    "administered diagnostic surfaces"
+                ),
+                "estimand_narrowing": (
+                    "validates the certified LO/recipe represented by this "
+                    "certificate, not undifferentiated recall"
+                ),
+            },
+        )
     carried = context.get("kind") == "causal_cold_verification" and bool(
         context.get("source_attempt_id")
     )
@@ -713,6 +947,7 @@ COLD_ITEM_REVEAL_REASONS = (
     # v2: a delivered remediation passage sat on a span the cold item was
     # authored from.
     "remediation_passage_revealed_cold_item_source_span",
+    "cold_item_source_span_viewed",
 )
 
 #: Hard findings that are same-surface EXPOSURE rather than an answer reveal.
@@ -1052,12 +1287,14 @@ def _derive(
     scan: Mapping[str, Any] | None,
     *,
     stage: str,
+    lane: str = LANE_REPAIR_COLD_RETRY,
 ) -> dict[str, Any]:
     if stage == "administration" or scan is None:
         return {
             "qualifies_as_cold_retrieval": None,
             "qualifies_as_repair_effect_verification": None,
             "qualifies_as_held_out_validation": None,
+            "qualifies_as_certificate_validation": None,
             "note": "qualifications are final-stage claims",
         }
     events = scan.get("events") or []
@@ -1076,10 +1313,21 @@ def _derive(
         cold and not retrieval_ids and _status("window_integrity") == "pass"
     )
     held_out = repair and _status("surface_novelty") == "pass"
+    certificate = (
+        cold
+        and not retrieval_ids
+        and _status("window_integrity") == "pass"
+        and _status("surface_novelty") == "pass"
+    )
     return {
         "qualifies_as_cold_retrieval": cold,
-        "qualifies_as_repair_effect_verification": repair,
+        "qualifies_as_repair_effect_verification": (
+            repair if lane == LANE_REPAIR_COLD_RETRY else None
+        ),
         "qualifies_as_held_out_validation": held_out,
+        "qualifies_as_certificate_validation": (
+            certificate if lane == LANE_CERTIFICATION_COLD_PROBE else None
+        ),
         "hard_exposure_event_ids": hard_ids,
         "retrieval_cointervention_event_ids": retrieval_ids,
         "basis": (
@@ -1118,6 +1366,11 @@ def _evaluate(
 ) -> ColdnessEvaluation:
     context = task.get("context")
     context = context if isinstance(context, Mapping) else {}
+    lane = (
+        LANE_CERTIFICATION_COLD_PROBE
+        if str(task.get("kind") or "") == "certification_cold_probe"
+        else LANE_REPAIR_COLD_RETRY
+    )
     source_attempt_id = (
         str(context.get("source_attempt_id") or "")
         or str(task.get("source_attempt_id") or "")
@@ -1138,11 +1391,17 @@ def _evaluate(
     else:
         cold_item_id = str(task.get("selected_item_id") or "") or None
         submit_at = None
-    interval_start = (
-        str(source_attempt.get("created_at") or "")
-        if source_attempt is not None
-        else None
-    )
+    if lane == LANE_CERTIFICATION_COLD_PROBE:
+        interval_start = (
+            str(context.get("certified_at") or "")
+            or str(context.get("measurement_anchor_at") or "")
+        ) or None
+    else:
+        interval_start = (
+            str(source_attempt.get("created_at") or "")
+            if source_attempt is not None
+            else None
+        )
     interval_end = submit_at or open_at or now_iso
     exclude = {
         value
@@ -1162,6 +1421,30 @@ def _evaluate(
             cold_attempt_id=cold_attempt_id,
             case_ref=str(task.get("case_ref") or "") or None,
             exclude_attempt_ids=exclude,
+            additional_relevant_los={
+                str(
+                    context.get("learning_object_id")
+                    or task.get("learning_object_id")
+                    or ""
+                )
+            }
+            if lane == LANE_CERTIFICATION_COLD_PROBE
+            else None,
+            additional_relevant_facets={
+                str(cell.get("facet_id"))
+                for cell in (
+                    (context.get("certificate_receipt") or {}).get("cells") or []
+                )
+                if isinstance(cell, Mapping) and cell.get("facet_id")
+            }
+            if lane == LANE_CERTIFICATION_COLD_PROBE
+            and isinstance(context.get("certificate_receipt"), Mapping)
+            else None,
+            additional_relevant_case_refs={
+                str(context.get("certificate_id") or "")
+            }
+            if lane == LANE_CERTIFICATION_COLD_PROBE
+            else None,
         )
 
     dimensions: dict[str, Any] = {}
@@ -1170,6 +1453,16 @@ def _evaluate(
             source_at=interval_start,
             measured_to=submit_at or open_at,
             scan=scan,
+            minimum_delay=(
+                timedelta(days=float(context.get("horizon_days") or 0.0))
+                if lane == LANE_CERTIFICATION_COLD_PROBE
+                else MIN_COLD_DELAY
+            ),
+            anchor_kind=(
+                "certificate"
+                if lane == LANE_CERTIFICATION_COLD_PROBE
+                else "primed_attempt"
+            ),
         )
         dimensions["exposure_isolation"] = _exposure_isolation(scan)
         dimensions["answer_leakage"] = _answer_leakage(scan)
@@ -1189,6 +1482,31 @@ def _evaluate(
         interval_end=interval_end,
         exclude_attempt_ids=exclude,
     )
+    if lane == LANE_CERTIFICATION_COLD_PROBE:
+        novelty = dimensions["surface_novelty"]
+        evidence = dict(novelty.get("evidence") or {})
+        excluded_groups = {
+            str(value)
+            for value in context.get("excluded_surface_groups") or []
+        }
+        probe_group = str(evidence.get("surface_group_id") or "")
+        distinct_from_certificate = bool(probe_group) and (
+            probe_group not in excluded_groups
+        )
+        evidence.update(
+            {
+                "excluded_certifying_surface_groups": sorted(excluded_groups),
+                "distinct_from_certifying_surface_groups": distinct_from_certificate,
+            }
+        )
+        dimensions["surface_novelty"] = _dimension(
+            (
+                "fail"
+                if not distinct_from_certificate
+                else str(novelty.get("status") or "unknown")
+            ),
+            evidence,
+        )
     dimensions["selection_basis"] = _selection_basis(task)
     dimensions["window_integrity"] = _window_integrity(
         task=task, open_at=open_at, submit_at=submit_at
@@ -1204,7 +1522,7 @@ def _evaluate(
     interval = scan.get("interval") if scan is not None else None
     return ColdnessEvaluation(
         dimensions=dimensions,
-        derived=_derive(dimensions, scan, stage=stage),
+        derived=_derive(dimensions, scan, stage=stage, lane=lane),
         telemetry_coverage=_telemetry_coverage(interval),
         hard_contamination=_hard_contamination(scan) if scan is not None else None,
     )
@@ -1272,12 +1590,17 @@ def record_administration_snapshot(
     """Stage 1: the serving-time snapshot, idempotent per follow-up task.
 
     Called when the practice-item detail is served for an item carrying an
-    active ``cold_retry`` task. The snapshot's ``created_at`` is the
+    active repair or certification cold task. The snapshot's ``created_at`` is the
     administration OPEN time that ``window_integrity`` keys on.
     """
 
     task_id = str(task.get("id") or "") or None
-    if task_id is None or str(task.get("kind") or "") != "cold_retry":
+    lane_by_kind = {
+        "cold_retry": LANE_REPAIR_COLD_RETRY,
+        "certification_cold_probe": LANE_CERTIFICATION_COLD_PROBE,
+    }
+    lane = lane_by_kind.get(str(task.get("kind") or ""))
+    if task_id is None or lane is None:
         return None
     existing = repository.coldness_receipt_for_task_stage(task_id, "administration")
     if existing is not None:
@@ -1313,8 +1636,11 @@ def record_administration_snapshot(
         receipt_id=_content_id(
             "cra", {"task": task_id, "stage": "administration"}
         ),
-        lane=LANE_REPAIR_COLD_RETRY,
+        lane=lane,
         stage="administration",
+        measurement_opportunity_id=(
+            str(task.get("measurement_opportunity_id") or "") or None
+        ),
         followup_task_id=task_id,
         remediation_episode_id=(
             str(task.get("remediation_episode_id") or "") or None
@@ -1332,6 +1658,22 @@ def record_administration_snapshot(
     )
 
 
+def record_certification_administration_snapshot(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    task: Mapping[str, Any],
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Named certification-lane adapter for callers that require lane clarity."""
+
+    if str(task.get("kind") or "") != "certification_cold_probe":
+        return None
+    return record_administration_snapshot(
+        vault, repository, task=task, clock=clock
+    )
+
+
 def record_final_receipt(
     repository: Repository,
     *,
@@ -1340,6 +1682,7 @@ def record_final_receipt(
     outcome: str,
     cold_attempt_id: str | None = None,
     cold_verification_id: str | None = None,
+    lane: str = LANE_REPAIR_COLD_RETRY,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Stage 2: the terminal receipt — measured verifications AND refusals.
@@ -1368,8 +1711,11 @@ def record_final_receipt(
                 "outcome": outcome,
             },
         ),
-        lane=LANE_REPAIR_COLD_RETRY,
+        lane=lane,
         stage="final",
+        measurement_opportunity_id=(
+            str(task.get("measurement_opportunity_id") or "") or None
+        ),
         followup_task_id=task_id,
         remediation_episode_id=(
             str(task.get("remediation_episode_id") or "") or None
@@ -1389,10 +1735,87 @@ def record_final_receipt(
     )
 
 
+def record_schedule_refusal_receipt(
+    repository: Repository,
+    *,
+    opportunity: Mapping[str, Any],
+    decision: str,
+    reason: str,
+    candidate_summary: Mapping[str, Any] | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Record a terminal receipt when no task could be scheduled.
+
+    There is deliberately no task-shaped input: the measurement opportunity is
+    the parent. Dimensions that require administration remain unknown, while
+    the selection/refusal evidence is explicit and auditable.
+    """
+
+    opportunity_id = str(opportunity.get("id") or "") or None
+    if opportunity_id is None:
+        return None
+    existing = repository.coldness_receipt_for_opportunity_stage(
+        opportunity_id, "final"
+    )
+    if existing is not None:
+        return existing
+    dimensions = _indeterminate_dimensions("not_administered_schedule_refusal")
+    dimensions["selection_basis"] = _dimension(
+        "fail",
+        {
+            "decision": decision,
+            "reason": reason,
+            "candidate_summary": dict(candidate_summary or {}),
+            "policy_version": opportunity.get("policy_version"),
+            "selected_item_id": None,
+        },
+    )
+    derived = {
+        "qualifies_as_cold_retrieval": None,
+        "qualifies_as_repair_effect_verification": None,
+        "qualifies_as_held_out_validation": None,
+        "qualifies_as_certificate_validation": None,
+        "outcome": "schedule_refused",
+        "schedule_decision": decision,
+        "schedule_reason": reason,
+        "measurement_opportunity_id": opportunity_id,
+        "note": "no administration occurred; final receipt settles the opportunity",
+    }
+    return repository.insert_coldness_receipt(
+        receipt_id=_content_id(
+            "crf",
+            {
+                "measurement_opportunity_id": opportunity_id,
+                "stage": "final",
+                "decision": decision,
+                "reason": reason,
+            },
+        ),
+        lane=str(opportunity.get("lane") or ""),
+        stage="final",
+        measurement_opportunity_id=opportunity_id,
+        followup_task_id=None,
+        remediation_episode_id=(
+            str(opportunity.get("remediation_episode_id") or "") or None
+        ),
+        source_attempt_id=(
+            str(opportunity.get("source_attempt_id") or "") or None
+        ),
+        cold_attempt_id=None,
+        cold_verification_id=None,
+        dimensions=dimensions,
+        derived=derived,
+        telemetry_coverage=_telemetry_coverage(None),
+        receipt_version=COLDNESS_RECEIPT_VERSION,
+        clock=clock,
+    )
+
+
 __all__ = [
     "COLDNESS_RECEIPT_VERSION",
     "TELEMETRY_COVERAGE_VERSION",
     "LANE_REPAIR_COLD_RETRY",
+    "LANE_CERTIFICATION_COLD_PROBE",
     "KNOWN_UNOBSERVED_CHANNELS",
     "MIN_COLD_DELAY",
     "SCANNED_LEDGERS",
@@ -1400,5 +1823,7 @@ __all__ = [
     "ColdnessEvaluation",
     "evaluate_final_coldness",
     "record_administration_snapshot",
+    "record_certification_administration_snapshot",
     "record_final_receipt",
+    "record_schedule_refusal_receipt",
 ]

@@ -81,6 +81,7 @@ from learnloop.services.recall_calibration import (
     format_recall_calibration_table,
     run_recall_calibration_harness,
 )
+from learnloop.services.source_refs import source_ref_display_dto
 from learnloop.services.replay import rebuild_derived_state
 from learnloop.services.proposals import (
     accept_items,
@@ -4391,6 +4392,21 @@ def show(
                     **payload,
                     "items": repository.proposal_items(identifier),
                 }
+    if isinstance(payload, dict):
+        provenance = payload.get("provenance")
+        if isinstance(provenance, dict) and isinstance(
+            provenance.get("source_refs"), list
+        ):
+            payload = {
+                **payload,
+                "provenance": {
+                    **provenance,
+                    "source_refs": [
+                        source_ref_display_dto(loaded, repository, source_ref)
+                        for source_ref in provenance["source_refs"]
+                    ],
+                },
+            }
     if payload is None:
         if json_output:
             typer.echo(_dump({"version": 1, "error": "not_found", "identifier": identifier}))

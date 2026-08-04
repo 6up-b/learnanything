@@ -186,7 +186,13 @@ def test_happy_path_snapshot_verification_and_final_receipt(tmp_path):
     assert final["cold_attempt_id"] == cold.attempt_id
     assert final["cold_verification_id"] == receipt["id"]
     assert final["source_attempt_id"] == primed.attempt_id
+    assert final["measurement_opportunity_id"] == task["measurement_opportunity_id"]
     assert repository.coldness_receipt_for_verification(receipt["id"]) is not None
+    decision = repository.cold_measurement_opportunity_decision(
+        str(task["measurement_opportunity_id"])
+    )
+    assert decision["decision"] == "scheduled"
+    assert decision["followup_task_id"] == task["id"]
 
     statuses = _statuses(final)
     assert statuses == {
@@ -300,6 +306,42 @@ def test_retrieval_cointervention_demotes_attribution_not_the_verification(tmp_p
     assert [event["type"] for event in events] == ["retrieval"]
 
 
+def test_recent_retrieval_resets_the_cold_delay_anchor(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path, third_item=True)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    third = next(
+        item_id
+        for item_id in ("pi_svd_define_001", "pi_svd_define_002", "pi_svd_define_003")
+        if item_id not in (treatment["primed_item_id"], treatment["cold_item_id"])
+    )
+    recent = _attempt(
+        vault,
+        repository,
+        third,
+        clock=FrozenClock(NOW + timedelta(days=1, hours=23)),
+    )
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+
+    assert record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    ) is not None
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    delay = final["dimensions"]["retrieval_delay"]
+    assert delay["status"] == "fail"
+    assert delay["evidence"]["anchor_reset_by"] == {
+        "ledger": "practice_attempts",
+        "event_id": recent.attempt_id,
+        "type": "retrieval",
+    }
+    assert delay["evidence"]["delay_seconds_from_anchor"] == 3600
+    assert final["derived"]["qualifies_as_cold_retrieval"] is False
+    assert final["derived"]["qualifies_as_repair_effect_verification"] is False
+
+
 # -- hard leakage -------------------------------------------------------------
 
 
@@ -395,6 +437,66 @@ def test_prescription_without_a_delivery_record_is_unknown_not_pass(tmp_path):
     assert prepared[0]["why"] == "passages_prepared_in_interval_no_delivery_record"
     # And the structurally-unobserved dimension stays unknown too.
     assert final["dimensions"]["verification_blinding"]["status"] == "unknown"
+
+
+def test_unrelated_remediation_is_counted_but_does_not_change_coldness(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    unrelated = repository.insert_misconception(
+        learning_object_id="lo_unrelated_subject",
+        statement="An unrelated misunderstanding.",
+        correction_statement="An unrelated correction.",
+        # Deliberately reuse generic facet names: LO scope must keep this from
+        # becoming "related" merely because both subjects contain recall work.
+        facet_ids=["recall"],
+        target_facet="recall",
+        confused_with_facet="application",
+        severity=0.5,
+        clock=DAY1,
+    )
+    delivered = repository.create_remediation_episode(
+        case_kind="misconception",
+        case_ref=unrelated,
+        passages_shown=[
+            {
+                "role": "target",
+                "facet_id": "recall",
+                "span_view": {
+                    "extraction_id": "ext_other",
+                    "span_id": "s_other",
+                },
+            }
+        ],
+        clock=DAY1,
+    )
+    record_prescription_delivery(repository, delivered, clock=DAY1)
+    repository.create_remediation_episode(
+        case_kind="misconception",
+        case_ref=unrelated,
+        passages_shown=[{"role": "target", "facet_id": "recall"}],
+        clock=DAY1,
+    )
+
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    assert record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    ) is not None
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    isolation = final["dimensions"]["exposure_isolation"]
+    assert isolation["status"] == "pass"
+    assert isolation["evidence"]["events"] == []
+    assert isolation["evidence"]["prepared_unconfirmed"] == []
+    assert isolation["evidence"]["irrelevant_by_ledger"] == {
+        "remediation_episodes.passages_shown_json": 2,
+        "source_exposure_events": 1,
+    }
+    delay = final["dimensions"]["retrieval_delay"]["evidence"]
+    assert delay["anchor_reset_by"] is None
+    assert delay["delay_seconds_from_anchor"] == 2 * 24 * 3600
 
 
 # -- delivered passages (v2) --------------------------------------------------
@@ -875,7 +977,31 @@ def test_detail_serve_writes_one_snapshot_for_an_active_cold_task(tmp_path):
     scheduled = _cold_retry_task(repository)
     # The scheduled task's 30-day expiry sits in the fixture past, where the
     # serializer's wall-clock read cannot see it — mint the same task shape
-    # with no expiry so it is active NOW, as it would be in a live vault.
+    # with no expiry so it is active NOW, as it would be in a live vault. Put a
+    # certification task on the same item FIRST: an unqualified lookup would
+    # return it and shadow the repair administration snapshot.
+    certification = repository.create_followup_task(
+        kind="certification_cold_probe",
+        case_kind="certification",
+        case_ref="cert_shadow",
+        not_before=str(scheduled["not_before"]),
+        expires_at=None,
+        selected_item_id=scheduled["selected_item_id"],
+        learning_object_id=LO_ID,
+        context={
+            "kind": "certification_cold_probe",
+            "certificate_id": "cert_shadow",
+            "learning_object_id": LO_ID,
+            "certified_at": NOW_ISO,
+            "measurement_anchor_at": NOW_ISO,
+            "horizon_days": 1.0,
+            "excluded_surface_groups": [],
+            "held_out_basis": "distinct_surface_group",
+            "probe_surface_group": f"item:{scheduled['selected_item_id']}",
+            "certificate_receipt": {"cells": [{"facet_id": "recall"}]},
+        },
+        clock=FrozenClock(NOW),
+    )
     live = repository.create_followup_task(
         kind="cold_retry",
         case_kind=str(scheduled["case_kind"]),
@@ -893,12 +1019,18 @@ def test_detail_serve_writes_one_snapshot_for_an_active_cold_task(tmp_path):
     assert detail["activeFollowupKind"] == "cold_retry"
     first = repository.coldness_receipt_for_task_stage(str(live["id"]), "administration")
     assert first is not None
+    cert_first = repository.coldness_receipt_for_task_stage(
+        str(certification["id"]), "administration"
+    )
+    assert cert_first is not None
+    assert cert_first["lane"] == "certification_cold_probe"
 
     # Serving the detail again is the same administration: one snapshot.
     practice_item_detail(vault, repository, treatment["cold_item_id"])
     rows = repository.coldness_receipts_for_task(str(live["id"]))
     assert [row["stage"] for row in rows] == ["administration"]
     assert rows[0]["id"] == first["id"]
+    assert len(repository.coldness_receipts_for_task(str(certification["id"]))) == 1
 
 
 # -- expiry -------------------------------------------------------------------

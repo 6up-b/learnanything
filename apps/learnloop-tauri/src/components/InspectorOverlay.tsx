@@ -501,7 +501,7 @@ function PracticeItemBody({
         <>
           <div style={{ fontSize: 11, color: COLOR.textFaint, margin: "12px 0 6px" }}>source refs</div>
           {detail.sourceRefs.map((ref, index) => (
-            <InspectorRow key={`${ref.refId}:${index}`} label={ref.refId}>
+            <InspectorRow key={`${ref.refId}:${index}`} label={ref.displayName}>
               <Dim>{ref.locator ?? ref.path ?? ref.refType}</Dim>
             </InspectorRow>
           ))}

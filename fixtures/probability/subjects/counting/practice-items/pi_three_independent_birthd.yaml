@@ -1,0 +1,162 @@
+schema_version: 1
+id: pi_three_independent_birthd
+learning_object_id: lo_analyze_and_optimize_nonuniform_collision_probab
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_independent_birthdays_with_category_probabil
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Three independent birthdays use category probabilities p1,...,pn. Derive
+  the probability that all three birthdays differ in terms of e3(p1,...,pn). 
+  Then explain how replacing two unequal probabilities x and y by their average 
+  affects the no-match probability and hence the collision probability.
+expected_answer: For each unordered triple of distinct categories, there are 3! 
+  orders, so P(all distinct)=3!e3(p1,...,pn). In the expansion of e3, terms 
+  using neither x nor y are unchanged; terms using exactly one depend only on 
+  x+y and are unchanged; terms using both contain xy, which weakly increases to 
+  ((x+y)/2)^2 by AM–GM. Thus the no-match probability does not decrease, so the 
+  collision probability does not increase. Repeating equalization reaches the 
+  uniform vector, which minimizes collision probability.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.55
+scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
+surface_family: nonuniform_collision
+evidence_fingerprint:
+  source_family: primary_textbook_exercise
+  shared_stimulus_id: nonuniform_birthday_optimization
+  representation: probability vector and elementary symmetric polynomial
+  solution_recipe_family: distinct-order enumeration and pairwise smoothing
+  answer_structure: symbolic derivation and inequality proof
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_independent_birthdays_with_category_probabil
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_birthday_formula
+      points: 2.0
+      description: Derives P(all distinct)=3!e3 and explains the factorial as 
+        the number of orderings of each distinct category triple.
+      tier: core
+      targets:
+        - facet: facet_for_independent_birthdays_with_category_probabil
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_nonuniform_birthday_smoothing
+        - bp_analyze_nonuniform_collisions
+      correlation_group: birthday_smoothing
+      recipe_ids:
+        - recipe_nonuniform_birthday
+      measurement_status:
+    - id: criterion_birthday_smoothing
+      points: 3.0
+      description: Groups terms by whether they use neither, one, or both 
+        averaged probabilities; applies AM–GM to the product term; and gives the
+        correct direction for no-match and collision probabilities.
+      tier: transfer
+      targets:
+        - facet: facet_for_independent_birthdays_with_category_probabil
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_nonuniform_birthday_smoothing
+        - bp_analyze_nonuniform_collisions
+      correlation_group: birthday_smoothing
+      recipe_ids:
+        - recipe_nonuniform_birthday
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s507
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s508
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s512
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s518
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:50Z'
+updated_at: '2026-07-28T17:34:50Z'

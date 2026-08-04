@@ -1,0 +1,146 @@
+schema_version: 1
+id: pi_exercise_01kyn1z0eqj11cr34v78rzwdf4
+learning_object_id: lo_count_compound_and_ordered_outcomes
+subjects:
+practice_mode: source_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_if_each_complete_outcome_is_specified_by_success
+  - facet_for_k_ordered_choices_from_n_distinguishable_obj
+evidence_weights:
+  facet_if_each_complete_outcome_is_specified_by_success: 0.6
+  facet_for_k_ordered_choices_from_n_distinguishable_obj: 0.4
+criterion_facet_weights:
+  c1:
+    facet_for_k_ordered_choices_from_n_distinguishable_obj: 1.0
+  c2:
+    facet_if_each_complete_outcome_is_specified_by_success: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: counting_solution
+      checkpoints:
+        - establish_total_outcomes
+        - count_favorable_assignments
+        - form_probability
+      dependencies:
+        establish_total_outcomes: []
+        count_favorable_assignments: []
+        form_probability:
+          - establish_total_outcomes
+          - count_favorable_assignments
+variant_contract:
+teach_back_source:
+prompt: A group of 30 dice are thrown. What is the probability that 5 of each of
+  the values 1, 2, 3, 4, 5, 6 appear?
+expected_answer: "Treat the 30 dice as distinguishable, so an outcome is an ordered
+  sequence of 30 values. Each die has 6 possible values, independently and with equal
+  probability, giving\n\n\\[\n6^{30}\n\\]\n\nequally likely outcomes.\n\nTo count
+  the favorable outcomes, choose which 5 dice show 1, then which 5 of the remaining
+  dice show 2, and continue for all six values:\n\n\\[\n\\binom{30}{5}\\binom{25}{5}\\\
+  binom{20}{5}\\binom{15}{5}\\binom{10}{5}\\binom{5}{5}\n=\\frac{30!}{(5!)^6}.\n\\\
+  ]\n\nTherefore, the required probability is\n\n\\[\n\\boxed{\\frac{30!}{(5!)^6 6^{30}}}.\n\
+  \\]"
+difficulty: 0.35
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Model an outcome by recording the value shown by each of the 30 
+    distinguishable dice.
+  - First count all ordered sequences of 30 die values. Then count the sequences
+    in which every face has a prescribed set of five positions.
+  - Count the favorable position assignments by choosing five positions for one 
+    face, five of the remaining positions for the next face, and continuing 
+    through all six faces.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.1
+scaffold_level: 0.0
+capability: method_selection
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - verbal
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Identifies the 30 dice as distinguishable trials and gives 
+        the total number of equally likely outcomes as 6^30.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c2
+      points: 2.0
+      description: Correctly counts assignments having five occurrences of each 
+        face as 30!/(5!)^6, or as an equivalent product of successive binomial 
+        coefficients.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c3
+      points: 1.0
+      description: Divides the favorable count by 6^30 and presents the 
+        probability as 30!/((5!)^6 6^30) or an equivalent expression.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s455
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:06:59Z'
+updated_at: '2026-07-28T19:06:59Z'

@@ -1,0 +1,70 @@
+schema_version: 1
+id: lo_construct_a_complete_sample_space
+title: Construct a Complete Sample Space
+subjects:
+  - counting
+concept: concept_sample_space
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Identify the outcomes of an experiment and choose a representation that
+  includes every possible result without merging results that must remain 
+  distinct.
+prerequisites: []
+confusables:
+  - concept_event
+blueprints:
+  - id: bp_01KYMWND
+    weight: 1.0
+    recipes:
+      - id: recipe_construct_sample_space
+        composition: conjunctive
+        all_of:
+          - facet: facet_the_sample_space_s_of_an_experiment_is_the_set_o
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_an_ordered_sequence_of_repeated_binary_trials_ca
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s16
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s31
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:35Z'
+updated_at: '2026-07-28T17:34:39Z'

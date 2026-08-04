@@ -1,0 +1,156 @@
+schema_version: 1
+id: pi_exercise_01kyn22qcffk7sae9ttxvz4j5n
+learning_object_id: lo_model_and_count_overlapping_bad_events
+subjects:
+practice_mode: worked_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_for_a_union_of_overlapping_events_add_the_single
+evidence_weights:
+  facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+criterion_facet_weights:
+  c1:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+  c2:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+  c3:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: inclusion_exclusion_solution
+      checkpoints:
+        - Define the six missing-value events and express the target as their 
+          union.
+        - Compute the probability of an intersection corresponding to k 
+          specified missing values.
+        - Count the choices of k missing values and assemble the alternating 
+          inclusion-exclusion sum.
+      dependencies:
+        Define the six missing-value events and express the target as their 
+          union.: []
+        Compute the probability of an intersection corresponding to k specified 
+          missing values.:
+          - Define the six missing-value events and express the target as their 
+            union.
+        Count the choices of k missing values and assemble the alternating 
+          inclusion-exclusion sum.:
+          - Define the six missing-value events and express the target as their 
+            union.
+          - Compute the probability of an intersection corresponding to k 
+            specified missing values.
+variant_contract:
+teach_back_source:
+prompt: A fair die is rolled n times. What is the probability that at least 1 of
+  the 6 values never appears?
+expected_answer: "Let \\(A_i\\) be the event that value \\(i\\) never appears, for
+  \\(i=1,\\ldots,6\\). The desired event is \\(A_1\\cup\\cdots\\cup A_6\\).\n\nFor
+  any particular set of \\(k\\) values, the probability that all \\(k\\) values are
+  absent is\n\\[\n\\left(\\frac{6-k}{6}\\right)^n,\n\\]\nsince every roll must be
+  one of the remaining \\(6-k\\) values. There are \\(\\binom{6}{k}\\) ways to choose
+  the absent values. Thus, by inclusion-exclusion,\n\\[\n\\boxed{\\Pr(A_1\\cup\\cdots\\
+  cup A_6)=\\sum_{k=1}^{6}(-1)^{k+1}\\binom{6}{k}\\left(\\frac{6-k}{6}\\right)^n.}\n\
+  \\]\nEquivalently,\n\\[\n\\boxed{1-\\frac{1}{6^n}\\sum_{k=0}^{6}(-1)^k\\binom{6}{k}(6-k)^n.}\n\
+  \\]\nThe formulas also correctly give probability \\(1\\) when \\(n<6\\), because
+  fewer than six rolls cannot display all six values."
+difficulty: 0.45
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - For each face value, define an event that this value is absent from all n 
+    rolls.
+  - The requested event is a union of six overlapping events, so account for 
+    their intersections with inclusion-exclusion.
+  - If a particular set of k face values is forbidden, each roll has 6-k allowed
+    outcomes. Then count how many such sets of k values there are.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.1
+scaffold_level: 0.0
+capability: method_selection
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - verbal
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Defines one event for each die value being absent and 
+        identifies the requested event as the union of those six events.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c2
+      points: 1.0
+      description: For a specified set of k absent values, correctly obtains the
+        intersection probability ((6-k)/6)^n and counts C(6,k) such sets.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c3
+      points: 2.0
+      description: Applies the alternating inclusion-exclusion expansion 
+        correctly and presents an equivalent correct final probability formula.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s484
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:09:01Z'
+updated_at: '2026-07-28T19:09:01Z'

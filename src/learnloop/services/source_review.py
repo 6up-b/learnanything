@@ -14,6 +14,7 @@ import hashlib
 import re
 from typing import Any
 
+from learnloop.ingest.locators import parse_block_span
 from learnloop.services.source_ingestion import (
     SourceChunk,
     _caption_chunks_for_time_range,
@@ -22,6 +23,7 @@ from learnloop.services.source_ingestion import (
     _locator_hash_for_ref,
     _youtube_video_id,
 )
+from learnloop.services.source_refs import source_ref_presentation
 
 # Cues of surrounding transcript context on each side of the matched range: a
 # single caption cue is only a few seconds of speech, too little to re-learn from.
@@ -30,29 +32,101 @@ CAPTION_CONTEXT_CUES = 2
 _DISPLAYABLE_REF_TYPES = {"canonical_source", "note"}
 
 
-def resolve_source_refs(vault, item) -> list[dict[str, Any]]:
+def resolve_source_refs(vault, item, repository=None) -> list[dict[str, Any]]:
     """Resolve an item's source refs for display. One dict per displayable ref."""
 
-    notes_by_id = vault.notes
-    notes_by_path = {note.path: note for note in vault.notes.values() if note.path}
     resolved: list[dict[str, Any]] = []
     for ref in item.provenance.source_refs:
         if ref.ref_type not in _DISPLAYABLE_REF_TYPES:
             continue
-        note = notes_by_id.get(ref.ref_id) or notes_by_path.get(ref.path)
-        if note is None:
-            resolved.append(_quote_fallback(ref, kind=None, note=None))
-            continue
-        metadata = getattr(note, "model_extra", {}) or {}
+        presentation = source_ref_presentation(vault, repository, ref)
+        note = presentation.note
+        metadata = (getattr(note, "model_extra", {}) or {}) if note is not None else {}
         canonical = metadata.get("canonical_source")
         canonical = canonical if isinstance(canonical, dict) else {}
-        kind = canonical.get("kind") or "note"
+        canonical = {
+            **canonical,
+            "kind": presentation.kind or canonical.get("kind"),
+            "title": presentation.display_name,
+            "canonical_uri": presentation.canonical_uri or canonical.get("canonical_uri"),
+            "original_uri": presentation.original_uri or canonical.get("original_uri"),
+        }
+        kind = presentation.kind or "note"
+        block_span = _resolve_block_span_ref(
+            repository,
+            ref,
+            kind=kind,
+            note=note,
+            canonical=canonical,
+        )
+        if block_span is not None:
+            resolved.append(block_span)
+            continue
+        if note is None:
+            if kind == "youtube_video":
+                resolved.append(_resolve_video_ref(ref, None, canonical, []))
+            else:
+                resolved.append(
+                    _quote_fallback(ref, kind=kind, note=None, canonical=canonical)
+                )
+            continue
         chunks = _chunks_for_note_body(kind, note.body)
         if kind == "youtube_video":
             resolved.append(_resolve_video_ref(ref, note, canonical, chunks))
         else:
             resolved.append(_resolve_text_ref(ref, note, canonical, kind, chunks))
     return resolved
+
+
+def _resolve_block_span_ref(
+    repository,
+    ref,
+    *,
+    kind: str,
+    note,
+    canonical: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Resolve current-ingest ``block_span_v1`` refs from the persisted IR."""
+
+    parsed = parse_block_span(ref.locator or "")
+    if parsed is None or repository is None:
+        return None
+    extraction_id, anchor_span_id = parsed
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return None
+
+    requested_span_ids = list(ref.span_ids) or [anchor_span_id]
+    blocks_by_span = {block.span_id: block for block in ir.blocks}
+    blocks = [
+        blocks_by_span[span_id]
+        for span_id in requested_span_ids
+        if span_id in blocks_by_span
+    ]
+    if not blocks:
+        return None
+
+    entry = _base_entry(ref, kind, note, canonical)
+    entry["locator_resolved"] = True
+    entry["heading_path"] = list(blocks[0].section_path)
+    entry["section_md"] = "\n\n".join(block.text for block in blocks)
+    entry["source_changed"] = len(blocks) != len(requested_span_ids)
+
+    if ref.span_hash:
+        material = "\n".join(block.content_hash for block in blocks)
+        current_hash = "sha256:" + hashlib.sha256(material.encode("utf-8")).hexdigest()
+        entry["source_changed"] = entry["source_changed"] or current_hash != ref.span_hash
+    elif ref.quote_hash:
+        current_hash = "sha256:" + hashlib.sha256(
+            entry["section_md"].encode("utf-8")
+        ).hexdigest()
+        stored_hash = (
+            ref.quote_hash
+            if ref.quote_hash.startswith("sha256:")
+            else f"sha256:{ref.quote_hash}"
+        )
+        entry["source_changed"] = entry["source_changed"] or current_hash != stored_hash
+    return entry
 
 
 def _base_entry(ref, kind: str | None, note, canonical: dict[str, Any] | None = None) -> dict[str, Any]:

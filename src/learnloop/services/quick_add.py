@@ -285,8 +285,14 @@ def plan_quick_add(
     unit_ids, labels, tokens, whole = select_relevant_units(outline, keywords=keywords, cap_tokens=cap)
 
     category = item.category
-    suggested_role = _ROLE_BY_CATEGORY.get(category or "", "reference")
-    role_ambiguous = category not in _CONFIDENT_ROLE_CATEGORIES
+    if brief.get("authoring_preset") == "narrow_adjunct":
+        # Enrichment is an authoring policy, not a new authority role. Its
+        # source participates with the existing reference authority contract.
+        suggested_role = "reference"
+        role_ambiguous = False
+    else:
+        suggested_role = _ROLE_BY_CATEGORY.get(category or "", "reference")
+        role_ambiguous = category not in _CONFIDENT_ROLE_CATEGORIES
 
     plan_estimate = build_build_plan(
         repo,

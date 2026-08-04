@@ -7,12 +7,14 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.ingest.source_library import register_source_revision
 from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.services.observations import record_observation, register_observation_template
 from learnloop.services.probes import enter_probe
 from learnloop.services.proposals import accept_items, persist_authoring_proposal
 from learnloop.codex.schemas import AuthoringProposal
 from learnloop.vault.loader import add_note, load_vault
+from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop.vault.writer import upsert_concept_edge
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
@@ -155,6 +157,39 @@ def test_show_missing_id_returns_not_found(tmp_path):
     result = runner.invoke(app, ["show", "does_not_exist", "--json", "--vault", str(vault_root)])
     assert result.exit_code == 1
     assert json.loads(result.output)["error"] == "not_found"
+
+
+def test_show_adds_imported_source_name_without_replacing_ref_id(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    registered = register_source_revision(
+        repository,
+        acquisition_kind="pdf",
+        canonical_uri="file:///home/learner/exam-review.pdf",
+        raw_bytes=b"%PDF-exam-review",
+        original_uri="file:///home/learner/exam-review.pdf",
+    )
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    item = read_yaml(item_path)
+    item["provenance"]["source_refs"] = [
+        {
+            "ref_type": "canonical_source",
+            "ref_id": registered.source_id,
+            "revision_id": registered.revision_id,
+        }
+    ]
+    write_yaml(item_path, item)
+
+    result = runner.invoke(
+        app,
+        ["show", "pi_svd_define_001", "--json", "--vault", str(vault_root)],
+    )
+
+    assert result.exit_code == 0, result.output
+    [source_ref] = json.loads(result.output)["record"]["provenance"]["source_refs"]
+    assert source_ref["display_name"] == "exam-review.pdf"
+    assert source_ref["ref_id"] == registered.source_id
 
 
 def _proposal_payload() -> dict:

@@ -1,0 +1,69 @@
+schema_version: 1
+id: lo_derive_and_use_basic_probability_rules
+title: Derive and use basic probability rules
+subjects:
+  - counting
+concept: concept_probability_axioms_and_derived_rules
+knowledge_type: conceptual and procedural
+status: active
+contradicts:
+summary: Apply the axioms through disjoint decompositions to complements, 
+  containment, and two-event unions.
+prerequisites:
+  - concept_outcome_modeling_for_counting_probability
+confusables: []
+blueprints:
+  - id: bp_01KYMWND_10
+    weight: 1.0
+    recipes:
+      - id: recipe-use-probability-rules
+        composition: conjunctive
+        all_of:
+          - facet: facet_a_probability_function_assigns_events_values_in_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s243
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s275
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+created_at: '2026-07-28T17:34:37Z'
+updated_at: '2026-07-28T17:34:42Z'

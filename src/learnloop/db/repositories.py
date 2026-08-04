@@ -2890,6 +2890,7 @@ class Repository:
         allowed = {
             "state", "passages_shown", "primed_item_id", "cold_item_id",
             "primed_attempt_id", "cold_attempt_id", "completed_at",
+            "cold_measurement_opportunity_id",
         }
         values = {key: value for key, value in changes.items() if key in allowed}
         if not values:
@@ -2959,6 +2960,9 @@ class Repository:
         expires_at: str | None = None,
         context: Mapping[str, Any] | None = None,
         learning_object_id: str | None = None,
+        measurement_opportunity_id: str | None = None,
+        measurement_decision_reason: str | None = None,
+        measurement_candidate_summary: Mapping[str, Any] | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Schedule one delayed follow-up.
@@ -2984,8 +2988,8 @@ class Repository:
                   id, kind, case_kind, case_ref, source_attempt_id,
                   remediation_episode_id, not_before, expires_at, status,
                   selected_item_id, context_json, learning_object_id,
-                  created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+                  measurement_opportunity_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id, kind, case_kind, case_ref, source_attempt_id,
@@ -2993,18 +2997,213 @@ class Repository:
                     selected_item_id,
                     _json(dict(context)) if context is not None else None,
                     learning_object_id,
+                    measurement_opportunity_id,
                     now, now,
                 ),
             )
+            if (
+                measurement_opportunity_id is not None
+                and measurement_decision_reason is not None
+            ):
+                # The queue row and the opportunity's scheduled decision are
+                # one transaction. A crash cannot leave a schedulable task
+                # whose denominator row still says "undecided".
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO cold_measurement_opportunity_decisions(
+                      id, measurement_opportunity_id, decision, reason,
+                      followup_task_id, selected_item_id,
+                      candidate_summary_json, scheduled_not_before,
+                      scheduled_expires_at, created_at
+                    ) VALUES (?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_ulid(),
+                        measurement_opportunity_id,
+                        measurement_decision_reason,
+                        task_id,
+                        selected_item_id,
+                        _json(dict(measurement_candidate_summary or {})),
+                        not_before,
+                        expires_at,
+                        now,
+                    ),
+                )
             connection.commit()
         task = self.followup_task(task_id)
         assert task is not None
         return task
 
+    # -- Cold-measurement opportunities (migration 151) -------------------
+
+    def get_or_create_cold_measurement_opportunity(
+        self,
+        *,
+        lane: str,
+        trigger_kind: str,
+        trigger_ref: str,
+        policy_version: str,
+        learning_object_id: str | None = None,
+        case_kind: str | None = None,
+        case_ref: str | None = None,
+        remediation_episode_id: str | None = None,
+        source_attempt_id: str | None = None,
+        certificate_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Create the denominator row before candidate selection.
+
+        The unique ``(lane, trigger_kind, trigger_ref)`` key makes scheduler
+        replay idempotent.  The row is append-only: a later scheduling decision
+        is a child record rather than a mutation of the opportunity.
+        """
+
+        opportunity_id = new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            if not connection.in_transaction:
+                connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO cold_measurement_opportunities(
+                  id, lane, trigger_kind, trigger_ref, learning_object_id,
+                  case_kind, case_ref, remediation_episode_id,
+                  source_attempt_id, certificate_id, policy_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    opportunity_id,
+                    lane,
+                    trigger_kind,
+                    trigger_ref,
+                    learning_object_id,
+                    case_kind,
+                    case_ref,
+                    remediation_episode_id,
+                    source_attempt_id,
+                    certificate_id,
+                    policy_version,
+                    now,
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunities
+                 WHERE lane = ? AND trigger_kind = ? AND trigger_ref = ?
+                """,
+                (lane, trigger_kind, trigger_ref),
+            ).fetchone()
+            connection.commit()
+        assert row is not None
+        return dict(row)
+
+    def cold_measurement_opportunity(
+        self, opportunity_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM cold_measurement_opportunities WHERE id = ?",
+                (opportunity_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def record_cold_measurement_opportunity_decision(
+        self,
+        *,
+        measurement_opportunity_id: str,
+        decision: str,
+        reason: str,
+        followup_task_id: str | None = None,
+        selected_item_id: str | None = None,
+        candidate_summary: Mapping[str, Any] | None = None,
+        scheduled_not_before: str | None = None,
+        scheduled_expires_at: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Settle an opportunity once, preserving the first terminal decision."""
+
+        decision_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO cold_measurement_opportunity_decisions(
+                  id, measurement_opportunity_id, decision, reason,
+                  followup_task_id, selected_item_id, candidate_summary_json,
+                  scheduled_not_before, scheduled_expires_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    decision_id,
+                    measurement_opportunity_id,
+                    decision,
+                    reason,
+                    followup_task_id,
+                    selected_item_id,
+                    _json(dict(candidate_summary or {})),
+                    scheduled_not_before,
+                    scheduled_expires_at,
+                    utc_now_iso(clock),
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunity_decisions
+                 WHERE measurement_opportunity_id = ?
+                """,
+                (measurement_opportunity_id,),
+            ).fetchone()
+            connection.commit()
+        assert row is not None
+        return self._decode_cold_measurement_opportunity_decision(row)
+
+    @staticmethod
+    def _decode_cold_measurement_opportunity_decision(
+        row: Any,
+    ) -> dict[str, Any]:
+        payload = dict(row)
+        payload["candidate_summary"] = _loads(
+            payload.pop("candidate_summary_json"), {}
+        )
+        return payload
+
+    def cold_measurement_opportunity_decision(
+        self, measurement_opportunity_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunity_decisions
+                 WHERE measurement_opportunity_id = ?
+                """,
+                (measurement_opportunity_id,),
+            ).fetchone()
+        return (
+            self._decode_cold_measurement_opportunity_decision(row)
+            if row is not None
+            else None
+        )
+
     def followup_task(self, task_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT * FROM followup_tasks WHERE id = ?", (task_id,)).fetchone()
         return _decode_followup_task(row) if row is not None else None
+
+    def attach_followup_task_measurement_opportunity(
+        self, task_id: str, measurement_opportunity_id: str, *, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        """Prospectively attach lineage to a pre-151 task, without replacing it."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks
+                   SET measurement_opportunity_id = ?, updated_at = ?
+                 WHERE id = ? AND measurement_opportunity_id IS NULL
+                """,
+                (measurement_opportunity_id, utc_now_iso(clock), task_id),
+            )
+            connection.commit()
+        return self.followup_task(task_id)
 
     def due_followup_tasks(self, *, clock: Clock | None = None) -> list[dict[str, Any]]:
         now = utc_now_iso(clock)
@@ -3367,6 +3566,8 @@ class Repository:
         span_id: str | None = None,
         entity_type: str | None = None,
         entity_id: str | None = None,
+        after: str | None = None,
+        before: str | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         clauses: list[str] = []
@@ -3383,6 +3584,12 @@ class Repository:
         if entity_id is not None:
             clauses.append("entity_id = ?")
             params.append(entity_id)
+        if after is not None:
+            clauses.append("created_at > ?")
+            params.append(after)
+        if before is not None:
+            clauses.append("created_at < ?")
+            params.append(before)
         query = "SELECT * FROM source_exposure_events"
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
@@ -3455,6 +3662,7 @@ class Repository:
         attempt_id: str | None = None,
         session_id: str | None = None,
         since: str | None = None,
+        until: str | None = None,
         answer_status: str | None = None,
         resolution: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -3476,6 +3684,9 @@ class Repository:
         if since is not None:
             clauses.append("created_at >= ?")
             parameters.append(since)
+        if until is not None:
+            clauses.append("created_at < ?")
+            parameters.append(until)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY created_at, id"
@@ -14560,6 +14771,7 @@ class Repository:
         receipt_id: str,
         lane: str,
         stage: str,
+        measurement_opportunity_id: str | None = None,
         followup_task_id: str | None,
         remediation_episode_id: str | None,
         source_attempt_id: str | None,
@@ -14575,17 +14787,19 @@ class Repository:
             connection.execute(
                 """
                 INSERT OR IGNORE INTO coldness_receipts(
-                  id, lane, stage, followup_task_id, remediation_episode_id,
-                  source_attempt_id, cold_attempt_id, cold_verification_id,
-                  dimensions_json, derived_json, telemetry_coverage_json,
-                  receipt_version, created_at
+                  id, lane, stage, measurement_opportunity_id,
+                  followup_task_id, remediation_episode_id, source_attempt_id,
+                  cold_attempt_id, cold_verification_id, dimensions_json,
+                  derived_json, telemetry_coverage_json, receipt_version,
+                  created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     receipt_id,
                     lane,
                     stage,
+                    measurement_opportunity_id,
                     followup_task_id,
                     remediation_episode_id,
                     source_attempt_id,
@@ -14603,6 +14817,10 @@ class Repository:
         # of this id; return whichever row holds the slot.
         if followup_task_id is not None:
             return self.coldness_receipt_for_task_stage(followup_task_id, stage)
+        if measurement_opportunity_id is not None:
+            return self.coldness_receipt_for_opportunity_stage(
+                measurement_opportunity_id, stage
+            )
         return self.coldness_receipt(receipt_id)
 
     @staticmethod
@@ -14632,6 +14850,19 @@ class Repository:
                  WHERE followup_task_id = ? AND stage = ?
                 """,
                 (followup_task_id, stage),
+            ).fetchone()
+        return self._decode_coldness_receipt(row) if row is not None else None
+
+    def coldness_receipt_for_opportunity_stage(
+        self, measurement_opportunity_id: str, stage: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM coldness_receipts
+                 WHERE measurement_opportunity_id = ? AND stage = ?
+                """,
+                (measurement_opportunity_id, stage),
             ).fetchone()
         return self._decode_coldness_receipt(row) if row is not None else None
 
@@ -14686,6 +14917,35 @@ class Repository:
                 ORDER BY created_at, id
                 """,
                 params,
+            ).fetchall()
+        return [_decode_attempt(row) for row in rows]
+
+    def practice_attempts_for_items_before(
+        self,
+        practice_item_ids: Sequence[str],
+        *,
+        before: str,
+    ) -> list[dict[str, Any]]:
+        """Prior administrations for a bounded candidate surface family.
+
+        Receipt novelty checks know the finite set of item ids that resolve to
+        the candidate's canonical surface group. Querying only those ids avoids
+        replaying the learner's complete attempt history in a large vault.
+        """
+
+        item_ids = sorted({str(value) for value in practice_item_ids if value})
+        if not item_ids:
+            return []
+        placeholders = ",".join("?" for _ in item_ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM practice_attempts
+                 WHERE practice_item_id IN ({placeholders})
+                   AND created_at < ?
+                 ORDER BY created_at, id
+                """,
+                (*item_ids, before),
             ).fetchall()
         return [_decode_attempt(row) for row in rows]
 

@@ -47,8 +47,35 @@ def test_fresh_db_applies_all_migrations(tmp_path):
         "misconception_disposition_events",
         "question_promotion_requests",
         "queue_state",
+        "cold_measurement_opportunities",
+        "cold_measurement_opportunity_decisions",
     }:
         assert required in tables
+
+
+def test_repair_opportunity_bridge_applies_after_opportunity_substrate(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    through_151 = tmp_path / "through_151"
+    through_151.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 151:
+            shutil.copy2(migration.path, through_151 / migration.path.name)
+    apply_migrations(sqlite_path, migrations_dir=through_151)
+    with connect(sqlite_path) as connection:
+        before = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(remediation_episodes)")
+        }
+    assert "cold_measurement_opportunity_id" not in before
+
+    applied = apply_migrations(sqlite_path)
+    assert 152 in [migration.version for migration in applied]
+    with connect(sqlite_path) as connection:
+        after = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(remediation_episodes)")
+        }
+    assert "cold_measurement_opportunity_id" in after
 
 
 def test_first_error_cleanup_is_semantically_demoted_not_learned(tmp_path):

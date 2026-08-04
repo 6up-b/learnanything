@@ -1,0 +1,162 @@
+schema_version: 1
+id: pi_for_each_situation_sele
+learning_object_id: lo_select_and_execute_stars_and_bars
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_when_m_interchangeable_objects_are_distributed_a
+  - facet_stars_and_bars_is_applicable_only_when_objects_a
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: 'For each situation, select a counting method and justify the distinction:
+  (a) distribute 10 identical tokens among 4 labeled boxes with every box receiving
+  at least one; (b) distribute 10 individually numbered tokens among 4 labeled boxes
+  with every box receiving at least one. Compute (a), and give a correct exact expression
+  for (b).'
+expected_answer: 'For (a), set yi=xi-1, so y1+...+y4=6 with yi≥0; stars and bars gives
+  binom(9,3)=84. For (b), stars and bars is invalid because the tokens are distinguishable.
+  Count onto functions by inclusion–exclusion: 4^10-4·3^10+6·2^10-4.'
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.15
+transfer_distance: 0.5
+scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
+surface_family: object_distribution
+evidence_fingerprint:
+  source_family: primary_textbook_exercise
+  shared_stimulus_id: fungible_vs_distinguishable_distribution
+  representation: paired distribution scenarios
+  solution_recipe_family: distinguishability test then composition or 
+    onto-function count
+  answer_structure: method comparison and exact counts
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_when_m_interchangeable_objects_are_distributed_a
+  - facet_stars_and_bars_is_applicable_only_when_objects_a
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_stars_method_selection
+      points: 2.0
+      description: Uses stars and bars only for the interchangeable tokens and 
+        explicitly rejects it for the numbered tokens because object identities 
+        distinguish assignments.
+      tier: core
+      targets:
+        - facet: facet_stars_and_bars_is_applicable_only_when_objects_a
+          capability: method_selection
+          role: primary
+      depends_on:
+        - facet_stars_bars_applicability
+        - bp_select_stars_bars
+      correlation_group: stars_distinguishability
+      recipe_ids:
+        - recipe_stars_bars
+      measurement_status:
+    - id: criterion_stars_execution
+      points: 2.0
+      description: Shifts the positive variables correctly and obtains 
+        binom(9,3)=84 for the identical-token distribution.
+      tier: core
+      targets:
+        - facet: facet_when_m_interchangeable_objects_are_distributed_a
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_stars_bars_contract
+        - bp_select_stars_bars
+      correlation_group: stars_distinguishability
+      recipe_ids:
+        - recipe_stars_bars
+      measurement_status:
+    - id: criterion_distinct_expression
+      points: 1.0
+      description: Gives the correct inclusion–exclusion expression 
+        4^10-4·3^10+6·2^10-4 for the distinguishable-token case.
+      tier: transfer
+      targets:
+        - facet: facet_stars_and_bars_is_applicable_only_when_objects_a
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - facet_stars_bars_applicability
+        - bp_select_stars_bars
+      correlation_group: stars_distinguishability
+      recipe_ids:
+        - recipe_stars_bars
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s499
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s501
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s502
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:50Z'
+updated_at: '2026-07-28T17:34:50Z'

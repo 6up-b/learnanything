@@ -14,6 +14,8 @@ import { AsciiLoadingBar } from "./AsciiLoadingBar";
 
 const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"];
 const RECOMMENDED_INVENTORY_OUTPUT_TOKENS = 12_000;
+const NARROW_ADJUNCT_SCOPE =
+  "Treat this source as a narrow enrichment adjunct. Make only additive changes: attach it to existing curriculum when it fits; otherwise add at most one focused learning object. Author one or two practice items. Do not restructure, merge, split, re-key, or broadly expand the existing curriculum.";
 
 export function QuickAddDialog({
   subjects,
@@ -100,13 +102,39 @@ export function QuickAddDialog({
   const asCommandError = (err: unknown): CommandError | null =>
     err && typeof err === "object" && "code" in err ? (err as CommandError) : null;
 
-  // Reader-first seeding: when this source joins the reading loop, bootstrap
-  // authors the study map WITHOUT practice items — they accrue as sections are
-  // read. Reader-off sources keep upfront authoring (no reader to seed from).
+  // Until the learner customizes the brief, preserve the context-sensitive
+  // default. Once chosen in the wizard, practice timing is independent of the
+  // source's Reader participation.
   const effectiveBrief = (): StudyMapBriefDto => ({
     ...(brief ?? {}),
     practiceItems: brief?.practiceItems ?? (readerEnabled ? "as_you_read" : "upfront")
   });
+  const enrichmentActive = brief?.authoringPreset === "narrow_adjunct";
+
+  const applyEnrichmentPreset = () => {
+    setBrief((current) => ({
+      ...(current ?? {}),
+      authoringPreset: "narrow_adjunct",
+      outcome: "general_learning",
+      depth: "intro",
+      scope: NARROW_ADJUNCT_SCOPE,
+      practiceItems: "upfront"
+    }));
+    setReaderEnabled(true);
+  };
+
+  const clearEnrichmentPreset = () => {
+    setBrief((current) => {
+      if (!current) return undefined;
+      const next = { ...current };
+      delete next.authoringPreset;
+      if (next.scope === NARROW_ADJUNCT_SCOPE) delete next.scope;
+      if (next.outcome === "general_learning") delete next.outcome;
+      if (next.depth === "intro") delete next.depth;
+      if (next.practiceItems === "upfront") delete next.practiceItems;
+      return Object.keys(next).length > 0 ? next : undefined;
+    });
+  };
 
   const runPlan = async (rangeIsCurrent = false) => {
     setBusy(true);
@@ -303,6 +331,32 @@ export function QuickAddDialog({
                 width={280}
               />
 
+              <Label style={{ marginTop: 18 }}>source use</Label>
+              <button
+                type="button"
+                onClick={enrichmentActive ? clearEnrichmentPreset : applyEnrichmentPreset}
+                disabled={busy}
+                style={{
+                  width: "100%",
+                  border: `1px solid ${enrichmentActive ? COLOR.amber : COLOR.border}`,
+                  background: enrichmentActive ? "#241d12" : COLOR.bgInput,
+                  color: enrichmentActive ? COLOR.amber : COLOR.text,
+                  padding: "10px 12px",
+                  textAlign: "left",
+                  cursor: busy ? "default" : "pointer",
+                  fontFamily: FONT_MONO
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>{enrichmentActive ? "▣" : "▢"}</span>
+                  <span style={{ fontSize: 12 }}>Enrichment · interesting adjunct</span>
+                  {enrichmentActive ? <Pill color="amber">active</Pill> : null}
+                </div>
+                <Faint style={{ display: "block", marginTop: 5, marginLeft: 22, fontSize: 10, lineHeight: 1.5 }}>
+                  Reference authority · Reader on · one focused learning object at most · 1–2 practice items upfront · no restructuring
+                </Faint>
+              </button>
+
               <Label style={{ marginTop: 18 }}>inventory output budget · per unit</Label>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <input
@@ -333,7 +387,7 @@ export function QuickAddDialog({
               <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10 }}>
                 <span
                   onClick={() => setBriefOpen(true)}
-                  title="the brief is where your intent lives — your level, target depth, exam-prep vs general learning, notation preferences. The same source becomes an intro course or an advanced treatment depending on it; the synthesis model reads it when proposing the study map."
+                  title="the brief is where your intent lives — scope/authoring instructions, practice timing, level, depth, outcome, topics, and notation"
                   style={{
                     cursor: "help",
                     color: COLOR.amberLink,
@@ -346,11 +400,14 @@ export function QuickAddDialog({
                 </span>
                 {brief ? (
                   <Faint style={{ fontSize: 12 }}>
-                    brief: {brief.outcome ?? "general_learning"} · {brief.depth ?? "standard"}
+                    brief: {enrichmentActive ? "enrichment · " : ""}{brief.outcome ?? "general_learning"} · {brief.depth ?? "standard"}
                     {brief.startingLevel ? ` · ${brief.startingLevel.replace(/_/g, " ")}` : ""}
+                    {` · ${effectiveBrief().practiceItems === "as_you_read" ? "practice as you read" : "practice upfront"}`}
                   </Faint>
                 ) : (
-                  <Faint style={{ fontSize: 12 }}>default brief will be used</Faint>
+                  <Faint style={{ fontSize: 12 }}>
+                    default brief · {effectiveBrief().practiceItems === "as_you_read" ? "practice as you read" : "practice upfront"}
+                  </Faint>
                 )}
               </div>
 
@@ -497,7 +554,8 @@ export function QuickAddDialog({
 
       {briefOpen ? (
         <StudyMapBriefWizard
-          initialBrief={brief}
+          initialBrief={effectiveBrief()}
+          defaultPracticeItems={readerEnabled ? "as_you_read" : "upfront"}
           submitLabel="Use brief"
           onClose={() => setBriefOpen(false)}
           onSubmit={(b) => {

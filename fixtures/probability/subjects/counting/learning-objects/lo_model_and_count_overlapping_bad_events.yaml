@@ -1,0 +1,65 @@
+schema_version: 1
+id: lo_model_and_count_overlapping_bad_events
+title: Model and Count Overlapping Bad Events
+subjects:
+  - counting
+concept: concept_inclusion_exclusion
+knowledge_type: procedure
+status: active
+contradicts:
+summary: Define bad events, count their intersections, and apply the full 
+  alternating inclusion–exclusion expansion.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KYMWND_14
+    weight: 1.0
+    recipes:
+      - id: recipe_inclusion_exclusion
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_union_of_overlapping_events_add_the_single
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s483
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s484
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:38Z'
+updated_at: '2026-07-28T17:34:43Z'

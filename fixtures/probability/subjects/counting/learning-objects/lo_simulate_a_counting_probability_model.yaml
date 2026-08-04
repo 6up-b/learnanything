@@ -1,0 +1,71 @@
+schema_version: 1
+id: lo_simulate_a_counting_probability_model
+title: Simulate a counting probability model
+subjects:
+  - counting
+concept: concept_monte_carlo_probability_simulation
+knowledge_type: computational procedure
+status: active
+contradicts:
+summary: Implement repeated random outcomes whose labels, weights, and 
+  replacement settings match the model, then estimate an event probability from 
+  indicators.
+prerequisites:
+  - concept_outcome_modeling_for_counting_probability
+  - concept_probability_axioms_and_derived_rules
+confusables: []
+blueprints:
+  - id: bp_01KYMWND_12
+    weight: 0.6
+    recipes:
+      - id: recipe-simulate-counting-probabilities
+        composition: conjunctive
+        all_of:
+          - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+            capability: schema_interpretation
+            modality: facilitating
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s368
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s376
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:37Z'
+updated_at: '2026-07-28T17:34:42Z'

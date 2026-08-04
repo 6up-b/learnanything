@@ -1,0 +1,264 @@
+schema_version: 1
+id: pi_nonuniform_birthday_simulation_capstone_01
+learning_object_id: lo_simulate_a_counting_probability_model
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+evidence_weights:
+  facet_for_a_finite_sample_space_s_whose_elementary_out: 0.4
+  facet_to_estimate_an_event_probability_by_monte_carlo_: 0.6
+criterion_facet_weights:
+  criterion_execute_estimator:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 0.25
+    facet_to_estimate_an_event_probability_by_monte_carlo_: 0.75
+  criterion_model_one_run:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: recipe_weighted_collision_simulation
+      checkpoints:
+        - define_trial_model
+        - sample_one_group
+        - detect_collision_event
+        - repeat_trials
+        - compute_event_proportion
+      dependencies:
+        compute_event_proportion:
+          - repeat_trials
+        define_trial_model: []
+        detect_collision_event:
+          - sample_one_group
+        repeat_trials:
+          - detect_collision_event
+        sample_one_group:
+          - define_trial_model
+variant_contract:
+teach_back_source:
+prompt: A population has four birthday categories with probabilities (0.1, 0.2, 
+  0.3, 0.4). For a group of 6 independently sampled people, estimate by 
+  10,000-run Monte Carlo simulation the probability that at least three people 
+  share a category. Write R-style code or precise pseudocode. Your response must
+  also state what one complete simulated outcome is, how the event is detected 
+  in one run, and how the final estimate is formed.
+expected_answer: "One complete outcome is an ordered six-tuple of category labels,
+  with each coordinate independently drawn from {1,2,3,4} using probabilities (0.1,0.2,0.3,0.4).
+  R-style code:\n\np <- c(0.1,0.2,0.3,0.4)\nB <- 10000\nhit <- replicate(B, {\n  b
+  <- sample(1:4, 6, replace=TRUE, prob=p)\n  max(tabulate(b, nbins=4)) >= 3\n})\n\
+  mean(hit)\n\nWithin each run, tabulate gives the four category counts, and max(counts)
+  >= 3 detects whether some category appears at least three times. Each value in hit
+  is an event indicator, so mean(hit), equivalently sum(hit)/B, estimates the desired
+  probability."
+difficulty: 0.25
+difficulty_source: llm_estimate
+tags:
+  - reader_section_u10
+  - monte_carlo
+  - birthday_collision
+  - weighted_sampling
+  - capstone
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.35
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: weighted_birthday_collision_simulation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_without_replacement
+    hypothesis: Believes the six people must occupy distinct birthday categories
+      because sampling a category removes it from later draws.
+    observable_signature: Uses sample(1:4, 6, replace=FALSE, prob=p), or 
+      otherwise forbids a category from appearing more than once.
+    misconception_id:
+    facet_id: facet_for_a_finite_sample_space_s_whose_elementary_out
+    fails_criteria:
+      - criterion_model_one_run
+      - criterion_execute_estimator
+    distinguishing_features:
+      - sampling without replacement
+      - repeated categories made impossible
+    source: authored
+  - id: profile_average_occupancy
+    hypothesis: Believes a Monte Carlo event probability is obtained by 
+      averaging the largest category count rather than averaging event 
+      indicators.
+    observable_signature: Returns mean(replicate(B, max(tabulate(sample(1:4, 6, 
+      replace=TRUE, prob=p), nbins=4)))) without testing whether the maximum is 
+      at least 3.
+    misconception_id:
+    facet_id: facet_to_estimate_an_event_probability_by_monte_carlo_
+    fails_criteria:
+      - criterion_execute_estimator
+    distinguishing_features:
+      - averages maximum occupancy
+      - omits the event indicator max(counts) >= 3
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_model_one_run
+      points: 2.0
+      description: Defines one run as six independent weighted draws with 
+        replacement and identifies the complete outcome as an ordered sequence 
+        of six category labels.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_execute_estimator
+      points: 2.0
+      description: Repeats the run, detects a triple-or-larger occupancy in each
+        run, and computes the proportion of runs in which that event occurs.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - criterion_model_one_run
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_simulate_a_counting_probability_model:s363-s386
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s363
+      quote: "sample(4, 3, replace=TRUE, prob=c(0.1,0.2,0.3,0.4))\nsamples three numbers
+        between 1 and 4, with replacement, and with probabilities given by (0.1, 0.2,
+        0.3, 0.4). If the sampling is without replacement, then at each stage the
+        probability of any not-yet-chosen number is proportional to its original probability.\n\
+        Generating many random samples allows us to perform a simulation for a probability
+        problem. The replicate command, which is explained below, is a convenient
+        way to do this.\nMatching problem simulation\nLet's show by simulation that
+        the probability of a matching card in Example 1.6.4 is approximately 1 − 1/e
+        when the deck is sufficiently large. Using R, we can perform the experiment
+        a bunch of times and see how many times we encounter at least one matching
+        card:\nn <- 100\nr <- replicate(10^4,sum(sample(n)==(1:n)))\nsum(r>=1)/10^4\n\
+        In the first line, we choose how many cards are in the deck (here, 100 cards).
+        In the second line, let's work from the inside out:\nsample(n)==(1:n) is a
+        vector of length n, the ith element of which equals 1 if the ith card matches
+        its position in the deck and 0 otherwise. That's because for two numbers a
+        and b, the expression a==b is TRUE if a = b and FALSE otherwise, and TRUE
+        is encoded as 1 and FALSE is encoded as 0. sum adds up the elements of the
+        vector, giving us the number of matching cards in this run of the experiment.
+        replicate does this 10 4 times. We store the results in r, a vector of length
+        10 4 containing the numbers of matched cards from each run of the experiment.\n\
+        In the last line, we add up the number of times where there was at least one
+        matching card, and we divide by the number of simulations.\nTo explain what
+        the code is doing within the code rather than in separate documentation, we
+        can add comments using the # symbol to mark the start of a comment. Comments
+        are ignored by R but can make the code much easier to understand for the reader
+        (who could be you—even if you will be the only one using your code, it is
+        often hard to remember what everything means and how the code is supposed
+        to work when looking at it a month after writing it). Short comments can be
+        on the\nsame line as the corresponding code; longer comments should be on
+        separate lines. For example, a commented version of the above simulation is:\n\
+        n <- 100 # number of cards\nr <- replicate(10^4,sum(sample(n)==(1:n))) # shuffle;
+        count matches\nsum(r>=1)/10^4 # proportion with a match\nWhat did you get
+        when you ran the code? We got 0.63, which is quite close to 1 − 1/e.\nBirthday
+        problem calculation and simulation\nThe following code uses prod (which gives
+        the product of a vector) to calculate the probability of at least one birthday
+        match in a group of 23 people:\nk <- 23\n1-prod((365-k+1):365)/365^k\nBetter
+        yet, R has built-in functions, pbirthday and qbirthday, for the birthday problem!
+        pbirthday(k) returns the probability of at least one match if the room has
+        k people. qbirthday(p) returns the number of people needed in order to have
+        probability p of at least one match. For example, pbirthday(23) is 0.507 and
+        qbirthday(0.5) is 23.\nWe can also find the probability of having at least
+        one triple birthday match, i.e., three people with the same birthday; all
+        we have to do is add coincident=3 to say we're looking for triple matches.
+        For example, pbirthday(23,coincident=3) returns 0.014, so 23 people give us
+        only a 1.4% chance of a triple birthday match. qbirthday(0.5,coincident=3)
+        returns 88, so we'd need 88 people to have at least a 50% chance of at least
+        one triple birthday match.\nTo simulate the birthday problem, we can use\n\
+        b <- sample(1:365,23,replace=TRUE)\ntabulate(b)\nto generate random birthdays
+        for 23 people and then tabulate the counts of how many people were born on
+        each day (the command table(b) creates a prettier table, but is slower). We
+        can run 10 4 repetitions as follows:\nr <- replicate(10^4, max(tabulate(sample(1:365,23,replace=TRUE))))\n\
+        sum(r>=2)/10^4\nIf the probabilities of various days are not all equal, the
+        calculation becomes much more difficult, but the simulation can easily be
+        extended since sample allows us to specify the probability of each day (by
+        default sample assigns equal probabilities, so in the above the probability
+        is 1/365 for each day)."
+      quote_hash: 
+        sha256:9582cfb93dac4d71391ed51908a78c0b3497370d430cc11d110effd3847e2f6d
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s363
+        - s364
+        - s365
+        - s366
+        - s367
+        - s368
+        - s369
+        - s370
+        - s371
+        - s372
+        - s374
+        - s375
+        - s376
+        - s377
+        - s378
+        - s379
+        - s380
+        - s381
+        - s382
+        - s383
+        - s384
+        - s385
+        - s386
+      span_hash: 
+        sha256:5455cb80200991be6658be7376c7d03dd8c2b15428d8f3775755133a0b11a573
+      section_id: u10
+      learning_object_ids:
+        - lo_simulate_a_counting_probability_model
+created_at: '2026-07-28T20:07:29Z'
+updated_at: '2026-07-28T20:07:29Z'

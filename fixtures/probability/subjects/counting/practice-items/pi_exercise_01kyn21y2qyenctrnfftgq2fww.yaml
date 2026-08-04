@@ -1,0 +1,194 @@
+schema_version: 1
+id: pi_exercise_01kyn21y2qyenctrnfftgq2fww
+learning_object_id: lo_derive_and_use_basic_probability_rules
+subjects:
+practice_mode: worked_proof
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_a_probability_function_assigns_events_values_in_
+  - facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+evidence_weights:
+  facet_a_probability_function_assigns_events_values_in_: 0.4
+  facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl: 0.6
+criterion_facet_weights:
+  c2:
+    facet_a_probability_function_assigns_events_values_in_: 1.0
+  c3:
+    facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl: 1.0
+  c4:
+    facet_a_probability_function_assigns_events_values_in_: 0.3
+    facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl: 0.7
+trace_contract:
+  status: available
+  recipes:
+    - id: disjoint_decomposition_proof
+      checkpoints:
+        - decompose_symmetric_difference
+        - apply_additivity
+        - derive_difference_probabilities
+        - substitute_and_simplify
+      dependencies:
+        decompose_symmetric_difference: []
+        apply_additivity:
+          - decompose_symmetric_difference
+        derive_difference_probabilities: []
+        substitute_and_simplify:
+          - apply_additivity
+          - derive_difference_probabilities
+variant_contract:
+teach_back_source:
+prompt: "Let A and B be events. The symmetric difference $A \\triangle B$ is defined
+  to be the set of all elements that are in A or B but not both. In logic and engineering,
+  this event is also called the XOR ( exclusive or ) of A and B . Show that\n\n$$P(A
+  \\triangle B) = P(A) + P(B) - 2P(A \\cap B),$$\n\ndirectly using the axioms of probability."
+expected_answer: "By definition,\n\n$$A\\triangle B=(A\\setminus B)\\cup(B\\setminus
+  A).$$\n\nThe two events on the right are disjoint, so finite additivity gives\n\n\
+  $$P(A\\triangle B)=P(A\\setminus B)+P(B\\setminus A).$$\n\nAlso,\n\n$$A=(A\\setminus
+  B)\\cup(A\\cap B),$$\n\nwhere the union is disjoint. Therefore,\n\n$$P(A)=P(A\\\
+  setminus B)+P(A\\cap B),$$\n\nand hence\n\n$$P(A\\setminus B)=P(A)-P(A\\cap B).$$\n\
+  \nSimilarly, the disjoint decomposition\n\n$$B=(B\\setminus A)\\cup(A\\cap B)$$\n\
+  \ngives\n\n$$P(B\\setminus A)=P(B)-P(A\\cap B).$$\n\nSubstituting these two expressions
+  into the probability of the symmetric difference yields\n\n$$\\begin{aligned}\n\
+  P(A\\triangle B)\n&=P(A)-P(A\\cap B)+P(B)-P(A\\cap B)\\\\\n&=P(A)+P(B)-2P(A\\cap
+  B).\n\\end{aligned}$$"
+difficulty: 0.35
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Represent the XOR event using the parts of $A$ and $B$ that lie outside 
+    their intersection.
+  - Split the symmetric difference into two disjoint set differences so that 
+    finite additivity applies.
+  - Decompose each of $A$ and $B$ into its portion outside the other event and 
+    the common intersection; then solve for the probabilities of the outside 
+    portions.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.1
+scaffold_level: 0.0
+capability: procedure_execution
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Expresses the symmetric difference as the disjoint union of 
+        $A\setminus B$ and $B\setminus A$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+    - id: c2
+      points: 1.0
+      description: Uses finite additivity on the disjoint pieces to write 
+        $P(A\triangle B)=P(A\setminus B)+P(B\setminus A)$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c3
+      points: 1.0
+      description: Uses disjoint decompositions of $A$ and $B$ to derive the 
+        probabilities of both set differences in terms of $P(A)$, $P(B)$, and 
+        $P(A\cap B)$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c4
+      points: 1.0
+      description: Substitutes the two set-difference formulas and simplifies 
+        correctly to the required identity.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s467
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s468
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s469
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:08:35Z'
+updated_at: '2026-07-28T19:08:35Z'

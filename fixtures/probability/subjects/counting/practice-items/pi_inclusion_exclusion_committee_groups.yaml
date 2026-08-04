@@ -1,0 +1,234 @@
+schema_version: 1
+id: pi_inclusion_exclusion_committee_groups
+learning_object_id: lo_model_and_count_overlapping_bad_events
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_for_a_union_of_overlapping_events_add_the_single
+evidence_weights:
+  facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+criterion_facet_weights:
+  analyze_committee_intersections:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+  compute_committee_result:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+  count_committee_singles:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+  define_committee_bad_events:
+    facet_for_a_union_of_overlapping_events_add_the_single: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: committee_ie_trace
+      checkpoints:
+        - define_missing_groups
+        - count_single_events
+        - count_intersections
+        - subtract_union
+      dependencies:
+        count_intersections:
+          - define_missing_groups
+        count_single_events:
+          - define_missing_groups
+        define_missing_groups: []
+        subtract_union:
+          - count_single_events
+          - count_intersections
+variant_contract:
+teach_back_source:
+prompt: A club has two seniors, two juniors, and two sophomores. How many 
+  three-person committees contain at least one member from every class year? 
+  Define a bad event for each missing class year and carry out 
+  inclusion-exclusion from the set of all three-person committees.
+expected_answer: There are C(6,3)=20 committees. For each class year, the event 
+  that it is missing has C(4,3)=4 committees. A committee of size three cannot 
+  be formed after two class years are both excluded because only two people 
+  remain, so every pairwise and triple intersection has size 0. Therefore the 
+  valid count is 20-3·4=8.
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u11
+  - inclusion_exclusion
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.74
+transfer_distance: 0.35
+scaffold_level: 0.03
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: committee_class_coverage
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_a_union_of_overlapping_events_add_the_single
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: define_committee_bad_events
+      points: 1.0
+      description: Defines one missing-class event for each class year.
+      tier: core
+      targets:
+        - facet: facet_for_a_union_of_overlapping_events_add_the_single
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: count_committee_singles
+      points: 1.0
+      description: Counts the total committees and each single bad event.
+      tier: core
+      targets:
+        - facet: facet_for_a_union_of_overlapping_events_add_the_single
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - define_committee_bad_events
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: analyze_committee_intersections
+      points: 1.0
+      description: Correctly determines that all pairwise and triple 
+        intersections are empty.
+      tier: core
+      targets:
+        - facet: facet_for_a_union_of_overlapping_events_add_the_single
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - define_committee_bad_events
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: compute_committee_result
+      points: 1.0
+      description: Applies inclusion-exclusion and obtains 8.
+      tier: core
+      targets:
+        - facet: facet_for_a_union_of_overlapping_events_add_the_single
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - count_committee_singles
+        - analyze_committee_intersections
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_model_and_count_overlapping_bad_events:s478-s491
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s478
+      quote: "The owner of this certificate can redeem it for $1000 if A occurs. No
+        value if A does not occur, except as required by federal, state, or local
+        law. No expiration date.\nLikewise, Arby is willing to sell such a certificate
+        at the same price. Indeed, Arby is willing to buy or sell any number of certificates
+        at this price, as Arby considers it the \"fair\" price.\nArby stubbornly refuses
+        to accept the axioms of probability. In particular, suppose that there are
+        two disjoint events A and B with\n$$P_{\\text{Arby}}(A \\cup B) \\neq P_{\\
+        text{Arby}}(A) + P_{\\text{Arby}}(B).$$\nShow how to make Arby go bankrupt,
+        by giving a list of transactions Arby is willing to make that will guarantee
+        that Arby will lose money (you can assume it will be known whether A occurred
+        and whether B occurred the day after any certificates are bought/sold).\n\
+        Inclusion-exclusion\n49. A fair die is rolled n times. What is the probability
+        that at least 1 of the 6 values never appears? 50. s A card player is dealt
+        a 13-card hand from a well-shuffled, standard deck of cards. What is the probability
+        that the hand is void in at least one suit (\"void in a suit\" means having
+        no cards of that suit)? 51. s For a group of 7 people, find the probability
+        that all 4 seasons (winter, spring, summer, fall) occur at least once each
+        among their birthdays, assuming that all seasons are equally likely. 52. A
+        certain class has 20 students, and meets on Mondays and Wednesdays in a classroom
+        with exactly 20 seats. In a certain week, everyone in the class attends both
+        days. On both days, the students choose their seats completely randomly (with
+        one student per seat). Find the probability that no one sits in the same seat
+        on both days of that week. 53. Fred needs to choose a password for a certain
+        website. Assume that he will choose an 8-character password, and that the
+        legal characters are the lowercase letters a, b, c, . . . , z, the uppercase
+        letters A, B, C, . . . , Z, and the numbers 0, 1, . . . , 9. (a) How many
+        possibilities are there if he is required to have at least one lowercase letter
+        in his password? (b) How many possibilities are there if he is required to
+        have at least one lowercase letter and at least one uppercase letter in his
+        password? (c) How many possibilities are there if he is required to have at
+        least one lowercase letter, at least one uppercase letter, and at least one
+        number in his password?\n54. s Alice attends a small college in which each
+        class meets only once a week. She is deciding between 30 non-overlapping classes.
+        There are 6 classes to choose from for each day of the week, Monday through
+        Friday. Trusting in the benevolence of randomness, Alice decides to register
+        for 7 randomly selected classes out of the 30, with all choices equally likely.
+        What is the probability that she will have classes every day, Monday through
+        Friday? (This problem can be done either directly using the naive definition
+        of probability, or using inclusion-exclusion.) 55. A club consists of 10 seniors,
+        12 juniors, and 15 sophomores. An organizing committee of size 5 is chosen
+        randomly (with all subsets of size 5 equally likely). (a) Find the probability
+        that there are exactly 3 sophomores in the committee. (b) Find the probability
+        that the committee has at least one representative from each of the senior,
+        junior, and sophomore classes.\nMixed practice\n56. For each part, decide
+        whether the blank should be filled in with =, , and give a clear explanation.
+        In (a) and (b), order doesn't matter.\n(a) (number of ways to choose 5 people
+        out of 10) (number of ways to choose 6 people out of 10) (b) (number of ways
+        to break 10 people into 2 teams of 5) (number of ways to break 10 people into
+        a team of 6 and a team of 4) (c) (probability that all 3 people in a group
+        of 3 were born on January 1) (probability that in a group of 3 people, 1 was
+        born on each of January 1, 2, and 3)\nMartin and Gale play an exciting game
+        of \"toss the coin\", where they toss a fair coin until the pattern HH occurs
+        (two consecutive Heads) or the pattern T H occurs (Tails followed immediately
+        by Heads). Martin wins the game if and only if HH occurs before T H occurs."
+      quote_hash: 
+        sha256:d2554282bf08e5066ec8ee837cf1a5b555384b4211785f49b95268a123cec144
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s478
+        - s479
+        - s480
+        - s481
+        - s482
+        - s483
+        - s484
+        - s487
+        - s488
+        - s489
+        - s490
+        - s491
+      span_hash: 
+        sha256:a8ec73b9c3c6b9d711088fa619c801c06c489775f12e64beea45c0c9bc46bb43
+      section_id: u11
+      learning_object_ids:
+        - lo_model_and_count_overlapping_bad_events
+created_at: '2026-07-28T20:07:18Z'
+updated_at: '2026-07-28T20:07:18Z'

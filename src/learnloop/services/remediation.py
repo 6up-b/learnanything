@@ -16,6 +16,8 @@ from learnloop.vault.models import LoadedVault
 
 logger = logging.getLogger(__name__)
 
+REPAIR_COLD_OPPORTUNITY_POLICY_VERSION = "repair_cold_opportunity_v1"
+
 
 class RemediationError(ValueError):
     pass
@@ -402,6 +404,32 @@ def start_remediation_treatment(
     misconception = _episode_case(repository, episode)
     if misconception is None:
         raise RemediationError("remediation case no longer exists")
+    from learnloop.services.coldness_receipt import (
+        LANE_REPAIR_COLD_RETRY,
+        record_schedule_refusal_receipt,
+    )
+
+    opportunity = repository.get_or_create_cold_measurement_opportunity(
+        lane=LANE_REPAIR_COLD_RETRY,
+        trigger_kind="remediation_episode_selection",
+        trigger_ref=episode_id,
+        learning_object_id=(
+            str(_case_value(misconception, "learning_object_id") or "") or None
+        ),
+        case_kind=str(episode.get("case_kind") or "") or None,
+        case_ref=str(episode.get("case_ref") or "") or None,
+        remediation_episode_id=episode_id,
+        policy_version=REPAIR_COLD_OPPORTUNITY_POLICY_VERSION,
+        clock=clock,
+    )
+    episode = (
+        repository.update_remediation_episode(
+            episode_id,
+            cold_measurement_opportunity_id=str(opportunity["id"]),
+            clock=clock,
+        )
+        or episode
+    )
     ranked, unservable_skips = _rank_items(
         vault,
         repository,
@@ -415,6 +443,31 @@ def start_remediation_treatment(
         clock=clock,
     )
     if not ranked:
+        decision = (
+            "operationally_unavailable"
+            if unservable_skips
+            else "structurally_refused"
+        )
+        reason = "no_servable_item" if unservable_skips else "no_candidate_item"
+        candidate_summary = {
+            "candidate_count": 0,
+            "unservable_skips": unservable_skips,
+        }
+        repository.record_cold_measurement_opportunity_decision(
+            measurement_opportunity_id=str(opportunity["id"]),
+            decision=decision,
+            reason=reason,
+            candidate_summary=candidate_summary,
+            clock=clock,
+        )
+        record_schedule_refusal_receipt(
+            repository,
+            opportunity=opportunity,
+            decision=decision,
+            reason=reason,
+            candidate_summary=candidate_summary,
+            clock=clock,
+        )
         if unservable_skips:
             # Name the rule that emptied the ranking. The bare message sends a
             # reader looking for an authoring failure when the items exist, are
@@ -444,6 +497,27 @@ def start_remediation_treatment(
     }
     if cold is not None:
         updates["cold_item_id"] = cold.id
+    else:
+        candidate_summary = {
+            "primed_item_id": primed.id,
+            "cold_item_id": None,
+            "ranked_item_ids": [item.id for item in ranked],
+        }
+        repository.record_cold_measurement_opportunity_decision(
+            measurement_opportunity_id=str(opportunity["id"]),
+            decision="structurally_refused",
+            reason="no_independent_surface",
+            candidate_summary=candidate_summary,
+            clock=clock,
+        )
+        record_schedule_refusal_receipt(
+            repository,
+            opportunity=opportunity,
+            decision="structurally_refused",
+            reason="no_independent_surface",
+            candidate_summary=candidate_summary,
+            clock=clock,
+        )
     updated = repository.update_remediation_episode(episode_id, clock=clock, **updates)
     assert updated is not None
     return {
@@ -486,6 +560,42 @@ def _record_unbound_primed_disposition(
     repair_class_id = str(repair_class.get("id") or "") or None
     if repair_class_id is None:
         return
+    from learnloop.services.coldness_receipt import (
+        LANE_REPAIR_COLD_RETRY,
+        record_schedule_refusal_receipt,
+    )
+
+    opportunity = repository.get_or_create_cold_measurement_opportunity(
+        lane=LANE_REPAIR_COLD_RETRY,
+        trigger_kind="repair_primed_attempt",
+        trigger_ref=str(attempt["id"]),
+        learning_object_id=(
+            str(attempt.get("learning_object_id") or "") or None
+        ),
+        source_attempt_id=str(attempt["id"]),
+        policy_version=REPAIR_COLD_OPPORTUNITY_POLICY_VERSION,
+        clock=clock,
+    )
+    candidate_summary = {
+        "primed_item_id": str(attempt.get("practice_item_id") or "") or None,
+        "cold_item_id": None,
+        "repair_class_id": repair_class_id,
+    }
+    repository.record_cold_measurement_opportunity_decision(
+        measurement_opportunity_id=str(opportunity["id"]),
+        decision="structurally_refused",
+        reason="no_episode",
+        candidate_summary=candidate_summary,
+        clock=clock,
+    )
+    record_schedule_refusal_receipt(
+        repository,
+        opportunity=opportunity,
+        decision="structurally_refused",
+        reason="no_episode",
+        candidate_summary=candidate_summary,
+        clock=clock,
+    )
     record_causal_cold_outcome(
         repository,
         outcome="unmeasurable_no_held_out_surface",
@@ -521,6 +631,41 @@ def record_remediation_attempt(
             # nothing downstream would ever say why no cold retry exists.
             _record_unbound_primed_disposition(repository, attempt, clock=clock)
             return
+        from learnloop.services.coldness_receipt import (
+            LANE_REPAIR_COLD_RETRY,
+            record_schedule_refusal_receipt,
+        )
+
+        opportunity_id = (
+            str(episode.get("cold_measurement_opportunity_id") or "") or None
+        )
+        opportunity = (
+            repository.cold_measurement_opportunity(opportunity_id)
+            if opportunity_id
+            else None
+        )
+        if opportunity is None:
+            # Legacy/open episodes created before migration 151 first acquire
+            # lineage here. New episodes already created it before selection.
+            opportunity = repository.get_or_create_cold_measurement_opportunity(
+                lane=LANE_REPAIR_COLD_RETRY,
+                trigger_kind="repair_primed_attempt_legacy",
+                trigger_ref=str(attempt["id"]),
+                learning_object_id=(
+                    str(attempt.get("learning_object_id") or "") or None
+                ),
+                case_kind=str(episode.get("case_kind") or "") or None,
+                case_ref=str(episode.get("case_ref") or "") or None,
+                remediation_episode_id=str(episode["id"]),
+                source_attempt_id=str(attempt["id"]),
+                policy_version=REPAIR_COLD_OPPORTUNITY_POLICY_VERSION,
+                clock=clock,
+            )
+            repository.update_remediation_episode(
+                str(episode["id"]),
+                cold_measurement_opportunity_id=str(opportunity["id"]),
+                clock=clock,
+            )
         cold_item_id = str(episode.get("cold_item_id") or "")
         if not cold_item_id or cold_item_id == str(attempt["practice_item_id"]):
             # No independent surface existed when treatment picked the pair
@@ -548,6 +693,30 @@ def record_remediation_attempt(
                     if cold_item_id
                     else "no_independent_surface",
                 },
+                clock=clock,
+            )
+            reason = (
+                "same_surface_only"
+                if cold_item_id
+                else "no_independent_surface"
+            )
+            candidate_summary = {
+                "primed_item_id": str(attempt["practice_item_id"]),
+                "cold_item_id": cold_item_id or None,
+            }
+            repository.record_cold_measurement_opportunity_decision(
+                measurement_opportunity_id=str(opportunity["id"]),
+                decision="structurally_refused",
+                reason=reason,
+                candidate_summary=candidate_summary,
+                clock=clock,
+            )
+            record_schedule_refusal_receipt(
+                repository,
+                opportunity=opportunity,
+                decision="structurally_refused",
+                reason=reason,
+                candidate_summary=candidate_summary,
                 clock=clock,
             )
             return
@@ -591,7 +760,31 @@ def record_remediation_attempt(
                 detail={"stage": "schedule", "reason": "no_repair_class"},
                 clock=clock,
             )
+            candidate_summary = {
+                "primed_item_id": str(attempt["practice_item_id"]),
+                "cold_item_id": cold_item_id,
+                "hypothesis_id": str(episode["case_ref"]),
+            }
+            repository.record_cold_measurement_opportunity_decision(
+                measurement_opportunity_id=str(opportunity["id"]),
+                decision="policy_refused",
+                reason="no_repair_class",
+                candidate_summary=candidate_summary,
+                clock=clock,
+            )
+            record_schedule_refusal_receipt(
+                repository,
+                opportunity=opportunity,
+                decision="policy_refused",
+                reason="no_repair_class",
+                candidate_summary=candidate_summary,
+                clock=clock,
+            )
             return
+        candidate_summary = {
+            "primed_item_id": str(attempt["practice_item_id"]),
+            "cold_item_id": cold_item_id,
+        }
         repository.create_followup_task(
             kind="cold_retry",
             case_kind=episode["case_kind"],
@@ -602,6 +795,9 @@ def record_remediation_attempt(
             expires_at=expires.isoformat().replace("+00:00", "Z"),
             selected_item_id=episode.get("cold_item_id"),
             context=context,
+            measurement_opportunity_id=str(opportunity["id"]),
+            measurement_decision_reason="independent_surface_selected",
+            measurement_candidate_summary=candidate_summary,
             clock=clock,
         )
         return

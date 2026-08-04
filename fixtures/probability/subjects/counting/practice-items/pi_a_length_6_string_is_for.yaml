@@ -1,0 +1,124 @@
+schema_version: 1
+id: pi_a_length_6_string_is_for
+learning_object_id: lo_model_and_count_overlapping_bad_events
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_a_union_of_overlapping_events_add_the_single
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A length-6 string is formed from the alphabet {A,B,C,D}. How many 
+  strings contain every letter at least once? Define the bad events and use 
+  inclusion–exclusion; do not give only an unevaluated union.
+expected_answer: Let Ei be the event that letter i is absent. There are 4^6 
+  total strings. Inclusion–exclusion gives 
+  4^6-4·3^6+binom(4,2)·2^6-binom(4,3)·1^6=1560.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.15
+transfer_distance: 0.45
+scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
+surface_family: category_coverage
+evidence_fingerprint:
+  source_family: primary_textbook_exercise
+  shared_stimulus_id: coverage_of_categories
+  representation: finite strings with missing-category constraints
+  solution_recipe_family: bad-event inclusion-exclusion
+  answer_structure: defined events, alternating sum, exact count
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_a_union_of_overlapping_events_add_the_single
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_ie_model
+      points: 2.0
+      description: Defines one bad event for each missing letter and identifies 
+        the desired count as the complement of their union.
+      tier: core
+      targets:
+        - facet: facet_for_a_union_of_overlapping_events_add_the_single
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet_inclusion_exclusion_contract
+        - bp_apply_inclusion_exclusion
+      correlation_group: ie_categories
+      recipe_ids:
+        - recipe_inclusion_exclusion
+      measurement_status:
+    - id: criterion_ie_execute
+      points: 3.0
+      description: Includes all alternating intersection levels with correct 
+        multiplicities and obtains 1560.
+      tier: core
+      targets:
+        - facet: facet_for_a_union_of_overlapping_events_add_the_single
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_inclusion_exclusion_contract
+        - bp_apply_inclusion_exclusion
+      correlation_group: ie_categories
+      recipe_ids:
+        - recipe_inclusion_exclusion
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s483
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s487
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+created_at: '2026-07-28T17:34:49Z'
+updated_at: '2026-07-28T17:34:49Z'

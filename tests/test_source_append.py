@@ -21,6 +21,7 @@ from learnloop.codex.schemas import (
     AppendNotationMapping,
     AppendProvenanceLink,
     AppendReconciliation,
+    AppendRestructure,
     SynthSpanRef,
 )
 from learnloop.db.repositories import Repository
@@ -180,6 +181,46 @@ def test_append_provenance_link_auto_applies_without_rewriting_lo_yaml(tmp_path)
     assert before_lo == after_lo
     links = repo.entity_source_links(entity_type="facet", entity_id="facet_symmetry_definition")
     assert any(link["relation"] == "alternate" and link["revision_id"] == "rev_alt" for link in links)
+
+
+def test_narrow_adjunct_deterministically_drops_model_restructures(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path)
+
+    def builder(context, _n):
+        additive = _default_append(context)
+        return additive.model_copy(
+            update={
+                "restructures": [
+                    AppendRestructure(
+                        client_item_id="forbidden_restructure",
+                        target_entity_type="learning_object",
+                        target_entity_id="lo_diagonalize_symmetric",
+                        operation="deactivate",
+                    )
+                ]
+            }
+        )
+
+    result = append_source(
+        root,
+        "set_la",
+        client=FakeAppendClient(builder=builder),
+        new_revision_ids=["rev_alt"],
+        brief={"authoring_preset": "narrow_adjunct"},
+        repository=repo,
+        clock=_CLOCK,
+    )
+
+    assert result.auto_applied_item_ids  # the additive provenance link survives
+    assert not any(
+        item["client_item_id"] == "forbidden_restructure"
+        for item in repo.proposal_items(result.proposal_id)
+    )
+    assert any(
+        diagnostic["gate"] == "narrow_adjunct"
+        and "dropped 1 model-emitted restructure" in diagnostic["message"]
+        for diagnostic in result.gate_diagnostics
+    )
 
 
 def test_append_context_bounded_by_neighborhood(tmp_path):

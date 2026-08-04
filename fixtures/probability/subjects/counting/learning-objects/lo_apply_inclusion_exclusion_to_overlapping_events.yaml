@@ -1,0 +1,86 @@
+schema_version: 1
+id: lo_apply_inclusion_exclusion_to_overlapping_events
+title: Apply inclusion-exclusion to overlapping events
+subjects:
+  - counting
+concept: concept_inclusion_exclusion
+knowledge_type: procedure and method selection
+status: active
+contradicts:
+summary: Model a union, determine its intersection terms, alternate signs 
+  correctly, and use symmetry when it materially reduces the calculation.
+prerequisites:
+  - concept_probability_axioms_and_derived_rules
+  - concept_uniform_overcounting_and_binomial_coefficients
+confusables: []
+blueprints:
+  - id: bp_01KYMWND_11
+    weight: 1.2
+    recipes:
+      - id: recipe-apply-inclusion-exclusion
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_a_finite_family_of_events_compute_the_union_
+            capability: procedure_execution
+            modality: hard
+          - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+            capability: method_selection
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s287
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s303
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s307
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:36Z'
+updated_at: '2026-07-28T17:34:40Z'

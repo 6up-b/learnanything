@@ -1,0 +1,126 @@
+schema_version: 1
+id: pi_draw_three_times_with_re
+learning_object_id: lo_weight_ordered_and_unordered_bootstrap_outcomes
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Draw three times with replacement and equal probabilities from {a,b,c}. 
+  After order is discarded, compare the probabilities of the unordered samples 
+  {a,a,a}, {a,a,b}, and {a,b,c}. Explain why the unordered samples are not 
+  equally likely.
+expected_answer: There are 3^3=27 equally likely ordered sequences. The three 
+  unordered samples have respectively 1, 3, and 6 realizing sequences, so their 
+  probabilities are 1/27, 3/27=1/9, and 6/27=2/9. Discarding order merges 
+  different numbers of ordered sequences into different multiplicity outcomes.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.35
+scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
+surface_family: bootstrap_multiplicity
+evidence_fingerprint:
+  source_family: primary_textbook_exercise
+  shared_stimulus_id: bootstrap_unordered_samples
+  representation: small finite ordered sample space and multiplicities
+  solution_recipe_family: aggregate ordered sequences
+  answer_structure: three probabilities with explanation
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_bootstrap_weighting
+      points: 3.0
+      description: Counts 1, 3, and 6 ordered realizations and converts them to 
+        probabilities using the 27-sequence ordered sample space.
+      tier: core
+      targets:
+        - facet: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_bootstrap_order_weighting
+        - bp_weight_bootstrap_outcomes
+      correlation_group: bootstrap_multiplicity
+      recipe_ids:
+        - recipe_bootstrap_weighting
+      measurement_status:
+    - id: criterion_bootstrap_explanation
+      points: 1.0
+      description: Explains that order-forgetting aggregates unequal numbers of 
+        equally likely ordered sequences.
+      tier: transfer
+      targets:
+        - facet: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_bootstrap_order_weighting
+        - bp_weight_bootstrap_outcomes
+      correlation_group: bootstrap_multiplicity
+      recipe_ids:
+        - recipe_bootstrap_weighting
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s503
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s504
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+created_at: '2026-07-28T17:34:49Z'
+updated_at: '2026-07-28T17:34:49Z'

@@ -15,21 +15,28 @@ export const STARTING_LEVELS: { id: StartingLevel; label: string }[] = [
 ];
 
 type Outcome = "general_learning" | "reference_mastery" | "exam_prep";
+type PracticeItemsMode = "upfront" | "as_you_read";
 const OUTCOMES: { id: Outcome; label: string; blurb: string }[] = [
   { id: "general_learning", label: "general learning", blurb: "build understanding across the material" },
   { id: "reference_mastery", label: "reference mastery", blurb: "look things up fast, retain the essentials" },
   { id: "exam_prep", label: "exam prep", blurb: "hit a recall target by a deadline" }
 ];
 const DEPTHS = ["intro", "standard", "deep"];
+const PRACTICE_ITEM_MODES: { id: PracticeItemsMode; label: string; blurb: string }[] = [
+  { id: "upfront", label: "upfront", blurb: "author practice items with the study map" },
+  { id: "as_you_read", label: "as you read", blurb: "start with the map; add practice as sections are completed" }
+];
 
 export function StudyMapBriefWizard({
   initialBrief,
+  defaultPracticeItems = "upfront",
   submitLabel,
   submitting,
   onSubmit,
   onClose
 }: {
   initialBrief?: StudyMapBriefDto;
+  defaultPracticeItems?: PracticeItemsMode;
   submitLabel?: string;
   submitting?: boolean;
   onSubmit: (brief: StudyMapBriefDto, createGoal: boolean) => void;
@@ -43,6 +50,10 @@ export function StudyMapBriefWizard({
   const [notation, setNotation] = useState(initialBrief?.notation ?? "");
   const [includeTopics, setIncludeTopics] = useState<string[]>(initialBrief?.includeTopics ?? []);
   const [excludeTopics, setExcludeTopics] = useState<string[]>(initialBrief?.excludeTopics ?? []);
+  const [scope, setScope] = useState(initialBrief?.scope ?? "");
+  const [practiceItems, setPracticeItems] = useState<PracticeItemsMode>(
+    initialBrief?.practiceItems ?? defaultPracticeItems
+  );
   const [goalTitle, setGoalTitle] = useState(initialBrief?.goalTitle ?? "");
   const [intentSentence, setIntentSentence] = useState(initialBrief?.intentSentence ?? "");
   const [dueDate, setDueDate] = useState("");
@@ -63,7 +74,10 @@ export function StudyMapBriefWizard({
       depth,
       notation: notation.trim() || undefined,
       includeTopics,
-      excludeTopics
+      excludeTopics,
+      scope: scope.trim() || undefined,
+      practiceItems,
+      authoringPreset: initialBrief?.authoringPreset
     };
     if (outcome === "exam_prep") {
       brief.goalTitle = goalTitle.trim() || "Exam preparation";
@@ -196,6 +210,43 @@ export function StudyMapBriefWizard({
               <ChipInput label="include topics" chips={includeTopics} onChange={setIncludeTopics} placeholder="add a topic to focus on, press enter" />
               <div style={{ marginTop: 20 }}>
                 <ChipInput label="exclude topics" chips={excludeTopics} onChange={setExcludeTopics} placeholder="add a topic to skip, press enter" />
+              </div>
+              <Label style={{ marginTop: 20 }}>scope / authoring instructions</Label>
+              <textarea
+                style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+                rows={4}
+                value={scope}
+                placeholder="e.g. Treat this as a narrow adjunct. Add one learning object and one explanation item; preserve the existing curriculum."
+                onChange={(e) => setScope(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <Faint style={{ display: "block", marginTop: 6, fontSize: 11 }}>
+                Tell the authoring model what this source should add, how narrowly to treat it, and what existing material should remain unchanged.
+              </Faint>
+
+              <Label style={{ marginTop: 20 }}>when to author practice items</Label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                {PRACTICE_ITEM_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setPracticeItems(mode.id)}
+                    style={{
+                      border: `1px solid ${practiceItems === mode.id ? COLOR.amber : COLOR.border}`,
+                      background: practiceItems === mode.id ? "#241d12" : COLOR.bgInput,
+                      color: practiceItems === mode.id ? COLOR.amber : COLOR.text,
+                      padding: "10px 12px",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontFamily: FONT_MONO
+                    }}
+                  >
+                    <div style={{ fontSize: 12 }}>{mode.label}</div>
+                    <Faint style={{ display: "block", marginTop: 3, fontSize: 10, lineHeight: 1.4 }}>
+                      {mode.blurb}
+                    </Faint>
+                  </button>
+                ))}
               </div>
             </div>
           ) : null}

@@ -1,0 +1,253 @@
+schema_version: 1
+id: pi_stars_bars_labeled_tokens
+learning_object_id: lo_select_and_execute_stars_and_bars
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_stars_and_bars_is_applicable_only_when_objects_a
+evidence_weights:
+  facet_stars_and_bars_is_applicable_only_when_objects_a: 1.0
+criterion_facet_weights:
+  compute_labeled_count:
+    facet_stars_and_bars_is_applicable_only_when_objects_a: 1.0
+  reject_stars_bars:
+    facet_stars_and_bars_is_applicable_only_when_objects_a: 1.0
+  select_assignment_count:
+    facet_stars_and_bars_is_applicable_only_when_objects_a: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: labeled_distribution_trace
+      checkpoints:
+        - check_object_identity
+        - select_product_model
+        - compute_assignment_count
+      dependencies:
+        check_object_identity: []
+        compute_assignment_count:
+          - select_product_model
+        select_product_model:
+          - check_object_identity
+variant_contract:
+teach_back_source:
+prompt: Five labeled tokens are distributed among three labeled boxes, and boxes
+  may be empty. Determine whether stars-and-bars applies. Then compute the 
+  number of distributions and justify the factors in your count.
+expected_answer: Stars-and-bars does not apply because the tokens are 
+  distinguishable. Each of the five labeled tokens independently has three 
+  choices of box, so the number of distributions is 3^5=243.
+difficulty: 0.2
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u11
+  - contrast_pair
+  - stars_and_bars
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.66
+transfer_distance: 0.25
+scaffold_level: 0.03
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: labeled_token_assignments
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_applicability_without_execution_formula
+    hypothesis: The learner correctly distinguishes fungible from 
+      distinguishable objects but does not know how to execute the 
+      stars-and-bars count when its preconditions hold.
+    observable_signature: Stars-and-bars does not apply because the five tokens 
+      are labeled; each token has three possible boxes, so there are 3^5=243 
+      assignments.
+    misconception_id:
+    facet_id: facet_when_m_interchangeable_objects_are_distributed_a
+    fails_criteria: []
+    distinguishing_features:
+      - rejects stars-and-bars for distinguishable objects
+      - uses the multiplication rule instead
+    source: authored
+contrast_of: pi_stars_bars_identical_tokens
+differing_component:
+  facet: facet_when_m_interchangeable_objects_are_distributed_a
+  capability: procedure_execution
+  structural_change: The objects are distinguishable here, so the correct 
+    solution is a product count; in the counterpart they are interchangeable, so
+    the correct answer has a stars-and-bars binomial form.
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_stars_and_bars_is_applicable_only_when_objects_a
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: reject_stars_bars
+      points: 2.0
+      description: Rejects stars-and-bars because the tokens are 
+        distinguishable.
+      tier: core
+      targets:
+        - facet: facet_stars_and_bars_is_applicable_only_when_objects_a
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: select_assignment_count
+      points: 1.0
+      description: Models a distribution as five independent choices among three
+        boxes.
+      tier: core
+      targets:
+        - facet: facet_stars_and_bars_is_applicable_only_when_objects_a
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - reject_stars_bars
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: compute_labeled_count
+      points: 1.0
+      description: Computes 3^5=243.
+      tier: core
+      targets:
+        - facet: facet_stars_and_bars_is_applicable_only_when_objects_a
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - select_assignment_count
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_select_and_execute_stars_and_bars:s493-s509
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s493
+      quote: "Now for better news of a kind of immortal persistence. First, take a
+        deep breath. Assume Shakespeare's account is accurate and Julius Caesar gasped
+        [\"Et tu, Brute!\"] before breathing his last. What are the chances you just
+        inhaled a molecule which Caesar exhaled in his dying breath?\nAssume that
+        one breath of air contains 10 22 molecules, and that there are 10 44 molecules
+        in the atmosphere. (These are slightly simpler numbers than the estimates
+        that Paulos gives; for the purposes of this problem, assume that these are
+        exact. Of course, in reality there are many complications such as different
+        types of molecules in the atmosphere, chemical reactions, variation in lung
+        capacities, etc.)\nSuppose that the molecules in the atmosphere now are the
+        same as those in the atmosphere when Caesar was alive, and that in the 2000
+        years or so since Caesar, these molecules have been scattered completely randomly
+        through the atmosphere. Also assume that Caesar's last breath was sampled
+        without replacement but that your breathing is sampled with replacement (without
+        replacement makes more sense but with replacement is easier to work with,
+        and is a good approximation since the number of molecules in the atmosphere
+        is so much larger than the number of molecules in one breath).\nFind the probability
+        that at least one molecule in the breath you just took was shared with Caesar's
+        last breath, and give a simple approximation in terms of e.\nHint: As discussed
+        in the math appendix, (1 + x n ) n ≈ e x for n large.\n58. A widget inspector
+        inspects 12 widgets and finds that exactly 3 are defective. Unfortunately,
+        the widgets then get all mixed up and the inspector has to find the 3 defective
+        widgets again by testing widgets one by one. (a) Find the probability that
+        the inspector will now have to test at least 9 widgets. (b) Find the probability
+        that the inspector will now have to test at least 10 widgets. 59. There are
+        15 chocolate bars and 10 children. In how many ways can the chocolate bars
+        be distributed to the children, in each of the following scenarios? (a) The
+        chocolate bars are fungible (interchangeable). (b) The chocolate bars are
+        fungible, and each child must receive at least one.\nHint: First give each
+        child a chocolate bar, and then decide what to do with the rest.\n(c) The
+        chocolate bars are not fungible (it matters which particular bar goes where).
+        (d) The chocolate bars are not fungible, and each child must receive at least
+        one.\nHint: The strategy suggested in (b) does not apply. Instead, consider
+        randomly giving the chocolate bars to the children, and apply inclusion-exclusion.\n\
+        60. Given n ≥ 2 numbers (a1, a2, . . . , an) with no repetitions, a bootstrap
+        sample is a sequence (x1, x2, . . . , xn) formed from the a j 's by sampling
+        with replacement with equal probabilities. Bootstrap samples arise in a widely
+        used statistical method known as the bootstrap. For example, if n = 2 and
+        (a1, a2) = (3, 1), then the possible bootstrap samples are (3, 3),(3, 1),(1,
+        3), and (1, 1). (a) How many possible bootstrap samples are there for (a1,
+        . . . , an)? (b) How many possible bootstrap samples are there for (a1, .
+        . . , an), if order does not matter (in the sense that it only matters how
+        many times each a j was chosen, not the order in which they were chosen)?
+        (c) One random bootstrap sample is chosen (by sampling from a1, . . . , a
+        n with replacement, as described above). Show that not all unordered bootstrap
+        samples (in the sense of (b)) are equally likely. Find an unordered bootstrap
+        sample b 1 that is as likely as possible, and an unordered bootstrap sample
+        b 2 that is as unlikely as possible. Let p 1 be the probability of getting
+        b 1 and p 2 be the probability of getting b 2 (so p i is the probability of
+        getting the specific unordered bootstrap sample bi). What is p1/p2? What is
+        the ratio of the probability of getting an unordered bootstrap sample whose
+        probability is p 1 to the probability of getting an unordered sample whose
+        probability is p2? 61. s There are 100 passengers lined up to board an airplane
+        with 100 seats (with each seat assigned to one of the passengers). The first
+        passenger in line crazily decides to sit in a randomly chosen seat (with all
+        seats equally likely). Each subsequent passenger takes their assigned seat
+        if available, and otherwise sits in a random available seat. What is the probability
+        that the last passenger in line gets to sit in their assigned seat? (This
+        is a common interview problem, and a beautiful example of the power of symmetry.)\n\
+        Hint: Call the seat assigned to the jth passenger in line \"seat j\" (regardless
+        of whether the airline calls it seat 23A or whatever). What are the possibilities
+        for which seats are available to the last passenger in line, and what is the
+        probability of each of these possibilities?\n62. In the birthday problem,
+        we assumed that all 365 days of the year are equally likely (and excluded
+        February 29). In reality, some days are slightly more likely as birthdays
+        than others. For example, scientists have long struggled to understand why
+        more babies are born 9 months after a holiday. Let $\\mathbf{p} = (p_1, p_2,
+        \\dots, p_{365})$ be the vector of birthday probabilities, with $p_j$ the
+        probability of being born on the jth day of the year (February 29 is still
+        excluded, with no offense intended to Leap Dayers).\nThe kth elementary symmetric
+        polynomial in the variables $x_1, \\ldots, x_n$ is defined by\n$$e_k(x_1,
+        \\dots, x_n) = \\sum_{1 \\le j_1 < j_2 < \\dots < j_k \\le n} x_{j_1} \\dots
+        x_{j_k}.$$"
+      quote_hash: 
+        sha256:3cabecbedf2fcb722555e42fd7f1d044e38b539d1bc7c7572f7e81807c1bd9ae
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s493
+        - s494
+        - s495
+        - s497
+        - s498
+        - s499
+        - s500
+        - s501
+        - s502
+        - s503
+        - s504
+        - s507
+        - s508
+        - s509
+      span_hash: 
+        sha256:b2a929c15b075e1a66506e61006f1bf0ffa97c7b75876669ebda200231279133
+      section_id: u11
+      learning_object_ids:
+        - lo_select_and_execute_stars_and_bars
+created_at: '2026-07-28T20:07:21Z'
+updated_at: '2026-07-28T20:07:21Z'

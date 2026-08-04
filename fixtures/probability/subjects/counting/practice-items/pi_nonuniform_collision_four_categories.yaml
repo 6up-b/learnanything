@@ -1,0 +1,228 @@
+schema_version: 1
+id: pi_nonuniform_collision_four_categories
+learning_object_id: lo_analyze_and_optimize_nonuniform_collision_probab
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_for_independent_birthdays_with_category_probabil
+evidence_weights:
+  facet_for_independent_birthdays_with_category_probabil: 1.0
+criterion_facet_weights:
+  compute_distinct_probability:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+  identify_complement:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+  take_complement:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: collision_complement_trace
+      checkpoints:
+        - identify_no_match_event
+        - compute_no_match_probability
+        - complement_result
+      dependencies:
+        complement_result:
+          - compute_no_match_probability
+        compute_no_match_probability:
+          - identify_no_match_event
+        identify_no_match_event: []
+variant_contract:
+teach_back_source:
+prompt: Four independent birthdays fall into four seasonal categories with 
+  probabilities 0.4, 0.3, 0.2, and 0.1. Compute the probability that at least 
+  two of the four birthdays share a category. Show the distinct-category 
+  calculation first and then take its complement.
+expected_answer: All four categories must occur for there to be no match. Each 
+  ordering of the four categories has probability (0.4)(0.3)(0.2)(0.1), and 
+  there are 4!=24 orderings. Thus P(no match)=24(0.4)(0.3)(0.2)(0.1)=0.0576, so 
+  P(at least one match)=1-0.0576=0.9424.
+difficulty: 0.23
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u11
+  - collision_probability
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.3
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: seasonal_collision_complement
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_independent_birthdays_with_category_probabil
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: identify_complement
+      points: 1.0
+      description: Identifies the complement as all four birthdays occupying 
+        distinct categories.
+      tier: core
+      targets:
+        - facet: facet_for_independent_birthdays_with_category_probabil
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: compute_distinct_probability
+      points: 2.0
+      description: Accounts for all 24 category orderings and obtains 0.0576.
+      tier: core
+      targets:
+        - facet: facet_for_independent_birthdays_with_category_probabil
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - identify_complement
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: take_complement
+      points: 1.0
+      description: Computes the collision probability as 0.9424.
+      tier: core
+      targets:
+        - facet: facet_for_independent_birthdays_with_category_probabil
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - compute_distinct_probability
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_analyze_and_optimize_nonuniform_collision_probab:s500-s518
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s500
+      quote: "Hint: First give each child a chocolate bar, and then decide what to
+        do with the rest.\n(c) The chocolate bars are not fungible (it matters which
+        particular bar goes where). (d) The chocolate bars are not fungible, and each
+        child must receive at least one.\nHint: The strategy suggested in (b) does
+        not apply. Instead, consider randomly giving the chocolate bars to the children,
+        and apply inclusion-exclusion.\n60. Given n ≥ 2 numbers (a1, a2, . . . , an)
+        with no repetitions, a bootstrap sample is a sequence (x1, x2, . . . , xn)
+        formed from the a j 's by sampling with replacement with equal probabilities.
+        Bootstrap samples arise in a widely used statistical method known as the bootstrap.
+        For example, if n = 2 and (a1, a2) = (3, 1), then the possible bootstrap samples
+        are (3, 3),(3, 1),(1, 3), and (1, 1). (a) How many possible bootstrap samples
+        are there for (a1, . . . , an)? (b) How many possible bootstrap samples are
+        there for (a1, . . . , an), if order does not matter (in the sense that it
+        only matters how many times each a j was chosen, not the order in which they
+        were chosen)? (c) One random bootstrap sample is chosen (by sampling from
+        a1, . . . , a n with replacement, as described above). Show that not all unordered
+        bootstrap samples (in the sense of (b)) are equally likely. Find an unordered
+        bootstrap sample b 1 that is as likely as possible, and an unordered bootstrap
+        sample b 2 that is as unlikely as possible. Let p 1 be the probability of
+        getting b 1 and p 2 be the probability of getting b 2 (so p i is the probability
+        of getting the specific unordered bootstrap sample bi). What is p1/p2? What
+        is the ratio of the probability of getting an unordered bootstrap sample whose
+        probability is p 1 to the probability of getting an unordered sample whose
+        probability is p2? 61. s There are 100 passengers lined up to board an airplane
+        with 100 seats (with each seat assigned to one of the passengers). The first
+        passenger in line crazily decides to sit in a randomly chosen seat (with all
+        seats equally likely). Each subsequent passenger takes their assigned seat
+        if available, and otherwise sits in a random available seat. What is the probability
+        that the last passenger in line gets to sit in their assigned seat? (This
+        is a common interview problem, and a beautiful example of the power of symmetry.)\n\
+        Hint: Call the seat assigned to the jth passenger in line \"seat j\" (regardless
+        of whether the airline calls it seat 23A or whatever). What are the possibilities
+        for which seats are available to the last passenger in line, and what is the
+        probability of each of these possibilities?\n62. In the birthday problem,
+        we assumed that all 365 days of the year are equally likely (and excluded
+        February 29). In reality, some days are slightly more likely as birthdays
+        than others. For example, scientists have long struggled to understand why
+        more babies are born 9 months after a holiday. Let $\\mathbf{p} = (p_1, p_2,
+        \\dots, p_{365})$ be the vector of birthday probabilities, with $p_j$ the
+        probability of being born on the jth day of the year (February 29 is still
+        excluded, with no offense intended to Leap Dayers).\nThe kth elementary symmetric
+        polynomial in the variables $x_1, \\ldots, x_n$ is defined by\n$$e_k(x_1,
+        \\dots, x_n) = \\sum_{1 \\le j_1 < j_2 < \\dots < j_k \\le n} x_{j_1} \\dots
+        x_{j_k}.$$\nThis just says to add up all of the $\\binom{n}{k}$ terms we can
+        get by choosing and multiplying k of the variables. For example, $e_1(x_1,
+        x_2, x_3) = x_1 + x_2 + x_3$, $e_2(x_1, x_2, x_3) = x_1x_2 + x_1x_3 + x_2x_3$,
+        and $e_3(x_1, x_2, x_3) = x_1x_2x_3$.\nNow let $k \\geq 2$ be the number of
+        people.\n(a) Find a simple expression for the probability that there is at
+        least one birthday match, in terms of ${\\bf p}$ and an elementary symmetric
+        polynomial. (b) Explain intuitively why it makes sense that P(at least one
+        birthday match) is minimized when $p_j = \\frac{1}{365}$ for all j, by considering
+        simple and extreme cases. (c) The famous arithmetic mean-geometric mean inequality
+        says that for $x, y \\ge 0$,\n$$\\frac{x+y}{2} \\ge \\sqrt{xy}.$$\nThis inequality
+        follows from adding 4xy to both sides of $x^2 - 2xy + y^2 = (x - y)^2 \\ge
+        0$. Define $\\mathbf{r} = (r_1, \\dots, r_{365})$ by $r_1 = r_2 = (p_1 + p_2)/2$,
+        $r_j = p_j$ for $3 \\le j \\le 365$. Using the arithmetic mean-geometric mean
+        bound and the fact, which you should verify, that\n$$e_k(x_1,\\ldots,x_n)=x_1x_2e_{k-2}(x_3,\\\
+        ldots,x_n)+(x_1+x_2)e_{k-1}(x_3,\\ldots,x_n)+e_k(x_3,\\ldots,x_n),$$\nshow
+        that\n$P(\\text{at least one birthday match}|\\mathbf{p}) \\ge P(\\text{at
+        least one birthday match}|\\mathbf{r}),$\nwith strict inequality if $\\mathbf{p}
+        \\neq \\mathbf{r}$, where the \"given $\\mathbf{r}$\" notation means that
+        the birthday probabilities are given by $\\mathbf{r}$. Using this, show that
+        the value of $\\mathbf{p}$ that minimizes the probability of at least one
+        birthday match is given by $p_j = \\frac{1}{365}$ for all j."
+      quote_hash: 
+        sha256:e88bfa03f119eb1fd730442f8d3bc876d373c6efdf2c2f003a9665da33693d28
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s500
+        - s501
+        - s502
+        - s503
+        - s504
+        - s507
+        - s508
+        - s509
+        - s510
+        - s511
+        - s512
+        - s513
+        - s514
+        - s515
+        - s516
+        - s517
+        - s518
+      span_hash: 
+        sha256:5b702a950e32e082023af903f9274d3722d4051addc0801803a1714463c57130
+      section_id: u11
+      learning_object_ids:
+        - lo_analyze_and_optimize_nonuniform_collision_probab
+created_at: '2026-07-28T20:07:19Z'
+updated_at: '2026-07-28T20:07:19Z'

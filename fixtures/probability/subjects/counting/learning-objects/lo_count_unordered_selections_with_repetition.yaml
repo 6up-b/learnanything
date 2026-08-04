@@ -1,0 +1,70 @@
+schema_version: 1
+id: lo_count_unordered_selections_with_repetition
+title: Count unordered selections with repetition
+subjects:
+  - counting
+concept: concept_stars_and_bars
+knowledge_type: procedure and representation
+status: active
+contradicts:
+summary: Translate a multiset or occupancy problem into a nonnegative integer 
+  equation and a stars-and-bars encoding.
+prerequisites:
+  - concept_uniform_overcounting_and_binomial_coefficients
+confusables:
+  - concept_multiplication_rule_and_ordered_sampling
+blueprints:
+  - id: bp_01KYMWND_8
+    weight: 0.9
+    recipes:
+      - id: recipe-count-multisets
+        composition: conjunctive
+        all_of:
+          - facet: facet_unordered_selection_of_k_objects_with_replacemen
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+            capability: procedure_execution
+            modality: facilitating
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s203
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s211
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+created_at: '2026-07-28T17:34:36Z'
+updated_at: '2026-07-28T17:34:41Z'

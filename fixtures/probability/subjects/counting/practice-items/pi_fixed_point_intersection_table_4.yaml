@@ -1,0 +1,211 @@
+schema_version: 1
+id: pi_fixed_point_intersection_table_4
+learning_object_id: lo_apply_inclusion_exclusion_to_overlapping_events
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_in_the_uniform_n_card_matching_problem_intersect
+  - facet_for_a_finite_family_of_events_compute_the_union_
+evidence_weights:
+  facet_for_a_finite_family_of_events_compute_the_union_: 0.5
+  facet_in_the_uniform_n_card_matching_problem_intersect: 0.5
+criterion_facet_weights:
+  criterion_intersection_rows:
+    facet_in_the_uniform_n_card_matching_problem_intersect: 1.0
+  criterion_union_computation:
+    facet_for_a_finite_family_of_events_compute_the_union_: 0.75
+    facet_in_the_uniform_n_card_matching_problem_intersect: 0.25
+trace_contract:
+  status: available
+  recipes:
+    - id: fixed_point_inclusion_exclusion_trace
+      checkpoints:
+        - construct_intersection_rows
+        - apply_alternating_signs
+        - sum_and_reduce
+      dependencies:
+        apply_alternating_signs:
+          - construct_intersection_rows
+        construct_intersection_rows: []
+        sum_and_reduce:
+          - apply_alternating_signs
+variant_contract:
+teach_back_source:
+prompt: Four labeled cards are shuffled uniformly into four labeled positions. 
+  Let A_i be the event that card i lands in position i. Build a four-row table 
+  for k=1,2,3,4. In row k, state (i) how many distinct k-event intersections 
+  occur in inclusion-exclusion, (ii) the probability of any one such 
+  intersection, and (iii) that row's signed contribution to P(A_1 ∪ A_2 ∪ A_3 ∪ 
+  A_4). Then add the contributions and give the probability that at least one 
+  card matches its position as a reduced fraction.
+expected_answer: 'For each k, there are C(4,k) intersections, and fixing the selected
+  k cards leaves (4-k)! of the 4! permutations possible, so each intersection has
+  probability (4-k)!/4! = 1/[4·3·...·(4-k+1)]. The rows are: k=1: 4 intersections,
+  probability 1/4 each, signed contribution +1; k=2: 6 intersections, probability
+  1/12 each, signed contribution -1/2; k=3: 4 intersections, probability 1/24 each,
+  signed contribution +1/6; k=4: 1 intersection, probability 1/24, signed contribution
+  -1/24. Thus P(A_1∪A_2∪A_3∪A_4)=1-1/2+1/6-1/24=15/24=5/8.'
+difficulty: 0.25
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed_u9
+  - inclusion_exclusion
+  - fixed_points
+  - capstone
+hints:
+  - For a specified set of k matching cards, count how many arrangements remain 
+    possible for the other 4-k cards.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.25
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: fixed_point_intersection_table
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_in_the_uniform_n_card_matching_problem_intersect
+  - facet_for_a_finite_family_of_events_compute_the_union_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_intersection_rows
+      points: 2.0
+      description: Correctly gives the number and probability of the k-fold 
+        intersections for all four values of k, using symmetry and the 
+        remaining-card count.
+      tier: core
+      targets:
+        - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_union_computation
+      points: 2.0
+      description: Applies alternating inclusion-exclusion signs to the table 
+        entries and simplifies the union probability to 5/8.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_family_of_events_compute_the_union_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - criterion_intersection_rows
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_apply_inclusion_exclusion_to_overlapping_events:s299-s314
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s299
+      quote: "deck and allow the remaining n-2 cards to be in any order, so (n-2)!
+        out of n! possibilities are favorable to $A_i \\cap A_j$. Similarly,\n$$P(A_i
+        \\cap A_j \\cap A_k) = \\frac{1}{n(n-1)(n-2)},$$\nand the pattern continues
+        for intersections of 4 events, etc.\nIn the inclusion-exclusion formula, there
+        are n terms involving one event, $\\binom{n}{2}$ terms involving two events,
+        $\\binom{n}{3}$ terms involving three events, and so forth. By the symmetry
+        of the problem, all n terms of the form $P(A_i)$ are equal, all $\\binom{n}{2}$
+        terms of the form $P(A_i \\cap A_j)$ are equal, and the whole expression simplifies
+        considerably:\n$$P\\left(\\bigcup_{i=1}^{n} A_i\\right) = \\frac{n}{n} - \\
+        frac{\\binom{n}{2}}{n(n-1)} + \\frac{\\binom{n}{3}}{n(n-1)(n-2)} - \\dots
+        + (-1)^{n+1} \\cdot \\frac{1}{n!}$$$$= 1 - \\frac{1}{2!} + \\frac{1}{3!} -
+        \\dots + (-1)^{n+1} \\cdot \\frac{1}{n!}.$$\nComparing this to the Taylor
+        series for 1/e (see Section A.8 of the math appendix),\n$$e^{-1} = 1 - \\\
+        frac{1}{1!} + \\frac{1}{2!} - \\frac{1}{3!} + \\dots,$$\nwe see that for large
+        n, the probability of winning the game is extremely close to 1 - 1/e, or about
+        0.63. Interestingly, as n grows, the probability of winning approaches 1 -
+        1/e instead of going to 0 or 1. With a lot of cards in the deck, the number
+        of possible locations for matching cards increases while the probability of
+        any particular match decreases, and these two forces offset each other and
+        balance to give a probability of about 1 - 1/e.\nInclusion-exclusion is a
+        very general formula for the probability of a union of events, but it helps
+        us the most when there is symmetry among the events $A_j$; otherwise the sum
+        can be extremely tedious. In general, when symmetry is lacking, we should
+        try to use other tools before turning to inclusion-exclusion as a last resort.\n\
+        1.7 Recap\nProbability allows us to quantify uncertainty and randomness in
+        a principled way. Probabilities arise when we perform an experiment: the set
+        of all possible outcomes of the experiment is called the sample space, and
+        a subset of the sample space is called an event. It is useful to be able to
+        go back and forth between describing events in English and writing them down
+        mathematically as sets (often using unions, intersections, and complements).\n\
+        Pebble World can help us visualize sample spaces and events when the sample
+        space is finite. In Pebble World, each outcome is a pebble, and an event is
+        a set of pebbles. If all the pebbles have the same mass (i.e., are equally
+        likely), we can apply the naive definition of probability, which lets us calculate
+        probabilities by counting.\nTo this end, we discussed several tools for counting.
+        When counting the number of possibilities, we often use the multiplication
+        rule. For example, there are n! permutations of the numbers 1, 2, . . . ,
+        n and there are 2 n subsets of a set with n elements. If we can't directly
+        use the multiplication rule, we can sometimes count each possibility exactly
+        c times for some c, and then divide by c to get the actual number of possibilities.
+        For example, this strategy is useful for finding an expression for binomial
+        coefficients in terms of factorials.\nAn important pitfall to avoid is misapplying
+        the naive definition of probability, implicitly or explicitly assuming equally
+        likely outcomes without justification. One technique to help avoid this is
+        to give objects labels, for precision and so that we are not tempted to treat
+        them as indistinguishable."
+      quote_hash: 
+        sha256:175b0d895dc998a1986840ae8ca0b6ee12401f3dd503fb8799c07deb03bdd502
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s299
+        - s300
+        - s301
+        - s302
+        - s303
+        - s304
+        - s305
+        - s306
+        - s307
+        - s308
+        - s309
+        - s312
+        - s313
+        - s314
+      span_hash: 
+        sha256:16909e062d1770a2b2ae7101a1dd15f2036971b42f25e619e6abb2d9c5bcce37
+      section_id: u9
+      learning_object_ids:
+        - lo_apply_inclusion_exclusion_to_overlapping_events
+created_at: '2026-07-28T20:07:34Z'
+updated_at: '2026-07-28T20:07:34Z'

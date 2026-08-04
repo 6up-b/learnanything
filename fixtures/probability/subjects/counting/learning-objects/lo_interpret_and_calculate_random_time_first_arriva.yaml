@@ -1,0 +1,70 @@
+schema_version: 1
+id: lo_interpret_and_calculate_random_time_first_arriva
+title: Interpret and calculate random-time first-arrival bias
+subjects:
+  - counting
+concept: concept_random_time_sampling_and_first_arrival_bias
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Distinguish long-run event counts from random-time first-arrival 
+  probabilities and calculate the latter from favorable portions of an 
+  observation cycle.
+prerequisites:
+  - concept_probability_axioms_and_derived_rules
+confusables: []
+blueprints:
+  - id: bp_01KYN57D
+    weight: 1.0
+    recipes:
+      - id: recipe_first_arrival_time_exposure
+        composition: conjunctive
+        all_of:
+          - facet: facet_equal_long_run_counts_of_two_event_types_do_not_
+            capability: schema_interpretation
+            modality: hard
+          - facet: facet_when_an_observer_arrives_at_a_random_time_in_a_r
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYN4HB91X51NHX29NPHH7MNV
+      path:
+      locator: span:ext_01KYN4HC1X5J9ZPM8RR7MD5NGT/s5
+      quote:
+      quote_hash:
+      source_id: src_01KYN4HB91X51NHX29NPHH7MNV
+      revision_id: rev_01KYN4HBAG5T2Q7GX4EH7C3W4P
+      extraction_id: ext_01KYN4HC1X5J9ZPM8RR7MD5NGT
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: reference
+    - ref_type: canonical_source
+      ref_id: src_01KYN4HB91X51NHX29NPHH7MNV
+      path:
+      locator: span:ext_01KYN4HC1X5J9ZPM8RR7MD5NGT/s8
+      quote:
+      quote_hash:
+      source_id: src_01KYN4HB91X51NHX29NPHH7MNV
+      revision_id: rev_01KYN4HBAG5T2Q7GX4EH7C3W4P
+      extraction_id: ext_01KYN4HC1X5J9ZPM8RR7MD5NGT
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: reference
+created_at: '2026-07-28T20:07:05Z'
+updated_at: '2026-07-28T20:10:21Z'

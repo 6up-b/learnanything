@@ -80,6 +80,37 @@ def test_plan_quick_add_registered_and_single_confirmation(tmp_path):
     assert plan["confirmation"]["requiresExternalAi"] is True
 
 
+def test_plan_quick_add_enrichment_preset_normalizes_at_rpc_boundary(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    md = tmp_path / "interesting-adjunct.md"
+    md.write_text(_MD)
+    _seed_extraction(paths.sqlite_path, str(md))
+
+    results = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "plan_quick_add",
+                "params": {
+                    "source": str(md),
+                    "subjectId": "linear-algebra",
+                    "brief": {"authoringPreset": "narrow_adjunct"},
+                },
+            },
+        ]
+    )
+
+    plan = results[1]["result"]["plan"]
+    assert plan["suggestedRole"] == "reference"
+    assert plan["roleAmbiguous"] is False
+    assert plan["brief"]["authoringPreset"] == "narrow_adjunct"
+    assert plan["brief"]["practiceItems"] == "upfront"
+    assert "at most one focused learning object" in plan["brief"]["scope"]
+
+
 def test_plan_quick_add_requires_import_when_not_extracted(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)

@@ -1,0 +1,140 @@
+schema_version: 1
+id: pi_using_the_three_trial_sa
+learning_object_id: lo_represent_events_as_subsets
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+  - facet_an_ordered_sequence_of_repeated_binary_trials_ca
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Using the three-trial sample space, write the event E that exactly two 
+  trials produce H. Is E an outcome, an event, or both? Explain.
+expected_answer: E = {HHT, HTH, THH}. E is an event because it is a subset 
+  containing three outcomes. It is not itself a single outcome of this 
+  experiment.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.25
+scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
+surface_family: count_defined_event_subset
+evidence_fingerprint:
+  source_family: primary-textbook-plus-problem-set
+  shared_stimulus_id: three_ordered_binary_trials
+  representation: event as an explicit subset of strings
+  solution_recipe_family: filter outcomes by a count condition
+  answer_structure: subset plus conceptual classification
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+  - facet_an_ordered_sequence_of_repeated_binary_trials_ca
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_event_membership
+      points: 2.0
+      description: Includes exactly HHT, HTH, and THH in the event subset.
+      tier: core
+      targets:
+        - facet: facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+          capability: procedure_execution
+          role: primary
+        - facet: facet_an_ordered_sequence_of_repeated_binary_trials_ca
+          capability: procedure_execution
+          role: supporting
+      depends_on: []
+      correlation_group: event_as_subset
+      recipe_ids:
+        - recipe_identify_events
+      measurement_status:
+    - id: criterion_event_classification
+      points: 1.0
+      description: Correctly distinguishes the three-element event from each 
+        individual outcome.
+      tier: core
+      targets:
+        - facet: facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - criterion_event_membership
+      correlation_group: event_as_subset
+      recipe_ids:
+        - recipe_identify_events
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s17
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s31
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSJRTYSED51WVFSVDW1Y0J
+      path:
+      locator: span:ext_01KYMSJTTDG45Z7WEMEMKHYJPQ/s7
+      quote:
+      quote_hash:
+      source_id: src_01KYMSJRTYSED51WVFSVDW1Y0J
+      revision_id: rev_01KYMSJRXY5PXB0982TH6XNFN9
+      extraction_id: ext_01KYMSJTTDG45Z7WEMEMKHYJPQ
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: problem_set
+created_at: '2026-07-28T17:34:44Z'
+updated_at: '2026-07-28T17:34:44Z'

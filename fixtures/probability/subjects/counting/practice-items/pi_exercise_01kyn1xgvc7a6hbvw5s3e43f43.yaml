@@ -1,0 +1,177 @@
+schema_version: 1
+id: pi_exercise_01kyn1xgvc7a6hbvw5s3e43f43
+learning_object_id: lo_count_compound_and_ordered_outcomes
+subjects:
+practice_mode: worked_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_if_each_complete_outcome_is_specified_by_success
+  - facet_for_k_ordered_choices_from_n_distinguishable_obj
+evidence_weights:
+  facet_if_each_complete_outcome_is_specified_by_success: 0.4
+  facet_for_k_ordered_choices_from_n_distinguishable_obj: 0.6
+criterion_facet_weights:
+  criterion_1:
+    facet_if_each_complete_outcome_is_specified_by_success: 1.0
+  criterion_3:
+    facet_for_k_ordered_choices_from_n_distinguishable_obj: 0.8
+    facet_if_each_complete_outcome_is_specified_by_success: 0.2
+trace_contract:
+  status: available
+  recipes:
+    - id: complement_counting_solution
+      checkpoints:
+        - model_ordered_assignments
+        - define_collision_free_complement
+        - count_collision_free_assignments
+        - take_complement_and_handle_boundary
+      dependencies:
+        model_ordered_assignments: []
+        define_collision_free_complement: []
+        count_collision_free_assignments:
+          - model_ordered_assignments
+          - define_collision_free_complement
+        take_complement_and_handle_boundary:
+          - count_collision_free_assignments
+variant_contract:
+teach_back_source:
+prompt: A hash table is a commonly used data structure in computer science, 
+  allowing for fast information retrieval. For example, suppose we want to store
+  some people's phone numbers. Assume that no two of the people have the same 
+  name. For each name x, a hash function h is used, letting h(x) be the location
+  that will be used to store x's phone number. After such a table has been 
+  computed, to look up x's phone number one just recomputes h(x) and then looks 
+  up what is stored in that location. The hash function h is deterministic, 
+  since we don't want to get different results every time we compute h(x). But h
+  is often chosen to be pseudorandom . For this problem, assume that true 
+  randomness is used. Let there be k people, with each person's phone number 
+  stored in a random location (with equal probabilities for each location, 
+  independently of where the other people's numbers are stored), represented by 
+  an integer between 1 and n. Find the probability that at least one location 
+  has more than one phone number stored there.
+expected_answer: "Let \\(C\\) be the event that at least one location receives more
+  than one phone number. It is easier to count the complementary event \\(C^c\\),
+  in which all \\(k\\) people are assigned to distinct locations.\n\nEach person independently
+  has \\(n\\) possible locations, so there are \\(n^k\\) equally likely ordered assignments
+  in total. If \\(k\\le n\\), an assignment with no collision has \\(n\\) choices
+  for the first person, \\(n-1\\) for the second, and so on, giving\n\\[\nn(n-1)\\\
+  cdots(n-k+1)=\\frac{n!}{(n-k)!}\n\\]\ncollision-free assignments. Therefore,\n\\\
+  [\nP(C)=1-P(C^c)=1-\\frac{n(n-1)\\cdots(n-k+1)}{n^k}\n=1-\\frac{n!}{(n-k)!n^k},\\
+  qquad k\\le n.\n\\]\nEquivalently, this is\n\\[\n1-\\prod_{j=0}^{k-1}\\left(1-\\\
+  frac{j}{n}\\right).\n\\]\nIf \\(k>n\\), the pigeonhole principle guarantees that
+  at least two people are assigned to the same location, so \\(P(C)=1\\)."
+difficulty: 0.42
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Consider first the complementary event in which every person’s phone number 
+    is stored in a different location.
+  - Count complete assignments while keeping the people distinct and in a fixed 
+    order.
+  - For a collision-free assignment, determine how many locations remain 
+    available for each successive person, then divide by the total number of 
+    assignments.
+  - Subtract the collision-free probability from 1, and separately consider what
+    must happen when there are more people than locations.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.35
+scaffold_level: 0.0
+capability: method_selection
+task_features:
+  complexity: 2
+  transfer: near
+  representation:
+    - verbal
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_1
+      points: 1.0
+      description: Models the random outcome as an ordered assignment of k 
+        distinct people to n locations and identifies n^k equally likely 
+        assignments.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_2
+      points: 1.0
+      description: Uses the complement event that all assigned locations are 
+        distinct.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+    - id: criterion_3
+      points: 1.0
+      description: For k ≤ n, correctly counts collision-free assignments as 
+        n(n−1)⋯(n−k+1).
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: criterion_4
+      points: 1.0
+      description: Obtains the correct complement probability and handles the k 
+        > n boundary case.
+      tier: transfer
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s452
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:06:10Z'
+updated_at: '2026-07-28T19:06:10Z'

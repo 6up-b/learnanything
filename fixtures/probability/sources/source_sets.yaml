@@ -1,12 +1,34 @@
 schema_version: 1
 source_sets:
-  - id: sset_quickadd_src_01KXKBMGS2HZEN0AMVHPBKB15E
+  - id: textbook-mit-ocw-pset
     subject_id: counting
-    title: joseph_blitzstein_jessica_hwang-introduction_to_probability.pdf
+    title: Textbook+MiT OCW pset
     members:
-      - source_id: src_01KXKBMGS2HZEN0AMVHPBKB15E
-        revision_id: rev_01KXKBMGTKSZVDP276AJTZYYAS
+      - source_id: src_01KYMSJRTYSED51WVFSVDW1Y0J
+        revision_id: rev_01KYMSJRXY5PXB0982TH6XNFN9
+        default_role: problem_set
+        scope: []
+        priority: 1
+      - source_id: src_01KYMSJK20PH0HPJXH4PJ55DKJ
+        revision_id: rev_01KYMSJK3F3GAMN9YFG8QK54N1
+        default_role: problem_set
+        scope: []
+        priority: 1
+      - source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+        revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
         default_role: primary_textbook
+        scope: []
+        priority: 1
+    priority: 1
+    created_at: '2026-07-28T16:44:32Z'
+    updated_at: '2026-07-28T16:46:24Z'
+  - id: sset_quickadd_src_01KYN4HB91X51NHX29NPHH7MNV
+    subject_id: counting
+    title: Elevator_paradox
+    members:
+      - source_id: src_01KYN4HB91X51NHX29NPHH7MNV
+        revision_id: rev_01KYN4HBAG5T2Q7GX4EH7C3W4P
+        default_role: reference
         scope:
           - unit_id: u1
             role_override:
@@ -20,47 +42,7 @@ source_sets:
             role_override:
           - unit_id: u6
             role_override:
-          - unit_id: u7
-            role_override:
-          - unit_id: u8
-            role_override:
-          - unit_id: u9
-            role_override:
-          - unit_id: u10
-            role_override:
-          - unit_id: u11
-            role_override:
-          - unit_id: u12
-            role_override:
-          - unit_id: u13
-            role_override:
-          - unit_id: u14
-            role_override:
-          - unit_id: u15
-            role_override:
-          - unit_id: u16
-            role_override:
-          - unit_id: u17
-            role_override:
-          - unit_id: u18
-            role_override:
-          - unit_id: u19
-            role_override:
-          - unit_id: u20
-            role_override:
-          - unit_id: u21
-            role_override:
-          - unit_id: u22
-            role_override:
-          - unit_id: u23
-            role_override:
-          - unit_id: u24
-            role_override:
-          - unit_id: u25
-            role_override:
-          - unit_id: u26
-            role_override:
         priority: 1
     priority: 1
-    created_at: '2026-07-15T18:07:20Z'
-    updated_at: '2026-07-15T19:13:56Z'
+    created_at: '2026-07-28T19:52:09Z'
+    updated_at: '2026-07-28T19:52:09Z'

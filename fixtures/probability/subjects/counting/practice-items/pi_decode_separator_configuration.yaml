@@ -1,0 +1,286 @@
+schema_version: 1
+id: pi_decode_separator_configuration
+learning_object_id: lo_count_unordered_selections_with_repetition
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+  - facet_unordered_selection_of_k_objects_with_replacemen
+evidence_weights:
+  facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.55
+  facet_unordered_selection_of_k_objects_with_replacemen: 0.45
+criterion_facet_weights:
+  c_choose_positions:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  c_decode_string:
+    facet_unordered_selection_of_k_objects_with_replacemen: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: separator_string_count
+      checkpoints:
+        - decode_runs
+        - count_symbols
+        - choose_bar_positions
+      dependencies:
+        choose_bar_positions:
+          - count_symbols
+        count_symbols:
+          - decode_runs
+        decode_runs: []
+variant_contract:
+teach_back_source:
+prompt: A record uses the string **||***|** to describe seven identical archive 
+  tokens assigned among four labeled folders. Decode the four folder counts. 
+  Then describe all valid record strings for seven tokens and four folders and 
+  use a binomial coefficient to count them.
+expected_answer: Reading stars between successive bars gives folder counts 
+  (2,0,3,2). In general a valid record has seven stars and three bars in ten 
+  positions. Choosing the three bar positions determines the string, so there 
+  are C(10,3)=120 assignments.
+difficulty: 0.22
+difficulty_source: llm_estimate
+tags:
+  - reader_section_u6
+  - symbolic_encoding
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.35
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: separator_string_decode
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+  - facet_unordered_selection_of_k_objects_with_replacemen
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c_decode_string
+      points: 2.0
+      description: Correctly decodes the four multiplicities as (2,0,3,2).
+      tier: core
+      targets:
+        - facet: facet_unordered_selection_of_k_objects_with_replacemen
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c_choose_positions
+      points: 2.0
+      description: Recognizes ten positions with three bars and computes 
+        C(10,3)=120.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - c_decode_string
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_count_unordered_selections_with_repetition:s147-s164
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s147
+      quote: "for some c, then we can adjust by dividing by c. For example, if we
+        have exactly double-counted each possibility, we can divide by 2 to get the
+        correct count. We call this adjusting for overcounting .\nExample 1.4.13 (Committees
+        and teams). Consider a group of four people.\n(a) How many ways are there
+        to choose a two-person committee? (b) How many ways are there to break the
+        people into two teams of two? Solution: (a) One way to count the possibilities
+        is by listing them out: labeling the people as 1, 2, 3, 4, the possibilities
+        are 12, 13, 14, 23, 24, 34.\nAnother approach is to use the multiplication
+        rule with an adjustment for overcounting. By the multiplication rule, there
+        are 4 ways to choose the first person on the committee and 3 ways to choose
+        the second person on the committee, but this counts each possibility twice,
+        since picking 1 and 2 to be on the committee is the same as picking 2 and
+        1 to be on the committee. Since we have overcounted by a factor of 2, the
+        number of possibilities is $(4 \\cdot 3)/2 = 6$.\n(b) Here are 3 ways to see
+        that there are 3 ways to form the teams. Labeling the people as 1, 2, 3, 4,
+        we can directly list out the possibilities: 12 34, 13 24, and 14 23. Listing
+        out all possibilities would quickly become tedious or infeasible with more
+        people though. Another approach is to note that it suffices to specify person
+        1's teammate (and then the other team is determined). A third way is to use
+        (a) to see that there are 6 ways to choose one team. This overcounts by a
+        factor of 2, since picking 1 and 2 to be a team is equivalent to picking 3
+        and 4 to be a team. So again the answer is 6/2 = 3.\nA binomial coefficient
+        counts the number of subsets of a certain size for a set, such as the number
+        of ways to choose a committee of size k from a set of n people. Sets and subsets
+        are by definition unordered, e.g., $\\{3,1,4\\} = \\{4,1,3\\}$, so we are
+        counting the number of ways to choose k objects out of n, without replacement
+        and without distinguishing between the different orders in which they could
+        be chosen.\nDefinition 1.4.14 (Binomial coefficient). For any nonnegative
+        integers k and n, the binomial coefficient $\\binom{n}{k}$, read as \"n choose
+        k\", is the number of subsets of size k for a set of size n.\nFor example,
+        $\\binom{4}{2} = 6$, as shown in Example 1.4.13. The binomial coefficient
+        $\\binom{n}{k}$ is sometimes called a combination , but we do not use that
+        terminology here since \"combination\" is such a useful general-purpose word.
+        Algebraically, binomial coefficients can be computed as follows.\nTheorem
+        1.4.15 (Binomial coefficient formula). For $k \\leq n$, we have\n$$\\binom{n}{k}
+        = \\frac{n(n-1)\\cdots(n-k+1)}{k!} = \\frac{n!}{(n-k)!k!}.$$\nFor k > n, we
+        have $\\binom{n}{k} = 0$.\nProof. Let A be a set with |A| = n. Any subset
+        of A has size at most n, so $\\binom{n}{k} = 0$ for k > n. Now let $k \\le
+        n$. By Theorem 1.4.8, there are $n(n-1)\\cdots(n-k+1)$ ways to make an ordered
+        choice of k elements without replacement. This overcounts each subset of interest
+        by a factor of k! (since we don't care how these elements are ordered), so
+        we can get the correct count by dividing by k!.\n4.4.16. The binomial coefficient
+        $\\binom{n}{k}$ is often defined in terms of factorials, but keep in mind
+        that $\\binom{n}{k}$ is 0 if k > n, even though the factorial of a negative
+        number is undefined. Also, the middle expression in Theorem 1.4.15 is often
+        better for computation than the expression with factorials, since factorials
+        grow extremely fast. For example,\n$$\\binom{100}{2} = \\frac{100 \\cdot 99}{2}
+        = 4950$$\ncan even be done by hand, whereas computing $\\binom{100}{2} = 100!/(98!
+        \\cdot 2!)$ by first calculating 100! and 98! would be wasteful and possibly
+        dangerous because of the extremely large numbers involved $(100! \\approx
+        9.33 \\times 10^{157})$.\nExample 1.4.17 (Club officers). In a club with n
+        people, there are n(n-1)(n-2) ways to choose a president, vice president,
+        and treasurer, and there are\n$$\\binom{n}{3} = \\frac{n(n-1)(n-2)}{3!}$$"
+      quote_hash: 
+        sha256:760716210887ff26b2183e5886d088772b43941ebe724d55bfa89151e2ff5ae6
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s147
+        - s148
+        - s149
+        - s150
+        - s151
+        - s152
+        - s153
+        - s154
+        - s155
+        - s156
+        - s158
+        - s159
+        - s160
+        - s161
+        - s162
+        - s163
+        - s164
+      span_hash: 
+        sha256:18a04421cc5cc9f66a0e3a415ed7a5715e9262dab2c8e719e1974e57d1ba10f2
+      section_id: u6
+      learning_object_ids:
+        - lo_count_unordered_selections_with_repetition
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_count_unordered_selections_with_repetition:s198-s214
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s198
+      quote: "Newton arrived at the correct answer using similar calculations. Newton
+        also provided Pepys with an intuitive argument for why A was the most likely
+        of the three; however, his intuition was invalid. As explained in Stigler
+        [24], using loaded dice could result in a different ordering of A, B, C, but
+        Newton's intuitive argument did not depend on the dice being fair.\nIn this
+        book, we care about counting not for its own sake, but because it sometimes
+        helps us to find probabilities. Here is an example of a neat but treacherous
+        counting problem; the solution is elegant, but it is rare that the result
+        can be used with the naive definition of probability.\nExample 1.4.22 (Bose-Einstein).
+        How many ways are there to choose k times from a set of n objects with replacement,
+        if order doesn't matter (we only care about how many times each object was
+        chosen, not the order in which they were chosen)?\nSolution:\nWhen order does
+        matter, the answer is $n^k$ by the multiplication rule, but this problem is
+        much harder. We will solve it by solving an isomorphic problem (the same problem
+        in a different guise).\nLet us find the number of ways to put k indistinguishable
+        particles into n distinguishable boxes. That is, swapping the particles in
+        any way is not considered a separate\npossibility: all that matters are the
+        counts for how many particles are in each box. This scenario is known as a
+        Bose-Einstein problem, since the physicists Satyendra Nath Bose and Albert
+        Einstein studied related problems about indistinguishable particles in the
+        1920s, using their ideas to successfully predict the existence of a strange
+        state of matter known as a Bose-Einstein condensate.\nAny configuration can
+        be encoded as a sequence of |'s and $\\bullet$'s in a natural way, as illustrated
+        in Figure 1.6.\n\nFIGURE 1.6\nBose-Einstein encoding: putting k=7 indistinguishable
+        particles into n=4 distinguishable boxes can be expressed as a sequence of
+        |'s and $\\bullet$'s, where | denotes a wall and $\\bullet$ denotes a particle.\n\
+        To be valid, a sequence must start and end with a |, and have exactly n-1
+        |'s and exactly k $\\blacksquare$'s in between the starting and ending |'s;
+        conversely, any such sequence is a valid encoding for some configuration of
+        particles in boxes. Imagine that we have written down the starting and ending
+        |'s, which represent the outer walls, and in between there are n+k-1 fill-in-the-blank
+        slots in between the outer walls. We need only choose where to put the k $\\\
+        blacksquare$'s (since then where the n+k-1 interior |'s go is completely determined).
+        So the number of possibilities is $\\binom{n+k-1}{k}$. This counting method
+        is sometimes called the stars and bars argument, where here we have dots in
+        place of stars.\nTo relate this result back to the original question, we can
+        let each box correspond to one of the n objects and use the particles as \"\
+        check marks\" to tally how many times each object is selected. For example,
+        if a certain box contains exactly 3 particles, that means the object corresponding
+        to that box was chosen exactly 3 times. The particles being indistinguishable
+        corresponds to the fact that we don't care about the order in which the objects
+        are chosen. Thus, the answer to the original question is also $\\binom{n+k-1}{k}$.\n\
+        Another isomorphic problem is to count the number of solutions $(x_1, \\ldots,
+        x_n)$ to the equation $x_1 + x_2 + \\cdots + x_n = k$, where the $x_i$ are
+        nonnegative integers. This is equivalent since we can think of $x_i$ as the
+        number of particles in the i th box.\n$\\bigstar$ 1.4.23. The Bose-Einstein
+        result should not be used in the naive definition of probability except in
+        very special circumstances. For example, consider a survey where a sample
+        of size k is collected by choosing people from a population of size n"
+      quote_hash: 
+        sha256:db1b821b56fa09dbec99d3979ac4b356a8f0f63831e893db3fba920115b390e2
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s198
+        - s199
+        - s200
+        - s201
+        - s202
+        - s203
+        - s206
+        - s207
+        - s208
+        - s209
+        - s210
+        - s211
+        - s212
+        - s213
+        - s214
+      span_hash: 
+        sha256:40b6ef159b131499eab4f30123033be19bbc8ae7d207b69a634c4f55386fbefc
+      section_id: u6
+      learning_object_ids:
+        - lo_count_unordered_selections_with_repetition
+created_at: '2026-07-28T20:08:03Z'
+updated_at: '2026-07-28T20:08:03Z'

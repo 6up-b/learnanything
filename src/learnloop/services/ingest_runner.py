@@ -60,6 +60,11 @@ CHECKPOINT_LADDER: tuple[str, ...] = (
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _UNFINISHED_STATUSES = frozenset({"failed", "blocked", "cancelled"})
 _MAX_INVENTORY_WORKERS = 2
+# Unit inventory and bootstrap/append synthesis can legitimately spend several
+# minutes reasoning over dense source material. Keep interactive Codex work on
+# the vault's ordinary timeout, but give durable ingestion SDK turns a wider
+# deadline.
+_INGEST_CODEX_TIMEOUT_SECONDS = 8 * 60
 
 
 def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
@@ -210,7 +215,14 @@ class RunnerServices:
     def inventory_client(
         self, ctx: "JobContext", *, bind_interruptible: bool = True
     ) -> Any:
-        client = (self.inventory_client_factory or default_inventory_client)(ctx)
+        client = (
+            self.inventory_client_factory(ctx)
+            if self.inventory_client_factory is not None
+            else default_inventory_client(
+                ctx,
+                codex_timeout_seconds=_INGEST_CODEX_TIMEOUT_SECONDS,
+            )
+        )
         self._inventory_identity_cache = _inventory_client_identity(client)
         if bind_interruptible:
             ctx.bind_interruptible(client)
@@ -1066,7 +1078,11 @@ def default_inventory_identity(ctx: JobContext) -> tuple[str, str] | None:
     return provider_type, str(profile.model or "unknown")
 
 
-def default_inventory_client(ctx: JobContext) -> Any:
+def default_inventory_client(
+    ctx: JobContext,
+    *,
+    codex_timeout_seconds: int | None = None,
+) -> Any:
     """Resolve the unit-inventory/quick-check client through ai routing (§7).
 
     Routed via the ``canonical_ingest`` task (empty routing follows
@@ -1095,8 +1111,31 @@ def default_inventory_client(ctx: JobContext) -> Any:
 
     def _client(name: str):
         if name == "codex":
-            return make_codex_client(config.codex, ctx.vault_root)
-        return make_ai_provider_client(config, ctx.vault_root, provider_name=name)
+            codex_config = config.codex
+            if (
+                codex_timeout_seconds is not None
+                and codex_config.provider.strip().lower() == "sdk"
+            ):
+                codex_config = codex_config.model_copy(
+                    update={"timeout_seconds": codex_timeout_seconds}
+                )
+            return make_codex_client(codex_config, ctx.vault_root)
+        profile = config.ai.providers.get(name)
+        timeout_override = (
+            codex_timeout_seconds
+            if (
+                codex_timeout_seconds is not None
+                and profile is not None
+                and profile.type.strip().lower() == "codex_sdk"
+            )
+            else None
+        )
+        return make_ai_provider_client(
+            config,
+            ctx.vault_root,
+            provider_name=name,
+            timeout_seconds=timeout_override,
+        )
 
     selection = provider_for_task(config, "canonical_ingest")
     provider_name = selection.provider_name
@@ -1119,10 +1158,16 @@ def default_synthesis_client(ctx: JobContext) -> Any:
     """Resolve the canonical-ingest route for judgment-heavy synthesis.
 
     Unit inventories deliberately keep the low-effort legacy Codex client;
-    synthesis follows the routed medium-effort profile and its fallback.
+    synthesis follows the routed medium-effort profile and its fallback. Codex
+    SDK turns get an eight-minute deadline because source-set bootstrap and
+    append synthesis routinely exceed the interactive default.
     """
 
-    return _routed_task_client(ctx, "canonical_ingest")
+    return _routed_task_client(
+        ctx,
+        "canonical_ingest",
+        codex_timeout_seconds=_INGEST_CODEX_TIMEOUT_SECONDS,
+    )
 
 
 def default_animation_client(ctx: JobContext) -> Any:
@@ -1170,7 +1215,12 @@ def default_promotion_authoring_client(ctx: JobContext) -> Any:
         ) from exc
 
 
-def _routed_task_client(ctx: JobContext, task: str) -> Any:
+def _routed_task_client(
+    ctx: JobContext,
+    task: str,
+    *,
+    codex_timeout_seconds: int | None = None,
+) -> Any:
     from learnloop.ai.client import make_ai_provider_client
     from learnloop.ai.routing import fallback_provider_for, provider_for_task
     from learnloop.ai.runtime import check_ai_runtime
@@ -1184,18 +1234,37 @@ def _routed_task_client(ctx: JobContext, task: str) -> Any:
     def ready_client(provider_name: str):
         if provider_name == "codex":
             runtime = check_codex_runtime(ctx.vault_root, vault.config.codex)
+            codex_config = vault.config.codex
+            if (
+                codex_timeout_seconds is not None
+                and codex_config.provider.strip().lower() == "sdk"
+            ):
+                codex_config = codex_config.model_copy(
+                    update={"timeout_seconds": codex_timeout_seconds}
+                )
             client = (
-                make_codex_client(vault.config.codex, ctx.vault_root)
+                make_codex_client(codex_config, ctx.vault_root)
                 if runtime.ready
                 else None
             )
         else:
             runtime = check_ai_runtime(ctx.vault_root, vault.config, provider_name=provider_name)
+            profile = vault.config.ai.providers.get(provider_name)
+            timeout_override = (
+                codex_timeout_seconds
+                if (
+                    codex_timeout_seconds is not None
+                    and profile is not None
+                    and profile.type.strip().lower() == "codex_sdk"
+                )
+                else None
+            )
             client = (
                 make_ai_provider_client(
                     vault.config,
                     ctx.vault_root,
                     provider_name=provider_name,
+                    timeout_seconds=timeout_override,
                 )
                 if runtime.ready
                 else None

@@ -1,0 +1,380 @@
+schema_version: 1
+id: pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5
+learning_object_id: lo_analyze_and_optimize_nonuniform_collision_probab
+subjects:
+practice_mode: textbook_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_for_independent_birthdays_with_category_probabil
+evidence_weights:
+  facet_for_independent_birthdays_with_category_probabil: 1.0
+criterion_facet_weights:
+  c1:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+  c2:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+  c3:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+  c4:
+    facet_for_independent_birthdays_with_category_probabil: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: birthday_smoothing_proof
+      checkpoints:
+        - Express the no-match probability using $e_k$.
+        - Use complementation to express the match probability.
+        - Partition the terms of $e_k$ by their use of the first two 
+          coordinates.
+        - Apply AM–GM to compare $e_k(\mathbf p)$ and $e_k(\mathbf r)$.
+        - Translate the comparison into a collision-probability inequality.
+        - Apply pairwise averaging to characterize the minimizing vector.
+      dependencies:
+        Express the no-match probability using $e_k$.: []
+        Use complementation to express the match probability.:
+          - Express the no-match probability using $e_k$.
+        Partition the terms of $e_k$ by their use of the first two coordinates.: []
+        Apply AM–GM to compare $e_k(\mathbf p)$ and $e_k(\mathbf r)$.:
+          - Partition the terms of $e_k$ by their use of the first two 
+            coordinates.
+        Translate the comparison into a collision-probability inequality.:
+          - Use complementation to express the match probability.
+          - Apply AM–GM to compare $e_k(\mathbf p)$ and $e_k(\mathbf r)$.
+        Apply pairwise averaging to characterize the minimizing vector.:
+          - Translate the comparison into a collision-probability inequality.
+variant_contract:
+teach_back_source:
+prompt: "In the birthday problem, we assumed that all 365 days of the year are equally
+  likely (and excluded February 29). In reality, some days are slightly more likely
+  as birthdays than others. For example, scientists have long struggled to understand
+  why more babies are born 9 months after a holiday. Let $p = ( p_1 , p_2 , \\dots
+  , p_365 )$ be the vector of birthday probabilities, with p j the probability of
+  being born on the $j$ th day of the year (February 29 is still excluded, with no
+  offense intended to Leap Dayers).\n\nThe $k$ th elementary symmetric polynomial
+  in the variables $x_1 , \\dots , x_n$ is defined by\n\n$$e_k(x_1, \\dots, x_n) =
+  \\sum_{1 \\le j_1 < j_2 < \\dots < j_k \\le n} x_{j_1} \\dots x_{j_k}.$$\n\nThis
+  just says to add up all of the $\\binom{n}{k}$ terms we can get by choosing and
+  multiplying k of the variables. For example, $e_1 ( x_1 , x_2 , x_3 ) = x_1 + x_2
+  + x_3 , e_2 ( x_1 , x_2 , x_3 ) = x_1 x_2 + x_1 x_3 + x_2 x_3 $, and $e_3 ( x_1
+  , x_2 , x_3 ) = x_1 x_2 x_3 $.\n\nNow let k ≥ 2 be the number of people.\n\n(a)
+  Find a simple expression for the probability that there is at least one birthday
+  match, in terms of p and an elementary symmetric polynomial. (b) Explain intuitively
+  why it makes sense that P (at least one birthday match) is min- imized when $p_j
+  = \\frac{1}{365}$ for all $j$ , by considering simple and extreme cases. (c) The
+  famous arithmetic mean-geometric mean inequality says that for x, y ≥ 0,\n\n$$\\
+  frac{x+y}{2} \\ge \\sqrt{xy}.$$\n\nThis inequality follows from adding $4 xy$ to
+  both sides of $x^2 − 2 xy + y^2 = ( x − y )^2 \\geq 0$. Define $r = ( r_1 , \\dots
+  , r_{365} )$ by $r_1 = r_2 = ( p_1 + p_2 ) / 2$, $r_j = p _j$ for 3 ≤ j ≤ 365. Using
+  the arithmetic mean-geometric mean bound and the fact, which you should verify,
+  that\n\n$$e_k(x_1,\\ldots,x_n)=x_1x_2e_{k-2}(x_3,\\ldots,x_n)+(x_1+x_2)e_{k-1}(x_3,\\\
+  ldots,x_n)+e_k(x_3,\\ldots,x_n),$$\n\nshow that\n\nP (at least one birthday match
+  | p ) ≥ P (at least one birthday match | r ) ,\n\nwith strict inequality if $p_6
+  = r$ , where the “given $r$ ” notation means that the birthday probabilities are
+  given by $r$ . Using this, show that the value of $p$ that minimizes the probability
+  of at least one birthday match is given by $p_j = \\frac{1}{365}$ for all j ."
+expected_answer: "Assume first that $2\\le k\\le365$ and that the birthday probabilities
+  are positive, as they are for actual calendar days.\n\n**(a)** There is no match
+  exactly when the $k$ people have distinct birthdays. For each set of distinct days
+  $\\{j_1,\\ldots,j_k\\}$, the people can be assigned those days in $k!$ orders, and
+  every such ordered assignment has probability $p_{j_1}\\cdots p_{j_k}$. Therefore\n\
+  \n$$P(\\text{no match}\\mid\\mathbf p)=k!\\sum_{j_1<\\cdots<j_k}p_{j_1}\\cdots p_{j_k}=k!e_k(p_1,\\\
+  ldots,p_{365}),$$\n\nso\n\n$$P(\\text{at least one match}\\mid\\mathbf p)=1-k!e_k(\\
+  mathbf p).$$\n\nIf $k>365$, the probability is $1$ by the pigeonhole principle.\n\
+  \n**(b)** When probability is concentrated on only a few days, two people have fewer
+  distinct days available and are more likely to collide. At the extreme, if one day
+  has probability $1$, a match is certain for every $k\\ge2$. Spreading probability
+  more evenly creates more opportunities for distinct birthdays. In the simplest two-day
+  case with two people, the no-match probability is $2p_1p_2$, which is largest when
+  $p_1=p_2=1/2$.\n\n**(c)** Classify the terms in $e_k(x_1,\\ldots,x_n)$ according
+  to whether the selected indices contain both of $1,2$, exactly one of them, or neither.
+  This gives\n\n$$e_k=x_1x_2e_{k-2}(x_3,\\ldots,x_n)+(x_1+x_2)e_{k-1}(x_3,\\ldots,x_n)+e_k(x_3,\\\
+  ldots,x_n).$$\n\nLet $a=(p_1+p_2)/2$. The vectors $\\mathbf p$ and $\\mathbf r$
+  have the same sum in their first two coordinates, while AM–GM gives\n\n$$r_1r_2=a^2\\
+  ge p_1p_2.$$\n\nThe displayed decomposition consequently yields\n\n$$e_k(\\mathbf
+  r)-e_k(\\mathbf p)\n=(a^2-p_1p_2)e_{k-2}(p_3,\\ldots,p_{365})\n=\\frac{(p_1-p_2)^2}{4}e_{k-2}(p_3,\\\
+  ldots,p_{365})\\ge0.$$\n\nThus\n\n$$1-k!e_k(\\mathbf p)\\ge1-k!e_k(\\mathbf r),$$\n\
+  \nwhich is the desired collision-probability inequality. For positive probabilities
+  and $2\\le k\\le365$, $e_{k-2}(p_3,\\ldots,p_{365})>0$, so the inequality is strict
+  whenever $p_1\\ne p_2$, equivalently whenever $\\mathbf p\\ne\\mathbf r$.\n\nThe
+  same argument applies to any pair of coordinates: replacing two unequal probabilities
+  by their average decreases the match probability. A minimizing vector therefore
+  cannot contain two unequal coordinates; otherwise averaging them would produce a
+  strictly smaller value. Hence all 365 coordinates at the minimum are equal. Since
+  they sum to $1$,\n\n$$p_1=\\cdots=p_{365}=\\frac1{365}.$$\n\nThe source's strictness
+  statement needs the usual positivity and $2\\le k\\le365$ qualifications. With zero
+  probabilities, one averaging step can be non-strict because the relevant $e_{k-2}$
+  may vanish; nevertheless the uniform vector still maximizes $e_k$ and minimizes
+  the match probability for $2\\le k\\le365$. For $k>365$, every distribution gives
+  match probability $1$, so the minimizer is not unique."
+difficulty: 0.86
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - 'First compute the complementary event: all $k$ birthdays are distinct. Group
+    ordered birthday assignments according to the underlying set of $k$ days.'
+  - In the decomposition of $e_k$, separate products that use both of the first 
+    two variables, exactly one of them, or neither.
+  - Pairwise averaging leaves $p_1+p_2$ unchanged. Compare only the product 
+    $p_1p_2$ with the product of the two averaged coordinates.
+  - After showing that averaging any unequal pair cannot increase the match 
+    probability, ask what a minimizing probability vector can look like if every
+    pair of its coordinates must be equal.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.28
+scaffold_level: 0.38
+capability: coordination
+task_features:
+  complexity: 4
+  transfer: same_context
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: partial
+  span: whole_task
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Derives $P(\text{no match})=k!e_k(\mathbf p)$ by accounting 
+        for the $k!$ assignments of each set of distinct days, and complements 
+        it to obtain the match probability.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c2
+      points: 1.0
+      description: Gives a sound intuitive comparison showing why concentrating 
+        birthday probability increases collisions and why spreading it evenly 
+        reduces them.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: supporting
+    - id: c3
+      points: 1.0
+      description: Verifies the symmetric-polynomial decomposition and uses 
+        AM–GM to show that pairwise averaging does not decrease $e_k$, including
+        the correct difference formula.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c4
+      points: 1.0
+      description: Concludes that the uniform vector minimizes collision 
+        probability and correctly addresses the conditions needed for strictness
+        and the $k>365$ boundary case.
+      tier: transfer
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s507
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s508
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s509
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s510
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s511
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s512
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s513
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s514
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s515
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s516
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s517
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s518
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:18:08Z'
+updated_at: '2026-07-28T19:18:08Z'

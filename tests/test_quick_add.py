@@ -171,6 +171,25 @@ def test_quick_add_one_url_one_confirmation_to_study_map(tmp_path):
     assert [m.default_role for m in source_set.members] == ["primary_textbook"]
 
 
+def test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief(tmp_path):
+    root, repo, _jobs, source = _setup(tmp_path)
+
+    plan = plan_quick_add(
+        repo,
+        load_vault(root).config,
+        load_vault(root),
+        source,
+        subject_id="linear-algebra",
+        brief_overrides={"authoringPreset": "narrow_adjunct"},
+    )
+
+    assert plan.suggested_role == "reference"
+    assert plan.role_ambiguous is False
+    assert plan.brief["authoring_preset"] == "narrow_adjunct"
+    assert plan.brief["practice_items"] == "upfront"
+    assert "at most one focused learning object" in plan.brief["scope"]
+
+
 # --------------------------------------------------------------------------
 # §14 named row: Quick-add batches take queue priority over bulk batches
 # --------------------------------------------------------------------------

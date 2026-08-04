@@ -1,0 +1,180 @@
+schema_version: 1
+id: pi_a_uniformly_random_permu
+learning_object_id: lo_apply_inclusion_exclusion_to_overlapping_events
+subjects:
+practice_mode: whole derivation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_a_finite_family_of_events_compute_the_union_
+  - facet_in_the_uniform_n_card_matching_problem_intersect
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A uniformly random permutation of n labeled cards is placed into n 
+  labeled positions. Let A_i be the event that card i is in position i. Derive 
+  the inclusion-exclusion expression for the probability of at least one match. 
+  Explain how symmetry groups the r-way intersections and state the limit as n 
+  grows.
+expected_answer: Winning is the union of A_1,…,A_n. For any r specified 
+  positions, fixing those cards leaves (n-r)! permutations, so the intersection 
+  probability is (n-r)!/n!. There are binom(n,r) such intersections. 
+  Inclusion-exclusion therefore gives sum from r=1 to n of 
+  (-1)^(r+1)binom(n,r)(n-r)!/n!=sum from r=1 to n of 
+  (-1)^(r+1)/r!=1-1/2!+1/3!-⋯+(-1)^(n+1)/n!. As n grows this approaches 1-1/e.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.3
+scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
+surface_family: matching-problem
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-random-permutation-matches
+  representation: event notation and factorial counts
+  solution_recipe_family: symmetric-inclusion-exclusion
+  answer_structure: model, intersections, finite sum, limit
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_a_finite_family_of_events_compute_the_union_
+  - facet_in_the_uniform_n_card_matching_problem_intersect
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-matching-model
+      points: 2.0
+      description: Defines fixed-position events and represents at least one 
+        match as their union, without treating them as disjoint.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_family_of_events_compute_the_union_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet-inclusion-exclusion-contract
+      correlation_group: matching-ie
+      recipe_ids:
+        - recipe-apply-inclusion-exclusion
+      measurement_status:
+    - id: criterion-matching-intersections
+      points: 3.0
+      description: Derives (n-r)!/n! for an r-way specified intersection and 
+        identifies binom(n,r) intersections of that size.
+      tier: core
+      targets:
+        - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet-symmetric-matching-calculation
+      correlation_group: matching-ie
+      recipe_ids:
+        - recipe-apply-inclusion-exclusion
+      measurement_status:
+    - id: criterion-matching-sum-limit
+      points: 3.0
+      description: Forms the correct alternating reciprocal-factorial sum and 
+        distinguishes its finite value from the limit 1-1/e.
+      tier: transfer
+      targets:
+        - facet: facet_for_a_finite_family_of_events_compute_the_union_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - facet-inclusion-exclusion-contract
+        - facet-symmetric-matching-calculation
+      correlation_group: matching-ie
+      recipe_ids:
+        - recipe-apply-inclusion-exclusion
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s292
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s301
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s303
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s306
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:46Z'
+updated_at: '2026-07-28T17:34:46Z'

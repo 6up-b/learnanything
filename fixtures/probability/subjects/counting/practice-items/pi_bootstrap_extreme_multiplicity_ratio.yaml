@@ -1,0 +1,249 @@
+schema_version: 1
+id: pi_bootstrap_extreme_multiplicity_ratio
+learning_object_id: lo_weight_ordered_and_unordered_bootstrap_outcomes
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+evidence_weights:
+  facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou: 1.0
+criterion_facet_weights:
+  compute_bootstrap_probabilities:
+    facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou: 1.0
+  compute_bootstrap_ratio:
+    facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou: 1.0
+  count_first_bootstrap_orderings:
+    facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou: 1.0
+  count_second_bootstrap_orderings:
+    facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: bootstrap_extreme_trace
+      checkpoints:
+        - extract_multiplicities
+        - count_orderings
+        - normalize_probabilities
+        - compare_probabilities
+      dependencies:
+        compare_probabilities:
+          - normalize_probabilities
+        count_orderings:
+          - extract_multiplicities
+        extract_multiplicities: []
+        normalize_probabilities:
+          - count_orderings
+variant_contract:
+teach_back_source:
+prompt: 'A bootstrap sample of size four is drawn with replacement and equal probabilities
+  from four distinct source values a,b,c,d, after which order is discarded. Compare
+  the unordered outcome {a,a,b,c} with {a,a,a,a}: count the ordered sequences represented
+  by each, compute each probability, and give their probability ratio.'
+expected_answer: The multiset {a,a,b,c} has multiplicities (2,1,1,0), so it 
+  represents 4!/2!=12 ordered sequences. The multiset {a,a,a,a} represents one 
+  ordered sequence. Since all 4^4 ordered samples are equally likely, the 
+  probabilities are 12/4^4=3/64 and 1/4^4=1/256. Their ratio is 12.
+difficulty: 0.23
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u11
+  - bootstrap_sampling
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.74
+transfer_distance: 0.28
+scaffold_level: 0.02
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: bootstrap_extreme_multisets
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_unordered_bootstrap_equiprobability
+    hypothesis: The learner believes that discarding order makes every unordered
+      bootstrap sample equally likely.
+    observable_signature: Both unordered outcomes have probability 1/35, so 
+      their probability ratio is 1.
+    misconception_id:
+    facet_id: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+    fails_criteria:
+      - compute_bootstrap_probabilities
+      - compute_bootstrap_ratio
+    distinguishing_features:
+      - assigns equal mass to unordered multisets
+      - does not weight by represented ordered sequences
+    source: authored
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: count_first_bootstrap_orderings
+      points: 1.0
+      description: Counts 12 ordered sequences for {a,a,b,c}.
+      tier: core
+      targets:
+        - facet: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: count_second_bootstrap_orderings
+      points: 1.0
+      description: Counts one ordered sequence for {a,a,a,a}.
+      tier: core
+      targets:
+        - facet: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: compute_bootstrap_probabilities
+      points: 1.0
+      description: Divides the ordering counts by 4^4 to obtain both 
+        probabilities.
+      tier: core
+      targets:
+        - facet: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - count_first_bootstrap_orderings
+        - count_second_bootstrap_orderings
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: compute_bootstrap_ratio
+      points: 1.0
+      description: Obtains probability ratio 12.
+      tier: core
+      targets:
+        - facet: facet_a_bootstrap_sample_of_size_n_from_n_distinct_sou
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - compute_bootstrap_probabilities
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_weight_ordered_and_unordered_bootstrap_outcomes:s498-s511
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s498
+      quote: "Hint: As discussed in the math appendix, (1 + x n ) n ≈ e x for n large.\n\
+        58. A widget inspector inspects 12 widgets and finds that exactly 3 are defective.
+        Unfortunately, the widgets then get all mixed up and the inspector has to
+        find the 3 defective widgets again by testing widgets one by one. (a) Find
+        the probability that the inspector will now have to test at least 9 widgets.
+        (b) Find the probability that the inspector will now have to test at least
+        10 widgets. 59. There are 15 chocolate bars and 10 children. In how many ways
+        can the chocolate bars be distributed to the children, in each of the following
+        scenarios? (a) The chocolate bars are fungible (interchangeable). (b) The
+        chocolate bars are fungible, and each child must receive at least one.\nHint:
+        First give each child a chocolate bar, and then decide what to do with the
+        rest.\n(c) The chocolate bars are not fungible (it matters which particular
+        bar goes where). (d) The chocolate bars are not fungible, and each child must
+        receive at least one.\nHint: The strategy suggested in (b) does not apply.
+        Instead, consider randomly giving the chocolate bars to the children, and
+        apply inclusion-exclusion.\n60. Given n ≥ 2 numbers (a1, a2, . . . , an) with
+        no repetitions, a bootstrap sample is a sequence (x1, x2, . . . , xn) formed
+        from the a j 's by sampling with replacement with equal probabilities. Bootstrap
+        samples arise in a widely used statistical method known as the bootstrap.
+        For example, if n = 2 and (a1, a2) = (3, 1), then the possible bootstrap samples
+        are (3, 3),(3, 1),(1, 3), and (1, 1). (a) How many possible bootstrap samples
+        are there for (a1, . . . , an)? (b) How many possible bootstrap samples are
+        there for (a1, . . . , an), if order does not matter (in the sense that it
+        only matters how many times each a j was chosen, not the order in which they
+        were chosen)? (c) One random bootstrap sample is chosen (by sampling from
+        a1, . . . , a n with replacement, as described above). Show that not all unordered
+        bootstrap samples (in the sense of (b)) are equally likely. Find an unordered
+        bootstrap sample b 1 that is as likely as possible, and an unordered bootstrap
+        sample b 2 that is as unlikely as possible. Let p 1 be the probability of
+        getting b 1 and p 2 be the probability of getting b 2 (so p i is the probability
+        of getting the specific unordered bootstrap sample bi). What is p1/p2? What
+        is the ratio of the probability of getting an unordered bootstrap sample whose
+        probability is p 1 to the probability of getting an unordered sample whose
+        probability is p2? 61. s There are 100 passengers lined up to board an airplane
+        with 100 seats (with each seat assigned to one of the passengers). The first
+        passenger in line crazily decides to sit in a randomly chosen seat (with all
+        seats equally likely). Each subsequent passenger takes their assigned seat
+        if available, and otherwise sits in a random available seat. What is the probability
+        that the last passenger in line gets to sit in their assigned seat? (This
+        is a common interview problem, and a beautiful example of the power of symmetry.)\n\
+        Hint: Call the seat assigned to the jth passenger in line \"seat j\" (regardless
+        of whether the airline calls it seat 23A or whatever). What are the possibilities
+        for which seats are available to the last passenger in line, and what is the
+        probability of each of these possibilities?\n62. In the birthday problem,
+        we assumed that all 365 days of the year are equally likely (and excluded
+        February 29). In reality, some days are slightly more likely as birthdays
+        than others. For example, scientists have long struggled to understand why
+        more babies are born 9 months after a holiday. Let $\\mathbf{p} = (p_1, p_2,
+        \\dots, p_{365})$ be the vector of birthday probabilities, with $p_j$ the
+        probability of being born on the jth day of the year (February 29 is still
+        excluded, with no offense intended to Leap Dayers).\nThe kth elementary symmetric
+        polynomial in the variables $x_1, \\ldots, x_n$ is defined by\n$$e_k(x_1,
+        \\dots, x_n) = \\sum_{1 \\le j_1 < j_2 < \\dots < j_k \\le n} x_{j_1} \\dots
+        x_{j_k}.$$\nThis just says to add up all of the $\\binom{n}{k}$ terms we can
+        get by choosing and multiplying k of the variables. For example, $e_1(x_1,
+        x_2, x_3) = x_1 + x_2 + x_3$, $e_2(x_1, x_2, x_3) = x_1x_2 + x_1x_3 + x_2x_3$,
+        and $e_3(x_1, x_2, x_3) = x_1x_2x_3$.\nNow let $k \\geq 2$ be the number of
+        people."
+      quote_hash: 
+        sha256:818ed3a89987b2bae5733d74a329b623915f1e44349dfa83b1d6fbe19dc8758e
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s498
+        - s499
+        - s500
+        - s501
+        - s502
+        - s503
+        - s504
+        - s507
+        - s508
+        - s509
+        - s510
+        - s511
+      span_hash: 
+        sha256:cccb81f8d2d39cabde5232d347b825113dfc488c8658eead47541d47a056718f
+      section_id: u11
+      learning_object_ids:
+        - lo_weight_ordered_and_unordered_bootstrap_outcomes
+created_at: '2026-07-28T20:07:16Z'
+updated_at: '2026-07-28T20:07:16Z'

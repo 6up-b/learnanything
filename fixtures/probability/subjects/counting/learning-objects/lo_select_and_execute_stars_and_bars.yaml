@@ -1,0 +1,70 @@
+schema_version: 1
+id: lo_select_and_execute_stars_and_bars
+title: Select and Execute Stars and Bars
+subjects:
+  - counting
+concept: concept_stars_and_bars
+knowledge_type: method selection and procedure
+status: active
+contradicts:
+summary: Recognize fungible-object distributions, translate their constraints 
+  into integer compositions, and reject stars and bars when object identities 
+  matter.
+prerequisites: []
+confusables:
+  - concept_inclusion_exclusion
+blueprints:
+  - id: bp_01KYMWND_15
+    weight: 1.0
+    recipes:
+      - id: recipe_stars_bars
+        composition: conjunctive
+        all_of:
+          - facet: facet_stars_and_bars_is_applicable_only_when_objects_a
+            capability: method_selection
+            modality: hard
+          - facet: facet_when_m_interchangeable_objects_are_distributed_a
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s499
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s501
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:38Z'
+updated_at: '2026-07-28T17:34:44Z'

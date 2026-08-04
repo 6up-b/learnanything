@@ -411,7 +411,8 @@ class ProbeFamilyTrialsContext:
 class ReaderPresetSynthesisContext:
     """Bounded input for one demand-paged reader preset request (spec §6.3).
 
-    ``blocks`` is the smallest-sufficient window as [{span_id, text}];
+    ``blocks`` is the merged smallest-sufficient window as [{span_id, text}];
+    ``selected_span_ids`` identifies learner-selected blocks within that window;
     ``selected_text`` is the exact learner-selected surface inside that window
     (or the learner's OCR correction when ``selection_edited`` is true);
     ``learner_text`` is the learner's optional note/question. Both are
@@ -422,8 +423,10 @@ class ReaderPresetSynthesisContext:
     preset: str
     selected_text: str = ""
     selection_edited: bool = False
+    selected_span_ids: list = field(default_factory=list)
     learner_text: str = ""
     section_path: list = field(default_factory=list)
+    section_paths: list = field(default_factory=list)
     blocks: list = field(default_factory=list)
 
 
@@ -2228,11 +2231,17 @@ def _strict_json_schema(value: Any) -> Any:
     _flatten_nested_any_of(normalized)
 
     if _is_object_schema(normalized):
+        # The Responses API's strict-schema validator requires the complete
+        # object triplet even for a bare ``dict`` that has no declared keys.
+        # Omitting ``properties`` here made a parent field disappear during
+        # provider validation while its name remained in the parent's
+        # ``required`` list (for example ``AppendRestructure.payload``), which
+        # surfaced as the misleading "Extra required key 'payload'" 400.
         properties = normalized.get("properties")
-        if isinstance(properties, dict):
-            normalized["required"] = list(properties.keys())
-        else:
-            normalized.setdefault("required", [])
+        if not isinstance(properties, dict):
+            properties = {}
+            normalized["properties"] = properties
+        normalized["required"] = list(properties.keys())
         normalized["additionalProperties"] = False
 
     return normalized
@@ -2273,9 +2282,10 @@ def map_typed_schema_paths(model: type[BaseModel]) -> list[str]:
     * a bare ``dict`` / ``dict[str, Any]`` -> ``additionalProperties: true``.
 
     The second is the same defect wearing a different keyword — it sanitizes to
-    ``{"type": "object", "required": [], "additionalProperties": false}``, an
-    object with no declared properties and no permitted extras, so the only
-    value the provider can legally emit is ``{}``. ``WireModel``'s
+    ``{"type": "object", "properties": {}, "required": [],
+    "additionalProperties": false}``, an object with no declared properties and
+    no permitted extras, so the only value the provider can legally emit is
+    ``{}``. ``WireModel``'s
     ``extra="forbid"`` cannot help here: the ban lives on the *model*, and
     these are untyped ``dict`` fields with no model behind them.
     """

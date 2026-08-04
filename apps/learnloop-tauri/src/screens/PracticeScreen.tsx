@@ -600,9 +600,15 @@ export function PracticeScreen({
           {item.sourceRefs.length > 0 ? (
             <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, lineHeight: 1.6 }}>
               {item.sourceRefs.map((ref, index) => (
-                <div key={`${ref.refId}:${index}`} title={ref.quote ?? undefined} style={{ display: "flex", gap: 8 }}>
-                  <span style={{ fontFamily: FONT_MONO }}>{ref.refId}</span>
-                  <span style={{ color: COLOR.textDim }}>{ref.locator ?? ref.path ?? ref.refType}</span>
+                <div
+                  key={`${ref.refId}:${index}`}
+                  title={[ref.refId, ref.quote].filter(Boolean).join("\n\n")}
+                  style={{ display: "flex", gap: 8, alignItems: "baseline" }}
+                >
+                  <span style={{ color: COLOR.textDim }}>{ref.displayName}</span>
+                  <span style={{ fontFamily: FONT_MONO }}>
+                    {ref.locator ?? ref.path ?? ref.refType}
+                  </span>
                 </div>
               ))}
             </div>

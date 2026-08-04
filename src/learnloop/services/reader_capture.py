@@ -196,6 +196,13 @@ def capture(
         "privacy_locality": privacy_locality,
     }
     selected_text, selection_edited = _selection_surface(raw_selection)
+    selected_span_ids = list(
+        dict.fromkeys(
+            str(segment.get("span_id") or "")
+            for segment in translation.get("segments") or []
+            if segment.get("span_id")
+        )
+    )
     outbox = {
         "capture_kind": capture_kind,
         "payload": {
@@ -204,7 +211,8 @@ def capture(
             "learner_text_present": bool(learner_text),
             "enqueue_synth": bool(enqueue_synth),
             "extraction_id": extraction_id,
-            "span_id": (translation.get("segments") or [{}])[0].get("span_id"),
+            "span_id": selected_span_ids[0] if selected_span_ids else None,
+            "span_ids": selected_span_ids,
             "selected_text": selected_text,
             "selection_edited": selection_edited,
         },
@@ -364,6 +372,10 @@ def _default_convert(repository: Repository, row: Mapping[str, Any]) -> str | No
             client_idempotency_key=row.get("client_idempotency_key"),
             selected_text=str(payload.get("selected_text") or ""),
             selection_edited=bool(payload.get("selection_edited")),
+            selected_span_ids=[
+                str(span_id) for span_id in payload.get("span_ids") or []
+                if span_id
+            ],
         )
         return result["request_id"]
     return row.get("annotation_id")

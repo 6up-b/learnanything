@@ -1,0 +1,148 @@
+schema_version: 1
+id: pi_give_a_story_proof_of_bi
+learning_object_id: lo_construct_a_combinatorial_proof_of_an_identity
+subjects:
+practice_mode: proof construction
+attempt_types_allowed: []
+evidence_facets:
+  - facet_a_combinatorial_story_proof_establishes_an_ident
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Give a story proof of binom(m+n,k)=sum from j=0 to k of 
+  binom(m,j)binom(n,k-j). Your response must name the common collection, explain
+  the direct count, and explain why the indexed cases are exhaustive and 
+  disjoint.
+expected_answer: Consider k-person committees chosen from m juniors and n 
+  seniors. Directly, there are binom(m+n,k) committees. Alternatively, classify 
+  a committee by its unique number j of juniors. Choose those juniors in 
+  binom(m,j) ways and the remaining k-j seniors in binom(n,k-j) ways, then sum 
+  over j. Every committee has exactly one value of j, so the cases are 
+  exhaustive and disjoint and the two counts are equal.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.3
+transfer_distance: 0.2
+scaffold_level: 0.3
+capability:
+task_features:
+task_feature_schema:
+surface_family: story-proof-identity
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-vandermonde-identity
+  representation: symbolic identity
+  solution_recipe_family: double-counting-committee
+  answer_structure: combinatorial narrative
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_combinatorial_story_proof_establishes_an_ident
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-story-common-object
+      points: 2.0
+      description: Names k-person committees from two disjoint groups as the one
+        collection counted by both sides.
+      tier: core
+      targets:
+        - facet: facet_a_combinatorial_story_proof_establishes_an_ident
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet-story-proof-contract
+      correlation_group: vandermonde-proof
+      recipe_ids:
+        - recipe-construct-story-proof
+      measurement_status:
+    - id: criterion-story-two-counts
+      points: 3.0
+      description: Gives the direct count and the j-indexed product count, 
+        explaining uniqueness, exhaustiveness, and disjointness of the cases.
+      tier: transfer
+      targets:
+        - facet: facet_a_combinatorial_story_proof_establishes_an_ident
+          capability: procedure_execution
+          role: primary
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet-story-proof-contract
+        - facet-binomial-coefficient
+      correlation_group: vandermonde-proof
+      recipe_ids:
+        - recipe-construct-story-proof
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s230
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s232
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s233
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:48Z'
+updated_at: '2026-07-28T17:34:48Z'

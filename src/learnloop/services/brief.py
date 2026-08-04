@@ -44,6 +44,23 @@ INIT_CLAIM_PSEUDO_COUNT = 1.0
 StartingLevel = Literal["new_to_this", "some_exposure", "comfortable", "strong_background"]
 
 PracticeItemsMode = Literal["upfront", "as_you_read"]
+AuthoringPreset = Literal["narrow_adjunct"]
+
+NARROW_ADJUNCT_SCOPE = (
+    "Treat this source as a narrow enrichment adjunct. Make only additive changes: "
+    "attach it to existing curriculum when it fits; otherwise add at most one focused "
+    "learning object. Author one or two practice items. Do not restructure, merge, "
+    "split, re-key, or broadly expand the existing curriculum."
+)
+
+_AUTHORING_PRESET_DEFAULTS: dict[str, dict[str, Any]] = {
+    "narrow_adjunct": {
+        "outcome": "general_learning",
+        "depth": "intro",
+        "scope": NARROW_ADJUNCT_SCOPE,
+        "practice_items": "upfront",
+    }
+}
 
 
 class Brief(BaseModel):
@@ -59,6 +76,7 @@ class Brief(BaseModel):
     subject: str | None = None
     source_title: str | None = None
     notation: str | None = None
+    authoring_preset: AuthoringPreset | None = None
     include_topics: list[str] | None = None
     exclude_topics: list[str] | None = None
     # Exam-prep goal fields (consumed by _create_goal_from_brief).
@@ -101,6 +119,11 @@ def validate_brief(raw: dict[str, Any] | None, *, strict: bool = True) -> dict[s
     """
 
     data = _snake_keys(raw or {})
+    preset_defaults = _AUTHORING_PRESET_DEFAULTS.get(str(data.get("authoring_preset") or ""))
+    if preset_defaults is not None:
+        # Presets lower input friction without becoming a second source of
+        # truth: explicit brief fields always override their generated defaults.
+        data = {**preset_defaults, **data}
     try:
         model = Brief.model_validate(data)
     except ValidationError as exc:

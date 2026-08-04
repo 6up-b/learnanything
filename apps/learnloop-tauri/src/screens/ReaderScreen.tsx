@@ -40,6 +40,7 @@ import { AffectTap, DispositionPicker, PrimaryButton, SecondaryButton } from "..
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
+import { RectUnionOverlay } from "../components/RectUnionOverlay";
 
 const ANSWER_MODE_OPTIONS = [
   { value: "answer_directly", label: "answer directly" },
@@ -1070,6 +1071,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       // The marquee owns this drag — no native selection underneath.
       event.preventDefault();
       window.getSelection()?.removeAllRanges();
+      setDomArmed(true);
       domDragRef.current = { x0: point[0], y0: point[1] };
       setDomDraft([point[0], point[1], point[0], point[1]]);
     },
@@ -1223,6 +1225,33 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     }
   }, [selection]);
 
+  // The text/transcript marquee also has no native DOM selection after commit.
+  // A context click inside its retained union targets the complete committed
+  // selection, matching the PDF surface's right-click semantics.
+  const openDomTagMenu = useCallback(
+    (request: TagMenuRequest) => {
+      const point = domPointFromClient(request.x, request.y);
+      const insideCommittedBox = point !== null && domBoxesRef.current.some(
+        (box) =>
+          point[0] >= box[0] &&
+          point[0] <= box[2] &&
+          point[1] >= box[1] &&
+          point[1] <= box[3],
+      );
+      if (!pdfSurfaceActive && selection && insideCommittedBox) {
+        setTagMenu({
+          ...request,
+          spanId: selection.spanId,
+          quote: selection.quote,
+          nodes: selectionNodes(selection),
+        });
+        return;
+      }
+      setTagMenu(request);
+    },
+    [domPointFromClient, pdfSurfaceActive, selection],
+  );
+
   const refreshRequests = useCallback(async () => {
     if (!render || offline) return;
     try {
@@ -1317,9 +1346,12 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       if (!render) return;
       const displayQuote = target.quote ?? WHOLE_BLOCK_QUOTE;
       // A quoted tag re-splits the live selection per block (it may span many
-      // transcript cues); a bare right-click tags the whole single block.
+      // transcript cues). PDF native/marquee selections already carry their
+      // resolved nodes because a committed marquee has no DOM Selection.
+      // A bare right-click tags the whole single block.
       const quotedNodes = (() => {
         if (target.quote === null) return null;
+        if (target.nodes?.length) return target.nodes;
         const multi = collectSelectionNodes();
         return multi.length ? multi : [{ spanId: target.spanId, quote: target.quote }];
       })();
@@ -1345,7 +1377,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
           learnerText: "",
         });
         setAnnotations((a) => [
-          { annotationId: receipt.annotationId, quote: displayQuote, status: receipt.anchorStatus ?? "exact", learnerText: "", kind: action, segments: optimisticSegments(target.spanId) },
+          { annotationId: receipt.annotationId, quote: displayQuote, status: receipt.anchorStatus ?? "exact", learnerText: "", kind: action, segments: optimisticSegments(optimisticIds) },
           ...a,
         ]);
         setActiveSpan(target.spanId);
@@ -1367,6 +1399,30 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
   }, [tagMenu]);
+
+  // A single Alt press is the quick "clear capture" gesture. It also composes
+  // with Alt+drag block sweeping: the key press clears the old capture first,
+  // then the drag commits its replacement on mouse-up.
+  const clearSelection = useCallback(() => {
+    setSelection(null);
+    setSelectionActions([]);
+    setEditingCapture(false);
+    setTagMenu(null);
+    window.getSelection()?.removeAllRanges();
+  }, []);
+  useEffect(() => {
+    const onAltClear = (event: KeyboardEvent) => {
+      if (event.key !== "Alt" || event.repeat) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest("input, textarea, select"))
+      ) return;
+      clearSelection();
+    };
+    window.addEventListener("keydown", onAltClear, true);
+    return () => window.removeEventListener("keydown", onAltClear, true);
+  }, [clearSelection]);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
   // pane scrolls to its page/block; the text surface scrolls to its block.
@@ -1944,21 +2000,25 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         >
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
             <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
-              {domBoxes.map((b, i) => (
-                <div
-                  key={`dom-box-${i}`}
-                  style={{
-                    position: "absolute",
-                    left: b[0] - 2,
-                    top: b[1] - 1.5,
-                    width: b[2] - b[0] + 4,
-                    height: b[3] - b[1] + 3,
-                    background: "rgba(245, 166, 35, 0.14)",
-                    border: "1.5px solid rgba(215, 135, 15, 0.85)",
-                    borderRadius: 3,
-                  }}
-                />
-              ))}
+              {!domArmed && !domDraft ? (
+                <RectUnionOverlay rects={domBoxes} />
+              ) : (
+                domBoxes.map((b, i) => (
+                  <div
+                    key={`dom-box-${i}`}
+                    style={{
+                      position: "absolute",
+                      left: b[0] - 2,
+                      top: b[1] - 1.5,
+                      width: b[2] - b[0] + 4,
+                      height: b[3] - b[1] + 3,
+                      background: "rgba(245, 166, 35, 0.14)",
+                      border: "1.5px solid rgba(215, 135, 15, 0.85)",
+                      borderRadius: 3,
+                    }}
+                  />
+                ))
+              )}
               {domDraft ? (
                 <div
                   style={{
@@ -1988,7 +2048,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
               onAskSpan={(spanId) => {
                 if (spanId) setActiveSpan(spanId);
               }}
-              onTagMenu={setTagMenu}
+              onTagMenu={openDomTagMenu}
             />
           ) : watchLoading ? (
             <Card style={{ padding: 18 }}><Faint style={{ fontSize: 12 }}>◐ preparing video and synchronized transcript…</Faint></Card>
@@ -2034,7 +2094,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                   e.preventDefault();
                   const sel = window.getSelection();
                   const quote = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : "";
-                  setTagMenu({ x: e.clientX, y: e.clientY, spanId: block.spanId, quote: quote || null });
+                  openDomTagMenu({ x: e.clientX, y: e.clientY, spanId: block.spanId, quote: quote || null });
                 }}
                 style={{
                   fontFamily: FONT_MONO,
@@ -2301,7 +2361,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                   >
                     {editingCapture ? "done" : "edit"}
                   </button>
-                  <button type="button" onClick={() => { setSelection(null); setSelectionActions([]); setEditingCapture(false); }} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}>clear</button>
+                  <button type="button" onClick={clearSelection} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}>clear</button>
                 </div>
                 {editingCapture ? (
                   // OCR-mishap repair: the whole selection edits as ONE
@@ -3016,6 +3076,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                 { key: "drag", label: "select text" },
                 { key: "ctrl+drag", label: "draw capture boxes" },
                 { key: "release ctrl", label: "capture box union" },
+                { key: "alt", label: "clear selection" },
                 { key: "alt+drag", label: "sweep blocks" },
                 { key: "right-click", label: "tag" },
               ]
@@ -3023,6 +3084,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                 { key: "select", label: "capture text" },
                 { key: "ctrl+drag", label: "draw capture boxes" },
                 { key: "release ctrl", label: "capture box union" },
+                { key: "alt", label: "clear selection" },
                 { key: "right-click", label: "tag" },
               ]
         }
