@@ -578,16 +578,24 @@ def restrict_grading_context_to_criteria(
     are never shown to the grader and never produce evidence.
     """
 
-    restricted_rubric = Rubric(
-        max_points=rubric.max_points,
-        criteria=list(criteria),
-        fatal_errors=rubric.fatal_errors,
-    )
+    # This is a transient VIEW of an already-validated authored rubric, not a
+    # new rubric instrument.  An arbitrary asked subset can have a fractional
+    # point total (for example three 1-point core criteria plus one 0.5-point
+    # transfer criterion), while persisted ``Rubric`` instruments correctly
+    # require their complete criterion total to be a positive integer.  Build
+    # the wire projection from the valid full rubric instead of constructing a
+    # second ``Rubric`` and accidentally applying the authored-instrument
+    # invariant to the subset.
+    restricted_rubric = rubric.model_dump(mode="json", exclude_none=False)
+    restricted_rubric["criteria"] = [
+        criterion.model_dump(mode="json", exclude_none=False)
+        for criterion in criteria
+    ]
     criterion_ids = {criterion.id for criterion in criteria}
     full_weights = criterion_facet_weights_for_item(item, rubric)
     return dataclass_replace(
         context,
-        rubric=restricted_rubric.model_dump(mode="json", exclude_none=False),
+        rubric=restricted_rubric,
         criterion_facet_weights={
             criterion_id: weights
             for criterion_id, weights in full_weights.items()

@@ -29,8 +29,9 @@ from learnloop.services.attempts import (
     complete_attempt_with_codex_fallback,
     complete_attempt_with_codex_required,
 )
-from learnloop.services.followups import FollowupDecision, evaluate_attempt_intervention_followup
+from learnloop.services.followups import FollowupDecision
 from learnloop.services.mastery import sigmoid
+from learnloop.services.post_attempt import run_post_attempt_pipeline
 from learnloop.services.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import KeyBar, TextStatic, block_bar, mode_pill_color, pill
@@ -319,13 +320,14 @@ class FeedbackScreen(Screen):
 
     def _complete_result(self, result: AttemptResult) -> None:
         _provider_name, runtime, client = self._grading_provider()
-        self.followup_decision = evaluate_attempt_intervention_followup(
+        outcome = run_post_attempt_pipeline(
             self.state.vault,
             self.state.repository,
             result=result,
             available_minutes=self.available_minutes,
             ai_client=client if runtime.ready else None,
         )
+        self.followup_decision = outcome.followup
         self.result = result
         self.app.last_attempt_result = result
         self.surprise_direction = result.surprise_direction

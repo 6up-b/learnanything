@@ -22,6 +22,7 @@ from learnloop.services.causal_activity_policy import (
     classify_attempt_activity,
     near_clone_from_selection_components,
     policy_for_class,
+    resolve_attempt_activity_policy,
     resolve_conflicting_classes,
 )
 from learnloop.vault.loader import load_vault
@@ -140,6 +141,29 @@ def test_attempt_counts_as_assisted(attempt_type, primed, hints, assisted):
         )
         is assisted
     )
+
+
+def test_resolved_attempt_policy_separates_assistance_from_eligibility():
+    pure_probe = resolve_attempt_activity_policy(attempt_type="diagnostic_probe")
+    assert pure_probe.counts_as_assisted is False
+    assert pure_probe.eligible_for_certification is False
+
+    near_clone = resolve_attempt_activity_policy(
+        attempt_type="independent_attempt",
+        recorded={"contamination_class": "verification", "near_clone": True},
+    )
+    assert near_clone.counts_as_assisted is False
+    assert near_clone.eligible_for_certification is False
+
+    # A recorded lower-contamination fact cannot launder immutable priming.
+    primed = resolve_attempt_activity_policy(
+        attempt_type="independent_attempt",
+        primed=True,
+        recorded={"contamination_class": "verification", "near_clone": False},
+    )
+    assert primed.contamination_class == "repair_activity"
+    assert primed.counts_as_assisted is True
+    assert primed.eligible_for_certification is False
 
 
 def test_explicit_class_overrides_the_signal_derivation():
@@ -290,6 +314,82 @@ def test_restating_the_same_fact_is_idempotent(tmp_path):
             clock=CLOCK,
         )
     assert len(repository.causal_activity_classification_events("att_replay")) == 1
+
+
+def test_concurrent_classification_waits_then_appends_next_sequence(tmp_path):
+    """A reserved writer lock prevents MAX(seq)+1 from dropping a writer."""
+
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from time import sleep
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    repository = Repository(paths.sqlite_path)
+
+    # Hold the first connection's write transaction open with seq=1 while a
+    # second repository connection tries to append. The second writer must wait,
+    # then re-read MAX after commit and use seq=2. Under the old deferred
+    # SELECT + INSERT OR IGNORE implementation it could read 0 and either fail
+    # its lock upgrade or silently lose its row on the seq uniqueness conflict.
+    writer_a = repository.connection()
+    writer_a.execute("BEGIN IMMEDIATE")
+    writer_a.execute(
+        """
+        INSERT INTO causal_activity_classification_events(
+          id, attempt_id, seq, contamination_class, near_clone,
+          near_clone_basis, closes_pre_intervention_segment,
+          eligible_for_fsrs, eligible_for_certification, source,
+          policy_version, detail_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "event_a",
+            "att_concurrent",
+            1,
+            "pure_diagnostic",
+            0,
+            "no_source_item",
+            0,
+            0,
+            0,
+            "writer_a",
+            CAUSAL_ACTIVITY_POLICY_VERSION,
+            "{}",
+            NOW.isoformat().replace("+00:00", "Z"),
+        ),
+    )
+    started = Event()
+
+    def append_second():
+        started.set()
+        return repository.record_causal_activity_classification(
+            attempt_id="att_concurrent",
+            contamination_class="repair_activity",
+            source="writer_b",
+            clock=CLOCK,
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(append_second)
+            assert started.wait(timeout=1)
+            sleep(0.05)
+            assert not future.done()
+            writer_a.commit()
+            resolved = future.result(timeout=2)
+    finally:
+        if writer_a.in_transaction:
+            writer_a.rollback()
+        writer_a.close()
+
+    assert resolved["contamination_class"] == "repair_activity"
+    events = repository.causal_activity_classification_events("att_concurrent")
+    assert [(event["seq"], event["source"]) for event in events] == [
+        (1, "writer_a"),
+        (2, "writer_b"),
+    ]
 
 
 def test_near_clone_fails_closed_across_conflicting_events(tmp_path):

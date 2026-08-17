@@ -5,7 +5,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
-import type { CommandError, QuickAddPlanDto, StudyMapBriefDto } from "../api/dto";
+import type { QuickAddPlanDto, StudyMapBriefDto } from "../api/dto";
+import { errorMessage, getCommandError } from "../errors";
 import { StudyMapBriefWizard } from "./StudyMapBriefWizard";
 import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox, TermSelect } from "./term";
 import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
@@ -87,7 +88,7 @@ export function QuickAddDialog({
       setRangeImported(false);
       setError(null);
     } catch (e) {
-      setError((e as CommandError).message || "Could not open the file browser.");
+      setError(errorMessage(e, "Could not open the file browser."));
     }
   }
 
@@ -98,9 +99,6 @@ export function QuickAddDialog({
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
   }, [onClose, briefOpen]);
-
-  const asCommandError = (err: unknown): CommandError | null =>
-    err && typeof err === "object" && "code" in err ? (err as CommandError) : null;
 
   // Until the learner customizes the brief, preserve the context-sensitive
   // default. Once chosen in the wizard, practice timing is independent of the
@@ -152,11 +150,11 @@ export function QuickAddDialog({
       setConsentTicked(res.plan.confirmation.externalAiConsent.map(() => false));
       setPhase("confirm");
     } catch (err: unknown) {
-      const command = asCommandError(err);
+      const command = getCommandError(err);
       if (command?.code === "quick_add_requires_import") {
         setNeedsImport(true);
       } else {
-        setError(command?.message ?? (err instanceof Error ? err.message : String(err)));
+        setError(errorMessage(err, "Could not prepare this study-map plan."));
       }
     } finally {
       setBusy(false);
@@ -204,7 +202,7 @@ export function QuickAddDialog({
       }
     } catch (err: unknown) {
       if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorMessage(err, "Could not import the selected source."));
         setImportProgress(null);
         setBusy(false);
       }
@@ -228,8 +226,7 @@ export function QuickAddDialog({
       onEnqueued(res.quickAdd.batchId);
       onClose();
     } catch (err: unknown) {
-      const command = asCommandError(err);
-      setError(command?.message ?? (err instanceof Error ? err.message : String(err)));
+      setError(errorMessage(err, "Could not start the study-map build."));
       setBusy(false);
     }
   };

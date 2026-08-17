@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import type {
-  CommandError,
   ComposeDraftResult,
   ExemplarPoolEntryDto,
   GoalDto,
@@ -17,6 +16,7 @@ import type {
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, TermCheckbox } from "../term";
 import { PrimaryButton, SecondaryButton } from "./shared";
 import { ExemplarConfirmDialog, type ConfirmInput } from "../ExemplarConfirmDialog";
+import { errorMessage } from "../../errors";
 
 const REVIEW_CHECKS = [
   { key: "source_grounded", label: "exemplars are grounded in material I actually studied" },
@@ -49,20 +49,35 @@ export function GoldenPathSetup({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [runs, setRuns] = useState<RunListEntryDto[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadRevision, setLoadRevision] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setRuns(null);
+    setGoals(null);
+    setPool(null);
+    setLoadError(null);
     // Existing runs first — a run spans days, and without this list an
     // in-flight run would be unreachable after an app restart.
-    api.goldenPathListRuns().then((snap) => setRuns(snap.runs)).catch(() => setRuns([]));
-    api.goalsList().then((snap) => setGoals(snap.goals)).catch(() => setGoals([]));
-    api
-      .blueprintDiscoverCandidates()
-      .then((snap) => setPool(snap.pool))
+    Promise.all([
+      api.goldenPathListRuns(),
+      api.goalsList(),
+      api.blueprintDiscoverCandidates(),
+    ])
+      .then(([runSnapshot, goalSnapshot, poolSnapshot]) => {
+        if (cancelled) return;
+        setRuns(runSnapshot.runs);
+        setGoals(goalSnapshot.goals);
+        setPool(poolSnapshot.pool);
+      })
       .catch((error) => {
-        setPool([]);
-        onError((error as CommandError).message);
+        if (!cancelled) {
+          setLoadError(errorMessage(error, "Could not load Golden Path setup data."));
+        }
       });
-  }, [onError]);
+    return () => { cancelled = true; };
+  }, [loadRevision]);
 
   const activeGoals = useMemo(() => (goals ?? []).filter((g) => g.status === "active"), [goals]);
   const entry = useMemo(() => (pool ?? []).find((e) => e.learningObjectId === loId) ?? null, [pool, loId]);
@@ -114,7 +129,7 @@ export function GoldenPathSetup({
       });
       setComposed(result);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error, "Could not compose the Golden Path blueprint."));
     } finally {
       setBusy(false);
     }
@@ -130,7 +145,7 @@ export function GoldenPathSetup({
       );
       setReviewed(true);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error, "Could not save the Golden Path review."));
     } finally {
       setBusy(false);
     }
@@ -168,6 +183,19 @@ export function GoldenPathSetup({
       </div>
 
       <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 32px", display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
+        {loadError ? (
+          <Card status="attention" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <span style={{ color: COLOR.red, fontFamily: FONT_MONO, fontSize: 12 }}>
+              Golden Path setup is unavailable
+            </span>
+            <Faint style={{ fontSize: 12 }}>{loadError}</Faint>
+            <div>
+              <SecondaryButton onClick={() => setLoadRevision((value) => value + 1)}>
+                retry setup data
+              </SecondaryButton>
+            </div>
+          </Card>
+        ) : null}
         {runs && runs.length > 0 ? (
           <>
             <SectionHeader style={{ marginTop: 0 }}>Your runs</SectionHeader>
@@ -198,7 +226,11 @@ export function GoldenPathSetup({
 
         <SectionHeader style={{ marginTop: runs && runs.length > 0 ? undefined : 0 }}>1 · Goal</SectionHeader>
         {goals === null ? (
+          loadError ? (
+            <Faint style={{ fontSize: 12 }}>goals unavailable until setup data is retried.</Faint>
+          ) : (
           <Faint style={{ fontSize: 12 }}>◐ loading goals…</Faint>
+          )
         ) : activeGoals.length === 0 ? (
           <Faint style={{ fontSize: 12 }}>no active goal — create one from the Today tab first (the goal banner's "new goal").</Faint>
         ) : (
@@ -213,7 +245,11 @@ export function GoldenPathSetup({
 
         <SectionHeader>2 · Task family (learning object)</SectionHeader>
         {pool === null ? (
+          loadError ? (
+            <Faint style={{ fontSize: 12 }}>task families unavailable until setup data is retried.</Faint>
+          ) : (
           <Faint style={{ fontSize: 12 }}>◐ loading exemplar pool…</Faint>
+          )
         ) : pool.length === 0 ? (
           <Faint style={{ fontSize: 12 }}>no active practice items yet — ingest a source and build a study map first.</Faint>
         ) : (

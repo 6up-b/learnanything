@@ -6,6 +6,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
 from learnloop.services.measurement_corrections import (
     MeasurementCorrectionError,
     create_measurement_correction,
@@ -74,6 +75,10 @@ def test_attempted_item_correction_is_append_only_and_projection_versioned(tmp_p
     assert corrections[0]["historical_evidence_policy"] == "reinterpret_measurement"
     assert corrections[0]["corrected_contract_version_id"] == result.corrected_contract_version_id
     assert result.projection_rebuild_id is not None
+    marker = repository.latest_derived_state_rebuild()
+    assert marker is not None
+    assert marker["canonical_projection_version"] == CANONICAL_PROJECTION_VERSION
+    assert marker["coverage_denominator_version"] is not None
 
     original = repository.fetch_assessment_contract_version(source_contract_id)
     effective_v07 = repository.effective_assessment_contract_version(

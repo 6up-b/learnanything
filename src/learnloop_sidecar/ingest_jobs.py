@@ -770,10 +770,31 @@ class DurableIngestJobs:
 
     def list_batches(self, limit: int = _RECENT_LIMIT) -> list[dict[str, Any]]:
         runner = self._require_runner()
-        views: list[dict[str, Any]] = []
-        for batch in runner.repo.list_ingest_batches(limit=limit):
-            views.append(_batch_view(batch, runner.repo.ingest_jobs_for_batch(batch["id"]), runner.repo))
-        return views
+        batches = runner.repo.list_ingest_batches(limit=limit)
+        jobs_by_batch = runner.repo.ingest_jobs_for_batches(
+            batch["id"] for batch in batches
+        )
+        dependencies_by_job = runner.repo.ingest_job_dependencies_for_jobs(
+            job["id"]
+            for jobs in jobs_by_batch.values()
+            for job in jobs
+        )
+        rung_requests_by_id = runner.repo.rung_variant_requests(
+            request_id
+            for jobs in jobs_by_batch.values()
+            for job in jobs
+            if (request_id := _failed_rung_request_id(job)) is not None
+        )
+        return [
+            _batch_view(
+                batch,
+                jobs_by_batch.get(batch["id"], []),
+                runner.repo,
+                dependencies_by_job=dependencies_by_job,
+                rung_requests_by_id=rung_requests_by_id,
+            )
+            for batch in batches
+        ]
 
     def cancel_batch(self, batch_id: str) -> dict[str, Any] | None:
         runner = self._require_runner()
@@ -1041,7 +1062,13 @@ _LADDER_BY_JOB_TYPE: dict[str, tuple[str, ...]] = {
 }
 
 
-def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
+def _job_view(
+    job: dict[str, Any],
+    repo: Repository,
+    *,
+    depends_on: list[str] | None = None,
+    rung_requests_by_id: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """One job as the Batch-progress screen needs it: the checkpoint ladder, live
     phase/window counts, actual usage, and any waiting_for_input payload (§5.7)."""
 
@@ -1054,7 +1081,7 @@ def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
     error = job.get("error")
     if status == "failed" and job.get("status") == "completed":
         request_id = str(payload.get("request_id") or "")
-        request = repo.rung_variant_request(request_id) if request_id else None
+        request = (rung_requests_by_id or {}).get(request_id)
         reason = str(
             (request or {}).get("failure_reason")
             or "Rung variant generation failed before producing a proposal."
@@ -1087,11 +1114,32 @@ def _job_view(job: dict[str, Any], repo: Repository) -> dict[str, Any]:
         "result": None if waiting_payload is not None else (result or None),
         "error": error,
         "waiting_for_input": waiting_payload,
-        "depends_on": repo.ingest_job_dependency_ids(job["id"]),
+        "depends_on": (
+            depends_on
+            if depends_on is not None
+            else repo.ingest_job_dependency_ids(job["id"])
+        ),
     }
 
 
-def _batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository) -> dict[str, Any]:
+def _batch_view(
+    batch: dict[str, Any],
+    jobs: list[dict[str, Any]],
+    repo: Repository,
+    *,
+    dependencies_by_job: dict[str, list[str]] | None = None,
+    rung_requests_by_id: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    if dependencies_by_job is None:
+        dependencies_by_job = repo.ingest_job_dependencies_for_jobs(
+            job["id"] for job in jobs
+        )
+    if rung_requests_by_id is None:
+        rung_requests_by_id = repo.rung_variant_requests(
+            request_id
+            for job in jobs
+            if (request_id := _failed_rung_request_id(job)) is not None
+        )
     return {
         "id": batch["id"],
         "workflow_type": batch["workflow_type"],
@@ -1102,8 +1150,23 @@ def _batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Reposit
         "created_at": batch.get("created_at"),
         "started_at": batch.get("started_at"),
         "finished_at": batch.get("finished_at"),
-        "jobs": [_job_view(job, repo) for job in jobs],
+        "jobs": [
+            _job_view(
+                job,
+                repo,
+                depends_on=dependencies_by_job.get(job["id"], []),
+                rung_requests_by_id=rung_requests_by_id,
+            )
+            for job in jobs
+        ],
     }
+
+
+def _failed_rung_request_id(job: dict[str, Any]) -> str | None:
+    if effective_ingest_job_status(job) != "failed" or job.get("status") != "completed":
+        return None
+    request_id = str((job.get("payload") or {}).get("request_id") or "")
+    return request_id or None
 
 
 # Back-compat alias: SidecarContext + handlers import IngestJobManager.

@@ -1382,6 +1382,12 @@ def apply_attempt(
 
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
     application = _validate_probe_presentation(repository, application, attempt, clock=clock)
+    probe_grading_source = (
+        "deterministic"
+        if attempt.draft.attempt_type == "dont_know"
+        or attempt.draft.declared_dont_know
+        else attempt.grading_source
+    )
     _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
     # KM2b item 2: under mvp-0.7 the canonical projection is the only facet-state
     # write mechanism; the legacy per-LO recall/uncertainty bridge is retired.
@@ -1444,6 +1450,31 @@ def apply_attempt(
             near_clone_basis="no_source_item",
             source="apply_attempt.primed",
             detail={"practice_item_id": attempt.draft.practice_item_id},
+            clock=clock,
+        )
+    if (
+        attempt.record_probe_update
+        and application.attempt_record.get("probe_presentation_id") is not None
+    ):
+        # The full probe observation is recorded after causal materialization,
+        # but its activity policy is an INPUT to the canonical projection just
+        # below. Persist the presentation-derived contamination/near-clone fact
+        # first so live state and a later replay cannot disagree.
+        from learnloop.services.probe_episodes import (
+            record_presentation_activity_classification,
+        )
+
+        record_presentation_activity_classification(
+            vault,
+            repository,
+            attempt_id=application.result.attempt_id,
+            practice_item_id=attempt.draft.practice_item_id,
+            attempt_type=attempt.draft.attempt_type,
+            hints_used=attempt.draft.hints_used,
+            probe_presentation_id=str(
+                application.attempt_record["probe_presentation_id"]
+            ),
+            grading_source=probe_grading_source,
             clock=clock,
         )
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
@@ -1521,11 +1552,6 @@ def apply_attempt(
         # separated inside `record_episode_evidence`.
         from learnloop.services.probe_episodes import record_episode_evidence
 
-        grading_source = (
-            "deterministic"
-            if attempt.draft.attempt_type == "dont_know" or attempt.draft.declared_dont_know
-            else attempt.grading_source
-        )
         block_end = record_episode_evidence(
             vault,
             repository,
@@ -1535,7 +1561,7 @@ def apply_attempt(
             attempt_type=attempt.draft.attempt_type,
             hints_used=attempt.draft.hints_used,
             probe_presentation_id=application.attempt_record.get("probe_presentation_id"),
-            grading_source=grading_source,
+            grading_source=probe_grading_source,
             clock=clock,
         )
         if block_end is not None:

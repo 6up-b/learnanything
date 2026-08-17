@@ -500,7 +500,7 @@ function PointDetail({
       </div>
 
       <SectionHeader>Belief</SectionHeader>
-      {stat("mastery (LO)", point.mastery != null ? point.mastery.toFixed(2) : null, tone)}
+      {stat("mastery estimate (LO)", point.mastery != null ? point.mastery.toFixed(2) : null, tone)}
       {stat("variance", point.variance != null ? point.variance.toFixed(3) : null)}
       {stat("p(correct)", point.predictedCorrect != null ? point.predictedCorrect.toFixed(2) : null)}
       {stat("difficulty", point.difficulty != null ? point.difficulty.toFixed(2) : null)}

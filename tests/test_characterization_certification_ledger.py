@@ -144,6 +144,7 @@ def test_ledger_row_shape_excludes_confidence_and_calibration_lineage(tmp_path):
         "attempt_type",
         "practice_mode",
         "hints_used",
+        "primed",
         "created_at",
         "evidence",
     }

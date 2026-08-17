@@ -1276,6 +1276,38 @@ def test_one_authored_cause_is_unioned_with_the_synthesized_arms(tmp_path):
     }
 
 
+def test_projection_bulk_loads_candidate_cause_error_events_once(
+    tmp_path, monkeypatch
+):
+    """Unresolved failures do not issue one error-event read per criterion."""
+
+    from learnloop.services.canonical_projection import project_canonical_facet_state
+
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    _single_cause_failure(vault, repository)
+    calls = 0
+    original_bulk = repository.all_error_events_by_attempt
+
+    def bulk_once():
+        nonlocal calls
+        calls += 1
+        return original_bulk()
+
+    monkeypatch.setattr(repository, "all_error_events_by_attempt", bulk_once)
+    monkeypatch.setattr(
+        repository,
+        "error_events_for_attempt",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("canonical replay must not query errors per attempt")
+        ),
+    )
+
+    project_canonical_facet_state(vault, repository, clock=CLOCK)
+
+    assert calls == 1
+    assert repository.open_unresolved_cause_factors(learning_object_id=LO_ID)
+
+
 def test_projection_version_names_the_open_cause_union(tmp_path):
     """The version bump is the replay boundary; a rebuild records it.
 
@@ -1297,11 +1329,12 @@ def test_projection_version_names_the_open_cause_union(tmp_path):
     # bump. Each version supersedes without replacing: the open-cause UNION
     # semantics (v3), item-declared capability for compiled criterion targets
     # (v4), and v5's Meas §3.A1 guards (supporting credit requires A6 trace
-    # evidence; per-cell embedded-share cap) all remain in force, and v6 makes
-    # absent grading evidence inert — a criterion with no evidence row produces
-    # NO outcome instead of banking a phantom failure. Update this literal
+    # evidence; per-cell embedded-share cap) all remain in force, v6 makes
+    # absent grading evidence inert, v7 carries priming provenance into replay,
+    # and v8 separates certification eligibility from the assistance display so
+    # pure diagnostics / recorded near clones cannot certify. Update this literal
     # whenever the projection semantics move.
-    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v6_absent_evidence_confers_nothing"
+    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v8_activity_eligibility"
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     _single_cause_failure(vault, repository)

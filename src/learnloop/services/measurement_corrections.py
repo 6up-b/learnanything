@@ -243,7 +243,11 @@ def create_measurement_correction(
         and corrected_vault.config.algorithms.algorithm_version == projection_version
     ):
         from learnloop.services.canonical_projection import (
+            CANONICAL_PROJECTION_VERSION,
             project_canonical_facet_state,
+        )
+        from learnloop.services.facet_diagnostics import (
+            coverage_denominator_version,
         )
 
         project_canonical_facet_state(corrected_vault, repository, clock=clock)
@@ -253,7 +257,11 @@ def create_measurement_correction(
             learning_object_ids=learning_object_ids,
             algorithm_version=projection_version,
             rebuilt_learning_objects=len(learning_object_ids),
-            replayed_attempts=len(repository.list_all_attempts()),
+            replayed_attempts=repository.attempt_count(),
+            canonical_projection_version=CANONICAL_PROJECTION_VERSION,
+            coverage_denominator_version=coverage_denominator_version(
+                corrected_vault, repository
+            ),
             clock=clock,
         )
 

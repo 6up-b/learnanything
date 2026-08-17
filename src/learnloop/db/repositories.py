@@ -4,6 +4,7 @@ import json
 import logging
 import sqlite3
 import threading
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, date, timedelta
@@ -13,6 +14,11 @@ from typing import Any, Iterable, Iterator, Mapping, Sequence
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
+from learnloop.db.observation_ledger import (
+    load_authoritative_observation_ledger,
+    load_canonical_observation_ledger,
+    load_effective_assessment_contracts,
+)
 from learnloop.ids import new_ulid
 from learnloop.ingest.ir import (
     DocumentAsset,
@@ -1077,18 +1083,63 @@ class Repository:
             ).fetchall()
         return [_decode_attempt(row) for row in rows]
 
-    def list_recent_attempts_by_learning_object(self, learning_object_id: str, limit: int = 10) -> list[dict[str, Any]]:
+    def list_recent_attempts_by_learning_object(
+        self, learning_object_id: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        return self.list_recent_attempts_by_learning_objects(
+            (learning_object_id,), limit=limit
+        ).get(learning_object_id, [])
+
+    def list_recent_attempts_by_learning_objects(
+        self,
+        learning_object_ids: Iterable[str],
+        *,
+        limit: int = 10,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Load the latest ``limit`` attempts for each requested LO at once.
+
+        The scheduler evaluates an entire goal frontier in one pass.  A
+        partitioned rank keeps that pass to one database query instead of one
+        query per learning object, while the ``id`` tie-break makes replay
+        order deterministic for attempts sharing a timestamp.
+        """
+
+        ids = sorted(
+            {
+                str(learning_object_id)
+                for learning_object_id in learning_object_ids
+                if learning_object_id
+            }
+        )
+        grouped: dict[str, list[dict[str, Any]]] = {
+            learning_object_id: [] for learning_object_id in ids
+        }
+        if not ids or limit <= 0:
+            return grouped
+        placeholders = ",".join("?" for _ in ids)
         with self.connection() as connection:
             rows = connection.execute(
-                """
-                SELECT * FROM practice_attempts
-                WHERE learning_object_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?
+                f"""
+                WITH ranked AS (
+                    SELECT attempts.*,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY learning_object_id
+                               ORDER BY created_at DESC, id DESC
+                           ) AS recency_rank
+                    FROM practice_attempts AS attempts
+                    WHERE learning_object_id IN ({placeholders})
+                )
+                SELECT * FROM ranked
+                WHERE recency_rank <= ?
+                ORDER BY learning_object_id, recency_rank
                 """,
-                (learning_object_id, limit),
+                (*ids, int(limit)),
             ).fetchall()
-        return [_decode_attempt(row) for row in rows]
+        for row in rows:
+            attempt = _decode_attempt(row)
+            attempt.pop("recency_rank", None)
+            grouped[str(row["learning_object_id"])].append(attempt)
+        return grouped
 
     def list_attempts_by_learning_object(self, learning_object_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
@@ -1133,6 +1184,7 @@ class Repository:
                        a.correctness AS correctness,
                        a.rubric_score AS rubric_score,
                        a.hints_used AS hints_used,
+                       a.primed AS primed,
                        a.created_at AS created_at,
                        s.posterior_delta_json AS posterior_delta_json
                 FROM practice_attempts a
@@ -1144,6 +1196,7 @@ class Repository:
         for row in rows:
             payload = dict(row)
             payload["posterior_delta"] = _loads(payload.pop("posterior_delta_json"), None)
+            payload["primed"] = bool(payload["primed"])
             history.append(payload)
         return history
 
@@ -1716,6 +1769,27 @@ class Repository:
                 (attempt_id,),
             ).fetchall()
         return [_decode_error_event(row) for row in rows]
+
+    def all_error_events_by_attempt(self) -> dict[str, list[dict[str, Any]]]:
+        """Decode the complete error-event ledger in one ordered scan.
+
+        Whole-vault projections already replay every attempt, so issuing one
+        indexed lookup from inside that fold turns a rebuild into an N+1 query
+        path. This bulk shape preserves the per-attempt ordering of
+        :meth:`error_events_for_attempt` while making the read cost constant.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM error_events
+                ORDER BY attempt_id, created_at, id
+                """
+            ).fetchall()
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            grouped[str(row["attempt_id"])].append(_decode_error_event(row))
+        return dict(grouped)
 
     def attempt_ids_for_misconception(
         self,
@@ -4464,6 +4538,22 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def rung_variant_requests(
+        self, request_ids: Iterable[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk-load rung requests used by ingest progress views."""
+
+        ids = sorted({str(request_id) for request_id in request_ids if request_id})
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM rung_variant_requests WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        return {str(row["id"]): dict(row) for row in rows}
+
     def update_rung_variant_request(
         self, request_id: str, *, clock: Clock | None = None, **fields: Any
     ) -> bool:
@@ -5267,50 +5357,19 @@ class Repository:
 
         Chronological across LOs so the derived canonical belief state is
         deterministic regardless of per-LO replay order; beta masses accumulate
-        additively so only timestamps/consecutive-failures depend on order.
+        additively so only timestamps/consecutive-failures depend on order.  The
+        read model is assembled in two bulk queries by ``db.observation_ledger``;
+        no query is issued from inside the attempt loop.
         """
 
         with self.connection() as connection:
-            attempts = connection.execute(
-                """
-                SELECT id, practice_item_id, learning_object_id, attempt_type,
-                       practice_mode, hints_used, created_at
-                FROM practice_attempts
-                ORDER BY created_at ASC, id ASC
-                """
-            ).fetchall()
-            ledger: list[dict[str, Any]] = []
-            for attempt in attempts:
-                evidence = connection.execute(
-                    """
-                    SELECT criterion_id, points_awarded, attribution_json,
-                           correlation_group, recipe_id, observation_id,
-                           grading_revision, assessment_contract_version_id
-                    FROM grading_evidence
-                    WHERE attempt_id = ? AND superseded_at IS NULL
-                    ORDER BY created_at, criterion_id
-                    """,
-                    (attempt["id"],),
-                ).fetchall()
-                ledger.append(
-                    {
-                        "attempt_id": attempt["id"],
-                        "practice_item_id": attempt["practice_item_id"],
-                        "learning_object_id": attempt["learning_object_id"],
-                        "attempt_type": attempt["attempt_type"],
-                        "practice_mode": attempt["practice_mode"],
-                        "hints_used": attempt["hints_used"] or 0,
-                        "created_at": attempt["created_at"],
-                        "evidence": [
-                            {
-                                **dict(row),
-                                "attribution_json": _loads(row["attribution_json"], None),
-                            }
-                            for row in evidence
-                        ],
-                    }
-                )
-        return ledger
+            # Hold one read transaction across both scans.  A concurrent grade
+            # supersession must be observed wholly before or wholly after the
+            # replay snapshot, never as an attempt row from one epoch and
+            # evidence rows from another.
+            if not connection.in_transaction:
+                connection.execute("BEGIN")
+            return load_canonical_observation_ledger(connection)
 
     def canonical_observation_ledger_v2(self) -> list[dict[str, Any]]:
         """P0.3 (§4.3) authoritative-events ledger. Extends the mvp-0.7 row with the
@@ -5323,68 +5382,10 @@ class Repository:
         lineage fields are ADDED (never removed) -- projector tests fail if a variant
         omits them (§9.2 bullet 3)."""
 
-        ledger = self.canonical_observation_ledger()
         with self.connection() as connection:
-            for attempt in ledger:
-                observation = connection.execute(
-                    "SELECT * FROM activity_observations WHERE attempt_id = ? LIMIT 1",
-                    (attempt["attempt_id"],),
-                ).fetchone()
-                interpretation = None
-                adjudication = None
-                administration = None
-                if observation is not None:
-                    observation = dict(observation)
-                    if observation.get("active_interpretation_id"):
-                        interp_row = connection.execute(
-                            "SELECT * FROM grade_interpretations WHERE id = ?",
-                            (observation["active_interpretation_id"],),
-                        ).fetchone()
-                        interpretation = dict(interp_row) if interp_row is not None else None
-                    adj_row = connection.execute(
-                        """
-                        SELECT * FROM grade_adjudications
-                         WHERE observation_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
-                        """,
-                        (observation["id"],),
-                    ).fetchone()
-                    adjudication = dict(adj_row) if adj_row is not None else None
-                    admin_row = connection.execute(
-                        "SELECT * FROM activity_administrations WHERE id = ?",
-                        (observation["administration_id"],),
-                    ).fetchone()
-                    administration = dict(admin_row) if admin_row is not None else None
-
-                lineage: list[str] = []
-                if interpretation is not None and interpretation.get("reference_prior_ids_json"):
-                    lineage = _loads(interpretation["reference_prior_ids_json"], [])
-                attempt["administration_id"] = (
-                    observation["administration_id"] if observation is not None else None
-                )
-                attempt["target_contract_version_id"] = (
-                    administration.get("target_contract_version_id")
-                    if administration is not None else None
-                )
-                attempt["active_interpretation"] = interpretation
-                attempt["active_adjudication"] = adjudication
-                attempt["adjudication_trust_weight"] = (
-                    adjudication.get("bounded_trust_weight") if adjudication is not None else None
-                )
-                attempt["calibration_lineage"] = lineage
-                attempt["calibration_model_id"] = (
-                    interpretation.get("calibration_model_id") if interpretation is not None else None
-                )
-                attempt["calibration_model_hash"] = (
-                    interpretation.get("calibration_model_hash") if interpretation is not None else None
-                )
-                attempt["quarantine_state"] = (
-                    interpretation.get("quarantine_state") if interpretation is not None else None
-                )
-                attempt["projection_algorithm_version"] = (
-                    interpretation.get("projection_algorithm_version")
-                    if interpretation is not None else None
-                )
-        return ledger
+            if not connection.in_transaction:
+                connection.execute("BEGIN")
+            return load_authoritative_observation_ledger(connection)
 
     def replace_canonical_facet_state(
         self,
@@ -5756,6 +5757,18 @@ class Repository:
                 (practice_item_id,),
             ).fetchone()
         return _practice_item_quality_state(row) if row is not None else None
+
+    def practice_item_quality_states(self) -> dict[str, PracticeItemQualityState]:
+        """All item-quality projections keyed for a scheduler vault sweep."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM practice_item_quality_state ORDER BY practice_item_id"
+            ).fetchall()
+        return {
+            str(row["practice_item_id"]): _practice_item_quality_state(row)
+            for row in rows
+        }
 
     def upsert_practice_item_quality_state(self, state: Mapping[str, Any]) -> None:
         with self.connection() as connection:
@@ -6330,6 +6343,28 @@ class Repository:
             row = connection.execute(
                 """
                 SELECT * FROM derived_state_rebuilds
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        return _decode_derived_state_rebuild(row) if row is not None else None
+
+    def latest_canonical_projection_rebuild(self) -> dict[str, Any] | None:
+        """Latest rebuild that explicitly names its projection semantics.
+
+        ``derived_state_rebuilds`` also carries narrow scheduler/substrate
+        recovery markers written by services that do not rebuild canonical
+        facet state.  Their NULL projection field means "not reported", not a
+        rollback.  Startup rollout checks must therefore read the latest
+        explicit projection baseline rather than whichever unrelated marker
+        happened to be written last.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM derived_state_rebuilds
+                WHERE canonical_projection_version IS NOT NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT 1
                 """
@@ -9605,6 +9640,50 @@ class Repository:
             connection.commit()
             return cursor.rowcount > 0
 
+    def acknowledge_practice_checkpoint(
+        self,
+        session_id: str,
+        *,
+        practice_item_id: str,
+        submission_id: str,
+    ) -> str:
+        """Atomically clear only the practice checkpoint the client received.
+
+        A post-submit route can unmount its Practice screen while a new item is
+        already saving a draft in the same session.  A session-id-only DELETE
+        lets the stale completion erase that newer checkpoint.  Holding an
+        immediate SQLite write lock across compare + delete makes the expected
+        item/retry key an acknowledgement token rather than a best-effort read.
+        """
+
+        with self.connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT current_practice_item_id, focus_block_state_json
+                FROM session_checkpoints
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                return "already_absent"
+            focus = _loads(row["focus_block_state_json"], None)
+            practice = focus.get("practice") if isinstance(focus, dict) else None
+            saved_submission_id = None
+            if isinstance(practice, dict):
+                saved_submission_id = practice.get("submissionId") or practice.get("submission_id")
+            if (
+                row["current_practice_item_id"] != practice_item_id
+                or saved_submission_id != submission_id
+            ):
+                return "checkpoint_mismatch"
+            cursor = connection.execute(
+                "DELETE FROM session_checkpoints WHERE session_id = ?",
+                (session_id,),
+            )
+            return "cleared" if cursor.rowcount > 0 else "checkpoint_mismatch"
+
     def insert_agent_run(self, run: Mapping[str, Any]) -> str:
         run_id = str(run.get("id") or new_ulid())
         with self.connection() as connection:
@@ -10137,6 +10216,29 @@ class Repository:
             else source_version_id
         )
         return self.fetch_assessment_contract_version(effective_id)
+
+    def effective_assessment_contract_versions(
+        self,
+        source_version_ids: Iterable[str],
+        *,
+        projection_version: str,
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk form of :meth:`effective_assessment_contract_version`.
+
+        The mapping stays keyed by the source contract id written on grading
+        evidence.  Values are the contract snapshots the named projection is
+        authorized to consume after applying any explicit reinterpretation
+        edge.  Canonical replay uses this method once before its attempt loop.
+        """
+
+        with self.connection() as connection:
+            if not connection.in_transaction:
+                connection.execute("BEGIN")
+            return load_effective_assessment_contracts(
+                connection,
+                source_version_ids,
+                projection_version=projection_version,
+            )
 
     def superseded_measurement_item_ids(self) -> set[str]:
         """Attempted item files superseded by an accepted correction set."""
@@ -12858,6 +12960,25 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def calibration_models_by_hashes(
+        self, content_hashes: Iterable[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk calibration-model lookup for a whole projection replay."""
+
+        hashes = sorted({str(value) for value in content_hashes if value})
+        if not hashes:
+            return {}
+        placeholders = ",".join("?" for _ in hashes)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM grader_calibration_models
+                 WHERE content_hash IN ({placeholders})
+                """,
+                hashes,
+            ).fetchall()
+        return {str(row["content_hash"]): dict(row) for row in rows}
+
     def insert_calibration_model(
         self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]],
         clock: Clock | None = None,
@@ -12950,6 +13071,34 @@ class Repository:
                 (model_id,),
             ).fetchall()
         return {row["true_class"]: _loads(row["alpha_json"], {}) for row in rows}
+
+    def calibration_alphas_by_model_ids(
+        self, model_ids: Iterable[str]
+    ) -> dict[str, dict[str, dict[str, float]]]:
+        """Bulk Dirichlet rows keyed by model id, preserving empty models."""
+
+        ids = sorted({str(value) for value in model_ids if value})
+        grouped: dict[str, dict[str, dict[str, float]]] = {
+            model_id: {} for model_id in ids
+        }
+        if not ids:
+            return grouped
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT model_id, true_class, alpha_json
+                  FROM grader_calibration_alphas
+                 WHERE model_id IN ({placeholders})
+                 ORDER BY model_id, true_class
+                """,
+                ids,
+            ).fetchall()
+        for row in rows:
+            grouped[str(row["model_id"])][str(row["true_class"])] = _loads(
+                row["alpha_json"], {}
+            )
+        return grouped
 
     def find_calibration_models(
         self,
@@ -13055,6 +13204,22 @@ class Repository:
                 "SELECT * FROM raw_grade_events WHERE id = ?", (event_id,)
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def raw_grade_events_by_ids(
+        self, event_ids: Iterable[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk raw-grade lookup for legacy certainty-LCB reconstruction."""
+
+        ids = sorted({str(value) for value in event_ids if value})
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM raw_grade_events WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        return {str(row["id"]): dict(row) for row in rows}
 
     def insert_grade_interpretation(self, *, values: Mapping[str, Any], clock: Clock | None = None) -> str:
         interpretation_id = new_ulid()
@@ -14633,6 +14798,37 @@ class Repository:
 
         policy = policy_for_class(contamination_class, near_clone=bool(near_clone))
         with self.connection() as connection:
+            # Serialize the read-next-sequence/write pair. A deferred SELECT
+            # allowed two connections to observe the same MAX(seq); the later
+            # ``INSERT OR IGNORE`` then silently discarded one honest writer on
+            # the sequence uniqueness conflict. BEGIN IMMEDIATE acquires the
+            # reserved writer lock before reading MAX. If a caller already owns
+            # this connection's transaction (the pinned case), its transaction
+            # is the serialization boundary and a real uniqueness error remains
+            # visible because the INSERT below is deliberately not OR IGNORE.
+            if not connection.in_transaction:
+                connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                """
+                SELECT id
+                  FROM causal_activity_classification_events
+                 WHERE attempt_id = ?
+                   AND source = ?
+                   AND contamination_class = ?
+                   AND near_clone = ?
+                """,
+                (
+                    attempt_id,
+                    source,
+                    policy.contamination_class,
+                    int(policy.near_clone),
+                ),
+            ).fetchone()
+            if existing is not None:
+                connection.commit()
+                result = self.causal_activity_classification(attempt_id)
+                assert result is not None
+                return result
             next_seq = connection.execute(
                 """
                 SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq
@@ -14643,7 +14839,7 @@ class Repository:
             ).fetchone()["next_seq"]
             connection.execute(
                 """
-                INSERT OR IGNORE INTO causal_activity_classification_events(
+                INSERT INTO causal_activity_classification_events(
                   id, attempt_id, seq, contamination_class, near_clone,
                   near_clone_basis, closes_pre_intervention_segment,
                   eligible_for_fsrs, eligible_for_certification, source,
@@ -14686,17 +14882,7 @@ class Repository:
             ).fetchall()
         events: list[dict[str, Any]] = []
         for row in rows:
-            payload = dict(row)
-            payload["near_clone"] = bool(payload["near_clone"])
-            payload["closes_pre_intervention_segment"] = bool(
-                payload["closes_pre_intervention_segment"]
-            )
-            payload["eligible_for_fsrs"] = bool(payload["eligible_for_fsrs"])
-            payload["eligible_for_certification"] = bool(
-                payload["eligible_for_certification"]
-            )
-            payload["detail"] = _loads(payload.pop("detail_json"), {})
-            events.append(payload)
+            events.append(_decode_causal_activity_event(row))
         return events
 
     def causal_activity_classification(
@@ -14710,44 +14896,35 @@ class Repository:
         with the single authority.
         """
 
-        from learnloop.services.causal_activity_policy import (
-            CONTAMINATION_PRECEDENCE,
-            policy_for_class,
-        )
-
         events = self.causal_activity_classification_events(attempt_id)
         if not events:
             return None
-        winning_class = min(
-            (str(event["contamination_class"]) for event in events),
-            key=CONTAMINATION_PRECEDENCE.index,
-        )
-        winners = [
-            event
-            for event in events
-            if str(event["contamination_class"]) == winning_class
-        ]
-        near_clone = any(bool(event["near_clone"]) for event in winners)
-        primary = next(
-            (event for event in winners if bool(event["near_clone"]) == near_clone),
-            winners[0],
-        )
-        policy = policy_for_class(winning_class, near_clone=near_clone)
-        detail: dict[str, Any] = {}
-        for event in events:
-            detail.update(event.get("detail") or {})
+        return _resolve_causal_activity_classification(attempt_id, events)
+
+    def all_causal_activity_classifications(self) -> dict[str, dict[str, Any]]:
+        """Resolve every attempt's current activity policy in one DB read.
+
+        Canonical projection and the learner-facing Demonstrated timeline both
+        replay the whole attempt ledger. Supplying their policy inputs in the
+        same bulk snapshot prevents their eligibility check from reintroducing
+        a per-attempt query and guarantees both folds resolve conflicting event
+        histories identically.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM causal_activity_classification_events
+                ORDER BY attempt_id, seq
+                """
+            ).fetchall()
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            event = _decode_causal_activity_event(row)
+            grouped[str(event["attempt_id"])].append(event)
         return {
-            "attempt_id": attempt_id,
-            **policy.as_dict(),
-            "near_clone_basis": primary.get("near_clone_basis"),
-            "source": primary.get("source"),
-            "detail": detail,
-            "created_at": primary.get("created_at"),
-            "recorded_classes": sorted(
-                {str(event["contamination_class"]) for event in events},
-                key=CONTAMINATION_PRECEDENCE.index,
-            ),
-            "event_count": len(events),
+            attempt_id: _resolve_causal_activity_classification(attempt_id, events)
+            for attempt_id, events in grouped.items()
         }
 
     def insert_causal_cold_verification(
@@ -17022,41 +17199,38 @@ class Repository:
             return
         sources = connection.execute(
             """
-            SELECT * FROM practice_attempts
-            WHERE learning_object_id = ?
-              AND id != ?
-              AND created_at <= ?
-            ORDER BY created_at DESC, id DESC
-            LIMIT ?
+            WITH sources AS (
+                SELECT * FROM practice_attempts
+                WHERE learning_object_id = ?
+                  AND id != ?
+                  AND created_at <= ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+            )
+            SELECT sources.*, COUNT(intervening.id) AS intervening_attempt_count
+            FROM sources
+            LEFT JOIN practice_attempts AS intervening
+              ON intervening.learning_object_id = ?
+             AND intervening.id NOT IN (sources.id, ?)
+             AND intervening.created_at > sources.created_at
+             AND intervening.created_at < ?
+            GROUP BY sources.id
+            ORDER BY sources.created_at DESC, sources.id DESC
             """,
             (
                 current["learning_object_id"],
                 current["id"],
                 current["created_at"],
                 max_sources,
+                current["learning_object_id"],
+                current["id"],
+                current["created_at"],
             ),
         ).fetchall()
         for source in sources:
             same_item = source["practice_item_id"] == current["practice_item_id"]
             label_type = "same_item_retention" if same_item else "same_learning_object_transfer"
             elapsed_seconds = _elapsed_seconds_between(source["created_at"], current["created_at"])
-            intervening = connection.execute(
-                """
-                SELECT COUNT(*) AS n
-                FROM practice_attempts
-                WHERE learning_object_id = ?
-                  AND id NOT IN (?, ?)
-                  AND created_at > ?
-                  AND created_at < ?
-                """,
-                (
-                    current["learning_object_id"],
-                    source["id"],
-                    current["id"],
-                    source["created_at"],
-                    current["created_at"],
-                ),
-            ).fetchone()
             metadata = {
                 "source": _attempt_label_snapshot(source),
                 "outcome": _attempt_label_snapshot(current),
@@ -17086,7 +17260,7 @@ class Repository:
                     current["hints_used"],
                     current["latency_seconds"],
                     elapsed_seconds,
-                    int(intervening["n"] if intervening is not None else 0),
+                    int(source["intervening_attempt_count"]),
                     _json(metadata),
                     algorithm_version,
                     current["created_at"],
@@ -18375,20 +18549,61 @@ class Repository:
         return _decode_ingest_job(row) if row is not None else None
 
     def ingest_jobs_for_batch(self, batch_id: str) -> list[dict[str, Any]]:
+        return self.ingest_jobs_for_batches((batch_id,)).get(batch_id, [])
+
+    def ingest_jobs_for_batches(
+        self, batch_ids: Iterable[str]
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Bulk-load ordered jobs for a batch listing/poll.
+
+        Includes requested batches with no jobs so callers can render an empty
+        batch without falling back to another query.
+        """
+
+        ids = sorted({str(batch_id) for batch_id in batch_ids if batch_id})
+        grouped: dict[str, list[dict[str, Any]]] = {batch_id: [] for batch_id in ids}
+        if not ids:
+            return grouped
+        placeholders = ",".join("?" for _ in ids)
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT * FROM ingest_jobs WHERE batch_id = ? ORDER BY ordinal, id",
-                (batch_id,),
+                f"""
+                SELECT * FROM ingest_jobs
+                WHERE batch_id IN ({placeholders})
+                ORDER BY batch_id, ordinal, id
+                """,
+                ids,
             ).fetchall()
-        return [_decode_ingest_job(row) for row in rows]
+        for row in rows:
+            grouped[str(row["batch_id"])].append(_decode_ingest_job(row))
+        return grouped
 
     def ingest_job_dependency_ids(self, job_id: str) -> list[str]:
+        return self.ingest_job_dependencies_for_jobs((job_id,)).get(job_id, [])
+
+    def ingest_job_dependencies_for_jobs(
+        self, job_ids: Iterable[str]
+    ) -> dict[str, list[str]]:
+        """Bulk-load dependency ids for job progress views."""
+
+        ids = sorted({str(job_id) for job_id in job_ids if job_id})
+        grouped: dict[str, list[str]] = {job_id: [] for job_id in ids}
+        if not ids:
+            return grouped
+        placeholders = ",".join("?" for _ in ids)
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT depends_on_job_id FROM ingest_job_dependencies WHERE job_id = ? ORDER BY depends_on_job_id",
-                (job_id,),
+                f"""
+                SELECT job_id, depends_on_job_id
+                FROM ingest_job_dependencies
+                WHERE job_id IN ({placeholders})
+                ORDER BY job_id, depends_on_job_id
+                """,
+                ids,
             ).fetchall()
-        return [row["depends_on_job_id"] for row in rows]
+        for row in rows:
+            grouped[str(row["job_id"])].append(str(row["depends_on_job_id"]))
+        return grouped
 
     def ingest_job_dependents(self, job_id: str) -> list[str]:
         with self.connection() as connection:
@@ -19648,7 +19863,9 @@ class Repository:
         So the first row emits a boundary exactly when it recomputed prior
         learner evidence (``replayed_attempts > 0``) under a recorded projection
         version.  A first rebuild on a vault with nothing to replay narrates
-        housekeeping the learner never saw, and stays silent.
+        housekeeping the learner never saw, and stays silent. The dedicated
+        startup projection scope stays silent on later zero-replay baselines as
+        well, while still advancing the version used for future comparisons.
         ``previous_*`` is ``None`` on that entry, which is the truthful statement
         that no earlier version was on record.
         """
@@ -19656,7 +19873,7 @@ class Repository:
         with self.connection() as connection:
             rows = connection.execute(
                 """
-                SELECT id, algorithm_version, canonical_projection_version,
+                SELECT id, scope, algorithm_version, canonical_projection_version,
                        coverage_denominator_version, replayed_attempts, created_at
                 FROM derived_state_rebuilds
                 ORDER BY created_at, id
@@ -19669,22 +19886,26 @@ class Repository:
         first = True
         for row in rows:
             version = str(row["algorithm_version"])
-            projection = row["canonical_projection_version"]
-            projection = str(projection) if projection is not None else None
+            raw_projection = row["canonical_projection_version"]
+            projection = (
+                str(raw_projection)
+                if raw_projection is not None
+                else previous_projection
+            )
             # Measurement §5.2 (migration 138): a third, independent boundary.
             # The contract-frontier denominator moves DISPLAYED mastery with no
             # change to the evidence or the projection, so it needs its own
             # version — attributing the entry to either existing one would name a
             # cause that was not the cause.
             #
-            # A NULL means "this writer did not report a coverage version", not
-            # "the version was rolled back to nothing". Historical rows predate
-            # the column, and not every rebuild path stamps it. Comparing NULL as
-            # a real value would mint a phantom boundary on the next stamped
-            # rebuild and then another on the one after — narrating
-            # recalibrations that never happened. So an unreported version
-            # carries the last reported one forward and can never itself be a
-            # boundary.
+            # A NULL projection or coverage value means "this writer did not
+            # report that dimension", not "the version was rolled back to
+            # nothing". Historical rows predate the columns, and narrow rebuild
+            # writers need not stamp either. Comparing NULL as a real value
+            # would mint a phantom boundary on the next stamped rebuild and then
+            # another on the one after — narrating recalibrations that never
+            # happened. Unreported versions therefore carry forward and can
+            # never themselves be a boundary.
             raw_coverage = row["coverage_denominator_version"]
             coverage = (
                 str(raw_coverage) if raw_coverage is not None else previous_coverage
@@ -19694,12 +19915,25 @@ class Repository:
                 and (projection is not None or coverage is not None)
                 and int(row["replayed_attempts"] or 0) > 0
             )
-            if first_recalibrates_seen_evidence or (
-                not first
-                and (
-                    version != previous_version
-                    or projection != previous_projection
-                    or coverage != previous_coverage
+            # Startup also stamps the current projection on an empty fresh
+            # vault.  That is a baseline for future comparisons, not a change
+            # to anything the learner demonstrated, so even a later software
+            # upgrade while the vault is still empty remains silent.  The row
+            # still advances ``previous_projection`` below, preventing a false
+            # cutover after the learner's first attempt.
+            silent_empty_projection_baseline = (
+                str(row["scope"]) == "canonical_projection_startup"
+                and int(row["replayed_attempts"] or 0) == 0
+            )
+            if not silent_empty_projection_baseline and (
+                first_recalibrates_seen_evidence
+                or (
+                    not first
+                    and (
+                        version != previous_version
+                        or projection != previous_projection
+                        or coverage != previous_coverage
+                    )
                 )
             ):
                 changes.append(
@@ -25257,6 +25491,63 @@ def _decode_attempt_feedback_metadata(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["fatal_errors"] = _loads(payload.pop("fatal_errors_json"), [])
     payload["repair_suggestions"] = _loads(payload.pop("repair_suggestions_json"), [])
+    return payload
+
+
+def _resolve_causal_activity_classification(
+    attempt_id: str, events: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Fold one decoded activity-event history through the policy authority."""
+
+    from learnloop.services.causal_activity_policy import (
+        CONTAMINATION_PRECEDENCE,
+        policy_for_class,
+    )
+
+    winning_class = min(
+        (str(event["contamination_class"]) for event in events),
+        key=CONTAMINATION_PRECEDENCE.index,
+    )
+    winners = [
+        event
+        for event in events
+        if str(event["contamination_class"]) == winning_class
+    ]
+    near_clone = any(bool(event["near_clone"]) for event in winners)
+    primary = next(
+        (event for event in winners if bool(event["near_clone"]) == near_clone),
+        winners[0],
+    )
+    policy = policy_for_class(winning_class, near_clone=near_clone)
+    detail: dict[str, Any] = {}
+    for event in events:
+        detail.update(event.get("detail") or {})
+    return {
+        "attempt_id": attempt_id,
+        **policy.as_dict(),
+        "near_clone_basis": primary.get("near_clone_basis"),
+        "source": primary.get("source"),
+        "detail": detail,
+        "created_at": primary.get("created_at"),
+        "recorded_classes": sorted(
+            {str(event["contamination_class"]) for event in events},
+            key=CONTAMINATION_PRECEDENCE.index,
+        ),
+        "event_count": len(events),
+    }
+
+
+def _decode_causal_activity_event(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["near_clone"] = bool(payload["near_clone"])
+    payload["closes_pre_intervention_segment"] = bool(
+        payload["closes_pre_intervention_segment"]
+    )
+    payload["eligible_for_fsrs"] = bool(payload["eligible_for_fsrs"])
+    payload["eligible_for_certification"] = bool(
+        payload["eligible_for_certification"]
+    )
+    payload["detail"] = _loads(payload.pop("detail_json"), {})
     return payload
 
 

@@ -19,7 +19,10 @@ from learnloop.services.attempts import (
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.canonical_projection import project_canonical_facet_state
+from learnloop.services.canonical_projection import (
+    CANONICAL_PROJECTION_VERSION,
+    project_canonical_facet_state,
+)
 from learnloop.services.effective_observation import effective_observation_from_posterior
 from learnloop.services.grade_resolution import append_adjudication
 from learnloop.services.p0_projection import (
@@ -381,6 +384,8 @@ def test_activation_records_derived_state_rebuild(tmp_path):
     latest = repo.latest_derived_state_rebuild()
     assert latest is not None
     assert latest["algorithm_version"] == "mvp-0.8"
+    assert latest["canonical_projection_version"] == CANONICAL_PROJECTION_VERSION
+    assert latest["coverage_denominator_version"] is not None
 
 
 # ---------------------------------------------------------------------------

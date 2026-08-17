@@ -2036,11 +2036,17 @@ def _ingest_runner(vault_root: Path):
     )
 
 
-def _batch_json(runner, batch_id: str) -> dict[str, Any]:
-    batch = runner.repo.get_ingest_batch(batch_id)
+def _batch_json(
+    runner,
+    batch_id: str,
+    *,
+    batch: dict[str, Any] | None = None,
+    jobs: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    batch = batch if batch is not None else runner.repo.get_ingest_batch(batch_id)
     if batch is None:
         return {}
-    jobs = runner.repo.ingest_jobs_for_batch(batch_id)
+    jobs = jobs if jobs is not None else runner.repo.ingest_jobs_for_batch(batch_id)
     return {
         "id": batch["id"],
         "workflow_type": batch["workflow_type"],
@@ -2192,7 +2198,19 @@ def ingest_batches_list(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
     runner = _ingest_runner(_root(vault))
-    batches = [_batch_json(runner, batch["id"]) for batch in runner.repo.list_ingest_batches(limit=limit)]
+    batch_rows = runner.repo.list_ingest_batches(limit=limit)
+    jobs_by_batch = runner.repo.ingest_jobs_for_batches(
+        batch["id"] for batch in batch_rows
+    )
+    batches = [
+        _batch_json(
+            runner,
+            batch["id"],
+            batch=batch,
+            jobs=jobs_by_batch.get(batch["id"], []),
+        )
+        for batch in batch_rows
+    ]
     if json_output:
         typer.echo(_dump({"version": 1, "batches": batches}))
         return

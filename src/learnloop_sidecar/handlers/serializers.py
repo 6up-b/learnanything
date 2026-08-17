@@ -5,7 +5,12 @@ from datetime import UTC
 from typing import Any
 
 from learnloop.clock import SystemClock, parse_utc
-from learnloop.db.repositories import GradingEvidenceRecord, Repository
+from learnloop.db.repositories import (
+    GradingEvidenceRecord,
+    MasteryState,
+    PracticeItemState,
+    Repository,
+)
 from learnloop.services.confusable_concepts import learner_observed_confusable_concepts
 from learnloop.services.grading import resolved_rubric
 from learnloop.services.mastery import display_mastery, sigmoid
@@ -53,11 +58,50 @@ def _followup_kind(scheduled: ScheduledItem) -> str:
     return "intervention_followup"
 
 
-def scheduled_item_dto(vault: LoadedVault, repository: Repository, scheduled: ScheduledItem) -> dict[str, Any]:
+def scheduled_item_dtos(
+    vault: LoadedVault,
+    repository: Repository,
+    scheduled_items: list[ScheduledItem],
+) -> list[dict[str, Any]]:
+    """Serialize a queue with two bulk state reads, independent of its size."""
+
+    item_states = repository.practice_item_states()
+    mastery_states = repository.mastery_states()
+    return [
+        _scheduled_item_dto(
+            vault,
+            scheduled,
+            state=item_states.get(scheduled.practice_item_id),
+            mastery=mastery_states.get(scheduled.learning_object_id),
+        )
+        for scheduled in scheduled_items
+    ]
+
+
+def scheduled_item_dto(
+    vault: LoadedVault,
+    repository: Repository,
+    scheduled: ScheduledItem,
+) -> dict[str, Any]:
+    """Serialize one item; queue callers should use :func:`scheduled_item_dtos`."""
+
+    return _scheduled_item_dto(
+        vault,
+        scheduled,
+        state=repository.practice_item_state(scheduled.practice_item_id),
+        mastery=repository.mastery_state(scheduled.learning_object_id),
+    )
+
+
+def _scheduled_item_dto(
+    vault: LoadedVault,
+    scheduled: ScheduledItem,
+    *,
+    state: PracticeItemState | None,
+    mastery: MasteryState | None,
+) -> dict[str, Any]:
     item = _require_item(vault, scheduled.practice_item_id)
     learning_object = vault.learning_objects.get(scheduled.learning_object_id)
-    state = repository.practice_item_state(scheduled.practice_item_id)
-    mastery = repository.mastery_state(scheduled.learning_object_id)
     mastery_display = display_mastery(mastery) if mastery is not None else None
     is_followup = (
         scheduled.components.get("negative_surprise_followup", 0.0) > 0.0

@@ -15,7 +15,7 @@ extracts observation events from the persisted rows and folds them.
 Design notes (deliberate phase-1 simplifications, documented):
 
 * The plotted quantity is cumulative **certification credit** for the facet: the
-  direct, unassisted, capability-matched positive pseudo-mass accrued so far —
+  direct, policy-eligible, capability-matched positive pseudo-mass accrued so far —
   the same primitive the KM2 canonical projection banks (``certification_credit``
   over ``allocate_success_mass``). Assisted attempts earn zero credit (§5.4), so
   a hinted attempt is a flat point, not a rise.
@@ -50,7 +50,7 @@ from learnloop.services.capability_mapping import (
     criterion_pseudo_mass,
     localize_criterion_outcomes,
 )
-from learnloop.services.causal_activity_policy import attempt_counts_as_assisted
+from learnloop.services.causal_activity_policy import resolve_attempt_activity_policy
 from learnloop.services.canonical_projection import (
     DEFAULT_REPEAT_SURFACE_DISCOUNT,
     FAILURE_THRESHOLD,
@@ -171,6 +171,10 @@ class FacetTimelineSnapshot:
     # (`test_receipt_exactness`) is that the two agree to the float — so any input
     # the projection reads, this one must read too.
     exercised_by_attempt: dict[str, frozenset[str]] = field(default_factory=dict)
+    # The same bulk-resolved causal eligibility facts consumed by canonical
+    # projection. Assistance and certification eligibility are intentionally
+    # separate: a pure diagnostic is unassisted but still cannot certify.
+    activity_by_attempt: dict[str, dict[str, Any]] = field(default_factory=dict)
     # mvp-0.8 (P0.3 §4.3): the response-level reliability-discounted evidence mass
     # per attempt, computed through the SAME shared helper the canonical
     # projection uses (`p0_effective_evidence_mass`). ``None`` means the P0 lane
@@ -202,6 +206,7 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
         exercised_by_attempt=_resolved_exercised_facets(
             repository.all_trace_exercised_facets(), merge_map
         ),
+        activity_by_attempt=repository.all_causal_activity_classifications(),
     )
 
 
@@ -246,6 +251,15 @@ def p0_evidence_mass_by_attempt(
     folds cannot drift by even a ulp.
     """
 
+    ledger = tuple(repository.canonical_observation_ledger_v2())
+    from learnloop.services.effective_observation import (
+        load_effective_observation_references,
+    )
+
+    references = load_effective_observation_references(
+        repository,
+        (row.get("active_interpretation") for row in ledger),
+    )
     return {
         str(row["attempt_id"]): p0_effective_evidence_mass(
             repository,
@@ -253,8 +267,9 @@ def p0_evidence_mass_by_attempt(
             attempt_type_mass=attempt_evidence_mass(
                 row["attempt_type"], vault.config.evidence
             ),
+            references=references,
         )
-        for row in repository.canonical_observation_ledger_v2()
+        for row in ledger
     }
 
 
@@ -413,6 +428,7 @@ def _epoch_certification_credit(
     attempt_type: str,
     surface_group: str,
     assisted: bool,
+    certification_eligible: bool,
     seen_groups_by_cell: dict[tuple[str, str], set[str]],
     resolve,
     exercised_facets: frozenset[str] = frozenset(),
@@ -535,8 +551,14 @@ def _epoch_certification_credit(
             relationship = "embedded" if alloc.role == "supporting" else "direct"
             if is_new_group:
                 marked[cell].add(surface_group)
-            credit = certification_credit(
-                positive, relationship=relationship, assistance=assistance
+            credit = (
+                certification_credit(
+                    positive,
+                    relationship=relationship,
+                    assistance=assistance,
+                )
+                if certification_eligible
+                else 0.0
             )
             staged[correlation_group][cell] += credit
             if relationship == "embedded":
@@ -642,11 +664,13 @@ def _observation_events_by_facet(
             )
             epochs.setdefault((record.created_at, revision_key), []).append(record)
         # P2 §4.4: one authority, shared with the canonical projection.
-        assisted = attempt_counts_as_assisted(
+        activity = resolve_attempt_activity_policy(
             attempt_type=attempt["attempt_type"],
             hints_used=int(attempt.get("hints_used") or 0),
             primed=bool(attempt.get("primed")),
+            recorded=snapshot.activity_by_attempt.get(str(attempt["id"])),
         )
+        assisted = activity.counts_as_assisted
         # A correction replaces this attempt's contribution; it must keep the
         # attempt's original novelty position rather than becoming a repeat.
         # Every epoch is therefore evaluated against the pre-attempt novelty
@@ -712,6 +736,7 @@ def _observation_events_by_facet(
                 attempt_type=attempt["attempt_type"],
                 surface_group=group,
                 assisted=assisted,
+                certification_eligible=activity.eligible_for_certification,
                 seen_groups_by_cell=prior_seen,
                 resolve=resolve,
                 exercised_facets=snapshot.exercised_by_attempt.get(

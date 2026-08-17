@@ -6,10 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.runtime import check_ai_runtime
+from learnloop.clock import utc_now_iso
 from learnloop.codex.runtime import check_codex_runtime
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.canonical_projection import project_canonical_facet_state
+from learnloop.services.canonical_projection_rollout import (
+    refresh_canonical_projection_on_startup,
+)
 from learnloop.services.facet_diagnostics import mastery_diagnostic_view
 from learnloop.services.mastery import display_mastery
 from learnloop.services.startup import run_startup_maintenance
@@ -56,8 +59,9 @@ class SidecarContext:
         # attempt ledger. Re-project on app load so vaults activated by the old
         # mvp-0.7 upgrader (which only flipped the config field) self-heal and
         # immediately show their historical attempts in the knowledge field.
-        # This is a no-op for legacy vaults and idempotent for current ones.
-        project_canonical_facet_state(self.vault, self.repository)
+        # Projection semantics changes are also stamped here exactly once, so
+        # the refresh cannot silently move learner-visible estimates.
+        refresh_canonical_projection_on_startup(self.vault, self.repository)
         # Self-heal certificates earned before the live attempt hook existed.
         # The §5.7 scheduler is idempotent per content-addressed certificate and
         # reports unmeasurable certificates rather than inventing a probe.
@@ -394,7 +398,7 @@ def runtime_health(
                 "model": vault.config.codex.model,
                 "actual_revision": report.actual_revision,
                 "base_url": vault.config.codex.base_url,
-                "checked_at": _nowish(),
+                "checked_at": utc_now_iso(),
             },
             "ai": ai_block,
             "database": {
@@ -441,7 +445,7 @@ def _ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, An
         "manual_grading": False,
         "grading_provider_override": grading_override,
         "available_grading_providers": available_grading_providers(vault),
-        "checked_at": _nowish(),
+        "checked_at": utc_now_iso(),
     }
     if grading_override == "manual":
         return {
@@ -499,16 +503,21 @@ def session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] 
 def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     focus = row.get("focus_block_state")
     hints_used = 0
+    submission_id = None
     if isinstance(focus, dict):
         practice = focus.get("practice")
         if isinstance(practice, dict):
             hints_used = int(practice.get("hintsUsed") or practice.get("hints_used") or 0)
+            candidate_submission_id = practice.get("submissionId") or practice.get("submission_id")
+            if isinstance(candidate_submission_id, str) and candidate_submission_id.strip():
+                submission_id = candidate_submission_id.strip()
     envelope = teach_back_envelope(row.get("current_answer"))
     return to_camel(
         {
             "current_practice_item_id": row.get("current_practice_item_id"),
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,
+            "submission_id": submission_id,
             "focus_block_state": focus,
             "pending_grading_proposal": row.get("pending_grading_proposal"),
             "readiness": row.get("readiness"),
@@ -563,9 +572,3 @@ def mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVa
         payload["required_facets"] = diagnostic["required_facets"]
         payload["facet_diagnostics"] = diagnostic["facets"]
     return to_camel(payload)
-
-
-def _nowish() -> str:
-    from datetime import UTC, datetime
-
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")

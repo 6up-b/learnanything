@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import shutil
+import statistics
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -12,6 +13,7 @@ import pytest
 from learnloop.db.repositories import Repository
 from learnloop.services.patches import apply_accepted_items
 from learnloop.vault.loader import add_note, load_vault
+from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_concept, upsert_concept_edge, upsert_learning_object
 from learnloop_sidecar.server import serve
 
@@ -31,7 +33,9 @@ def test_sidecar_loads_linear_algebra_fixture_vault(tmp_path):
         [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}}]
     )[0]["result"]
     loaded = load_vault(vault_root)
-    assert init["vault"]["algorithmVersion"] == ALGORITHM_VERSION
+    # This fixture deliberately tracks the current P0 namespace independently
+    # of the minimal-vault helper's legacy default.
+    assert init["vault"]["algorithmVersion"] == loaded.config.algorithms.algorithm_version
     assert init["vault"]["counts"]["practiceItems"] == len(loaded.practice_items)
     assert init["vault"]["counts"]["learningObjects"] == len(loaded.learning_objects)
     assert init["health"]["ai"]["activeProvider"] == loaded.config.ai.active_provider
@@ -150,6 +154,7 @@ def test_sidecar_checkpoint_patch_preserves_omitted_fields_and_hints(tmp_path):
                     "practiceItemId": "pi_svd_define_001",
                     "answerMd": "new draft",
                     "hintsUsed": 2,
+                    "submissionId": "desktop-retry-key-001",
                 },
             },
             {"jsonrpc": "2.0", "id": 4, "method": "get_session", "params": {"sessionId": session_id}},
@@ -159,6 +164,8 @@ def test_sidecar_checkpoint_patch_preserves_omitted_fields_and_hints(tmp_path):
     checkpoint = responses[3]["result"]["checkpoint"]
     assert checkpoint["currentAnswer"] == "new draft"
     assert checkpoint["hintsUsed"] == 2
+    assert checkpoint["submissionId"] == "desktop-retry-key-001"
+    assert checkpoint["focusBlockState"]["practice"]["submissionId"] == "desktop-retry-key-001"
     assert checkpoint["readiness"] == {"energy": "high"}
 
     cleared = _rpc(
@@ -181,6 +188,7 @@ def test_sidecar_checkpoint_patch_preserves_omitted_fields_and_hints(tmp_path):
     assert cleared["currentPracticeItemId"] == "pi_svd_define_001"
     assert cleared["currentAnswer"] is None
     assert cleared["hintsUsed"] == 0
+    assert cleared["submissionId"] == "desktop-retry-key-001"
     assert cleared["readiness"] == {"energy": "high"}
 
 
@@ -208,6 +216,7 @@ def test_sidecar_load_vault_returns_resumable_checkpoint(tmp_path):
                     "practiceItemId": "pi_svd_define_001",
                     "answerMd": "half remembered",
                     "hintsUsed": 1,
+                    "submissionId": "restart-safe-submission-001",
                 },
             },
             {"jsonrpc": "2.0", "id": 3, "method": "load_vault"},
@@ -218,6 +227,7 @@ def test_sidecar_load_vault_returns_resumable_checkpoint(tmp_path):
     assert snapshot["activeSession"]["checkpoint"]["currentPracticeItemId"] == "pi_svd_define_001"
     assert snapshot["activeSession"]["checkpoint"]["currentAnswer"] == "half remembered"
     assert snapshot["activeSession"]["checkpoint"]["hintsUsed"] == 1
+    assert snapshot["activeSession"]["checkpoint"]["submissionId"] == "restart-safe-submission-001"
 
 
 def test_sidecar_end_session_clears_checkpoint_and_blocks_future_writes(tmp_path):
@@ -390,7 +400,9 @@ def test_sidecar_submission_schedules_certification_cold_probe(tmp_path, monkeyp
     assert "lo_svd_definition" in scheduled
 
 
-def test_sidecar_submission_retry_returns_one_attempt_and_one_response(tmp_path):
+def test_completed_submission_survives_lost_response_and_restart(tmp_path):
+    """A durable retry key recovers the full route before client acknowledgment."""
+
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     session_id = _rpc(
@@ -407,16 +419,288 @@ def test_sidecar_submission_retry_returns_one_attempt_and_one_response(tmp_path)
         "submissionId": "submission-retry-001",
         "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
     }
-    responses = _rpc(
+    first = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "save_practice_draft",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": payload["practiceItemId"],
+                    "answerMd": payload["answerMd"],
+                    "submissionId": payload["submissionId"],
+                },
+            },
+            {"jsonrpc": "2.0", "id": 3, "method": "submit_attempt", "params": payload},
+        ]
+    )[2]["result"]
+
+    # Simulate the full response being lost: start a fresh server, reload the
+    # checkpoint, and resend exactly what the restarted frontend restores.
+    restarted = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "load_vault", "params": {}},
+        ]
+    )[1]["result"]
+    checkpoint = restarted["activeSession"]["checkpoint"]
+    assert checkpoint["submissionId"] == payload["submissionId"]
+    assert checkpoint["currentAnswer"] == payload["answerMd"]
+
+    recovered = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "recover_practice_submission",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": payload["practiceItemId"],
+                    "submissionId": checkpoint["submissionId"],
+                },
+            },
+        ]
+    )[1]["result"]
+    assert recovered["status"] == "recovered"
+    assert recovered["result"] == first
+    recovered_result = recovered["result"]
+    # These are the authoritative fields PracticeScreen uses for its normal
+    # post-submit route; an attempt id alone would not be an equivalent reply.
+    assert recovered_result["probeEpisode"]["feedbackDeferred"] is False
+    assert recovered_result["probeBlockEnd"] is None
+
+    repository = Repository(paths.sqlite_path)
+    assert [row["id"] for row in repository.list_attempt_history()] == [first["attemptId"]]
+    assert repository.fetch_session_checkpoint(session_id) is not None
+
+    acknowledged = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "acknowledge_practice_submission",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": payload["practiceItemId"],
+                    "submissionId": payload["submissionId"],
+                },
+            },
+        ]
+    )[1]["result"]
+    assert acknowledged["status"] == "cleared"
+    assert acknowledged["acknowledged"] is True
+    assert repository.fetch_session_checkpoint(session_id) is None
+
+
+def test_stale_practice_acknowledgement_preserves_newer_checkpoint(tmp_path):
+    """A delayed completion cannot clear another item's newly saved draft."""
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    session_id = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}},
+        ]
+    )[1]["result"]["sessionId"]
+    response = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "save_practice_draft",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": "pi_svd_define_001",
+                    "answerMd": "old answer",
+                    "submissionId": "old-submission-key",
+                },
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "update_session_checkpoint",
+                "params": {
+                    "sessionId": session_id,
+                    "currentPracticeItemId": "pi_newer_item",
+                    "currentAnswer": "new answer",
+                    "submissionId": "new-submission-key",
+                },
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "acknowledge_practice_submission",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": "pi_svd_define_001",
+                    "submissionId": "old-submission-key",
+                },
+            },
+        ]
+    )[3]["result"]
+    assert response == {
+        "version": 1,
+        "status": "checkpoint_mismatch",
+        "acknowledged": False,
+    }
+    checkpoint = Repository(paths.sqlite_path).fetch_session_checkpoint(session_id)
+    assert checkpoint is not None
+    assert checkpoint["current_practice_item_id"] == "pi_newer_item"
+    assert checkpoint["current_answer"] == "new answer"
+    assert checkpoint["focus_block_state"]["practice"]["submissionId"] == "new-submission-key"
+
+
+def test_cached_submission_recovery_precedes_ended_session_and_removed_item_checks(tmp_path):
+    """A durable receipt outlives the mutable serve state that produced it."""
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    session_id = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}},
+        ]
+    )[1]["result"]["sessionId"]
+    payload = {
+        "sessionId": session_id,
+        "practiceItemId": "pi_svd_define_001",
+        "answerMd": "SVD is U Sigma V transpose.",
+        "attemptType": "independent_attempt",
+        "submissionId": "receipt-outlives-serve-state",
+        "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
+    }
+    first = _rpc(
         [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
             {"jsonrpc": "2.0", "id": 2, "method": "submit_attempt", "params": payload},
+        ]
+    )[1]["result"]
+
+    repository = Repository(paths.sqlite_path)
+    repository.end_session(session_id)
+    paths.practice_item_path("linear-algebra", "pi_svd_define_001").unlink()
+
+    recovered = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "recover_practice_submission",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": payload["practiceItemId"],
+                    "submissionId": payload["submissionId"],
+                },
+            },
+        ]
+    )[1]["result"]
+    assert recovered == {"version": 1, "status": "recovered", "result": first}
+
+
+def test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key(
+    tmp_path,
+):
+    """An attempt id cannot bypass diagnostic deferred/block-end routing.
+
+    This test completes the original RPC and then removes only its cached
+    response receipt.  It verifies the duplicate-attempt guard and structured
+    route-unknown recovery envelope; it deliberately does *not* claim to
+    simulate a process death before the post-attempt pipeline, whose durable
+    resumption needs a separate persisted-work protocol.
+    """
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    from learnloop.vault.writer import upsert_practice_item
+
+    item = load_vault(vault_root).practice_items["pi_svd_define_001"]
+    upsert_practice_item(
+        vault_root,
+        item.model_copy(
+            update={
+                "attempt_types_allowed": [
+                    "independent_attempt",
+                    "diagnostic_probe",
+                    "dont_know",
+                ]
+            }
+        ),
+    )
+    session_id = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}},
+        ]
+    )[1]["result"]["sessionId"]
+    payload = {
+        "sessionId": session_id,
+        "practiceItemId": "pi_svd_define_001",
+        "answerMd": "SVD is U Sigma V transpose.",
+        "attemptType": "diagnostic_probe",
+        "submissionId": "submission-missing-receipt-001",
+        "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
+    }
+    first = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "save_practice_draft",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": payload["practiceItemId"],
+                    "answerMd": payload["answerMd"],
+                    "submissionId": payload["submissionId"],
+                },
+            },
             {"jsonrpc": "2.0", "id": 3, "method": "submit_attempt", "params": payload},
         ]
-    )
-    assert responses[1]["result"] == responses[2]["result"]
-    history = Repository(paths.sqlite_path).list_attempt_history()
-    assert [row["id"] for row in history] == [responses[1]["result"]["attemptId"]]
+    )[2]["result"]
+
+    repository = Repository(paths.sqlite_path)
+    with repository.connection() as connection:
+        connection.execute(
+            "DELETE FROM attempt_submission_receipts WHERE submission_id = ?",
+            (payload["submissionId"],),
+        )
+        connection.commit()
+
+    retried = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "recover_practice_submission",
+                "params": {
+                    "sessionId": session_id,
+                    "practiceItemId": payload["practiceItemId"],
+                    "submissionId": payload["submissionId"],
+                },
+            },
+        ]
+    )[1]
+    assert retried["error"]["data"] == {
+        "code": "submission_committed",
+        "retryable": False,
+        "details": {
+            "attempt_id": first["attemptId"],
+            "attempt_type": "diagnostic_probe",
+            "route_status": "unknown",
+        },
+    }
+    assert [row["id"] for row in repository.list_attempt_history()] == [first["attemptId"]]
+    checkpoint = repository.fetch_session_checkpoint(session_id)
+    assert checkpoint is not None
+    assert checkpoint["focus_block_state"]["practice"]["submissionId"] == payload["submissionId"]
 
 
 def test_inspector_opens_probe_episode_drilldown(tmp_path):
@@ -466,10 +750,9 @@ def test_sidecar_load_vault_config_carries_display_thresholds(tmp_path):
     assert config["scheduler"]["followup"]["tauFollowupNats"] == 0.05
 
 
-def test_sidecar_submit_attempt_clears_session_checkpoint(tmp_path):
-    # The checkpoint clear happens in the same submit_attempt call that records
-    # the attempt: a lost client-side clear must never leave a submitted draft
-    # behind to replay on restart.
+def test_sidecar_dont_know_retains_checkpoint_until_client_acknowledges(tmp_path):
+    # The sidecar owns grading, but only the client knows it received the full
+    # route. Keep the stable key until clear_session_checkpoint acknowledges it.
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     seed_due_item(paths)
@@ -494,28 +777,34 @@ def test_sidecar_submit_attempt_clears_session_checkpoint(tmp_path):
                     "currentPracticeItemId": "pi_svd_define_001",
                     "currentAnswer": "draft in progress",
                     "hintsUsed": 1,
+                    "submissionId": "dont-know-ack-001",
                 },
             },
             {
                 "jsonrpc": "2.0",
                 "id": 3,
-                "method": "submit_attempt",
+                "method": "submit_dont_know",
                 "params": {
                     "sessionId": session_id,
                     "practiceItemId": "pi_svd_define_001",
-                    "answerMd": "SVD is U Sigma V transpose.",
-                    "attemptType": "independent_attempt",
                     "hintsUsed": 0,
-                    "selfGrade": {
-                        "criterionPoints": {"correctness": 4},
-                        "confidence": 5,
-                    },
+                    "submissionId": "dont-know-ack-001",
                 },
             },
         ]
     )
 
     repository = Repository(paths.sqlite_path)
+    checkpoint = repository.fetch_session_checkpoint(session_id)
+    assert checkpoint is not None
+    assert checkpoint["focus_block_state"]["practice"]["submissionId"] == "dont-know-ack-001"
+
+    _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {"jsonrpc": "2.0", "id": 2, "method": "clear_session_checkpoint", "params": {"sessionId": session_id}},
+        ]
+    )
     assert repository.fetch_session_checkpoint(session_id) is None
 
 
@@ -1893,7 +2182,16 @@ def test_sidecar_get_facet_mastery_shape_on_fixture_vault(tmp_path):
     assert result["counts"]["practiceItems"] >= 1
 
     loaded = load_vault(vault_root)
-    item_facets = {facet for item in loaded.practice_items.values() for facet in item.evidence_facets}
+    # Canonical-state vaults expose post-alias axes, while item YAML retains the
+    # immutable authored facet ids. Compare both sides in the read model's key
+    # space so a legitimate alias is not mistaken for a missing axis.
+    item_states = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path).practice_item_states()
+    item_facets = {
+        loaded.canonical_facet_id(facet)
+        for item in loaded.practice_items.values()
+        if item_states.get(item.id) is None or item_states[item.id].active
+        for facet in item.evidence_facets
+    }
     assert item_facets <= set(facet_ids)  # every evidenced facet appears as an axis
 
     seen_items: set[str] = set()
@@ -2012,22 +2310,25 @@ def test_sidecar_get_knowledge_map_deterministic_and_geometric(tmp_path):
         return ((pa["x"] - pb["x"]) ** 2 + (pa["y"] - pb["y"]) ** 2) ** 0.5
 
     items = sorted(loaded.practice_items.values(), key=lambda item: item.id)
-    same_lo_pair = next(
-        (a.id, b.id)
+    same_lo_distances = [
+        dist(a.id, b.id)
         for i, a in enumerate(items)
         for b in items[i + 1 :]
         if a.learning_object_id == b.learning_object_id
-    )
-    disjoint_pair = next(
-        (a.id, b.id)
+    ]
+    disjoint_distances = [
+        dist(a.id, b.id)
         for i, a in enumerate(items)
         for b in items[i + 1 :]
         if lo_concept[a.learning_object_id] != lo_concept[b.learning_object_id]
         and not (set(a.evidence_facets) & set(b.evidence_facets))
-    )
-    # Sanity geometry: items testing the same LO must land closer together than
-    # items with disjoint facet vocabularies in different concepts.
-    assert dist(*same_lo_pair) < dist(*disjoint_pair)
+    ]
+    # Global stress layouts need not order every individual pair (the old test
+    # compared whichever two happened to sort first). The population-level
+    # geometry is the invariant: a typical same-LO pair clusters more tightly
+    # than a typical cross-concept pair with disjoint evidence.
+    assert same_lo_distances and disjoint_distances
+    assert statistics.median(same_lo_distances) < statistics.median(disjoint_distances)
 
 
 def test_knowledge_field_is_recipe_topological_and_uses_pooled_ready(tmp_path):

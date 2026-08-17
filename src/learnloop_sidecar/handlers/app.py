@@ -47,6 +47,23 @@ def shutdown(ctx: SidecarContext, _params) -> dict[str, Any]:
     return {"ok": True}
 
 
+@method("rpc.ping")
+def rpc_ping(_ctx: SidecarContext, _params) -> dict[str, Any]:
+    """Process-level readiness probe that deliberately requires no vault.
+
+    The Rust launcher uses this to distinguish a usable Python environment from
+    a process that spawned successfully but exited during sidecar imports.
+    """
+
+    return versioned(
+        {
+            "ready": True,
+            "sidecar_version": __version__,
+            "protocol": {"jsonrpc": "2.0", "framing": "ndjson"},
+        }
+    )
+
+
 @method("rpc.health")
 def rpc_health(ctx: SidecarContext, _params) -> dict[str, Any]:
     vault, repository = ctx.require_vault()

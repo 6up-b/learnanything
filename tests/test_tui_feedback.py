@@ -67,6 +67,7 @@ def test_feedback_submit_matches_cli_attempt_and_updates_state(tmp_path):
         assert attempt is not None
         assert attempt["rubric_score"] == result.rubric_score
         assert repository.fetch_grading_evidence(result.attempt_id)
+        assert repository.fetch_attempt_feedback_metadata(result.attempt_id) is not None
 
     asyncio.run(scenario())
 

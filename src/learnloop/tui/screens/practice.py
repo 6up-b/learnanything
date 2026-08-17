@@ -201,6 +201,16 @@ class PracticeScreen(Screen):
             self._draft("dont_know"),
             SelfGradeInput(criterion_points={}, confidence=3),
         )
+        # Keep every learner-facing attempt door on the same post-attempt
+        # composition.  This path used to bypass feedback metadata, causal
+        # follow-ups, and certification cold-probe scheduling entirely.
+        from learnloop.services.post_attempt import run_post_attempt_pipeline
+
+        run_post_attempt_pipeline(
+            self.state.vault,
+            self.state.repository,
+            result=result,
+        )
         self.app.last_attempt_result = result
         self.state.refresh()
         self.app.pop_screen()

@@ -26,6 +26,7 @@ import type {
 } from "../api/dto";
 import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Dim, Divider, Faint, FONT_MONO, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
+import { errorMessage } from "../errors";
 
 // Canonical locators are `span:<extraction>/<span>`; the optional extraction
 // group preserves the malformed pre-v2 `span:<span>` compatibility shape.
@@ -99,7 +100,7 @@ export function MaintenanceScreen({
   } | null>(null);
 
   const reportError = useCallback(
-    (err: unknown) => onError(err instanceof Error ? err.message : String(err)),
+    (err: unknown) => onError(errorMessage(err, "Could not refresh maintenance data.")),
     [onError]
   );
 

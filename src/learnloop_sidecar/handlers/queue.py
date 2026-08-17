@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from learnloop.clock import utc_now_iso
 from learnloop.services.instrument_serving import (
     UNSERVABLE_ERROR_CODE,
     unservable_refusal,
@@ -20,7 +21,7 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import (
     latest_scheduler_explanation_dto,
     practice_item_detail,
-    scheduled_item_dto,
+    scheduled_item_dtos,
     scheduler_explanation_dto,
 )
 from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
@@ -92,7 +93,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     queue = filter_unready_teach_back_items(
         vault, queue, grading_provider_override=ctx.grading_provider_override
     )
-    dtos = [scheduled_item_dto(vault, repository, item) for item in queue]
+    dtos = scheduled_item_dtos(vault, repository, queue)
     slate = repository.latest_scheduler_slate_by_session(params.session_id) if params.session_id else None
     log_event(
         "scheduler_slate",
@@ -135,7 +136,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     ]
     return versioned(
         {
-            "generated_at": _nowish(),
+            "generated_at": utc_now_iso(),
             "session_id": params.session_id,
             "sections": _sections(dtos),
             "total_items": len(dtos),
@@ -207,9 +208,3 @@ def _sections(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if grouped:
             sections.append({"title": title, "items": grouped})
     return sections
-
-
-def _nowish() -> str:
-    from datetime import UTC, datetime
-
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")

@@ -14,7 +14,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
-import type { CommandError, StartingLevel } from "../api/dto";
+import type { StartingLevel } from "../api/dto";
+import { errorMessage } from "../errors";
 import type { TopTab } from "./ui";
 import { COLOR, Faint, FONT_MONO } from "./term";
 import { GoalWizard } from "./GoalWizard";
@@ -90,13 +91,6 @@ export function NewVaultWizard({
   // step 3 — proposals
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
-  const asCommandError = (err: unknown): string =>
-    err && typeof err === "object" && "message" in err
-      ? String((err as CommandError).message)
-      : err instanceof Error
-        ? err.message
-        : String(err);
-
   // Load the fresh vault's subjects once it is active.
   async function refreshSubjects() {
     try {
@@ -133,7 +127,7 @@ export function NewVaultWizard({
       onContinueInIngest(result.subjectId);
       onClose();
     } catch (err) {
-      setCreateError(asCommandError(err));
+      setCreateError(errorMessage(err, "Could not create the vault."));
     } finally {
       setCreating(false);
     }
@@ -147,7 +141,7 @@ export function NewVaultWizard({
         setCreateError(null);
       }
     } catch (err) {
-      setCreateError(asCommandError(err));
+      setCreateError(errorMessage(err, "Could not open the directory browser."));
     }
   }
 
@@ -159,7 +153,7 @@ export function NewVaultWizard({
       setSource(picked);
       setDropNote(null);
     } catch (err) {
-      onError(asCommandError(err));
+      onError(errorMessage(err, "Could not open the source browser."));
     }
   }
 
@@ -179,7 +173,7 @@ export function NewVaultWizard({
       setBootstrapSubject(id);
       setNewSubjectTitle("");
     } catch (err) {
-      onError(asCommandError(err));
+      onError(errorMessage(err, "Could not add the subject."));
     } finally {
       setAddingSubject(false);
     }

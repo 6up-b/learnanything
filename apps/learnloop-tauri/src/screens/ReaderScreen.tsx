@@ -18,7 +18,6 @@ import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useM
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import type {
-  CommandError,
   ReaderAnswerMode,
   ReaderDisposition,
   ReaderGuidePlanDto,
@@ -41,6 +40,12 @@ import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
+import { errorMessage } from "../errors";
+import {
+  parseRequestError,
+  parseRequestResult,
+  useReaderRequests,
+} from "./reader/useReaderRequests";
 
 const ANSWER_MODE_OPTIONS = [
   { value: "answer_directly", label: "answer directly" },
@@ -131,54 +136,6 @@ function selectionNodes(sel: {
   nodes?: SelectionNode[];
 }): SelectionNode[] {
   return sel.nodes && sel.nodes.length ? sel.nodes : [{ spanId: sel.spanId, quote: sel.quote }];
-}
-
-interface BackgroundRequest {
-  id: string;
-  status: string;
-  preset: string;
-  resultJson?: string | null;
-  errorJson?: string | null;
-}
-
-/** One synthesized source object head (reader.source_objects), flattened for the rail. */
-interface SynthesizedObject {
-  objectId: string;
-  objectType: string;
-  status: string;
-  contentMd: string;
-  exactText: string;
-  spanId: string | null;
-}
-
-function parseRequestResult(resultJson: string | null | undefined): { sourceObjectId: string | null; proposalId: string | null } {
-  try {
-    // result_json rides the wire as an opaque JSON string — its keys stay
-    // snake_case (only top-level DTO keys are camelized).
-    const parsed = JSON.parse(resultJson ?? "") as { proposals?: Array<Record<string, unknown>> };
-    const objectRow = (parsed.proposals ?? []).find((p) => p.kind === "source_object");
-    const mappingRow = (parsed.proposals ?? []).find((p) => p.kind === "canonical_mapping");
-    return {
-      sourceObjectId: (objectRow?.source_object_id as string) ?? null,
-      proposalId: (mappingRow?.proposal_id as string) ?? null,
-    };
-  } catch {
-    return { sourceObjectId: null, proposalId: null };
-  }
-}
-
-function parseRequestError(errorJson: string | null | undefined): string | null {
-  try {
-    const parsed = JSON.parse(errorJson ?? "") as { message?: unknown };
-    const message = typeof parsed.message === "string" ? parsed.message.trim() : "";
-    if (!message) return null;
-    if (/unexpected end of hex escape|invalid .* json|json_invalid/i.test(message)) {
-      return "The AI returned malformed structured text while formatting the result. Retry will regenerate it safely.";
-    }
-    return message;
-  } catch {
-    return null;
-  }
 }
 
 interface ReaderExchange {
@@ -301,13 +258,6 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [boundaryResponse, setBoundaryResponse] = useState("");
   const [boundarySubmitted, setBoundarySubmitted] = useState(false);
   const [mode, setMode] = useState<string>("anchor");
-  const [requests, setRequests] = useState<BackgroundRequest[]>([]);
-  const [proposalCount, setProposalCount] = useState<number>(0);
-  // Demand-paged synthesis results: source objects by id + which mapping
-  // proposals are still open, so ready requests render their content with
-  // non-modal accept/dismiss (spec §6.4 — never a modal interruption).
-  const [synthesizedObjects, setSynthesizedObjects] = useState<Map<string, SynthesizedObject>>(new Map());
-  const [openProposalIds, setOpenProposalIds] = useState<Set<string>>(new Set());
   const [expandedRequests, setExpandedRequests] = useState<Set<string>>(new Set());
   const [questionControl, setQuestionControl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -344,6 +294,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const [librarySearch, setLibrarySearch] = useState("");
   const [searchResults, setSearchResults] = useState<ReaderSourceSearchDto | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   // Inline annotation maintenance (edit note / delete tombstone) in the rail.
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [editingAnnotationText, setEditingAnnotationText] = useState("");
@@ -362,9 +313,47 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const askFindInputRef = useRef<HTMLInputElement | null>(null);
   const askComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const readingRafRef = useRef<number | null>(null);
+  const modeSaveVersionRef = useRef(0);
+  const answerModeSaveVersionRef = useRef(0);
+  // Background synthesis is its own lifecycle: the hook keeps global proposal
+  // hydration off the two-second status-poll hot path and rejects stale source
+  // responses when the learner switches documents.
+  const {
+    requests,
+    proposalCount,
+    synthesizedObjects,
+    openProposalIds,
+    loadError: requestLoadError,
+    refresh: refreshRequests,
+  } = useReaderRequests(render?.sourceId ?? null, Boolean(render && !offline));
+
+  // Captures commit locally before synthesis is queued. Reopening a real source
+  // retries any durable outbox rows left behind by a transient drain failure.
+  useEffect(() => {
+    if (!render || offline) return;
+    let cancelled = false;
+    void api.readerDrainOutbox()
+      .then((result) => {
+        if (cancelled) return;
+        if (result.failed.length > 0) {
+          onError(`${result.failed.length} saved Reader request${result.failed.length === 1 ? " is" : "s are"} still waiting to start.`);
+        }
+        // The request hook is already hydrating this source on entry. Re-read
+        // only when the drain actually changed (or tried to change) outbox work.
+        if (result.drained.length > 0 || result.failed.length > 0) void refreshRequests();
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          onError(`Saved Reader requests are still waiting to start: ${errorMessage(error)}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [render?.renderViewId, offline, onError, refreshRequests]);
 
   useEffect(() => {
-    api.readerPromptContract().then(setContract).catch((error) => onError((error as CommandError).message));
+    api.readerPromptContract().then(setContract).catch((error) => onError(errorMessage(error, "Could not load Reader settings.")));
   }, [onError]);
 
   // The rail's content can lose a lot of height in one frame (a quick check is
@@ -396,17 +385,32 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     if (query.length < 2) {
       setSearchResults(null);
       setSearchBusy(false);
+      setSearchError(null);
       return;
     }
+    let cancelled = false;
     setSearchBusy(true);
+    setSearchError(null);
     const timer = window.setTimeout(() => {
       api
         .readerSearchSources({ query })
-        .then((result) => setSearchResults(result))
-        .catch(() => setSearchResults(null))
-        .finally(() => setSearchBusy(false));
+        .then((result) => {
+          if (!cancelled) setSearchResults(result);
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            setSearchResults(null);
+            setSearchError(errorMessage(error, "Could not search the source library."));
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setSearchBusy(false);
+        });
     }, 300);
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [librarySearch, render, sidecarDown]);
 
   useEffect(() => {
@@ -458,9 +462,6 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     setBoundaryAnswered(false);
     setBoundaryResponse("");
     setBoundarySubmitted(false);
-    setRequests([]);
-    setSynthesizedObjects(new Map());
-    setOpenProposalIds(new Set());
     setExpandedRequests(new Set());
     setQuestionControl(null);
     setArc(null);
@@ -540,7 +541,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
             .catch(() => setPdfView(null));
         }
       } catch (error) {
-        onError((error as CommandError).message);
+        onError(errorMessage(error));
       } finally {
         setOpening(null);
       }
@@ -915,7 +916,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       setEditingAnnotationText("");
       void refreshAnnotations();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -940,7 +941,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       }
       void refreshAnnotations();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -959,7 +960,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       setReanchorNotes((notes) => ({ ...notes, [annotationId]: "✓ anchored to your selection." }));
       void refreshAnnotations();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -974,7 +975,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       setAnnotations((list) => list.filter((a) => a.annotationId !== annotationId));
       void refreshAnnotations();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1252,45 +1253,6 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     [domPointFromClient, pdfSurfaceActive, selection],
   );
 
-  const refreshRequests = useCallback(async () => {
-    if (!render || offline) return;
-    try {
-      const [reqs, inbox, objects] = await Promise.all([
-        api.readerSourceRequests(render.sourceId),
-        api.readerProposalInbox({ status: "proposed" }),
-        api.readerSourceObjects(render.sourceId),
-      ]);
-      setRequests((reqs.requests as BackgroundRequest[]) ?? []);
-      const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? [];
-      setProposalCount(proposals.length);
-      setOpenProposalIds(new Set(proposals.map((p) => String(p.id))));
-      const flattened = new Map<string, SynthesizedObject>();
-      for (const head of (objects.sourceObjects as Array<Record<string, unknown>>) ?? []) {
-        const object = (head.object as Record<string, unknown>) ?? {};
-        const version = (head.version as Record<string, unknown>) ?? {};
-        const citations = (head.citations as Array<Record<string, unknown>>) ?? [];
-        let contentMd = "";
-        try {
-          const content = JSON.parse(String(version.contentJson ?? "")) as { content_md?: string };
-          contentMd = content.content_md ?? "";
-        } catch {
-          /* stub-era objects carry no content_md; exactText still renders */
-        }
-        flattened.set(String(object.id ?? ""), {
-          objectId: String(object.id ?? ""),
-          objectType: String(version.objectType ?? "claim"),
-          status: String(version.status ?? "proposed"),
-          contentMd,
-          exactText: String(version.exactText ?? ""),
-          spanId: citations.length ? String(citations[0].spanId ?? "") || null : null,
-        });
-      }
-      setSynthesizedObjects(flattened);
-    } catch {
-      /* status is best-effort */
-    }
-  }, [render, offline]);
-
   const decideProposal = useCallback(async (proposalId: string, decision: "accept" | "reject") => {
     setBusy(true);
     try {
@@ -1298,7 +1260,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       else await api.readerRejectProposal(proposalId);
       void refreshRequests();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1309,19 +1271,9 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       await api.readerRetryRequest(requestId);
       void refreshRequests();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     }
   }, [onError, refreshRequests]);
-
-  useEffect(() => {
-    void refreshRequests();
-  }, [refreshRequests]);
-
-  useEffect(() => {
-    if (!requests.some((request) => ["queued", "running", "pending"].includes(request.status))) return;
-    const timer = window.setInterval(() => void refreshRequests(), 2000);
-    return () => window.clearInterval(timer);
-  }, [requests, refreshRequests]);
 
   // Optimistic segment for a just-captured annotation: geometry from the pdf
   // manifest (when open) makes the trail paint immediately; the authoritative
@@ -1383,7 +1335,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         setActiveSpan(target.spanId);
         void refreshAnnotations();
       } catch (error) {
-        onError((error as CommandError).message);
+        onError(errorMessage(error));
       } finally {
         setBusy(false);
       }
@@ -1519,11 +1471,20 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         setSelectionActions((actions) => [...new Set([...actions, preset])]);
         setNote("");
         // Drain the local outbox so the demand-paged request is enqueued + visible.
-        await api.readerDrainOutbox().catch(() => {});
+        // The capture is already durable at this point, so a drain failure is a
+        // delayed background job—not a failed capture and not a reason to repeat it.
+        try {
+          const drained = await api.readerDrainOutbox();
+          if (drained.failed.length > 0) {
+            onError(`${drained.failed.length} saved Reader request${drained.failed.length === 1 ? " is" : "s are"} still waiting to start.`);
+          }
+        } catch (error) {
+          onError(`Saved locally, but background processing has not started yet: ${errorMessage(error)}`);
+        }
         void refreshAnnotations();
         void refreshRequests();
       } catch (error) {
-        onError((error as CommandError).message);
+        onError(errorMessage(error));
       } finally {
         setBusy(false);
       }
@@ -1567,7 +1528,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       setNote("");
       void refreshAnnotations();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1581,7 +1542,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       const next = await api.readerArc({ arcId: arc.arcId });
       setArc(next);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     }
   }, [arc, offline, enabled, onError]);
 
@@ -1593,7 +1554,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
         const next = await api.readerArc({ arcId: arc.arcId });
         setArc(next);
       } catch (error) {
-        onError((error as CommandError).message);
+        onError(errorMessage(error));
       }
     },
     [arc, offline, enabled, onError],
@@ -1625,7 +1586,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       });
       setSelectionActions((prev) => [...prev, "exercise_import"]);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1677,7 +1638,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       }
       setCoach(null);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setAuthoringBusy(false);
     }
@@ -1695,17 +1656,45 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       });
       setCoach(lint);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     }
   }, [authoredQuestion, authoredAnswer, authoredCardId, offline, enabled, onError]);
 
   const changeMode = useCallback(
     async (next: string) => {
+      const previous = mode;
       setMode(next);
       if (!render || offline || !enabled) return;
-      api.readerSetMode({ mode: next, extractionId: render.extractionId }).catch(() => {});
+      const version = ++modeSaveVersionRef.current;
+      try {
+        await api.readerSetMode({ mode: next, extractionId: render.extractionId });
+      } catch (error) {
+        if (modeSaveVersionRef.current === version) setMode(previous);
+        onError(errorMessage(error, "Could not save the reading mode."));
+      }
     },
-    [render, offline, enabled],
+    [mode, render, offline, enabled, onError],
+  );
+
+  const changeAnswerMode = useCallback(
+    async (next: string) => {
+      const answerModeNext = next as ReaderAnswerMode;
+      const previous = answerMode;
+      setAnswerMode(answerModeNext);
+      if (!render || !activeSpan || offline) return;
+      const version = ++answerModeSaveVersionRef.current;
+      try {
+        await api.readerSetAnswerMode({
+          extractionId: render.extractionId,
+          spanId: activeSpan,
+          answerMode: answerModeNext,
+        });
+      } catch (error) {
+        if (answerModeSaveVersionRef.current === version) setAnswerMode(previous);
+        onError(errorMessage(error, "Could not save the answer mode."));
+      }
+    },
+    [answerMode, render, activeSpan, offline, onError],
   );
 
   const sendQuestionControl = useCallback(
@@ -1715,7 +1704,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       try {
         await api.readerQuestionControl({ control, subjectId: boundaryBlock?.spanId ?? undefined });
       } catch (error) {
-        onError((error as CommandError).message);
+        onError(errorMessage(error));
       }
     },
     [render, offline, enabled, boundaryBlock, onError],
@@ -1760,7 +1749,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       setAskComposerVersion((version) => version + 1);
       window.requestAnimationFrame(() => askComposerRef.current?.focus());
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1773,7 +1762,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       try {
         await api.readerChooseDisposition({ disposition: d, subjectId: boundaryBlock.spanId ?? "", subjectType: "reader_span" });
       } catch (error) {
-        onError((error as CommandError).message);
+        onError(errorMessage(error));
       }
     },
     [enabled, boundaryBlock, onError],
@@ -1842,6 +1831,11 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                   </Faint>
                 ) : null}
               </div>
+              {searchError ? (
+                <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
+                  {searchError} Edit the search to retry.
+                </div>
+              ) : null}
               {searchResults && searchResults.hits.length > 0 ? (
                 <div className="ll-scroll" style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
                   {searchResults.hits.map((hit) => {
@@ -2610,6 +2604,22 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
             </>
           ) : null}
 
+          {requestLoadError ? (
+            <Card status="error" style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
+                Some Reader request data is unavailable.
+              </div>
+              <Faint style={{ fontSize: 10 }}>{requestLoadError}</Faint>
+              <button
+                type="button"
+                onClick={() => void refreshRequests()}
+                style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                retry request data
+              </button>
+            </Card>
+          ) : null}
+
           {requests.length > 0 ? (
             <>
               <SectionHeader>Your requests</SectionHeader>
@@ -2914,13 +2924,7 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
                     <TermSelect
                       value={answerMode}
                       options={ANSWER_MODE_OPTIONS}
-                      onChange={(v) => {
-                        const mode = v as ReaderAnswerMode;
-                        setAnswerMode(mode);
-                        if (render && activeSpan) {
-                          api.readerSetAnswerMode({ extractionId: render.extractionId, spanId: activeSpan, answerMode: mode }).catch(() => {});
-                        }
-                      }}
+                      onChange={changeAnswerMode}
                       width={160}
                     />
                   </div>
@@ -3161,7 +3165,7 @@ function AuthoredQuestionCard({
       await api.readerAuthoredQuestionAction({ questionId, action: "answered", response: response.trim() });
       setSubmitted(true);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -3174,7 +3178,7 @@ function AuthoredQuestionCard({
       await api.readerAuthoredQuestionAction({ questionId, action: "dismissed" });
       onDismiss();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -3190,7 +3194,7 @@ function AuthoredQuestionCard({
       });
       setEscalatedItemId(result.practiceItemId);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -3311,7 +3315,7 @@ function SectionQuestionCard({
       });
       setAdministrationId(String(opened.administrationId ?? ""));
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -3329,7 +3333,7 @@ function SectionQuestionCard({
       });
       setSubmitted(true);
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -3347,7 +3351,7 @@ function SectionQuestionCard({
         });
       }
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
       return;
     }
     onDismiss();
@@ -3380,7 +3384,7 @@ function SectionQuestionCard({
       }
       if (["too_easy", "too_intrusive", "dont_bring_this_back"].includes(value)) onDismiss();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -3398,7 +3402,7 @@ function SectionQuestionCard({
       });
       onComplete();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     }
   }, [question, onComplete, onError]);
 

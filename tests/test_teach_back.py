@@ -576,6 +576,45 @@ def test_finish_partial_grading_only_asked_criteria_produce_evidence(tmp_path):
     assert sorted(row.criterion_id for row in evidence) == ["core_definition", "core_geometry"]
 
 
+def test_fractional_asked_subset_is_a_view_not_an_authored_rubric(tmp_path):
+    _root, vault, repository = _setup(tmp_path)
+    clock = FrozenClock(NOW)
+    client = FakeTeachBackClient()
+    item = vault.practice_items[TEACH_ITEM_ID]
+    # The planned four-question subset is three 1-point core criteria plus one
+    # 0.5-point transfer criterion.  The complete authored rubric remains a
+    # valid integral 4-point instrument; only this transient grading view sums
+    # to 3.5.
+    state = _run_conversation(
+        vault,
+        repository,
+        item,
+        client,
+        answers=["answer one", "answer two", "answer three", "answer four"],
+        clock=clock,
+    )
+
+    result = finish_teach_back(vault, repository, state, client, clock=clock)
+
+    restricted = client.grading_contexts[0].rubric
+    assert sum(float(criterion["points"]) for criterion in restricted["criteria"]) == 3.5
+    assert restricted["max_points"] == item.grading_rubric.max_points == 4
+    assert result.attempt.rubric_score == 4
+    with pytest.raises(
+        ValueError,
+        match="rubric criterion points must sum to a positive integer",
+    ):
+        Rubric(
+            max_points=item.grading_rubric.max_points,
+            criteria=[
+                criterion
+                for criterion in item.grading_rubric.criteria
+                if criterion.id in result.asked_criterion_ids
+            ],
+            fatal_errors=item.grading_rubric.fatal_errors,
+        )
+
+
 def test_ai_question_control_sequences_are_removed_from_live_and_restored_state(tmp_path):
     _root, vault, repository = _setup(tmp_path)
     item = vault.practice_items[TEACH_ITEM_ID]

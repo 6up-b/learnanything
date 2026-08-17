@@ -328,11 +328,10 @@ def test_trace_evidence_report_surfaces_unexercised_cells_and_abstains_on_concen
     assert report["unexercised_supporting_cells"][0]["facet_id"] == ALGEBRA
 
 
-def test_the_projection_version_names_the_supporting_trace_rule():
-    """The guards move stored belief with no new learner evidence, so the
-    version bump is what routes it through one recalibration boundary."""
+def test_the_projection_version_pins_the_current_replay_semantics():
+    """Every belief-changing fold update crosses a recalibration boundary."""
 
-    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v6_absent_evidence_confers_nothing"
+    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v8_activity_eligibility"
 
 
 # ---------------------------------------------------------------------------

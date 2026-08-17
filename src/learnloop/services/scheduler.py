@@ -113,6 +113,7 @@ def build_due_queue(
         cap_lifted=cap_lifted,
     )
     item_states = repository.practice_item_states()
+    quality_states = repository.practice_item_quality_states()
     # Items reserved for a goal's held-out exam are quarantined from practice so
     # the exam stays an honest, uncontaminated test (fetched once per build).
     reserved_item_ids = reserved_exam_pool_item_ids(repository)
@@ -185,7 +186,13 @@ def build_due_queue(
     attempted_surface_exclusions: tuple[set[str], set[str]] | None = None
     probe_item_ids: dict[str, str] = {}
     probe_entropy_before: dict[str, float] = {}
-    recent_attempts_by_lo: dict[str, list[dict[str, Any]]] = {}
+    # One partitioned query supplies the familiarity window for every LO that
+    # can contribute to an active goal frontier.  The former lazy cache still
+    # issued one query per frontier LO on every queue rebuild.
+    recent_attempts_by_lo = repository.list_recent_attempts_by_learning_objects(
+        frontier.by_lo,
+        limit=config.recall_coverage.familiarity_recent_attempt_window,
+    )
     for item in vault.practice_items.values():
         # Learner-retired items are never served, independent of sync ordering.
         if item.status != "active":
@@ -275,13 +282,7 @@ def build_due_queue(
             # the goal — and without this the argmax re-serves the same frontier
             # item after every failure. Reuses the follow-up/probe familiarity
             # machinery; no new constants.
-            recent = recent_attempts_by_lo.get(learning_object.id)
-            if recent is None:
-                recent = repository.list_recent_attempts_by_learning_object(
-                    learning_object.id,
-                    limit=config.recall_coverage.familiarity_recent_attempt_window,
-                )
-                recent_attempts_by_lo[learning_object.id] = recent
+            recent = recent_attempts_by_lo.get(learning_object.id, [])
             exposure = familiarity_discount_from_attempts(
                 recent,
                 item,
@@ -405,7 +406,7 @@ def build_due_queue(
             learning_object,
             mastery=mastery,
             facet_states=facet_states_by_lo.get(learning_object.id, []),
-            quality_state=repository.practice_item_quality_state(item.id),
+            quality_state=quality_states.get(item.id),
             active_errors=errors_by_lo.get(learning_object.id, []),
             base_components=components,
             probe_eig=components.get("probe_eig_raw", components["probe_eig"]),

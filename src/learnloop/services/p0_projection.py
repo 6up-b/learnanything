@@ -22,7 +22,10 @@ from learnloop.services.assessment_contracts import (
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
 )
-from learnloop.services.canonical_projection import project_canonical_facet_state
+from learnloop.services.canonical_projection import (
+    CANONICAL_PROJECTION_VERSION,
+    project_canonical_facet_state,
+)
 from learnloop.vault.models import LoadedVault
 
 
@@ -44,17 +47,28 @@ def activate_p0_projection(
         raise ValueError(
             "activate_p0_projection requires a vault on the mvp-0.8 projection namespace"
         )
-    replayed = len(repository.canonical_observation_ledger_v2())
+    ledger = repository.canonical_observation_ledger_v2()
+    replayed = len(ledger)
     learning_object_ids = sorted(
-        {row["learning_object_id"] for row in repository.canonical_observation_ledger_v2() if row.get("learning_object_id")}
+        {
+            row["learning_object_id"]
+            for row in ledger
+            if row.get("learning_object_id")
+        }
     )
     project_canonical_facet_state(vault, repository, clock=clock)
+    from learnloop.services.facet_diagnostics import coverage_denominator_version
+
     return repository.record_derived_state_rebuild(
         scope="p0_projection_activation",
         learning_object_ids=learning_object_ids,
         algorithm_version=P0_ALGORITHM_VERSION,
         rebuilt_learning_objects=len(learning_object_ids),
         replayed_attempts=replayed,
+        canonical_projection_version=CANONICAL_PROJECTION_VERSION,
+        coverage_denominator_version=coverage_denominator_version(
+            vault, repository
+        ),
         clock=clock,
     )
 

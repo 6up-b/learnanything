@@ -263,7 +263,7 @@ async function runReview(_args: string[], flags: Flags, ctx: CmdCtx): Promise<Ou
         id: item.practiceItemId,
         title: item.learningObjectTitle,
         mode: item.selectedMode || item.practiceMode,
-        meta: `${item.mastery == null ? "mastery —" : `mastery ${item.mastery.toFixed(2)}`} · ${item.dueStatus}`,
+        meta: `${item.mastery == null ? "mastery estimate —" : `mastery estimate ${item.mastery.toFixed(2)}`} · ${item.dueStatus}`,
         why: item.plainEnglish[0] ?? ""
       });
     });

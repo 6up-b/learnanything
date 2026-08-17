@@ -54,6 +54,8 @@ import type {
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
   PracticeItemDetail,
+  PracticeSubmissionAcknowledgementDto,
+  PracticeSubmissionRecoveryDto,
   GetNextProbeItemDto,
   ProbeContractDto,
   ProposalsSnapshot,
@@ -313,7 +315,18 @@ export const api = {
     practiceItemId: string;
     answerMd: string;
     hintsUsed: number;
+    submissionId: string;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
+  recoverPracticeSubmission: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    submissionId: string;
+  }) => call<PracticeSubmissionRecoveryDto>("recover_practice_submission", { input }),
+  acknowledgePracticeSubmission: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    submissionId: string;
+  }) => call<PracticeSubmissionAcknowledgementDto>("acknowledge_practice_submission", { input }),
   submitAttempt: (input: SubmitAttemptInput) => call<AttemptResultDto>("submit_attempt", { input }),
   submitDontKnow: (input: {
     sessionId: string;

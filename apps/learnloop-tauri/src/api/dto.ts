@@ -430,6 +430,9 @@ export interface SessionCheckpoint {
   currentPracticeItemId: string | null;
   currentAnswer: string | null;
   hintsUsed: number;
+  /** Stable retry key for the in-progress attempt. Reused after app restart so
+   *  an outcome-unknown submission cannot be graded twice. */
+  submissionId: string | null;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
@@ -961,6 +964,18 @@ export interface AttemptResultDto {
   probeEpisode?: { episodeId: string; status: string; feedbackDeferred: boolean } | null;
   /** Present when this submission closed a diagnostic block (§5.7). */
   probeBlockEnd?: ProbeBlockEndDto | null;
+}
+
+export interface PracticeSubmissionRecoveryDto {
+  version: number;
+  status: "pending" | "recovered";
+  result: AttemptResultDto | null;
+}
+
+export interface PracticeSubmissionAcknowledgementDto {
+  version: number;
+  status: "cleared" | "already_absent" | "checkpoint_mismatch";
+  acknowledged: boolean;
 }
 
 export interface FeedbackBundle {

@@ -1,6 +1,7 @@
 # Architecture Pivot: Toward a Learned, Compute-Leveraging LearnLoop
 
-Status: strategy / direction. Written 2026-05-28. Not yet implemented.
+Status: strategy / direction. Written 2026-05-28. Stages 0 and 1 are partially
+implemented; later stages remain direction rather than shipped behavior.
 
 This document proposes how to evolve the LearnLoop algorithm (see `documentation.md`)
 from a deterministic, hand-engineered pipeline toward an architecture where
@@ -49,7 +50,7 @@ Ranked by how much each caps the ceiling:
 |---|---|---|
 | **Item/content semantics** | `evidence_facets`, `evidence_weights`, `criterion_facet_weights`, `retrieval_demand`, `transfer_distance`, `scaffold_level`, `surface_family`, `difficulty` — all authored/LLM-annotated per item | §9, §14.2 |
 | **Mastery dynamics** | 2PL EKF with fixed `a_i=1.0`, static authored `b_i`, hand-set drift/clamps, one-step linearization | §4.2–4.4, §17 |
-| **Item memory** | FSRS-6 with **pinned global weights**, never fit to this learner | §5 |
+| **Item memory** | FSRS-6 falls back to pinned global weights; an explicitly fitted, versioned per-vault set can replace them once it beats the configured improvement gate | §5 |
 | **Scheduler policy** | Weighted sum of hand-chosen terms + hand-set reward decompositions and target bands (probe 0.40–0.60, repair 0.75–0.90, …) | §11 |
 | **Probe diagnosis** | Hand-set conditional outcome model: `θ_mastered=2`, cut points, `err_low_frac=0.80`, leak=0.20 | §8.3 |
 | **The coefficient zoo** | §15.7 — dozens of magic constants (severity 0.12/0.10/0.08…, predicted-correctness 0.12/0.15…, ability-gain 0.04…) | §15.7 |
@@ -85,18 +86,20 @@ cold start.
 
 ### Stage 0 — Make it trainable (mostly done; finish it)
 Guarantee every decision logs frozen inputs + propensity + realized outcome.
-`decision_features` / `selection_propensity` exist; the gap is closing the loop so
-`learnloop eval policy` (spec.md) can do honest off-policy (IPS / doubly-robust)
-estimation. Critically, **turn on seeded exploration** — `selection_exploration_rate`
-defaults to 0, which starves off-policy learning of action overlap. This changes no
-live estimator behavior and is the cheapest high-leverage move.
+`decision_features` / `selection_propensity` exist, and seeded near-tie exploration
+now defaults to `selection_exploration_rate = 0.1` with deterministic replay seeds.
+The remaining gap is closing the loop so `learnloop eval policy` (spec.md) can do
+honest off-policy (IPS / doubly-robust) estimation over the logged propensities and
+realized delayed outcomes.
 
 ### Stage 1 — Fit the constants currently hand-set
 No new model classes; just stop hardcoding:
 
-- Run the **FSRS optimizer** on the learner's own review log instead of the pinned
-  21 weights (§5). FSRS is *designed* to be fit; shipping global weights is the
-  most gratuitous anti-bitter-lesson choice in the system.
+- The **FSRS optimizer** now fits the learner's own review log via
+  `learnloop fit fsrs`. A fit is stored as a versioned parameter set only when it
+  clears the configured improvement gate; all consumers resolve that active set
+  and safely fall back to the pinned 21 defaults. Automatic fit cadence and
+  held-out promotion policy remain Stage-1 work.
 - **Calibrate `a_i`, `b_i` online** from response data. `services/calibration.py`
   already flags miscalibration — promote it from "flag for author" to "fit."
   Discrimination fixed at 1.0 discards the main thing IRT can learn.

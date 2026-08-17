@@ -1668,6 +1668,118 @@ def record_episode_evidence(
     return end_diagnostic_block(vault, repository, refreshed, ai_client=ai_client, clock=clock)
 
 
+def record_presentation_activity_classification(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    practice_item_id: str,
+    attempt_type: str,
+    hints_used: int,
+    probe_presentation_id: str,
+    grading_source: str,
+    tutor_contaminated: bool = False,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Persist presentation-derived eligibility before canonical projection.
+
+    The full probe observation is intentionally recorded later, after causal
+    materialization. Its activity classification cannot wait that long: the
+    canonical projection runs between those phases and must see near-clone and
+    instructional-diagnostic disqualifications on the same live attempt. The
+    later observation path restates this exact fact idempotently.
+    """
+
+    if grading_source not in APPROVED_DIAGNOSTIC_GRADING_SOURCES:
+        return None
+    validation = validate_presentation_for_submission(
+        repository,
+        probe_presentation_id,
+        practice_item_id=practice_item_id,
+        attempt_id=attempt_id,
+        clock=clock,
+    )
+    if (
+        not validation.valid
+        or validation.presentation is None
+        or validation.episode is None
+    ):
+        return None
+    return _record_presentation_activity_fact(
+        vault,
+        repository,
+        validation.episode,
+        validation.presentation,
+        attempt_id=attempt_id,
+        practice_item_id=practice_item_id,
+        attempt_type=attempt_type,
+        hints_used=hints_used,
+        tutor_contaminated=tutor_contaminated,
+        clock=clock,
+    )
+
+
+def _presentation_contamination(
+    *, attempt_type: str, hints_used: int, tutor_contaminated: bool
+) -> dict[str, Any]:
+    contamination: dict[str, Any] = {}
+    if hints_used > 0:
+        contamination["hints_used"] = hints_used
+    if tutor_contaminated:
+        contamination["tutor_help"] = True
+    # The explicit don't-know outcome retains the presentation's
+    # ``diagnostic_probe`` type; any other type contaminates the measurement.
+    if attempt_type != "diagnostic_probe":
+        contamination["attempt_type"] = attempt_type
+    return contamination
+
+
+def _record_presentation_activity_fact(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    presentation: ProbePresentationRecord,
+    *,
+    attempt_id: str,
+    practice_item_id: str,
+    attempt_type: str,
+    hints_used: int,
+    tutor_contaminated: bool,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    from learnloop.services.causal_activity_policy import (
+        near_clone_from_selection_components,
+    )
+
+    contamination = _presentation_contamination(
+        attempt_type=attempt_type,
+        hints_used=hints_used,
+        tutor_contaminated=tutor_contaminated,
+    )
+    contamination_class = (
+        "instructional_diagnostic" if contamination else "pure_diagnostic"
+    )
+    near_clone_assessment = near_clone_from_selection_components(
+        vault,
+        practice_item_id=practice_item_id,
+        selection_components=presentation.selection_components,
+    )
+    return repository.record_causal_activity_classification(
+        attempt_id=attempt_id,
+        contamination_class=contamination_class,
+        near_clone=near_clone_assessment.near_clone,
+        near_clone_basis=near_clone_assessment.basis,
+        source="probe_presentation_observation",
+        detail={
+            "probe_episode_id": episode.id,
+            "probe_presentation_id": presentation.id,
+            "contamination": contamination or None,
+            "near_clone_assessment": near_clone_assessment.as_dict(),
+        },
+        clock=clock,
+    )
+
+
 def _robust_observation_snapshot(
     repository: Repository,
     episode: ProbeEpisodeRecord,
@@ -1868,15 +1980,11 @@ def _record_presentation_observation(
 
     likelihoods = instrument_observation_likelihoods(instrument, slot_map, outcome)
 
-    contamination: dict[str, Any] = {}
-    if hints_used > 0:
-        contamination["hints_used"] = hints_used
-    if tutor_contaminated:
-        contamination["tutor_help"] = True
-    # The explicit don't-know outcome retains the presentation's
-    # `diagnostic_probe` type; any other type contaminates the measurement.
-    if attempt_type != "diagnostic_probe":
-        contamination["attempt_type"] = attempt_type
+    contamination = _presentation_contamination(
+        attempt_type=attempt_type,
+        hints_used=hints_used,
+        tutor_contaminated=tutor_contaminated,
+    )
     contaminated = bool(contamination)
 
     episode_config = vault.config.probe.episode
@@ -1939,36 +2047,24 @@ def _record_presentation_observation(
         features=features,
         clock=clock,
     )
-    from learnloop.services.causal_activity_policy import (
-        near_clone_from_selection_components,
-    )
-
     contamination_class = (
         "instructional_diagnostic"
         if contaminated
         else "pure_diagnostic"
     )
-    # P2 §4.3: provenance is not similarity. Being instantiated FROM a source
-    # item does not make a probe a near clone of it; only a shared surface
-    # fingerprint does. The old truthiness test made every generated probe a
-    # near clone and permanently voided its certification eligibility.
-    near_clone_assessment = near_clone_from_selection_components(
+    # Restates the pre-projection fact idempotently. Keeping this call beside
+    # the durable observation means direct callers of ``record_episode_evidence``
+    # (outside apply_attempt's live pipeline) still get the same audit row.
+    _record_presentation_activity_fact(
         vault,
-        practice_item_id=practice_item_id,
-        selection_components=presentation.selection_components,
-    )
-    repository.record_causal_activity_classification(
+        repository,
+        episode,
+        presentation,
         attempt_id=attempt_id,
-        contamination_class=contamination_class,
-        near_clone=near_clone_assessment.near_clone,
-        near_clone_basis=near_clone_assessment.basis,
-        source="probe_presentation_observation",
-        detail={
-            "probe_episode_id": episode.id,
-            "probe_presentation_id": presentation.id,
-            "contamination": contamination or None,
-            "near_clone_assessment": near_clone_assessment.as_dict(),
-        },
+        practice_item_id=practice_item_id,
+        attempt_type=attempt_type,
+        hints_used=hints_used,
+        tutor_contaminated=tutor_contaminated,
         clock=clock,
     )
     _dual_write_probe_grade(

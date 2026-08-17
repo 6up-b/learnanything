@@ -37,7 +37,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from learnloop.db.repositories import Repository
 from learnloop.services import robust_composition as rc
@@ -219,6 +219,74 @@ def effective_observation_from_posterior(
     )
 
 
+@dataclass(frozen=True)
+class EffectiveObservationReferences:
+    """Bulk-loaded immutable references for one evidence-ledger replay."""
+
+    calibration_models_by_hash: Mapping[str, Mapping[str, Any]]
+    calibration_alphas_by_model_id: Mapping[
+        str, Mapping[str, Mapping[str, float]]
+    ]
+    raw_grade_events_by_id: Mapping[str, Mapping[str, Any]]
+    lcb_quantile: float
+
+
+def load_effective_observation_references(
+    repository: Repository,
+    interpretations: Iterable[Mapping[str, Any] | None],
+) -> EffectiveObservationReferences:
+    """Load every DB input needed by ``build_effective_observation`` once.
+
+    New interpretations normally consume their persisted shared certainty LCB,
+    but model status still needs the pinned model row. Older interpretations
+    may require pooled alpha and raw-emission reconstruction. Both paths are
+    collected before the attempt fold so replay cost is bounded independently
+    of the number of attempts or distinct model hashes.
+    """
+
+    rows = tuple(row for row in interpretations if row is not None)
+    model_hashes = {
+        str(row.get("calibration_model_hash"))
+        for row in rows
+        if row.get("calibration_model_hash")
+    }
+    legacy_rows = tuple(row for row in rows if row.get("shared_certainty_lcb") is None)
+    model_ids: set[str] = set()
+    raw_grade_event_ids: set[str] = set()
+    for row in legacy_rows:
+        lineage = json.loads(row.get("reference_prior_ids_json") or "[]")
+        if lineage:
+            model_ids.update(str(value) for value in lineage if value)
+        elif row.get("calibration_model_id"):
+            model_ids.add(str(row["calibration_model_id"]))
+        if row.get("raw_grade_event_id"):
+            raw_grade_event_ids.add(str(row["raw_grade_event_id"]))
+
+    from learnloop.services.fitted_params import (
+        CERTAINTY_LCB_QUANTILE_DEFAULT,
+        resolve_grader_channel_prior,
+    )
+
+    lcb_quantile = (
+        resolve_grader_channel_prior(repository).lcb_quantile
+        if legacy_rows
+        else CERTAINTY_LCB_QUANTILE_DEFAULT
+    )
+
+    return EffectiveObservationReferences(
+        calibration_models_by_hash=repository.calibration_models_by_hashes(
+            model_hashes
+        ),
+        calibration_alphas_by_model_id=repository.calibration_alphas_by_model_ids(
+            model_ids
+        ),
+        raw_grade_events_by_id=repository.raw_grade_events_by_ids(
+            raw_grade_event_ids
+        ),
+        lcb_quantile=lcb_quantile,
+    )
+
+
 def build_effective_observation(
     repository: Repository,
     *,
@@ -229,6 +297,7 @@ def build_effective_observation(
     familiarity_discount: float = 1.0,
     observation_id: str | None = None,
     unassessable: bool = False,
+    references: EffectiveObservationReferences | None = None,
 ) -> EffectiveObservation:
     """Assemble the EffectiveObservation for a P0.2 calibrated interpretation.
 
@@ -236,7 +305,9 @@ def build_effective_observation(
     legacy observation with no P0.2 row -- falls to the compatibility branch: zero
     reliable mass, never a silent full-credit, §4.3). The certainty LCB is drawn
     from the resolved model's Dirichlet ensemble seeded on the interpretation's
-    pinned ``calibration_model_hash`` (byte-stable)."""
+    pinned ``calibration_model_hash`` (byte-stable). Whole-ledger callers pass a
+    bulk ``references`` snapshot; standalone callers retain the point-lookup
+    compatibility path."""
 
     if interpretation is None:
         return effective_observation_from_posterior(
@@ -257,11 +328,23 @@ def build_effective_observation(
     model_id = interpretation.get("calibration_model_id")
     model_hash = interpretation.get("calibration_model_hash") or ""
     proj_version = interpretation.get("projection_algorithm_version")
-    lineage = tuple(json.loads(interpretation.get("reference_prior_ids_json") or "[]"))
+    lineage = tuple(
+        str(value)
+        for value in json.loads(
+            interpretation.get("reference_prior_ids_json") or "[]"
+        )
+        if value
+    )
 
     # Resolve the calibration status from the persisted model row (heuristic ->
     # calibrated wording gate, §9.3). Fallback models are heuristic.
-    model_row = repository.find_calibration_model_by_hash(model_hash) if model_hash else None
+    model_row = (
+        references.calibration_models_by_hash.get(model_hash)
+        if references is not None and model_hash
+        else repository.find_calibration_model_by_hash(model_hash)
+        if model_hash
+        else None
+    )
     status = model_row.get("status") if model_row else "heuristic"
 
     stored = interpretation.get("shared_certainty_lcb")
@@ -271,7 +354,10 @@ def build_effective_observation(
         certainty_lcb_value = max(0.0, min(1.0, float(stored)))
     else:
         certainty_lcb_value = _certainty_lcb_for_interpretation(
-            repository, interpretation, posterior
+            repository,
+            interpretation,
+            posterior,
+            references=references,
         )
 
     return effective_observation_from_posterior(
@@ -296,6 +382,8 @@ def _certainty_lcb_for_interpretation(
     repository: Repository,
     interpretation: Mapping[str, Any],
     posterior: Mapping[str, float],
+    *,
+    references: EffectiveObservationReferences | None = None,
 ) -> float:
     """Fallback recompute of the shared certainty LCB for a row that predates the
     persisted ``shared_certainty_lcb`` column (H1, spec §4.3 final ¶).
@@ -316,25 +404,45 @@ def _certainty_lcb_for_interpretation(
 
     model_hash = interpretation.get("calibration_model_hash") or ""
     lineage: tuple[str, ...] = tuple(
-        json.loads(interpretation.get("reference_prior_ids_json") or "[]")
+        str(value)
+        for value in json.loads(
+            interpretation.get("reference_prior_ids_json") or "[]"
+        )
+        if value
     )
     if lineage:
         pooled = gc._sum_alphas(
-            [repository.fetch_calibration_alphas(mid) for mid in lineage]
+            [
+                (
+                    references.calibration_alphas_by_model_id.get(mid, {})
+                    if references is not None
+                    else repository.fetch_calibration_alphas(mid)
+                )
+                for mid in lineage
+            ]
         )
     else:
         model_id = interpretation.get("calibration_model_id")
-        pooled = repository.fetch_calibration_alphas(model_id) if model_id else {}
+        pooled = (
+            references.calibration_alphas_by_model_id.get(str(model_id), {})
+            if references is not None and model_id
+            else repository.fetch_calibration_alphas(model_id)
+            if model_id
+            else {}
+        )
     if not pooled:
         # No persisted model row (should not happen post-P0.2); conservative bound.
         return _certainty(posterior)
 
-    raw = repository.raw_grade_event(interpretation["raw_grade_event_id"])
+    raw_grade_event_id = str(interpretation["raw_grade_event_id"])
+    raw = (
+        references.raw_grade_events_by_id.get(raw_grade_event_id)
+        if references is not None
+        else repository.raw_grade_event(raw_grade_event_id)
+    )
     if raw is None:
         return _certainty(posterior)
     emission = f"{raw['observed_class']}|{raw['confidence_bucket']}"
-    from learnloop.services.fitted_params import resolve_grader_channel_prior
-
     return shared_certainty_lcb(
         joint_alpha=pooled,
         observed_emission=emission,
@@ -344,5 +452,15 @@ def _certainty_lcb_for_interpretation(
             interpretation.get("projection_algorithm_version")
             or SHARED_CERTAINTY_PROJECTION_VERSION
         ),
-        quantile=resolve_grader_channel_prior(repository).lcb_quantile,
+        quantile=(
+            references.lcb_quantile
+            if references is not None
+            else _resolved_lcb_quantile(repository)
+        ),
     )
+
+
+def _resolved_lcb_quantile(repository: Repository) -> float:
+    from learnloop.services.fitted_params import resolve_grader_channel_prior
+
+    return resolve_grader_channel_prior(repository).lcb_quantile

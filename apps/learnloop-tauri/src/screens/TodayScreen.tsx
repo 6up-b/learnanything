@@ -1075,7 +1075,7 @@ function QueueRow({
       </div>
 
       <span style={{ display: "inline-flex", gap: 10, alignItems: "center", fontSize: 12 }}>
-        <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery</Faint>
+        <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery estimate</Faint>
         {mastery == null ? (
           <Faint>—</Faint>
         ) : (
@@ -1346,7 +1346,7 @@ function QueueDetail({
         </span>
       </div>
 
-      <SectionHeader>Mastery posterior</SectionHeader>
+      <SectionHeader>Mastery estimate</SectionHeader>
       <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12 }}>
         {mastery == null ? (
           <Faint>no evidence yet</Faint>

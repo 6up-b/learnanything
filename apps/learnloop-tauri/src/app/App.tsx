@@ -37,6 +37,7 @@ import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
+import { errorMessage } from "../errors";
 
 type OpenSourceTarget = {
   extractionId: string;
@@ -61,6 +62,7 @@ type VaultFilesChangedEvent = {
 
 export function App() {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const [reviewCounts, setReviewCounts] = useState<ReviewCountsDto | null>(null);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [tab, setTab] = useState<TopTab>("start");
@@ -137,9 +139,10 @@ export function App() {
     practiceItemId: string;
     answerMd: string;
     hintsUsed: number;
+    submissionId: string;
   } | null>(null);
   const onPracticeDraft = useCallback(
-    (draft: { practiceItemId: string; answerMd: string; hintsUsed: number }) => setLocalDraft(draft),
+    (draft: { practiceItemId: string; answerMd: string; hintsUsed: number; submissionId: string }) => setLocalDraft(draft),
     []
   );
   const [libraryNoteId, setLibraryNoteId] = useState<string | null>(null);
@@ -162,8 +165,15 @@ export function App() {
   // PracticeScreen knows the item's mode; it reports it up so the
   // command-palette ask path can refuse to open the tutor mid-transcript.
   const teachBackActiveRef = useRef(false);
+  // Practice reports whether its diagnostic contract has been verified and
+  // permits tutor assistance. Default closed so command-palette Ask cannot
+  // race the mount-time contract RPC.
+  const practiceAskAllowedRef = useRef(false);
   const onTeachBackActive = useCallback((active: boolean) => {
     teachBackActiveRef.current = active;
+  }, []);
+  const onPracticeAskAllowed = useCallback((allowed: boolean) => {
+    practiceAskAllowedRef.current = allowed;
   }, []);
 
   const onError = useCallback((message: string) => setToast(message), []);
@@ -172,26 +182,31 @@ export function App() {
     setPalettePracticeItemIds(ids.practiceItemIds);
   }, []);
 
+  const loadInitialVault = useCallback(async () => {
+    setStartupError(null);
+    try {
+      const appSnapshot = await api.loadVault();
+      setAlgoConfig(appSnapshot.config);
+      setSnapshot(appSnapshot);
+      if (appSnapshot.activeSession) {
+        setSession(appSnapshot.activeSession);
+        const checkpoint = appSnapshot.activeSession.checkpoint;
+        if (checkpoint?.currentPracticeItemId) {
+          setPracticeItemId(checkpoint.currentPracticeItemId);
+          setTab("today");
+          setTodayStage("practice");
+        }
+      }
+    } catch (error) {
+      setStartupError(errorMessage(error, "Could not load the LearnLoop vault."));
+    }
+  }, []);
+
   useEffect(() => {
     if (startupStartedRef.current) return;
     startupStartedRef.current = true;
-
-    api.loadVault()
-      .then((appSnapshot) => {
-        setAlgoConfig(appSnapshot.config);
-        setSnapshot(appSnapshot);
-        if (appSnapshot.activeSession) {
-          setSession(appSnapshot.activeSession);
-          const checkpoint = appSnapshot.activeSession.checkpoint;
-          if (checkpoint?.currentPracticeItemId) {
-            setPracticeItemId(checkpoint.currentPracticeItemId);
-            setTab("today");
-            setTodayStage("practice");
-          }
-        }
-      })
-      .catch((error) => onError(error.message));
-  }, [onError]);
+    void loadInitialVault();
+  }, [loadInitialVault]);
 
   useEffect(() => {
     let disposed = false;
@@ -234,7 +249,7 @@ export function App() {
         if (disposed) stop();
         else unlisten = stop;
       })
-      .catch((error) => onError((error as Error).message));
+      .catch((error) => onError(errorMessage(error, "Could not watch this vault for changes.")));
     return () => {
       disposed = true;
       unlisten?.();
@@ -325,15 +340,21 @@ export function App() {
 
   const restored = useMemo(() => {
     if (localDraft && localDraft.practiceItemId === practiceItemId) {
-      return { answer: localDraft.answerMd, hints: localDraft.hintsUsed, teachBack: null };
+      return {
+        answer: localDraft.answerMd,
+        hints: localDraft.hintsUsed,
+        submissionId: localDraft.submissionId,
+        teachBack: null
+      };
     }
     const checkpoint = session?.checkpoint;
     if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
-      return { answer: "", hints: 0, teachBack: null };
+      return { answer: "", hints: 0, submissionId: null, teachBack: null };
     }
     return {
       answer: checkpoint.currentAnswer ?? "",
       hints: checkpoint.hintsUsed,
+      submissionId: checkpoint.submissionId ?? null,
       teachBack: checkpoint.teachBack ?? null
     };
   }, [session, practiceItemId, localDraft]);
@@ -384,7 +405,7 @@ export function App() {
         );
         setToast(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
       } catch (error) {
-        onError((error as Error).message);
+        onError(errorMessage(error, "Could not change the grading provider."));
       }
     },
     [onError]
@@ -424,6 +445,7 @@ export function App() {
     }
     setPrimedRetry(false);
     setRedoContext(null);
+    setAskTarget(null);
     setPracticeItemId(id);
     setTab("today");
     setTodayStage("practice");
@@ -437,6 +459,7 @@ export function App() {
     }
     setPrimedRetry(true);
     setRedoContext(null);
+    setAskTarget(null);
     setPracticeItemId(id);
     setTab("today");
     setTodayStage("practice");
@@ -455,6 +478,7 @@ export function App() {
     }
     setPrimedRetry(true);
     setRedoContext(redo);
+    setAskTarget(null);
     setPracticeItemId(redo.practiceItemId);
     setTab("today");
     setTodayStage("practice");
@@ -478,9 +502,27 @@ export function App() {
     setTab("library");
   }
 
-  function clearLocalCheckpoint() {
-    setSession((current) => current ? { ...current, checkpoint: null } : current);
-    setLocalDraft(null);
+  function clearLocalCheckpoint(identity?: { practiceItemId: string; submissionId: string }) {
+    setSession((current) => {
+      if (!current) return current;
+      if (!identity) return { ...current, checkpoint: null };
+      const checkpoint = current.checkpoint;
+      // The in-memory SessionSnapshot is only refreshed at startup and can
+      // predate this item's generated retry key. The sidecar has already
+      // compared both item + key atomically; matching the snapshot's item is
+      // therefore sufficient, while a newer different item remains intact.
+      if (checkpoint?.currentPracticeItemId === identity.practiceItemId) {
+        return { ...current, checkpoint: null };
+      }
+      return current;
+    });
+    setLocalDraft((current) => {
+      if (!identity) return null;
+      return current?.practiceItemId === identity.practiceItemId
+        && current.submissionId === identity.submissionId
+        ? null
+        : current;
+    });
   }
 
   function endSession(summary: SessionEndSummary) {
@@ -562,6 +604,10 @@ export function App() {
         setToast("ask-tutor is disabled during a teach-back conversation.");
         return false;
       }
+      if (!practiceAskAllowedRef.current) {
+        setToast("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
+        return false;
+      }
       setAskTarget({
         context: "practice",
         practiceItemId,
@@ -593,11 +639,32 @@ export function App() {
 
   const changeVault = useCallback(
     async (path: string) => {
+      let selected = false;
       try {
         await api.selectVault(path);
+        selected = true;
+        // From this point onward every command targets the new vault. Do not
+        // leave the previous vault's snapshot or overlays interactive while the
+        // replacement snapshot is loading (or if that second read fails).
+        setSnapshot(null);
+        setSession(null);
+        setStartupError(null);
+        setSettingsOpen(false);
+        setReviewOpen(false);
+        setInspectorId(null);
+        setAskTarget(null);
+        setOpenSource(null);
+        setQuickAddOpen(false);
+        setRepairMisconceptionId(null);
+        setConfirmOpen(false);
+        setWhyTriage(null);
+        setAdjudicateOpen(false);
+        setPaletteOpen(false);
+        setFinishSummary(null);
         const next = await api.loadVault();
         setAlgoConfig(next.config);
         setSnapshot(next);
+        setStartupError(null);
         setSession(next.activeSession ?? null);
         setTodayNoGoalBannerDismissed(false);
         setPracticeItemId(null);
@@ -614,10 +681,19 @@ export function App() {
         setTodayStage("queue");
         setTab("start");
       } catch (error) {
-        // A vault that fails to open (deleted/renamed dir, backend error) drops
-        // out of the recents dropdown rather than lingering as a dead entry.
-        removeRecentVault(path);
-        onError((error as Error).message);
+        const message = errorMessage(error, "Could not open that vault.");
+        if (selected) {
+          // Selection committed in the backend, so restoring the old snapshot
+          // would create a cross-vault UI/data mismatch. Keep the app blocked
+          // on a retryable load surface for the newly selected vault instead.
+          setStartupError(message);
+        } else {
+          // A path that could not be selected (deleted/renamed directory, bad
+          // vault) drops out of recents; the still-active old snapshot is safe.
+          removeRecentVault(path);
+        }
+        onError(message);
+        throw error;
       }
     },
     [onError]
@@ -625,6 +701,18 @@ export function App() {
 
   function renderBody() {
     if (!snapshot) {
+      if (startupError) {
+        return (
+          <div className="placeholder-screen" role="alert">
+            <div className="toast" style={{ maxWidth: 620 }}>
+              <div>{startupError}</div>
+              <button type="button" className="queue-row" style={{ marginTop: 10 }} onClick={() => void loadInitialVault()}>
+                retry vault load
+              </button>
+            </div>
+          </div>
+        );
+      }
       return <EmptyPlaceholder title="Loading LearnLoop vault" />;
     }
     // The exam overlay pre-empts the tab body — it's entered only from the goal
@@ -679,6 +767,7 @@ export function App() {
       if (todayStage === "practice" && session && practiceItemId) {
         return (
           <PracticeScreen
+            key={`${session.sessionId}:${practiceItemId}`}
             session={session}
             practiceItemId={practiceItemId}
             primed={primedRetry}
@@ -687,6 +776,7 @@ export function App() {
             gradingProvider={gradingProvider}
             restoredAnswer={restored.answer}
             restoredHints={restored.hints}
+            restoredSubmissionId={restored.submissionId}
             restoredTeachBack={restored.teachBack}
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}
@@ -695,6 +785,7 @@ export function App() {
             onCheckpointCleared={clearLocalCheckpoint}
             onDraftSaved={onPracticeDraft}
             onTeachBackActive={onTeachBackActive}
+            onAskAvailabilityChange={onPracticeAskAllowed}
             onInspect={setInspectorId}
             onAsk={setAskTarget}
             onError={onError}
@@ -871,11 +962,15 @@ export function App() {
         aiReady={settingsHealthy}
         aiManual={manualGrading}
         vaultRoot={snapshot?.vault?.root}
-        onSelectVault={changeVault}
+        onSelectVault={(path) => void changeVault(path).catch(() => undefined)}
         settingsOpen={settingsOpen}
         badges={navBadges}
       >
-        {toast && !settingsOpen ? <div className="toast" onClick={() => setToast(null)}>{toast}</div> : null}
+        {toast && !settingsOpen ? (
+          <div className="toast" role="status" aria-live="polite" aria-atomic="true" onClick={() => setToast(null)}>
+            {toast}
+          </div>
+        ) : null}
         {renderBody()}
       </TerminalFrame>
       {settingsOpen ? (

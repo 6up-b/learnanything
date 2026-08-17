@@ -26,6 +26,56 @@ NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
 NOW_ISO = "2026-05-19T12:00:00Z"
 
 
+def test_scheduler_bulk_loads_item_quality_once(tmp_path, monkeypatch):
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = seed_due_item(paths)
+    quality_calls = 0
+    recent_calls = 0
+    original_quality = repository.practice_item_quality_states
+    original_recent = repository.list_recent_attempts_by_learning_objects
+
+    def states_once():
+        nonlocal quality_calls
+        quality_calls += 1
+        return original_quality()
+
+    def recent_once(learning_object_ids, *, limit=10):
+        nonlocal recent_calls
+        recent_calls += 1
+        return original_recent(learning_object_ids, limit=limit)
+
+    monkeypatch.setattr(repository, "practice_item_quality_states", states_once)
+    monkeypatch.setattr(
+        repository, "list_recent_attempts_by_learning_objects", recent_once
+    )
+    monkeypatch.setattr(
+        repository,
+        "practice_item_quality_state",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("scheduler must not query item quality per candidate")
+        ),
+    )
+    monkeypatch.setattr(
+        repository,
+        "list_recent_attempts_by_learning_object",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("scheduler must not query recent attempts per learning object")
+        ),
+    )
+
+    queue = build_due_queue(
+        vault,
+        repository,
+        clock=FrozenClock(NOW),
+        persist_explanations=False,
+    )
+
+    assert queue
+    assert quality_calls == 1
+    assert recent_calls == 1
+
+
 def test_scheduler_scores_due_goal_item(tmp_path):
     vault_root = tmp_path / "vault"
     clock = FrozenClock(NOW)

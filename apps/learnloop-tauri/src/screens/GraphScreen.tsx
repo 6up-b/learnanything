@@ -1079,7 +1079,7 @@ function ConceptDetail({
         {incoming.length === 0 && outgoing.length === 0 ? <Faint>no edges</Faint> : null}
       </div>
 
-      <SectionHeader>Learning objects</SectionHeader>
+      <SectionHeader>Learning objects · mastery estimates</SectionHeader>
       {concept.learningObjects.length === 0 ? <Faint>none</Faint> : null}
       {concept.learningObjects.map((lo) => (
         <div

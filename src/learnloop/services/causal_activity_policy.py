@@ -259,6 +259,64 @@ def attempt_counts_as_assisted(
     ).counts_as_assisted
 
 
+def resolve_attempt_activity_policy(
+    *,
+    attempt_type: str,
+    primed: bool = False,
+    hints_used: int = 0,
+    recorded: Mapping[str, Any] | None = None,
+) -> CausalActivityPolicy:
+    """Fail-closed attempt policy from immutable signals plus recorded facts.
+
+    The attempt row is always available and is sufficient to identify pure
+    diagnostics and legacy assistance.  A recorded classification can add
+    richer facts learned later in the pipeline (notably an audited near-clone
+    verdict).  Eligibility is therefore the intersection of both authorities,
+    while assistance/segment contamination is their union: a later event may
+    disqualify evidence, but it can never make an intrinsically ineligible or
+    assisted attempt certify.
+    """
+
+    inferred = classify_attempt_activity(
+        attempt_type=attempt_type,
+        primed=primed,
+        hints_used=hints_used,
+    )
+    if recorded is None:
+        return inferred
+    stored = policy_for_class(
+        str(recorded.get("contamination_class") or "verification"),
+        near_clone=bool(recorded.get("near_clone")),
+    )
+    resolved_class = min(
+        (inferred.contamination_class, stored.contamination_class),
+        key=CONTAMINATION_PRECEDENCE.index,
+    )
+    combined = policy_for_class(
+        resolved_class,
+        near_clone=inferred.near_clone or stored.near_clone,
+    )
+    return CausalActivityPolicy(
+        contamination_class=combined.contamination_class,
+        near_clone=combined.near_clone,
+        closes_pre_intervention_segment=(
+            inferred.closes_pre_intervention_segment
+            or stored.closes_pre_intervention_segment
+        ),
+        eligible_for_fsrs=(
+            inferred.eligible_for_fsrs and stored.eligible_for_fsrs
+        ),
+        eligible_for_certification=(
+            inferred.eligible_for_certification
+            and stored.eligible_for_certification
+        ),
+        counts_as_assisted=(
+            inferred.counts_as_assisted or stored.counts_as_assisted
+        ),
+        policy_version=CAUSAL_ACTIVITY_POLICY_VERSION,
+    )
+
+
 def resolve_conflicting_classes(existing: str, incoming: str) -> str:
     """Most-contaminated wins. Never raises on a legitimate conflict.
 

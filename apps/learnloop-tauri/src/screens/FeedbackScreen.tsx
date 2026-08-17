@@ -39,6 +39,7 @@ import {
   useCausalRepairActions,
 } from "../components/CausalAttribution";
 import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
+import { errorMessage } from "../errors";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -763,7 +764,7 @@ function MasteryDelta({ f }: { f: FeedbackBundle }) {
         display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap",
       }}>
         <span>
-          <span style={{ color: C.amber, fontWeight: 600 }}>mastery posterior · </span>
+          <span style={{ color: C.amber, fontWeight: 600 }}>mastery estimate · posterior update · </span>
           <Meta>logit-space Kalman update</Meta>
         </span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.textFaint, display: "inline-flex", gap: 14, alignItems: "center" }}>
@@ -998,7 +999,7 @@ function SourceRefCard({ sourceRef, onOpenLibraryFile, onError }: {
       const { openUrl } = await import("@tauri-apps/plugin-opener");
       await openUrl(url);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     }
   };
 
@@ -1411,6 +1412,8 @@ export function FeedbackScreen({
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [trace, setTrace] = useState<AttemptTraceDto | null>(null);
+  const [feedbackLoadError, setFeedbackLoadError] = useState<string | null>(null);
+  const [feedbackLoadRevision, setFeedbackLoadRevision] = useState(0);
   // Meas §3.A6/§3.A8. `traceEvidence` carries the reward sentence a volunteered
   // explanation earned; `clarification` is the one question that can still move
   // a provisional grade. `clarificationNote` is what came back afterwards —
@@ -1463,6 +1466,10 @@ export function FeedbackScreen({
   useEffect(() => {
     let cancelled = false;
     setCommonRepairDismissed(false);
+    setFeedback(null);
+    setItem(null);
+    setTrace(null);
+    setFeedbackLoadError(null);
     api
       .getFeedback(attemptId)
       .then((bundle) => {
@@ -1471,7 +1478,11 @@ export function FeedbackScreen({
         api
           .getPracticeItem(bundle.practiceItemId)
           .then((detail) => { if (!cancelled) setItem(detail); })
-          .catch(() => {});
+          .catch((error) => {
+            if (!cancelled) {
+              onError(errorMessage(error, "Feedback loaded, but its practice item details could not be loaded."));
+            }
+          });
         // KM3b §9.6 attempt trace: the criterion DAG for this attempt. Best
         // effort — a stale sidecar simply omits the trace section.
         api
@@ -1479,15 +1490,19 @@ export function FeedbackScreen({
           .then((t) => { if (!cancelled) setTrace(t); })
           .catch(() => { if (!cancelled) setTrace(null); });
       })
-      .catch((error) => { if (!cancelled) onError(error.message); });
+      .catch((error) => {
+        if (!cancelled) setFeedbackLoadError(errorMessage(error, "Feedback could not be loaded."));
+      });
     return () => { cancelled = true; };
-  }, [attemptId, onError]);
+  }, [attemptId, feedbackLoadRevision, onError]);
 
   // Meas §3.A6/§3.A8 post-grade reads. Both are best-effort and neither is ever
   // raised as a toast: a missing reward line means the grader saw nothing extra,
   // and a missing question means there was nothing it could not settle itself.
   useEffect(() => {
     let cancelled = false;
+    setTraceEvidence(null);
+    setClarification(null);
     setClarificationAnswer("");
     setClarificationNote(null);
     api
@@ -1499,7 +1514,7 @@ export function FeedbackScreen({
       .then((result) => { if (!cancelled) setClarification(result.clarification); })
       .catch(() => { if (!cancelled) setClarification(null); });
     return () => { cancelled = true; };
-  }, [attemptId]);
+  }, [attemptId, feedbackLoadRevision]);
 
   // Answering re-grades with the learner's words in hand. The refreshed bundle
   // comes back on the same call, so the resolved grade is on screen before the
@@ -1518,9 +1533,9 @@ export function FeedbackScreen({
       api
         .getAttemptTraceEvidence(feedback.attemptId)
         .then(setTraceEvidence)
-        .catch(() => {});
+        .catch(() => setTraceEvidence(null));
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setAnsweringClarification(false);
     }
@@ -1640,7 +1655,7 @@ export function FeedbackScreen({
       setFeedback(updated);
       setRegradeReceipt({ before, after: { score: updated.rubricScore, max: updated.maxPoints } });
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setRegrading(false);
     }
@@ -1658,7 +1673,7 @@ export function FeedbackScreen({
       const updated = await api.triggerFollowup(feedback.attemptId);
       setFeedback(updated);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setTriggeringFollowup(false);
     }
@@ -1679,7 +1694,7 @@ export function FeedbackScreen({
       }
       onPrimedRetry(result.practiceItem.id);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setStartingRetry(false);
     }
@@ -1697,7 +1712,7 @@ export function FeedbackScreen({
       const redo = await api.startGuidedRedo(feedback.attemptId);
       onGuidedRedo(redo);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setStartingRedo(false);
     }
@@ -1713,7 +1728,7 @@ export function FeedbackScreen({
       const updated = await api.rateFollowup(feedback.attemptId, useful);
       setFeedback(updated);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setRatingFollowup(false);
     }
@@ -1740,7 +1755,7 @@ export function FeedbackScreen({
       // concurrent regrade into the screen.
       setFeedback(result.feedback);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setElicitingSubmitting(false);
     }
@@ -1757,7 +1772,7 @@ export function FeedbackScreen({
       const updated = await api.addErrorEvent(feedback.attemptId, errorType.trim(), severity);
       setFeedback(updated);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setAddingError(false);
       setErrorTypeInput("");
@@ -1781,7 +1796,7 @@ export function FeedbackScreen({
       await api.reportUnresolvedCause({ factorId, response, candidateIndex });
       setFeedback(await api.getFeedback(feedback.attemptId));
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setReportingFactorId(null);
     }
@@ -1828,7 +1843,7 @@ export function FeedbackScreen({
       }
       resetNote();
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setSavingNote(false);
     }
@@ -1838,6 +1853,13 @@ export function FeedbackScreen({
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
+      if (!feedback) {
+        if (event.key === "Escape" || event.key === "b") {
+          event.preventDefault();
+          onBack();
+        }
+        return;
+      }
       if (event.key === "n" || event.key === "Enter") { event.preventDefault(); onNext(); }
       else if (event.key === "Escape" || event.key === "b") { event.preventDefault(); onBack(); }
       else if (event.key === "r") { event.preventDefault(); void handleRegrade(); }
@@ -1858,6 +1880,31 @@ export function FeedbackScreen({
   }, [onNext, onBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry]);
 
   if (!feedback) {
+    if (feedbackLoadError) {
+      return (
+        <div className="screen">
+          <div className="screen-scroll" style={{ padding: "18px 24px", fontFamily: MONO, fontSize: 13 }}>
+            <div style={{ border: `1px solid ${C.border}`, padding: "16px 18px", maxWidth: 720 }}>
+              <div style={{ color: C.red, marginBottom: 8 }}>Feedback could not be loaded.</div>
+              <div style={{ color: C.textDim, lineHeight: 1.6 }}>{feedbackLoadError}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="queue-row focused"
+                  onClick={() => setFeedbackLoadRevision((value) => value + 1)}
+                >
+                  <span className="queue-title">Retry loading</span>
+                </button>
+                <button type="button" className="queue-row" onClick={onBack}>
+                  <span className="queue-title">Back to Today</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <KeyBar keys={[{ key: "esc", label: "today" }]} />
+        </div>
+      );
+    }
     return (
       <div className="screen">
         <div className="screen-scroll" style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>
@@ -1964,7 +2011,9 @@ export function FeedbackScreen({
               expectedAnswer={typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
               onError={onError}
               onChanged={() => {
-                api.getPracticeItem(item.id).then(setItem).catch(() => {});
+                api.getPracticeItem(item.id).then(setItem).catch((error) => {
+                  onError(errorMessage(error, "The card changed, but its updated feedback view could not be loaded."));
+                });
               }}
               // CardControls keeps the historical feedback visible while
               // removing all mutation actions after the durable retirement.
@@ -2146,7 +2195,7 @@ export function FeedbackScreen({
                   )
                   .then(() => api.getFeedback(f.attemptId))
                   .then(setFeedback)
-                  .catch((error) => onError((error as Error).message))
+                  .catch((error) => onError(errorMessage(error)))
                   .finally(() => setReportingFactorId(null));
               }}
             />

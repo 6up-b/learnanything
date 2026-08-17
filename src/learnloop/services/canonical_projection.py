@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -32,7 +32,7 @@ from learnloop.services.assessment_contracts import (
 )
 from learnloop.services.causal_activity_policy import (
     ASSISTED_ATTEMPT_TYPES as _ASSISTED_ATTEMPT_TYPES,
-    attempt_counts_as_assisted,
+    resolve_attempt_activity_policy,
 )
 from learnloop.services.causal_attribution import OPEN_SET_CAUSE_ID
 from learnloop.services.capability_mapping import (
@@ -48,6 +48,9 @@ from learnloop.services.evidence import attempt_evidence_mass
 from learnloop.services.receipt_contributions import itemize_observation_contributions
 from learnloop.vault.models import CriterionTarget, LoadedVault, PracticeItem
 
+if TYPE_CHECKING:
+    from learnloop.services.effective_observation import EffectiveObservationReferences
+
 # Outcome fraction below which a criterion counts as failed (matches the legacy
 # recall-coverage failure threshold so mvp-0.7 semantics stay comparable).
 FAILURE_THRESHOLD = 0.40
@@ -61,7 +64,8 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 #
 # DEPRECATED as a decision point: the attempt-type set alone cannot see
 # ``primed`` or ``hints_used``. Re-exported from the single authority for
-# readers that still want the flat set; use ``attempt_counts_as_assisted``.
+# readers that still want the flat set; use
+# ``resolve_attempt_activity_policy`` for decisions.
 ASSISTED_ATTEMPT_TYPES = _ASSISTED_ATTEMPT_TYPES
 
 # P2 §4.4 canonical projection semantics version. Bumped whenever the fold over
@@ -101,7 +105,20 @@ ASSISTED_ATTEMPT_TYPES = _ASSISTED_ATTEMPT_TYPES
 #     row with zero points is unchanged: that is a real observed failure.
 #     Rebuilding an affected vault removes phantom negative mass, which is why
 #     it is a versioned boundary rather than a silent correction.
-CANONICAL_PROJECTION_VERSION = "canonical_projection_v6_absent_evidence_confers_nothing"
+# v7 (pipeline audit): ``primed`` is part of the canonical observation ledger.
+#     The policy has classified a primed redo as assisted since v2, but the
+#     repository projection omitted that column, so every replay supplied the
+#     policy's false default and a successful repair-assisted retry could mint
+#     certification credit.  Rebuilding removes that ineligible credit without
+#     changing the immutable attempt, hence the explicit recalibration boundary.
+# v8 (pipeline audit): certification eligibility is distinct from assistance.
+#     A pure diagnostic is deliberately displayed as unassisted, but the causal
+#     activity policy has always declared it ineligible to certify. Before v8
+#     the projection used ``not assisted`` as a proxy for eligibility and could
+#     therefore bank diagnostic credit. Recorded near-clone classifications are
+#     also consumed in bulk, so a later auditable disqualification survives
+#     replay. Rebuilding withdraws only the ineligible certification credit.
+CANONICAL_PROJECTION_VERSION = "canonical_projection_v8_activity_eligibility"
 
 
 def p0_effective_evidence_mass(
@@ -109,6 +126,7 @@ def p0_effective_evidence_mass(
     *,
     interpretation: Mapping[str, Any] | None,
     attempt_type_mass: float,
+    references: EffectiveObservationReferences | None = None,
 ) -> float:
     """THE mvp-0.8 response-level evidence-mass discount (P0.3 §4.3), shared by
     both evidence folds.
@@ -141,6 +159,7 @@ def p0_effective_evidence_mass(
         # fraction; the mass product below is independent of it.
         score_fraction={},
         attempt_type_mass=attempt_type_mass,
+        references=references,
     )
     return effective_obs.effective_mass * effective_obs.certainty
 
@@ -205,11 +224,70 @@ class _HistoricalCriterion:
     targets: tuple[CriterionTarget, ...]
 
 
-def _historical_contract(
+@dataclass(frozen=True)
+class CanonicalProjectionSnapshot:
+    """Bulk-loaded, immutable inputs for one canonical evidence replay."""
+
+    ledger_rows: tuple[dict[str, Any], ...]
+    contracts_by_source_version: dict[str, dict[str, Any]]
+    exercised_by_attempt: dict[str, list[dict[str, Any]]]
+    merge_map: dict[str, str]
+    error_events_by_attempt: dict[str, list[dict[str, Any]]]
+    activity_by_attempt: dict[str, dict[str, Any]]
+    p0_references: EffectiveObservationReferences | None
+
+
+def load_canonical_projection_snapshot(
     repository: Repository,
+    *,
+    algorithm_version: str,
+) -> CanonicalProjectionSnapshot:
+    """Read replay inputs once, before the pure attempt fold begins.
+
+    In particular, immutable assessment contracts and their authorized
+    correction edges are resolved in bulk.  Keeping repository calls out of the
+    fold prevents a projection over N attempts from doing O(N) contract reads.
+    """
+
+    ledger_rows = tuple(
+        repository.canonical_observation_ledger_v2()
+        if algorithm_version in P0_PROJECTION_VERSIONS
+        else repository.canonical_observation_ledger()
+    )
+    contract_ids = {
+        str(row["assessment_contract_version_id"])
+        for attempt in ledger_rows
+        for row in attempt["evidence"]
+        if row.get("assessment_contract_version_id")
+    }
+    p0_references = None
+    if algorithm_version in P0_PROJECTION_VERSIONS:
+        from learnloop.services.effective_observation import (
+            load_effective_observation_references,
+        )
+
+        p0_references = load_effective_observation_references(
+            repository,
+            (row.get("active_interpretation") for row in ledger_rows),
+        )
+    return CanonicalProjectionSnapshot(
+        ledger_rows=ledger_rows,
+        contracts_by_source_version=repository.effective_assessment_contract_versions(
+            contract_ids,
+            projection_version=algorithm_version,
+        ),
+        exercised_by_attempt=repository.all_trace_exercised_facets(),
+        merge_map=repository.facet_merge_map(),
+        error_events_by_attempt=repository.all_error_events_by_attempt(),
+        activity_by_attempt=repository.all_causal_activity_classifications(),
+        p0_references=p0_references,
+    )
+
+
+def _historical_contract(
     evidence: list[dict[str, Any]],
     *,
-    projection_version: str,
+    contracts_by_source_version: Mapping[str, Mapping[str, Any]],
 ) -> Mapping[str, Any] | None:
     """Resolve the immutable assessment contract attached to this grading.
 
@@ -227,10 +305,7 @@ def _historical_contract(
     }
     if len(version_ids) != 1:
         return None
-    stored = repository.effective_assessment_contract_version(
-        next(iter(version_ids)),
-        projection_version=projection_version,
-    )
+    stored = contracts_by_source_version.get(next(iter(version_ids)))
     return stored.get("contract") if stored is not None else None
 
 
@@ -362,14 +437,13 @@ def _facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None:
 
 
 def _open_candidate_causes(
-    repository: Repository,
-    attempt_id: str,
+    error_events: Sequence[Mapping[str, Any]],
     targets: Sequence[CriterionTarget],
 ) -> list[dict[str, Any]]:
     """Thin candidate set for an unresolved factor, always open-world."""
 
     candidates: list[dict[str, Any]] = []
-    for event in repository.error_events_for_attempt(attempt_id):
+    for event in error_events:
         repair_plan = event.get("repair_plan")
         if not isinstance(repair_plan, Mapping):
             continue
@@ -506,7 +580,11 @@ def project_canonical_facet_state(
 
             p0_score_fraction = _json_mod.loads(schema_row["score_fraction_json"])
 
-    merge_map = repository.facet_merge_map()
+    snapshot = load_canonical_projection_snapshot(
+        repository,
+        algorithm_version=algorithm_version,
+    )
+    merge_map = snapshot.merge_map
     repeat_discount = _repeat_discount(vault)
     cert_cfg = vault.config.evidence.certification
     overrides = dict(cert_cfg.group_budgets)
@@ -526,24 +604,18 @@ def project_canonical_facet_state(
             current = merge_map[current]
         return current
 
-    ledger_rows = (
-        repository.canonical_observation_ledger_v2()
-        if use_p0
-        else repository.canonical_observation_ledger()
-    )
     # Meas §3.A1 guard 1 / §3.A6: the trace observations that license supporting
     # credit. Read once for the whole fold — this is a raw log, so a rebuild sees
     # exactly what the grader reported at attempt time and never re-derives it
     # (the replay path makes no provider call, so a recompute would silently drop
     # every observation).
-    exercised_by_attempt = repository.all_trace_exercised_facets()
+    exercised_by_attempt = snapshot.exercised_by_attempt
     max_embedded_share = float(getattr(cert_cfg, "max_embedded_credit_share", 1.0))
-    for attempt in ledger_rows:
+    for attempt in snapshot.ledger_rows:
         item = vault.practice_items.get(attempt["practice_item_id"])
         contract = _historical_contract(
-            repository,
             attempt["evidence"],
-            projection_version=algorithm_version,
+            contracts_by_source_version=snapshot.contracts_by_source_version,
         )
         if contract is not None:
             criteria = _contract_criteria(contract)
@@ -588,6 +660,7 @@ def project_canonical_facet_state(
                 repository,
                 interpretation=attempt.get("active_interpretation"),
                 attempt_type_mass=emass,
+                references=snapshot.p0_references,
             )
         # Observed-outcome override for the unresolved-cause gate: adjudication
         # is observation-scoped (one activity observation per attempt), so it
@@ -601,11 +674,14 @@ def project_canonical_facet_state(
             if use_p0
             else None
         )
-        assisted = attempt_counts_as_assisted(
+        activity = resolve_attempt_activity_policy(
             attempt_type=attempt["attempt_type"],
             hints_used=int(attempt["hints_used"]),
             primed=bool(attempt.get("primed")),
+            recorded=snapshot.activity_by_attempt.get(str(attempt["attempt_id"])),
         )
+        assisted = activity.counts_as_assisted
+        certification_eligible = activity.eligible_for_certification
         assistance = "hinted" if assisted else "unassisted"
         created_at = attempt["created_at"]
 
@@ -731,8 +807,9 @@ def project_canonical_facet_state(
                             else f"{attempt['attempt_id']}:{criterion.id}:0"
                         ),
                         "candidate_causes": _open_candidate_causes(
-                            repository,
-                            str(attempt["attempt_id"]),
+                            snapshot.error_events_by_attempt.get(
+                                str(attempt["attempt_id"]), ()
+                            ),
                             [
                                 CriterionTarget(
                                     facet=resolve(target.facet),
@@ -766,8 +843,14 @@ def project_canonical_facet_state(
                     cap[key].direct_positive_mass += positive
                 if is_new_group:
                     cap[key].groups.add(group_key)
-                credit = certification_credit(
-                    positive, relationship=relationship, assistance=assistance
+                credit = (
+                    certification_credit(
+                        positive,
+                        relationship=relationship,
+                        assistance=assistance,
+                    )
+                    if certification_eligible
+                    else 0.0
                 )
                 staged_credit[corr_group][key] += credit
                 if relationship == "embedded":

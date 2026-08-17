@@ -4,33 +4,36 @@ use crate::vault_watcher::VaultWatcher;
 use serde_json::{json, Value};
 use tauri::State;
 
+async fn run_sidecar_task(
+    sidecar: State<'_, SidecarManager>,
+    operation: impl FnOnce(SidecarManager) -> Result<Value, CommandError> + Send + 'static,
+) -> Result<Value, CommandError> {
+    let sidecar = sidecar.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || operation(sidecar))
+        .await
+        .map_err(|err| CommandError::task_failed(err.to_string()))?
+}
+
 async fn blocking_sidecar_call(
     sidecar: State<'_, SidecarManager>,
     method: &'static str,
     params: Value,
 ) -> Result<Value, CommandError> {
-    let sidecar = sidecar.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || sidecar.call(method, params))
-        .await
-        .map_err(|err| CommandError::internal(format!("Sidecar task failed: {err}")))?
+    run_sidecar_task(sidecar, move |sidecar| sidecar.call(method, params)).await
 }
 
 async fn blocking_select_vault(
     sidecar: State<'_, SidecarManager>,
     path: Option<String>,
 ) -> Result<Value, CommandError> {
-    let sidecar = sidecar.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || sidecar.select_vault(path))
-        .await
-        .map_err(|err| CommandError::internal(format!("Sidecar task failed: {err}")))?
+    run_sidecar_task(sidecar, move |sidecar| sidecar.select_vault(path)).await
 }
 
 async fn blocking_isolated_cli_call(
     sidecar: State<'_, SidecarManager>,
     input: Value,
 ) -> Result<Value, CommandError> {
-    let sidecar = sidecar.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    run_sidecar_task(sidecar, move |sidecar| {
         let result = sidecar.call_isolated("run_cli_command", input)?;
         if cli_command_succeeded(&result) {
             // The isolated sidecar reloads only its own in-memory vault after a
@@ -41,7 +44,6 @@ async fn blocking_isolated_cli_call(
         Ok(result)
     })
     .await
-    .map_err(|err| CommandError::internal(format!("Sidecar task failed: {err}")))?
 }
 
 fn is_populate_goal_command(input: &Value) -> bool {
@@ -58,6 +60,18 @@ fn is_populate_goal_command(input: &Value) -> bool {
 
 fn cli_command_succeeded(result: &Value) -> bool {
     result.get("exitCode").and_then(Value::as_i64) == Some(0)
+}
+
+macro_rules! sidecar_passthrough {
+    ($fn_name:ident, $method:literal) => {
+        #[tauri::command]
+        pub async fn $fn_name(
+            input: Value,
+            sidecar: State<'_, SidecarManager>,
+        ) -> Result<Value, CommandError> {
+            blocking_sidecar_call(sidecar, $method, input).await
+        }
+    };
 }
 
 #[tauri::command]
@@ -88,26 +102,16 @@ pub async fn reload_vault(sidecar: State<'_, SidecarManager>) -> Result<Value, C
     blocking_sidecar_call(sidecar, "reload_vault", json!({})).await
 }
 
-#[tauri::command]
-pub async fn create_vault(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "create_vault", input).await
-}
+sidecar_passthrough!(create_vault, "create_vault");
 
 #[tauri::command]
-pub async fn get_learner_profile(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+pub async fn get_learner_profile(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_learner_profile", json!({})).await
 }
 
-#[tauri::command]
-pub async fn set_learner_profile(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "set_learner_profile", input).await
-}
+sidecar_passthrough!(set_learner_profile, "set_learner_profile");
 
 #[tauri::command]
 pub async fn get_runtime_health(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
@@ -119,13 +123,7 @@ pub async fn get_config(sidecar: State<'_, SidecarManager>) -> Result<Value, Com
     blocking_sidecar_call(sidecar, "get_config", json!({})).await
 }
 
-#[tauri::command]
-pub async fn start_session(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_session", input).await
-}
+sidecar_passthrough!(start_session, "start_session");
 
 #[tauri::command]
 pub async fn get_session(
@@ -135,13 +133,7 @@ pub async fn get_session(
     blocking_sidecar_call(sidecar, "get_session", json!({"sessionId": session_id})).await
 }
 
-#[tauri::command]
-pub async fn update_session_checkpoint(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "update_session_checkpoint", input).await
-}
+sidecar_passthrough!(update_session_checkpoint, "update_session_checkpoint");
 
 #[tauri::command]
 pub async fn clear_session_checkpoint(
@@ -164,18 +156,10 @@ pub async fn end_session(
     blocking_sidecar_call(sidecar, "end_session", json!({"sessionId": session_id})).await
 }
 
-#[tauri::command]
-pub async fn get_today_queue(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_today_queue", input).await
-}
+sidecar_passthrough!(get_today_queue, "get_today_queue");
 
 #[tauri::command]
-pub async fn get_queue_revision(
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
+pub async fn get_queue_revision(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_queue_revision", json!({})).await
 }
 
@@ -259,37 +243,20 @@ pub async fn get_next_probe_item(
     .await
 }
 
-#[tauri::command]
-pub async fn save_practice_draft(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "save_practice_draft", input).await
-}
+sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 
-#[tauri::command]
-pub async fn submit_attempt(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "submit_attempt", input).await
-}
+sidecar_passthrough!(recover_practice_submission, "recover_practice_submission");
 
-#[tauri::command]
-pub async fn submit_dont_know(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "submit_dont_know", input).await
-}
+sidecar_passthrough!(
+    acknowledge_practice_submission,
+    "acknowledge_practice_submission"
+);
 
-#[tauri::command]
-pub async fn skip_practice_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "skip_practice_item", input).await
-}
+sidecar_passthrough!(submit_attempt, "submit_attempt");
+
+sidecar_passthrough!(submit_dont_know, "submit_dont_know");
+
+sidecar_passthrough!(skip_practice_item, "skip_practice_item");
 
 #[tauri::command]
 pub async fn get_feedback(
@@ -333,13 +300,7 @@ pub async fn get_grading_clarification(
     .await
 }
 
-#[tauri::command]
-pub async fn answer_grading_clarification(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "answer_grading_clarification", input).await
-}
+sidecar_passthrough!(answer_grading_clarification, "answer_grading_clarification");
 
 #[tauri::command]
 pub async fn inspect_entity(
@@ -364,21 +325,9 @@ pub async fn get_recent_ingests(sidecar: State<'_, SidecarManager>) -> Result<Va
     blocking_sidecar_call(sidecar, "get_recent_ingests", json!({})).await
 }
 
-#[tauri::command]
-pub async fn classify_ingest_source(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "classify_ingest_source", input).await
-}
+sidecar_passthrough!(classify_ingest_source, "classify_ingest_source");
 
-#[tauri::command]
-pub async fn start_ingest(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_ingest", input).await
-}
+sidecar_passthrough!(start_ingest, "start_ingest");
 
 #[tauri::command]
 pub async fn get_ingest_job(
@@ -401,13 +350,7 @@ pub async fn cancel_ingest(
     blocking_sidecar_call(sidecar, "cancel_ingest", json!({"jobId": job_id})).await
 }
 
-#[tauri::command]
-pub async fn start_import_batch(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_import_batch", input).await
-}
+sidecar_passthrough!(start_import_batch, "start_import_batch");
 
 #[tauri::command]
 pub async fn get_ingest_batch(
@@ -417,13 +360,7 @@ pub async fn get_ingest_batch(
     blocking_sidecar_call(sidecar, "get_ingest_batch", json!({"batchId": batch_id})).await
 }
 
-#[tauri::command]
-pub async fn list_ingest_batches(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "list_ingest_batches", input).await
-}
+sidecar_passthrough!(list_ingest_batches, "list_ingest_batches");
 
 #[tauri::command]
 pub async fn cancel_ingest_batch(
@@ -441,20 +378,19 @@ pub async fn resume_ingest_batch(
     blocking_sidecar_call(sidecar, "resume_ingest_batch", json!({"batchId": batch_id})).await
 }
 
-#[tauri::command]
-pub async fn retry_synthesis(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "retry_synthesis", input).await
-}
+sidecar_passthrough!(retry_synthesis, "retry_synthesis");
 
 #[tauri::command]
 pub async fn get_synthesis_candidate(
     batch_id: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_synthesis_candidate", json!({"batchId": batch_id})).await
+    blocking_sidecar_call(
+        sidecar,
+        "get_synthesis_candidate",
+        json!({"batchId": batch_id}),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -467,7 +403,12 @@ pub async fn preview_source_deletion(
     source_id: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "preview_source_deletion", json!({"sourceId": source_id})).await
+    blocking_sidecar_call(
+        sidecar,
+        "preview_source_deletion",
+        json!({"sourceId": source_id}),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -485,48 +426,23 @@ pub async fn get_source_outline(
     extraction_ref: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_source_outline", json!({"extractionRef": extraction_ref})).await
+    blocking_sidecar_call(
+        sidecar,
+        "get_source_outline",
+        json!({"extractionRef": extraction_ref}),
+    )
+    .await
 }
 
-#[tauri::command]
-pub async fn get_selection_preview(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_selection_preview", input).await
-}
+sidecar_passthrough!(get_selection_preview, "get_selection_preview");
 
-#[tauri::command]
-pub async fn get_effective_outline(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_effective_outline", input).await
-}
+sidecar_passthrough!(get_effective_outline, "get_effective_outline");
 
-#[tauri::command]
-pub async fn save_unit_selection(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "save_unit_selection", input).await
-}
+sidecar_passthrough!(save_unit_selection, "save_unit_selection");
 
-#[tauri::command]
-pub async fn get_acquisition_preview(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_acquisition_preview", input).await
-}
+sidecar_passthrough!(get_acquisition_preview, "get_acquisition_preview");
 
-#[tauri::command]
-pub async fn get_build_plan(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_build_plan", input).await
-}
+sidecar_passthrough!(get_build_plan, "get_build_plan");
 
 #[tauri::command]
 pub async fn list_source_sets(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
@@ -538,72 +454,40 @@ pub async fn get_source_set(
     source_set_id: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_source_set", json!({"sourceSetId": source_set_id})).await
+    blocking_sidecar_call(
+        sidecar,
+        "get_source_set",
+        json!({"sourceSetId": source_set_id}),
+    )
+    .await
 }
 
-#[tauri::command]
-pub async fn upsert_source_set(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "upsert_source_set", input).await
-}
+sidecar_passthrough!(upsert_source_set, "upsert_source_set");
 
 #[tauri::command]
 pub async fn get_source_coverage(
     source_set_id: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_source_coverage", json!({"sourceSetId": source_set_id})).await
+    blocking_sidecar_call(
+        sidecar,
+        "get_source_coverage",
+        json!({"sourceSetId": source_set_id}),
+    )
+    .await
 }
 
-#[tauri::command]
-pub async fn start_inventory(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_inventory", input).await
-}
+sidecar_passthrough!(start_inventory, "start_inventory");
 
-#[tauri::command]
-pub async fn create_study_map(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "create_study_map", input).await
-}
+sidecar_passthrough!(create_study_map, "create_study_map");
 
-#[tauri::command]
-pub async fn build_study_map(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "build_study_map", input).await
-}
+sidecar_passthrough!(build_study_map, "build_study_map");
 
-#[tauri::command]
-pub async fn append_source(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "append_source", input).await
-}
+sidecar_passthrough!(append_source, "append_source");
 
-#[tauri::command]
-pub async fn refresh_revision(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "refresh_revision", input).await
-}
+sidecar_passthrough!(refresh_revision, "refresh_revision");
 
-#[tauri::command]
-pub async fn maintenance_feed(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "maintenance_feed", input).await
-}
+sidecar_passthrough!(maintenance_feed, "maintenance_feed");
 
 #[tauri::command]
 pub async fn get_measurement_health(
@@ -612,89 +496,42 @@ pub async fn get_measurement_health(
     blocking_sidecar_call(sidecar, "get_measurement_health", json!({})).await
 }
 
-/// Enqueues authoring for the commissioning queue's gaps. Returns as soon as the
-/// batch is queued -- the generation itself runs on the sidecar's job worker, so
-/// this call does not hold the single RPC channel for the length of a model run.
-#[tauri::command]
-pub async fn generate_commissioning_practice(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "generate_commissioning_practice", input).await
-}
+// Enqueues authoring for the commissioning queue's gaps. Returns as soon as the
+// batch is queued -- the generation itself runs on the sidecar's job worker, so
+// this call does not hold the single RPC channel for the length of a model run.
+sidecar_passthrough!(
+    generate_commissioning_practice,
+    "generate_commissioning_practice"
+);
 
 /// Counts behind the nav-tab badges. Cheap by construction; safe to call on the
 /// same events that already refresh the vault.
 #[tauri::command]
-pub async fn get_review_counts(
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
+pub async fn get_review_counts(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_review_counts", json!({})).await
 }
 
-#[tauri::command]
-pub async fn schedule_certification_cold_probes(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "schedule_certification_cold_probes", input).await
-}
+sidecar_passthrough!(
+    schedule_certification_cold_probes,
+    "schedule_certification_cold_probes"
+);
 
-#[tauri::command]
-pub async fn transition_causal_probe_candidate(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "transition_causal_probe_candidate", input).await
-}
+sidecar_passthrough!(
+    transition_causal_probe_candidate,
+    "transition_causal_probe_candidate"
+);
 
-#[tauri::command]
-pub async fn apply_integration_backfill(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "apply_integration_backfill", input).await
-}
+sidecar_passthrough!(apply_integration_backfill, "apply_integration_backfill");
 
-#[tauri::command]
-pub async fn maintenance_notice_action(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "maintenance_notice_action", input).await
-}
+sidecar_passthrough!(maintenance_notice_action, "maintenance_notice_action");
 
-#[tauri::command]
-pub async fn list_source_conflicts(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "list_source_conflicts", input).await
-}
+sidecar_passthrough!(list_source_conflicts, "list_source_conflicts");
 
-#[tauri::command]
-pub async fn resolve_source_conflict(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "resolve_source_conflict", input).await
-}
+sidecar_passthrough!(resolve_source_conflict, "resolve_source_conflict");
 
-#[tauri::command]
-pub async fn exam_readiness(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "exam_readiness", input).await
-}
+sidecar_passthrough!(exam_readiness, "exam_readiness");
 
-#[tauri::command]
-pub async fn start_extraction_repair(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_extraction_repair", input).await
-}
+sidecar_passthrough!(start_extraction_repair, "start_extraction_repair");
 
 #[tauri::command]
 pub async fn read_vault_file(
@@ -710,64 +547,27 @@ pub async fn write_vault_file(
     body: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "write_vault_file", json!({ "path": path, "body": body })).await
+    blocking_sidecar_call(
+        sidecar,
+        "write_vault_file",
+        json!({ "path": path, "body": body }),
+    )
+    .await
 }
 
-#[tauri::command]
-pub async fn create_vault_file(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "create_vault_file", input).await
-}
+sidecar_passthrough!(create_vault_file, "create_vault_file");
 
-#[tauri::command]
-pub async fn sqlite_tables(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "sqlite_tables", input).await
-}
+sidecar_passthrough!(sqlite_tables, "sqlite_tables");
 
-#[tauri::command]
-pub async fn sqlite_table(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "sqlite_table", input).await
-}
+sidecar_passthrough!(sqlite_table, "sqlite_table");
 
-#[tauri::command]
-pub async fn sqlite_exec(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "sqlite_exec", input).await
-}
+sidecar_passthrough!(sqlite_exec, "sqlite_exec");
 
-#[tauri::command]
-pub async fn sqlite_update_cell(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "sqlite_update_cell", input).await
-}
+sidecar_passthrough!(sqlite_update_cell, "sqlite_update_cell");
 
-#[tauri::command]
-pub async fn sqlite_insert_row(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "sqlite_insert_row", input).await
-}
+sidecar_passthrough!(sqlite_insert_row, "sqlite_insert_row");
 
-#[tauri::command]
-pub async fn sqlite_delete_row(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "sqlite_delete_row", input).await
-}
+sidecar_passthrough!(sqlite_delete_row, "sqlite_delete_row");
 
 #[tauri::command]
 pub async fn get_proposals(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
@@ -788,149 +588,44 @@ pub async fn get_entity_provenance(
     .await
 }
 
-#[tauri::command]
-pub async fn plan_quick_add(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "plan_quick_add", input).await
-}
+sidecar_passthrough!(plan_quick_add, "plan_quick_add");
 
-#[tauri::command]
-pub async fn confirm_quick_add(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "confirm_quick_add", input).await
-}
+sidecar_passthrough!(confirm_quick_add, "confirm_quick_add");
 
-#[tauri::command]
-pub async fn get_span_view(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_span_view", input).await
-}
+sidecar_passthrough!(get_span_view, "get_span_view");
 
-#[tauri::command]
-pub async fn get_subject_registry(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_subject_registry", input).await
-}
+sidecar_passthrough!(get_subject_registry, "get_subject_registry");
 
-#[tauri::command]
-pub async fn propose_facet_merge(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "propose_facet_merge", input).await
-}
+sidecar_passthrough!(propose_facet_merge, "propose_facet_merge");
 
-#[tauri::command]
-pub async fn accept_proposal_items(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "accept_proposal_items", input).await
-}
+sidecar_passthrough!(accept_proposal_items, "accept_proposal_items");
 
-#[tauri::command]
-pub async fn reject_proposal_items(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "reject_proposal_items", input).await
-}
+sidecar_passthrough!(reject_proposal_items, "reject_proposal_items");
 
-#[tauri::command]
-pub async fn reset_proposal_items(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "reset_proposal_items", input).await
-}
+sidecar_passthrough!(reset_proposal_items, "reset_proposal_items");
 
-#[tauri::command]
-pub async fn edit_proposal_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "edit_proposal_item", input).await
-}
+sidecar_passthrough!(edit_proposal_item, "edit_proposal_item");
 
-#[tauri::command]
-pub async fn refresh_proposal_item_validation(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "refresh_proposal_item_validation", input).await
-}
+sidecar_passthrough!(
+    refresh_proposal_item_validation,
+    "refresh_proposal_item_validation"
+);
 
-#[tauri::command]
-pub async fn delete_proposal_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "delete_proposal_item", input).await
-}
+sidecar_passthrough!(delete_proposal_item, "delete_proposal_item");
 
-#[tauri::command]
-pub async fn trigger_regrade(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "trigger_regrade", input).await
-}
+sidecar_passthrough!(trigger_regrade, "trigger_regrade");
 
-#[tauri::command]
-pub async fn add_error_event(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "add_error_event", input).await
-}
+sidecar_passthrough!(add_error_event, "add_error_event");
 
-#[tauri::command]
-pub async fn trigger_followup(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "trigger_followup", input).await
-}
+sidecar_passthrough!(trigger_followup, "trigger_followup");
 
-#[tauri::command]
-pub async fn rate_followup(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "rate_followup", input).await
-}
+sidecar_passthrough!(rate_followup, "rate_followup");
 
-#[tauri::command]
-pub async fn report_unresolved_cause(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "report_unresolved_cause", input).await
-}
+sidecar_passthrough!(report_unresolved_cause, "report_unresolved_cause");
 
-#[tauri::command]
-pub async fn submit_eliciting_response(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "submit_eliciting_response", input).await
-}
+sidecar_passthrough!(submit_eliciting_response, "submit_eliciting_response");
 
-#[tauri::command]
-pub async fn contest_causal_diagnosis(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "contest_causal_diagnosis", input).await
-}
+sidecar_passthrough!(contest_causal_diagnosis, "contest_causal_diagnosis");
 
 // ── P2 causal repair orchestration (spec_causal_attribution_v1 §6) ──
 // One orchestration service, four learner-facing RPCs: read the typed repair
@@ -938,53 +633,17 @@ pub async fn contest_causal_diagnosis(
 // taught under ambiguity. `causal_repair_status` is a pure read — it records
 // the decision receipt but never mints a remediation episode.
 
-#[tauri::command]
-pub async fn causal_repair_status(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "causal_repair_status", input).await
-}
+sidecar_passthrough!(causal_repair_status, "causal_repair_status");
 
-#[tauri::command]
-pub async fn causal_probe_offer_action(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "causal_probe_offer_action", input).await
-}
+sidecar_passthrough!(causal_probe_offer_action, "causal_probe_offer_action");
 
-#[tauri::command]
-pub async fn causal_probe_defer(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "causal_probe_defer", input).await
-}
+sidecar_passthrough!(causal_probe_defer, "causal_probe_defer");
 
-#[tauri::command]
-pub async fn causal_teach_me_now(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "causal_teach_me_now", input).await
-}
+sidecar_passthrough!(causal_teach_me_now, "causal_teach_me_now");
 
-#[tauri::command]
-pub async fn start_primed_retry(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_primed_retry", input).await
-}
+sidecar_passthrough!(start_primed_retry, "start_primed_retry");
 
-#[tauri::command]
-pub async fn start_guided_redo(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_guided_redo", input).await
-}
+sidecar_passthrough!(start_guided_redo, "start_guided_redo");
 
 #[tauri::command]
 pub async fn run_cli_command(
@@ -1015,7 +674,12 @@ pub async fn get_attempt_trace(
     attempt_id: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_attempt_trace", json!({ "attemptId": attempt_id })).await
+    blocking_sidecar_call(
+        sidecar,
+        "get_attempt_trace",
+        json!({ "attemptId": attempt_id }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1045,7 +709,9 @@ pub async fn get_facet_evidence_timeline(
 }
 
 #[tauri::command]
-pub async fn get_knowledge_map_history(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+pub async fn get_knowledge_map_history(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_knowledge_map_history", json!({})).await
 }
 
@@ -1054,7 +720,12 @@ pub async fn set_grading_provider(
     provider: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "set_grading_provider", json!({ "provider": provider })).await
+    blocking_sidecar_call(
+        sidecar,
+        "set_grading_provider",
+        json!({ "provider": provider }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1062,50 +733,44 @@ pub async fn get_settings(sidecar: State<'_, SidecarManager>) -> Result<Value, C
     blocking_sidecar_call(sidecar, "get_settings", json!({})).await
 }
 
-#[tauri::command]
-pub async fn update_ai_settings(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "update_ai_settings", input).await
-}
+sidecar_passthrough!(update_ai_settings, "update_ai_settings");
 
 #[tauri::command]
 pub async fn set_openrouter_api_key(
     api_key: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "set_openrouter_api_key", json!({ "apiKey": api_key })).await
+    blocking_sidecar_call(
+        sidecar,
+        "set_openrouter_api_key",
+        json!({ "apiKey": api_key }),
+    )
+    .await
 }
 
-#[tauri::command]
-pub async fn update_ingest_settings(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "update_ingest_settings", input).await
-}
+sidecar_passthrough!(update_ingest_settings, "update_ingest_settings");
 
 #[tauri::command]
 pub async fn set_transcription_api_key(
     api_key: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "set_transcription_api_key", json!({ "apiKey": api_key })).await
+    blocking_sidecar_call(
+        sidecar,
+        "set_transcription_api_key",
+        json!({ "apiKey": api_key }),
+    )
+    .await
 }
 
 #[tauri::command]
-pub async fn get_animation_runtime(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+pub async fn get_animation_runtime(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_animation_runtime", json!({})).await
 }
 
-#[tauri::command]
-pub async fn request_concept_animation(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "request_concept_animation", input).await
-}
+sidecar_passthrough!(request_concept_animation, "request_concept_animation");
 
 #[tauri::command]
 pub async fn get_concept_animation_status(
@@ -1133,149 +798,41 @@ pub async fn list_concept_animations(
     .await
 }
 
-#[tauri::command]
-pub async fn ask_tutor_question(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "ask_tutor_question", input).await
-}
+sidecar_passthrough!(ask_tutor_question, "ask_tutor_question");
 
-#[tauri::command]
-pub async fn preview_tutor_opening(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "preview_tutor_opening", input).await
-}
+sidecar_passthrough!(preview_tutor_opening, "preview_tutor_opening");
 
-#[tauri::command]
-pub async fn rate_tutor_answer(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "rate_tutor_answer", input).await
-}
+sidecar_passthrough!(rate_tutor_answer, "rate_tutor_answer");
 
-#[tauri::command]
-pub async fn save_tutor_answer_note(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "save_tutor_answer_note", input).await
-}
+sidecar_passthrough!(save_tutor_answer_note, "save_tutor_answer_note");
 
-#[tauri::command]
-pub async fn get_tutor_transcript(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_tutor_transcript", input).await
-}
+sidecar_passthrough!(get_tutor_transcript, "get_tutor_transcript");
 
-#[tauri::command]
-pub async fn promote_tutor_question(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "promote_tutor_question", input).await
-}
+sidecar_passthrough!(promote_tutor_question, "promote_tutor_question");
 
-#[tauri::command]
-pub async fn author_practice_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "author_practice_item", input).await
-}
+sidecar_passthrough!(author_practice_item, "author_practice_item");
 
-#[tauri::command]
-pub async fn request_rung_variant(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "request_rung_variant", input).await
-}
+sidecar_passthrough!(request_rung_variant, "request_rung_variant");
 
-#[tauri::command]
-pub async fn get_rung_variant_status(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_rung_variant_status", input).await
-}
+sidecar_passthrough!(get_rung_variant_status, "get_rung_variant_status");
 
-#[tauri::command]
-pub async fn remint_diagnostic_probe(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "remint_diagnostic_probe", input).await
-}
+sidecar_passthrough!(remint_diagnostic_probe, "remint_diagnostic_probe");
 
-#[tauri::command]
-pub async fn edit_practice_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "edit_practice_item", input).await
-}
+sidecar_passthrough!(edit_practice_item, "edit_practice_item");
 
-#[tauri::command]
-pub async fn retire_practice_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "retire_practice_item", input).await
-}
+sidecar_passthrough!(retire_practice_item, "retire_practice_item");
 
-#[tauri::command]
-pub async fn split_practice_item(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "split_practice_item", input).await
-}
+sidecar_passthrough!(split_practice_item, "split_practice_item");
 
-#[tauri::command]
-pub async fn list_question_queue(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "list_question_queue", input).await
-}
+sidecar_passthrough!(list_question_queue, "list_question_queue");
 
-#[tauri::command]
-pub async fn resolve_question_event(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "resolve_question_event", input).await
-}
+sidecar_passthrough!(resolve_question_event, "resolve_question_event");
 
-#[tauri::command]
-pub async fn request_teach_back(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "request_teach_back", input).await
-}
+sidecar_passthrough!(request_teach_back, "request_teach_back");
 
-#[tauri::command]
-pub async fn start_teach_back(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_teach_back", input).await
-}
+sidecar_passthrough!(start_teach_back, "start_teach_back");
 
-#[tauri::command]
-pub async fn submit_teach_back_turn(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "submit_teach_back_turn", input).await
-}
+sidecar_passthrough!(submit_teach_back_turn, "submit_teach_back_turn");
 
 #[tauri::command]
 pub async fn goals_list(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
@@ -1290,85 +847,36 @@ pub async fn get_goal_report(
     blocking_sidecar_call(sidecar, "get_goal_report", json!({"goalId": goal_id})).await
 }
 
-#[tauri::command]
-pub async fn get_goal_report_series(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_goal_report_series", input).await
-}
+sidecar_passthrough!(get_goal_report_series, "get_goal_report_series");
 
-#[tauri::command]
-pub async fn goal_feasibility(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "goal_feasibility", input).await
-}
+sidecar_passthrough!(goal_feasibility, "goal_feasibility");
 
 #[tauri::command]
 pub async fn get_overconfidence_list(
     goal_id: String,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_overconfidence_list", json!({"goalId": goal_id})).await
+    blocking_sidecar_call(
+        sidecar,
+        "get_overconfidence_list",
+        json!({"goalId": goal_id}),
+    )
+    .await
 }
 
-#[tauri::command]
-pub async fn get_reentry_summary(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_reentry_summary", input).await
-}
+sidecar_passthrough!(get_reentry_summary, "get_reentry_summary");
 
-#[tauri::command]
-pub async fn get_decay_pressure(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_decay_pressure", input).await
-}
+sidecar_passthrough!(get_decay_pressure, "get_decay_pressure");
 
-#[tauri::command]
-pub async fn start_overconfidence_probe(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_overconfidence_probe", input).await
-}
+sidecar_passthrough!(start_overconfidence_probe, "start_overconfidence_probe");
 
-#[tauri::command]
-pub async fn create_goal(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "create_goal", input).await
-}
+sidecar_passthrough!(create_goal, "create_goal");
 
-#[tauri::command]
-pub async fn generate_starter_practice(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "generate_starter_practice", input).await
-}
+sidecar_passthrough!(generate_starter_practice, "generate_starter_practice");
 
-#[tauri::command]
-pub async fn update_goal_status(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "update_goal_status", input).await
-}
+sidecar_passthrough!(update_goal_status, "update_goal_status");
 
-#[tauri::command]
-pub async fn update_goal_intent(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "update_goal_intent", input).await
-}
+sidecar_passthrough!(update_goal_intent, "update_goal_intent");
 
 #[tauri::command]
 pub async fn get_exam_status(
@@ -1378,29 +886,11 @@ pub async fn get_exam_status(
     blocking_sidecar_call(sidecar, "get_exam_status", json!({"goalId": goal_id})).await
 }
 
-#[tauri::command]
-pub async fn start_exam(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_exam", input).await
-}
+sidecar_passthrough!(start_exam, "start_exam");
 
-#[tauri::command]
-pub async fn submit_exam_answer(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "submit_exam_answer", input).await
-}
+sidecar_passthrough!(submit_exam_answer, "submit_exam_answer");
 
-#[tauri::command]
-pub async fn start_calibration_session(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_calibration_session", input).await
-}
+sidecar_passthrough!(start_calibration_session, "start_calibration_session");
 
 #[tauri::command]
 pub async fn get_calibration_session(
@@ -1428,13 +918,7 @@ pub async fn stop_calibration_session(
     .await
 }
 
-#[tauri::command]
-pub async fn finish_exam(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "finish_exam", input).await
-}
+sidecar_passthrough!(finish_exam, "finish_exam");
 
 #[tauri::command]
 pub async fn begin_probe_dialogue(
@@ -1489,19 +973,21 @@ pub async fn end_probe_dialogue(
     .await
 }
 
-#[tauri::command]
-pub async fn present_claims(input: Value, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "present_claims", input).await
-}
+sidecar_passthrough!(present_claims, "present_claims");
+
+sidecar_passthrough!(respond_claim, "respond_claim");
 
 #[tauri::command]
-pub async fn respond_claim(input: Value, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "respond_claim", input).await
-}
-
-#[tauri::command]
-pub async fn dismiss_claim(presentation_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "dismiss_claim", json!({"presentationId": presentation_id})).await
+pub async fn dismiss_claim(
+    presentation_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "dismiss_claim",
+        json!({"presentationId": presentation_id}),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1520,58 +1006,66 @@ pub async fn get_review_log(sidecar: State<'_, SidecarManager>) -> Result<Value,
 }
 
 #[tauri::command]
-pub async fn start_remediation(misconception_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_remediation", json!({"misconceptionId": misconception_id})).await
+pub async fn start_remediation(
+    misconception_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "start_remediation",
+        json!({"misconceptionId": misconception_id}),
+    )
+    .await
 }
 
 #[tauri::command]
-pub async fn prescribe_remediation(episode_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "prescribe_remediation", json!({"episodeId": episode_id})).await
+pub async fn prescribe_remediation(
+    episode_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "prescribe_remediation",
+        json!({"episodeId": episode_id}),
+    )
+    .await
 }
 
 #[tauri::command]
-pub async fn start_remediation_treatment(episode_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "start_remediation_treatment", json!({"episodeId": episode_id})).await
+pub async fn start_remediation_treatment(
+    episode_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "start_remediation_treatment",
+        json!({"episodeId": episode_id}),
+    )
+    .await
 }
 
 #[tauri::command]
-pub async fn get_remediation(episode_id: String, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+pub async fn get_remediation(
+    episode_id: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_remediation", json!({"episodeId": episode_id})).await
 }
 
-#[tauri::command]
-pub async fn get_forecast_track_record(input: Value, sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_forecast_track_record", input).await
-}
+sidecar_passthrough!(get_forecast_track_record, "get_forecast_track_record");
 
 #[tauri::command]
-pub async fn get_answer_calibration(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+pub async fn get_answer_calibration(
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_answer_calibration", json!({})).await
 }
 
-#[tauri::command]
-pub async fn propose_graph_edits(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "propose_graph_edits", input).await
-}
+sidecar_passthrough!(propose_graph_edits, "propose_graph_edits");
 
-#[tauri::command]
-pub async fn queue_restructure_request(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "queue_restructure_request", input).await
-}
+sidecar_passthrough!(queue_restructure_request, "queue_restructure_request");
 
-#[tauri::command]
-pub async fn resolve_edge_direction(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "resolve_edge_direction", input).await
-}
+sidecar_passthrough!(resolve_edge_direction, "resolve_edge_direction");
 
 #[tauri::command]
 pub async fn get_facet_detail(
@@ -1586,158 +1080,152 @@ pub async fn list_facets(sidecar: State<'_, SidecarManager>) -> Result<Value, Co
     blocking_sidecar_call(sidecar, "list_facets", json!({})).await
 }
 
-#[tauri::command]
-pub async fn preview_knowledge_map(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "preview_knowledge_map", input).await
-}
+sidecar_passthrough!(preview_knowledge_map, "preview_knowledge_map");
 
-#[tauri::command]
-pub async fn preview_blueprint_readiness(
-    input: Value,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "preview_blueprint_readiness", input).await
-}
+sidecar_passthrough!(preview_blueprint_readiness, "preview_blueprint_readiness");
 
 // ── P2 narrow golden path (spec_p2 §9; spec_tauri_ui §3 P2 rows) ──────────────
 // The dotted sidecar method names (golden_path.* / blueprint.* / diagnostic.* /
 // ladder.* / practice_pool.* / reader.*) cannot be Tauri command identifiers, so
 // each command forwards its `input` Value straight through to the dotted method.
 
-macro_rules! p2_passthrough {
-    ($fn_name:ident, $method:literal) => {
-        #[tauri::command]
-        pub async fn $fn_name(
-            input: Value,
-            sidecar: State<'_, SidecarManager>,
-        ) -> Result<Value, CommandError> {
-            blocking_sidecar_call(sidecar, $method, input).await
-        }
-    };
-}
-
 // blueprint.* (exemplar selection + blueprint review)
-p2_passthrough!(blueprint_register, "blueprint.register");
-p2_passthrough!(blueprint_review, "blueprint.review");
-p2_passthrough!(blueprint_get_version, "blueprint.get_version");
-p2_passthrough!(blueprint_discover_candidates, "blueprint.discover_candidates");
-p2_passthrough!(blueprint_compose_draft, "blueprint.compose_draft");
+sidecar_passthrough!(blueprint_register, "blueprint.register");
+sidecar_passthrough!(blueprint_review, "blueprint.review");
+sidecar_passthrough!(blueprint_get_version, "blueprint.get_version");
+sidecar_passthrough!(
+    blueprint_discover_candidates,
+    "blueprint.discover_candidates"
+);
+sidecar_passthrough!(blueprint_compose_draft, "blueprint.compose_draft");
 
 // golden_path.* spine (atomic confirmation + run state machine)
-p2_passthrough!(golden_path_confirm, "golden_path.confirm");
-p2_passthrough!(golden_path_run_status, "golden_path.run_status");
-p2_passthrough!(golden_path_list_runs, "golden_path.list_runs");
-p2_passthrough!(golden_path_advance, "golden_path.advance");
+sidecar_passthrough!(golden_path_confirm, "golden_path.confirm");
+sidecar_passthrough!(golden_path_run_status, "golden_path.run_status");
+sidecar_passthrough!(golden_path_list_runs, "golden_path.list_runs");
+sidecar_passthrough!(golden_path_advance, "golden_path.advance");
 
 // golden_path.* assessment + restoration + milestone / depth invitation
-p2_passthrough!(golden_path_assess_open, "golden_path.assess_open");
-p2_passthrough!(golden_path_assess_submit, "golden_path.assess_submit");
-p2_passthrough!(golden_path_assess_result, "golden_path.assess_result");
-p2_passthrough!(golden_path_restore, "golden_path.restore");
-p2_passthrough!(golden_path_boundary_diff, "golden_path.boundary_diff");
-p2_passthrough!(golden_path_depth_invitation, "golden_path.depth_invitation");
-p2_passthrough!(golden_path_accept_edge, "golden_path.accept_edge");
-p2_passthrough!(golden_path_decline_edge, "golden_path.decline_edge");
+sidecar_passthrough!(golden_path_assess_open, "golden_path.assess_open");
+sidecar_passthrough!(golden_path_assess_submit, "golden_path.assess_submit");
+sidecar_passthrough!(golden_path_assess_result, "golden_path.assess_result");
+sidecar_passthrough!(golden_path_restore, "golden_path.restore");
+sidecar_passthrough!(golden_path_boundary_diff, "golden_path.boundary_diff");
+sidecar_passthrough!(golden_path_depth_invitation, "golden_path.depth_invitation");
+sidecar_passthrough!(golden_path_accept_edge, "golden_path.accept_edge");
+sidecar_passthrough!(golden_path_decline_edge, "golden_path.decline_edge");
 
 // diagnostic.* (pre-authored pack + bounded baseline + two-tier triage)
-p2_passthrough!(diagnostic_pack_assemble, "diagnostic.pack_assemble");
-p2_passthrough!(diagnostic_pack_admit, "diagnostic.pack_admit");
-p2_passthrough!(diagnostic_pack_review, "diagnostic.pack_review");
-p2_passthrough!(diagnostic_pack_list, "diagnostic.pack_list");
-p2_passthrough!(diagnostic_baseline_enter, "diagnostic.baseline_enter");
-p2_passthrough!(diagnostic_boundary_view, "diagnostic.boundary_view");
-p2_passthrough!(diagnostic_triage, "diagnostic.triage");
-p2_passthrough!(diagnostic_triage_status, "diagnostic.triage_status");
-p2_passthrough!(diagnostic_triage_decide, "diagnostic.triage_decide");
-p2_passthrough!(diagnostic_triage_override, "diagnostic.triage_override");
+sidecar_passthrough!(diagnostic_pack_assemble, "diagnostic.pack_assemble");
+sidecar_passthrough!(diagnostic_pack_admit, "diagnostic.pack_admit");
+sidecar_passthrough!(diagnostic_pack_review, "diagnostic.pack_review");
+sidecar_passthrough!(diagnostic_pack_list, "diagnostic.pack_list");
+sidecar_passthrough!(diagnostic_baseline_enter, "diagnostic.baseline_enter");
+sidecar_passthrough!(diagnostic_boundary_view, "diagnostic.boundary_view");
+sidecar_passthrough!(diagnostic_triage, "diagnostic.triage");
+sidecar_passthrough!(diagnostic_triage_status, "diagnostic.triage_status");
+sidecar_passthrough!(diagnostic_triage_decide, "diagnostic.triage_decide");
+sidecar_passthrough!(diagnostic_triage_override, "diagnostic.triage_override");
 
 // ladder.* (pattern ladder) + practice_pool.* (rotating practice)
-p2_passthrough!(ladder_policy, "ladder.policy");
-p2_passthrough!(ladder_status, "ladder.status");
-p2_passthrough!(ladder_enter, "ladder.enter");
-p2_passthrough!(ladder_advance, "ladder.advance");
-p2_passthrough!(practice_pool_assemble, "practice_pool.assemble");
-p2_passthrough!(practice_pool_admit_surface, "practice_pool.admit_surface");
-p2_passthrough!(practice_pool_review, "practice_pool.review");
-p2_passthrough!(practice_pool_status, "practice_pool.status");
-p2_passthrough!(practice_pool_next_surface, "practice_pool.next_surface");
-p2_passthrough!(practice_pool_for_run, "practice_pool.for_run");
-p2_passthrough!(practice_pool_seed_for_run, "practice_pool.seed_for_run");
-p2_passthrough!(practice_pool_admit_anchor, "practice_pool.admit_anchor");
+sidecar_passthrough!(ladder_policy, "ladder.policy");
+sidecar_passthrough!(ladder_status, "ladder.status");
+sidecar_passthrough!(ladder_enter, "ladder.enter");
+sidecar_passthrough!(ladder_advance, "ladder.advance");
+sidecar_passthrough!(practice_pool_assemble, "practice_pool.assemble");
+sidecar_passthrough!(practice_pool_admit_surface, "practice_pool.admit_surface");
+sidecar_passthrough!(practice_pool_review, "practice_pool.review");
+sidecar_passthrough!(practice_pool_status, "practice_pool.status");
+sidecar_passthrough!(practice_pool_next_surface, "practice_pool.next_surface");
+sidecar_passthrough!(practice_pool_for_run, "practice_pool.for_run");
+sidecar_passthrough!(practice_pool_seed_for_run, "practice_pool.seed_for_run");
+sidecar_passthrough!(practice_pool_admit_anchor, "practice_pool.admit_anchor");
 
 // adjudication.* (diagnosis adjudication store, spec_diagnostic_augmentation §2 A4):
 // the queue that decides which attempt is worth a verdict, the append-only write
 // path, and the B5 scoreboard the overlay tallies at the top.
-p2_passthrough!(adjudication_queue, "adjudication.queue");
-p2_passthrough!(adjudication_record, "adjudication.record");
-p2_passthrough!(adjudication_scoreboard, "adjudication.scoreboard");
+sidecar_passthrough!(adjudication_queue, "adjudication.queue");
+sidecar_passthrough!(adjudication_record, "adjudication.record");
+sidecar_passthrough!(adjudication_scoreboard, "adjudication.scoreboard");
 
 // reader.* (minimal bidirectional reader dialogue, U-033)
-p2_passthrough!(reader_ask, "reader.ask");
-p2_passthrough!(reader_ask_history, "reader.ask_history");
-p2_passthrough!(reader_set_answer_mode, "reader.set_answer_mode");
-p2_passthrough!(reader_present_question, "reader.present_question");
-p2_passthrough!(reader_submit_question, "reader.submit_question");
-p2_passthrough!(reader_skip_question, "reader.skip_question");
-p2_passthrough!(reader_choose_disposition, "reader.choose_disposition");
-p2_passthrough!(reader_restore_source, "reader.restore_source");
-p2_passthrough!(reader_routing_prior, "reader.routing_prior");
-p2_passthrough!(reader_prompt_contract, "reader.prompt_contract");
+sidecar_passthrough!(reader_ask, "reader.ask");
+sidecar_passthrough!(reader_ask_history, "reader.ask_history");
+sidecar_passthrough!(reader_set_answer_mode, "reader.set_answer_mode");
+sidecar_passthrough!(reader_present_question, "reader.present_question");
+sidecar_passthrough!(reader_submit_question, "reader.submit_question");
+sidecar_passthrough!(reader_skip_question, "reader.skip_question");
+sidecar_passthrough!(reader_choose_disposition, "reader.choose_disposition");
+sidecar_passthrough!(reader_restore_source, "reader.restore_source");
+sidecar_passthrough!(reader_routing_prior, "reader.routing_prior");
+sidecar_passthrough!(reader_prompt_contract, "reader.prompt_contract");
 // reader.* (P3 slice 1: render views, block health, annotations, capture/outbox)
-p2_passthrough!(reader_render_view, "reader.render_view");
-p2_passthrough!(reader_guide_plan, "reader.guide_plan");
-p2_passthrough!(reader_pdf_view, "reader.pdf_view");
-p2_passthrough!(reader_watch_plan, "reader.watch_plan");
-p2_passthrough!(reader_author_section_question, "reader.author_section_question");
-p2_passthrough!(reader_authored_question_action, "reader.authored_question_action");
-p2_passthrough!(reader_get_progress, "reader.get_progress");
-p2_passthrough!(reader_mark_section_progress, "reader.mark_section_progress");
-p2_passthrough!(reader_escalate_authored_question, "reader.escalate_authored_question");
-p2_passthrough!(reader_import_exercise, "reader.import_exercise");
-p2_passthrough!(reader_exercise_import_status, "reader.exercise_import_status");
-p2_passthrough!(reader_search_sources, "reader.search_sources");
-p2_passthrough!(reader_manual_anchor, "reader.manual_anchor");
-p2_passthrough!(reader_block_health, "reader.block_health");
-p2_passthrough!(reader_block_original_region, "reader.block_original_region");
-p2_passthrough!(reader_translate_selection, "reader.translate_selection");
-p2_passthrough!(reader_capture, "reader.capture");
-p2_passthrough!(reader_create_annotation, "reader.create_annotation");
-p2_passthrough!(reader_edit_annotation, "reader.edit_annotation");
-p2_passthrough!(reader_delete_intent_annotation, "reader.delete_intent_annotation");
-p2_passthrough!(reader_reanchor, "reader.reanchor");
-p2_passthrough!(reader_annotation_history, "reader.annotation_history");
-p2_passthrough!(reader_source_annotations, "reader.source_annotations");
-p2_passthrough!(reader_outbox_status, "reader.outbox_status");
-p2_passthrough!(reader_drain_outbox, "reader.drain_outbox");
+sidecar_passthrough!(reader_render_view, "reader.render_view");
+sidecar_passthrough!(reader_guide_plan, "reader.guide_plan");
+sidecar_passthrough!(reader_pdf_view, "reader.pdf_view");
+sidecar_passthrough!(reader_watch_plan, "reader.watch_plan");
+sidecar_passthrough!(
+    reader_author_section_question,
+    "reader.author_section_question"
+);
+sidecar_passthrough!(
+    reader_authored_question_action,
+    "reader.authored_question_action"
+);
+sidecar_passthrough!(reader_get_progress, "reader.get_progress");
+sidecar_passthrough!(reader_mark_section_progress, "reader.mark_section_progress");
+sidecar_passthrough!(
+    reader_escalate_authored_question,
+    "reader.escalate_authored_question"
+);
+sidecar_passthrough!(reader_import_exercise, "reader.import_exercise");
+sidecar_passthrough!(
+    reader_exercise_import_status,
+    "reader.exercise_import_status"
+);
+sidecar_passthrough!(reader_search_sources, "reader.search_sources");
+sidecar_passthrough!(reader_manual_anchor, "reader.manual_anchor");
+sidecar_passthrough!(reader_block_health, "reader.block_health");
+sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
+sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");
+sidecar_passthrough!(reader_capture, "reader.capture");
+sidecar_passthrough!(reader_create_annotation, "reader.create_annotation");
+sidecar_passthrough!(reader_edit_annotation, "reader.edit_annotation");
+sidecar_passthrough!(
+    reader_delete_intent_annotation,
+    "reader.delete_intent_annotation"
+);
+sidecar_passthrough!(reader_reanchor, "reader.reanchor");
+sidecar_passthrough!(reader_annotation_history, "reader.annotation_history");
+sidecar_passthrough!(reader_source_annotations, "reader.source_annotations");
+sidecar_passthrough!(reader_outbox_status, "reader.outbox_status");
+sidecar_passthrough!(reader_drain_outbox, "reader.drain_outbox");
 // P3 slice 2: palette + demand-paged synthesis + source objects.
-p2_passthrough!(reader_invoke_preset, "reader.invoke_preset");
-p2_passthrough!(reader_set_mode, "reader.set_mode");
-p2_passthrough!(reader_question_control, "reader.question_control");
-p2_passthrough!(reader_enqueue_request, "reader.enqueue_request");
-p2_passthrough!(reader_request_status, "reader.request_status");
-p2_passthrough!(reader_cancel_request, "reader.cancel_request");
-p2_passthrough!(reader_retry_request, "reader.retry_request");
-p2_passthrough!(reader_source_requests, "reader.source_requests");
-p2_passthrough!(reader_drain_requests, "reader.drain_requests");
-p2_passthrough!(reader_source_objects, "reader.source_objects");
-p2_passthrough!(reader_review_source_object, "reader.review_source_object");
-p2_passthrough!(reader_link_relation, "reader.link_relation");
-p2_passthrough!(reader_proposal_inbox, "reader.proposal_inbox");
-p2_passthrough!(reader_accept_proposal, "reader.accept_proposal");
-p2_passthrough!(reader_reject_proposal, "reader.reject_proposal");
+sidecar_passthrough!(reader_invoke_preset, "reader.invoke_preset");
+sidecar_passthrough!(reader_set_mode, "reader.set_mode");
+sidecar_passthrough!(reader_question_control, "reader.question_control");
+sidecar_passthrough!(reader_enqueue_request, "reader.enqueue_request");
+sidecar_passthrough!(reader_request_status, "reader.request_status");
+sidecar_passthrough!(reader_cancel_request, "reader.cancel_request");
+sidecar_passthrough!(reader_retry_request, "reader.retry_request");
+sidecar_passthrough!(reader_source_requests, "reader.source_requests");
+sidecar_passthrough!(reader_drain_requests, "reader.drain_requests");
+sidecar_passthrough!(reader_source_objects, "reader.source_objects");
+sidecar_passthrough!(reader_review_source_object, "reader.review_source_object");
+sidecar_passthrough!(reader_link_relation, "reader.link_relation");
+sidecar_passthrough!(reader_proposal_inbox, "reader.proposal_inbox");
+sidecar_passthrough!(reader_accept_proposal, "reader.accept_proposal");
+sidecar_passthrough!(reader_reject_proposal, "reader.reject_proposal");
 // P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration.
-p2_passthrough!(reader_author_qa, "reader.author_qa");
-p2_passthrough!(reader_coach_lint, "reader.coach_lint");
-p2_passthrough!(reader_maintain, "reader.maintain");
-p2_passthrough!(reader_arc, "reader.arc");
-p2_passthrough!(reader_set_depth_policy, "reader.set_depth_policy");
-p2_passthrough!(reader_pause_arc, "reader.pause_arc");
-p2_passthrough!(reader_shrink_envelope, "reader.shrink_envelope");
-p2_passthrough!(reader_prime, "reader.prime");
-p2_passthrough!(reader_restore, "reader.restore");
+sidecar_passthrough!(reader_author_qa, "reader.author_qa");
+sidecar_passthrough!(reader_coach_lint, "reader.coach_lint");
+sidecar_passthrough!(reader_maintain, "reader.maintain");
+sidecar_passthrough!(reader_arc, "reader.arc");
+sidecar_passthrough!(reader_set_depth_policy, "reader.set_depth_policy");
+sidecar_passthrough!(reader_pause_arc, "reader.pause_arc");
+sidecar_passthrough!(reader_shrink_envelope, "reader.shrink_envelope");
+sidecar_passthrough!(reader_prime, "reader.prime");
+sidecar_passthrough!(reader_restore, "reader.restore");
 
 #[cfg(test)]
 mod tests {

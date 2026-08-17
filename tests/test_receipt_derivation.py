@@ -142,9 +142,19 @@ def test_ready_derivation_matches_canonical_recall_slices(tmp_path):
 def test_ready_derivation_none_on_legacy_vault(tmp_path):
     root = tmp_path / "legacy"
     shutil.copytree(FIXTURES / "linear_algebra", root)
-    vault = load_vault(root)  # left at its native (mvp-0.6) algorithm version
+    # Pin the behavior under test instead of depending on a fixture's native
+    # version; fixture vaults may advance when a new projection becomes the
+    # default.
+    toml_path = root / "learnloop.toml"
+    text, count = re.subn(
+        r'algorithm_version = "[^"]+"',
+        'algorithm_version = "mvp-0.6"',
+        toml_path.read_text(encoding="utf-8"),
+        count=1,
+    )
+    assert count == 1
+    toml_path.write_text(text, encoding="utf-8")
+    vault = load_vault(root)
     repository = Repository(root / "state.sqlite")
-    if vault.config.algorithms.algorithm_version == "mvp-0.7":
-        pytest.skip("fixture is already canonical-state")
     ready = facet_ready_derivation(vault, repository, "facet_x", [])
     assert ready is None

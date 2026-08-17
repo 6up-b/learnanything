@@ -22,8 +22,15 @@ METHOD_REGISTRY: dict[str, MethodSpec] = {}
 
 def method(name: str, params_model: type[ParamsModel] = EmptyParams) -> Callable[[Handler], Handler]:
     def register(handler: Handler) -> Handler:
+        existing = METHOD_REGISTRY.get(name)
+        if existing is not None:
+            existing_name = f"{existing.handler.__module__}.{existing.handler.__qualname__}"
+            replacement_name = f"{handler.__module__}.{handler.__qualname__}"
+            raise RuntimeError(
+                f"Duplicate sidecar method {name!r}: {replacement_name} would replace "
+                f"{existing_name}."
+            )
         METHOD_REGISTRY[name] = MethodSpec(name=name, params_model=params_model, handler=handler)
         return handler
 
     return register
-

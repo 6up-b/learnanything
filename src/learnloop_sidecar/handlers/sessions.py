@@ -25,6 +25,7 @@ class SessionCheckpointInput(ParamsModel):
     current_practice_item_id: str | None = None
     current_answer: str | None = None
     hints_used: int | None = None
+    submission_id: str | None = None
     focus_block_state: dict[str, Any] | None = None
     pending_grading_proposal: dict[str, Any] | None = None
     readiness: dict[str, Any] | None = None
@@ -118,6 +119,9 @@ def patch_checkpoint(repository, params: SessionCheckpointInput) -> None:
             raise SidecarError("validation_error", "hintsUsed must be non-negative.", details={"field": "hintsUsed"})
         focus = _with_hints_used(focus, hints_used)
 
+    if "submission_id" in fields:
+        focus = _with_submission_id(focus, params.submission_id)
+
     repository.update_session_checkpoint(
         params.session_id,
         current_practice_item_id=_merged_value(existing, params, fields, "current_practice_item_id"),
@@ -155,6 +159,37 @@ def _with_hints_used(focus: dict[str, Any] | None, hints_used: int) -> dict[str,
     else:
         practice = dict(practice)
     practice["hintsUsed"] = hints_used
+    payload["practice"] = practice
+    return payload
+
+
+def _with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]:
+    """Store the current attempt's stable retry key in the practice envelope.
+
+    The checkpoint already has a JSON focus-block field, so this is additive
+    and needs no schema migration.  Clearing or switching a legacy client must
+    not leave a previous item's key behind.
+    """
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    if not isinstance(practice, dict):
+        practice = {}
+    else:
+        practice = dict(practice)
+    if submission_id is None:
+        practice.pop("submissionId", None)
+        practice.pop("submission_id", None)
+    else:
+        stable_id = submission_id.strip()
+        if not stable_id:
+            raise SidecarError(
+                "validation_error",
+                "submissionId must not be blank.",
+                details={"field": "submissionId"},
+            )
+        practice["submissionId"] = stable_id
+        practice.pop("submission_id", None)
     payload["practice"] = practice
     return payload
 
