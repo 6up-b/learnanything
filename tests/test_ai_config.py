@@ -18,8 +18,10 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    # P0.5 cutover: new vaults default to mvp-0.8 (spec §7.2).
-    assert config.algorithms.algorithm_version == "mvp-0.8"
+    # P0.5 cutover: new vaults default to the current tag (spec §7.2). mvp-0.9
+    # adds cross-channel reveal accounting (migration 154) on the unchanged
+    # mvp-0.8 projection namespace.
+    assert config.algorithms.algorithm_version == "mvp-0.9"
     assert config.ai.active_provider == "codex"
     assert config.ai.providers["codex"].type == "codex_sdk"
     assert config.ai.providers["codex"].model == "gpt-5.6-sol"
@@ -166,10 +168,11 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
     loaded = load_config(tmp_path / "learnloop.toml")
     in_memory = LearnLoopConfig()
 
-    # P0.5 cutover: new vaults are written as mvp-0.8; the in-memory default stays
-    # mvp-0.6 because it is the fallback for configs that predate the field and must
-    # never silently activate the new knowledge model over legacy content.
-    assert loaded.algorithms.algorithm_version == "mvp-0.8"
+    # P0.5 cutover: new vaults are written as the current tag (mvp-0.9); the
+    # in-memory default stays mvp-0.6 because it is the fallback for configs that
+    # predate the field and must never silently activate the new knowledge model
+    # over legacy content.
+    assert loaded.algorithms.algorithm_version == "mvp-0.9"
     assert in_memory.algorithms.algorithm_version == "mvp-0.6"
 
     for config in (loaded, in_memory):

@@ -152,6 +152,84 @@ def _statuses(receipt):
     }
 
 
+def test_over_budget_episode_downgrades_the_repair_effect_claim(tmp_path):
+    """Slice 2 left the fact on the task; slice 3 makes the receipt say it.
+
+    An episode that spent past ``EPISODE_REVEAL_BUDGET`` handed the learner most
+    of the answer before the retry was even scheduled. The retry still runs and
+    the cold attempt can still be clean on its own terms — so
+    ``qualifies_as_cold_retrieval`` is untouched. What cannot survive is the
+    claim that a REPAIR was verified: there is no isolated repair left to
+    attribute the success to.
+    """
+
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault,
+        repository,
+        treatment["primed_item_id"],
+        clock=FrozenClock(NOW),
+        primed=True,
+    )
+    task = _cold_retry_task(repository)
+    task["context"] = dict(task["context"]) | {
+        "reveal_spend": 0.95,
+        "reveal_budget": 0.85,
+        "reveal_over_budget": True,
+    }
+
+    record_administration_snapshot(vault, repository, task=task, clock=DAY1)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    receipt = record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    # It does NOT block: the verification still happened and still succeeded.
+    assert receipt is not None and receipt["success"] is True
+
+    derived = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")[
+        "derived"
+    ]
+    assert derived["episode_reveal_spend"] == 0.95
+    assert derived["episode_reveal_budget"] == 0.85
+    assert derived["episode_reveal_over_budget"] is True
+    assert derived["claim_downgraded_reason"] == "episode_reveal_over_budget"
+    # The retrieval was still cold; only the repair-effect CLAIM is withheld.
+    assert derived["qualifies_as_cold_retrieval"] is True
+    assert derived["qualifies_as_repair_effect_verification"] is False
+    assert derived["qualifies_as_held_out_validation"] is False
+
+
+def test_within_budget_episode_records_the_spend_without_downgrading(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault,
+        repository,
+        treatment["primed_item_id"],
+        clock=FrozenClock(NOW),
+        primed=True,
+    )
+    task = _cold_retry_task(repository)
+    task["context"] = dict(task["context"]) | {
+        "reveal_spend": 0.1,
+        "reveal_budget": 0.85,
+        "reveal_over_budget": False,
+    }
+
+    record_administration_snapshot(vault, repository, task=task, clock=DAY1)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    derived = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")[
+        "derived"
+    ]
+    assert derived["episode_reveal_over_budget"] is False
+    assert "claim_downgraded_reason" not in derived
+    assert derived["qualifies_as_repair_effect_verification"] is True
+
+
 # -- happy path ---------------------------------------------------------------
 
 
@@ -237,8 +315,15 @@ def test_happy_path_snapshot_verification_and_final_receipt(tmp_path):
         "remediation_episodes.passages_shown_json",
         # v2: feedback reopens have had a writer since migration 010.
         "attempt_feedback_metadata",
+        # v4: the cross-channel reveal ledger (migration 154).
+        "reveal_events",
     }
     channels = coverage["known_unobserved_channels"]
+    # v4 sees every INSTRUMENTED revealing surface, and says plainly what it
+    # still cannot see: how much of a declared reveal actually landed, and any
+    # revealing channel that never writes a ledger row.
+    assert "reveal_amount_is_declared_not_measured" in channels
+    assert "reveal_channels_without_a_ledger_writer" in channels
     # v2 observes passage DELIVERY and feedback reopens; what stays unobserved
     # is narrower and says so.
     assert "remediation_passages_render" not in channels
@@ -386,6 +471,165 @@ def test_hard_same_surface_exposure_yields_disposition_not_verification(tmp_path
     assert derived["hard_contamination"]["event_ids"] == [leak.attempt_id]
     evidence = final["dimensions"]["exposure_isolation"]["evidence"]
     assert evidence["absence_status"] == "contaminated"
+
+
+# -- v4: the cross-channel reveal ledger (migration 154) ----------------------
+
+
+def _seed_reveal(repository, *, item_id, amount, clock, source_kind="tutor_answer",
+                 episode_id=None, learning_object_id=LO_ID):
+    return repository.insert_reveal_event(
+        {
+            "practice_item_id": item_id,
+            "learning_object_id": learning_object_id,
+            "remediation_episode_id": episode_id,
+            "source_kind": source_kind,
+            "amount": amount,
+            "basis": "test",
+        },
+        clock=clock,
+    )
+
+
+def test_reveal_on_the_cold_item_fails_leakage_and_unassisted(tmp_path):
+    """The hole v4 closes: a reveal too small to auto-prime (0.2 < 0.35) left
+    the submission honestly declaring `primed=False`, and every dimension the
+    receipt had could only read that flag. The ledger row is the evidence."""
+
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    record_administration_snapshot(vault, repository, task=task, clock=DAY1)
+
+    reveal_id = _seed_reveal(
+        repository,
+        item_id=treatment["cold_item_id"],
+        amount=0.2,
+        source_kind="repair_display",
+        clock=DAY1,
+    )
+
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    # The attempt itself is unprimed and unhinted by declaration...
+    assert repository.fetch_practice_attempt(cold.attempt_id)["primed"] == 0
+
+    result = record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    )
+    # ... and the ledger row is still a hard contamination: no verification.
+    assert result is None
+    row = repository.causal_cold_outcome_for_task(str(task["id"]))
+    assert row["outcome"] == "contaminated_or_assisted"
+    assert row["detail"]["reason"] == "cold_item_answer_revealed_post_primed"
+    assert row["detail"]["exposure_event_ids"] == [reveal_id]
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    statuses = _statuses(final)
+    assert statuses["answer_leakage"] == "fail"
+    assert statuses["unassisted"] == "fail"
+    assert statuses["exposure_isolation"] == "fail"
+    assert final["derived"]["qualifies_as_cold_retrieval"] is False
+
+    leakage = final["dimensions"]["answer_leakage"]["evidence"]
+    assert [row["event_id"] for row in leakage["reveal_ledger_rows"]] == [reveal_id]
+    assert leakage["reveal_ledger_amount"] == 0.2
+    assert leakage["reveal_ledger_rows"][0]["source_kind"] == "repair_display"
+    assert leakage["reveal_ledger_rows"][0]["at"] == "2026-05-20T12:00:00Z"
+
+    unassisted = final["dimensions"]["unassisted"]["evidence"]
+    # The flags say clean; the dimension fails on the ledger and names why.
+    assert unassisted["primed"] is False and unassisted["hints_used"] == 0
+    assert unassisted["violation"] == "answer_revealed_before_the_cold_attempt"
+    assert [row["event_id"] for row in unassisted["reveal_ledger_rows"]] == [reveal_id]
+
+
+def test_reveal_elsewhere_in_the_learning_object_is_soft_not_a_failure(tmp_path):
+    """The repair lane writes its suggestions against the PRIMED item, which
+    shares the LO with the cold item by construction. Failing on LO-wide
+    reveals would fail every repair episode ever measured, so an independent
+    surface's reveal records as soft exposure and the verification stands."""
+
+    _, vault, repository, misconception_id = _setup(tmp_path, third_item=True)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    reveal_id = _seed_reveal(
+        repository,
+        item_id=treatment["primed_item_id"],
+        amount=0.6,
+        source_kind="repair_display",
+        clock=DAY1,
+    )
+
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    assert record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    ) is not None
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    statuses = _statuses(final)
+    assert statuses["answer_leakage"] == "pass"
+    assert statuses["unassisted"] == "pass"
+    assert final["derived"]["qualifies_as_cold_retrieval"] is True
+    # Recorded, not ignored: the exposure travels as a soft event with its
+    # amount and the episode it belonged to.
+    soft = [
+        event
+        for event in final["dimensions"]["exposure_isolation"]["evidence"]["events"]
+        if event["ledger"] == "reveal_events"
+    ]
+    assert [event["event_id"] for event in soft] == [reveal_id]
+    assert soft[0]["type"] == "soft"
+    assert soft[0]["why"] == "reveal_ledger_exposure_on_related_item"
+
+
+def test_no_reveal_rows_is_a_scoped_absence_claim_not_a_bare_pass(tmp_path):
+    _, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = _cold_retry_task(repository)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    assert record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
+    ) is not None
+
+    final = repository.coldness_receipt_for_task_stage(str(task["id"]), "final")
+    assert _statuses(final)["answer_leakage"] == "pass"
+    assert _statuses(final)["unassisted"] == "pass"
+    leakage = final["dimensions"]["answer_leakage"]["evidence"]
+    assert leakage["reveal_ledger_rows"] == []
+    assert leakage["reveal_ledger_amount"] == 0.0
+    unassisted = final["dimensions"]["unassisted"]["evidence"]
+    # The claim is "the ledger was scanned and had nothing", never "nothing
+    # happened" — and the ledger is named in the coverage block with the
+    # channels it still cannot see.
+    assert unassisted["reveal_ledger_scanned"] is True
+    coverage = final["telemetry_coverage"]
+    ledger = next(
+        entry
+        for entry in coverage["scanned_ledgers"]
+        if entry["ledger"] == "reveal_events"
+    )
+    assert "migration 154" in ledger["observes"]
+    assert "reveal_amount_is_declared_not_measured" in coverage[
+        "known_unobserved_channels"
+    ]
+
+
+def test_min_cold_delay_mirrors_the_lane_scheduling_constant():
+    """One delay, three users (schedule, reveal-deferral, receipt floor)."""
+
+    from learnloop.services.coldness_receipt import MIN_COLD_DELAY
+    from learnloop.services.remediation import COLD_RETRIEVAL_DELAY
+
+    assert MIN_COLD_DELAY == COLD_RETRIEVAL_DELAY
 
 
 # -- unknown telemetry --------------------------------------------------------

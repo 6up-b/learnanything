@@ -27,6 +27,12 @@ from learnloop.token_usage import TokenUsage
 
 _UNSET: Any = object()  # sentinel: "argument not supplied" vs an explicit None
 
+#: `causal_discriminating_observations.channel` (migration 155). NULL is the
+#: legacy encoding of this same value, so readers accept either.
+OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
+#: A falsifiable expectation extracted from the learner's own tutor question.
+OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
+
 
 class StaleContractHead(Exception):
     """The predecessor a successor was built against is no longer the head (L3,
@@ -2947,6 +2953,30 @@ class Repository:
             ).fetchone()
         return _decode_remediation_episode(row) if row is not None else None
 
+    def open_remediation_episodes_for_item(
+        self, practice_item_id: str
+    ) -> list[dict[str, Any]]:
+        """Live episodes that bound this item as their primed or cold surface.
+
+        Reveal attribution (migration 154) needs the reverse of
+        ``open_remediation_episode_for_primed_item``: given an item the learner
+        was just shown something about, which repair — if any — does that
+        exposure belong to? The cold surface is included because a reveal on a
+        *scheduled but not yet due* cold item is precisely the contamination the
+        ledger exists to catch. Newest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM remediation_episodes
+                WHERE (primed_item_id = ? OR cold_item_id = ?)
+                  AND state NOT IN ('completed', 'abandoned')
+                ORDER BY created_at DESC, id DESC
+                """,
+                (practice_item_id, practice_item_id),
+            ).fetchall()
+        return [_decode_remediation_episode(row) for row in rows]
+
     def create_followup_task(
         self,
         *,
@@ -3340,6 +3370,33 @@ class Repository:
             connection.commit()
         return self.followup_task(task_id)
 
+    def defer_followup_task(
+        self, task_id: str, *, not_before: str, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        """Push an un-taken task's ``not_before`` later. Never touches expiry.
+
+        The single-use cold measurement is worth more than its promptness: when
+        the answer has been shown since the task was created, serving it now
+        would burn the one measurement on contaminated evidence. Deferral is a
+        push of the earliest serve time only — ``expires_at`` is deliberately
+        untouched, so an episode that keeps being revealed runs out its original
+        window and censors as ``right_censored_expired`` through the existing
+        sweep, which is the honest ending. Monotone (never pulls a task
+        earlier) and inert on a consumed or expired row.
+        """
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks SET not_before = ?, updated_at = ?
+                WHERE id = ? AND status IN ('pending', 'served')
+                  AND not_before < ?
+                """,
+                (not_before, utc_now_iso(clock), task_id, not_before),
+            )
+            connection.commit()
+        return self.followup_task(task_id)
+
     def consume_followup_task(
         self, task_id: str, attempt_id: str, *, clock: Clock | None = None
     ) -> dict[str, Any] | None:
@@ -3619,6 +3676,8 @@ class Repository:
         answer_status: str,
         signal_channel: str | None = None,
         source_context: Mapping[str, Any] | None = None,
+        leak_overlap: float | None = None,
+        remediation_episode_id: str | None = None,
     ) -> bool:
         """Complete (or fail) a pending question event after the provider call.
 
@@ -3635,7 +3694,9 @@ class Repository:
                 SET answer_md = ?, question_type = ?, facets_json = ?,
                     hint_equivalent = ?, leak_suspected = ?, answer_status = ?,
                     signal_channel = COALESCE(?, signal_channel),
-                    source_context_json = COALESCE(?, source_context_json)
+                    source_context_json = COALESCE(?, source_context_json),
+                    leak_overlap = COALESCE(?, leak_overlap),
+                    remediation_episode_id = COALESCE(?, remediation_episode_id)
                 WHERE id = ?
                 """,
                 (
@@ -3647,6 +3708,8 @@ class Repository:
                     answer_status,
                     signal_channel,
                     _json(dict(source_context)) if source_context is not None else None,
+                    leak_overlap,
+                    remediation_episode_id,
                     event_id,
                 ),
             )
@@ -3754,15 +3817,23 @@ class Repository:
         since: str | None = None,
         until: str | None = None,
     ) -> int:
-        """Substantive mid-attempt questions in the hint-equivalence window.
+        """Substantive questions on this item in the hint-equivalence window.
 
-        Practice-context questions on this (item, session) newer than ``since``
-        (typically the previous attempt on the item) and, when ``until`` is
-        given, at or before it (for reconstructing the count post hoc)."""
+        Questions on this (item, session) newer than ``since`` (typically the
+        previous attempt on the item) and, when ``until`` is given, at or before
+        it (for reconstructing the count post hoc).
+
+        Deliberately NOT filtered by context. A mechanism question asked from
+        the *feedback* screen — where the graded solution is already on screen —
+        helps the next attempt on the same item at least as much as the same
+        question asked mid-attempt; gating on ``context = 'practice'`` let that
+        help land as clean unassisted evidence. ``hint_equivalent`` is set by
+        ``tutor_qa.ask_question`` for every context where a practice item is
+        bound, so the flag alone carries the policy now."""
 
         query = (
             "SELECT COUNT(*) AS n FROM question_events "
-            "WHERE context = 'practice' AND hint_equivalent = 1 AND practice_item_id = ?"
+            "WHERE hint_equivalent = 1 AND practice_item_id = ?"
         )
         parameters: list[Any] = [practice_item_id]
         if session_id is not None:
@@ -3777,6 +3848,152 @@ class Repository:
         with self.connection() as connection:
             row = connection.execute(query, parameters).fetchone()
         return int(row["n"]) if row is not None else 0
+
+    # ── Reveal ledger (migration 154) ─────────────────────────────────────
+
+    def insert_reveal_event(
+        self, event: Mapping[str, Any], *, clock: Clock | None = None
+    ) -> str:
+        """Append one answer-exposure entry to the cross-channel reveal ledger.
+
+        Every surface that can hand a learner part of a graded solution writes
+        here — tutor answers, repair-suggestion displays, guided redos, source
+        review — so the submit path can ask one question ("how much of this
+        item's answer has been exposed since the last attempt?") instead of
+        re-deriving it per channel."""
+
+        event_id = str(event.get("id") or new_ulid())
+        amount = max(0.0, min(1.0, float(event.get("amount") or 0.0)))
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO reveal_events(
+                  id, practice_item_id, learning_object_id, remediation_episode_id,
+                  source_kind, amount, basis, question_event_id, attempt_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    str(event["practice_item_id"]),
+                    event.get("learning_object_id"),
+                    event.get("remediation_episode_id"),
+                    str(event["source_kind"]),
+                    amount,
+                    event.get("basis"),
+                    event.get("question_event_id"),
+                    event.get("attempt_id"),
+                    event.get("created_at") or utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def reveal_events(
+        self,
+        *,
+        practice_item_id: str | None = None,
+        remediation_episode_id: str | None = None,
+        source_kind: str | None = None,
+        attempt_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        for column, value in (
+            ("practice_item_id", practice_item_id),
+            ("remediation_episode_id", remediation_episode_id),
+            ("source_kind", source_kind),
+            ("attempt_id", attempt_id),
+        ):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        if since is not None:
+            clauses.append("created_at > ?")
+            parameters.append(since)
+        if until is not None:
+            clauses.append("created_at <= ?")
+            parameters.append(until)
+        query = "SELECT * FROM reveal_events"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [dict(row) for row in rows]
+
+    def reveal_events_for_target(
+        self,
+        *,
+        practice_item_id: str | None = None,
+        learning_object_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Reveals on this item OR anywhere in this learning object (OR, not AND).
+
+        The cold lane's question is wider than one item: a reveal on the cold
+        item is an answer leak, and a reveal elsewhere in the same learning
+        object is material exposure the receipt has to see before it can claim
+        isolation. Both arrive in one time-bounded, index-backed read so a
+        caller cannot accidentally scan only half of it. Window convention
+        matches ``total_reveal_amount``: ``since`` exclusive, ``until``
+        inclusive. Ordered oldest first."""
+
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        targets: list[str] = []
+        if practice_item_id is not None:
+            targets.append("practice_item_id = ?")
+            parameters.append(practice_item_id)
+        if learning_object_id is not None:
+            targets.append("learning_object_id = ?")
+            parameters.append(learning_object_id)
+        if not targets:
+            return []
+        clauses.append("(" + " OR ".join(targets) + ")")
+        if since is not None:
+            clauses.append("created_at > ?")
+            parameters.append(since)
+        if until is not None:
+            clauses.append("created_at <= ?")
+            parameters.append(until)
+        query = (
+            "SELECT * FROM reveal_events WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY created_at, id"
+        )
+        with self.connection() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [dict(row) for row in rows]
+
+    def total_reveal_amount(
+        self,
+        practice_item_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> float:
+        """Summed reveal amount for one item in a window.
+
+        Same window convention as
+        ``count_hint_equivalent_question_events``: ``since`` is exclusive (the
+        previous attempt's timestamp, whose evidence already absorbed anything
+        before it) and ``until`` is inclusive."""
+
+        query = "SELECT COALESCE(SUM(amount), 0.0) AS total FROM reveal_events WHERE practice_item_id = ?"
+        parameters: list[Any] = [practice_item_id]
+        if since is not None:
+            query += " AND created_at > ?"
+            parameters.append(since)
+        if until is not None:
+            query += " AND created_at <= ?"
+            parameters.append(until)
+        with self.connection() as connection:
+            row = connection.execute(query, parameters).fetchone()
+        return float(row["total"]) if row is not None else 0.0
 
     def question_counts_by_facet(self) -> dict[str, int]:
         """Total question_events touching each classified facet."""
@@ -15131,6 +15348,10 @@ class Repository:
         probe_attempt_id: str | None = None,
         candidate_id: str | None = None,
         support_authority: str | None = None,
+        channel: str | None = None,
+        admissible_as_independent: bool | None = None,
+        inadmissibility_reason: str | None = None,
+        contaminating_reveal_event_id: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Append one discriminating-observation receipt (idempotent on id).
@@ -15152,10 +15373,11 @@ class Repository:
                   declared_keys_observed, admitted, admission_reason,
                   support_authority, support_scores_json, resolved_factor,
                   detail_json, decision_policy_version, formula_version,
-                  created_at
+                  created_at, channel, admissible_as_independent,
+                  inadmissibility_reason, contaminating_reveal_event_id
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?)
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     observation_id,
@@ -15181,6 +15403,14 @@ class Repository:
                     decision_policy_version,
                     formula_version,
                     utc_now_iso(clock),
+                    channel,
+                    (
+                        None
+                        if admissible_as_independent is None
+                        else int(bool(admissible_as_independent))
+                    ),
+                    inadmissibility_reason,
+                    contaminating_reveal_event_id,
                 ),
             )
             connection.commit()
@@ -15209,11 +15439,22 @@ class Repository:
         attempt_id: str | None = None,
         presentation_id: str | None = None,
         admitted_only: bool = False,
+        probe_channel_only: bool = False,
     ) -> list[dict[str, Any]]:
-        """Observation receipts, oldest first."""
+        """Observation receipts, oldest first.
+
+        ``probe_channel_only`` restricts to rows produced by a blind-bundle
+        classification of an administered probe — ``channel IS NULL`` (every
+        row written before migration 155) or the explicit probe channel. Any
+        consumer whose denominator is "probes administered" must pass it, or a
+        learner-question-embedded prediction inflates a probe metric.
+        """
 
         clauses: list[str] = []
         values: list[Any] = []
+        if probe_channel_only:
+            clauses.append("(channel IS NULL OR channel = ?)")
+            values.append(OBSERVATION_CHANNEL_BLIND_PROBE)
         if factor_id is not None:
             clauses.append("factor_id = ?")
             values.append(factor_id)
@@ -24845,6 +25086,10 @@ def _decode_question_event(row: sqlite3.Row) -> dict[str, Any]:
     # §13.4 context columns (migration 030) ride along in dict(row); default
     # them for rows read before the migration applied.
     payload.setdefault("signal_channel", None)
+    # Reveal quantification (migration 154); absent on rows read from a DB that
+    # predates the ledger.
+    payload.setdefault("leak_overlap", None)
+    payload.setdefault("remediation_episode_id", None)
     if payload.get("direct_explanation_request") is not None:
         payload["direct_explanation_request"] = bool(payload["direct_explanation_request"])
     return payload
@@ -25051,6 +25296,13 @@ def _decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any
         "resolved_factor",
     ):
         payload[field] = bool(payload[field])
+    # Tri-state (migration 155): NULL means "independence was never assessed"
+    # (every pre-155 row), which is not the same claim as "assessed and
+    # contaminated". Coercing it to False would rewrite silence as a finding.
+    raw_admissible = payload.get("admissible_as_independent")
+    payload["admissible_as_independent"] = (
+        None if raw_admissible is None else bool(raw_admissible)
+    )
     return payload
 
 

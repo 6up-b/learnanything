@@ -101,7 +101,7 @@ substitute for the mint-time writer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 import logging
@@ -109,7 +109,12 @@ import math
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
-from learnloop.db.repositories import ProbeEpisodeRecord, Repository
+from learnloop.db.repositories import (
+    OBSERVATION_CHANNEL_BLIND_PROBE,
+    OBSERVATION_CHANNEL_LEARNER_QUESTION,
+    ProbeEpisodeRecord,
+    Repository,
+)
 from learnloop.services.causal_attribution import (
     CAUSAL_DECISION_POLICY_VERSION,
     SUPPORT_BASIS_AUTHORITY,
@@ -385,6 +390,15 @@ class RepairStatus:
     #: Standing constraint 4: per-EVSI-input provenance, mirrored from the
     #: decision receipt so a caller can see it without re-reading the ledger.
     evsi_provenance: dict[str, str] = field(default_factory=dict)
+    #: How much of the answer this repair episode has already handed over
+    #: (migration 154's reveal ledger, summed over rows stamped with the
+    #: episode), against `remediation.EPISODE_REVEAL_BUDGET`. ``None`` when the
+    #: status carries no episode — a status read with ``start_repair=False``
+    #: has nothing to have spent yet. Reported, never enforced: no repair is
+    #: refused on budget, and a surface that shows it is showing what the
+    #: repair has cost the measurement at the end of it.
+    reveal_spend: float | None = None
+    reveal_budget: float | None = None
 
     def __post_init__(self) -> None:
         assert self.status in REPAIR_STATUSES, self.status
@@ -424,9 +438,35 @@ class RepairStatus:
             "episode": self.episode,
             "parameters": self.parameters,
             "evsi_provenance": dict(self.evsi_provenance),
+            "reveal_spend": self.reveal_spend,
+            "reveal_budget": self.reveal_budget,
             "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
             "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
         }
+
+
+def _with_reveal_spend(repository: Repository, status: RepairStatus) -> RepairStatus:
+    """Stamp the episode's reveal spend and the budget it is measured against.
+
+    One place, applied to every status that carries an episode: the spend is a
+    property of the episode, and re-deriving it per construction site is how
+    two surfaces end up disagreeing about how much a repair has told the
+    learner. A status with no episode reports neither — there is no episode to
+    have spent anything.
+    """
+
+    if status.episode is None:
+        return status
+    from learnloop.services.remediation import (
+        EPISODE_REVEAL_BUDGET,
+        episode_reveal_spend,
+    )
+
+    return replace(
+        status,
+        reveal_spend=episode_reveal_spend(repository, str(status.episode.get("id") or "")),
+        reveal_budget=EPISODE_REVEAL_BUDGET,
+    )
 
 
 # --- machine-check queue (§6, the `deferred_machine_checks` producer) --------
@@ -1276,18 +1316,21 @@ def causal_repair_status(
             if start_repair
             else None
         )
-        return RepairStatus(
-            status="started",
-            reason="durable_misconception",
-            message=STARTED_MESSAGE,
-            misconception_id=misconception_id,
-            factor_id=str(factor["id"]) if factor is not None else None,
-            learning_object_id=str(misconception.learning_object_id),
-            decision_receipt_id=(
-                str(receipt["id"]) if receipt is not None else None
+        return _with_reveal_spend(
+            repository,
+            RepairStatus(
+                status="started",
+                reason="durable_misconception",
+                message=STARTED_MESSAGE,
+                misconception_id=misconception_id,
+                factor_id=str(factor["id"]) if factor is not None else None,
+                learning_object_id=str(misconception.learning_object_id),
+                decision_receipt_id=(
+                    str(receipt["id"]) if receipt is not None else None
+                ),
+                probe_decision="start_durable_repair" if receipt is not None else None,
+                episode=episode,
             ),
-            probe_decision="start_durable_repair" if receipt is not None else None,
-            episode=episode,
         )
 
     candidate_case = repository.misconception_candidate_by_id(misconception_id)
@@ -1343,12 +1386,15 @@ def causal_repair_status(
             if start_repair
             else None
         )
-        return RepairStatus(
-            status="started",
-            reason="no_open_causal_factor",
-            message=STARTED_MESSAGE,
-            misconception_id=misconception_id,
-            episode=episode,
+        return _with_reveal_spend(
+            repository,
+            RepairStatus(
+                status="started",
+                reason="no_open_causal_factor",
+                message=STARTED_MESSAGE,
+                misconception_id=misconception_id,
+                episode=episode,
+            ),
         )
 
     factor = factors[0]
@@ -1468,36 +1514,42 @@ def _status_for_factor(
             if start_episode and start_repair
             else None
         )
-        return RepairStatus(
-            status=status,
-            reason=reason,
-            message=message,
-            misconception_id=misconception_id,
-            factor_id=factor_id,
-            learning_object_id=learning_object_id,
-            attempt_id=attempt_id,
-            probe_offered=offered,
-            probe_decision=decision,
-            probe_decision_reason=decision_reason,
-            decision_receipt_id=str(receipt["id"]),
-            candidate_id=str(candidate["id"]) if candidate is not None else None,
-            blind_bundle_ids=tuple(
-                str(value) for value in (candidate or {}).get("blind_bundle_ids") or []
+        return _with_reveal_spend(
+            repository,
+            RepairStatus(
+                status=status,
+                reason=reason,
+                message=message,
+                misconception_id=misconception_id,
+                factor_id=factor_id,
+                learning_object_id=learning_object_id,
+                attempt_id=attempt_id,
+                probe_offered=offered,
+                probe_decision=decision,
+                probe_decision_reason=decision_reason,
+                decision_receipt_id=str(receipt["id"]),
+                candidate_id=str(candidate["id"]) if candidate is not None else None,
+                blind_bundle_ids=tuple(
+                    str(value)
+                    for value in (candidate or {}).get("blind_bundle_ids") or []
+                ),
+                hypothesis_set_id=(
+                    str(candidate["hypothesis_set_id"])
+                    if candidate is not None
+                    else None
+                ),
+                repair_class_ids=targeting.repair_class_ids,
+                common_repair_class_id=common_repair_class_id,
+                pending_machine_check_ids=tuple(str(v) for v in machine_check_ids),
+                learner_preference=preference,
+                actions=_actions(status, offered=offered),
+                episode=episode,
+                parameters={
+                    "orchestrator": parameters.manifest(),
+                    "probe_policy": probe_parameters.manifest(),
+                },
+                evsi_provenance=dict(inputs.get("evsi_provenance") or {}),
             ),
-            hypothesis_set_id=(
-                str(candidate["hypothesis_set_id"]) if candidate is not None else None
-            ),
-            repair_class_ids=targeting.repair_class_ids,
-            common_repair_class_id=common_repair_class_id,
-            pending_machine_check_ids=tuple(str(v) for v in machine_check_ids),
-            learner_preference=preference,
-            actions=_actions(status, offered=offered),
-            episode=episode,
-            parameters={
-                "orchestrator": parameters.manifest(),
-                "probe_policy": probe_parameters.manifest(),
-            },
-            evsi_provenance=dict(inputs.get("evsi_provenance") or {}),
         )
 
     base_inputs: dict[str, Any] = {
@@ -2365,6 +2417,119 @@ def _observation_support_scores(
     }
 
 
+def _probe_production_admissibility(
+    repository: Repository, *, probe_attempt_id: str | None
+) -> "ProductionAdmissibility | None":
+    """Was the probe answer produced before anything was revealed to it?
+
+    ``None`` when there is no probe attempt to assess (an out-of-band
+    classification: a replayed transcript, an adjudicated review). That is
+    stored as a NULL ``admissible_as_independent``, which says "not assessed" —
+    a different claim from "assessed and clean".
+    """
+
+    from learnloop.services.reveal_ledger import production_admissibility
+
+    if not probe_attempt_id:
+        return None
+    attempt = repository.fetch_practice_attempt(probe_attempt_id)
+    if attempt is None:
+        return None
+    return production_admissibility(
+        repository,
+        practice_item_id=str(attempt.get("practice_item_id") or "") or None,
+        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
+        produced_at=str(attempt.get("created_at") or "") or None,
+    )
+
+
+#: The learner-question channel writes an observation that classifies nothing:
+#: no bundle was pinned, so no declared feature was read. `unparsed_features` is
+#: the outcome vocabulary's word for "could not be read", and paired with
+#: `admitted = 0` it is inert everywhere the six outcomes are interpreted. The
+#: row's meaning lives in its `channel` and `admission_reason`, not here.
+_EMBEDDED_PREDICTION_OUTCOME = "unparsed_features"
+
+
+def record_learner_embedded_prediction(
+    repository: Repository,
+    *,
+    factor_id: str,
+    prediction: str,
+    question_event_id: str,
+    attempt_id: str | None = None,
+    practice_item_id: str | None = None,
+    remediation_episode_id: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Record a falsifiable expectation the learner's OWN question asserted.
+
+    Why this is a discriminating observation and not a note: it is a statement
+    about the world that the learner committed to, in their words, and a later
+    production can bear it out or contradict it. That is the same shape as a
+    pinned blind prediction — the difference is only who authored it, and the
+    ledger already has a ``learner_declared`` feature source waiting for
+    exactly this.
+
+    Why it is never ADMITTED: nothing was classified. There is no bundle, no
+    cohort, no declared feature vector; admitting it would grant routing
+    authority to an unclassified sentence. It is recorded so the expectation is
+    on the record and so the factor shows engagement, and it resolves nothing.
+
+    Why it is nonetheless ADMISSIBLE AS INDEPENDENT, whatever has been revealed:
+    the question was written before the answer to it existed. Post-hoc exposure
+    cannot reach backwards into a sentence the learner had already typed. This
+    is the one channel where a reveal in the window does not contaminate.
+
+    COST-FREE: no probe was consumed, no supply burned, no item spent.
+    """
+
+    prediction = (prediction or "").strip()
+    if not prediction or not factor_id:
+        return None
+    identity = {
+        "question_event_id": question_event_id,
+        "factor_id": factor_id,
+        "prediction": prediction,
+    }
+    return repository.insert_causal_discriminating_observation(
+        observation_id=_content_id("cdo", identity),
+        factor_id=factor_id,
+        attempt_id=attempt_id,
+        probe_attempt_id=None,
+        # No presentation exists; the question event IS the surface this
+        # observation came from. Both columns are free-form text with no
+        # foreign key, so naming the real source beats minting a fake probe.
+        presentation_id=f"question_event:{question_event_id}",
+        hypothesis_set_id=f"unlocked:{factor_id}",
+        blind_bundle_ids=(),
+        outcome=_EMBEDDED_PREDICTION_OUTCOME,
+        classified_as=[],
+        supports_open_set=False,
+        feature_source="learner_declared",
+        observed_features={"embedded_prediction": prediction},
+        declared_keys_observed=False,
+        admitted=False,
+        admission_reason="learner_question_embedded_prediction",
+        support_authority=None,
+        support_scores={},
+        resolved_factor=False,
+        detail={
+            "basis": "learner_question_embedded_prediction",
+            "question_event_id": question_event_id,
+            "practice_item_id": practice_item_id,
+            "remediation_episode_id": remediation_episode_id,
+            "cost_free": True,
+        },
+        decision_policy_version=CAUSAL_DECISION_POLICY_VERSION,
+        formula_version=CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
+        channel=OBSERVATION_CHANNEL_LEARNER_QUESTION,
+        admissible_as_independent=True,
+        inadmissibility_reason=None,
+        clock=clock,
+    )
+
+
 def record_probe_classification(
     repository: Repository,
     *,
@@ -2451,11 +2616,23 @@ def record_probe_classification(
     )
     declared_keys_observed = not unmeasured and bool(measured)
 
+    # Independence (migration 155). A probe answered AFTER the item's or its
+    # learning object's answer was revealed is not an independent production:
+    # the learner may be reporting what they were shown. This is checked before
+    # admission, not after, because an inadmissible-as-independent observation
+    # must never resolve a factor — that is precisely the loop by which a
+    # revealed solution would close the factor its reveal contaminated.
+    independence = _probe_production_admissibility(
+        repository, probe_attempt_id=probe_attempt_id
+    )
+
     if outcome not in DISCRIMINATING_OUTCOMES:
         admitted, admission_reason = False, f"non_discriminating_outcome:{outcome}"
     elif not declared_keys_observed:
         # The verdict is an artefact of what was not measured, not of what was.
         admitted, admission_reason = False, "declared_features_not_observed"
+    elif independence is not None and not independence.admissible:
+        admitted, admission_reason = False, str(independence.reason)
     else:
         admitted, admission_reason = True, f"{outcome}_over_measured_features"
 
@@ -2524,6 +2701,16 @@ def record_probe_classification(
         },
         decision_policy_version=CAUSAL_DECISION_POLICY_VERSION,
         formula_version=CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
+        channel=OBSERVATION_CHANNEL_BLIND_PROBE,
+        admissible_as_independent=(
+            None if independence is None else independence.admissible
+        ),
+        inadmissibility_reason=(
+            None if independence is None else independence.reason
+        ),
+        contaminating_reveal_event_id=(
+            None if independence is None else independence.reveal_event_id
+        ),
         clock=clock,
     )
     return DiscriminatingObservation(

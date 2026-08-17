@@ -1522,8 +1522,29 @@ def _grading_prompt(context: GradingContext) -> str:
                 "target. Set facet_contrast only when the trace explicitly demonstrates "
                 "a contract swap, with a trace-citing justification. "
                 "When resolution_status is abstained, give a concrete abstention_reason. "
-                "When unresolved, include at least two thin candidate_causes; the "
-                "system adds the open-set H_OTHER arm. `localization_confidence` and "
+                "When unresolved, draft `candidate_causes` as a SET in ONE pass, "
+                "not one at a time: generate the roughly 3-5 genuinely distinct "
+                "explanations of this trace TOGETHER, and give each a "
+                "`prior_weight` — your verbalized relative plausibility across "
+                "that set, any non-negative scale, higher means more likely. "
+                "Weights are a prior you are stating out loud, not a "
+                "measurement; the system normalizes them and never reads them "
+                "as calibrated probabilities. Write each `statement` as plain "
+                "prose about what the learner did or believed. There is no "
+                "vocabulary to fit, no category to span, and no label you must "
+                "produce: a candidate is never wrong for its wording. For each "
+                "candidate give `discriminating_predictions` — free-text "
+                "falsifiable expectations of the form \"if this cause is true, "
+                "we'd observe X on Y\". Those predictions are what make two "
+                "candidates DIFFERENT: if two candidates predict the same "
+                "observations, they are the same candidate said twice, so MERGE "
+                "them. Returning fewer than three candidates is the correct "
+                "answer when the trace genuinely underdetermines less; padding "
+                "the set with restatements is worse than a short list. "
+                "`mechanism` is optional — fill it only when an obvious "
+                "mechanism label applies, and leave it null rather than "
+                "reaching for the nearest one. The system adds the open-set "
+                "H_OTHER arm itself. `localization_confidence` and "
                 "`causal_confidence` are separate model-reported proposals, not outcome "
                 "confidence or posteriors. `operation` is nullable free snake_case. "
                 "For each repair_suggestion, target only failed criterion ids and/or "
@@ -1531,7 +1552,26 @@ def _grading_prompt(context: GradingContext) -> str:
                 "When a safe local repair is supported, structure it with a snake_case "
                 "`operator`, typed `target_refs`, `preserve_refs` for demonstrated "
                 "work, `expected_minutes`, and the fraction-like "
-                "`answer_reveal_budget`. Emit `repaired_trace` only when you can keep "
+                "`answer_reveal_budget`. "
+                "Choose the repair SHAPE from what went wrong. When the "
+                "mechanism is a durable wrong belief — a conceptual or schema "
+                "error, a representation/notation confusion, a wrong selection "
+                "or plan, a missed condition or assumption, a transfer or "
+                "context mismatch — DEFAULT to an ELICITING repair rather than "
+                "a spliced solution: use an `operator` beginning `elicit_`, "
+                "name the divergence anchor in `target_refs`, ask exactly ONE "
+                "targeted `eliciting_question` the learner can answer unaided, "
+                "state in `expected_response_contract` what a correct unaided "
+                "response would demonstrate, and keep `answer_reveal_budget` "
+                "near zero. Showing a believer the corrected work teaches them "
+                "to recognize it, not to stop believing what they believe; the "
+                "question is what makes their belief speak again. When the "
+                "mechanism is instead a slip, a local execution error, or a "
+                "retrieval lapse, keep the spliced `repaired_trace` — there is "
+                "no belief to elicit and the edit is the whole lesson. This is "
+                "a default, not a rule: override it when the trace warrants, "
+                "and nothing rejects your choice. "
+                "Emit `repaired_trace` only when you can keep "
                 "the learner's displayed work verbatim through a supported insertion "
                 "point: copy `learner_work_prefix`, state one `minimal_edit`, regenerate "
                 "only downstream work in the learner's notation, and enumerate changed "
@@ -1612,6 +1652,37 @@ def _grading_prompt(context: GradingContext) -> str:
     )
 
 
+# Two extraction fields, and one boundary that makes them safe.
+#
+# The learner's own question is a production: it was written BEFORE anything the
+# tutor is about to say, so an expectation it asserts is uncontaminated evidence
+# about the learner's model. Reading that expectation out of the question text
+# is transcription, and it stays admissible even when the answer that follows
+# reveals the solution.
+#
+# What is NOT safe is the tutor inventing beliefs. Once an answer has been given
+# — and every answer on this surface reveals something — the model's picture of
+# "what the learner must think" is a picture of what the model just explained.
+# So `new_candidate_cause` is admissible only when it is grounded in the
+# learner's own words, and never in the tutor's.
+_TUTOR_QA_LEARNER_EXTRACTION = (
+    "Two fields report on the LEARNER'S QUESTION rather than on your answer. "
+    "`embedded_prediction`: if the learner's question itself asserts a "
+    "falsifiable expectation — something they evidently expect to be true, "
+    "e.g. \"learner expects replacing (x+y)e2 with ((x+y)/2)e2 to change the "
+    "sum\" — state that expectation in one sentence. Take it from the question "
+    "TEXT; do not infer what they probably think, and set it to null when the "
+    "question asserts nothing (that is the common case). "
+    "`new_candidate_cause`: set it ONLY when this exchange surfaced a possible "
+    "cause of the learner's difficulty that their written attempt could not "
+    "have shown — something they said or asked that reveals it. Write "
+    "`statement` as plain prose in learner-model terms; there is no vocabulary "
+    "to fit. Ground it in the learner's words, NEVER in what you just "
+    "explained: after you have answered, anything you would say about their "
+    "beliefs describes your own explanation, not them. Null is the correct and "
+    "usual answer."
+)
+
 # Per-context tutor behavior. Practice guardrails are the load-bearing part:
 # mid-attempt the tutor must never hand over or verify the answer, or hint
 # dampening on the eventual attempt becomes meaningless.
@@ -1636,6 +1707,7 @@ _TUTOR_QA_SHARED = (
     "extraction_id/span_id pairs present in context.source_spans — never invent a "
     "span, and cite only spans your answer actually relies on. Leave citations "
     "empty when no provided span is relevant."
+    " " + _TUTOR_QA_LEARNER_EXTRACTION
 )
 
 _TUTOR_QA_CONTEXT_TASKS = {
@@ -1801,7 +1873,9 @@ _TUTOR_QA_OPENING_SHARED = (
     "question_channel to `epistemic`. Fill `facets` with the subset of "
     "context.candidate_facets your opening targets (empty when none apply); "
     "never invent facet ids outside that list. Write answer_md as concise "
-    "Markdown (LaTeX math allowed)."
+    "Markdown (LaTeX math allowed). There is no learner question here, so "
+    "`embedded_prediction` and `new_candidate_cause` MUST both be null: with "
+    "nothing the learner has said, any cause you named would be your own."
 )
 
 

@@ -562,6 +562,102 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
     )
 
 
+def _cold_check_result(
+    vault: LoadedVault, repository: Repository, attempt: dict[str, Any]
+) -> dict[str, Any] | None:
+    """What the cold check this attempt just spent turned out to say.
+
+    Non-null ONLY when the attempt consumed a ``cold_retry`` task — i.e. it was
+    the single unassisted measurement an earlier assisted repair scheduled.
+    Everything here is read back from records the submit path already wrote (the
+    consumed task, the episode it closed, the ``causal_cold_outcomes`` row and
+    the final coldness receipt); nothing is derived, decided or persisted, so
+    re-opening feedback cannot change a verdict.
+
+    The verdict is deliberately reported in TWO parts. ``passed`` says whether
+    the unassisted answer was right. ``claim`` says what the system is licensed
+    to conclude from it, which is not the same thing: a receipt whose episode
+    spent more of the answer than its budget has its repair claim downgraded, so
+    a correct answer can be recorded and still not confirm the repair. Collapsing
+    the two would let assistance quietly buy a confirmation.
+    """
+
+    attempt_id = str(attempt["id"])
+    try:
+        task = repository.consumed_followup_task_for_attempt(
+            attempt_id, kind="cold_retry"
+        )
+        if task is None:
+            return None
+        task_id = str(task["id"])
+        context = task.get("context") or {}
+        episode_id = str(task.get("remediation_episode_id") or "")
+        episode = repository.remediation_episode(episode_id) if episode_id else None
+        outcome_row = repository.causal_cold_outcome_for_task(task_id)
+        outcome = str((outcome_row or {}).get("outcome") or "") or None
+        receipt = repository.coldness_receipt_for_task_stage(task_id, "final")
+        derived = (receipt or {}).get("derived") or {}
+        downgraded_reason = derived.get("claim_downgraded_reason") or None
+        passed = outcome == "cold_success"
+        if outcome is None:
+            claim = "unmeasured"
+        elif downgraded_reason:
+            claim = "downgraded"
+        elif passed:
+            claim = "repair_confirmed"
+        elif outcome == "cold_failure":
+            claim = "escalated_unrepaired"
+        else:
+            # right_censored_expired, contaminated_or_assisted, missing_chain …
+            # — the check happened but produced no verdict about the repair.
+            claim = "unmeasured"
+        case_kind = str(task.get("case_kind") or "")
+        case_ref = str(task.get("case_ref") or "")
+        summary = None
+        if case_kind == "misconception" and case_ref:
+            record = repository.misconception(case_ref)
+            summary = getattr(record, "statement", None) if record is not None else None
+        if not summary:
+            learning_object = vault.learning_objects.get(
+                str(attempt.get("learning_object_id") or "")
+            )
+            summary = (
+                learning_object.title
+                if learning_object is not None
+                else (case_ref or "this idea")
+            )
+        return {
+            "passed": passed,
+            "outcome": outcome,
+            "claim": claim,
+            "claim_downgraded_reason": downgraded_reason,
+            "case_kind": case_kind or None,
+            "case_ref": case_ref or None,
+            "case_summary": summary,
+            "factor_id": (context.get("causal_factor_id") or None),
+            "episode_id": episode_id or None,
+            # The span the learner recognizes: the day the assisted repair
+            # happened, and the day this check answered for it.
+            "instructed_at": str(
+                (episode or {}).get("created_at") or task.get("created_at") or ""
+            )
+            or None,
+            "checked_at": str(
+                (episode or {}).get("completed_at") or attempt.get("created_at") or ""
+            )
+            or None,
+            "reveal_spend": context.get("reveal_spend"),
+            "reveal_budget": context.get("reveal_budget"),
+        }
+    except Exception:  # pragma: no cover - feedback must never fail on a receipt
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "cold check result unavailable for attempt %s", attempt_id, exc_info=True
+        )
+        return None
+
+
 def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]:
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
@@ -607,6 +703,13 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     # transiently after an in-screen trigger_regrade. Template-rendered fact.
     rubric = _rubric_for_item(vault, item)
     max_points = rubric.max_points if rubric is not None else 4
+    # Auto-priming (reveal ledger): recorded on the attempt's debug payload at
+    # submit time. Absent -- never zero -- when the ledger did not force it.
+    debug_payload = repository.attempt_debug_payload(attempt_id) or {}
+    raw_auto_primed = debug_payload.get("auto_primed_reveal_total")
+    auto_primed_total = (
+        float(raw_auto_primed) if isinstance(raw_auto_primed, (int, float)) else None
+    )
     regrade_marker = repository.attempt_regrade_marker(attempt_id)
     regrade = None
     if regrade_marker is not None:
@@ -665,6 +768,15 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "guided_redo_available": guided_redo_available(repository, attempt_id),
             "intervention_need": intervention_need_dto(intervention_need),
             "primed": bool(attempt.get("primed")),
+            # `primed` alone cannot tell the learner why: they submitted this as
+            # an ordinary attempt and the reveal ledger reclassified it, because
+            # tutor answers or repair displays had already covered part of the
+            # solution. The total is the audit trail for that reclassification.
+            "auto_primed": auto_primed_total is not None,
+            "auto_primed_reveal_total": auto_primed_total,
+            # Non-null only when this attempt WAS the unassisted check for an
+            # earlier assisted repair. Announced after the grade, never before.
+            "cold_check_result": _cold_check_result(vault, repository, attempt),
             # Canonical-source sections that spawned this item, for the
             # source-review panel (text section or video timestamp range).
             "source_refs": resolve_source_refs(vault, item, repository),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from learnloop.clock import utc_now_iso
@@ -51,6 +52,12 @@ class ContestCausalDiagnosisInput(ParamsModel):
     response: str
 
 
+class SubmitElicitingResponseInput(ParamsModel):
+    attempt_id: str
+    suggestion_index: int
+    response_md: str
+
+
 def _attach_common_repair(
     repository: Any, attempt_id: str, bundle: dict[str, Any]
 ) -> None:
@@ -84,12 +91,53 @@ def _attach_common_repair(
         causal["commonRepair"] = to_camel(recommendation)
 
 
+def _debit_repair_display_reveals(
+    vault: Any, repository: Any, attempt: dict[str, Any], stored_feedback: dict[str, Any]
+) -> None:
+    """Charge the reveal ledger for the repair suggestions this screen shows.
+
+    A repair suggestion declares an ``answer_reveal_budget`` — the fraction of
+    the solution its lane is licensed to show — and until now that budget
+    debited nothing anywhere. Showing the suggestion is when it is spent, so the
+    first open of an attempt's feedback appends it to the ledger; the next
+    attempt on the item then sees the exposure it was given.
+
+    Best-effort: a bookkeeping failure must never cost the learner their
+    feedback screen."""
+
+    from learnloop.services.reveal_ledger import record_repair_display_reveals
+
+    try:
+        practice_item_id = str(attempt.get("practice_item_id") or "") or None
+        item = vault.practice_items.get(practice_item_id) if practice_item_id else None
+        record_repair_display_reveals(
+            repository,
+            attempt_id=str(attempt["id"]),
+            practice_item_id=practice_item_id,
+            learning_object_id=item.learning_object_id if item is not None else None,
+            repair_suggestions=stored_feedback.get("repair_suggestions") or [],
+        )
+    except Exception:  # pragma: no cover - defensive
+        logging.getLogger(__name__).warning(
+            "failed to debit repair-display reveals for attempt %s",
+            attempt.get("id"),
+            exc_info=True,
+        )
+
+
 @method("get_feedback", AttemptInput)
 def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     session_id = attempt.get("session_id") if attempt is not None else None
+    # Read the metadata BEFORE recording the open: `record_feedback_shown` sets
+    # `first_shown_at`, so afterwards there is no way left to tell a first open
+    # from a reopen.
+    stored_feedback = repository.fetch_attempt_feedback_metadata(params.attempt_id) or {}
+    first_show = not stored_feedback.get("first_shown_at")
     repository.record_feedback_shown(params.attempt_id, session_id=session_id)
+    if first_show and attempt is not None:
+        _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
     _attach_common_repair(repository, params.attempt_id, bundle)
     log_event(
@@ -309,6 +357,55 @@ def report_unresolved_cause(
             vault, repository, attempt_id=attempt_id
         )
     return result
+
+
+@method("submit_eliciting_response", SubmitElicitingResponseInput)
+def submit_eliciting_response(
+    ctx: SidecarContext, params: SubmitElicitingResponseInput
+) -> dict[str, Any]:
+    """The learner's unaided answer to an eliciting repair's question.
+
+    An eliciting suggestion withholds the corrected work and asks one question
+    instead; this is where the answer lands. It is recorded as a factor-response
+    engagement signal on the same ``causal_attribution_reports`` seam as
+    ``report_unresolved_cause`` — the learner's own account, attached to the open
+    factor.
+
+    Deliberately NOT a grade. Nothing here scores the response, resolves the
+    factor, or confirms a candidate: an unaided response is evidence about the
+    factor, and the only machinery licensed to convert evidence into a repair
+    verdict is the cold verification lane. The response's independence is
+    checked against the reveal ledger and stamped on the record, so a response
+    typed after the answer was on screen is stored as what it is.
+    """
+
+    from learnloop.services.causal_attribution import record_eliciting_response
+
+    vault, repository = ctx.require_vault()
+    if repository.fetch_practice_attempt(params.attempt_id) is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    try:
+        result = record_eliciting_response(
+            vault,
+            repository,
+            attempt_id=params.attempt_id,
+            suggestion_index=params.suggestion_index,
+            response_md=params.response_md,
+        )
+    except ValueError as exc:
+        raise SidecarError("invalid_eliciting_response", str(exc)) from exc
+    log_event(
+        "eliciting_response_recorded",
+        attempt_id=params.attempt_id,
+        factor_id=result.get("factor_id"),
+        admissible=result.get("admissible_as_independent"),
+    )
+    return versioned(
+        {
+            **result,
+            "feedback": feedback_bundle(vault, repository, params.attempt_id),
+        }
+    )
 
 
 @method("contest_causal_diagnosis", ContestCausalDiagnosisInput)

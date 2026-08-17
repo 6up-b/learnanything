@@ -37,7 +37,7 @@ from typing import Any, Iterable
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
-from learnloop.services.assessment_contracts import P0_ALGORITHM_VERSION
+from learnloop.services.assessment_contracts import P0_PROJECTION_VERSIONS
 from learnloop.services.conjunctive_items import (
     cap_embedded_credit,
     supporting_unexercised,
@@ -261,13 +261,18 @@ def p0_evidence_mass_by_attempt(
 def _with_p0_masses(
     vault: LoadedVault, repository: Repository, snapshot: FacetTimelineSnapshot
 ) -> FacetTimelineSnapshot:
-    """Attach the P0 mass map to a snapshot when the vault runs mvp-0.8.
+    """Attach the P0 mass map to a snapshot when the vault runs the P0 projection.
 
-    On an mvp-0.7 vault (or a snapshot that already carries the map) this is a
-    no-op, keeping the legacy path byte-identical.
+    That means mvp-0.8 or any successor tag on the same namespace (mvp-0.9 = the
+    reveal-ledger recording change); the membership test is against
+    :data:`P0_PROJECTION_VERSIONS` rather than an equality check on
+    :data:`P0_ALGORITHM_VERSION`, so a version bump does not silently drop the mass
+    map out of the feedback timeline. On an mvp-0.7 vault (or a snapshot that
+    already carries the map) this is a no-op, keeping the legacy path
+    byte-identical.
     """
 
-    if vault.config.algorithms.algorithm_version != P0_ALGORITHM_VERSION:
+    if vault.config.algorithms.algorithm_version not in P0_PROJECTION_VERSIONS:
         return snapshot
     if snapshot.p0_evidence_mass_by_attempt is not None:
         return snapshot

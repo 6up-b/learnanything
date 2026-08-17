@@ -58,6 +58,10 @@ PERTURBATION_DELTA = 0.15
 # causal side's stamp for "we had nothing and spread mass evenly" — a legal
 # *record*, but a fabricated distribution as an EVSI input (invariants 5/6:
 # no invented likelihoods; missing machine data never buys learner effort).
+# `model_verbalized_prior` (slice 3) is excluded for the same reason and not a
+# weaker one: the grader's verbalized ranking is a statement, not a measurement,
+# and buying learner minutes with it would be exactly the invented likelihood
+# invariant 5 forbids. Only measured support survives here.
 LIVE_VALUE_PRIOR_BASES = ("support_weighted",)
 
 

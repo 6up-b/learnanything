@@ -326,7 +326,9 @@ def test_sidecar_submit_attempt_counts_question_hint_equivalents(tmp_path):
             ]
         )[1]["result"]
         assert asked["remaining"] == 4
-        assert asked["hintEquivalent"] is False
+        # A post-grade question about the item is hint-equivalent for the NEXT
+        # attempt on it — the feedback screen has already shown the solution.
+        assert asked["hintEquivalent"] is True
     finally:
         server.stop()
 

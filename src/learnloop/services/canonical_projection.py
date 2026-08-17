@@ -28,6 +28,7 @@ from learnloop.services.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
+    P0_PROJECTION_VERSIONS,
 )
 from learnloop.services.causal_activity_policy import (
     ASSISTED_ATTEMPT_TYPES as _ASSISTED_ATTEMPT_TYPES,
@@ -490,7 +491,7 @@ def project_canonical_facet_state(
     algorithm_version = vault.config.algorithms.algorithm_version
     if algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
-    use_p0 = algorithm_version == P0_ALGORITHM_VERSION
+    use_p0 = algorithm_version in P0_PROJECTION_VERSIONS
     p0_score_fraction: dict[str, float] = {}
     if use_p0:
         from learnloop.services.outcome_schemas import (

@@ -685,6 +685,23 @@ class CausalHypothesisSetPlan:
         )
 
 
+def _hypothesis_prior_weight(hypothesis: Mapping[str, Any]) -> float:
+    """The grader's normalized verbalized prior for one hypothesis, or 0.0.
+
+    Absent on everything drafted before slice 3, which is what keeps the
+    uniform fallback reachable and every existing locked set replayable.
+    """
+
+    evidence = hypothesis.get("evidence")
+    if not isinstance(evidence, Mapping):
+        return 0.0
+    try:
+        weight = float(evidence.get("prior_weight"))
+    except (TypeError, ValueError):
+        return 0.0
+    return weight if weight > 0.0 else 0.0
+
+
 def build_causal_hypothesis_set(
     repository: Repository,
     factor_id: str,
@@ -736,11 +753,33 @@ def build_causal_hypothesis_set(
     if sum(weights.values()) > 0:
         prior_basis = "support_weighted"
     else:
-        # No support score exists for any arm.  A uniform prior is an AUTHORED
-        # choice, not evidence — stamp it so downstream consumers can refuse to
-        # treat it as a locked experimental prior.
-        prior_basis = "uniform_fallback"
-        weights = {str(value["id"]): 1.0 for value in concrete}
+        # No support score exists for any arm.  Before falling back to uniform,
+        # ask the hypotheses what the grader SAID when it drafted them: slice 3
+        # writes a normalized verbalized `prior_weight` into each hypothesis's
+        # evidence, and a stated prior beats an invented one.
+        #
+        # It is still only a prior.  Measured support (`support_weighted`)
+        # outranks it whenever it exists, and the basis string says which of the
+        # three a reader is looking at so nobody can mistake a verbalized
+        # ranking for a locked experimental prior.  Hypotheses drafted before
+        # slice 3 carry no weight and land on `uniform_fallback` exactly as
+        # they did before.
+        verbalized = {
+            str(value["id"]): _hypothesis_prior_weight(value) for value in concrete
+        }
+        if sum(verbalized.values()) > 0:
+            prior_basis = "model_verbalized_prior"
+            weights = {
+                # A stated zero is a real statement ("I don't believe this
+                # arm"), but a zero-mass probe arm can never be discriminated
+                # against, so floor it rather than silently deleting the
+                # hypothesis from its own experiment.
+                key: max(value, parameters["open_set_prior_floor"])
+                for key, value in verbalized.items()
+            }
+        else:
+            prior_basis = "uniform_fallback"
+            weights = {str(value["id"]): 1.0 for value in concrete}
     open_weight = max(
         sum(weights.values()) * parameters["open_set_prior_weight"],
         parameters["open_set_prior_floor"],

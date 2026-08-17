@@ -553,13 +553,18 @@ export function PracticeScreen({
               probe) is one delayed unassisted measurement. apply_attempt hard-
               rejects it hinted or primed ("a cold retry must be unassisted and
               unprimed"), so say that HERE, next to where the hint key lives,
-              before the learner voids it. */}
+              before the learner voids it.
+
+              The marker is deliberately PROVENANCE-FREE: naming the repair (or
+              the factor) this check verifies would point the learner straight at
+              the material the check exists to measure them retrieving unaided.
+              What it verifies is said afterwards, in the feedback banner. */}
           {item.activeFollowupKind === "cold_retry" || item.activeFollowupKind === "certification_cold_probe" ? (
             <div className="hint-banner" style={{ borderColor: COLOR.amber }}>
-              <Pill tone="amber">{item.activeFollowupKind === "cold_retry" ? "cold retry" : "cold probe"}</Pill>{" "}
+              <Pill tone="amber">unassisted check</Pill>{" "}
               {primed
-                ? "this question is due as an unassisted cold check, but it was opened primed — the attempt will be rejected. Go back and open it from the queue instead."
-                : "this is an unassisted check — using a hint voids it and the attempt will be rejected. Answer with what you can retrieve on your own."}
+                ? "this question is due as an unassisted check, but it was opened primed — the attempt will be rejected. Go back and open it from the queue instead."
+                : "hints will void this measurement and the attempt will be rejected. Answer with what you can retrieve on your own."}
             </div>
           ) : null}
           {item.mastery != null ? (

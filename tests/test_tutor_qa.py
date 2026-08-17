@@ -327,8 +327,10 @@ def test_ask_question_feedback_limit_and_intervention_wiring(tmp_path):
         attempt_id="att_1",
         clock=clock,
     )
-    # Feedback questions never count as hints and derive the item from the attempt.
-    assert result["hint_equivalent"] is False
+    # A feedback question derives the item from the attempt AND counts as a hint
+    # for the NEXT attempt on it: the graded solution is already on screen, so a
+    # substantive question here helps at least as much as a mid-attempt one.
+    assert result["hint_equivalent"] is True
     assert result["remaining"] == 4
     # The graded attempt is threaded into the AI context.
     assert client.contexts[0].learner_answer_md == "my answer"

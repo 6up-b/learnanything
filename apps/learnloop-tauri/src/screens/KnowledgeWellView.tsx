@@ -81,6 +81,12 @@ interface FacetState {
   ghostDepth: number; // readyGhost · vis — pre-decay depth (for the relax ghost)
   effectiveDepth: number; // geometry input: 0 when absent or held-flat
   demonstrated: boolean;
+  // Instructed but not yet verified: a repair here was done with assistance and
+  // the unassisted check it scheduled has not been answered. A THIRD marker
+  // state between predicted and demonstrated — never counted as either, because
+  // instructed work is not evidence and the whole point of the pending check is
+  // that we do not yet know whether it stuck.
+  instructed: boolean;
   absent: boolean; // no blueprint ⇒ content debt, not a learner gap (§1.7)
   noHistory: boolean; // FSRS-held-flat ⇒ must not get confident geometry (§1.4)
   crossesInDays: number | null;
@@ -117,6 +123,7 @@ function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null 
     // facet and had no FSRS history to lean on. Facets absent from the decay
     // feed are treated as normal (the feed may be empty when unavailable).
     const noHistory = entry != null && !entry.hasHistory;
+    const demonstrated = point.demonstratedMass >= DEMO_THRESHOLD;
     return {
       point,
       angle: -Math.PI / 2 + (i * 2 * Math.PI) / N,
@@ -125,7 +132,11 @@ function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null 
       ghostDepth,
       // Neither content debt nor an unbacked FSRS hold earns confident depth.
       effectiveDepth: absent || noHistory ? 0 : wellDepth,
-      demonstrated: point.demonstratedMass >= DEMO_THRESHOLD,
+      demonstrated,
+      // Ranked BELOW demonstrated: a facet already carrying demonstrated credit
+      // keeps its filled bead, and the pending check only ever adds a state to a
+      // facet that has none — it can never take one away or add one.
+      instructed: (point.coldCheckPending ?? false) && !demonstrated && !absent && !noHistory,
       absent,
       noHistory,
       crossesInDays: entry?.crossesInDays ?? null,
@@ -315,7 +326,11 @@ export function KnowledgeWellView({
     let flat = 0;
     let held = 0;
     let debt = 0;
+    let instructed = 0;
     for (const s of states) {
+      // Counted alongside the depth bands, never inside `anchored`: an
+      // instructed facet has no demonstrated credit to anchor with yet.
+      if (s.instructed) instructed += 1;
       if (s.absent) debt += 1;
       else if (s.noHistory) held += 1;
       else if (s.wellDepth >= DEEP_LEVEL) {
@@ -324,7 +339,7 @@ export function KnowledgeWellView({
       } else if (s.wellDepth >= SHALLOW_LEVEL) shallow += 1;
       else flat += 1;
     }
-    return { deep, anchored, shallow, flat, held, debt };
+    return { deep, anchored, shallow, flat, held, debt, instructed };
   }, [states]);
 
   const ariaLabel =
@@ -332,6 +347,9 @@ export function KnowledgeWellView({
     `${summary.deep} deep well${summary.deep === 1 ? "" : "s"} (${summary.anchored} anchored / demonstrated), ` +
     `${summary.shallow} shallow, ${summary.flat} flat frontier` +
     (summary.held ? `, ${summary.held} held flat for insufficient history` : "") +
+    (summary.instructed
+      ? `, ${summary.instructed} instructed with a cold check pending (not demonstrated)`
+      : "") +
     (summary.debt ? `, ${summary.debt} absent (content debt)` : "") +
     ". Deep = likely recall, filled bead = demonstrated, flat = unexplored." +
     " Scroll or press plus and minus to zoom; 0 restores the default framing.";
@@ -408,6 +426,14 @@ export function KnowledgeWellView({
       <text x={18} y={22} fill={COLOR.textDim} fontSize={11}>
         deep = likely recall (weighted by evidence) · filled bead = demonstrated · flat = unexplored frontier
       </text>
+      {/* Third legend line, present only when the state is: an amber dashed
+          bead is a claim the system has NOT earned yet, and a legend that
+          named it on every visit would imply it is a normal resting state. */}
+      {summary.instructed ? (
+        <text x={18} y={37} fill={COLOR.amber} fontSize={11}>
+          ◌ dashed amber bead = instructed — cold check pending (not demonstrated)
+        </text>
+      ) : null}
 
       {/* Equipotential contours (iso-depth) — bunch where the well wall is
           steep, i.e. at the frontier between settled and unexplored sectors. */}
@@ -496,8 +522,10 @@ export function KnowledgeWellView({
 
       {/* Anchor beads at the well bottoms — the DISCRETE Demonstrated channel.
           Filled green bead = demonstrated; hollow cyan ring = predicted but not
-          yet demonstrated; × = absent (no blueprint, content debt); hollow
-          diamond = held flat for insufficient history. Never a second depth. */}
+          yet demonstrated; hollow amber bead inside a segmented amber ring =
+          instructed, cold check pending (repaired with help, unverified);
+          × = absent (no blueprint, content debt); hollow diamond = held flat for
+          insufficient history. Never a second depth. */}
       {beadOrder.map((i) => {
         const s = states[i];
         const p = proj(geometry.beads[i]);
@@ -510,6 +538,10 @@ export function KnowledgeWellView({
           `Ready ${Math.round(s.point.ready * 100)}% · Demonstrated ${Math.round(s.point.demonstratedMass * 100)}% · evidence ${s.point.evidenceMass.toFixed(2)}` +
           (s.absent ? "\nabsent: no blueprint (content debt)" : "") +
           (s.noHistory ? "\nheld flat: not enough history" : "") +
+          (s.instructed
+            ? "\ninstructed — cold check pending: this was repaired with assistance," +
+              "\nand an unassisted check is scheduled. The bead fills only if it passes."
+            : "") +
           (s.crossesInDays != null ? `\ncrosses target in ~${Math.round(s.crossesInDays)}d` : "");
         const onEnter = () => {
           onSelect(s.point.id);
@@ -567,6 +599,30 @@ export function KnowledgeWellView({
                 stroke={isActive ? COLOR.text : COLOR.bg}
                 strokeWidth={1}
               />
+            ) : s.instructed ? (
+              // Hollow (nothing demonstrated) inside a SEGMENTED ring: the
+              // broken ring is the pending measurement, and the bead stays
+              // unfilled until an unassisted answer fills it.
+              <>
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={size + 2.6}
+                  fill="none"
+                  stroke={COLOR.amber}
+                  strokeWidth={1.1}
+                  strokeDasharray="3 3"
+                  opacity={0.85}
+                />
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={size}
+                  fill={COLOR.bg}
+                  stroke={COLOR.amber}
+                  strokeWidth={1.4}
+                />
+              </>
             ) : (
               <circle
                 cx={p.x}

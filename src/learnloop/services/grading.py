@@ -215,11 +215,11 @@ CANONICAL_ERROR_TYPES: tuple[dict[str, object], ...] = (
     {
         "id": "incomplete_answer",
         "title": "Incomplete answer",
-        "severity_default": 0.35,
+        "severity_default": 0.25,
         "is_misconception": False,
         "use_when": "The answer is partially correct but omits a required value, justification, condition, unit, or explanation.",
         "avoid_when": (
-            "Use recall_failure only when localized evidence supports that the "
+            "Use incomplete_answer only when localized evidence supports that the "
             "omitted facet is learned material the learner cannot access from memory."
         ),
     },
@@ -924,9 +924,17 @@ def validate_codex_grading_proposal(
             normalized_quote = " ".join(quote.split())
             normalized_answer = " ".join(answer.split())
             if quote not in answer and normalized_quote not in normalized_answer:
-                raise GradingValidationError(
-                    "answer-span target quote does not anchor in learner answer"
-                )
+                resolution = resolve_quote_anchor(answer, quote, hint_start=None)
+                if resolution.char_start is None:
+                    # Degrade, never reject (the first_divergence fallback,
+                    # applied here): an unanchorable span quote loses only its
+                    # localization — the attribution survives at criterion
+                    # granularity instead of costing the whole grade.
+                    target_ref.clear()
+                    target_ref["kind"] = "none"
+                else:
+                    target_ref["char_start"] = resolution.char_start
+                    target_ref["char_end"] = resolution.char_end
             start = target_ref.get("char_start")
             end = target_ref.get("char_end")
             if (
@@ -1215,6 +1223,12 @@ def validate_codex_grading_proposal(
             "answer_reveal_budget",
             "repaired_trace",
             "verification_request",
+            # Eliciting repair. Same nullable discipline as the P1 structural
+            # fields: absent means the grader proposed a spliced repair (or no
+            # structure at all), and an absent field must not materialize as a
+            # null the feedback screen then has to interpret.
+            "eliciting_question",
+            "expected_response_contract",
         ):
             if field_name not in suggestion.model_fields_set:
                 payload.pop(field_name, None)

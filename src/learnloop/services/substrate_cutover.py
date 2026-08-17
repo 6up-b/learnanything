@@ -37,6 +37,7 @@ from learnloop.services.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
+    P0_SUCCESSOR_VERSIONS,
 )
 
 # The scheduler-algorithm version stamped on P1 card-lineage state. Distinct from the
@@ -49,6 +50,13 @@ P1_SCHEDULER_ALGORITHM_VERSION = "fsrs6"
 # consumes it, so the registry entry names a constant the cutover decision actually
 # reads. Legacy vaults (any earlier version) keep the purpose-blind path.
 PURPOSE_ADAPTERS_LIVE_FROM = P0_ALGORITHM_VERSION
+
+# Successor versions on the SAME projection namespace (mvp-0.9 tags the reveal-
+# ledger recording change, migration 154). They inherit the flip: a version bump
+# that only changes what gets recorded must not quietly return a fresh vault to
+# the purpose-blind legacy path. Kept separate from PURPOSE_ADAPTERS_LIVE_FROM so
+# repointing that constant still repoints the live decision (registry §A4).
+PURPOSE_ADAPTERS_LIVE_SUCCESSORS: frozenset[str] = P0_SUCCESSOR_VERSIONS
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +75,10 @@ def purpose_adapters_live(algorithm_version: str | None) -> bool:
 
     if _adapters.P1_PURPOSE_ADAPTERS_ENABLED:
         return True
-    return algorithm_version == PURPOSE_ADAPTERS_LIVE_FROM
+    return (
+        algorithm_version == PURPOSE_ADAPTERS_LIVE_FROM
+        or algorithm_version in PURPOSE_ADAPTERS_LIVE_SUCCESSORS
+    )
 
 
 def scheduling_write_authority(algorithm_version: str | None) -> str:
@@ -689,6 +700,7 @@ def run_cutover_gates(
 __all__ = [
     "P1_SCHEDULER_ALGORITHM_VERSION",
     "PURPOSE_ADAPTERS_LIVE_FROM",
+    "PURPOSE_ADAPTERS_LIVE_SUCCESSORS",
     "P0_ALGORITHM_VERSION",
     "KM_ALGORITHM_VERSION",
     "CANONICAL_STATE_VERSIONS",

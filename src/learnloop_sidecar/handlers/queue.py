@@ -7,7 +7,12 @@ from learnloop.services.instrument_serving import (
     unservable_refusal,
 )
 from learnloop.services.proposals import queue_accepted_diagnostic_followups
-from learnloop.services.scheduler import SchedulerSession, build_due_queue, explain_practice_item
+from learnloop.services.scheduler import (
+    SchedulerSession,
+    build_due_queue,
+    deferred_cold_followups,
+    explain_practice_item,
+)
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.ingest_jobs import _APPLYING_JOB_TYPES
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -108,12 +113,33 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             for item in queue
         ],
     )
+    # Cold checks the scheduler is withholding because their answer was shown
+    # since they were scheduled. They are NOT queue items — they were removed
+    # before ranking — so they ride alongside the sections rather than in them,
+    # and the surface reports them as waiting rather than offering them.
+    deferrals = [
+        {
+            **row,
+            "learning_object_title": (
+                learning_object.title
+                if (
+                    learning_object := vault.learning_objects.get(
+                        str(row.get("learning_object_id") or "")
+                    )
+                )
+                is not None
+                else row.get("learning_object_id")
+            ),
+        }
+        for row in deferred_cold_followups(vault, repository)
+    ]
     return versioned(
         {
             "generated_at": _nowish(),
             "session_id": params.session_id,
             "sections": _sections(dtos),
             "total_items": len(dtos),
+            "deferred_cold_checks": deferrals,
         }
     )
 

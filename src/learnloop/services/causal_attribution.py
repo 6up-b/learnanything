@@ -16,9 +16,13 @@ from difflib import SequenceMatcher
 from typing import Literal
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.services.error_taxonomy_map import (
+    MECHANISM_PROJECTION_OPEN_SET,
+    project_mechanism,
+)
 from learnloop.services.capability_mapping import (
     CriterionOutcome,
     localize_criterion_outcomes,
@@ -1497,6 +1501,109 @@ def _event_candidate_causes(event: dict[str, Any]) -> list[dict[str, Any]]:
     return raw_candidates
 
 
+def _raw_prior_weight(candidate: Mapping[str, Any]) -> float | None:
+    value = candidate.get("prior_weight")
+    if value is None:
+        return None
+    try:
+        weight = float(value)
+    except (TypeError, ValueError):
+        return None
+    return weight if weight >= 0.0 else None
+
+
+def normalized_prior_weights(
+    candidates: Sequence[Mapping[str, Any]],
+) -> tuple[list[float], str]:
+    """Normalize the grader's verbalized candidate weights across one set.
+
+    Returns ``(weights, basis)`` where ``weights`` sums to 1 (or is empty).
+
+    The weights arrive as VERBALIZED PRIORS: the grader drafts the candidate set
+    in one pass and says out loud how plausible each arm is relative to the
+    others. That is a statement, not a measurement, and the house rule for
+    model-reported quantities holds — normalize it, carry it, and never treat it
+    as a calibrated probability (the same standing constraint that keeps
+    ``raw_grade_events.model_confidence`` out of every product).
+
+    Three bases, all recorded so a reader can tell which they are looking at:
+
+    * ``model_verbalized`` — every candidate carried a weight.
+    * ``model_verbalized_partial`` — some did. The silent ones take the MEAN of
+      the stated ones, which is the neutral position: it neither promotes an arm
+      the grader declined to rank nor buries it.
+    * ``uniform_no_weights`` — none did (or they were all zero). This is also
+      what every pre-slice-3 payload produces, which is the point: an old
+      hypothesis without weights behaves exactly as it did before.
+    """
+
+    count = len(candidates)
+    if count == 0:
+        return [], "uniform_no_weights"
+    raw = [_raw_prior_weight(candidate) for candidate in candidates]
+    stated = [value for value in raw if value is not None]
+    if not stated or sum(stated) <= 0.0:
+        return [1.0 / count] * count, "uniform_no_weights"
+    mean = sum(stated) / len(stated)
+    filled = [mean if value is None else value for value in raw]
+    total = sum(filled)
+    if total <= 0.0:
+        return [1.0 / count] * count, "uniform_no_weights"
+    basis = (
+        "model_verbalized"
+        if len(stated) == count
+        else "model_verbalized_partial"
+    )
+    return [value / total for value in filled], basis
+
+
+def _discriminating_predictions(candidate: Mapping[str, Any]) -> list[str]:
+    """The candidate's free-text falsifiable expectations, in authored order.
+
+    Content is never inspected: these are what the grader says would be observed
+    if this cause held, and the only rule about them lives in the PROMPT (two
+    candidates predicting the same observations are one candidate). Nothing here
+    merges, dedupes, or rejects.
+    """
+
+    return [
+        text
+        for text in (
+            str(value).strip()
+            for value in candidate.get("discriminating_predictions") or []
+            if isinstance(value, (str, int, float))
+        )
+        if text
+    ]
+
+
+def hypothesis_mechanism_projection(
+    hypothesis: Mapping[str, Any],
+) -> tuple[str | None, str]:
+    """The post-hoc mechanism projection stored on a hypothesis.
+
+    Returns ``(mechanism, basis)``; ``(None, "open_set")`` for a candidate the
+    taxonomy could not name AND for every hypothesis drafted before slice 3 —
+    the two are the same statement ("no mechanism claim here"), and neither is a
+    defect.
+
+    Reads ``evidence``, never the ``mechanism`` COLUMN: that column carries the
+    LEARNED taxonomy id minted by :func:`mint_causal_mechanism_taxonomy` from
+    clustered operations, which is a different vocabulary answering a different
+    question.
+    """
+
+    evidence = hypothesis.get("evidence")
+    projection = (
+        evidence.get("mechanism_projection") if isinstance(evidence, Mapping) else None
+    )
+    if not isinstance(projection, Mapping):
+        return None, MECHANISM_PROJECTION_OPEN_SET
+    mechanism = projection.get("mechanism")
+    basis = str(projection.get("basis") or MECHANISM_PROJECTION_OPEN_SET)
+    return (str(mechanism) if mechanism else None), basis
+
+
 def _candidate_status(candidate: dict[str, Any]) -> str:
     return (
         "open_set"
@@ -1563,7 +1670,12 @@ def _hypothesis_specs(
     for event in repository.error_events_for_attempt(attempt_id):
         plan = event.get("repair_plan")
         plan = plan if isinstance(plan, dict) else {}
-        for candidate in _event_candidate_causes(event):
+        event_candidates = _event_candidate_causes(event)
+        # Weights are normalized across the EVENT's candidate set, because that
+        # is the set the grader ranked in one pass. Normalizing across the whole
+        # attempt would silently make two independent rankings compete.
+        prior_weights, prior_weight_basis = normalized_prior_weights(event_candidates)
+        for index, candidate in enumerate(event_candidates):
             statement = str(candidate.get("statement") or "").strip()
             if not statement:
                 continue
@@ -1572,6 +1684,10 @@ def _hypothesis_specs(
             status = _candidate_status(candidate)
             candidate_key = _candidate_key(
                 candidate, target_ref=target_ref, status=status
+            )
+            mechanism, mechanism_basis = project_mechanism(
+                declared=candidate.get("mechanism"),
+                error_type=event.get("error_type"),
             )
             spec = {
                 "episode_key": (
@@ -1632,7 +1748,28 @@ def _hypothesis_specs(
                         else event.get("misconception_consistent_answer")
                     ),
                     "facet_contrast": plan.get("facet_contrast"),
+                    # Slice 3: the joint-drafting evidence. `prior_weight` is a
+                    # normalized VERBALIZED prior, never a measurement — the
+                    # probe lane seeds its hypothesis-set prior from it, and
+                    # nothing else may read it as a probability.
+                    "prior_weight": prior_weights[index],
+                    "prior_weight_raw": _raw_prior_weight(candidate),
+                    "prior_weight_basis": prior_weight_basis,
+                    "discriminating_predictions": _discriminating_predictions(
+                        candidate
+                    ),
+                    "mechanism_projection": {
+                        "mechanism": mechanism,
+                        "basis": mechanism_basis,
+                        "model_declared": candidate.get("mechanism"),
+                    },
                 },
+                # NOTE the projection lives in `evidence`, NOT in the
+                # `mechanism` COLUMN. That column belongs to the LEARNED
+                # taxonomy `mint_causal_mechanism_taxonomy` mints by clustering
+                # operations; writing a §10.1 error mechanism there would put
+                # two unrelated vocabularies in one field and silently version
+                # every existing hypothesis on the next materialization.
                 **_repair_mapping_fields(
                     repair_classes,
                     target_ref=target_ref,
@@ -1659,9 +1796,15 @@ def _hypothesis_specs(
         attempt_id, status="open"
     ):
         refs: list[dict[str, Any]] = []
-        for candidate in factor.get("candidate_causes") or []:
-            if not isinstance(candidate, dict):
-                continue
+        factor_candidates = [
+            value
+            for value in factor.get("candidate_causes") or []
+            if isinstance(value, dict)
+        ]
+        factor_weights, factor_weight_basis = normalized_prior_weights(
+            factor_candidates
+        )
+        for candidate_index, candidate in enumerate(factor_candidates):
             statement = str(candidate.get("statement") or "").strip()
             if not statement:
                 continue
@@ -1686,6 +1829,11 @@ def _hypothesis_specs(
             if matching:
                 refs.append(matching[0])
                 continue
+            # No error event backs this candidate, so the only label available
+            # to the projection is the one the model volunteered.
+            _factor_mechanism = project_mechanism(
+                declared=candidate.get("mechanism")
+            )
             spec = {
                 "episode_key": (
                     f"{attempt_id}:factor:{factor['id']}:{candidate_key}"
@@ -1713,6 +1861,17 @@ def _hypothesis_specs(
                 "evidence": {
                     "unresolved_cause_factor_id": factor["id"],
                     "observation_id": factor.get("observation_id"),
+                    "prior_weight": factor_weights[candidate_index],
+                    "prior_weight_raw": _raw_prior_weight(candidate),
+                    "prior_weight_basis": factor_weight_basis,
+                    "discriminating_predictions": _discriminating_predictions(
+                        candidate
+                    ),
+                    "mechanism_projection": {
+                        "mechanism": _factor_mechanism[0],
+                        "basis": _factor_mechanism[1],
+                        "model_declared": candidate.get("mechanism"),
+                    },
                 },
                 **_repair_mapping_fields(
                     repair_classes,
@@ -2456,6 +2615,201 @@ def materialize_causal_episode(
         repository, attempt=attempt, concrete=concrete, clock=clock
     )
     return receipt
+
+
+def append_dialogue_candidate(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    candidate: Mapping[str, Any],
+    question_event_id: str,
+    remediation_episode_id: str | None = None,
+    post_reveal: bool = False,
+    generation_agent_run_id: str | None = None,
+    model: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Append a hypothesis version for a cause the DIALOGUE surfaced.
+
+    WHY THIS LIVES HERE. ``causal_hypotheses`` has exactly one producer —
+    :func:`materialize_causal_episode` — and that is not an accident of layout.
+    A second writer somewhere else would mean two conventions for episode keys,
+    two ideas of what a candidate's evidence looks like, and two places to
+    change when either moves. So a re-draft is a function in THIS module that
+    reuses :func:`_hypothesis_specs`' conventions and appends a version through
+    the same repository seam; the tutor calls it, best-effort, and owns nothing
+    about how a hypothesis is shaped.
+
+    WHAT MAKES IT A NEW EPISODE RATHER THAN A REVISION. The episode key names
+    the QUESTION (``{attempt_id}:question:{question_event_id}:{candidate_key}``),
+    parallel to the ``:event:`` and ``:factor:`` scopes. The attempt's own
+    hypotheses are claims the written work supports; this one is a claim only
+    the exchange supports, and collapsing the two would let a dialogue silently
+    rewrite what the trace said. Re-asking the same question appends nothing new
+    (the repository returns the identical head).
+
+    ``post_reveal`` is recorded, not enforced. It is a fact about the
+    conversation the hypothesis came out of, and a reader deciding how much
+    weight to give a candidate drafted after the answer was on screen needs to
+    be able to see it. The guardrail that actually matters is in the tutor
+    PROMPT: after an answer, the model may only name causes grounded in what the
+    learner said, because anything else it would say about their beliefs
+    describes its own explanation.
+    """
+
+    statement = str(candidate.get("statement") or "").strip()
+    if not statement or not question_event_id:
+        return None
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    if attempt is None:
+        return None
+    learning_object_id = str(attempt.get("learning_object_id") or "")
+    item_id = str(attempt.get("practice_item_id") or "")
+    item = vault.practice_items.get(item_id)
+    surface_family = None
+    if item is not None:
+        from learnloop.services.canonical_projection import surface_group_id
+
+        surface_family = surface_group_id(item)
+    target_ref = candidate.get("target_ref")
+    target_ref = dict(target_ref) if isinstance(target_ref, dict) else None
+    status = _candidate_status(dict(candidate))
+    candidate_key = _candidate_key(
+        dict(candidate), target_ref=target_ref, status=status
+    )
+    mechanism, mechanism_basis = project_mechanism(
+        declared=candidate.get("mechanism")
+    )
+    # A single candidate is its own set: whatever weight the model verbalized,
+    # normalizing one arm gives 1.0. The RAW value is kept so a later reader can
+    # see the model had (or had not) an opinion.
+    weights, weight_basis = normalized_prior_weights([candidate])
+    return repository.append_causal_hypothesis(
+        episode_key=f"{attempt_id}:question:{question_event_id}:{candidate_key}",
+        attempt_id=attempt_id,
+        error_event_id=None,
+        learning_object_id=learning_object_id,
+        cause_scope=str(candidate.get("cause_scope") or "learner_state"),
+        statement=statement,
+        statement_normalized=_normalized(statement),
+        operation=candidate.get("operation"),
+        target_ref=target_ref,
+        applicability={
+            "practice_item_id": item_id,
+            "surface_family": surface_family,
+            "question_event_id": question_event_id,
+        },
+        postdictive_claims=[],
+        evidence={
+            "channel": "learner_question_dialogue",
+            "question_event_id": question_event_id,
+            "remediation_episode_id": remediation_episode_id,
+            "post_reveal": bool(post_reveal),
+            "prior_weight": weights[0] if weights else 1.0,
+            "prior_weight_raw": _raw_prior_weight(candidate),
+            "prior_weight_basis": weight_basis,
+            "discriminating_predictions": _discriminating_predictions(candidate),
+            "mechanism_projection": {
+                "mechanism": mechanism,
+                "basis": mechanism_basis,
+                "model_declared": candidate.get("mechanism"),
+            },
+        },
+        **_repair_mapping_fields(
+            [],
+            target_ref=target_ref,
+            criterion_ids=candidate.get("target_criterion_ids") or [],
+            status=status,
+        ),
+        status=status,
+        generation_agent_run_id=generation_agent_run_id,
+        model=model,
+        clock=clock,
+    )
+
+
+ELICITING_RESPONSE_REASON = "eliciting_response"
+
+
+def record_eliciting_response(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    suggestion_index: int,
+    response_md: str,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Record the learner's unaided answer to an eliciting repair's question.
+
+    An eliciting suggestion asks ONE question instead of showing the corrected
+    work; the answer is the evidence the suggestion exists to produce. Recorded
+    on the same ``causal_attribution_reports`` seam as the one-tap self-report,
+    because it is the same KIND of thing — the learner's own account, attached
+    to the open factor, engaging it. That shared seam is also what makes it
+    count as an engagement signal in ``causal_factor_deferral``.
+
+    It is a factor RESPONSE, never a grade and never a promotion. Nothing here
+    resolves the factor, moves a posterior, or confirms a candidate: the
+    response is prose, and the machinery that could act on it is the cold
+    verification lane, which requires an unaided production on a real item.
+
+    ADMISSIBILITY (step 4). If the item's answer was revealed before the
+    response was written, the response is not independent evidence — it may be a
+    restatement of what the screen said. The report is still recorded (a
+    learner's engagement is not erased by contamination) and the finding is
+    stamped in the payload so no later reader can mistake it for clean.
+    """
+
+    response_md = (response_md or "").strip()
+    if not response_md:
+        raise ValueError("an eliciting response cannot be empty")
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    if attempt is None:
+        raise ValueError("attempt does not exist")
+    factors = repository.unresolved_cause_factors_for_attempt(
+        attempt_id, status="open"
+    )
+    if not factors:
+        raise ValueError("attempt has no open causal factor to respond to")
+    factor = factors[0]
+
+    from learnloop.services.reveal_ledger import production_admissibility
+
+    admissibility = production_admissibility(
+        repository,
+        practice_item_id=str(attempt.get("practice_item_id") or "") or None,
+        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
+        produced_at=utc_now_iso(clock),
+    )
+    report_id = new_ulid()
+    observation_id = f"eliciting_response:{report_id}"
+    repository.insert_causal_attribution_report(
+        report_id=report_id,
+        factor_id=str(factor["id"]),
+        attempt_id=attempt_id,
+        response=ELICITING_RESPONSE_REASON,
+        candidate_index=None,
+        payload={
+            "observation_id": observation_id,
+            "suggestion_index": suggestion_index,
+            "response_md": response_md,
+            "admissible_as_independent": admissibility.admissible,
+            "inadmissibility_reason": admissibility.reason,
+            "contaminating_reveal_event_id": admissibility.reveal_event_id,
+        },
+        clock=clock,
+    )
+    return {
+        "report_id": report_id,
+        "factor_id": str(factor["id"]),
+        "attempt_id": attempt_id,
+        "suggestion_index": suggestion_index,
+        "observation_id": observation_id,
+        "admissible_as_independent": admissibility.admissible,
+        "inadmissibility_reason": admissibility.reason,
+    }
 
 
 def causal_episode_for_attempt(

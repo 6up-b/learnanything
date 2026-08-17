@@ -1251,7 +1251,12 @@ _PROBE_RECEIPT_LIMIT = 100_000
 def probe_action_change_rate(repository: Repository) -> Metric:
     """Probes whose outcome changed the selected repair, over probes administered."""
 
-    observations = repository.causal_discriminating_observations()
+    # Probe-channel only: a learner-question-embedded prediction is a real
+    # observation but was never a probe, and counting it here would deflate the
+    # action-change rate with a denominator that never had an action to change.
+    observations = repository.causal_discriminating_observations(
+        probe_channel_only=True
+    )
     administered = len(observations)
     changed = sum(
         1

@@ -917,6 +917,14 @@ pub async fn report_unresolved_cause(
 }
 
 #[tauri::command]
+pub async fn submit_eliciting_response(
+    input: Value,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "submit_eliciting_response", input).await
+}
+
+#[tauri::command]
 pub async fn contest_causal_diagnosis(
     input: Value,
     sidecar: State<'_, SidecarManager>,

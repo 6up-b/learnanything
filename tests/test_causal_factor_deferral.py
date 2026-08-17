@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.services.attempts import (
@@ -268,7 +270,9 @@ def _failed_ordinary(
     return result
 
 
-def _clean_attempt(vault, repository, *, attempt_id, item_id, clock, rubric_score=4):
+def _clean_attempt(
+    vault, repository, *, attempt_id, item_id, clock, rubric_score=4, primed=False
+):
     now_iso = clock.now().isoformat().replace("+00:00", "Z")
     return apply_attempt(
         vault,
@@ -278,6 +282,7 @@ def _clean_attempt(vault, repository, *, attempt_id, item_id, clock, rubric_scor
                 practice_item_id=item_id,
                 learner_answer_md="V",
                 attempt_type="independent_attempt",
+                primed=primed,
             ),
             attempt_id=attempt_id,
             grade=ResolvedGrade(
@@ -946,3 +951,179 @@ def test_projection_sync_does_not_resurrect_deferral_closed_factors(tmp_path):
     assert by_observation["obs_retired"]["resolution_kind"] == "expired_unengaged"
     assert by_observation["obs_new"]["status"] == "open"
     assert len(factors) == 3
+
+
+# --- invariant: only a COLD verification may resolve a factor ----------------
+#
+# The deferral exits above are the whole promotion-discipline story, so the
+# invariant they rest on has to be pinned directly: a primed attempt is repair
+# ACTIVITY, never repair EVIDENCE. Nothing a learner does with the answer in
+# view may resolve an unresolved-cause factor as `repair_confirmed` or withdraw
+# the candidate belief behind it. Both halves are tested — the declared primed
+# retry and the one the reveal ledger forces (migration 154), because the
+# second is the one a client could otherwise have lied its way past.
+
+
+def _factor_is_untouched(repository, factor, hypothesis_ids):
+    still_open = repository.unresolved_cause_factor(str(factor["id"]))
+    assert still_open["status"] == "open"
+    assert still_open["resolution_kind"] is None
+    hypothesis = repository.causal_hypothesis(hypothesis_ids[0])
+    head = repository.latest_causal_hypothesis_for_episode(hypothesis["episode_key"])
+    assert head["status"] == "candidate"
+    assert "withdrawal" not in (head.get("evidence") or {})
+    assert repository.misconception_candidate_by_normalized(LO_ID, STATEMENT)
+
+
+def test_a_primed_attempt_can_never_resolve_a_factor(tmp_path):
+    from learnloop.services.causal_probe_coherence import ColdVerificationPrecondition
+
+    vault, repository = _vault(tmp_path)
+    _failed_diagnostic(
+        vault, repository, attempt_id="att_pr_src", item_id=ITEM_A, clock=_clock()
+    )
+    factor = _open_factor(repository, "att_pr_src")
+    repair_class_id, hypothesis_ids = _factor_repair_class(factor)
+
+    # A perfect PRIMED performance on an independent surface, two days later:
+    # everything a cold verification wants except the one thing that matters.
+    _clean_attempt(
+        vault,
+        repository,
+        attempt_id="att_pr_cold",
+        item_id=ITEM_B,
+        clock=_clock(days=2),
+        primed=True,
+    )
+    assert repository.fetch_practice_attempt("att_pr_cold")["primed"] == 1
+    # The post-attempt path recorded no verification of its own accord...
+    assert repository.causal_cold_verification_for_attempt("att_pr_cold") is None
+    _factor_is_untouched(repository, factor, hypothesis_ids)
+
+    # ... and the one write seam that COULD resolve it refuses the pair by
+    # precondition rather than recording a weaker verification.
+    with pytest.raises(ColdVerificationPrecondition) as raised:
+        _cold_verification(
+            vault,
+            repository,
+            source_attempt_id="att_pr_src",
+            cold_attempt_id="att_pr_cold",
+            repair_class_id=repair_class_id,
+            hypothesis_ids=hypothesis_ids,
+            clock=_clock(days=2),
+        )
+    assert raised.value.reason == "contaminated_or_assisted"
+    assert raised.value.detail["primed"] is True
+    _factor_is_untouched(repository, factor, hypothesis_ids)
+
+
+def test_an_auto_primed_attempt_can_never_resolve_a_factor(tmp_path):
+    """The client declares `primed`; the reveal ledger overrules it. An attempt
+    submitted as clean after the answer was handed over is repair activity by
+    record, and the refusal must key on the RECORDED flag, not the declared one."""
+
+    from learnloop.services.attempts import AUTO_PRIME_REVEAL_THRESHOLD
+    from learnloop.services.causal_probe_coherence import ColdVerificationPrecondition
+
+    vault, repository = _vault(tmp_path)
+    _failed_diagnostic(
+        vault, repository, attempt_id="att_ap_src", item_id=ITEM_A, clock=_clock()
+    )
+    factor = _open_factor(repository, "att_ap_src")
+    repair_class_id, hypothesis_ids = _factor_repair_class(factor)
+
+    repository.insert_reveal_event(
+        {
+            "practice_item_id": ITEM_B,
+            "learning_object_id": LO_ID,
+            "source_kind": "tutor_answer",
+            "amount": AUTO_PRIME_REVEAL_THRESHOLD + 0.1,
+            "basis": "test",
+        },
+        clock=_clock(days=1),
+    )
+    result = _clean_attempt(
+        vault,
+        repository,
+        attempt_id="att_ap_cold",
+        item_id=ITEM_B,
+        clock=_clock(days=2),
+        primed=False,
+    )
+    # Submitted unprimed, recorded primed, and the reason survives on the row.
+    assert repository.fetch_practice_attempt("att_ap_cold")["primed"] == 1
+    debug = repository.attempt_debug_payload(result.attempt_id)
+    assert debug["auto_primed_reveal_total"] == AUTO_PRIME_REVEAL_THRESHOLD + 0.1
+    _factor_is_untouched(repository, factor, hypothesis_ids)
+
+    with pytest.raises(ColdVerificationPrecondition) as raised:
+        _cold_verification(
+            vault,
+            repository,
+            source_attempt_id="att_ap_src",
+            cold_attempt_id="att_ap_cold",
+            repair_class_id=repair_class_id,
+            hypothesis_ids=hypothesis_ids,
+            clock=_clock(days=2),
+        )
+    assert raised.value.reason == "contaminated_or_assisted"
+    _factor_is_untouched(repository, factor, hypothesis_ids)
+
+
+def test_only_the_cold_seam_writes_factor_resolutions(tmp_path):
+    """The invariant is structural, not incidental: `record_delayed_cold_
+    verification` — which cannot be reached by a primed attempt — is the only
+    caller of the factor-resolution routine anywhere in the service layer."""
+
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "learnloop"
+    callers = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*.py")
+        if re.search(r"^\s*apply_cold_verification_to_factors\(", path.read_text(), re.M)
+    }
+    assert callers == {"services/causal_probe_coherence.py"}
+
+
+def test_a_primed_attempt_is_not_eligible_for_fsrs(tmp_path):
+    """FSRS dampening for primed attempts: the causal activity policy classifies
+    a primed non-diagnostic attempt as `repair_activity`, whose whole row is
+    ineligible — the review is SKIPPED, not merely rating-capped, so the card's
+    scheduling state is untouched by a retry taken with the answer in view."""
+
+    from learnloop.services.causal_activity_policy import classify_attempt_activity
+
+    policy = classify_attempt_activity(
+        attempt_type="independent_attempt", primed=True, hints_used=0
+    )
+    assert policy.contamination_class == "repair_activity"
+    assert policy.eligible_for_fsrs is False
+    assert policy.eligible_for_certification is False
+    assert policy.counts_as_assisted is True
+
+    vault, repository = _vault(tmp_path)
+    # A clean cold review first, so the card HAS scheduling state to protect.
+    _clean_attempt(
+        vault, repository, attempt_id="att_fsrs_cold", item_id=ITEM_B, clock=_clock()
+    )
+    before = repository.practice_item_state(ITEM_B)
+    assert before.due_at is not None
+
+    _clean_attempt(
+        vault,
+        repository,
+        attempt_id="att_fsrs_primed",
+        item_id=ITEM_B,
+        clock=_clock(days=1),
+        primed=True,
+    )
+    after = repository.practice_item_state(ITEM_B)
+    # No review applied: stability, difficulty and the due date all stand.
+    assert after.due_at == before.due_at
+    assert after.stability == before.stability
+    assert after.difficulty == before.difficulty
+    # The attempt itself is still recorded — ineligible for FSRS is not
+    # invisible.
+    assert after.last_attempt_at == _clock(days=1).now().isoformat().replace("+00:00", "Z")

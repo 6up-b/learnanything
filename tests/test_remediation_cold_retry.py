@@ -239,6 +239,169 @@ def test_starting_the_same_repair_twice_reuses_one_episode(tmp_path):
     assert count == 1
 
 
+# --- reveal-aware serving (migration 154) ------------------------------------
+
+
+def _seed_reveal(repository, item_id, amount, *, clock, source_kind="tutor_answer", episode_id=None):
+    return repository.insert_reveal_event(
+        {
+            "practice_item_id": item_id,
+            "learning_object_id": LO_ID,
+            "remediation_episode_id": episode_id,
+            "source_kind": source_kind,
+            "amount": amount,
+            "basis": "test",
+        },
+        clock=clock,
+    )
+
+
+def _cold_lane_ids(vault, repository, clock):
+    """Items the queue is serving AS the cold-retry lane this build.
+
+    Not plain queue membership: the cold item is an ordinary practice card too,
+    so it can sit in the queue on its own merits. What the deferral withholds is
+    the delayed COLD lane — the max-priority resurrection whose `followup_kind`
+    says the serve is the measurement.
+    """
+
+    from learnloop.services.scheduler import build_due_queue
+
+    return [
+        item.practice_item_id
+        for item in build_due_queue(vault, repository, clock=clock)
+        if item.followup_kind == "cold_retry"
+    ]
+
+
+def test_reveal_after_scheduling_defers_the_cold_retry_instead_of_burning_it(tmp_path):
+    """The single-use measurement is worth more than its promptness: a due cold
+    task whose answer has been shown since it was created is withheld and its
+    `not_before` pushed a full retrieval delay past the reveal, rather than
+    served and spent on contaminated evidence."""
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    task_id = next(
+        task["id"] for task in _all_tasks(repository) if task["kind"] == "cold_retry"
+    )
+    original = repository.followup_task(task_id)
+
+    # Due, clean, and served: the baseline the deferral has to change.
+    assert cold_item in _cold_lane_ids(vault, repository, FrozenClock(NOW + timedelta(days=1)))
+
+    _seed_reveal(
+        repository,
+        cold_item,
+        0.2,
+        source_kind="repair_display",
+        clock=FrozenClock(NOW + timedelta(days=1, hours=1)),
+    )
+    at = FrozenClock(NOW + timedelta(days=1, hours=2))
+    assert cold_item not in _cold_lane_ids(vault, repository, at)
+
+    deferred = repository.followup_task(task_id)
+    assert deferred["not_before"] == (
+        (NOW + timedelta(days=2, hours=1)).isoformat().replace("+00:00", "Z")
+    )
+    # The window itself is NEVER extended — only the earliest serve time moves.
+    assert deferred["expires_at"] == original["expires_at"]
+    assert deferred["status"] != "consumed"
+
+    # Still withheld an hour before the delay elapses...
+    assert cold_item not in _cold_lane_ids(
+        vault, repository, FrozenClock(NOW + timedelta(days=2))
+    )
+    # ... and served once it does, with the task never having been spent.
+    assert cold_item in _cold_lane_ids(
+        vault, repository, FrozenClock(NOW + timedelta(days=2, hours=2))
+    )
+    cold = _attempt(
+        vault, repository, cold_item, clock=FrozenClock(NOW + timedelta(days=2, hours=2))
+    )
+    assert repository.followup_task(task_id)["consumed_attempt_id"] == cold.attempt_id
+
+
+def test_an_attempt_during_the_deferral_cannot_burn_the_measurement(tmp_path):
+    """Defer rather than burn: while the push is in force the task is not due,
+    so an ordinary attempt on the same card links nothing and the single-use
+    measurement is still there to be spent when the item is cold again."""
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    task_id = next(
+        task["id"] for task in _all_tasks(repository) if task["kind"] == "cold_retry"
+    )
+    _seed_reveal(
+        repository, cold_item, 0.2, clock=FrozenClock(NOW + timedelta(days=1, hours=1))
+    )
+    at = FrozenClock(NOW + timedelta(days=1, hours=2))
+    assert cold_item not in _cold_lane_ids(vault, repository, at)
+
+    _attempt(vault, repository, cold_item, clock=at)
+    task = repository.followup_task(task_id)
+    assert task["status"] != "consumed"
+    assert task["consumed_attempt_id"] is None
+
+
+def test_a_deferred_cold_retry_still_expires_on_its_original_window(tmp_path):
+    """Deferral can never outlive the task: an episode that keeps being
+    revealed runs out its original 30-day window and censors honestly."""
+
+    from learnloop.services.causal_orchestrator import sweep_expired_cold_retries
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    task_id = next(
+        task["id"] for task in _all_tasks(repository) if task["kind"] == "cold_retry"
+    )
+    expires_at = repository.followup_task(task_id)["expires_at"]
+
+    # A reveal on the last day pushes `not_before` past the expiry.
+    _seed_reveal(
+        repository, cold_item, 0.4, clock=FrozenClock(NOW + timedelta(days=30, hours=12))
+    )
+    at = FrozenClock(NOW + timedelta(days=30, hours=13))
+    assert cold_item not in _cold_lane_ids(vault, repository, at)
+    deferred = repository.followup_task(task_id)
+    assert deferred["not_before"] > expires_at
+    assert deferred["expires_at"] == expires_at
+
+    # Past the (unchanged) expiry the queue's own sweep retires it, and the
+    # §4.3 sweep records the honest right-censoring.
+    after = FrozenClock(NOW + timedelta(days=32))
+    assert cold_item not in _cold_lane_ids(vault, repository, after)
+    assert repository.followup_task(task_id)["status"] == "expired"
+    recorded = sweep_expired_cold_retries(vault, repository, clock=after)
+    assert [row["outcome"] for row in recorded] == ["right_censored_expired"]
+
+
+def test_only_the_cold_lane_is_deferred_by_a_reveal(tmp_path):
+    """An intervention follow-up is re-practice, not a measurement: being shown
+    the answer is not a reason to withhold it."""
+
+    from learnloop.services.scheduler import _defer_revealed_cold_followups
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    _seed_reveal(
+        repository, cold_item, 0.9, clock=FrozenClock(NOW + timedelta(days=1, hours=1))
+    )
+    at = FrozenClock(NOW + timedelta(days=1, hours=2))
+    pending = repository.pending_followup_practice_items(clock=at)
+    generic = [
+        dict(entry, action_type="intervention_followup") for entry in pending
+    ]
+
+    kept, deferrals = _defer_revealed_cold_followups(
+        vault, repository, generic, clock=at, persist=False
+    )
+    assert [entry["practice_item_id"] for entry in kept] == [
+        entry["practice_item_id"] for entry in generic
+    ]
+    assert deferrals == []
+
+
 def test_exam_attempt_does_not_consume_the_cold_retry(tmp_path):
     """An exam sitting that happens to serve the cold item must not burn the
     one unassisted cold measurement on proctored, time-pressured context."""
@@ -282,3 +445,116 @@ def test_exam_attempt_does_not_consume_the_cold_retry(tmp_path):
     assert refreshed["status"] == "consumed"
     assert refreshed["consumed_attempt_id"] == cold_result.attempt_id
     assert repository.remediation_episode(episode["id"])["state"] == "completed"
+
+
+# --- episode reveal budget (migration 154) -----------------------------------
+
+
+def test_repair_status_reports_episode_reveal_spend_against_the_budget(tmp_path):
+    """The repair status is the one read a surface makes before it teaches, so
+    it is where "how much of the answer has this repair already handed over?"
+    has to be answerable. Reported, never enforced — nothing is refused here."""
+
+    from learnloop.services.causal_orchestrator import causal_repair_status
+    from learnloop.services.remediation import EPISODE_REVEAL_BUDGET
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    status = causal_repair_status(
+        vault, repository, misconception_id=misconception_id, clock=FrozenClock(NOW)
+    )
+    assert status.episode is not None
+    assert status.reveal_spend == 0.0
+    assert status.reveal_budget == EPISODE_REVEAL_BUDGET
+
+    episode_id = status.episode["id"]
+    _seed_reveal(
+        repository, "pi_svd_define_001", 0.5, clock=FrozenClock(NOW), episode_id=episode_id
+    )
+    _seed_reveal(
+        repository,
+        "pi_svd_define_001",
+        0.4,
+        source_kind="repair_display",
+        clock=FrozenClock(NOW),
+        episode_id=episode_id,
+    )
+    # An UNATTRIBUTED reveal is still a reveal, but it is not this episode's
+    # spend: attribution is the ledger's own column, never inferred here.
+    _seed_reveal(repository, "pi_svd_define_001", 0.7, clock=FrozenClock(NOW))
+
+    again = causal_repair_status(
+        vault, repository, misconception_id=misconception_id, clock=FrozenClock(NOW)
+    )
+    assert again.episode["id"] == episode_id
+    assert again.reveal_spend == pytest.approx(0.9)
+    assert again.reveal_spend > EPISODE_REVEAL_BUDGET
+    # ... and it reaches the wire shape the surface reads.
+    assert again.as_dict()["reveal_spend"] == pytest.approx(0.9)
+    assert again.as_dict()["reveal_budget"] == EPISODE_REVEAL_BUDGET
+
+
+def test_over_budget_episode_stamps_the_fact_on_the_cold_context(tmp_path):
+    """The verification lands up to 30 days later, from a task row. If the
+    episode was already over budget when the retry was scheduled, that fact has
+    to travel ON the task — reconstructing it later is exactly the "future
+    caller re-derives it" assumption that leaves channels unwired."""
+
+    from learnloop.services.remediation import EPISODE_REVEAL_BUDGET
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    episode = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))
+    prescribe_remediation(vault, repository, episode["id"], clock=FrozenClock(NOW))
+    treatment = start_remediation_treatment(
+        vault, repository, episode["id"], clock=FrozenClock(NOW)
+    )
+    _seed_reveal(
+        repository,
+        treatment["primed_item_id"],
+        0.9,
+        source_kind="repair_display",
+        clock=FrozenClock(NOW),
+        episode_id=episode["id"],
+    )
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+
+    task = repository.active_followup_task_for_item(
+        treatment["cold_item_id"],
+        kind="cold_retry",
+        at=(NOW + timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+    )
+    context = task["context"]
+    assert context["reveal_spend"] == pytest.approx(0.9)
+    assert context["reveal_budget"] == EPISODE_REVEAL_BUDGET
+    assert context["reveal_over_budget"] is True
+    # Measurement first, policy later: the retry is still scheduled.
+    assert task["status"] in {"pending", "served"}
+    assert repository.remediation_episode(episode["id"])["state"] == "cold_scheduled"
+
+
+def test_an_episode_within_budget_says_so(tmp_path):
+    vault, repository, misconception_id = _setup(tmp_path)
+    episode = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))
+    prescribe_remediation(vault, repository, episode["id"], clock=FrozenClock(NOW))
+    treatment = start_remediation_treatment(
+        vault, repository, episode["id"], clock=FrozenClock(NOW)
+    )
+    _seed_reveal(
+        repository,
+        treatment["primed_item_id"],
+        0.3,
+        source_kind="repair_display",
+        clock=FrozenClock(NOW),
+        episode_id=episode["id"],
+    )
+    _attempt(
+        vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
+    )
+    task = repository.active_followup_task_for_item(
+        treatment["cold_item_id"],
+        kind="cold_retry",
+        at=(NOW + timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+    )
+    assert task["context"]["reveal_spend"] == pytest.approx(0.3)
+    assert task["context"]["reveal_over_budget"] is False

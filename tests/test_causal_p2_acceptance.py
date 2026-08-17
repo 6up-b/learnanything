@@ -863,6 +863,74 @@ def test_no_bundle_matched_supports_the_open_set_but_closes_nothing(tmp_path):
     assert observation.support_scores == {first_id: 0.0, second_id: 0.0}
 
 
+def test_a_probe_answered_after_a_reveal_is_not_independent_evidence(tmp_path):
+    """Migration 155. Independence is a separate question from discrimination.
+
+    The instrument worked perfectly: the answer matched exactly one pinned
+    prediction over fully measured features. But the learner had been shown the
+    answer first, so what the observation measures is reading comprehension.
+    Admitting it would let a revealed solution CLOSE the factor its own reveal
+    contaminated, which is the loop the reveal ledger exists to break.
+    """
+
+    from learnloop.services.reveal_ledger import record_reveal
+
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    result, factor_id, first_id, _second, offer = _offered_probe(vault, repository)
+    probe_attempt = repository.fetch_practice_attempt(result.attempt_id)
+    record_reveal(
+        repository,
+        practice_item_id=str(probe_attempt["practice_item_id"]),
+        learning_object_id=str(probe_attempt["learning_object_id"]),
+        source_kind="repair_display",
+        amount=0.8,
+        # Strictly before the attempt, so the attempt is downstream of it.
+        clock=FrozenClock(NOW - timedelta(hours=1)),
+    )
+
+    observation = record_probe_classification(
+        repository,
+        presentation_id=offer.presentation_id,
+        observed_features={"names_transpose": False},
+        feature_source="deterministic",
+        probe_attempt_id=result.attempt_id,
+        clock=CLOCK,
+    )
+
+    # The verdict itself is unchanged -- the instrument is not at fault.
+    assert observation.outcome == "matched_single"
+    # ...but it earns nothing and closes nothing.
+    assert observation.admitted is False
+    assert observation.admission_reason == "post_reveal_not_independent"
+    assert observation.resolved_factor is False
+    assert observation.support_authority is None
+    assert repository.unresolved_cause_factor(factor_id)["status"] == "open"
+
+    receipt = repository.causal_discriminating_observation(observation.observation_id)
+    assert receipt["admissible_as_independent"] is False
+    assert receipt["inadmissibility_reason"] == "post_reveal_not_independent"
+    assert receipt["contaminating_reveal_event_id"]
+    assert receipt["channel"] == "blind_probe"
+
+
+def test_a_probe_answered_with_no_reveal_is_marked_independent(tmp_path):
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    result, factor_id, first_id, _second, offer = _offered_probe(vault, repository)
+
+    observation = record_probe_classification(
+        repository,
+        presentation_id=offer.presentation_id,
+        observed_features={"names_transpose": False},
+        feature_source="deterministic",
+        probe_attempt_id=result.attempt_id,
+        clock=CLOCK,
+    )
+    assert observation.admitted is True
+    receipt = repository.causal_discriminating_observation(observation.observation_id)
+    assert receipt["admissible_as_independent"] is True
+    assert receipt["inadmissibility_reason"] is None
+
+
 def test_a_verdict_over_unmeasured_features_is_inadmissible(tmp_path):
     """The exact-key matcher cannot tell "measured and different" from "not measured".
 

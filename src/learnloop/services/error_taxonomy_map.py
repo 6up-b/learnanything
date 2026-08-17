@@ -131,6 +131,58 @@ def map_legacy_error_type(error_type: str | None) -> str | None:
     return LEGACY_ERROR_TYPE_MAP.get(error_type, error_type)
 
 
+#: The mechanisms whose default repair shape is ELICITING rather than spliced:
+#: a durable wrong belief has to be made to speak again, and showing a believer
+#: the corrected work teaches recognition, not revision. Slip- and
+#: retrieval-class mechanisms keep the splice — there is no belief to elicit.
+#: This is a DEFAULT used for repair-style suggestions and telemetry. It is
+#: never a validator: the grader may propose either shape for any mechanism.
+MISCONCEPTION_CLASS_MECHANISMS: frozenset[str] = frozenset(
+    mechanism
+    for mechanism, is_misconception in MECHANISM_IS_MISCONCEPTION.items()
+    if is_misconception
+)
+
+#: Returned by :func:`project_mechanism` when nothing in the canonical space
+#: obviously fits. It is an ANNOTATION on the projection, never a hypothesis
+#: status and never a reason to reject the candidate — the taxonomy is a lens
+#: laid over free prose after the fact, and a cause it cannot name is a fact
+#: about the taxonomy.
+MECHANISM_PROJECTION_OPEN_SET = "open_set"
+
+
+def project_mechanism(
+    *,
+    declared: str | None = None,
+    error_type: str | None = None,
+) -> tuple[str | None, str]:
+    """Project a free-text candidate cause onto the mechanism space, post hoc.
+
+    Returns ``(mechanism, basis)``. ``mechanism`` is ``None`` exactly when the
+    basis is ``open_set``.
+
+    THE ONLY INPUTS ARE LABELS. The candidate's ``statement`` is deliberately
+    NOT read here — not by regex, not by keyword, not by any content rule. This
+    codebase has twice shipped content-based coercion of model diagnoses (the
+    recall-coercion regex, facet lexical anchoring) and twice removed it; a
+    projection that inspected prose would be the same mistake with a new name.
+    The model's own optional ``mechanism`` label is preferred, the hosting error
+    event's ``error_type`` is the fallback, and "no obvious fit" is a first-class
+    answer.
+
+    The projection exists for severity defaults, repair-style defaults, and
+    telemetry. It must never gate, reject, or rewrite a candidate.
+    """
+
+    for value, basis in ((declared, "model_declared"), (error_type, "error_event_type")):
+        if not value:
+            continue
+        mapped = map_legacy_error_type(str(value))
+        if mapped in MECHANISM_TAXONOMY_SET:
+            return mapped, basis
+    return None, MECHANISM_PROJECTION_OPEN_SET
+
+
 # --- Canonical grader taxonomy card (the mvp-0.7 grading contract) ---------------
 # Mirrors services.grading.CANONICAL_ERROR_TYPES (the legacy five) but in the new
 # nine-mechanism vocabulary; _grading_error_taxonomy serves this to mvp-0.7

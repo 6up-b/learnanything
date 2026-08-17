@@ -312,17 +312,23 @@ def project_administration(
 def purpose_adapter_path_live(algorithm_version: str | None) -> bool:
     """Whether the purpose-adapter path is the LIVE scheduling authority for a vault.
 
-    Live for mvp-0.8 (the fresh-vault default after the 2026-07-19 owner decision) OR
-    when the module-level global override is forced ON. Legacy vaults (mvp-0.7 /
-    mvp-0.6, or an unknown/None version) keep the purpose-blind hot-path write and
-    their characterization pins. Imported without a cycle from
-    :mod:`assessment_contracts` (:data:`P0_ALGORITHM_VERSION` == ``"mvp-0.8"``)."""
+    Live for mvp-0.8 (the fresh-vault default after the 2026-07-19 owner decision)
+    AND every successor tag on that same projection namespace (mvp-0.9 = the
+    reveal-ledger recording change, migration 154), OR when the module-level global
+    override is forced ON. Legacy vaults (mvp-0.7 / mvp-0.6, or an unknown/None
+    version) keep the purpose-blind hot-path write and their characterization pins.
+
+    The membership test is against :data:`P0_PROJECTION_VERSIONS`, never against
+    :data:`P0_ALGORITHM_VERSION` directly: this gate is what
+    ``attempts.apply_attempt`` consults, so an equality check would silently return
+    every fresh vault to the legacy unconditional FSRS write on each version bump.
+    Imported without a cycle from :mod:`assessment_contracts`."""
 
     if P1_PURPOSE_ADAPTERS_ENABLED:
         return True
-    from learnloop.services.assessment_contracts import P0_ALGORITHM_VERSION
+    from learnloop.services.assessment_contracts import P0_PROJECTION_VERSIONS
 
-    return algorithm_version == P0_ALGORITHM_VERSION
+    return algorithm_version in P0_PROJECTION_VERSIONS
 
 
 def hot_path_applies_practice_review(

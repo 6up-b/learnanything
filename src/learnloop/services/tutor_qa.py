@@ -10,12 +10,20 @@ Design decisions (agreed spec):
   This is simpler than a write-side update, cannot drift from a
   rebuild-derived-state replay, and reaches every consumer of the diagnostic
   view (facet radar, diagnostics) without new plumbing.
-- **Hint equivalence.** Substantive mid-attempt questions (prerequisite,
-  mechanism, strategy) are hint-equivalents; clarification, verification, and
-  other are free. The sidecar submit path counts hint-equivalent question
-  events for the (practice item, session) newer than the previous attempt on
-  the item and adds them to the UI hint count, flowing through the existing
-  hint dampening / FSRS rating caps.
+- **Hint equivalence.** Substantive questions (prerequisite, mechanism,
+  strategy) about a bound practice item are hint-equivalents; clarification,
+  verification, and other are free. This follows the ITEM, not the surface —
+  a feedback-screen question counts for the next attempt exactly as a
+  mid-attempt one does. The sidecar submit path counts hint-equivalent
+  question events for the (practice item, session) newer than the previous
+  attempt on the item and adds them to the UI hint count, flowing through the
+  existing hint dampening / FSRS rating caps.
+- **Reveal accounting.** Every answer about a bound item is scored for how
+  much of the expected answer it exposed (``answer_leak_overlap``) and, when
+  that is non-zero, debited to the cross-channel ``reveal_events`` ledger
+  (migration 154). The submit path sums the ledger since the last attempt and
+  auto-primes an attempt whose answer was substantially given away, so a
+  revealed item cannot be re-recorded as clean unassisted evidence.
 - **Guardrails.** The practice prompt forbids stating the answer, completing
   the derivation, or confirming/denying the learner's approach; verification
   questions are deflected with a guiding question. A post-hoc leak check flags
@@ -33,6 +41,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from dataclasses import asdict, dataclass
 from datetime import timedelta
@@ -45,8 +54,11 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.services.agent_runs import finish_agent_run
 from learnloop.services.facet_diagnostics import required_facets
+from learnloop.services.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
 from learnloop.vault.models import LoadedVault, PracticeItem
+
+logger = logging.getLogger(__name__)
 
 QUESTION_CONTEXTS = ("library", "practice", "feedback", "reader")
 
@@ -150,6 +162,102 @@ def question_usage(
     raise TutorQAError(f"Unknown question context {context!r}")
 
 
+def _record_dialogue_causal_signals(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    answer: Any,
+    attempt_id: str | None,
+    practice_item_id: str | None,
+    question_event_id: str,
+    remediation_episode_id: str | None,
+    leak_overlap: float,
+    model: str | None = None,
+    clock: Clock | None = None,
+) -> None:
+    """Fold what the learner's question revealed back into the causal record.
+
+    Fires only for a question stamped with a remediation episode: outside a
+    repair there is no open causal question for the answer to bear on, and
+    minting hypotheses off ordinary library browsing would fill the substrate
+    with claims nothing will ever test.
+
+    Two signals, and they are admitted on opposite grounds:
+
+    * ``embedded_prediction`` is a falsifiable expectation the learner's own
+      question asserted. It is admissible however much has been revealed — the
+      question predates the answer to it, and exposure cannot reach backwards
+      into a sentence already typed.
+    * ``new_candidate_cause`` is a hypothesis, and the tutor has just been
+      talking. It is recorded with ``post_reveal`` stamped from the measured
+      leak so a reader can weigh it; the constraint that keeps it honest (only
+      causes grounded in what the LEARNER said) lives in the prompt, where the
+      generation actually happens.
+
+    Best-effort: bookkeeping never fails the learner's answer.
+    """
+
+    if not remediation_episode_id or attempt_id is None:
+        return
+    prediction = str(getattr(answer, "embedded_prediction", None) or "").strip()
+    candidate = getattr(answer, "new_candidate_cause", None)
+    if not prediction and candidate is None:
+        return
+
+    if prediction:
+        try:
+            from learnloop.services.causal_orchestrator import (
+                record_learner_embedded_prediction,
+            )
+
+            factors = repository.unresolved_cause_factors_for_attempt(
+                attempt_id, status="open"
+            )
+            if factors:
+                record_learner_embedded_prediction(
+                    repository,
+                    factor_id=str(factors[0]["id"]),
+                    prediction=prediction,
+                    question_event_id=question_event_id,
+                    attempt_id=attempt_id,
+                    practice_item_id=practice_item_id,
+                    remediation_episode_id=remediation_episode_id,
+                    clock=clock,
+                )
+        except Exception:  # pragma: no cover - bookkeeping is best-effort
+            logger.warning(
+                "failed to record embedded prediction for question %s",
+                question_event_id,
+                exc_info=True,
+            )
+
+    if candidate is not None:
+        try:
+            from learnloop.services.causal_attribution import (
+                append_dialogue_candidate,
+            )
+
+            append_dialogue_candidate(
+                vault,
+                repository,
+                attempt_id=attempt_id,
+                candidate=candidate.model_dump(mode="json", exclude_none=True)
+                if hasattr(candidate, "model_dump")
+                else dict(candidate),
+                question_event_id=question_event_id,
+                remediation_episode_id=remediation_episode_id,
+                post_reveal=leak_overlap > 0.0,
+                model=model,
+                clock=clock,
+            )
+        except Exception:  # pragma: no cover - bookkeeping is best-effort
+            logger.warning(
+                "failed to append dialogue candidate for question %s",
+                question_event_id,
+                exc_info=True,
+            )
+
+
 def ask_question(
     vault: LoadedVault,
     repository: Repository,
@@ -192,6 +300,11 @@ def ask_question(
         if attempt is None:
             raise TutorQAError(f"Attempt {attempt_id} was not found.")
         practice_item_id = practice_item_id or attempt["practice_item_id"]
+        # Feedback questions are now hint-equivalent for the NEXT attempt on the
+        # item, and that window is session-scoped. A client that omits the
+        # session would otherwise write an unattributable row that no submit
+        # path counts, so inherit the graded attempt's session.
+        session_id = session_id or attempt.get("session_id")
     if context in {"practice", "feedback"}:
         if practice_item_id is None:
             raise TutorQAError(f"{context} questions require practice_item_id.")
@@ -346,12 +459,21 @@ def ask_question(
         # provided-span allowlist. Today can then link this exact discussion
         # instead of guessing from the broader learning-object source set.
         source_context["citations"] = citations
-    hint_equivalent = context == "practice" and answer.question_type in HINT_EQUIVALENT_TYPES
-    leak_suspected = (
-        context == "practice"
-        and item is not None
-        and answer_leaks_expected(answer.answer_md, item.expected_answer)
+    # Hint equivalence and leak accounting follow the ITEM, not the surface. A
+    # mechanism question asked from the feedback screen — where the graded
+    # solution is already on display — helps the next attempt on that item at
+    # least as much as the same question asked mid-attempt; scoring it only in
+    # the practice context let a fully revealed answer be re-recorded as clean
+    # unassisted evidence. Reader/library asks stay exempt: no item is bound,
+    # so there is nothing to contaminate.
+    hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
+    leak_overlap = (
+        answer_leak_overlap(answer.answer_md, item.expected_answer)
+        if item is not None
+        else 0.0
     )
+    leak_suspected = leak_overlap >= _LEAK_OVERLAP_THRESHOLD
+    episode = reveal_episode_id(repository, practice_item_id) if item is not None else None
     # §13.4 channel: an explicit direct-explanation request is
     # interaction-preference by construction, whatever the classifier said.
     signal_channel = (
@@ -370,6 +492,38 @@ def ask_question(
         answer_status="answered",
         signal_channel=signal_channel,
         source_context=source_context,
+        leak_overlap=leak_overlap if item is not None else None,
+        remediation_episode_id=episode,
+    )
+    if item is not None:
+        record_reveal(
+            repository,
+            practice_item_id=item.id,
+            learning_object_id=item.learning_object_id,
+            remediation_episode_id=episode,
+            source_kind="tutor_answer",
+            amount=leak_overlap,
+            basis=f"tutor_qa:{context}",
+            question_event_id=event_id,
+            attempt_id=attempt_id,
+            clock=clock,
+        )
+
+    # The question join. A question asked INSIDE a repair episode is causal
+    # evidence in its own right, and until now it was only ever a hint debit.
+    # Best-effort like every other post-answer bookkeeping step: a failure here
+    # is logged, never raised, and never costs the learner their answer.
+    _record_dialogue_causal_signals(
+        vault,
+        repository,
+        answer=answer,
+        attempt_id=attempt_id,
+        practice_item_id=practice_item_id,
+        question_event_id=event_id,
+        remediation_episode_id=episode,
+        leak_overlap=leak_overlap,
+        model=getattr(client, "model", None),
+        clock=clock,
     )
 
     # Feedback wiring: a post-grade question about facet X is a signal the
@@ -387,6 +541,8 @@ def ask_question(
         "facets": facets,
         "hint_equivalent": hint_equivalent,
         "leak_suspected": leak_suspected,
+        "leak_overlap": leak_overlap,
+        "remediation_episode_id": episode,
         "citations": citations,
         "remaining": max(0, limit - used - 1),
     }
@@ -471,7 +627,9 @@ def hint_equivalents_for_submission(
 
     Window start = created_at of the most recent prior attempt on the item
     (questions asked before an already-graded attempt were already dampened
-    into that attempt's evidence)."""
+    into that attempt's evidence). Practice- and feedback-context questions
+    both count: the window explicitly spans the feedback screen shown between
+    attempt N and attempt N+1."""
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
@@ -503,11 +661,19 @@ def hint_equivalents_for_attempt(repository: Repository, attempt: dict[str, Any]
     )
 
 
-def answer_leaks_expected(answer_md: str, expected_answer: str | dict[str, Any]) -> bool:
-    """Heuristic answer-leak telemetry for the practice context.
+def answer_leak_overlap(answer_md: str, expected_answer: str | dict[str, Any]) -> float:
+    """How much of the expected answer the tutor's answer exposed (0..1).
 
-    Normalized-substring or high token overlap between the tutor's answer and
-    the item's expected answer. Flags, never blocks."""
+    The quantity behind ``answer_leaks_expected``. A normalized-substring hit
+    is a full reveal (1.0); otherwise the fraction of the expected answer's
+    content tokens that appear in the tutor's answer. 0.0 when the comparison
+    cannot be made at all (empty text, or too few content tokens to distinguish
+    a real overlap from incidental vocabulary).
+
+    A quantity rather than a flag because reveals *accumulate*: two partial
+    answers across two turns can hand over as much as one leak, and the submit
+    path thresholds a sum. Heuristic and lexical — it measures surface overlap,
+    not semantic equivalence, so it under-reports a paraphrased solution."""
 
     expected_text = (
         expected_answer if isinstance(expected_answer, str) else json.dumps(expected_answer, sort_keys=True)
@@ -515,15 +681,23 @@ def answer_leaks_expected(answer_md: str, expected_answer: str | dict[str, Any])
     answer_norm = _normalize(answer_md)
     expected_norm = _normalize(expected_text)
     if not expected_norm or not answer_norm:
-        return False
+        return 0.0
     if len(expected_norm) >= 12 and expected_norm in answer_norm:
-        return True
+        return 1.0
     expected_tokens = {token for token in expected_norm.split() if len(token) > 2}
     if len(expected_tokens) < _LEAK_MIN_TOKENS:
-        return False
+        return 0.0
     answer_tokens = {token for token in answer_norm.split() if len(token) > 2}
-    overlap = len(expected_tokens & answer_tokens) / len(expected_tokens)
-    return overlap >= _LEAK_OVERLAP_THRESHOLD
+    return len(expected_tokens & answer_tokens) / len(expected_tokens)
+
+
+def answer_leaks_expected(answer_md: str, expected_answer: str | dict[str, Any]) -> bool:
+    """Heuristic answer-leak telemetry: did the tutor give the answer away?
+
+    Kept as the boolean face of ``answer_leak_overlap`` (same threshold as
+    before). Flags, never blocks."""
+
+    return answer_leak_overlap(answer_md, expected_answer) >= _LEAK_OVERLAP_THRESHOLD
 
 
 def tutor_qa_note_title(question_md: str) -> str:

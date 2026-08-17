@@ -15,15 +15,21 @@ DEFAULT_CONFIG_TEXT = """schema_version = 1
 sqlite_path = "state.sqlite"
 
 [algorithms]
-# mvp-0.8: authority-propagation projection (P0.5 cutover, spec §7.2). New vaults
-# start here -- mvp-0.8 is a strict superset of the mvp-0.7 canonical shared-facet
-# knowledge model plus the P0.2/P0.3 calibrated grade channel, robust composition,
-# and reliability-discounted certification. Pre-existing mvp-0.7 vaults activate it
-# via `learnloop upgrade`; pre-existing legacy mvp-0.6 content upgrades to mvp-0.7
-# first. Legacy `probe_<lo_id>` phases recorded under earlier versions replay
-# through the frozen path forever; new diagnostic episodes replay exclusively
-# through probe_observations under the pinned channel snapshot.
-algorithm_version = "mvp-0.8"
+# mvp-0.9: the mvp-0.8 authority-propagation projection (P0.5 cutover, spec §7.2)
+# plus cross-channel reveal accounting (migration 154) -- an attempt taken after
+# the answer was exposed is recorded as primed, which changes evidence recording
+# and so must be replayable under its own version. The PROJECTION is unchanged:
+# mvp-0.9 is a successor tag on the mvp-0.8 namespace
+# (`assessment_contracts.P0_PROJECTION_VERSIONS`), which is itself a strict
+# superset of the mvp-0.7 canonical shared-facet knowledge model plus the
+# P0.2/P0.3 calibrated grade channel, robust composition, and
+# reliability-discounted certification. New vaults start here. Pre-existing
+# mvp-0.7 vaults activate the projection via `learnloop upgrade`; pre-existing
+# legacy mvp-0.6 content upgrades to mvp-0.7 first. Legacy `probe_<lo_id>` phases
+# recorded under earlier versions replay through the frozen path forever; new
+# diagnostic episodes replay exclusively through probe_observations under the
+# pinned channel snapshot.
+algorithm_version = "mvp-0.9"
 
 # Single source of truth for per-attempt-type evidence (Fable's-take item 3).
 # evidence_mass weights ability-belief updates (mastery EKF / reliability);

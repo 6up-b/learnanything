@@ -328,6 +328,13 @@ def _facet_field(vault, repository) -> dict[str, Any]:
             reason.source for reason in reasons
         )
 
+    # Facets whose repair is instructed-but-unverified: somewhere in their
+    # learning objects a cold check is scheduled and has not been spent yet.
+    # Reading the TASK (not the episode) is both the cheapest query and the
+    # honest one — consuming the check flips the task to `consumed`, so the
+    # pending state clears exactly when the unassisted measurement happens.
+    cold_check_pending_los = _cold_check_pending_learning_objects(vault, repository)
+
     # Correction badges need the same immutable evidence replay as Review.
     # Build every facet timeline in one bulk pass rather than replaying the
     # complete grading history independently for each point.
@@ -391,6 +398,15 @@ def _facet_field(vault, repository) -> dict[str, Any]:
                 "has_blueprints": bool(requirement),
                 "capability_arcs": capabilities,
                 "learning_object_ids": sorted(lo_ids.get(facet_id, set())),
+                # Instructed, not yet verified: a repair on this facet's
+                # material was done with assistance and the single unassisted
+                # check it scheduled is still outstanding. Deliberately a
+                # SEPARATE flag from `demonstrated_mass` — an assisted repair
+                # is not evidence, and folding it into the demonstrated channel
+                # is precisely the blend the well contract forbids.
+                "cold_check_pending": bool(
+                    lo_ids.get(facet_id, set()) & cold_check_pending_los
+                ),
                 "ambiguity_candidates": sorted(ambiguity.get(facet_id, set())),
                 "ambiguity_attempt_id": ambiguity_target.get(facet_id),
                 "correction": (
@@ -430,6 +446,34 @@ def _facet_field(vault, repository) -> dict[str, Any]:
         ),
         "next_gap": next_gap,
     }
+
+
+def _cold_check_pending_learning_objects(vault, repository) -> set[str]:
+    """Learning objects carrying a live, unspent repair cold check.
+
+    The repair lane leaves ``followup_tasks.learning_object_id`` NULL and names
+    the surface instead, so the LO is resolved through the selected item first
+    and only falls back to the column. Consumed and expired tasks are already
+    excluded by ``open_followup_tasks_of_kind`` (pending/served only), which is
+    what makes "pending" clear itself the moment the check is answered.
+    """
+
+    pending: set[str] = set()
+    try:
+        tasks = repository.open_followup_tasks_of_kind("cold_retry")
+    except Exception:  # pragma: no cover - a map read must not fail on this
+        return pending
+    for task in tasks:
+        item_id = str(task.get("selected_item_id") or "")
+        item = vault.practice_items.get(item_id) if item_id else None
+        learning_object_id = (
+            str(getattr(item, "learning_object_id", "") or "")
+            if item is not None
+            else str(task.get("learning_object_id") or "")
+        )
+        if learning_object_id:
+            pending.add(learning_object_id)
+    return pending
 
 
 def _facet_current_retentions(vault, repository) -> dict[str, float]:

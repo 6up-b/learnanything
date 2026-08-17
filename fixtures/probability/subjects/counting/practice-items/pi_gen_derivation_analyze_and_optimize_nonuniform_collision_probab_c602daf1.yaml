@@ -1,0 +1,116 @@
+schema_version: 1
+id: pi_gen_derivation_analyze_and_optimize_nonuniform_collision_probab_c602daf1
+learning_object_id: lo_analyze_and_optimize_nonuniform_collision_probab
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - diagnostic_probe
+  - dont_know
+evidence_facets:
+  - facet_for_independent_birthdays_with_category_probabil
+evidence_weights:
+  facet_for_independent_birthdays_with_category_probabil: 1.0
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: In studying “Analyze and Optimize Nonuniform Collision Probability,” 
+  suppose each of k independent birthdays falls into one of n labeled date 
+  groups with probabilities q₁,…,qₙ, where 2 ≤ k ≤ n. First name the strategy 
+  you will use. Then derive the no-match and at-least-one-match probabilities 
+  using an elementary symmetric polynomial. Finally, choose two group 
+  probabilities a and b, replace both by (a+b)/2 while leaving the others fixed,
+  and derive how this replacement changes each probability. Show the 
+  intermediate decomposition that isolates a, b, and the remaining n−2 
+  probabilities, and state when the comparison is strict.
+expected_answer: "Strategy: compute the complement by summing over sets of k distinct
+  groups, then analyze pairwise averaging. For each unordered k-set, its probability
+  over all k! assignments is k! times the product of its probabilities, so\n\nP(no
+  match)=k!e_k(q₁,…,qₙ),\nP(at least one match)=1−k!e_k(q₁,…,qₙ).\n\nWriting z for
+  the other n−2 probabilities,\ne_k(a,b,z)=ab e_{k−2}(z)+(a+b)e_{k−1}(z)+e_k(z).\n\
+  After replacing a,b by m=(a+b)/2, only the first term changes. Since\nm²−ab=(a−b)²/4≥0,\n\
+  e_k(m,m,z)−e_k(a,b,z)=((a−b)²/4)e_{k−2}(z)≥0.\nThus averaging cannot decrease the
+  no-match probability and cannot increase the collision probability. The comparison
+  is strict when a≠b and e_{k−2}(z)>0."
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance: 0.5
+scaffold_level:
+capability:
+task_features:
+task_feature_schema:
+surface_family: derivation_llm_symbolic_pair_smoothing
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: strategy_selection
+      points: 1.0
+      description: Selects and names a strategy that can reach the target 
+        result.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+    - id: setup
+      points: 1.0
+      description: Sets the derivation up correctly from the givens.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+    - id: execution
+      points: 1.0
+      description: Executes the intermediate steps without invalid inferences.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+    - id: result
+      points: 1.0
+      description: Arrives at the correct result and states it clearly.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+  fatal_errors:
+    - id: wrong_strategy_selected
+      description: A viable derivation is executed under a strategy that cannot 
+        reach the target result.
+      max_grade: 1
+      misconception_id:
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs: []
+created_at: '2026-08-04T05:53:43Z'
+updated_at: '2026-08-04T05:53:44Z'

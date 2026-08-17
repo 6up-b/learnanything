@@ -109,6 +109,22 @@ from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 DONT_KNOW_ERROR_TYPE = "recall_failure"
 SCAFFOLD_FAILURE_ERROR_TYPE = "scaffold_failure"
 
+# Summed `reveal_events` amount (migration 154) on one item since its last
+# attempt, above which the next attempt is recorded as primed whatever the
+# client declared.
+#
+# A module constant, not config: this is a property of what the reveal scale
+# MEANS, not a tuning dial. `amount` is calibrated so 1.0 is "the expected
+# answer was restated" and a repair suggestion's `answer_reveal_budget` is the
+# fraction of the solution that lane is licensed to show. 0.35 is the point
+# where the accumulated exposure is more than a nudge — roughly a third of the
+# solution — and an "unassisted" claim about the next attempt stops being
+# honest. A vault that could raise it to 0.9 would be configuring away the
+# integrity property the ledger exists to enforce, and one that could drop it to
+# 0.05 would prime on incidental vocabulary overlap. Same reasoning as the
+# causal-factor deferral bounds.
+AUTO_PRIME_REVEAL_THRESHOLD = 0.35
+
 
 @dataclass(frozen=True)
 class AttemptDraft:
@@ -148,6 +164,12 @@ class AttemptDraft:
     # None when nothing was volunteered; there is deliberately no value meaning
     # "offered and declined" (rule 3).
     elicited_explanation_md: str | None = None
+    # Set by `auto_primed_draft` when `primed` was forced from the reveal ledger
+    # rather than declared by the client: the summed exposure that triggered it.
+    # None on every draft the learner (or a caller) primed honestly, so "was this
+    # primed because we caught a reveal?" is answerable from the attempt's debug
+    # payload alone.
+    auto_primed_reveal_total: float | None = None
 
 
 @dataclass(frozen=True)
@@ -458,7 +480,10 @@ def _complete_attempt_with_agent_fallback(
     failure_prefix: str,
     clock: Clock | None = None,
 ) -> AttemptResult:
-    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    # `draft` is rebound: the resolver may have forced `primed` from the reveal
+    # ledger, and everything downstream (grading context, the recorded row,
+    # the IRT easiness shift) must use that draft, not the client's.
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
     contract = _assessment_contract(repository, draft)
     deterministic = _try_deterministic_grade(vault, repository, draft, item, rubric, clock=clock)
     if deterministic is not None:
@@ -620,7 +645,10 @@ def _complete_attempt_with_agent_required(
     missing_client_reason: str,
     clock: Clock | None = None,
 ) -> AttemptResult:
-    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    # `draft` is rebound: the resolver may have forced `primed` from the reveal
+    # ledger, and everything downstream (grading context, the recorded row,
+    # the IRT easiness shift) must use that draft, not the client's.
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
     deterministic = _try_deterministic_grade(vault, repository, draft, item, rubric, clock=clock)
     if deterministic is not None:
         return deterministic
@@ -696,7 +724,10 @@ def complete_self_graded_attempt(
 ) -> AttemptResult:
     now_iso = utc_now_iso(clock)
     attempt_id = new_ulid()
-    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    # `draft` is rebound: the resolver may have forced `primed` from the reveal
+    # ledger, and everything downstream (grading context, the recorded row,
+    # the IRT easiness shift) must use that draft, not the client's.
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
     grader_confidence = confidence_to_grader_confidence(grade.confidence)
     manual_review_reason = "low_self_confidence" if grader_confidence < 0.4 else None
     manual_review_reason = _attempt_manual_review_reason(manual_review_reason, draft)
@@ -777,7 +808,10 @@ def complete_codex_graded_attempt(
     diagnostic_sample_support: float | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
-    item, _learning_object, rubric = _resolve_attempt_target(vault, repository, draft)
+    # `draft` is rebound: the resolver may have forced `primed` from the reveal
+    # ledger, and everything downstream (grading context, the recorded row,
+    # the IRT easiness shift) must use that draft, not the client's.
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
     expected_attempt_id = attempt_id or proposal.attempt_id
     try:
         validated = validate_codex_grading_proposal(
@@ -861,6 +895,21 @@ def replay_existing_attempt(
         ),
         submission_id=attempt.get("submission_id"),
         declared_dont_know=bool(attempt.get("declared_dont_know")),
+        # Replay must reproduce the recorded assistance state, not re-derive it.
+        # `primed` drives the IRT easiness shift, the EB-difficulty exclusion and
+        # the repair-activity classification, so a replay that dropped it would
+        # silently recompute a primed attempt as clean evidence — and now that
+        # priming can be FORCED from the reveal ledger, whose window has moved on
+        # by replay time, re-deriving is not an option either. Read what was
+        # recorded.
+        primed=bool(attempt.get("primed")),
+        auto_primed_reveal_total=(
+            (repository.attempt_debug_payload(attempt["id"]) or {}).get(
+                "auto_primed_reveal_total"
+            )
+            if attempt.get("primed")
+            else None
+        ),
     )
     error_type = attempt.get("error_type")
     return apply_attempt(
@@ -1048,6 +1097,54 @@ def _assessment_contract(
     return stored.get("contract") or {}
 
 
+def reveal_total_for_submission(
+    repository: Repository, practice_item_id: str, *, until: str | None = None
+) -> float:
+    """Summed answer exposure on this item since the learner last attempted it.
+
+    Same window as ``tutor_qa.hint_equivalents_for_submission``: everything
+    after the most recent prior attempt on the item, because anything earlier
+    was already absorbed into that attempt's evidence."""
+
+    attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
+    since = attempts[0]["created_at"] if attempts else None
+    return repository.total_reveal_amount(practice_item_id, since=since, until=until)
+
+
+def auto_primed_draft(
+    repository: Repository, draft: AttemptDraft, *, clock: Clock | None = None
+) -> tuple[AttemptDraft, float]:
+    """Force ``primed`` on a draft whose answer has already been handed over.
+
+    Returns ``(draft, reveal_total)``. The draft is returned unchanged when it
+    was already primed or the ledger is under threshold; otherwise a primed
+    copy is returned so the attempt is recorded for what it is — a retry taken
+    with the answer in view — rather than as clean unassisted evidence.
+
+    The client cannot be trusted to declare this: the UI sets ``primed`` only
+    for the source-review retry, and the tutor/feedback/repair surfaces that
+    reveal an answer are exactly the ones that never set it. Reading the
+    persisted ledger instead of a client flag is what closes that hole.
+
+    Best-effort by construction: a ledger read failure must not block a
+    submission, so it degrades to "no evidence of a reveal" and logs."""
+
+    if draft.primed:
+        return draft, 0.0
+    try:
+        total = reveal_total_for_submission(repository, draft.practice_item_id)
+    except Exception:  # pragma: no cover - defensive
+        logging.getLogger(__name__).warning(
+            "reveal ledger read failed for %s; not auto-priming",
+            draft.practice_item_id,
+            exc_info=True,
+        )
+        return draft, 0.0
+    if total < AUTO_PRIME_REVEAL_THRESHOLD:
+        return draft, total
+    return replace(draft, primed=True, auto_primed_reveal_total=total), total
+
+
 def _resolve_attempt_target(
     vault: LoadedVault,
     repository: Repository,
@@ -1118,6 +1215,13 @@ def _resolve_attempt_target(
     if draft.answer_confidence is not None and not 1 <= draft.answer_confidence <= 5:
         raise AttemptValidationError("answer_confidence must be between 1 and 5")
     if not replay:
+        # Force priming from the reveal ledger BEFORE the cold guard below. The
+        # order is the point: a learner who was just shown the answer and then
+        # submits with primed=False must not be able to burn a cold measurement
+        # as if it were clean — the guard has to see the forced value and
+        # reject. On replay the recorded attempt is authoritative and the
+        # ledger window has already moved past it, so this is skipped.
+        draft, _reveal_total = auto_primed_draft(repository, draft, clock=clock)
         cold_task = repository.active_followup_task_for_item(
             draft.practice_item_id, at=utc_now_iso(clock)
         )
@@ -1129,7 +1233,7 @@ def _resolve_attempt_target(
         if cold_task is not None and cold_task.get("kind") in COLD_FOLLOWUP_TASK_KINDS:
             if draft.primed or draft.hints_used > 0 or draft.attempt_type == "hinted_attempt":
                 raise AttemptValidationError("a cold retry must be unassisted and unprimed")
-    return item, learning_object, rubric
+    return item, learning_object, rubric, draft
 
 
 def _dual_write_grade_channel(
@@ -1261,6 +1365,20 @@ def apply_attempt(
     from learnloop.services.salience_firewall import reject_salience
 
     reject_salience(attempt, context="apply_attempt")
+
+    # Reveal accounting (migration 154). Every recording path funnels through
+    # here — the graded entry points, exam seeding, teach-back, the sim — so the
+    # forcing lives here as well as in `_resolve_attempt_target`, and a caller
+    # that builds an `ApplyAttemptInput` directly cannot skip it. Idempotent:
+    # an already-primed draft returns unchanged without touching the ledger.
+    # Skipped on replay (`replace_existing`), where the recorded attempt is
+    # authoritative and the ledger window has already moved past it.
+    if not attempt.replace_existing:
+        normalized_draft, _reveal_total = auto_primed_draft(
+            repository, attempt.draft, clock=clock
+        )
+        if normalized_draft is not attempt.draft:
+            attempt = replace(attempt, draft=normalized_draft)
 
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
     application = _validate_probe_presentation(repository, application, attempt, clock=clock)
@@ -2069,7 +2187,7 @@ def _compute_resolved_grade_application(
     replay: bool = False,
     grading_source: str = "self",
 ) -> AttemptApplication:
-    item, learning_object, rubric = _resolve_attempt_target(
+    item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
     )
     observed_at = (clock or SystemClock()).now().astimezone(UTC)
@@ -2601,6 +2719,10 @@ def _compute_resolved_grade_application(
         "facet_uncertainty_trace": facet_uncertainty_trace,
         "ability_transition": ability_transition,
         "primed": draft.primed,
+        # Non-None only when the ledger forced it: the summed reveal amount on
+        # this item since its last attempt. This is the audit trail for "why is
+        # an attempt the learner submitted as unassisted recorded as primed?".
+        "auto_primed_reveal_total": draft.auto_primed_reveal_total,
         "priming_b_offset": vault.config.mastery.irt.priming_b_offset if draft.primed else None,
         "fsrs_weights_fitted": fsrs_weights_fitted,
         "algorithm_version": vault.config.algorithms.algorithm_version,

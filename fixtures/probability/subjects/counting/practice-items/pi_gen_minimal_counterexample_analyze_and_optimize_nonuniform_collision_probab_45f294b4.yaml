@@ -1,0 +1,82 @@
+schema_version: 1
+id: 
+  pi_gen_minimal_counterexample_analyze_and_optimize_nonuniform_collision_probab_45f294b4
+learning_object_id: lo_analyze_and_optimize_nonuniform_collision_probab
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - diagnostic_probe
+  - dont_know
+evidence_facets:
+  - facet_for_independent_birthdays_with_category_probabil
+evidence_weights:
+  facet_for_independent_birthdays_with_category_probabil: 1.0
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: In “Analyze and Optimize Nonuniform Collision Probability,” pairwise 
+  averaging is used to compare collision probabilities for independent 
+  birthdays. Find the smallest example, in numbers of people and birthday 
+  categories, where averaging two unequal category probabilities does not 
+  strictly lower the probability of at least one match. Give the probabilities 
+  before and after averaging and the decisive reason strict improvement fails.
+expected_answer: Three people and two categories suffice. For example, average 
+  the unequal probabilities `(0.8, 0.2)` to obtain `(0.5, 0.5)`. With three 
+  people but only two categories, a match is certain by the pigeonhole principle
+  under both distributions, so the collision probability remains `1`; strict 
+  improvement fails because an all-distinct outcome is impossible.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance: 0.35
+scaffold_level:
+capability:
+task_features:
+task_feature_schema:
+surface_family: minimal_counterexample_llm_strict_averaging_saturation
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4.0
+      description: Response demonstrates the target idea with a decisive reason.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+  fatal_errors:
+    - id: overgeneralization_signature
+      description: Answer applies the schema beyond its boundary instead of 
+        locating the failure case.
+      max_grade: 1
+      misconception_id:
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs: []
+created_at: '2026-08-04T05:53:03Z'
+updated_at: '2026-08-04T05:53:03Z'

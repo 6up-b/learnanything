@@ -14,7 +14,7 @@ import type {
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
-import { COLOR, Dim, Faint, FONT_MONO, Pill, PlainEnglishPanel, SectionHeader } from "./term";
+import { BlockBar, COLOR, Dim, Faint, FONT_MONO, Pill, PlainEnglishPanel, SectionHeader } from "./term";
 import { RepairTraceBlocks } from "./RepairTrace";
 
 const CONTEST_LABELS: Partial<Record<UnresolvedCauseSelfReportResponse, string>> = {
@@ -412,6 +412,32 @@ export function CausalRepairStatusPanel({
         </div>
       ) : null}
 
+      {/* Assistance used, on the reveal ledger's fraction-of-answer scale.
+          Reported, never enforced: nothing here is refused on budget, and the
+          meter exists so the learner can see why the check that follows is
+          measuring them rather than the help. */}
+      {status.revealSpend != null && status.revealBudget ? (
+        <div style={{ marginTop: 9 }}>
+          <SmallLabel>assistance used</SmallLabel>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <BlockBar
+              value={Math.min(status.revealSpend / status.revealBudget, 1)}
+              width={10}
+              color={status.revealSpend >= status.revealBudget ? COLOR.amber : COLOR.cyan}
+            />
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
+              {Math.round(status.revealSpend * 100)}% of {Math.round(status.revealBudget * 100)}%
+            </span>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <Dim>
+              How much of the answer this repair has handed over so far. Past the budget the
+              unassisted check still runs, but it can no longer confirm the repair on its own.
+            </Dim>
+          </div>
+        </div>
+      ) : null}
+
       {note ? (
         <div style={{ marginTop: 7 }}>
           <Dim>{note}</Dim>
@@ -548,6 +574,7 @@ export function CausalFeedbackPanel({
   repairPendingActionId = null,
   repairNote = null,
   onRepairAction,
+  suppressRepairedTrace = false,
 }: {
   feedback: CausalFeedbackDto;
   onContest?: (
@@ -561,6 +588,11 @@ export function CausalFeedbackPanel({
   repairPendingActionId?: CausalRepairActionId | null;
   repairNote?: string | null;
   onRepairAction?: (actionId: CausalRepairActionId, status: CausalRepairStatusDto) => void;
+  /** Set when an ELICITING repair is on screen: its whole operator is that the
+   *  learner answers at the divergence unaided, and the authorized repaired
+   *  trace is the answer to that question. Showing it here would defeat the
+   *  elicitation from the other side of the same screen. */
+  suppressRepairedTrace?: boolean;
 }) {
   const graderFeedback = feedback.unverified.filter(
     (claim) => claim.kind === "grader_feedback",
@@ -784,10 +816,18 @@ export function CausalFeedbackPanel({
         />
       ) : null}
 
-      {feedback.repairedTrace ? (
+      {feedback.repairedTrace && !suppressRepairedTrace ? (
         <div style={{ marginTop: 8 }}>
           <TraceView trace={feedback.repairedTrace} />
         </div>
+      ) : feedback.repairedTrace && suppressRepairedTrace ? (
+        <Panel tone="slate" style={{ marginTop: 8 }}>
+          <SmallLabel>corrected work held back</SmallLabel>
+          <Dim>
+            There is one question below to answer first. The corrected work is available once you
+            have answered it.
+          </Dim>
+        </Panel>
       ) : feedback.repairedTraceWithheldReason ? (
         <Panel tone="slate" style={{ marginTop: 8 }}>
           <SmallLabel>repaired trace withheld</SmallLabel>

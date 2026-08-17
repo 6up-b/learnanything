@@ -69,6 +69,35 @@ v3 (migration 151) makes the denominator and freshness claim auditable too:
 * certification cold probes share the opportunity, administration, and final
   receipt schema instead of publishing only their outcome label.
 
+v4 (migration 154) consumes the cross-channel reveal ledger. Before it, the
+answer-exposure scan could only see exposures that happened to leave a trace in
+some OTHER ledger — a tutor answer landed as a ``question_events`` row with
+``leak_suspected``, but a repair suggestion rendered on the feedback screen, a
+guided redo, or a source re-read spent their answer budget and left the receipt
+claiming isolation. ``reveal_events`` is the one ledger every revealing surface
+writes to, so the scan now asks it directly, for the cold item AND for its
+learning object:
+
+* a reveal row on the COLD ITEM is that item's own answer exposed —
+  ``answer_leakage`` fails, and ``unassisted`` fails too, because an attempt
+  taken after the answer was handed over is not unassisted no matter what the
+  ``primed`` flag says (the auto-prime threshold is a floor, not a definition);
+* a reveal row on another item in the cold item's SURFACE GROUP is
+  same-surface exposure — ``exposure_isolation``'s claim, not
+  ``answer_leakage``'s;
+* a reveal row elsewhere in the learning object is recorded as a soft
+  exposure. It does NOT fail the receipt: the repair lane's own suggestions are
+  written against the primed item, which shares the LO with the cold item by
+  construction, so failing on LO-wide reveals would fail every repair episode
+  ever measured.
+
+Every one of those rows also RESETS the ``retrieval_delay`` anchor, like any
+other refreshing exposure — being shown an answer is the strongest refresh
+there is. That is the same rule the scheduler applies on the other side of the
+seam: ``scheduler._defer_revealed_cold_followups`` pushes a revealed cold
+task's ``not_before`` to the reveal plus the identical delay, so a task served
+after its deferral elapses passes the dimension it was deferred to satisfy.
+
 Semantics are prospective-only: verifications recorded before this module keep
 their meaning, and consumers distinguish eras by receipt presence and
 ``receipt_version``. Earlier receipts are not reinterpreted under v3 coverage
@@ -101,17 +130,20 @@ from learnloop.vault.models import LoadedVault
 
 logger = logging.getLogger(__name__)
 
-COLDNESS_RECEIPT_VERSION = "coldness_receipt_v3"
-TELEMETRY_COVERAGE_VERSION = "coldness_telemetry_v3"
+COLDNESS_RECEIPT_VERSION = "coldness_receipt_v4"
+TELEMETRY_COVERAGE_VERSION = "coldness_telemetry_v4"
 
 #: The repair and certification producers share one schema; lane remains open
 #: TEXT so later delayed-retrieval instruments can adopt it without a rebuild.
 LANE_REPAIR_COLD_RETRY = "repair_cold_retry"
 LANE_CERTIFICATION_COLD_PROBE = "certification_cold_probe"
 
-#: Mirrors the lane's own scheduling rule (`remediation.record_remediation_attempt`
-#: schedules `not_before` at +1 day): a retrieval closer than this to its anchor
-#: is warm recall of the session, not delayed retrieval.
+#: Mirrors the lane's own scheduling rule (`remediation.COLD_RETRIEVAL_DELAY`,
+#: the `not_before` offset and the scheduler's reveal-deferral push): a
+#: retrieval closer than this to its anchor is warm recall of the session, not
+#: delayed retrieval. Declared rather than imported to keep this module free of
+#: an import-time dependency on the remediation service (which imports back
+#: into here); `tests/test_coldness_receipt.py` pins the two together.
 MIN_COLD_DELAY = timedelta(days=1)
 
 #: Window rule: eligibility keys on the administration OPEN time. Opening just
@@ -180,6 +212,21 @@ SCANNED_LEDGERS = (
             "repair suggestions. Only the LAST reopen carries a timestamp"
         ),
     },
+    {
+        "ledger": "reveal_events",
+        "observes": (
+            "v4 (migration 154): every surface that hands over part of a "
+            "graded answer — tutor answers, repair suggestions displayed on "
+            "the feedback screen, guided redos, source review — as a 0..1 "
+            "fraction of the expected answer, keyed by practice item, "
+            "learning object and (when the exposure happened inside a repair) "
+            "remediation episode. Scanned here for the cold item and for its "
+            "learning object: a row on the cold item is an answer reveal, a "
+            "row on another item in its surface group is same-surface "
+            "exposure, and a row elsewhere in the LO is recorded as soft "
+            "exposure without failing the receipt"
+        ),
+    },
 )
 
 #: Channels a scan cannot see. Their existence is why every clear result is
@@ -200,6 +247,15 @@ KNOWN_UNOBSERVED_CHANNELS = (
     "practice_item_detail_reads",
     # Reader browsing outside span-view telemetry (free navigation, search).
     "reader_free_navigation",
+    # v4: a `reveal_events` amount is what the revealing surface DECLARED it
+    # showed (a repair's `answer_reveal_budget`, a tutor answer's measured
+    # overlap), never a measurement of what the learner took from it. Presence
+    # of a row is strong evidence; its magnitude is a declaration.
+    "reveal_amount_is_declared_not_measured",
+    # v4: a revealing surface that never writes to the ledger is invisible to
+    # it. The scan's clear result is "no reveal RECORDED", and a channel added
+    # without a ledger write would go unseen exactly as before migration 154.
+    "reveal_channels_without_a_ledger_writer",
     # Anything outside the app entirely.
     "off_app_exposure",
 )
@@ -632,6 +688,58 @@ def _scan_exposures(
             }
         )
 
+    # v4 (migration 154): the one ledger every revealing surface writes to.
+    # Queried for the cold item OR its learning object in one bounded read; a
+    # row's TYPE is decided by how close it lands to the cold surface, not by
+    # which surface wrote it, because every source kind in the ledger is an
+    # answer exposure by construction.
+    cold_learning_object_id = (
+        str(getattr(cold_item, "learning_object_id", "") or "") or None
+        if cold_item is not None
+        else None
+    )
+    if cold_item_id or cold_learning_object_id:
+        for reveal in repository.reveal_events_for_target(
+            practice_item_id=cold_item_id,
+            learning_object_id=cold_learning_object_id,
+            since=interval_start,
+            until=interval_end,
+        ):
+            reveal_item_id = str(reveal.get("practice_item_id") or "")
+            reveal_item = vault.practice_items.get(reveal_item_id)
+            reveal_group = (
+                surface_group_id(reveal_item) if reveal_item is not None else None
+            )
+            if cold_item_id and reveal_item_id == cold_item_id:
+                kind, why = "hard", "reveal_ledger_answer_exposed_on_cold_item"
+            elif cold_group is not None and reveal_group == cold_group:
+                kind, why = "hard", "reveal_ledger_same_surface_group_exposure"
+            else:
+                # Same learning object, independent surface. The repair lane
+                # writes its own suggestions against the primed item, which
+                # shares this LO by construction — treating that as
+                # contamination would fail every measured repair episode.
+                kind, why = "soft", "reveal_ledger_exposure_on_related_item"
+            events.append(
+                {
+                    "type": kind,
+                    "ledger": "reveal_events",
+                    "event_id": str(reveal.get("id") or ""),
+                    "at": str(reveal.get("created_at") or ""),
+                    "practice_item_id": reveal_item_id or None,
+                    "learning_object_id": (
+                        str(reveal.get("learning_object_id") or "") or None
+                    ),
+                    "remediation_episode_id": (
+                        str(reveal.get("remediation_episode_id") or "") or None
+                    ),
+                    "source_kind": str(reveal.get("source_kind") or ""),
+                    "amount": float(reveal.get("amount") or 0.0),
+                    "basis": reveal.get("basis"),
+                    "why": why,
+                }
+            )
+
     prepared_unconfirmed: list[dict[str, Any]] = []
     delivered_outside_interval: list[dict[str, Any]] = []
     for episode in repository.remediation_episodes_created_between(
@@ -948,13 +1056,29 @@ COLD_ITEM_REVEAL_REASONS = (
     # authored from.
     "remediation_passage_revealed_cold_item_source_span",
     "cold_item_source_span_viewed",
+    # v4: the reveal ledger recorded a surface handing over part of THIS item's
+    # answer — the channel-agnostic version of the reasons above, and the only
+    # one that sees repair displays, guided redos and source review.
+    "reveal_ledger_answer_exposed_on_cold_item",
 )
 
 #: Hard findings that are same-surface EXPOSURE rather than an answer reveal.
 SAME_SURFACE_REASONS = (
     "same_surface_group_administration",
     "same_surface_group_feedback_reopened",
+    "reveal_ledger_same_surface_group_exposure",
 )
+
+
+def _cold_item_reveal_rows(scan: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Ledger rows (migration 154) that exposed the COLD item's own answer."""
+
+    return [
+        dict(event)
+        for event in scan.get("events") or []
+        if event.get("ledger") == "reveal_events"
+        and event.get("why") == "reveal_ledger_answer_exposed_on_cold_item"
+    ]
 
 
 def _answer_leakage(scan: Mapping[str, Any]) -> dict[str, Any]:
@@ -963,12 +1087,22 @@ def _answer_leakage(scan: Mapping[str, Any]) -> dict[str, Any]:
         for event in scan.get("events") or []
         if event.get("why") in COLD_ITEM_REVEAL_REASONS
     ]
+    ledger_rows = _cold_item_reveal_rows(scan)
     status = "fail" if reveals else "pass"
     return _dimension(
         status,
         {
             "absence_status": ABSENCE_CONTAMINATED if reveals else ABSENCE_CLEAR,
             "reveal_events": reveals,
+            # v4: the reveal ledger's own contribution, called out separately
+            # from the inferred reveals above. Empty is a SCOPED absence — no
+            # row was written by an instrumented revealing surface in this
+            # window — not proof the answer was never seen; see
+            # telemetry_coverage's known_unobserved_channels.
+            "reveal_ledger_rows": ledger_rows,
+            "reveal_ledger_amount": sum(
+                float(row.get("amount") or 0.0) for row in ledger_rows
+            ),
             "interval": scan.get("interval"),
             "note": (
                 "covers the cold item's own expected answer / repaired trace "
@@ -1250,19 +1384,46 @@ def _verification_blinding(
     return _dimension(status, evidence)
 
 
-def _unassisted(cold_attempt: Mapping[str, Any] | None) -> dict[str, Any]:
+def _unassisted(
+    cold_attempt: Mapping[str, Any] | None,
+    scan: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Was the cold attempt taken without assistance — flags AND ledger.
+
+    ``hints_used``/``primed`` are what the submission DECLARED. The reveal
+    ledger is what the app RECORDED itself doing, and the two disagree exactly
+    where it matters: ``attempts.AUTO_PRIME_REVEAL_THRESHOLD`` only forces
+    ``primed`` once the exposure since the last attempt crosses 0.35, so a
+    smaller reveal — half a repair suggestion, a partial tutor answer — leaves
+    a submission honestly declaring itself unprimed while the answer was on
+    screen. For the single-use cold measurement the tighter rule is right: ANY
+    recorded reveal of this item's answer inside the measurement window fails
+    the dimension, with the row as the evidence.
+    """
+
     if cold_attempt is None:
         return _dimension("unknown", {"reason": "no_attempt_yet"})
     hints = int(cold_attempt.get("hints_used") or 0)
     primed = bool(cold_attempt.get("primed"))
-    return _dimension(
-        "pass" if (hints == 0 and not primed) else "fail",
-        {
-            "hints_used": hints,
-            "primed": primed,
-            "attempt_type": str(cold_attempt.get("attempt_type") or "") or None,
-        },
-    )
+    ledger_rows = _cold_item_reveal_rows(scan) if scan is not None else []
+    ok = hints == 0 and not primed and not ledger_rows
+    evidence: dict[str, Any] = {
+        "hints_used": hints,
+        "primed": primed,
+        "attempt_type": str(cold_attempt.get("attempt_type") or "") or None,
+        "reveal_ledger_rows": ledger_rows,
+        "reveal_ledger_amount": sum(
+            float(row.get("amount") or 0.0) for row in ledger_rows
+        ),
+        "reveal_ledger_scanned": scan is not None,
+        "rule": (
+            "pass requires hints_used == 0, primed false, AND no recorded "
+            "reveal of this item's answer in the measurement window"
+        ),
+    }
+    if ledger_rows:
+        evidence["violation"] = "answer_revealed_before_the_cold_attempt"
+    return _dimension("pass" if ok else "fail", evidence)
 
 
 # --- assembly ----------------------------------------------------------------
@@ -1517,7 +1678,7 @@ def _evaluate(
         cold_attempt_id=cold_attempt_id,
         cold_attempt=cold_attempt,
     )
-    dimensions["unassisted"] = _unassisted(cold_attempt)
+    dimensions["unassisted"] = _unassisted(cold_attempt, scan)
 
     interval = scan.get("interval") if scan is not None else None
     return ColdnessEvaluation(
@@ -1574,7 +1735,52 @@ def evaluate_final_coldness(
         )
     if snapshot is not None:
         evaluation.derived["administration_receipt_id"] = str(snapshot["id"])
+    _apply_episode_reveal_budget(evaluation.derived, task)
     return evaluation
+
+
+def _apply_episode_reveal_budget(
+    derived: dict[str, Any], task: Mapping[str, Any]
+) -> None:
+    """Downgrade the repair-effect CLAIM when the episode overspent its reveals.
+
+    The cold task carries what the episode had spent from
+    ``remediation.EPISODE_REVEAL_BUDGET`` at scheduling time (slice 2). Nothing
+    consumed it: an episode that had handed the learner most of the answer could
+    still schedule a retry and, if the retry happened to land clean, claim its
+    repair had been verified.
+
+    This does NOT block. Blocking would delete the measurement, and the cold
+    attempt may be perfectly clean on its own terms — ``qualifies_as_cold_retrieval``
+    is left exactly as the dimensions computed it, hard contamination on the cold
+    item is still the receipt's own job, and the retry still runs.
+
+    What it does is refuse the SUCCESS CLAIM. "This repair worked" is a
+    statement about the repair, and a repair that reached the learner mostly as
+    a displayed answer has no isolated effect to attribute a later success to.
+    So the repair-effect, held-out and certificate qualifications fall to False
+    with the reason recorded beside them, and a reader can see both the number
+    and why the claim was withheld.
+    """
+
+    context = task.get("context")
+    context = context if isinstance(context, Mapping) else {}
+    if "reveal_over_budget" not in context:
+        return
+    over = bool(context.get("reveal_over_budget"))
+    derived["episode_reveal_spend"] = context.get("reveal_spend")
+    derived["episode_reveal_budget"] = context.get("reveal_budget")
+    derived["episode_reveal_over_budget"] = over
+    if not over:
+        return
+    for key in (
+        "qualifies_as_repair_effect_verification",
+        "qualifies_as_held_out_validation",
+        "qualifies_as_certificate_validation",
+    ):
+        if derived.get(key):
+            derived[key] = False
+    derived["claim_downgraded_reason"] = "episode_reveal_over_budget"
 
 
 # --- stage writes ------------------------------------------------------------

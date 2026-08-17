@@ -28,7 +28,10 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.services import grader_calibration as gc
 from learnloop.services import robust_composition as rc
-from learnloop.services.assessment_contracts import P0_ALGORITHM_VERSION
+from learnloop.services.assessment_contracts import (
+    P0_ALGORITHM_VERSION,
+    P0_PROJECTION_VERSIONS,
+)
 from learnloop.services.grade_classifier import bucket_confidence
 from learnloop.services.outcome_schemas import SIGNATURE_ERROR_SLUG, resolve_schema_id
 from learnloop.services.probe_families import CompiledInstrument
@@ -49,10 +52,12 @@ def use_robust_probe(vault: LoadedVault) -> bool:
     """True iff this vault runs the mvp-0.8 authority-propagation probe path.
 
     Mirrors the ``project_canonical_facet_state`` version gate (canonical_projection):
-    the robust cutover is strictly mvp-0.8; mvp-0.6/0.7 keep the legacy point path.
+    the robust cutover is the mvp-0.8 projection namespace and its successors
+    (mvp-0.9 tags a recording change, not a projection change); mvp-0.6/0.7 keep
+    the legacy point path.
     """
 
-    return vault.config.algorithms.algorithm_version == P0_ALGORITHM_VERSION
+    return vault.config.algorithms.algorithm_version in P0_PROJECTION_VERSIONS
 
 
 @dataclass(frozen=True)

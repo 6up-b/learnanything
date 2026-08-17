@@ -33,6 +33,7 @@ import type {
   GradingClarificationResultDto,
   AnswerGradingClarificationResultDto,
   UnresolvedCauseSelfReportResponse,
+  ElicitingResponseResultDto,
   UnresolvedCauseSelfReportResultDto,
   CausalProbeDeferResultDto,
   CausalProbeOfferResultDto,
@@ -354,6 +355,15 @@ export const api = {
     call<UnresolvedCauseSelfReportResultDto>("report_unresolved_cause", {
       input: { ...input, candidateIndex: input.candidateIndex ?? null }
     }),
+  /**
+   * The learner's unaided answer to an eliciting repair suggestion's question.
+   * `suggestionIndex` indexes `feedback.repairSuggestions`.
+   */
+  submitElicitingResponse: (input: {
+    attemptId: string;
+    suggestionIndex: number;
+    responseMd: string;
+  }) => call<ElicitingResponseResultDto>("submit_eliciting_response", { input }),
   contestCausalDiagnosis: (
     attemptId: string,
     response: Exclude<UnresolvedCauseSelfReportResponse, "believed_candidate">,

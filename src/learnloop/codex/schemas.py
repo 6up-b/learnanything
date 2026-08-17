@@ -919,6 +919,32 @@ class FacetContrast(WireModel):
 
 
 class CandidateCause(WireModel):
+    """One free-text candidate explanation of an observed failure.
+
+    ``statement`` is deliberately unconstrained. There is no vocabulary to fit,
+    no required stratum, and no validator that can reject a candidate for what
+    it *says* — this codebase has been burned repeatedly by content constraints
+    on model output (regex recall-coercion, facet lexical anchoring), and causal
+    §5.1 is prose-first / taxonomy-after for exactly that reason.
+
+    Diversity is asked for, never enforced. The grading prompt requests the SET
+    of candidates in one generation with verbalized relative weights
+    (``prior_weight``) and states the norm that two candidates whose
+    ``discriminating_predictions`` do not differ are the same candidate and
+    should be merged. Fewer than the suggested count is correct output when the
+    trace genuinely underdetermines less.
+
+    ``prior_weight`` is a PRIOR, never a measurement. It is normalized
+    server-side across the event's candidates and must never be treated as a
+    calibrated probability — the same standing rule as
+    ``raw_grade_events.model_confidence``, which is never multiplied into
+    anything.
+
+    ``mechanism`` is optional and advisory: the post-hoc projection onto
+    ``MECHANISM_TAXONOMY`` prefers it when it maps, and falls back to an
+    open-set annotation otherwise. It gates nothing.
+    """
+
     statement: str
     cause_scope: Literal[
         "learner_state",
@@ -929,6 +955,17 @@ class CandidateCause(WireModel):
         "unknown",
     ]
     target_ref: AttributionTargetRef | None = Field(default=None, discriminator="kind")
+    #: Verbalized relative plausibility within this event's candidate set. Any
+    #: non-negative scale is accepted (the server normalizes); absent means "no
+    #: opinion", which normalizes to the set's uniform share.
+    prior_weight: float | None = Field(default=None, ge=0.0)
+    #: Free-text falsifiable expectations of the form "if this cause is true,
+    #: we'd observe X on Y". These are what make two candidates *different*;
+    #: the prompt asks for them, nothing validates their content.
+    discriminating_predictions: list[str] = Field(default_factory=list)
+    #: The model's own optional mechanism label. Advisory input to the post-hoc
+    #: projection; an unrecognised value is ignored, never an error.
+    mechanism: str | None = None
 
     @model_validator(mode="after")
     def validate_statement(self) -> "CandidateCause":
@@ -1019,6 +1056,12 @@ class ErrorAttribution(WireModel):
         return self
 
 
+#: An eliciting repair shows the learner a divergence anchor and one question.
+#: It is not zero — naming where the reasoning first went wrong is itself a
+#: partial reveal — but it is an order of magnitude below a spliced solution.
+ELICITING_REVEAL_BUDGET_DEFAULT = 0.05
+
+
 class RepairSuggestion(WireModel):
     # Aug C1 field order is causal under autoregressive decoding: emit the
     # checkable edit before inventing the causal story that explains it.
@@ -1036,6 +1079,40 @@ class RepairSuggestion(WireModel):
     preserve_refs: list[AttributionTargetRef] = Field(default_factory=list)
     expected_minutes: float | None = Field(default=None, ge=0.0)
     answer_reveal_budget: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: Eliciting repair (misconception-class default). Instead of splicing a
+    #: regenerated solution onto the learner's prefix — which hands over the
+    #: very production the next attempt is supposed to measure — an eliciting
+    #: suggestion names the divergence and asks ONE targeted question the
+    #: learner answers unaided.
+    eliciting_question: str | None = None
+    #: What a correct UNAIDED response to ``eliciting_question`` would
+    #: demonstrate. Free text; it is the contract the response is read against,
+    #: not a rubric and not a grade.
+    expected_response_contract: str | None = None
+
+    @model_validator(mode="after")
+    def validate_eliciting(self) -> "RepairSuggestion":
+        """Structural only.
+
+        The prompt states WHEN an eliciting suggestion is the right default
+        (misconception-class mechanisms) and the grader may override it freely;
+        no validator enforces that mapping. What is enforced here is only that
+        an ``elicit_*`` operator actually carries the question it promises, and
+        that such a suggestion declares the near-zero reveal budget it implies
+        when the model left the budget unstated.
+        """
+
+        if (self.operator or "").startswith("elicit_"):
+            if not (self.eliciting_question or "").strip():
+                raise ValueError(
+                    "an elicit_* repair operator requires a non-empty eliciting_question"
+                )
+            if "answer_reveal_budget" not in self.model_fields_set:
+                self.answer_reveal_budget = ELICITING_REVEAL_BUDGET_DEFAULT
+                # Mark it as set so the grading validator keeps it: the default
+                # is a property of the operator, not an unfilled field.
+                self.__pydantic_fields_set__.add("answer_reveal_budget")
+        return self
 
 
 class ExercisedFacetObservation(WireModel):
@@ -1415,6 +1492,20 @@ class TutorAnswer(WireModel):
     # supplied in the context. Empty when no links exist (degrades to unchanged
     # behavior).
     citations: list[TutorCitation] = Field(default_factory=list)
+    #: A falsifiable expectation the LEARNER'S OWN QUESTION asserted, extracted
+    #: verbatim-in-substance from the question text — e.g. "learner expects
+    #: replacing (x+y)e2 with ((x+y)/2)e2 to change the sum". Null when the
+    #: question asserts no expectation.
+    #:
+    #: This is the learner's model speaking, before any correction, which is why
+    #: it stays admissible as independent evidence even when the answer that
+    #: follows reveals the solution. It is NOT the tutor's belief about the
+    #: learner and must never be written as one.
+    embedded_prediction: str | None = None
+    #: A candidate cause the DIALOGUE surfaced that the attempt text could not
+    #: have shown — grounded in what the learner said or asked, never in what
+    #: the tutor just explained. Null is the common and correct answer.
+    new_candidate_cause: CandidateCause | None = None
 
 
 class MisconceptionMatch(WireModel):

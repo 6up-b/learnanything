@@ -228,6 +228,7 @@ fn main() {
             trigger_followup,
             rate_followup,
             report_unresolved_cause,
+            submit_eliciting_response,
             contest_causal_diagnosis,
             causal_repair_status,
             causal_probe_offer_action,

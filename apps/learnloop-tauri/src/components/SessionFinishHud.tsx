@@ -128,6 +128,11 @@ export function SessionFinishHud({
     const corrections = summary.corrections ?? 0;
     const mscResolved = summary.misconceptionsTouched?.resolved ?? 0;
     const mscReturned = summary.misconceptionsTouched?.returned ?? 0;
+    // Unassisted repair checks: answered and confirmed are reported as two
+    // numbers, never one. "1 repair confirmed" out of two checks would read as
+    // the whole story of the session's repairs, and it is half of it.
+    const coldDone = summary.coldChecksCompleted ?? 0;
+    const coldPassed = summary.coldChecksPassed ?? 0;
 
     // Candidate diff lines; each carries a weight (informativeness) and whether
     // it MUST appear when present (corrections, for non-monotone honesty).
@@ -141,6 +146,16 @@ export function SessionFinishHud({
     }
     if (corrections > 0) {
       candidates.push({ text: `± ${corrections} corrections applied`, color: C.amberHi, weight: corrections, force: true });
+    }
+    if (coldDone > 0) {
+      candidates.push({
+        text: `unassisted checks ${coldDone} answered  ✓${coldPassed} confirmed`,
+        color: coldPassed === coldDone ? C.green : C.amberHi,
+        weight: coldDone,
+        // Forced for the same reason corrections are: a check that did not
+        // confirm must not be the line that gets dropped for space.
+        force: true,
+      });
     }
     if (mscResolved > 0 || mscReturned > 0) {
       candidates.push({ text: `misconceptions ✓${mscResolved} resolved  ↩${mscReturned} returned`, color: C.amber, weight: mscResolved + mscReturned, force: false });

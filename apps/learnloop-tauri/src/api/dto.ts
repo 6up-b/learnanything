@@ -282,6 +282,13 @@ export interface KnowledgeFacetPoint {
   hasBlueprints: boolean;
   capabilityArcs: Array<{ capability: string; status: CapabilityArcStatus }>;
   learningObjectIds: string[];
+  /**
+   * A repair on this facet's material was done with assistance and the single
+   * unassisted check it scheduled has not been answered yet. Strictly separate
+   * from `demonstratedMass` — instructed work is never demonstrated evidence,
+   * and must never be counted as such in a marker, a legend or a summary.
+   */
+  coldCheckPending?: boolean;
   ambiguityCandidates: string[];
   ambiguityAttemptId: string | null;
   correction: { at: string; delta: number; attemptId: string } | null;
@@ -408,6 +415,10 @@ export interface SessionEndSummary {
   attemptsRecorded: number;
   itemsReviewed: number;
   followupsQueued: number | null;
+  /** Unassisted repair checks this session spent, and how many passed. Counted
+   *  separately on purpose: "answered" and "confirmed" are different facts. */
+  coldChecksCompleted?: number;
+  coldChecksPassed?: number;
   streak: StreakSummary;
   facetsDemonstrated: number;
   predictionsMoved: { up: number; down: number };
@@ -483,12 +494,27 @@ export interface QueueSection {
   items: ScheduledItemDto[];
 }
 
+/** A cold check the scheduler is withholding because its answer was shown after
+ *  it was scheduled. Not a queue item — it was removed before ranking — so it
+ *  is reported as waiting, never offered. */
+export interface DeferredColdCheckDto {
+  followupTaskId: string;
+  kind: FollowupKind;
+  practiceItemId: string | null;
+  learningObjectId: string | null;
+  learningObjectTitle: string | null;
+  /** When the check becomes available again (last reveal + the cold delay). */
+  deferredTo: IsoTimestamp;
+  lastRevealAt: IsoTimestamp;
+}
+
 export interface QueueSnapshot {
   version: number;
   generatedAt: IsoTimestamp;
   sessionId: string | null;
   sections: QueueSection[];
   totalItems: number;
+  deferredColdChecks?: DeferredColdCheckDto[];
 }
 
 /** Knowledge-model §5.1: what a rubric criterion actually observes. `role`
@@ -969,6 +995,16 @@ export interface FeedbackBundle {
   interventionNeed: InterventionNeedDto | null;
   /** This attempt was itself a primed retry. */
   primed: boolean;
+  /** `primed` was FORCED by the reveal ledger rather than chosen: tutor answers
+   *  or repair displays had already covered part of the solution before this
+   *  attempt. `autoPrimedRevealTotal` is the summed reveal fraction behind it —
+   *  absent, never zero, when the ledger did not force it. */
+  autoPrimed?: boolean;
+  autoPrimedRevealTotal?: number | null;
+  /** Non-null only when this attempt CONSUMED a cold check — the single
+   *  unassisted measurement an earlier assisted repair scheduled. Announced
+   *  after the grade; nothing about it is shown before the attempt. */
+  coldCheckResult?: ColdCheckResultDto | null;
   /** Canonical-source sections that spawned this item (source-review panel). */
   sourceRefs: ResolvedSourceRefDto[];
   followupQueued: boolean;
@@ -989,6 +1025,33 @@ export interface FeedbackBundle {
    * RegradeLedgerCard renders on a fresh load, not only after an in-screen
    * trigger_regrade. Null/absent when the attempt was never regraded. */
   regrade?: PersistedRegradeDto | null;
+}
+
+/** What the cold check this attempt spent turned out to say.
+ *
+ *  `passed` and `claim` are deliberately separate. `passed` is whether the
+ *  unassisted answer was right; `claim` is what the system is licensed to
+ *  conclude, which a downgraded receipt can withhold even from a correct
+ *  answer. Rendering only one of them would let assistance buy a confirmation.
+ */
+export interface ColdCheckResultDto {
+  passed: boolean;
+  /** Recorded cold outcome (`cold_success`, `cold_failure`,
+   *  `right_censored_expired`, `contaminated_or_assisted`, …). */
+  outcome: string | null;
+  claim: "repair_confirmed" | "escalated_unrepaired" | "downgraded" | "unmeasured";
+  claimDowngradedReason: string | null;
+  caseKind: string | null;
+  caseRef: string | null;
+  /** Human-readable name for what was under repair. */
+  caseSummary: string;
+  factorId: string | null;
+  episodeId: string | null;
+  /** The day the assisted repair happened, and the day this check answered. */
+  instructedAt: IsoTimestamp | null;
+  checkedAt: IsoTimestamp | null;
+  revealSpend?: number | null;
+  revealBudget?: number | null;
 }
 
 export interface CausalFeedbackDto {
@@ -1312,6 +1375,12 @@ export interface CausalRepairStatusDto {
   /** Standing constraint 4: per-EVSI-input provenance —
    *  "deterministic" | "model_reported" | "heuristic_default". */
   evsiProvenance: Record<string, string>;
+  /** How much of the answer this repair episode has already handed over, on the
+   *  reveal ledger's 0..1 fraction-of-answer scale, against the budget it is
+   *  measured against. Null when the status carries no episode. Reported, never
+   *  enforced: nothing is refused on budget. */
+  revealSpend?: number | null;
+  revealBudget?: number | null;
   decisionPolicyVersion?: string | null;
   formulaVersion?: string | null;
 }
@@ -1423,6 +1492,25 @@ export type UnresolvedCauseSelfReportResponse =
   | "notation_confused"
   | "other_valid_approach"
   | "diagnosis_wrong";
+
+/**
+ * Result of `submit_eliciting_response`: the learner's unaided answer to an
+ * eliciting repair's question, recorded as a factor-response engagement signal.
+ *
+ * It is not a grade. `admissibleAsIndependent` is false when the item's answer
+ * was revealed before the response was written — the response is still on the
+ * record, it just cannot be read as independent evidence.
+ */
+export interface ElicitingResponseResultDto {
+  reportId: string;
+  factorId: string;
+  attemptId: string;
+  suggestionIndex: number;
+  observationId: string;
+  admissibleAsIndependent: boolean;
+  inadmissibilityReason: string | null;
+  feedback: FeedbackBundle;
+}
 
 export interface UnresolvedCauseSelfReportResultDto {
   factorId: string;
@@ -1892,6 +1980,16 @@ export interface RepairSuggestionDto {
   preserveRefs?: CausalTargetRefDto[];
   expectedMinutes?: number | null;
   answerRevealBudget?: number | null;
+  /**
+   * Eliciting repair. When present (the grader's default for misconception-class
+   * mechanisms), the suggestion asks ONE question the learner answers unaided
+   * instead of showing spliced corrected work — so the feedback screen must
+   * render the question and a response box, NOT a solution. Submit the answer
+   * with `submitElicitingResponse`.
+   */
+  elicitingQuestion?: string | null;
+  /** What a correct unaided response to `elicitingQuestion` would demonstrate. */
+  expectedResponseContract?: string | null;
   repairedTrace?: RepairedTraceDto | null;
   verificationRequest?: {
     kind: "symbolic_equality" | "exact_match";

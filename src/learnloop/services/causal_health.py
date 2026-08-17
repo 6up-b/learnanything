@@ -282,7 +282,9 @@ def causal_lane_health(
     # be silently closing factors.
     observation_outcomes: dict[str, int] = {}
     observation_sensors: dict[str, int] = {}
-    for observation in repository.causal_discriminating_observations():
+    for observation in repository.causal_discriminating_observations(
+        probe_channel_only=True
+    ):
         outcome = str(observation.get("outcome") or "unrecorded")
         observation_outcomes[outcome] = observation_outcomes.get(outcome, 0) + 1
         sensor = str(observation.get("feature_source") or "unrecorded")

@@ -6,7 +6,14 @@ CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.6-criterion-total-scoring"
 # identity: telemetry is grouped by (prompt_version, model), and pooling
 # pre-A5 grades with post-A5 ones would compute the profile rejection rate over a
 # population half of which was never offered a profile.
-GRADING_PROMPT_VERSION = "mvp-1.4-localized-mechanism-derived-score"
+# Remediation redesign slice 3: candidate causes are drafted JOINTLY with
+# verbalized relative weights and per-candidate discriminating predictions, and
+# repair suggestions gain the eliciting operator (a question the learner answers
+# unaided) beside the spliced one. Both change what the grader is ASKED, so both
+# change the prompt identity.
+GRADING_PROMPT_VERSION = (
+    "mvp-1.5-joint-candidate-causes-verbalized-weights-eliciting-repair"
+)
 # ING M8: cross-source practice generation with hard leakage controls (§8.5). The
 # authoring path grows a bounded multi-source grounding context + blueprint task-family
 # shaping, and generated surfaces are screened against the held-out inventory by a
@@ -19,7 +26,10 @@ GRADING_PROMPT_VERSION = "mvp-1.4-localized-mechanism-derived-score"
 PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.2-criterion-total-scoring"
 # ING M8: tutor answers may cite bounded entity_source_links spans (§9.2). Bumped
 # for the citations contract (validated against provided spans, never invented).
-TUTOR_QA_PROMPT_VERSION = "mvp-0.7-tutor-qa-source-citations"
+# Remediation redesign slice 3: the tutor also EXTRACTS from the learner's own
+# question — a falsifiable expectation it asserted, and a candidate cause the
+# dialogue surfaced that the attempt text could not have shown.
+TUTOR_QA_PROMPT_VERSION = "mvp-0.8-tutor-qa-learner-embedded-prediction"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
 TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.1-source-item-quest-transfer"
 MISCONCEPTION_MATCH_PROMPT_VERSION = "mvp-0.5-misconception-match"

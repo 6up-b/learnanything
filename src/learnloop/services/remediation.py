@@ -18,6 +18,36 @@ logger = logging.getLogger(__name__)
 
 REPAIR_COLD_OPPORTUNITY_POLICY_VERSION = "repair_cold_opportunity_v1"
 
+#: The delay between the priming attempt and the earliest honest cold retry.
+#: One authority for the lane's "later session, not this one" rule: scheduling
+#: (`record_remediation_attempt`) sets `not_before` at +this, the scheduler
+#: re-applies it when a reveal contaminates a task that was already due
+#: (`scheduler._defer_revealed_cold_followups`), and `coldness_receipt
+#: .MIN_COLD_DELAY` mirrors it as the receipt's `retrieval_delay` floor. A
+#: module constant rather than vault config: it is the definition of the
+#: instrument, not a tuning knob — a vault that shortened it would still call
+#: the result a cold retrieval.
+COLD_RETRIEVAL_DELAY = timedelta(days=1)
+
+#: How much of a repair episode's answer may be handed over before the cold
+#: measurement at the end of it is worth less than it claims. Expressed on the
+#: reveal ledger's 0..1 fraction-of-answer scale and summed over the episode's
+#: own rows (`episode_reveal_spend`).
+#:
+#: A module constant, not vault config — same reasoning as
+#: `causal_factor_deferral.ESCALATION_RECURRENCE_K` and `FACTOR_DEFERRAL_TTL`:
+#: the budget is a property of what a repair episode IS (a bounded amount of
+#: telling, followed by an unassisted check), not a per-vault preference. 0.85
+#: leaves room for a full worked example plus a partial restatement while still
+#: falling short of "the answer was simply given"; a vault free to raise it to
+#: 1.0 could call an outright answer transfer a repair.
+#:
+#: Measured, not enforced, in this slice: nothing refuses a repair or a
+#: verification on budget. The spend travels on the repair status and on the
+#: cold-scheduling context so the eventual verification can say the episode was
+#: over-budget rather than pretending it was not.
+EPISODE_REVEAL_BUDGET = 0.85
+
 
 class RemediationError(ValueError):
     pass
@@ -38,6 +68,57 @@ class RemediationBlocked(RemediationError):
     @property
     def status(self) -> str:
         return str(self.repair_status.status)
+
+
+def open_episode_for_practice_item(
+    repository: Repository, practice_item_id: str | None
+) -> dict[str, Any] | None:
+    """The live repair episode a reveal on ``practice_item_id`` belongs to.
+
+    Attribution only — this never creates or advances an episode. Preference
+    order:
+
+    1. the episode still waiting for its primed attempt on this exact item
+       (``open_remediation_episode_for_primed_item``), the binding
+       ``record_remediation_attempt`` itself uses, so a reveal and the attempt
+       it contaminates land on the same episode;
+    2. otherwise the newest live episode holding the item as its primed *or*
+       cold surface — a reveal on a scheduled cold item is the contamination
+       the ledger exists to catch, and that item has no primed binding.
+
+    Returns ``None`` when the item is not part of any live repair, which is the
+    ordinary case: a reveal outside a repair is still a reveal, just an
+    unattributed one."""
+
+    if not practice_item_id:
+        return None
+    episode = repository.open_remediation_episode_for_primed_item(practice_item_id)
+    if episode is not None:
+        return episode
+    episodes = repository.open_remediation_episodes_for_item(practice_item_id)
+    return episodes[0] if episodes else None
+
+
+def episode_reveal_spend(repository: Repository, episode_id: str | None) -> float:
+    """How much answer this repair episode has already handed over (0..1+).
+
+    Sums the ledger rows STAMPED with the episode — an unattributed reveal on
+    the same item is still a reveal, but it is not this episode's spend, and
+    inferring attribution here would double-count exposures the ledger
+    deliberately left unattributed. Read-only and best-effort: a ledger failure
+    reports 0.0 spend and logs rather than breaking a repair screen.
+    """
+
+    if not episode_id:
+        return 0.0
+    try:
+        rows = repository.reveal_events(remediation_episode_id=episode_id)
+    except Exception:  # pragma: no cover - defensive, evidence-only read
+        logger.warning(
+            "episode reveal spend read failed for %s", episode_id, exc_info=True
+        )
+        return 0.0
+    return float(sum(float(row.get("amount") or 0.0) for row in rows))
 
 
 def start_remediation_episode(
@@ -721,7 +802,7 @@ def record_remediation_attempt(
             )
             return
         created = parse_utc(attempt.get("created_at")) or (clock or SystemClock()).now()
-        not_before = (created.astimezone(UTC) + timedelta(days=1)).replace(microsecond=0)
+        not_before = (created.astimezone(UTC) + COLD_RETRIEVAL_DELAY).replace(microsecond=0)
         expires = not_before + timedelta(days=30)
         repository.update_remediation_episode(
             episode["id"], state="cold_scheduled", primed_attempt_id=attempt["id"], clock=clock
@@ -735,6 +816,20 @@ def record_remediation_attempt(
         context = cold_verification_context(
             None, repository, episode=episode, source_attempt=attempt
         )
+        # What this episode spent from the reveal budget, resolved at schedule
+        # time like the rest of the §6.2 context. The verification lands days
+        # later, by which point more reveals may have accumulated against the
+        # episode; the number carried here is the spend the SCHEDULING decision
+        # saw, and `reveal_over_budget` is the fact a later reader would
+        # otherwise have to re-derive from a constant it cannot see. Nothing is
+        # blocked on it in this slice — an over-budget episode still schedules
+        # its cold retry, it just cannot later claim nobody noticed.
+        spend = episode_reveal_spend(repository, str(episode["id"]))
+        context = dict(context) | {
+            "reveal_spend": spend,
+            "reveal_budget": EPISODE_REVEAL_BUDGET,
+            "reveal_over_budget": spend > EPISODE_REVEAL_BUDGET,
+        }
         # A diagnosis-kind episode whose context resolves no repair class would
         # schedule a 30-day retry doomed to land `missing_chain` at verification
         # (§4.3). New episodes can no longer be minted unmapped, but episodes

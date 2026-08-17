@@ -665,6 +665,10 @@ def misconception_posterior(
     the odds by the §1.3 likelihood ratio: a keyed fatal fire → ``sens/(1-spec)``;
     a discriminating item with no fire → ``(1-sens)/spec``; an item with no
     discrimination row for this belief leaves the odds untouched (LR 1).
+
+    One admissibility carve-out (mvp-0.9): a PRIMED attempt that does not fire
+    also leaves the odds untouched. See the branch below for why the exclusion
+    is one-directional.
     """
 
     prior = _clamp(record.severity, _PRIOR_FLOOR, _PRIOR_CEIL)
@@ -692,6 +696,24 @@ def misconception_posterior(
         )
         if fired:
             odds *= sens / (1.0 - spec)
+        elif attempt.get("primed"):
+            # ADMISSIBILITY (mvp-0.9). A primed attempt was preceded by the
+            # repair: the learner was shown the correction, or the answer, and
+            # then retried. Not firing under those conditions is what the
+            # priming was FOR, and it says nothing about whether the belief
+            # survives unaided — yet the resolving branch below treats it as
+            # exactly as much evidence of resolution as a clean cold retrieval,
+            # so a single primed redo could push a durable misconception under
+            # `tau_misconception_resolved` and `update_misconception_posteriors_and_resolve`
+            # would close it.
+            #
+            # The asymmetry is deliberate and one-directional. A primed attempt
+            # that FIRES anyway (the branch above) still counts: the belief
+            # asserted itself despite the correction, which is stronger evidence
+            # than an unprimed firing, not weaker. Only the resolving direction
+            # is refused, and it is refused by leaving the odds untouched — the
+            # same LR 1 an unlinked item already gets, not a penalty.
+            continue
         else:
             odds *= (1.0 - sens) / spec
     return odds / (1.0 + odds)

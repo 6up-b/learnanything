@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import exp, log
-from typing import Any
+from typing import Any, Mapping
 
-from learnloop.clock import Clock, SystemClock, parse_utc
+from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repository
 from learnloop.services.fitted_params import resolve_fsrs_weights
@@ -35,6 +36,8 @@ from learnloop.services.recall_coverage import (
 )
 from learnloop.services.selection_rewards import SchedulerIntent, score_selection_reward
 from learnloop.vault.models import LoadedVault, PracticeItem
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,12 @@ def build_due_queue(
     episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {}
     episode_eligible_cache: dict[str, dict[str, EligibleInstrument]] = {}
     pending_followups = repository.pending_followup_practice_items(clock=clock)
+    # Meas §6.2: a due cold task whose item's answer has been revealed since the
+    # task was created must be DEFERRED, not served. Burning the one single-use
+    # measurement on contaminated evidence is the failure this prevents.
+    pending_followups, cold_deferrals = _defer_revealed_cold_followups(
+        vault, repository, pending_followups, clock=clock, persist=persist_explanations
+    )
     # KM2b: canonical shared facet state under mvp-0.7 (byte-identical legacy
     # per-LO reads under mvp-0.6). One reader build feeds the whole vault sweep.
     facet_states_by_lo = read_facet_states_by_lo(vault, repository)
@@ -541,6 +550,16 @@ def build_due_queue(
             _explanation_payload(excluded, selected=False, selection_propensity=None)
             for excluded in probe_reserved_exclusions
         ]
+        # Same contract for the cold lane: a single-use measurement held back
+        # because its answer was revealed is visible in the slate instead of
+        # looking like the task silently vanishing for a day. Merged onto the
+        # item's own row when it is already a candidate (the cold item is an
+        # ordinary practice card too, and the slate holds one row per item);
+        # appended as an unselected annotation when the deferral is the only
+        # reason the item was considered at all.
+        explanations = _merge_cold_deferral_explanations(
+            vault, explanations, cold_deferrals, readiness_factor
+        )
         probe_presentation = None
         if queue:
             selected = queue[0]
@@ -644,6 +663,291 @@ _INTERVENTION_FOLLOWUP_KINDS: frozenset[str] = frozenset(
 #: time refuses to pick one (followups / certification_cold_probe), and the
 #: serving door below refuses a stale task that still names one.
 REPAIR_JOURNEY_TASK_KINDS: frozenset[str] = frozenset({"cold_retry"})
+
+
+def _defer_revealed_cold_followups(
+    vault: LoadedVault,
+    repository: Repository,
+    pending_followups: list[dict[str, str]],
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """Hold back due cold tasks whose answer has been revealed since creation.
+
+    A cold task is a SINGLE-USE measurement: the first attempt on its item
+    consumes it, and whatever that attempt was worth is what the episode
+    records forever. The submit path already refuses an assisted or auto-primed
+    cold attempt (``attempts._resolve_attempt_target``), but that refusal
+    arrives after the learner has typed an answer, and it protects the receipt
+    rather than the measurement — the task stays due, so the next serve walks
+    into the same wall. Serving is where it can still be spent well: if the
+    reveal ledger (migration 154) has a row for the task's selected item, or
+    anywhere in its learning object, dated after the task was created, the task
+    is withheld from this build and its ``not_before`` is pushed to the last
+    such reveal plus the lane's own retrieval delay — the same +1 day that made
+    the original schedule cold.
+
+    Deliberately bounded:
+
+    * ``expires_at`` is NEVER extended. An episode that keeps being revealed
+      runs out its original 30-day window and lands ``right_censored_expired``
+      through ``causal_orchestrator.sweep_expired_cold_retries``. "We could not
+      get a clean measurement" is an honest ending; a measurement window that
+      grows every time the answer is shown is not.
+    * The push is persisted only on a build that is already allowed to write
+      (``persist_explanations``); a deliberately side-effect-free build still
+      withholds the task, it just recomputes the same decision next time.
+    * Non-cold follow-up lanes are untouched: an intervention follow-up is a
+      re-practice, not a measurement, and being shown the answer is not a
+      reason to withhold it.
+    """
+
+    if not pending_followups:
+        return pending_followups, []
+
+    from learnloop.services.attempts import COLD_FOLLOWUP_TASK_KINDS
+    from learnloop.services.remediation import COLD_RETRIEVAL_DELAY
+
+    # Second-resolution, exactly like every other timestamp the lane writes
+    # (`clock.utc_now_iso`): these strings are compared against stored ones.
+    now_iso = utc_now_iso(clock)
+    kept: list[dict[str, str]] = []
+    deferrals: list[dict[str, Any]] = []
+    for pending in pending_followups:
+        task_id = pending.get("followup_task_id")
+        if not task_id or pending.get("action_type") not in COLD_FOLLOWUP_TASK_KINDS:
+            kept.append(pending)
+            continue
+        task = repository.followup_task(str(task_id))
+        if task is None:
+            kept.append(pending)
+            continue
+        item_id = str(task.get("selected_item_id") or "")
+        selected_item = vault.practice_items.get(item_id) if item_id else None
+        # The selected item's LO, not the task's column: the repair lane leaves
+        # `followup_tasks.learning_object_id` NULL, and the LO is exactly the
+        # scope a reveal has to be judged in. Note the asymmetry with the
+        # RECEIPT, which treats an LO-wide reveal as soft: a receipt asks
+        # whether a measurement already taken was contaminated, this asks
+        # whether NOW is the moment to spend a single-use one, and "wait a day"
+        # costs nothing while a wrong answer to the first question costs the
+        # whole episode.
+        learning_object_id = (
+            str(getattr(selected_item, "learning_object_id", "") or "") or None
+            if selected_item is not None
+            else (str(task.get("learning_object_id") or "") or None)
+        )
+        # The task's own creation is the window start: reveals BEFORE it were
+        # already visible to the scheduling decision (the primed attempt that
+        # created the task is itself the licensed exposure), so re-counting them
+        # would defer every cold retry the moment its own repair spent budget.
+        since = str(task.get("created_at") or "")
+        try:
+            reveals = repository.reveal_events_for_target(
+                practice_item_id=item_id or None,
+                learning_object_id=learning_object_id,
+                since=since or None,
+                until=now_iso,
+            )
+        except Exception:  # pragma: no cover - a ledger read must not break the queue
+            kept.append(pending)
+            continue
+        if not reveals:
+            kept.append(pending)
+            continue
+        last_at = max(str(row.get("created_at") or "") for row in reveals)
+        last_dt = parse_utc(last_at)
+        if last_dt is None:
+            kept.append(pending)
+            continue
+        deferred_to = (
+            (last_dt.astimezone(UTC) + COLD_RETRIEVAL_DELAY)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+        if deferred_to <= now_iso:
+            # The delay has already elapsed since the last reveal: the task is
+            # cold again on its own terms and is served normally.
+            kept.append(pending)
+            continue
+        expires_at = str(task.get("expires_at") or "")
+        deferral = {
+            "followup_task_id": str(task_id),
+            "practice_item_id": item_id or None,
+            "kind": str(task.get("kind") or ""),
+            "remediation_episode_id": (
+                str(task.get("remediation_episode_id") or "") or None
+            ),
+            "reveal_event_ids": [str(row.get("id") or "") for row in reveals],
+            "reveal_amount": sum(float(row.get("amount") or 0.0) for row in reveals),
+            "last_reveal_at": last_at,
+            "deferred_to": deferred_to,
+            "expires_at": expires_at or None,
+            # No expiry extension: past this point the deferral simply outlives
+            # the task and the expiry sweep records the censoring.
+            "beyond_expiry": bool(expires_at and deferred_to > expires_at),
+            "delay_seconds": COLD_RETRIEVAL_DELAY.total_seconds(),
+        }
+        if persist:
+            repository.defer_followup_task(
+                str(task_id), not_before=deferred_to, clock=clock
+            )
+        # A session build also writes the slate annotation below; the log line
+        # is what a CLI or session-less build leaves behind, so the deferral is
+        # never invisible on any path.
+        logger.info(
+            "cold %s task %s deferred to %s: %d reveal(s) since %s",
+            deferral["kind"],
+            task_id,
+            deferred_to,
+            len(reveals),
+            since,
+        )
+        deferrals.append(deferral)
+    return kept, deferrals
+
+
+def deferred_cold_followups(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None = None,
+) -> list[dict[str, Any]]:
+    """Live cold tasks currently held back because their answer was shown.
+
+    Purely a READ. ``_defer_revealed_cold_followups`` decides and persists the
+    push, but it only ever sees a task on the build that defers it: afterwards
+    ``not_before`` sits in the future, ``due_followup_tasks`` filters the row
+    out, and the deferral becomes invisible to every surface. That silence is
+    the problem this exists to fix — a queue that quietly withholds a scheduled
+    measurement and says nothing is indistinguishable from one that lost it.
+
+    A future ``not_before`` alone is not evidence of a deferral (every cold task
+    spends its first day that way), so the reveal ledger is re-consulted for the
+    same window the deferral used. Nothing is written and nothing is decided
+    here; a task whose push has elapsed simply does not appear.
+    """
+
+    from learnloop.services.attempts import COLD_FOLLOWUP_TASK_KINDS
+
+    now_iso = utc_now_iso(clock)
+    deferred: list[dict[str, Any]] = []
+    for kind in sorted(COLD_FOLLOWUP_TASK_KINDS):
+        try:
+            tasks = repository.open_followup_tasks_of_kind(kind)
+        except Exception:  # pragma: no cover - a queue read must not break here
+            continue
+        for task in tasks:
+            not_before = str(task.get("not_before") or "")
+            if not not_before or not_before <= now_iso:
+                continue
+            item_id = str(task.get("selected_item_id") or "")
+            selected_item = vault.practice_items.get(item_id) if item_id else None
+            learning_object_id = (
+                str(getattr(selected_item, "learning_object_id", "") or "") or None
+                if selected_item is not None
+                else (str(task.get("learning_object_id") or "") or None)
+            )
+            try:
+                reveals = repository.reveal_events_for_target(
+                    practice_item_id=item_id or None,
+                    learning_object_id=learning_object_id,
+                    since=str(task.get("created_at") or "") or None,
+                    until=now_iso,
+                )
+            except Exception:  # pragma: no cover - ledger read is advisory here
+                continue
+            if not reveals:
+                # Ordinary cold-retrieval wait, not a deferral. Saying "held
+                # back" about it would invent a reason that never happened.
+                continue
+            deferred.append(
+                {
+                    "followup_task_id": str(task.get("id") or ""),
+                    "kind": kind,
+                    "practice_item_id": item_id or None,
+                    "learning_object_id": learning_object_id,
+                    "deferred_to": not_before,
+                    "last_reveal_at": max(
+                        str(row.get("created_at") or "") for row in reveals
+                    ),
+                }
+            )
+    deferred.sort(key=lambda row: (row["deferred_to"], row["followup_task_id"]))
+    return deferred
+
+
+#: Plain-English reason on the annotation row a deferred cold task leaves in the
+#: slate. Same "no silent caps" contract as the reserved-probe exclusions: an
+#: item withheld from the queue says why, in the log the queue already writes.
+_COLD_DEFERRAL_REASON = "cold check held back: its answer was shown since it was scheduled"
+
+
+def _merge_cold_deferral_explanations(
+    vault: LoadedVault,
+    explanations: list[dict[str, Any]],
+    deferrals: list[dict[str, Any]],
+    readiness_factor: float | None,
+) -> list[dict[str, Any]]:
+    """Mark every deferred cold task in the slate, exactly once per item."""
+
+    if not deferrals:
+        return explanations
+    by_item = {
+        str(deferral.get("practice_item_id") or ""): deferral
+        for deferral in deferrals
+        if deferral.get("practice_item_id")
+    }
+    merged = list(explanations)
+    for row in merged:
+        deferral = by_item.pop(str(row.get("practice_item_id") or ""), None)
+        if deferral is None:
+            continue
+        row["components"] = dict(row.get("components") or {}) | _deferral_components(
+            deferral
+        )
+        reasons = list((row.get("plain_english") or {}).get("reasons") or [])
+        row["plain_english"] = {
+            "reasons": [*_deferral_reasons(deferral), *reasons]
+        }
+    for item_id, deferral in by_item.items():
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            continue
+        learning_object = vault.learning_object_for_item(item)
+        if learning_object is None:
+            continue
+        merged.append(
+            _explanation_payload(
+                ScheduledItem(
+                    practice_item_id=item.id,
+                    learning_object_id=learning_object.id,
+                    priority=0.0,
+                    components=_deferral_components(deferral),
+                    readiness_factor=readiness_factor,
+                    selected_mode=item.practice_mode,
+                    plain_english=_deferral_reasons(deferral),
+                    reward_debug=None,
+                    followup_kind=str(deferral.get("kind") or "") or None,
+                ),
+                selected=False,
+                selection_propensity=None,
+            )
+        )
+    return merged
+
+
+def _deferral_components(deferral: Mapping[str, Any]) -> dict[str, float]:
+    return {
+        "cold_followup_deferred_reveal": 1.0,
+        "cold_followup_reveal_amount": float(deferral.get("reveal_amount") or 0.0),
+    }
+
+
+def _deferral_reasons(deferral: Mapping[str, Any]) -> list[str]:
+    return [_COLD_DEFERRAL_REASON, f"deferred until {deferral.get('deferred_to')}"]
 
 
 def _insert_pending_followups(

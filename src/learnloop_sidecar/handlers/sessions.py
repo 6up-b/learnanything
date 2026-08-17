@@ -84,6 +84,7 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     from learnloop.services.session_learning_diff import session_learning_diff
 
     learning_diff = session_learning_diff(vault, repository, params.session_id)
+    cold_checks = _session_cold_checks(repository, params.session_id)
     return versioned(
         {
             "session_id": row["id"],
@@ -92,6 +93,11 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
             "attempts_recorded": counts["attempts_recorded"],
             "items_reviewed": counts["items_reviewed"],
             "followups_queued": _session_followups_queued(repository, params.session_id),
+            # Cold checks are the session's only unassisted repair evidence, and
+            # they are counted SEPARATELY from what passed: "2 answered, 1 held"
+            # is the honest shape, "1 repair confirmed" alone hides the other.
+            "cold_checks_completed": cold_checks["completed"],
+            "cold_checks_passed": cold_checks["passed"],
             "streak": repository.session_day_streak(),
             **learning_diff,
         }
@@ -151,6 +157,41 @@ def _with_hints_used(focus: dict[str, Any] | None, hints_used: int) -> dict[str,
     practice["hintsUsed"] = hints_used
     payload["practice"] = practice
     return payload
+
+
+def _session_cold_checks(repository, session_id: str) -> dict[str, int]:
+    """Repair cold checks this session spent, and how many of them passed.
+
+    Same window convention as ``_session_followups_queued`` (attempt timestamps
+    between the session's start and end). A cold task is joined to the attempt
+    that CONSUMED it, so a check scheduled long ago counts for the session that
+    actually answered it. ``passed`` reads the recorded outcome, not the grade:
+    an outcome row is written by the cold verification lane, and its absence
+    means the check produced no verdict rather than a failure.
+    """
+
+    session = repository.fetch_session(session_id)
+    if session is None:
+        return {"completed": 0, "passed": 0}
+    started_at = session["started_at"]
+    ended_at = session["ended_at"] or started_at
+    with repository.connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT o.outcome AS outcome
+            FROM followup_tasks t
+            JOIN practice_attempts a ON a.id = t.consumed_attempt_id
+            LEFT JOIN causal_cold_outcomes o ON o.followup_task_id = t.id
+            WHERE t.kind = 'cold_retry'
+              AND t.status = 'consumed'
+              AND a.created_at >= ? AND a.created_at <= ?
+            """,
+            (started_at, ended_at),
+        ).fetchall()
+    return {
+        "completed": len(rows),
+        "passed": sum(1 for row in rows if row["outcome"] == "cold_success"),
+    }
 
 
 def _session_followups_queued(repository, session_id: str) -> int:

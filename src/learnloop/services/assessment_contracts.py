@@ -43,10 +43,26 @@ KM_ALGORITHM_VERSION = "mvp-0.7"
 # mvp-0.7 remains the byte-identical compatibility projection.
 P0_ALGORITHM_VERSION = "mvp-0.8"
 
-# Both mvp-0.7 and mvp-0.8 read/write canonical (shared-facet) state. mvp-0.8 is
-# the successor projection; the reader guards accept either so a mvp-0.8 vault
-# does not fall back to the retired legacy per-LO facet-state bridge.
-CANONICAL_STATE_VERSIONS: frozenset[str] = frozenset({KM_ALGORITHM_VERSION, P0_ALGORITHM_VERSION})
+# mvp-0.9 (migration 154): cross-channel reveal accounting. An attempt taken
+# after the answer was exposed is now recorded as primed, so the version has to
+# move for the change to be replayable — but the PROJECTION is unchanged. mvp-0.9
+# reads and writes exactly the mvp-0.8 authority-propagation substrate; it is a
+# successor tag on the same namespace, not a new one.
+REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
+
+# Successors that inherit the mvp-0.8 projection semantics wholesale. Gates that
+# ask "is this the P0 projection?" must consult ``P0_PROJECTION_VERSIONS`` rather
+# than comparing to ``P0_ALGORITHM_VERSION``, or every future version bump
+# silently demotes fresh vaults to the legacy path.
+P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset({REVEAL_LEDGER_ALGORITHM_VERSION})
+P0_PROJECTION_VERSIONS: frozenset[str] = frozenset({P0_ALGORITHM_VERSION}) | P0_SUCCESSOR_VERSIONS
+
+# mvp-0.7 and every P0-projection version read/write canonical (shared-facet)
+# state. The reader guards accept any of them so such a vault does not fall back
+# to the retired legacy per-LO facet-state bridge.
+CANONICAL_STATE_VERSIONS: frozenset[str] = (
+    frozenset({KM_ALGORITHM_VERSION}) | P0_PROJECTION_VERSIONS
+)
 
 CONTRACT_SCHEMA_VERSION = 1
 
