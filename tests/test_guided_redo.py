@@ -15,7 +15,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -24,13 +24,13 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.guided_redo import (
+from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+from learnloop.diagnosis.guided_redo import (
     GuidedRedoUnavailable,
     guided_redo_available,
     start_guided_redo,
 )
-from learnloop.services.remediation import _rank_items, start_remediation_episode
+from learnloop.diagnosis.remediation import _rank_items, start_remediation_episode
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -389,7 +389,7 @@ def test_guided_redo_reports_case_unresolvable(tmp_path, monkeypatch):
     ``case_unresolvable`` — not ``no_independent_surface``, which would send a
     reader authoring surfaces that change nothing."""
 
-    import learnloop.services.remediation as remediation
+    import learnloop.diagnosis.remediation as remediation
 
     vault, repository = _setup(tmp_path)
     failed = failed_attempt_with_repair(vault, repository, "att_redo_nocase")
@@ -397,7 +397,7 @@ def test_guided_redo_reports_case_unresolvable(tmp_path, monkeypatch):
     episode = start_remediation_episode(
         repository, misconception_id, clock=FrozenClock(NOW)
     )
-    monkeypatch.setattr(remediation, "_episode_case", lambda repository, episode: None)
+    monkeypatch.setattr(remediation, "episode_case", lambda repository, episode: None)
     redo = start_guided_redo(vault, repository, failed.attempt_id)
     assert redo["episode_id"] == episode["id"]
     assert redo["cold_item_id"] is None

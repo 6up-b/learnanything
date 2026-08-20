@@ -10,11 +10,11 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.services.curriculum_locks import identity_locks
-from learnloop.services.mastery import display_mastery, sigmoid
-from learnloop.services.probes import resolve_item_irt
-from learnloop.services.recall_coverage import predicted_correctness
-from learnloop.services.scheduler import build_due_queue
+from learnloop.curriculum.curriculum_locks import identity_locks
+from learnloop.learner.mastery import display_mastery, sigmoid
+from learnloop.diagnosis.probes import resolve_item_irt
+from learnloop.learner.recall_coverage import predicted_correctness
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -230,9 +230,9 @@ def _facet_field(vault, repository) -> dict[str, Any]:
     invents evidence adjacency.
     """
 
-    from learnloop.services.capability_mapping import CAPABILITY_VOCABULARY
-    from learnloop.services.certification import is_demonstrated_credit
-    from learnloop.services.facet_evidence_timeline import facet_evidence_timelines
+    from learnloop.learner.capability_mapping import CAPABILITY_VOCABULARY
+    from learnloop.goals.certification import is_demonstrated_credit
+    from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
 
     facet_ids = {
         vault.canonical_facet_id(facet_id)
@@ -488,8 +488,8 @@ def _facet_current_retentions(vault, repository) -> dict[str, float]:
     from datetime import UTC, datetime
 
     from learnloop.clock import parse_utc
-    from learnloop.services.fitted_params import resolve_fsrs_weights
-    from learnloop.services.fsrs import forgetting_curve
+    from learnloop.params.fitted_params import resolve_fsrs_weights
+    from learnloop.scheduling.fsrs import forgetting_curve
 
     now = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     states = repository.practice_item_states()
@@ -560,9 +560,9 @@ def _facet_graph_distances(facets: list[str], adjacency) -> list[list[float]]:
 def _next_gap(vault, repository, points, adjacency) -> dict[str, Any] | None:
     """One model-selected gap pin, routed to its native drill-down."""
 
-    from learnloop.services.capability_grid import lo_blueprint_readiness
-    from learnloop.services.goal_certification import lo_certification
-    from learnloop.services.goal_projection import resolve_goal_scope
+    from learnloop.learner.capability_grid import lo_blueprint_readiness
+    from learnloop.goals.goal_certification import lo_certification
+    from learnloop.goals.goal_projection import resolve_goal_scope
 
     point_by_id = {point["id"]: point for point in points}
     goals = sorted(

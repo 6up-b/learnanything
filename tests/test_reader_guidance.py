@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services.reader_guidance import build_guide_plan
-from learnloop.services import task_blueprints as TB
-from learnloop.services import reader_dialogue as RD
+from learnloop.reader.reader_guidance import build_guide_plan
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.reader import reader_dialogue as RD
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceRef
 

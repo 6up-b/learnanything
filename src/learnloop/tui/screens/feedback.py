@@ -9,18 +9,9 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Input, Label
 
-from learnloop.ai.client import make_ai_provider_client
-from learnloop.ai.routing import fallback_provider_for, provider_for_task
-from learnloop.ai.runtime import check_ai_runtime
-from learnloop.codex.client import CodexUnavailable, make_codex_client
-from learnloop.codex.runtime import check_codex_runtime
-from learnloop.config import (
-    CODEX_LOW_PROVIDER,
-    CODEX_MEDIUM_PROVIDER,
-    CODEX_PROVIDER_NAMES,
-    DEFAULT_CODEX_MODEL,
-)
-from learnloop.services.attempts import (
+from learnloop.ai.routing import ready_client_for_task
+from learnloop.config import CODEX_PROVIDER_NAMES
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptResult,
     SelfGradeInput,
@@ -29,10 +20,10 @@ from learnloop.services.attempts import (
     complete_attempt_with_codex_fallback,
     complete_attempt_with_codex_required,
 )
-from learnloop.services.followups import FollowupDecision
-from learnloop.services.mastery import sigmoid
-from learnloop.services.post_attempt import run_post_attempt_pipeline
-from learnloop.services.scheduler import ScheduledItem
+from learnloop.diagnosis.followups import FollowupDecision
+from learnloop.learner.mastery import sigmoid
+from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import KeyBar, TextStatic, block_bar, mode_pill_color, pill
 
@@ -270,45 +261,13 @@ class FeedbackScreen(Screen):
         return await self.auto_submit_ai()
 
     def _grading_provider(self):
-        selection = provider_for_task(self.state.vault.config, "grading")
-        provider_name = selection.provider_name
-        runtime = self._runtime_for_provider(provider_name)
-        if runtime.ready:
-            return provider_name, runtime, self._client_for_provider(provider_name)
-        fallback = fallback_provider_for(self.state.vault.config, selection)
-        if fallback:
-            fallback_runtime = self._runtime_for_provider(fallback)
-            if fallback_runtime.ready:
-                return fallback, fallback_runtime, self._client_for_provider(fallback)
-        return provider_name, runtime, None
-
-    def _codex_config_for_provider(self, provider_name: str):
-        if provider_name not in {CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER}:
-            return self.state.vault.config.codex
-        effort = "low" if provider_name == CODEX_LOW_PROVIDER else "medium"
-        return self.state.vault.config.codex.model_copy(
-            update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": effort}
+        return tuple(
+            ready_client_for_task(
+                self.state.vault.root,
+                self.state.vault.config,
+                "grading",
+            )
         )
-
-    def _runtime_for_provider(self, provider_name: str):
-        if provider_name in CODEX_PROVIDER_NAMES:
-            if provider_name == "codex":
-                runtime = self.state.startup_maintenance.codex_runtime if self.state.startup_maintenance else None
-                if runtime is not None:
-                    return runtime
-            return check_codex_runtime(self.state.vault.root, self._codex_config_for_provider(provider_name))
-        runtime = self.state.startup_maintenance.ai_runtime if self.state.startup_maintenance else None
-        if runtime is not None and runtime.active_provider == provider_name:
-            return runtime
-        return check_ai_runtime(self.state.vault.root, self.state.vault.config, provider_name=provider_name)
-
-    def _client_for_provider(self, provider_name: str):
-        try:
-            if provider_name in CODEX_PROVIDER_NAMES:
-                return make_codex_client(self._codex_config_for_provider(provider_name), self.state.vault.root)
-            return make_ai_provider_client(self.state.vault.config, self.state.vault.root, provider_name=provider_name)
-        except CodexUnavailable:
-            return None
 
     def _ai_ready(self) -> bool:
         _provider_name, runtime, client = self._grading_provider()
@@ -348,7 +307,7 @@ class FeedbackScreen(Screen):
         # state segment closes and later evidence measures the post-reveal
         # learner state. The integrity model does not depend on the UX cost.
         if self.draft.probe_presentation_id is not None and result.probe_block_end is None:
-            from learnloop.services.probe_blocks import end_diagnostic_block
+            from learnloop.diagnosis.probe_blocks import end_diagnostic_block
 
             episode = self.state.repository.open_probe_episode(self.learning_object.id)
             if episode is not None and episode.status == "in_progress":

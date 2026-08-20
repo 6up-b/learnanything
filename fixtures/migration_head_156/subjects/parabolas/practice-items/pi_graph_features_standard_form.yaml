@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_graph_features_standard_form
+learning_object_id: lo_graph_standard_form_parabola
+subjects:
+  - parabolas
+practice_mode: feature_extraction_for_graphing
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - opening_direction
+  - vertex_formula_use
+  - function_evaluation
+  - axis_of_symmetry
+  - x_intercept_solving
+  - y_intercept_evaluation
+  - feature_consistency
+evidence_weights:
+  axis_of_symmetry: 0.14285714285714285
+  feature_consistency: 0.14285714285714285
+  function_evaluation: 0.14285714285714285
+  opening_direction: 0.14285714285714285
+  vertex_formula_use: 0.14285714285714285
+  x_intercept_solving: 0.14285714285714285
+  y_intercept_evaluation: 0.14285714285714285
+criterion_facet_weights: {}
+prompt: For f(x) = x^2 - 4x + 3, list the opening direction, vertex, axis of 
+  symmetry, x-intercepts, and y-intercept. These features should be enough to 
+  sketch the parabola.
+expected_answer: Since a = 1 > 0, it opens upward. The vertex x-coordinate is 
+  -b/(2a) = 4/2 = 2, and f(2) = -1, so the vertex is (2, -1). The axis of 
+  symmetry is x = 2. The x-intercepts come from x^2 - 4x + 3 = 0 = (x - 1)(x - 
+  3), so they are (1, 0) and (3, 0). The y-intercept is f(0) = 3, so it is (0, 
+  3).
+difficulty: 0.62
+difficulty_source: llm_estimate
+tags:
+  - parabolas
+  - graphing
+  - standard-form
+  - intercepts
+  - axis-of-symmetry
+hints:
+  - Start with the sign of a.
+  - The vertex and axis share the same x-value.
+  - For x-intercepts, set f(x) equal to zero. For the y-intercept, set x = 0.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.5
+transfer_distance: 0.45
+scaffold_level: 0.05
+surface_family: standard_form_graph_feature_table
+repair_targets:
+  - opening_direction
+  - vertex_formula_use
+  - function_evaluation
+  - axis_of_symmetry
+  - x_intercept_solving
+  - y_intercept_evaluation
+  - feature_consistency
+  - axis_as_point
+  - intercepts_swapped
+  - wrong_vertex_formula_graphing
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: opening_direction
+      points: 0.5
+      description: Correctly states that the parabola opens upward because a is 
+        positive.
+    - id: vertex_x_formula
+      points: 0.5
+      description: Uses x = -b/(2a) to find x = 2.
+    - id: vertex_y_evaluation
+      points: 0.625
+      description: Evaluates f(2) = -1.
+    - id: vertex_pair
+      points: 0.375
+      description: Reports the vertex as (2, -1).
+    - id: axis_symmetry
+      points: 0.5
+      description: Reports the axis of symmetry as x = 2.
+    - id: x_intercepts
+      points: 0.75
+      description: Finds x-intercepts (1, 0) and (3, 0).
+    - id: y_intercept
+      points: 0.5
+      description: Finds y-intercept (0, 3).
+    - id: graph_feature_coherence
+      points: 0.25
+      description: Features are mutually consistent for an upward-opening 
+        parabola.
+  fatal_errors:
+    - id: axis_as_point
+      description: Reports the axis of symmetry as an ordered point instead of a
+        vertical line x = constant.
+      max_grade: 3
+    - id: intercepts_swapped
+      description: Confuses x-intercepts with the y-intercept in a way that 
+        makes the sketch unusable.
+      max_grade: 3
+    - id: wrong_vertex_formula_graphing
+      description: Uses an incorrect vertex x-coordinate formula leading to 
+        inconsistent graph features.
+      max_grade: 3
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=340.6-410.3
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=340.6-410.3
+      quote:
+      quote_hash:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=421.0-433.8
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=421.0-433.8
+      quote:
+      quote_hash:
+created_at: '2026-05-30T01:11:15Z'
+updated_at: '2026-05-30T01:11:15Z'

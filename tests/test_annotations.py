@@ -8,7 +8,7 @@ import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import annotations as ANN
+from learnloop.reader import annotations as ANN
 from tests.test_source_inventory import _persist, _register_revision
 
 

@@ -17,10 +17,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.certification_cold_probe import current_certificate
-from learnloop.services.goal_certification import lo_certification, recipe_gaps
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.goals.certification_cold_probe import current_certificate
+from learnloop.goals.goal_certification import lo_certification, recipe_gaps
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 

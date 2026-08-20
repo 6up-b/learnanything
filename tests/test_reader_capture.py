@@ -18,7 +18,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import reader_capture as RC
+from learnloop.reader import reader_capture as RC
 from tests.test_source_inventory import _persist, _register_revision
 
 
@@ -203,7 +203,7 @@ _CHILD_TEMPLATE = textwrap.dedent(
     from pathlib import Path
     sys.path.insert(0, {repo_src!r})
     from learnloop.db.repositories import Repository
-    from learnloop.services import reader_capture as RC
+    from learnloop.reader import reader_capture as RC
     repo = Repository(Path({db!r}))
     stage = {stage!r}
     if stage == "after_capture":
@@ -240,7 +240,7 @@ _PRESET_CHILD_TEMPLATE = textwrap.dedent(
     from pathlib import Path
     sys.path.insert(0, {repo_src!r})
     from learnloop.db.repositories import Repository
-    from learnloop.services import reader_capture as RC
+    from learnloop.reader import reader_capture as RC
     repo = Repository(Path({db!r}))
     stage = {stage!r}
     SEL = {{"nodes": [{{"span_id": "s1", "quote": "Symmetric"}}]}}

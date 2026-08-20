@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
-from learnloop.services.conflict_resolution import ConflictResolutionError, resolve_conflict, conflict_with_audit
-from learnloop.services.exam_readiness import exam_readiness_report
-from learnloop.services.source_set_synthesis import create_study_map
+from learnloop.content.proposals.conflict_resolution import ConflictResolutionError, resolve_conflict, conflict_with_audit
+from learnloop.goals.exam_readiness import exam_readiness_report
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup

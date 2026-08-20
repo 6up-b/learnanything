@@ -2,23 +2,14 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 from pathlib import Path
 
-# On Windows only: relocate pytest's temp root into the repo. The default
-# location under the user's AppData/Local/Temp can be unwritable on some
-# Windows setups, which makes every test that uses tmp_path error during
-# setup. Everywhere else the OS temp dir must be used as-is — on Linux it is
-# typically tmpfs, and a repo-local root would put every per-test sqlite
-# vault on the project filesystem, where fsync-heavy commits dominate the
-# suite (measured ~9s/test on btrfs vs ~30ms on tmpfs).
-if sys.platform == "win32":
-    _TEMP_ROOT = Path(__file__).resolve().parent.parent / ".pytest_tmp"
-    _TEMP_ROOT.mkdir(parents=True, exist_ok=True)
-    os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEMP_ROOT))
-else:
-    _TEMP_ROOT = Path(tempfile.gettempdir()) / "learnloop_pytest"
-    _TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+# Keep the 4,000+ fixture vaults off the capacity-constrained system temp
+# volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
+# --basetemp is not supplied, while still allowing CI to override it.
+_TEMP_ROOT = Path(__file__).resolve().parent.parent / ".pytest_tmp"
+_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEMP_ROOT))
 
 # Isolate tests from machine-global learnloop settings. Point LEARNLOOP_CONFIG_DIR
 # at an empty dir (so a developer's real ~/.config/learnloop/settings.env is not
@@ -42,10 +33,11 @@ import learnloop.db.connection as _db_connection  # noqa: E402
 _durable_connect = _db_connection.connect
 
 
-def _fast_test_connect(sqlite_path):
-    connection = _durable_connect(sqlite_path)
-    connection.execute("PRAGMA synchronous=OFF")
-    connection.execute("PRAGMA journal_mode=MEMORY")
+def _fast_test_connect(sqlite_path, *, read_only=False):
+    connection = _durable_connect(sqlite_path, read_only=read_only)
+    if not read_only:
+        connection.execute("PRAGMA synchronous=OFF")
+        connection.execute("PRAGMA journal_mode=MEMORY")
     return connection
 
 

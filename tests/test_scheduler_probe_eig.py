@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.probe_episodes import enter_episode
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.diagnosis.probe_episodes import enter_episode
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 

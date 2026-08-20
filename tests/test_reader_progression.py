@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from learnloop.codex.schemas import AuthoringProposal
+from tests.structured_ai import StructuredClientFake
+
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.practice_generation import (
+from learnloop.content.authoring.practice_generation import (
     build_practice_expansion_plan,
     generate_post_probe_practice_proposal,
 )
-from learnloop.services.reader_progression import source_refs_for_section
+from learnloop.reader.reader_progression import source_refs_for_section
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceRef
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
-from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+from learnloop.content.pipeline.jobs import DurableIngestJobs
 
 from tests.helpers import create_basic_vault
 from tests.test_reader_guidance import _setup
@@ -89,7 +91,7 @@ def test_practice_plan_uses_blueprint_facets_before_first_item(tmp_path):
     assert plan.targets[0].existing_evidence_facets == ["facet_svd_structure"]
 
 
-class _CaptureClient:
+class _CaptureClient(StructuredClientFake):
     model = "fake"
     provider_type = "fake"
 

@@ -5,26 +5,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.runtime import check_ai_runtime
+from learnloop.ai.routing import ready_client_for_task, runtime_for_provider
 from learnloop.clock import utc_now_iso
-from learnloop.codex.runtime import check_codex_runtime
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.canonical_projection_rollout import (
+from learnloop.substrate.canonical_projection_rollout import (
     refresh_canonical_projection_on_startup,
 )
-from learnloop.services.facet_diagnostics import mastery_diagnostic_view
-from learnloop.services.mastery import display_mastery
-from learnloop.services.startup import run_startup_maintenance
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
+from learnloop.learner.mastery import display_mastery
+from learnloop.ops.startup import run_startup_maintenance
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_practice_item_file, load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import open_vault_repository
 from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.exam_grading import ExamGradingManager
-from learnloop_sidecar.ingest_jobs import IngestJobManager
+from learnloop.content.pipeline.jobs import IngestJobManager
 
 
 @dataclass
@@ -45,7 +45,10 @@ class SidecarContext:
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         self.vault_root = Path(vault_path).resolve()
         self.vault = load_vault(self.vault_root)
-        self.repository = Repository(VaultPaths(self.vault.root, self.vault.config).sqlite_path)
+        self.repository = open_vault_repository(
+            self.vault.root,
+            VaultPaths(self.vault.root, self.vault.config).sqlite_path,
+        )
         runner_config = self.vault.config.ingest.runner
         self.ingest_jobs.bind(
             self.repository,
@@ -65,7 +68,7 @@ class SidecarContext:
         # Self-heal certificates earned before the live attempt hook existed.
         # The §5.7 scheduler is idempotent per content-addressed certificate and
         # reports unmeasurable certificates rather than inventing a probe.
-        from learnloop.services.certification_cold_probe import (
+        from learnloop.goals.certification_cold_probe import (
             schedule_certification_cold_probes,
         )
 
@@ -142,10 +145,10 @@ class SidecarContext:
                 "snapshot": self.app_snapshot(),
             }
 
-        from learnloop.services.probe_instance_generation import (
+        from learnloop.diagnosis.probe_instance_generation import (
             pending_review_instance_ids,
         )
-        from learnloop.services.state_sync import practice_item_activatable
+        from learnloop.substrate.state_sync import practice_item_activatable
 
         review_parked = pending_review_instance_ids(repository)
         measurement_superseded = repository.superseded_measurement_item_ids()
@@ -336,12 +339,6 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                 "variance_convergence_threshold": config.probe.variance_convergence_threshold,
                 "hypothesis_set_max_size": config.probe.hypothesis_set_max_size,
             },
-            "codex": {
-                "provider": config.codex.provider,
-                "model": config.codex.model,
-                "base_url": config.codex.base_url,
-                "auth_mode": config.codex.auth_mode,
-            },
             "ai": {
                 "active_provider": config.ai.active_provider,
                 "fallback_provider": config.ai.fallback_provider,
@@ -383,7 +380,7 @@ def available_grading_providers(vault: LoadedVault) -> list[str]:
 def runtime_health(
     vault: LoadedVault, repository: Repository, grading_override: str | None = None
 ) -> dict[str, Any]:
-    report = check_codex_runtime(vault.root, vault.config.codex)
+    report = runtime_for_provider(vault.root, vault.config, "codex")
     versions = applied_versions(repository.sqlite_path)
     latest = max((migration.version for migration in discover_migrations()), default=0)
     ai_block = _ai_health(vault, grading_override)
@@ -427,7 +424,7 @@ def _settings_ready(vault: LoadedVault) -> bool:
     if not names:
         names = {config.ai.active_provider}
     return all(
-        check_ai_runtime(vault.root, config, provider_name=name).ready for name in names
+        runtime_for_provider(vault.root, config, name).ready for name in names
     )
 
 
@@ -458,18 +455,13 @@ def _ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, An
             **base,
             "manual_grading": True,
         }
-    if grading_override == "codex" and "codex" not in vault.config.ai.providers:
-        codex_report = check_codex_runtime(vault.root, vault.config.codex)
-        return {
-            "ready": codex_report.ready,
-            "status": codex_report.status,
-            "active_provider": "codex",
-            "provider_type": "codex",
-            "model": vault.config.codex.model,
-            "provider_revision": codex_report.actual_revision,
-            **base,
-        }
-    ai_report = check_ai_runtime(vault.root, vault.config, provider_name=grading_override)
+    resolved = ready_client_for_task(
+        vault.root,
+        vault.config,
+        "grading",
+        explicit=grading_override,
+    )
+    ai_report = resolved.runtime
     return {
         "ready": ai_report.ready,
         "status": ai_report.status,

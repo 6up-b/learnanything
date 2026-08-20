@@ -1,0 +1,69 @@
+{
+  "practice": {
+    "blocks": [
+      {
+        "kind": "prompt",
+        "label": null,
+        "markdown": "Define SVD."
+      }
+    ],
+    "practice_item_id": "pi_svd_define_001"
+  },
+  "queue": {
+    "components": {
+      "forgettingRisk": 0.75,
+      "selectionReward": 1.25
+    },
+    "dominantReason": "memory is due",
+    "dueAt": null,
+    "dueStatus": "later",
+    "followupKind": null,
+    "isFollowup": false,
+    "isProbe": false,
+    "learningObjectId": "lo_svd_definition",
+    "learningObjectTitle": "SVD definition",
+    "mastery": null,
+    "masteryVariance": null,
+    "plainEnglish": [
+      "Due for review."
+    ],
+    "practiceItemId": "pi_svd_define_001",
+    "practiceMode": "short_answer",
+    "priority": 1.25,
+    "readinessFactor": 0.8,
+    "selectedMode": "short_answer",
+    "subject": "linear-algebra"
+  },
+  "reader": {
+    "answerModes": [
+      "answer_directly",
+      "help_me_reason",
+      "ask_me_first"
+    ],
+    "citations": "reuse tutor_qa validated citations; uncited claims are stripped",
+    "context": "reader",
+    "defaultAnswerMode": "answer_directly",
+    "exposureOnCommit": "familiarity.propagate_tutor_exposure (warms revealed cues)",
+    "manifestIncludes": [
+      "the exact source span(s) in view (block-level span_view text + citation ids)",
+      "the learner question text",
+      "the goal-contract task invariants + required capabilities (read-only head)",
+      "prior reader exchanges on the same span only",
+      "the chosen answer mode for this ask"
+    ],
+    "manifestNeverIncludes": [
+      "the learner ability / posterior estimate",
+      "any assessment-reserved surface statement or rubric",
+      "any cold administration's in-flight response"
+    ],
+    "mayReveal": [
+      "state facts",
+      "complete a derivation",
+      "give a worked example",
+      "confirm or deny an interpretation"
+    ],
+    "notSocraticByDefault": true,
+    "readerEnabled": true,
+    "version": "p2-reader-v1"
+  }
+}

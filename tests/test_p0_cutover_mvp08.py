@@ -12,14 +12,14 @@ import json
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.services import parameter_registry as pr
-from learnloop.services.attempts import (
+from learnloop.params import parameter_registry as pr
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.vault_upgrade import (
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.ops.vault_upgrade import (
     COMPATIBILITY_DELTA_FILENAME,
     compatibility_projection_delta,
     upgrade_to_mvp08,

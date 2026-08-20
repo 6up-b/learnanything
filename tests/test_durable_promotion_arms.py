@@ -26,26 +26,26 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.causal_attribution import record_unresolved_cause_self_report
-from learnloop.services.diagnosis_adjudication import append_diagnosis_adjudication
-from learnloop.services.durable_promotion import (
+from learnloop.diagnosis.causal_attribution import record_unresolved_cause_self_report
+from learnloop.diagnosis.diagnosis_adjudication import append_diagnosis_adjudication
+from learnloop.tutor.durable_promotion import (
     PROMOTION_REASON_ADJUDICATED,
     PROMOTION_REASON_PROVED_AND_CONFIRMED,
     apply_adjudicated_belief_effects,
     apply_proved_and_confirmed_promotion,
     sweep_late_promotion_evidence,
 )
-from learnloop.services.learner_review_feed import build_learner_review_feed
-from learnloop.services.misconceptions import _normalize_text
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.surfaced_beliefs import mark_belief_surfaced
+from learnloop.learner.learner_review_feed import build_learner_review_feed
+from learnloop.diagnosis.misconceptions import normalize_text
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.learner.surfaced_beliefs import mark_belief_surfaced
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO
@@ -248,8 +248,8 @@ def test_every_verdict_has_a_promotion_decision(tmp_path):
     rather than quietly doing nothing to belief state.
     """
 
-    from learnloop.services.diagnosis_adjudication import VERDICTS
-    from learnloop.services.durable_promotion import (
+    from learnloop.diagnosis.diagnosis_adjudication import VERDICTS
+    from learnloop.tutor.durable_promotion import (
         AFFIRMING_VERDICTS,
         NEUTRAL_VERDICTS,
         OVERTURNING_VERDICTS,
@@ -261,7 +261,7 @@ def test_every_verdict_has_a_promotion_decision(tmp_path):
     assert not OVERTURNING_VERDICTS & NEUTRAL_VERDICTS
     # Neither abstention verdict may promote or retract: the system asserted no
     # cause, so there is no belief to act on.
-    from learnloop.services.diagnosis_adjudication import ABSTENTION_VERDICTS
+    from learnloop.diagnosis.diagnosis_adjudication import ABSTENTION_VERDICTS
 
     assert ABSTENTION_VERDICTS <= NEUTRAL_VERDICTS
 
@@ -283,7 +283,7 @@ def test_correct_verdict_promotes_the_cause_the_system_asserted(tmp_path):
 
     durable = _durable(repository)
     assert len(durable) == 1
-    assert _normalize_text(durable[0].statement) == _normalize_text(STATEMENT)
+    assert normalize_text(durable[0].statement) == normalize_text(STATEMENT)
     assert durable[0].promotion_reason == PROMOTION_REASON_ADJUDICATED
     # A promoted belief carries the frozen authored correction, which is exactly
     # the permanent write durable status unlocks.
@@ -602,7 +602,7 @@ def test_proof_plus_confirmation_promotes(tmp_path):
     durable = _durable(repository)
     assert len(durable) == 1
     assert durable[0].promotion_reason == PROMOTION_REASON_PROVED_AND_CONFIRMED
-    assert _normalize_text(durable[0].statement) == _normalize_text(STATEMENT)
+    assert normalize_text(durable[0].statement) == normalize_text(STATEMENT)
 
     # Idempotent on re-drive.
     again = apply_proved_and_confirmed_promotion(
@@ -807,7 +807,7 @@ def test_replay_reproduces_the_same_belief_state(tmp_path):
     state that gets recomputed into a second row.
     """
 
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.replay import rebuild_derived_state
 
     vault, repository, _paths = _vault(tmp_path)
     _failure(vault, repository, attempt_id="att_replay")
@@ -841,7 +841,7 @@ def test_a_promoted_belief_is_not_resolved_away_by_the_next_posterior_pass(tmp_p
     belief has none, so the posterior holds at the severity prior.
     """
 
-    from learnloop.services.misconceptions import (
+    from learnloop.diagnosis.misconceptions import (
         misconception_posterior,
         update_misconception_posteriors_and_resolve,
     )

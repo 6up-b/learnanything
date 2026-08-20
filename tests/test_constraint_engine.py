@@ -8,10 +8,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import constraint_engine as ce
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import parameter_registry as pr
-from learnloop.services import staged_policy as sp
+from learnloop.scheduling import constraint_engine as ce
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.params import parameter_registry as pr
+from learnloop.scheduling import staged_policy as sp
 
 from tests.helpers import NOW
 

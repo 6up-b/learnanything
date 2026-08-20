@@ -14,8 +14,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.causal_probe_coherence import transition_probe_candidate
-from learnloop.services.causal_probe_commissioning import (
+from learnloop.diagnosis.causal_probe_coherence import transition_probe_candidate
+from learnloop.diagnosis.causal_probe_commissioning import (
     COMMISSIONING_OUTCOMES,
     commission_probe_instrument,
     make_target_generator,
@@ -531,7 +531,7 @@ def test_sweep_machine_checks_queues_the_instrument_debt(tmp_path):
     """A divergent factor with no instrument owes one, and the debt is queued so
     it is drainable instead of re-derived and forgotten on every attempt."""
 
-    from learnloop.services.causal_orchestrator import (
+    from learnloop.diagnosis.causal_orchestrator import (
         MACHINE_CHECK_INSTRUMENT_COMMISSIONING,
         pending_machine_checks_for_factor,
         sweep_machine_checks,

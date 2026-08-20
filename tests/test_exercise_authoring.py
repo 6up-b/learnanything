@@ -1,10 +1,12 @@
 """Reader exercise import: verbatim anchoring, deterministic validation of the
 AI-authored contract (facets, rubric, depth rung), dedupe, and multi-exercise
-split (services/exercise_authoring)."""
+split (``learnloop.content.authoring.exercise_authoring``)."""
 
 from __future__ import annotations
 
-from learnloop.codex.schemas import (
+from tests.structured_ai import StructuredClientFake
+
+from learnloop.content.authoring.ai_contracts import (
     CriterionFacetWeightsPayload,
     ExerciseAuthoredItem,
     ExerciseAuthoring,
@@ -13,8 +15,8 @@ from learnloop.codex.schemas import (
     RubricPatchPayload,
     TaskFeaturesPayload,
 )
-from learnloop.services import exercise_authoring as EX
-from learnloop.services.proposals import _practice_item_metadata_warnings
+from learnloop.content.authoring import exercise_authoring as EX
+from learnloop.content.proposals.proposals import _practice_item_metadata_warnings
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -86,7 +88,7 @@ def _item(**overrides) -> ExerciseAuthoredItem:
     return ExerciseAuthoredItem(**base)
 
 
-class FakeClient:
+class FakeClient(StructuredClientFake):
     def __init__(self, result: ExerciseAuthoring | None = None) -> None:
         self.calls: list = []
         self.result = result or ExerciseAuthoring(items=[_item()])

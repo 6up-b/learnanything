@@ -14,12 +14,12 @@ from datetime import UTC, datetime
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services.activities import log_interaction_event
+from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop_sidecar.server import serve
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, append_config_toml, create_basic_vault
 from tests.test_source_inventory import _persist, _register_revision
 
 _CLOCK = FrozenClock(NOW)
@@ -41,12 +41,13 @@ def _set_reader(vault_root, enabled: bool) -> None:
     gated server-side on this flag. Set explicitly — the ship default flipped to
     enabled (owner decision 2026-07-20), so disabled tests must opt out."""
 
-    import re
-
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    desired = f"reader_enabled = {'true' if enabled else 'false'}"
-    config_path.write_text(re.sub(r"reader_enabled = (true|false)", desired, text), encoding="utf-8")
+    append_config_toml(
+        vault_root,
+        f"""
+        [tutor_qa]
+        reader_enabled = {'true' if enabled else 'false'}
+        """,
+    )
 
 
 def _setup(tmp_path, *, enable_reader: bool = True):

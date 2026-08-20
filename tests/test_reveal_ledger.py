@@ -9,29 +9,31 @@ hint window, and the auto-prime forcing that the cold-retry guard must see.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import sqlite3
 from datetime import timedelta
 
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import TutorAnswer
+from learnloop.tutor.ai_contracts import TutorAnswer
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AUTO_PRIME_REVEAL_THRESHOLD,
     AttemptDraft,
     AttemptValidationError,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,
     start_remediation_treatment,
 )
-from learnloop.services.tutor_qa import (
+from learnloop.tutor.tutor_qa import (
     answer_leak_overlap,
     answer_leaks_expected,
     ask_question,
@@ -46,7 +48,7 @@ LO_ID = "lo_svd_definition"
 EXPECTED = "A matrix factorization into U, Sigma, and V transpose."
 
 
-class FakeTutorClient:
+class FakeTutorClient(StructuredClientFake):
     provider_name = "fake_tutor"
     provider_type = "fake"
     model = "fake-model"
@@ -328,7 +330,7 @@ def test_an_auto_primed_attempt_replays_as_primed(tmp_path):
     By replay time the window has moved past the reveal, so a re-derivation
     would quietly turn a primed attempt back into clean evidence."""
 
-    from learnloop.services.attempts import replay_existing_attempt
+    from learnloop.attempts.attempts import replay_existing_attempt
 
     vault, repository = _setup(tmp_path)
     _seed_reveal(repository, 0.9, clock=FrozenClock(NOW))

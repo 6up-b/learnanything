@@ -16,33 +16,39 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from learnloop.codex.client import (
-    AuthoringContext,
-    CodexUnavailable,
-    CodexTurnTimeout,
-    ReaderPresetSynthesisContext,
-    SdkCodexClient,
-    TeachBackAuthoringContext,
-    _codex_output_schema,
-    _resolved_sdk_codex_bin,
-    map_typed_schema_paths,
-)
-from learnloop.codex import schemas as codex_schemas
-from learnloop.codex.schemas import (
-    AuthoringProposal,
-    ErrorAttribution,
-    GradingProposal,
+from learnloop.ai.errors import CodexUnavailable, CodexTurnTimeout
+from learnloop.ai.providers.codex import SdkCodexClient, _resolved_sdk_codex_bin
+from learnloop.ai.strict_schema import strict_output_schema, map_typed_schema_paths
+from learnloop.ai import schemas as codex_schemas
+from learnloop.attempts import ai_contracts as attempts_ai_contracts
+from learnloop.attempts.ai_contracts import ErrorAttribution
+from learnloop.content.authoring import ai_contracts as content_authoring_ai_contracts
+from learnloop.content.pipeline import ai_contracts as content_pipeline_ai_contracts
+from learnloop.content.proposals import ai_contracts as content_proposals_ai_contracts
+from learnloop.content.proposals.ai_contracts import (
     PracticeItemPatchPayload,
-    ReaderPresetSynthesis,
-    TeachBackAuthoring,
     TraceContractPayload,
     TraceRecipePayload,
 )
+from learnloop.content.synthesis import ai_contracts as content_synthesis_ai_contracts
+from learnloop.curriculum import ai_contracts as curriculum_ai_contracts
+from learnloop.diagnosis import ai_contracts as diagnosis_ai_contracts
+from learnloop.reader import ai_contracts as reader_ai_contracts
+from learnloop.tutor import ai_contracts as tutor_ai_contracts
+from learnloop.attempts.ai_contracts import GradingProposal
+from learnloop.content.proposals.ai_contracts import AuthoringContext, AuthoringProposal
+from learnloop.content.synthesis.ai_contracts import AppendReconciliation
+from learnloop.diagnosis.ai_contracts import MisconceptionMatch
+from learnloop.reader.ai_contracts import ReaderPresetSynthesis, ReaderPresetSynthesisContext
+from learnloop.tutor.ai_contracts import TeachBackAuthoring, TeachBackAuthoringContext
+from learnloop.content.proposals.proposals import request_authoring_proposal
+from learnloop.reader.reader_requests import request_reader_preset_synthesis
+from learnloop.tutor.teach_back import request_teach_back_authoring
 from learnloop.config import CodexConfig
 
 
 def test_codex_authoring_schema_is_strict_response_format_compatible():
-    schema = _codex_output_schema(AuthoringProposal)
+    schema = strict_output_schema(AuthoringProposal)
 
     assert schema["additionalProperties"] is False
     assert "default" not in _schema_keys(schema)
@@ -54,7 +60,7 @@ def test_codex_authoring_schema_is_strict_response_format_compatible():
 
 
 def test_codex_grading_schema_is_strict_response_format_compatible():
-    schema = _codex_output_schema(GradingProposal)
+    schema = strict_output_schema(GradingProposal)
 
     assert schema["additionalProperties"] is False
     assert "default" not in _schema_keys(schema)
@@ -62,7 +68,7 @@ def test_codex_grading_schema_is_strict_response_format_compatible():
 
 
 def test_codex_teach_back_authoring_schema_is_strict_response_format_compatible():
-    schema = _codex_output_schema(TeachBackAuthoring)
+    schema = strict_output_schema(TeachBackAuthoring)
 
     assert schema["additionalProperties"] is False
     assert "default" not in _schema_keys(schema)
@@ -78,7 +84,7 @@ def test_append_schema_declares_properties_on_bare_restructure_payload():
     required ``payload`` key were not declared.
     """
 
-    schema = _codex_output_schema(codex_schemas.AppendReconciliation)
+    schema = strict_output_schema(AppendReconciliation)
 
     assert schema["$defs"]["AppendRestructure"]["properties"]["payload"] == {
         "type": "object",
@@ -133,7 +139,7 @@ def test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt(tmp_path):
         quest_sentence="I want to learn complex numbers for signal processing.",
     )
 
-    result = client.run_teach_back_authoring(context)
+    result = request_teach_back_authoring(client, context)
 
     assert result.quest_connection == "connected"
     assert captured["purpose"] == "teach_back_authoring"
@@ -157,7 +163,9 @@ def test_sdk_authoring_path_passes_strict_schema_to_codex(tmp_path):
 
     client._run_structured = fake_run_structured  # type: ignore[method-assign]
 
-    proposal = client.run_authoring_proposal(AuthoringContext(vault_root=str(tmp_path), source_ids=[]))
+    proposal = request_authoring_proposal(
+        client, AuthoringContext(vault_root=str(tmp_path), source_ids=[])
+    )
 
     assert proposal.summary == "ok"
     assert captured["purpose"] == "authoring"
@@ -191,7 +199,8 @@ def test_sdk_reader_preset_repairs_invalid_unicode_json_once(tmp_path):
     client._run_structured = fake_run_structured  # type: ignore[method-assign]
     selected = r"Show that $(a+b)x = ax + bx$ for all $a,b \in F$ and all $x \in F^n$"
 
-    result = client.run_reader_preset_synthesis(
+    result = request_reader_preset_synthesis(
+        client,
         ReaderPresetSynthesisContext(
             preset="worked_example",
             selected_text=selected,
@@ -233,7 +242,8 @@ def test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape(tmp_pa
     client._run_structured = fake_run_structured  # type: ignore[method-assign]
     selected = r"Show that $(a+b)x = ax + bx$ for all $a,b \in F$ and all $x \in F^n$"
 
-    result = client.run_reader_preset_synthesis(
+    result = request_reader_preset_synthesis(
+        client,
         ReaderPresetSynthesisContext(
             preset="worked_example",
             selected_text=selected,
@@ -261,7 +271,9 @@ def test_sdk_runtime_prefers_bundle_and_falls_back_for_source_checkout(
     bundled.bundled_codex_path = lambda: (_ for _ in ()).throw(  # type: ignore[attr-defined]
         FileNotFoundError("package metadata absent")
     )
-    monkeypatch.setattr("learnloop.codex.client.shutil.which", lambda _name: "/usr/bin/codex")
+    monkeypatch.setattr(
+        "learnloop.ai.providers.codex.shutil.which", lambda _name: "/usr/bin/codex"
+    )
     assert _resolved_sdk_codex_bin("") == "/usr/bin/codex"
     assert _resolved_sdk_codex_bin("/configured/codex") == "/configured/codex"
 
@@ -320,7 +332,7 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
     openai_codex_types.ReasoningSummary = ReasoningSummary
     monkeypatch.setitem(sys.modules, "openai_codex", openai_codex)
     monkeypatch.setitem(sys.modules, "openai_codex.types", openai_codex_types)
-    caplog.set_level(logging.DEBUG, logger="learnloop.codex.client")
+    caplog.set_level(logging.DEBUG, logger="learnloop.ai.providers.codex")
 
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex")), tmp_path)
     response = client._run_structured("full prompt body", {"type": "object"}, purpose="grading")
@@ -417,16 +429,30 @@ def test_authoring_payload_rejects_unknown_attempt_type():
 
 
 def _public_schema_models() -> list[type[BaseModel]]:
-    return sorted(
-        (
+    contract_modules = (
+        codex_schemas,
+        attempts_ai_contracts,
+        content_authoring_ai_contracts,
+        content_pipeline_ai_contracts,
+        content_proposals_ai_contracts,
+        content_synthesis_ai_contracts,
+        curriculum_ai_contracts,
+        diagnosis_ai_contracts,
+        reader_ai_contracts,
+        tutor_ai_contracts,
+    )
+    models: set[type[BaseModel]] = set()
+    for module in contract_modules:
+        models.update(
             obj
-            for obj in vars(codex_schemas).values()
+            for obj in vars(module).values()
             if inspect.isclass(obj)
             and issubclass(obj, BaseModel)
-            and obj.__module__ == codex_schemas.__name__
-            # WireModel is the empty base, not a payload anyone sends.
+            and obj.__module__ == module.__name__
             and obj is not codex_schemas.WireModel
-        ),
+        )
+    return sorted(
+        models,
         key=lambda model: model.__name__,
     )
 
@@ -457,14 +483,14 @@ def test_every_codex_schema_uses_only_strict_supported_keywords(model):
     passed because none of them looked for composition keywords.
     """
 
-    schema = _codex_output_schema(model)
+    schema = strict_output_schema(model)
 
     assert _schema_keys(schema) <= _STRICT_SUPPORTED_KEYWORDS
     assert not _non_strict_objects(schema)
 
 
 def test_discriminated_target_ref_is_a_flat_nullable_any_of():
-    schema = _codex_output_schema(GradingProposal)
+    schema = strict_output_schema(GradingProposal)
 
     target_ref = schema["$defs"]["ErrorAttribution"]["properties"]["target_ref"]
     assert target_ref == {
@@ -513,7 +539,8 @@ def test_discriminated_target_ref_still_round_trips_after_sanitizing():
 #   * DepthEdgeInstancePayload -- six of its ten authored fields, i.e. the
 #     entire task contract, evidence, freshness and burden of an LLM-authored
 #     depth edge. Every instance the provider returns has them empty, so the
-#     deterministic gates in services/depth_edge_authoring can only ever see a
+#     deterministic gates in ``learnloop.curriculum.depth_edge_authoring`` can
+#     only ever see a
 #     bare edge_id/milestone/rationale skeleton.
 #   * AppendRestructure.payload -- the whole body of a §10.2 restructure item.
 #   * PracticeItemPatchPayload.hint_policy, and the `dict` arm of
@@ -610,7 +637,7 @@ def test_undeclared_wire_field_is_rejected_by_name():
     """
 
     with pytest.raises(ValidationError) as excinfo:
-        codex_schemas.RubricCriterionPayload.model_validate(
+        content_proposals_ai_contracts.RubricCriterionPayload.model_validate(
             {
                 "id": "solve",
                 "points": 2.0,
@@ -621,7 +648,7 @@ def test_undeclared_wire_field_is_rejected_by_name():
 
     assert codex_schemas.undeclared_wire_fields(excinfo.value) == ["targets_v2"]
     message = codex_schemas.describe_wire_validation_error(
-        codex_schemas.RubricCriterionPayload, excinfo.value
+        content_proposals_ai_contracts.RubricCriterionPayload, excinfo.value
     )
     assert "RubricCriterionPayload" in message
     assert "targets_v2" in message
@@ -631,7 +658,7 @@ def test_undeclared_field_inside_a_proposal_item_names_the_payload_model():
     """The union must not bury the diagnosis under six irrelevant failures."""
 
     with pytest.raises(ValidationError) as excinfo:
-        codex_schemas.AuthoringProposalItem.model_validate(
+        content_proposals_ai_contracts.AuthoringProposalItem.model_validate(
             {
                 "client_item_id": "c1",
                 "item_type": "practice_item",
@@ -702,7 +729,7 @@ def test_output_schema_refuses_a_model_outside_the_wire_hierarchy():
         summary: str = ""
 
     with pytest.raises(TypeError, match="Loose is not a WireModel"):
-        _codex_output_schema(Loose)
+        strict_output_schema(Loose)
 
 
 def test_no_new_open_keyed_map_fields_are_introduced():
@@ -780,20 +807,81 @@ def _context_field_references(function) -> set[str]:
 
 
 def _prompt_builders_with_dataclass_contexts() -> list[tuple[str, Any, Any]]:
-    import learnloop.codex.client as client_module
+    from learnloop.attempts.ai_contracts import GradingContext, grading_prompt
+    from learnloop.content.authoring.ai_contracts import (
+        ConceptAnimationContext,
+        ExerciseAuthoringContext,
+        concept_animation_prompt,
+        exercise_authoring_prompt,
+    )
+    from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext, canonical_ingest_prompt
+    from learnloop.content.proposals.ai_contracts import AuthoringContext, authoring_prompt
+    from learnloop.content.synthesis.ai_contracts import (
+        AppendReconciliationContext,
+        ConceptGraphContext,
+        SourceSetSynthesisContext,
+        SourceUnitInventoryContext,
+        append_reconciliation_prompt,
+        concept_graph_structuring_prompt,
+        source_set_synthesis_prompt,
+        source_unit_inventory_prompt,
+    )
+    from learnloop.curriculum.ai_contracts import (
+        DepthEdgeInstanceContext,
+        RungBackfillContext,
+        depth_edge_instance_prompt,
+        rung_backfill_prompt,
+    )
+    from learnloop.diagnosis.ai_contracts import (
+        MisconceptionMatchContext,
+        ProbeDialogueTurnContext,
+        ProbeFamilyTrialsContext,
+        ProbeInstanceContext,
+        misconception_match_prompt,
+        probe_dialogue_turn_prompt,
+        probe_family_trials_prompt,
+        probe_instance_surfaces_prompt,
+    )
+    from learnloop.reader.ai_contracts import (
+        ReaderPresetSynthesisContext,
+        ReadingQuickCheckContext,
+        reader_preset_synthesis_prompt,
+        reading_quick_check_prompt,
+    )
+    from learnloop.tutor.ai_contracts import (
+        PromotionAnalysisContext,
+        TeachBackAuthoringContext,
+        TeachBackQuestionContext,
+        TutorQAContext,
+        promotion_analysis_prompt,
+        teach_back_authoring_prompt,
+        teach_back_question_prompt,
+        tutor_qa_prompt,
+    )
 
-    builders = []
-    for name, function in vars(client_module).items():
-        if not (name.startswith("_") and name.endswith("_prompt") and inspect.isfunction(function)):
-            continue
-        annotation = inspect.signature(function).parameters.get("context")
-        if annotation is None:
-            continue
-        resolved = getattr(client_module, str(annotation.annotation).split(".")[-1], None)
-        if resolved is None or not dataclasses.is_dataclass(resolved):
-            continue
-        builders.append((name, function, resolved))
-    return sorted(builders)
+    return [
+        ("append_reconciliation_prompt", append_reconciliation_prompt, AppendReconciliationContext),
+        ("authoring_prompt", authoring_prompt, AuthoringContext),
+        ("canonical_ingest_prompt", canonical_ingest_prompt, CanonicalIngestContext),
+        ("concept_animation_prompt", concept_animation_prompt, ConceptAnimationContext),
+        ("concept_graph_structuring_prompt", concept_graph_structuring_prompt, ConceptGraphContext),
+        ("depth_edge_instance_prompt", depth_edge_instance_prompt, DepthEdgeInstanceContext),
+        ("exercise_authoring_prompt", exercise_authoring_prompt, ExerciseAuthoringContext),
+        ("grading_prompt", grading_prompt, GradingContext),
+        ("misconception_match_prompt", misconception_match_prompt, MisconceptionMatchContext),
+        ("probe_dialogue_turn_prompt", probe_dialogue_turn_prompt, ProbeDialogueTurnContext),
+        ("probe_family_trials_prompt", probe_family_trials_prompt, ProbeFamilyTrialsContext),
+        ("probe_instance_surfaces_prompt", probe_instance_surfaces_prompt, ProbeInstanceContext),
+        ("promotion_analysis_prompt", promotion_analysis_prompt, PromotionAnalysisContext),
+        ("reader_preset_synthesis_prompt", reader_preset_synthesis_prompt, ReaderPresetSynthesisContext),
+        ("reading_quick_check_prompt", reading_quick_check_prompt, ReadingQuickCheckContext),
+        ("rung_backfill_prompt", rung_backfill_prompt, RungBackfillContext),
+        ("source_set_synthesis_prompt", source_set_synthesis_prompt, SourceSetSynthesisContext),
+        ("source_unit_inventory_prompt", source_unit_inventory_prompt, SourceUnitInventoryContext),
+        ("teach_back_authoring_prompt", teach_back_authoring_prompt, TeachBackAuthoringContext),
+        ("teach_back_question_prompt", teach_back_question_prompt, TeachBackQuestionContext),
+        ("tutor_qa_prompt", tutor_qa_prompt, TutorQAContext),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -821,19 +909,19 @@ def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field():
     Any other unknown key is a genuine divergence and must say so.
     """
 
-    from learnloop.codex.client import HttpCodexClient
+    from learnloop.ai.providers.codex_http import HttpCodexClient
 
     client = HttpCodexClient(CodexConfig())
 
     flat = client._validated(
-        codex_schemas.MisconceptionMatch,
+        MisconceptionMatch,
         {"decision": "new", "misconception_id": None, "usage": {"prompt_tokens": 12}},
         purpose="misconception_match",
     )
     assert flat.decision == "new"
 
     nested = client._validated(
-        codex_schemas.MisconceptionMatch,
+        MisconceptionMatch,
         {"proposal": {"decision": "same", "misconception_id": "mc_1"}, "usage": {}},
         purpose="misconception_match",
     )
@@ -841,7 +929,7 @@ def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field():
 
     with pytest.raises(CodexUnavailable) as excinfo:
         client._validated(
-            codex_schemas.MisconceptionMatch,
+            MisconceptionMatch,
             {"decision": "new", "confidence": 0.9},
             purpose="misconception_match",
         )

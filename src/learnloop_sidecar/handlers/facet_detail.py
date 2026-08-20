@@ -21,18 +21,18 @@ from typing import Any
 
 from pydantic import Field, ValidationError
 
-from learnloop.services.capability_grid import lo_blueprint_readiness
-from learnloop.services.certification import is_demonstrated_credit
-from learnloop.services.curriculum_locks import Operation, can_apply, identity_locks
-from learnloop.services.facet_state_reader import (
+from learnloop.learner.capability_grid import lo_blueprint_readiness
+from learnloop.goals.certification import is_demonstrated_credit
+from learnloop.curriculum.curriculum_locks import Operation, can_apply, identity_locks
+from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
     facet_recall_states_for_lo,
     is_canonical_state_vault,
     resolve_canonical_facet,
 )
-from learnloop.services.goal_projection import resolve_goal_scope
-from learnloop.services.identifiability import analyze_identifiability, build_registry_view
-from learnloop.services.selection_rewards import predicted_facet_recall
+from learnloop.goals.goal_projection import resolve_goal_scope
+from learnloop.learner.identifiability import analyze_identifiability, build_registry_view
+from learnloop.scheduling.selection_rewards import predicted_facet_recall
 from learnloop.vault.models import LearningObject, recipe_components
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned

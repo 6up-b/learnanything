@@ -136,7 +136,7 @@ def _goal_over(concepts: list[str]):
 
 
 def test_blueprint_facets_count_when_no_items_are_authored(ctx):
-    from learnloop.services.facet_diagnostics import required_facets, scope_facets
+    from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 
     vault, repository = ctx.require_vault()
     # The instrument reading is unchanged: nothing is authored, so nothing is
@@ -149,7 +149,7 @@ def test_blueprint_facets_count_when_no_items_are_authored(ctx):
 def test_scope_facets_unions_rather_than_replaces(ctx):
     """An LO WITH items keeps them — the change can never shrink a scope."""
 
-    from learnloop.services.facet_diagnostics import required_facets, scope_facets
+    from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 
     vault, repository = ctx.require_vault()
     measured = required_facets(vault, "lo_svd_definition", repository)
@@ -158,7 +158,7 @@ def test_scope_facets_unions_rather_than_replaces(ctx):
 
 
 def test_goal_scope_resolves_over_unauthored_material(ctx):
-    from learnloop.services.goal_projection import resolve_goal_scope
+    from learnloop.goals.goal_projection import resolve_goal_scope
 
     vault, repository = ctx.require_vault()
     scope = resolve_goal_scope(vault, _goal_over(["bare_concept"]), repository)
@@ -169,7 +169,7 @@ def test_goal_scope_resolves_over_unauthored_material(ctx):
 def test_a_concept_with_no_learning_objects_still_resolves_to_nothing(ctx):
     """The blueprint fallback is not a licence to invent scope out of nothing."""
 
-    from learnloop.services.goal_projection import resolve_goal_scope
+    from learnloop.goals.goal_projection import resolve_goal_scope
 
     vault, repository = ctx.require_vault()
     _add_concept(ctx.vault_root, "concept_with_no_los")
@@ -182,7 +182,7 @@ def test_a_concept_with_no_learning_objects_still_resolves_to_nothing(ctx):
 
 
 def test_material_gaps_report_the_fillable_learning_object(ctx):
-    from learnloop.services.goal_projection import goal_material_gaps
+    from learnloop.goals.goal_projection import goal_material_gaps
 
     vault, repository = ctx.require_vault()
     gaps = goal_material_gaps(vault, _goal_over(["bare_concept"]), repository)
@@ -192,7 +192,7 @@ def test_material_gaps_report_the_fillable_learning_object(ctx):
 
 
 def test_an_authored_learning_object_is_not_a_gap(ctx):
-    from learnloop.services.goal_projection import goal_material_gaps
+    from learnloop.goals.goal_projection import goal_material_gaps
 
     vault, repository = ctx.require_vault()
     gaps = goal_material_gaps(
@@ -281,7 +281,7 @@ def test_goal_population_never_authors_for_an_unmeasurable_concept(ctx):
     concept the graph has nothing to ground it in.
     """
 
-    from learnloop.services.practice_generation import (
+    from learnloop.content.authoring.practice_generation import (
         PracticeExpansionError,
         build_goal_practice_plan,
     )
@@ -297,7 +297,7 @@ def test_goal_population_never_authors_for_an_unmeasurable_concept(ctx):
 def test_goal_population_targets_only_the_measurable_concepts(ctx):
     """A mixed scope authors for the real LOs and nothing for the empty one."""
 
-    from learnloop.services.practice_generation import build_goal_practice_plan
+    from learnloop.content.authoring.practice_generation import build_goal_practice_plan
 
     _add_concept(ctx.vault_root, "concept_with_no_los")
     ctx.reload(maintenance=False)
@@ -346,7 +346,7 @@ def test_creating_a_goal_no_longer_reserves_an_exam_pool(ctx):
 
 
 def test_a_thin_pool_defers_instead_of_holding_everything_out(ctx):
-    from learnloop.services.exam_pool import reserve_exam_pool
+    from learnloop.goals.exam_pool import reserve_exam_pool
 
     vault, repository = ctx.require_vault()
     goal = _goal_over(["singular_value_decomposition"])
@@ -361,7 +361,7 @@ def test_a_thin_pool_defers_instead_of_holding_everything_out(ctx):
 def test_an_explicit_ask_is_never_deferred(ctx):
     """Deferral is opt-in: `start_exam` / `exam reserve` take what exists."""
 
-    from learnloop.services.exam_pool import reserve_exam_pool
+    from learnloop.goals.exam_pool import reserve_exam_pool
 
     vault, repository = ctx.require_vault()
     goal = _goal_over(["singular_value_decomposition"])
@@ -384,7 +384,7 @@ def test_fixture_vault_goal_over_unauthored_concepts_resolves(tmp_path):
     """
 
     from learnloop.db.repositories import Repository
-    from learnloop.services.goal_projection import goal_material_gaps, resolve_goal_scope
+    from learnloop.goals.goal_projection import goal_material_gaps, resolve_goal_scope
     from learnloop.vault.loader import load_vault
 
     root = tmp_path / "linear_algebra"

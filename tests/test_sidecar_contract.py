@@ -11,13 +11,21 @@ from pathlib import Path
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.patches import apply_accepted_items
+from learnloop.content.proposals.patches import apply_accepted_items
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_concept, upsert_concept_edge, upsert_learning_object
 from learnloop_sidecar.server import serve
 
-from tests.helpers import ALGORITHM_VERSION, NOW_ISO, add_followup_item, create_basic_vault, seed_due_item
+from tests.helpers import (
+    ALGORITHM_VERSION,
+    NOW_ISO,
+    add_followup_item,
+    append_config_toml,
+    configure_codex_http,
+    create_basic_vault,
+    seed_due_item,
+)
 
 FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
 
@@ -38,7 +46,7 @@ def test_sidecar_loads_linear_algebra_fixture_vault(tmp_path):
     assert init["vault"]["algorithmVersion"] == loaded.config.algorithms.algorithm_version
     assert init["vault"]["counts"]["practiceItems"] == len(loaded.practice_items)
     assert init["vault"]["counts"]["learningObjects"] == len(loaded.learning_objects)
-    assert init["health"]["ai"]["activeProvider"] == loaded.config.ai.active_provider
+    assert init["health"]["ai"]["activeProvider"] == loaded.config.ai.routing.grading
     assert "ready" in init["health"]["ai"]
     assert init["vault"]["counts"]["practiceItems"] >= 3
     assert init["vault"]["counts"]["learningObjects"] >= 4
@@ -348,7 +356,7 @@ def test_sidecar_submit_attempt_persists_feedback_bundle(tmp_path):
 
 
 def test_sidecar_submission_schedules_certification_cold_probe(tmp_path, monkeypatch):
-    import learnloop.services.certification_cold_probe as cold_probe
+    import learnloop.goals.certification_cold_probe as cold_probe
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -705,7 +713,7 @@ def test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key(
 
 def test_inspector_opens_probe_episode_drilldown(tmp_path):
     from learnloop.clock import FrozenClock
-    from learnloop.services.probe_episodes import enter_episode
+    from learnloop.diagnosis.probe_episodes import enter_episode
     from tests.helpers import NOW, admit_probe_instrument_card
 
     vault_root = tmp_path / "vault"
@@ -852,7 +860,7 @@ def test_sidecar_submit_attempt_falls_back_to_codex_when_routed_ai_unavailable(t
     assert server.requests[0]["path"] == "/grading-proposal"
 
 
-def test_sidecar_submit_attempt_uses_ai_codex_profile_when_legacy_codex_differs(tmp_path):
+def test_sidecar_canonical_codex_profile_wins_when_legacy_input_differs(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     seed_due_item(paths)
@@ -867,7 +875,7 @@ def test_sidecar_submit_attempt_uses_ai_codex_profile_when_legacy_codex_differs(
             [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}}]
         )[0]["result"]
         assert init["health"]["ai"]["ready"] is True
-        assert init["health"]["codex"]["ready"] is False
+        assert init["health"]["codex"]["ready"] is True
 
         session_id = _rpc(
             [
@@ -2076,27 +2084,25 @@ def _find_pending(snapshot: dict) -> tuple[str, str]:
 
 
 def _configure_ai_fallback_to_codex(vault_root, checkout, base_url: str) -> None:
+    configure_codex_http(vault_root, checkout, base_url)
     config_path = vault_root / "learnloop.toml"
     text = config_path.read_text(encoding="utf-8")
-    text = text.replace('type = "codex_sdk"', 'type = "http_adapter"', 1)
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
     text = text.replace('fallback_provider = ""', 'fallback_provider = "codex"')
     text = text.replace('grading = "codex_low"', 'grading = "deepseek_flash"')
     config_path.write_text(text, encoding="utf-8")
 
 
 def _configure_ai_codex_only(vault_root, checkout, base_url: str) -> None:
+    configure_codex_http(vault_root, checkout, base_url)
     config_path = vault_root / "learnloop.toml"
     text = config_path.read_text(encoding="utf-8")
-    ai_prefix, legacy_codex = text.split("\n[codex]\n", 1)
-    ai_prefix = ai_prefix.replace('type = "codex_sdk"', 'type = "http_adapter"', 1)
-    ai_prefix = ai_prefix.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"', 1)
-    ai_prefix = ai_prefix.replace('revision = "<pinned-commit>"', 'revision = "abc123"', 1)
-    ai_prefix = ai_prefix.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"', 1)
-    config_path.write_text(f"{ai_prefix}\n[codex]\n{legacy_codex}", encoding="utf-8")
+    text += (
+        "\n[codex]\n"
+        'provider = "sdk"\n'
+        'checkout_path = "missing-legacy-checkout"\n'
+        'revision = "legacy-revision"\n'
+    )
+    config_path.write_text(text, encoding="utf-8")
 
 
 class _GradingServer:
@@ -2333,8 +2339,8 @@ def test_sidecar_get_knowledge_map_deterministic_and_geometric(tmp_path):
 
 def test_knowledge_field_is_recipe_topological_and_uses_pooled_ready(tmp_path):
     from learnloop.clock import FrozenClock
-    from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.substrate.state_sync import sync_vault_state
     from tests.helpers import NOW
     from tests.test_km3_projections import COMP_A, COMP_B, INTEG, build_blueprint_vault
 
@@ -2739,6 +2745,12 @@ def test_sidecar_create_vault_initializes_fresh_vault(tmp_path):
 def test_sidecar_create_vault_is_idempotent_on_existing_vault(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
+    config_path = vault_root / "learnloop.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n# user-owned sentinel\n",
+        encoding="utf-8",
+    )
+    before = config_path.read_bytes()
     result = _rpc(
         [
             {
@@ -2751,7 +2763,7 @@ def test_sidecar_create_vault_is_idempotent_on_existing_vault(tmp_path):
     )[0]["result"]
     assert result["vaultRoot"] == str(vault_root.resolve())
     assert result["subjectId"] is None
-    assert (vault_root / "learnloop.toml").exists()
+    assert config_path.read_bytes() == before
 
 
 def test_sidecar_create_vault_refuses_populated_non_vault_dir(tmp_path):
@@ -2772,6 +2784,63 @@ def test_sidecar_create_vault_refuses_populated_non_vault_dir(tmp_path):
     assert response["error"]["data"]["code"] == "vault_dir_not_empty"
     # The guard left the directory untouched — no vault scaffolding written.
     assert not (junk / "learnloop.toml").exists()
+
+
+def test_sidecar_create_vault_preserves_invalid_path_error_code():
+    response = _rpc(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "create_vault",
+                "params": {"path": "   "},
+            }
+        ]
+    )[0]
+
+    assert response["error"]["data"]["code"] == "invalid_path"
+
+
+def test_sidecar_create_vault_rejects_starting_level_before_writing(tmp_path):
+    vault_root = tmp_path / "new-vault"
+
+    response = _rpc(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "create_vault",
+                "params": {
+                    "path": str(vault_root),
+                    "subject": "Linear Algebra",
+                    "startingLevel": "expert",
+                },
+            }
+        ]
+    )[0]
+
+    assert response["error"]["data"]["code"] == "invalid_starting_level"
+    assert not vault_root.exists()
+
+
+def test_sidecar_create_vault_rejects_invalid_subject_before_writing(tmp_path):
+    vault_root = tmp_path / "new-vault"
+
+    response = _rpc(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "create_vault",
+                "params": {"path": str(vault_root), "subject": "---"},
+            }
+        ]
+    )[0]
+
+    # create_vault's established wire vocabulary remains closed; an invalid
+    # subject-derived path uses its existing invalid_path refusal.
+    assert response["error"]["data"]["code"] == "invalid_path"
+    assert not vault_root.exists()
 
 
 def test_sidecar_create_vault_inherits_ai_settings_from_active_vault(tmp_path, monkeypatch):
@@ -2870,6 +2939,7 @@ def test_update_ai_settings_persists_openrouter_grading_route(tmp_path, monkeypa
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
+    append_config_toml(vault_root, "# settings round-trip comment sentinel")
 
     result = _settings_rpc(
         vault_root,
@@ -2888,9 +2958,10 @@ def test_update_ai_settings_persists_openrouter_grading_route(tmp_path, monkeypa
     assert profile.type == "openrouter"
     assert profile.model == "anthropic/claude-sonnet-4.5"
     assert profile.api_key_env == "OPENROUTER_API_KEY"
-    # Template comments survive the tomlkit round-trip.
+    # Existing comments survive the tomlkit round-trip even though the minimal
+    # template no longer emits the old full-template OpenRouter examples.
     text = (vault_root / "learnloop.toml").read_text(encoding="utf-8")
-    assert "# Any OpenRouter model slug works" in text
+    assert "# settings round-trip comment sentinel" in text
 
 
 def test_update_ai_settings_expands_ingest_use_case(tmp_path, monkeypatch):
@@ -3074,7 +3145,7 @@ def test_update_ingest_settings_transcription_provider_switch(tmp_path, monkeypa
 
     # An update that never touches provider/model (the native toggle) must not
     # trip the slug check, even against a hand-edited non-slug model.
-    from learnloop.services.settings_store import apply_config_updates
+    from learnloop.ops.settings_store import apply_config_updates
 
     apply_config_updates(
         vault_root / "learnloop.toml",

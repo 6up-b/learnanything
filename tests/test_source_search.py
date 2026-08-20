@@ -7,7 +7,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services.source_search import search_sources
+from learnloop.reader.source_search import search_sources
 from tests.test_source_inventory import _persist, _register_revision
 
 

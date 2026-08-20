@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.depth_rungs import (
+from learnloop.curriculum.depth_rungs import (
     DEFAULT_TRAJECTORY,
     resolve_waypoint_slug,
     trajectory_slugs,
 )
-from learnloop.services.practice_generation import _SelectedResponseGate
+from learnloop.content.authoring.practice_generation import _SelectedResponseGate
 
 
 def _row(item_id: str, prompt: str) -> dict:

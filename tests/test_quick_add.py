@@ -14,17 +14,17 @@ from pathlib import Path
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.resolution import resolve_source
-from learnloop.services.ingest_runner import RunnerServices
-from learnloop.services.quick_add import (
+from learnloop.content.pipeline.runner import RunnerServices
+from learnloop.content.pipeline.quick_add import (
     QuickAddPlan,
     enqueue_quick_add,
     plan_quick_add,
     select_relevant_units,
 )
-from learnloop.services.source_outline import build_source_outline
+from learnloop.content.sources.source_outline import build_source_outline
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
-from learnloop_sidecar.ingest_jobs import QUICK_ADD_PRIORITY, DurableIngestJobs
+from learnloop.content.pipeline.jobs import QUICK_ADD_PRIORITY, DurableIngestJobs
 
 from tests.helpers import set_algorithm_version
 from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist
@@ -200,7 +200,7 @@ def test_quick_add_batches_take_queue_priority(tmp_path):
     runner = jobs._require_runner()
 
     # A bulk import batch is enqueued FIRST (older created_at, default priority 0).
-    from learnloop.services.ingest_runner import JobSpec
+    from learnloop.content.pipeline.runner import JobSpec
 
     bulk_id = runner.enqueue_batch("import", [JobSpec("import", {"source": "https://example.com/a"})], priority=0)
     # A Quick-add build batch is enqueued SECOND but at QUICK_ADD_PRIORITY.

@@ -23,7 +23,7 @@ from tests.test_source_inventory import (
     _repo,
 )
 
-from learnloop.services.source_unit_selection import save_unit_selection
+from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 
 
 def _three_unit_ir():
@@ -37,14 +37,14 @@ def _three_unit_ir():
 
 
 def _runner(repo, tmp_path, client):
-    from learnloop.services.ingest_runner import IngestRunner, RunnerServices
+    from learnloop.content.pipeline.runner import IngestRunner, RunnerServices
 
     services = RunnerServices(inventory_client_factory=lambda ctx: client)
     return IngestRunner(repo, vault_root=tmp_path, worker_id="w1", clock=_CLOCK, services=services)
 
 
 def test_merged_units_inventory_as_one_call_and_cache_composite(tmp_path):
-    from learnloop.services.ingest_runner import JobSpec
+    from learnloop.content.pipeline.runner import JobSpec
 
     repo = _repo(tmp_path)
     _register_revision(repo)
@@ -97,7 +97,7 @@ def test_merged_units_inventory_as_one_call_and_cache_composite(tmp_path):
 
 
 def test_mixed_role_merge_group_does_not_fold(tmp_path):
-    from learnloop.services.ingest_runner import JobSpec
+    from learnloop.content.pipeline.runner import JobSpec
 
     repo = _repo(tmp_path)
     _register_revision(repo)
@@ -128,7 +128,7 @@ def test_mixed_role_merge_group_does_not_fold(tmp_path):
 
 
 def test_exam_role_merge_group_does_not_fold(tmp_path):
-    from learnloop.services.ingest_runner import JobSpec
+    from learnloop.content.pipeline.runner import JobSpec
 
     repo = _repo(tmp_path)
     _register_revision(repo)
@@ -171,7 +171,7 @@ class BarrierInventoryClient(FakeInventoryClient):
 
 
 def test_cache_missed_units_inventory_concurrently(tmp_path):
-    from learnloop.services.ingest_runner import JobSpec
+    from learnloop.content.pipeline.runner import JobSpec
 
     repo = _repo(tmp_path)
     _register_revision(repo)
@@ -196,8 +196,8 @@ def test_cache_missed_units_inventory_concurrently(tmp_path):
 
 
 def test_full_inventory_cache_hit_never_constructs_provider(tmp_path):
-    from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
-    from learnloop.services.source_unit_inventory import run_unit_inventory
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
+    from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
 
     repo = _repo(tmp_path)
     _register_revision(repo)
@@ -258,8 +258,8 @@ def test_full_inventory_cache_hit_never_constructs_provider(tmp_path):
 
 
 def test_synthesis_gather_folds_merged_group_once_with_member_fallback(tmp_path):
-    from learnloop.services.source_set_synthesis import _collect_inputs
-    from learnloop.services.source_unit_inventory import run_unit_inventory
+    from learnloop.content.synthesis.source_set_synthesis import _collect_inputs
+    from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
     from learnloop.vault.loader import add_subject, init_vault, load_vault
     from learnloop.vault.writer import upsert_source_set
 
@@ -315,8 +315,8 @@ def test_synthesis_gather_folds_merged_group_once_with_member_fallback(tmp_path)
 
 
 def test_merged_inventory_marker_covers_member_units(tmp_path):
-    from learnloop.services.ingest_runner import JobSpec
-    from learnloop.services.source_unit_inventory import inventory_marker
+    from learnloop.content.pipeline.runner import JobSpec
+    from learnloop.content.synthesis.source_unit_inventory import inventory_marker
 
     repo = _repo(tmp_path)
     _register_revision(repo)

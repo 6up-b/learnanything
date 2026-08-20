@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services import robust_composition as rc
+from learnloop.diagnosis import robust_composition as rc
 
 
 def _alpha(diag: float, mass: float = 40.0) -> dict[str, dict[str, float]]:

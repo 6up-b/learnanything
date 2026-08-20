@@ -10,13 +10,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,
     start_remediation_treatment,
@@ -265,7 +265,7 @@ def _cold_lane_ids(vault, repository, clock):
     says the serve is the measurement.
     """
 
-    from learnloop.services.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import build_due_queue
 
     return [
         item.practice_item_id
@@ -348,7 +348,7 @@ def test_a_deferred_cold_retry_still_expires_on_its_original_window(tmp_path):
     """Deferral can never outlive the task: an episode that keeps being
     revealed runs out its original 30-day window and censors honestly."""
 
-    from learnloop.services.causal_orchestrator import sweep_expired_cold_retries
+    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
 
     vault, repository, misconception_id = _setup(tmp_path)
     _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -380,7 +380,7 @@ def test_only_the_cold_lane_is_deferred_by_a_reveal(tmp_path):
     """An intervention follow-up is re-practice, not a measurement: being shown
     the answer is not a reason to withhold it."""
 
-    from learnloop.services.scheduler import _defer_revealed_cold_followups
+    from learnloop.scheduling.scheduler import _defer_revealed_cold_followups
 
     vault, repository, misconception_id = _setup(tmp_path)
     _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -406,7 +406,7 @@ def test_exam_attempt_does_not_consume_the_cold_retry(tmp_path):
     """An exam sitting that happens to serve the cold item must not burn the
     one unassisted cold measurement on proctored, time-pressured context."""
 
-    from learnloop.services.attempts import ApplyAttemptInput, ResolvedGrade, apply_attempt
+    from learnloop.attempts.attempts import ApplyAttemptInput, ResolvedGrade, apply_attempt
 
     vault, repository, misconception_id = _setup(tmp_path)
     episode, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -455,8 +455,8 @@ def test_repair_status_reports_episode_reveal_spend_against_the_budget(tmp_path)
     it is where "how much of the answer has this repair already handed over?"
     has to be answerable. Reported, never enforced — nothing is refused here."""
 
-    from learnloop.services.causal_orchestrator import causal_repair_status
-    from learnloop.services.remediation import EPISODE_REVEAL_BUDGET
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.remediation import EPISODE_REVEAL_BUDGET
 
     vault, repository, misconception_id = _setup(tmp_path)
     status = causal_repair_status(
@@ -499,7 +499,7 @@ def test_over_budget_episode_stamps_the_fact_on_the_cold_context(tmp_path):
     to travel ON the task — reconstructing it later is exactly the "future
     caller re-derives it" assumption that leaves channels unwired."""
 
-    from learnloop.services.remediation import EPISODE_REVEAL_BUDGET
+    from learnloop.diagnosis.remediation import EPISODE_REVEAL_BUDGET
 
     vault, repository, misconception_id = _setup(tmp_path)
     episode = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))

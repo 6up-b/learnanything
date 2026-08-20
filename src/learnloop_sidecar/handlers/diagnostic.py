@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services import diagnostic_pack as DP
-from learnloop.services import failure_triage as FT
+from learnloop.diagnosis import diagnostic_pack as DP
+from learnloop.diagnosis import failure_triage as FT
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError

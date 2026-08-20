@@ -11,14 +11,14 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.causal_attribution import (
+from learnloop.diagnosis.causal_attribution import (
     APPROVED_SUPPORT_AUTHORITIES,
     CAUSAL_DECISION_POLICY_VERSION,
     DIAGNOSIS_RECEIPT_SCHEMA_VERSION,

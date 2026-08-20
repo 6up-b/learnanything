@@ -7,7 +7,7 @@ import json
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.services.inference_precheck import analyze_inference_precheck
+from learnloop.learner.inference_precheck import analyze_inference_precheck
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 

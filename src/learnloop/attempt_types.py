@@ -47,7 +47,7 @@ NON_RECORDING_ATTEMPT_TYPES: frozenset[AttemptType] = frozenset({"guided_walkthr
 DEFAULT_ATTEMPT_TYPE: AttemptType = "independent_attempt"
 
 # Per-attempt-type evidence weights now live in config (EvidenceConfig) and are
-# derived via learnloop.services.evidence — see Fable's-take item 3.
+# derived via learnloop.attempts.evidence — see Fable's-take item 3.
 
 _SUPPORTED = set(SUPPORTED_ATTEMPT_TYPES)
 

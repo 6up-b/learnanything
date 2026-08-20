@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_coverage import family_coverage_report
-from learnloop.services.probe_families import MINIMAL_RECALL_V1, PERTURBATION_V1
-from learnloop.services.probe_instance_generation import ensure_instrument_card
+from learnloop.diagnosis.probe_coverage import family_coverage_report
+from learnloop.diagnosis.probe_families import MINIMAL_RECALL_V1, PERTURBATION_V1
+from learnloop.diagnosis.probe_instance_generation import ensure_instrument_card
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault

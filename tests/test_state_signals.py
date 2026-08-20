@@ -13,9 +13,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import state_signals as ss
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import state_signals as ss
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
@@ -131,7 +131,7 @@ def test_misspecification_scoped_to_commitment_head_targets(repo):
     # universe during the cutover) must NOT fire misspecification for an owned run.
     # Pre-fix _commitment_learning_object_ids returned every candidate LO, so an alarm on
     # any candidate LO -- including one this commitment does not own -- fired the signal.
-    from learnloop.services import commitments as C
+    from learnloop.curriculum import commitments as C
 
     owned_lo = "lo_owned"
     unrelated_lo = "lo_unrelated"

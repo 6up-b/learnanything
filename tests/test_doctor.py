@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
+import sqlite3
+from pathlib import Path
 
 from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.doctor import run_doctor
-from learnloop.services.error_taxonomy_map import MECHANISM_TAXONOMY_CARD_JSON
-from learnloop.services.proposals import persist_authoring_proposal
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.ops.doctor import run_doctor
+from learnloop.diagnosis.error_taxonomy_map import MECHANISM_TAXONOMY_CARD_JSON
+from learnloop.content.proposals.proposals import persist_authoring_proposal
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import init_vault
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -30,6 +34,181 @@ def test_doctor_clean_fresh_vault(tmp_path):
     assert report.clean is True
     assert report.error_count == 0
     assert report.warning_count == 0
+    assert report.deprecated_table_row_counts == {
+        "learner_theta": 0,
+        "source_exam_profiles": 0,
+        "source_locator_schemes": 0,
+    }
+    assert report.as_dict()["deprecated_table_row_counts"] == (
+        report.deprecated_table_row_counts
+    )
+
+
+def test_doctor_escalates_nonempty_deprecated_tables_without_mutating_them(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    with repository.connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO source_exam_profiles(
+              id, scope_kind, scope_id, profile_hash, profile_json, created_at
+            ) VALUES ('profile', 'source_set', 'set', 'hash', '{}', ?)
+            """,
+            (NOW_ISO,),
+        )
+        connection.execute(
+            """
+            INSERT INTO source_locator_schemes(locator, scheme, detected_at)
+            VALUES ('page:1', 'page', ?)
+            """,
+            (NOW_ISO,),
+        )
+        connection.execute(
+            """
+            INSERT INTO learner_theta(
+              id, domain, evidence_family, practice_mode, theta_mean,
+              theta_variance, algorithm_version, updated_at
+            ) VALUES ('theta', 'linear-algebra', 'recall', NULL, 0.0, 1.0, 'mvp-0.6', ?)
+            """,
+            (NOW_ISO,),
+        )
+
+    report = run_doctor(vault_root)
+
+    assert report.deprecated_table_row_counts == {
+        "learner_theta": 1,
+        "source_exam_profiles": 1,
+        "source_locator_schemes": 1,
+    }
+    deprecated = [
+        issue
+        for issue in report.issues
+        if issue.code == "sqlite:deprecated_table_not_empty"
+    ]
+    assert {issue.entity_id for issue in deprecated} == {
+        "learner_theta",
+        "source_exam_profiles",
+        "source_locator_schemes",
+    }
+    assert all(issue.severity == "warning" for issue in deprecated)
+    assert all(issue.details["action"] == "stop_and_escalate" for issue in deprecated)
+    with repository.connection() as connection:
+        assert {
+            table: connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+            for table in report.deprecated_table_row_counts
+        } == report.deprecated_table_row_counts
+
+
+def test_doctor_warns_for_legacy_codex_and_retired_settings(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    with (vault_root / "learnloop.toml").open("a", encoding="utf-8") as handle:
+        handle.write(
+            """
+
+[codex]
+provider = "sdk"
+auth_mode = "chatgpt"
+
+[forecasts]
+default_horizon_days = 99
+
+[probe.episode]
+self_graded_evidence_weight = 0.99
+
+[probe.dialogue]
+max_turns = 8
+
+[recall_coverage]
+facet_recall_prior_pseudo_count = 99
+coverage_epsilon = 0.5
+
+[ingest.audio]
+provider = "openrouter"
+transcription_model = "vendor/audio-model"
+timeout_seconds = 412
+
+[ingest.budgets]
+evidence_span_input_tokens = 1
+"""
+        )
+
+    report = run_doctor(vault_root)
+
+    codes = [issue.code for issue in report.issues]
+    assert "config:legacy_codex_translated" in codes
+    assert "config:legacy_audio_transcription_translated" in codes
+    assert "config:retired_auth_mode" in codes
+    settings = {
+        issue.details["setting"]
+        for issue in report.issues
+        if issue.code == "config:retired_setting"
+    }
+    assert settings == {
+        "forecasts",
+        "probe.episode.self_graded_evidence_weight",
+        "probe.dialogue.max_turns",
+        "recall_coverage.facet_recall_prior_pseudo_count",
+        "recall_coverage.coverage_epsilon",
+        "ingest.budgets.evidence_span_input_tokens",
+    }
+    assert paths.config_path.read_text(encoding="utf-8").count("auth_mode") == 1
+    translated = next(
+        issue
+        for issue in report.issues
+        if issue.code == "config:legacy_audio_transcription_translated"
+    )
+    assert translated.details == {
+        "from": "ingest.audio.provider",
+        "to": "ai.providers.openrouter_transcription",
+        "route": "ai.routing.transcription",
+        "action": "rewrite_config",
+    }
+
+
+def test_plain_doctor_reports_pre_044_migrations_without_touching_database(tmp_path):
+    fixture_root = Path(__file__).resolve().parents[1] / "fixtures" / "conic-sections"
+    vault_root = tmp_path / "conic-sections"
+    shutil.copytree(fixture_root, vault_root)
+    sqlite_path = vault_root / "state.sqlite"
+    before = hashlib.sha256(sqlite_path.read_bytes()).digest()
+    with sqlite3.connect(sqlite_path) as connection:
+        assert connection.execute(
+            "SELECT MAX(version) FROM schema_migrations"
+        ).fetchone()[0] < 44
+
+    report = run_doctor(vault_root)
+
+    assert "sqlite:migrations_missing" in {issue.code for issue in report.issues}
+    assert hashlib.sha256(sqlite_path.read_bytes()).digest() == before
+    with sqlite3.connect(sqlite_path) as connection:
+        assert connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'apply_intents'"
+        ).fetchone() is None
+
+
+def test_plain_doctor_does_not_create_a_missing_database(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    paths.sqlite_path.unlink()
+
+    report = run_doctor(vault_root)
+
+    assert "sqlite:missing" in {issue.code for issue in report.issues}
+    assert not paths.sqlite_path.exists()
+
+
+def test_plain_doctor_reports_an_unreadable_database_without_rewriting_it(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    broken = b"not a sqlite database"
+    paths.sqlite_path.write_bytes(broken)
+
+    report = run_doctor(vault_root)
+
+    assert "sqlite:unreadable" in {issue.code for issue in report.issues}
+    assert paths.sqlite_path.read_bytes() == broken
 
 
 def test_doctor_reports_and_fixes_missing_derived_state(tmp_path):

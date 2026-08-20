@@ -11,8 +11,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import action_loss as AL
-from learnloop.services.activities import log_attempt_duration
+from learnloop.scheduling import action_loss as AL
+from learnloop.substrate.activities import log_attempt_duration
 
 from tests.helpers import NOW
 

@@ -6,9 +6,9 @@ import json
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.calibration import difficulty_miscalibration_flags
-from learnloop.services.doctor import run_doctor
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.learner.calibration import difficulty_miscalibration_flags
+from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 

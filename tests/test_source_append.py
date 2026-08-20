@@ -8,6 +8,8 @@ full-map resend fails). Canned codex payloads, zero network.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -16,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import (
+from learnloop.content.synthesis.ai_contracts import (
     AppendConflict,
     AppendNotationMapping,
     AppendProvenanceLink,
@@ -25,15 +27,15 @@ from learnloop.codex.schemas import (
     SynthSpanRef,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.append_neighborhood import select_neighborhood
-from learnloop.services.source_append import append_source
-from learnloop.services.source_set_synthesis import create_study_map
-from learnloop.services.source_unit_inventory import run_unit_inventory
+from learnloop.content.synthesis.append_neighborhood import select_neighborhood
+from learnloop.content.synthesis.source_append import append_source
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 
-from learnloop.codex.schemas import (
+from learnloop.content.synthesis.ai_contracts import (
     InventoryClaim,
     InventoryConceptMention,
     SourceUnitInventory,
@@ -45,7 +47,7 @@ from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
 _CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
 
 
-class SymmetryInventoryClient:
+class SymmetryInventoryClient(StructuredClientFake):
     """Inventory double that mentions the SAME concept as the bootstrap map, so the
     appended source lands in the affected neighborhood."""
 
@@ -93,7 +95,7 @@ def _neighborhood_facet_id(context):
     return facets[0]["id"] if facets else ""
 
 
-class FakeAppendClient:
+class FakeAppendClient(StructuredClientFake):
     """House fake-client for append: builds provenance_link / conflict / notation
     items against the bounded neighborhood + a span cited from the new inventories."""
 
@@ -231,7 +233,7 @@ def test_append_context_bounded_by_neighborhood(tmp_path):
     budget = vault.config.ingest.budgets.append_neighborhood_input_tokens
 
     # Build the same new inventories the append would see.
-    from learnloop.services.source_set_synthesis import _collect_inputs
+    from learnloop.content.synthesis.source_set_synthesis import _collect_inputs
     source_set = next(s for s in vault.source_sets if s.id == "set_la")
     inputs = _collect_inputs(repo, vault, source_set)
     new_inv = [e for e in inputs.unit_inventories if e["revision_id"] == "rev_alt"]
@@ -253,8 +255,8 @@ def test_planted_full_map_resend_fails_scaling_gate(tmp_path):
     vault = load_vault(root)
     budget = vault.config.ingest.budgets.append_neighborhood_input_tokens
 
-    from learnloop.services.source_set_synthesis import _collect_inputs
-    from learnloop.services.append_neighborhood import _estimate_tokens, _facet_contract
+    from learnloop.content.synthesis.source_set_synthesis import _collect_inputs
+    from learnloop.content.synthesis.append_neighborhood import _estimate_tokens, _facet_contract
 
     source_set = next(s for s in vault.source_sets if s.id == "set_la")
     inputs = _collect_inputs(repo, vault, source_set)
@@ -283,7 +285,7 @@ def test_n_sources_append_linear_inventory_and_bounded_context(tmp_path):
     the NEW selected units (one inventory call per new unit, zero re-inventory of
     old units), and every append reconciliation context stays bounded."""
 
-    from learnloop.services.source_unit_inventory import run_unit_inventory
+    from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
 
     root, repo = _setup(tmp_path, with_exam=False)
     create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo,
@@ -393,7 +395,7 @@ def test_conflict_accept_creates_open_row_reject_creates_none(tmp_path):
     assert repo.source_conflicts_by_status("open") == []
 
     # Accepting the conflict item persists an OPEN two-sided row (never a side).
-    from learnloop.services.patches import apply_accepted_items
+    from learnloop.content.proposals.patches import apply_accepted_items
     conflict_ids = [i["id"] for i in repo.proposal_items(result.proposal_id) if i["item_type"] == "source_conflict"]
     apply_accepted_items(root, result.proposal_id, item_ids=conflict_ids, clock=_CLOCK)
     open_rows = repo.source_conflicts_by_status("open")
@@ -429,7 +431,7 @@ def test_replay_identical_after_append_apply(tmp_path):
     root, repo = _bootstrap_and_add(tmp_path)
     append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"],
                   repository=repo, clock=_CLOCK)
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.replay import rebuild_derived_state
 
     links_before = repo.entity_source_links("facet", "facet_symmetry_definition")
     rebuild_derived_state(load_vault(root), repo, clock=_CLOCK)
@@ -456,14 +458,14 @@ def test_specialized_side_effects_recover_idempotently(tmp_path):
 
     result = append_source(root, "set_la", client=FakeAppendClient(builder=builder),
                            new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
-    from learnloop.services.patches import apply_accepted_items
+    from learnloop.content.proposals.patches import apply_accepted_items
     conflict_items = [i["id"] for i in repo.proposal_items(result.proposal_id) if i["item_type"] == "source_conflict"]
     apply_accepted_items(root, result.proposal_id, item_ids=conflict_items, clock=_CLOCK)
     assert len(repo.source_conflicts_by_status("open")) == 1
 
     # Simulate a crash between the DB side effects and the applied mark: flip the
     # intent back to pending and run startup recovery — it must re-run harmlessly.
-    from learnloop.services.apply_protocol import recover_apply_intents
+    from learnloop.content.proposals.apply_protocol import recover_apply_intents
     with repo.connection() as connection:
         connection.execute("UPDATE apply_intents SET status = 'pending', applied_at = NULL")
         connection.commit()
@@ -485,7 +487,7 @@ def test_append_vocabulary_gate_rejects_mutation_outside_restructure():
     """The append-vocabulary gate hard-fails any update/deactivate that is not an
     explicit restructure_unlocked item, and additive types that are not create."""
 
-    from learnloop.services.synthesis_gates import GateContext, GateItem, GateProposal, run_synthesis_gates
+    from learnloop.content.synthesis.synthesis_gates import GateContext, GateItem, GateProposal, run_synthesis_gates
 
     ctx = GateContext(append_mode=True)
     # a bare update on a learning_object without restructure_unlocked intent.
@@ -523,7 +525,7 @@ def test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged(tmp
     def builder(context, _n):
         ext, unit, span = _first_new_span(context)
         ref = SynthSpanRef(extraction_id=ext, unit_id=unit, span_id=span, relation="primary", role="primary_textbook")
-        from learnloop.codex.schemas import SynthConcept, SynthFacet
+        from learnloop.content.synthesis.ai_contracts import SynthConcept, SynthFacet
         # a near-duplicate of facet_symmetry_definition (same claim wording).
         return AppendReconciliation(
             summary="new near-duplicate coverage",
@@ -545,7 +547,7 @@ def test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged(tmp
     assert result.item_counts.get("facet") == 1
     mint = [d for d in result.gate_diagnostics if d["gate"] == "facet_mint"]
     assert len(mint) == 1 and "same_repair_class" in mint[0]["message"]
-    from learnloop.services.patches import apply_accepted_items
+    from learnloop.content.proposals.patches import apply_accepted_items
     facet_items = [i["id"] for i in repo.proposal_items(result.proposal_id) if i["item_type"] in {"facet", "concept"}]
     apply_accepted_items(root, result.proposal_id, item_ids=facet_items, clock=_CLOCK)
 
@@ -567,7 +569,7 @@ def test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged(tmp
         "instructional_repairs": ["check symmetry before invoking the spectral theorem"],
         "status": "reviewed",
     }, clock=_CLOCK)
-    from learnloop.services.facet_doctor import near_duplicate_facet_review
+    from learnloop.content.synthesis.facet_doctor import near_duplicate_facet_review
     pairs = near_duplicate_facet_review(load_vault(root))
     assert any(
         {p.left_facet_id, p.right_facet_id}

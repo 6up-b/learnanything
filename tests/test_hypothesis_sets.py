@@ -4,7 +4,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probes import build_hypothesis_set
+from learnloop.diagnosis.probes import build_hypothesis_set
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault

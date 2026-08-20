@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from learnloop.services.brief import validate_brief
-from learnloop.services.goal_intent import resolve_goal_quest
+from learnloop.content.synthesis.brief import validate_brief
+from learnloop.goals.goal_intent import resolve_goal_quest
 from learnloop.vault.models import Goal
 
 

@@ -13,7 +13,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW_ISO, create_basic_vault
+from tests.helpers import NOW_ISO, configure_codex_http, create_basic_vault
 
 
 def test_cli_attempt_json_and_show_attempt(tmp_path):
@@ -222,13 +222,7 @@ def test_cli_attempt_uses_codex_http_when_runtime_ready(tmp_path):
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 class _GradingServer:

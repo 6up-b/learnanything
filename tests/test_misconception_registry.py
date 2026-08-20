@@ -6,6 +6,8 @@ set / discrimination-aware EIG), and §7 (posterior update & resolution rekeying
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import timedelta
 
 import pytest
@@ -13,12 +15,12 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import ItemMisconceptionDiscrimination, Repository
 from learnloop.ids import new_ulid
-from learnloop.services.misconceptions import (
+from learnloop.diagnosis.misconceptions import (
     misconception_posterior,
     normalize_attempt_misconceptions,
     update_misconception_posteriors_and_resolve,
 )
-from learnloop.services.probes import (
+from learnloop.diagnosis.probes import (
     Hypothesis,
     HypothesisSet,
     build_hypothesis_set,
@@ -243,7 +245,7 @@ class _FakeMatch:
         self.misconception_id = misconception_id
 
 
-class _FakeClient:
+class _FakeClient(StructuredClientFake):
     def __init__(self, result: _FakeMatch):
         self._result = result
         self.calls = 0

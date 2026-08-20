@@ -20,13 +20,13 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.certification_cold_probe import (
+from learnloop.goals.certification_cold_probe import (
     COLD_PROBE_TASK_KIND,
     certification_cold_probe_report,
     cold_outcome_labels,
@@ -36,10 +36,10 @@ from learnloop.services.certification_cold_probe import (
     schedule_certification_cold_probes,
     select_held_out_probe_item,
 )
-from learnloop.services.coldness_receipt import (
+from learnloop.attempts.coldness_receipt import (
     record_certification_administration_snapshot,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import read_yaml, write_yaml

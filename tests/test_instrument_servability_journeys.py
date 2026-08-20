@@ -41,25 +41,25 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.exam_pool import reserve_exam_pool
-from learnloop.services.instrument_serving import UNSERVABLE_REMEDIES
-from learnloop.services.probe_episodes import (
+from learnloop.goals.exam_pool import reserve_exam_pool
+from learnloop.substrate.instrument_serving import UNSERVABLE_REMEDIES
+from learnloop.diagnosis.probe_episodes import (
     eligible_instruments,
     enter_episode,
     next_probe_item,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,
     start_remediation_treatment,
 )
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.errors import SidecarError
@@ -571,7 +571,7 @@ def test_the_intervention_followup_records_no_servability_skips(tmp_path):
     vanished from the slate with no reason is a false negative in both, whichever
     direction the predicate happens to answer."""
 
-    from learnloop.services.followups import evaluate_negative_surprise_followup
+    from learnloop.diagnosis.followups import evaluate_negative_surprise_followup
 
     _paths, vault, repository = _author_vault(tmp_path)
     _authored(vault)
@@ -615,8 +615,8 @@ def test_the_staged_controller_admits_both_instruments(tmp_path):
     the ranker where their score can be traded like anyone else's.
     """
 
-    from learnloop.services.constraint_engine import feasible_set
-    from learnloop.services.controller_snapshot import build_snapshot
+    from learnloop.scheduling.constraint_engine import feasible_set
+    from learnloop.scheduling.controller_snapshot import build_snapshot
 
     paths, vault, repository = _author_vault(tmp_path)
     _authored(vault)
@@ -656,7 +656,7 @@ def test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item
     perfectly good probe, and here it is the only candidate.
     """
 
-    from learnloop.services.certification_cold_probe import (
+    from learnloop.goals.certification_cold_probe import (
         current_certificate,
         select_held_out_probe_item,
     )

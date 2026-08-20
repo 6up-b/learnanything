@@ -13,7 +13,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.facet_diagnostics import (
+from learnloop.learner.facet_diagnostics import (
     COVERAGE_DENOMINATOR_VERSION,
     INFERRED_CELL_COVERAGE_DISCOUNT,
     contract_frontier,
@@ -261,7 +261,7 @@ def test_the_denominator_change_is_narrated_as_one_recalibration(tmp_path):
     once, through the existing "estimates recomputed" entry (A6's machinery),
     naming the coverage denominator rather than blaming an algorithm rewrite."""
 
-    from learnloop.services.learner_review_feed import build_learner_review_feed
+    from learnloop.learner.learner_review_feed import build_learner_review_feed
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)

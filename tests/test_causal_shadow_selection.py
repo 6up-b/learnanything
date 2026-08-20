@@ -11,14 +11,14 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import causal_diagnostic_selector as CDS
-from learnloop.services import causal_orchestrator as CO
-from learnloop.services.causal_orchestrator import causal_repair_status
-from learnloop.services.causal_probe_coherence import lock_causal_hypothesis_set
-from learnloop.services.causal_probe_commissioning import (
+from learnloop.diagnosis import causal_diagnostic_selector as CDS
+from learnloop.diagnosis import causal_orchestrator as CO
+from learnloop.diagnosis.causal_orchestrator import causal_repair_status
+from learnloop.diagnosis.causal_probe_coherence import lock_causal_hypothesis_set
+from learnloop.diagnosis.causal_probe_commissioning import (
     commission_probe_instrument,
 )
-from learnloop.services.causal_selection_audit import causal_selection_readiness
+from learnloop.diagnosis.causal_selection_audit import causal_selection_readiness
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 

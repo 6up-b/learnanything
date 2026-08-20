@@ -15,9 +15,9 @@ from __future__ import annotations
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import CanonicalIngestContext
-from learnloop.codex.schemas import (
-    AuthoringProposal,
+from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
+from learnloop.content.synthesis.ai_contracts import (
     SynthCriterion,
     SynthCriterionTarget,
     SynthPracticeItem,
@@ -25,13 +25,13 @@ from learnloop.codex.schemas import (
     SynthRecipeComponent,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.replay import rebuild_derived_state, record_content_recalibration
-from learnloop.services.source_append import append_source
-from learnloop.services.source_ingestion import (
+from learnloop.substrate.replay import rebuild_derived_state, record_content_recalibration
+from learnloop.content.synthesis.source_append import append_source
+from learnloop.content.pipeline.source_ingestion import (
     _reachability_summary,
     ingest_canonical_source,
 )
-from learnloop.services.source_set_synthesis import StudyMapError, create_study_map
+from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -45,11 +45,11 @@ from tests.test_source_set_synthesis import (
 )
 
 try:  # AppendReconciliation lives beside the other synth wire models.
-    from learnloop.codex.schemas import AppendReconciliation
+    from learnloop.content.synthesis.ai_contracts import AppendReconciliation
 except ImportError:  # pragma: no cover
-    from learnloop.codex.client import AppendReconciliation  # type: ignore
+        from learnloop.content.synthesis.ai_contracts import AppendReconciliation  # type: ignore
 
-from learnloop.codex.schemas import SynthSpanRef
+from learnloop.content.synthesis.ai_contracts import SynthSpanRef
 
 
 # ---------------------------------------------------------------------------

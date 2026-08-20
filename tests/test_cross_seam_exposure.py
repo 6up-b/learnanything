@@ -18,11 +18,11 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import constraint_engine as ce
-from learnloop.services import controller_cutover as cut
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import staged_policy as sp
-from learnloop.services.activities import (
+from learnloop.scheduling import constraint_engine as ce
+from learnloop.scheduling import controller_cutover as cut
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import staged_policy as sp
+from learnloop.substrate.activities import (
     Administration,
     ExposureCollisionAtRender,
     open_administration,
@@ -146,8 +146,8 @@ def test_stale_ownership_still_prevents_double_administration(env):
     test that could not exhibit the stale-read hazard it claimed to cover.
     """
 
-    from learnloop.services import commitments as C
-    from learnloop.services import controller_ownership as own
+    from learnloop.curriculum import commitments as C
+    from learnloop.scheduling import controller_ownership as own
 
     vault, repo, paths = env
     item = vault.practice_items["pi_a"]

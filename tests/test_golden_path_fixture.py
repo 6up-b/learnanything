@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services import golden_path_run as GPR
-from learnloop.services.golden_path_fixture import (
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum.golden_path_fixture import (
     EXEMPLAR_A,
     EXEMPLAR_B,
     HELD_OUT,

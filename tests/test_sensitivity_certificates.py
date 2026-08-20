@@ -7,8 +7,8 @@ from typing import Any
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import parameter_registry as pr
-from learnloop.services import sensitivity_certificates as sc
+from learnloop.params import parameter_registry as pr
+from learnloop.params import sensitivity_certificates as sc
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

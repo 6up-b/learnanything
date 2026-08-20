@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 import sys
 import types
@@ -7,11 +9,11 @@ import types
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import CanonicalIngestContext
+from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
 from learnloop.config import PdfIngestConfig
-from learnloop.codex.schemas import AuthoringProposal
-from learnloop.services.pdf_extraction import PdfExtractionError, extract_pdf_markdown
-from learnloop.services.source_ingestion import (
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
+from learnloop.content.sources.pdf_extraction import PdfExtractionError, extract_pdf_markdown
+from learnloop.content.pipeline.source_ingestion import (
     FetchResult,
     SourceIngestionError,
     chunk_normalized_source,
@@ -275,7 +277,7 @@ def test_textbook_ingest_requires_existing_anchor_and_passes_constraints(tmp_pat
     assert "pi_textbook_svd_001" in loaded.practice_items
 
 
-class _TextbookClient:
+class _TextbookClient(StructuredClientFake):
     def __init__(self):
         self.calls: list[CanonicalIngestContext] = []
 

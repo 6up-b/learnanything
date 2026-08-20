@@ -8,10 +8,10 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import familiarity as F
-from learnloop.services import progression as P
-from learnloop.services import progression_policy as PP
+from learnloop.substrate import activities as A
+from learnloop.learner import familiarity as F
+from learnloop.scheduling import progression as P
+from learnloop.scheduling import progression_policy as PP
 
 from tests.helpers import NOW
 
@@ -32,7 +32,7 @@ def _family_version_with_policy(repo, *, coordinates):
         repo, family_id=family_id, version=1, authoring_purpose="practice",
         family_spec={"title": "fam"}, progression_policy_version_id=policy_id, clock=CLOCK,
     )
-    repo.insert_angle_inventory(family_version_id=fv, coordinates_json=A._json(coordinates), clock=CLOCK)
+    repo.insert_angle_inventory(family_version_id=fv, coordinates_json=A.canonical_json(coordinates), clock=CLOCK)
     return fv
 
 
@@ -40,7 +40,7 @@ def _surface(repo, *, suffix, features=None):
     family_id = repo.ensure_activity_family(purpose="practice", legacy_kind=None, title=f"f-{suffix}", clock=CLOCK)
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
     cv = repo.ensure_activity_card_version(card_id=card_id, version=1,
-        card_contract_hash=A._canonical_hash({"s": suffix}), contract_json="{}", schema_version=1, clock=CLOCK)
+        card_contract_hash=A.canonical_hash({"s": suffix}), contract_json="{}", schema_version=1, clock=CLOCK)
     sid = repo.ensure_activity_surface(card_version_id=cv, surface_hash=f"sh-{suffix}",
                                        fingerprint=None, surface_json="{}", clock=CLOCK)
     if features is not None:

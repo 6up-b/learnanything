@@ -17,11 +17,11 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import card_lineage as CL
-from learnloop.services import substrate_cutover as SC
-from learnloop.services.fsrs import Rating
-from learnloop.services.card_outcome_replay import (
+from learnloop.substrate import activities as A
+from learnloop.substrate import card_lineage as CL
+from learnloop.substrate.compat import substrate_cutover as SC
+from learnloop.scheduling.fsrs import Rating
+from learnloop.substrate.compat.card_outcome_replay import (
     REPLAY_MANIFEST,
     outcome_class_for_response_posterior,
     replay_card_outcome_counts,
@@ -46,8 +46,8 @@ def _card(repo, *, tag):
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
     contract = {"target": "svd", "capability": "retrieval", "tag": tag}
     cv = repo.ensure_activity_card_version(
-        card_id=card_id, version=1, card_contract_hash=A._canonical_hash(contract),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_id=card_id, version=1, card_contract_hash=A.canonical_hash(contract),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
     return family_id, card_id, cv
 
@@ -142,8 +142,8 @@ def test_replay_reads_ledger_events_only_no_live_tables(repo):
 # --- §9.8: prefers the grade_interpretations head, falls back to raw ----------
 
 def test_replay_prefers_active_interpretation_head(repo):
-    from learnloop.services.outcome_schemas import ensure_builtin_schemas
-    from learnloop.services.outcome_schemas import COARSE_RESPONSE_SLUG
+    from learnloop.attempts.outcome_schemas import ensure_builtin_schemas
+    from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG
 
     fam, _card_id, cv = _card(repo, tag="s3")
     lineage = CL.start_lineage(repo, genesis_card_version_id=cv, family_id=fam, card_id=_card_id, clock=CLOCK)

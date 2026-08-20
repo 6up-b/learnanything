@@ -3,19 +3,19 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.clock import utc_now_iso
-from learnloop.services.instrument_serving import (
+from learnloop.substrate.instrument_serving import (
     UNSERVABLE_ERROR_CODE,
     unservable_refusal,
 )
-from learnloop.services.proposals import queue_accepted_diagnostic_followups
-from learnloop.services.scheduler import (
+from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
+from learnloop.scheduling.scheduler import (
     SchedulerSession,
     build_due_queue,
     deferred_cold_followups,
     explain_practice_item,
 )
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.ingest_jobs import _APPLYING_JOB_TYPES
+from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import (
@@ -42,13 +42,13 @@ class PracticeItemInput(ParamsModel):
 
 #: Job types whose completion must invalidate the sidecar's in-memory vault.
 #:
-#: This MUST stay in sync with ``ingest_jobs._APPLYING_JOB_TYPES`` — that tuple
+#: This MUST stay in sync with ``pipeline.jobs.APPLYING_JOB_TYPES`` — that tuple
 #: is the authority on which jobs change vault content, and any job listed there
 #: but missing here applies items the Today queue then cannot see, because
 #: ``get_today_queue`` reads the cached snapshot. The two drifted once already
 #: (``goal_population`` was added to the applying list and not to this one), so
 #: the set is derived rather than restated.
-_QUEUE_RELOAD_JOB_TYPES = frozenset(_APPLYING_JOB_TYPES)
+_QUEUE_RELOAD_JOB_TYPES = frozenset(APPLYING_JOB_TYPES)
 
 
 @method("get_queue_revision", ParamsModel)

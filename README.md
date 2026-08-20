@@ -160,6 +160,8 @@ For a step-by-step walkthrough, start with the
 [user and algorithm guide](documentation.md), which covers vault creation,
 Quick Add versus deliberate ingestion, what the pipeline does mechanistically,
 and the daily practice loop then drills into the learner model behind it.
+Contributors can find the enforced package boundaries, persistence roles, and
+compatibility policy in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Quick start: desktop app
 
@@ -289,7 +291,7 @@ uv run learnloop add-subject linear-algebra "Linear Algebra" \
 uv run learnloop doctor --fix-state --vault ~/LearnLoop/my-vault
 ```
 
-A fresh vault starts at `algorithm_version = "mvp-0.8"`. Then add a source and
+A fresh vault starts at `algorithm_version = "mvp-0.9"`. Then add a source and
 inspect the queue:
 
 ```bash
@@ -308,6 +310,13 @@ runs the same machinery with you at each decision point — see the
 Run `uv run learnloop --help` for the complete command list, or append `--help`
 to any subcommand. Most read-oriented commands also support stable JSON output
 for tooling.
+
+To inspect exactly what configuration LearnLoop will use, including defaults
+and legacy-input normalization, run:
+
+```bash
+uv run learnloop config effective --vault ~/LearnLoop/my-vault
+```
 
 ## Vaults and local data
 
@@ -330,6 +339,15 @@ Markdown and YAML hold editable learning content. SQLite holds event history,
 runtime state, indexes, and model projections. Raw attempts are retained so
 derived state can be deterministically replayed and rebuilt
 (`learnloop rebuild-derived-state`).
+
+Before applying an algorithm or configuration change to live state, you can
+rebuild a copied database and inspect its semantic diff:
+
+```bash
+uv run learnloop rebuild --shadow --json --vault ~/LearnLoop/my-vault
+```
+
+The shadow command does not mutate the live database.
 
 Before moving, scripting, or directly editing a vault, close LearnLoop or ensure
 no other process is writing to it. Run `doctor` after manual content changes.
@@ -468,7 +486,7 @@ Python learnloop_sidecar
 | Path | Purpose |
 |---|---|
 | `apps/learnloop-tauri/` | React/Tauri desktop application |
-| `src/learnloop/` | Domain model, services, scheduler, ingestion, and CLI |
+| `src/learnloop/` | Domain packages, infrastructure, scheduling, ingestion, and CLI |
 | `src/learnloop_sidecar/` | JSON-RPC bridge used by the desktop app |
 | `migrations/` | Ordered SQLite schema migrations |
 | `tests/` | Unit, integration, replay, calibration, and CLI tests |
@@ -530,7 +548,8 @@ Tauri app with `LEARNLOOP_TAURI_DEBUG_ZOOM=1`. Use `Ctrl+=`, `Ctrl+-`, and
 - [User and algorithm guide](documentation.md) — quick start, first-use
   journey, learner model, and operational details for current behavior
 - [Product definition](product_definition.md) — product goals and design thesis
-- [Technical specification](spec.md) — data model and algorithm contracts
+- [Historical MVP specification](spec.md) — original data model and algorithm
+  contracts; retained for archaeology, not current package/API guidance
 - [Architecture pivot](architecture_pivot.md) — longer-term strategy for learned
   models and search
 - [Changelog](CHANGELOG.md) — notable implementation milestones

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import eligible_instruments, enter_episode
-from learnloop.services.probe_families import builtin_family_templates
-from learnloop.services.probe_instance_generation import (
+from learnloop.diagnosis.probe_episodes import eligible_instruments, enter_episode
+from learnloop.diagnosis.probe_families import builtin_family_templates
+from learnloop.diagnosis.probe_instance_generation import (
     GENERATOR_ID,
     GENERATOR_VERSION,
     approve_probe_instance,
     generate_instances_for_episode,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object
 

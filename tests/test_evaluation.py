@@ -12,16 +12,16 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.evaluation import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.scheduling.evaluation import (
     brier_score,
     build_eval_report,
     ece_equal_width,
     log_loss,
 )
-from learnloop.services.fsrs import apply_review, forgetting_curve
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling.fsrs import apply_review, forgetting_curve
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item
@@ -76,13 +76,13 @@ def test_report_on_real_session_flow(tmp_path):
     vault, repository = _seeded(tmp_path)
     # A real slate (logs candidates + propensities), then an attempt chosen
     # from it, then a later attempt on the same item (a retention label pair).
-    from learnloop.services.scheduler import SchedulerSession
+    from learnloop.scheduling.scheduler import SchedulerSession
 
     queue = build_due_queue(
         vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id="s_eval_test")
     )
     assert queue
-    from learnloop.services.followups import evaluate_attempt_intervention_followup
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 
     first = complete_self_graded_attempt(
         vault,
@@ -113,7 +113,7 @@ def test_report_on_real_session_flow(tmp_path):
     assert retention["reconstruction"]["stability_mismatches"] == 1
     # Reconstructed prediction must match a hand-run of the FSRS chain (which
     # starts from the raw attempt stream, not the seeded state).
-    from learnloop.services.attempts import fsrs_rating_for_attempt
+    from learnloop.attempts.attempts import fsrs_rating_for_attempt
 
     item = vault.practice_items["pi_svd_define_001"]
     rating = fsrs_rating_for_attempt(item, 4, 4, 0)
@@ -139,7 +139,7 @@ def test_report_on_real_session_flow(tmp_path):
 
 def test_gate_section_counts_manual_false_negatives(tmp_path):
     vault, repository = _seeded(tmp_path)
-    from learnloop.services.followups import evaluate_intervention_followup
+    from learnloop.diagnosis.followups import evaluate_intervention_followup
 
     result = complete_self_graded_attempt(
         vault,

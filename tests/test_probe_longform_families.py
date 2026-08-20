@@ -7,14 +7,14 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.probe_coverage import family_coverage_report
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_coverage import family_coverage_report
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     enter_episode,
@@ -22,7 +22,7 @@ from learnloop.services.probe_episodes import (
     episode_posterior,
     serve_presentation,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     DERIVATION_V1,
     EXTENDED_CASE_V1,
     LONGFORM_OBLIGATIONS,
@@ -31,8 +31,8 @@ from learnloop.services.probe_families import (
     ensure_builtin_families,
     run_family_admission_gate,
 )
-from learnloop.services.probe_hypotheses import build_episode_hypothesis_set
-from learnloop.services.probe_instance_generation import (
+from learnloop.diagnosis.probe_hypotheses import build_episode_hypothesis_set
+from learnloop.diagnosis.probe_instance_generation import (
     applicable_families,
     ensure_instrument_card,
     generate_instances_for_episode,
@@ -200,7 +200,7 @@ def test_derivation_separates_procedure_without_selection(tmp_path):
     labels = [hypothesis.label for hypothesis in hypothesis_set.hypotheses]
     assert "procedure_without_selection" in labels
 
-    from learnloop.services.probe_families import (
+    from learnloop.diagnosis.probe_families import (
         FAMILY_DEFAULT_ROWS,
         InstrumentCard,
         map_episode_labels_to_slots,

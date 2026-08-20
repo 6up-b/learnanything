@@ -2,7 +2,8 @@
 
 Spec: ``spec_measurement_efficiency_v1.md`` §3.A2/§3.A3, and the Stage 6
 adversarial review that found error hunts and laddered stems authored, gated,
-stored and audited — with no renderer, so ``services/instrument_serving`` had to
+stored and audited — with no renderer, so
+``learnloop.substrate.instrument_serving`` had to
 keep them out of the queue entirely.
 
 What is tested here is not "the field exists". It is the three properties that,

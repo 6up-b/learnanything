@@ -1,0 +1,156 @@
+---
+title: "learnloop_sidecar.handlers.golden_path"
+type: "module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_path: "src/learnloop_sidecar/handlers/golden_path.py"
+source_paths:
+  - "src/learnloop_sidecar/handlers/golden_path.py"
+source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
+source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_worktree_state: "modified"
+generated: true
+generated_at: "2026-08-18"
+package: "learnloop_sidecar.handlers"
+layer: "adapter"
+concepts:
+  - "Architecture Overview"
+workflows:
+  - "Initialize a Vault"
+  - "Start a Learning Cycle"
+  - "Import Canonical Sources"
+  - "Process Model Output"
+  - "Inspect Persistent State"
+aliases:
+  - "learnloop_sidecar.handlers.golden_path module"
+  - "src/learnloop_sidecar/handlers/golden_path.py"
+tags:
+  - "docs/module"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/adapter"
+  - "package/learnloop-sidecar-handlers"
+---
+
+# `learnloop_sidecar.handlers.golden_path`
+
+> [!info] Generated source reference
+> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+
+Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+`learnloop_sidecar.handlers.golden_path` exists within [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] to own the behavior summarized by its module contract: P2 golden-path spine sidecar RPC (spec_p2_narrow_golden_path §9; design B.1-B.3).
+
+The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
+
+^module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [src/learnloop_sidecar/handlers/golden_path.py](../../../../../../src/learnloop_sidecar/handlers/golden_path.py) |
+| Source lines | 292 |
+| Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
+| Architecture layer | `adapter` |
+| Refactor status | `ACTIVE` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
+| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+
+## Public API
+
+- `class RegisterBlueprintInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 28)
+- `blueprint_register(ctx: SidecarContext, params: RegisterBlueprintInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 35)
+- `class ReviewBlueprintInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 49)
+- `blueprint_review(ctx: SidecarContext, params: ReviewBlueprintInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 55)
+- `class BlueprintVersionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 63)
+- `blueprint_get_version(ctx: SidecarContext, params: BlueprintVersionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 68)
+- `class DiscoverCandidatesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 77)
+- `blueprint_discover_candidates(ctx: SidecarContext, params: DiscoverCandidatesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 82) — The library exemplar pool (§3.1 discovery, previously deferred): active practice items grouped by learning object, with freshness for the held-out pick.
+- `class ComposeBlueprintDraftInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 96)
+- `blueprint_compose_draft(ctx: SidecarContext, params: ComposeBlueprintDraftInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 105) — Compose a picker selection into a registered DRAFT blueprint version plus the matching confirm ingredients.
+- `class ConfirmInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 164)
+- `golden_path_confirm(ctx: SidecarContext, params: ConfirmInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 177)
+- `class RunStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 210)
+- `golden_path_run_status(ctx: SidecarContext, params: RunStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 215)
+- `class ListRunsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 224)
+- `golden_path_list_runs(ctx: SidecarContext, params: ListRunsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 229) — Every confirmed run with its cached state — the desktop's re-entry point.
+- `class AdvanceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 250)
+- `golden_path_advance(ctx: SidecarContext, params: AdvanceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 260)
+
+## Internal implementation anchors
+
+- `_blueprint_dto(version: TB.BlueprintVersion) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 148)
+- `_run_state_dto(state: GPR.RunState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path.py), line 280)
+
+## Who imports or calls it
+
+> [!note] Static evidence boundary
+> “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
+
+- [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
+
+## Dependencies
+
+### LearnLoop dependencies
+
+- [[Reference/Modules/learnloop/curriculum/golden_path_compose|learnloop.curriculum.golden_path_compose]] — imports `module`; calls `compose_blueprint_draft`, `discover_exemplar_pool`
+- [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `module`; calls `confirm_exemplar_and_start`
+- [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `module`; calls `advance`, `project_run`
+- [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `module`; calls `_load_version`, `register_blueprint_version`, `review_blueprint_version`
+- [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `resolve_legacy_item`; calls `resolve_legacy_item`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
+- [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
+- [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
+
+### Platform and third-party dependencies
+
+- Standard library: `__future__`, `json`, `typing`
+- Third party: none imported directly
+
+## Larger workflow participation
+
+Use this module in context through:
+
+- [[Initialize a Vault]]
+- [[Start a Learning Cycle]]
+- [[Import Canonical Sources]]
+- [[Process Model Output]]
+- [[Inspect Persistent State]]
+
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]].
+
+The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
+
+## Tests that define behavior
+
+No test imports this module directly. These tests exercise a direct production consumer:
+
+- [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+
+## Modification guidance
+
+- Change request/response adaptation or presentation here. Put reusable learning policy in its domain package, not in the adapter.
+- Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+
+### Regeneration and review checklist
+
+1. Modify [src/learnloop_sidecar/handlers/golden_path.py](../../../../../../src/learnloop_sidecar/handlers/golden_path.py) and its owning tests.
+2. Regenerate [[Module Catalog]] so imports, symbols, source provenance, and test anchors remain current.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py`.
+4. If ownership or workflow behavior changed, update the linked canonical concept or workflow note—not a duplicate explanation here.

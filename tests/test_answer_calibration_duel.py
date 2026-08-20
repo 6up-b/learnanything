@@ -9,13 +9,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.exam_calibration import calibration_report
+from learnloop.goals.exam_calibration import calibration_report
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault

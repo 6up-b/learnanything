@@ -5,8 +5,8 @@ from datetime import timedelta
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.services.goal_pace import PACE_WINDOW_DAYS, compute_goal_pace
-from learnloop.services.goal_projection import FacetProjection, GoalReport, goal_report
+from learnloop.goals.goal_pace import PACE_WINDOW_DAYS, compute_goal_pace
+from learnloop.goals.goal_projection import FacetProjection, GoalReport, goal_report
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item

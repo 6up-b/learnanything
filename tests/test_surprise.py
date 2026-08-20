@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 from learnloop.config import LearnLoopConfig, MasteryConfig
 from learnloop.db.repositories import MasteryState
-from learnloop.services.mastery import MasteryObservation, update_mastery
-from learnloop.services.surprise import compute_surprise
+from learnloop.learner.mastery import MasteryObservation, update_mastery
+from learnloop.attempts.surprise import compute_surprise
 
 VERSION = "mvp-0.1"
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)

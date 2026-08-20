@@ -7,7 +7,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_probe_coherence import (
     BundleFeatureRow,
     audit_manipulation_contract,
     blind_bundle_discrimination,
@@ -24,13 +24,13 @@ from learnloop.services.causal_probe_coherence import (
     rung_divergence_gate,
     transition_probe_candidate,
 )
-from learnloop.services import failure_triage as FT
-from learnloop.services.remediation import (
+from learnloop.diagnosis import failure_triage as FT
+from learnloop.diagnosis.remediation import (
     RemediationBlocked,
     RemediationError,
     start_remediation_episode,
 )
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,

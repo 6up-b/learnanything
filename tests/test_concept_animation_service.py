@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from pathlib import Path
 
 import pytest
 
-from learnloop.codex.schemas import ManimAnimation
+from learnloop.content.authoring.ai_contracts import ManimAnimation
 from learnloop.db.repositories import Repository
-from learnloop.services.concept_animation import (
+from learnloop.content.authoring.concept_animation import (
     ConceptAnimationError,
     RenderResult,
     generate_concept_animation,
@@ -29,7 +31,7 @@ class ExplainSVD(Scene):
 BAD_SCENE = "import os\nfrom manim import Scene\nclass S(Scene):\n    pass\n"
 
 
-class _FakeAnimationClient:
+class _FakeAnimationClient(StructuredClientFake):
     provider_name = "openrouter"
     model = "anthropic/claude-sonnet-4.5"
 
@@ -135,6 +137,9 @@ def test_generate_provider_without_method_fails_typed(tmp_path):
         provider_name = "deepseek_flash"
         model = "deepseek-v4-flash"
 
+        def supports(self, _capability):
+            return False
+
     row = generate_concept_animation(
         vault.root, _NoAnimationClient(), animation_id=requested["animation_id"],
         repository=repository, renderer=_ok_renderer,
@@ -218,7 +223,7 @@ def test_generate_unexpected_exception_never_wedges_the_row(tmp_path):
         vault, repository, concept_id="singular_value_decomposition", consent=True
     )
 
-    class _ExplodingClient:
+    class _ExplodingClient(StructuredClientFake):
         provider_name = "openrouter"
         model = "x"
 
@@ -239,7 +244,7 @@ def test_generate_unexpected_exception_never_wedges_the_row(tmp_path):
 def test_runner_handler_drives_generation_through_the_queue(tmp_path):
     from learnloop.clock import FrozenClock
     from datetime import UTC, datetime
-    from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 
     vault, repository = _vault(tmp_path)
     requested = request_concept_animation(

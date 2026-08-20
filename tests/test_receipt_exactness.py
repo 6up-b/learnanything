@@ -27,14 +27,14 @@ from pathlib import Path
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.canonical_projection import project_canonical_facet_state
-from learnloop.services.causal_activity_policy import resolve_attempt_activity_policy
-from learnloop.services.facet_evidence_timeline import (
+from learnloop.substrate.canonical_projection import project_canonical_facet_state
+from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
+from learnloop.learner.facet_evidence_timeline import (
     _observation_events,
     facet_evidence_timeline,
     fold_demonstrated_timeline,
 )
-from learnloop.services.canonical_projection import _repeat_discount
+from learnloop.substrate.canonical_projection import configured_repeat_discount
 from learnloop.vault.loader import load_vault
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -115,7 +115,7 @@ def test_from_scratch_fold_equals_incremental_fold_on_real_history(tmp_path):
 
     vault, repository = _loaded_fixture(tmp_path, "linear_algebra")
     project_canonical_facet_state(vault, repository)
-    discount = _repeat_discount(vault)
+    discount = configured_repeat_discount(vault)
     checked = 0
     for cell in repository.facet_capability_evidence_all():
         facet = cell.facet_id

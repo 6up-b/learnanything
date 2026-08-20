@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services import golden_path_assessment as GA
-from learnloop.services import golden_path_restoration as GRstr
+from learnloop.curriculum import golden_path_assessment as GA
+from learnloop.curriculum import golden_path_restoration as GRstr
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError

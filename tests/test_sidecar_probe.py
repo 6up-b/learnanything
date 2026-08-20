@@ -7,7 +7,7 @@ import json
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import enter_episode
+from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 

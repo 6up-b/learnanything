@@ -13,7 +13,7 @@ from learnloop.ingest.extractors.normalizers import markdown_to_ir
 from learnloop.ingest.hashing import extraction_request_hash, extraction_result_hash
 from learnloop.ingest.ir import IR_SCHEMA_VERSION
 from learnloop.ingest.resolution import resolve_source
-from learnloop.ingest.source_library import register_source_revision
+from learnloop.content.sources.source_library import register_source_revision
 from learnloop_sidecar.server import serve
 
 from tests.helpers import create_basic_vault

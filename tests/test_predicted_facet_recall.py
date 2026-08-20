@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from learnloop.services.selection_rewards import predicted_facet_recall
+from learnloop.scheduling.selection_rewards import predicted_facet_recall
 
 BLEND = 4.0
 

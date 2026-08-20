@@ -6,21 +6,23 @@ No LLM: all grader payloads are canned; deterministic.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.prompts import GRADING_PROMPT_VERSION
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.error_taxonomy_map import (
+from learnloop.diagnosis.error_taxonomy_map import (
     MECHANISM_TAXONOMY,
     MECHANISM_TAXONOMY_CARD,
     map_legacy_error_type,
 )
-from learnloop.services.misconceptions import normalize_attempt_misconceptions
-from learnloop.services.probe_families import CONTRAST_CONFUSABLE_V1
-from learnloop.services.probe_instance_generation import ensure_instrument_card
-from learnloop.services.taxonomy_regrade import run_taxonomy_regrade_checks
+from learnloop.diagnosis.misconceptions import normalize_attempt_misconceptions
+from learnloop.diagnosis.probe_families import CONTRAST_CONFUSABLE_V1
+from learnloop.diagnosis.probe_instance_generation import ensure_instrument_card
+from learnloop.diagnosis.taxonomy_regrade import run_taxonomy_regrade_checks
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
@@ -122,7 +124,7 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
 
 
 def test_retrieval_boundary_is_mechanism_based_and_domain_neutral():
-    from learnloop.services.grading import CANONICAL_ERROR_TYPES
+    from learnloop.attempts.grading import CANONICAL_ERROR_TYPES
 
     mechanism_card = next(
         card for card in MECHANISM_TAXONOMY_CARD if card["id"] == "retrieval_failure"
@@ -156,7 +158,7 @@ def test_grader_prompt_version_bumped():
 
 
 def test_mvp07_grader_taxonomy_emits_mechanism_vocabulary(tmp_path):
-    from learnloop.services.grading import _grading_error_taxonomy
+    from learnloop.attempts.grading import _grading_error_taxonomy
 
     vault06, _ = _mvp06(tmp_path / "a")
     vault07, _ = _mvp07(tmp_path / "b")
@@ -169,7 +171,7 @@ def test_mvp07_grader_taxonomy_emits_mechanism_vocabulary(tmp_path):
 def test_config_error_impacts_resolve_through_map(tmp_path):
     # A legacy [error_impacts] TOML stays consumable when the grader emits the
     # canonical mechanism vocabulary (retrieval_failure / local_slip).
-    from learnloop.services.recall_coverage import _resolve_error_impact_config
+    from learnloop.learner.recall_coverage import _resolve_error_impact_config
 
     vault07, _ = _mvp07(tmp_path)
     config = vault07.config
@@ -181,7 +183,7 @@ def test_config_error_impacts_resolve_through_map(tmp_path):
 # -- §16 regrade-check ---------------------------------------------------------
 
 
-class _CannedGrader:
+class _CannedGrader(StructuredClientFake):
     """Returns a fixed attribution echoing the context's ids (no LLM)."""
 
     def __init__(self, error_type: str, *, is_misconception: bool = True):

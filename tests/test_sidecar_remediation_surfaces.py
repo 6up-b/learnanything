@@ -19,13 +19,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AUTO_PRIME_REVEAL_THRESHOLD,
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,
     start_remediation_treatment,

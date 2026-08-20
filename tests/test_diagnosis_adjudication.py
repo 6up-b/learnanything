@@ -16,15 +16,15 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.causal_attribution import record_causal_diagnosis_contest
-from learnloop.services.diagnosis_adjudication import (
+from learnloop.diagnosis.causal_attribution import record_causal_diagnosis_contest
+from learnloop.diagnosis.diagnosis_adjudication import (
     adjudicated_ground_truth,
     adjudication_queue,
     anchor_key,

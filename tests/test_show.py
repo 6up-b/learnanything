@@ -7,12 +7,12 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.ingest.source_library import register_source_revision
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.observations import record_observation, register_observation_template
-from learnloop.services.probes import enter_probe
-from learnloop.services.proposals import accept_items, persist_authoring_proposal
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.observations import record_observation, register_observation_template
+from learnloop.diagnosis.probes import enter_probe
+from learnloop.content.proposals.proposals import accept_items, persist_authoring_proposal
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop.vault.writer import upsert_concept_edge

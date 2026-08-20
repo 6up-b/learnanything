@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.predictive_eig import TargetItemModel, predictive_facet_eig
-from learnloop.services.probes import facet_expected_information_gain
+from learnloop.diagnosis.predictive_eig import TargetItemModel, predictive_facet_eig
+from learnloop.diagnosis.probes import facet_expected_information_gain
 
 FACET = "f_spectral"
 ERROR = "confuses_norms"
@@ -101,8 +101,8 @@ def test_deterministic():
 def test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero(tmp_path):
     from learnloop.clock import FrozenClock
     from learnloop.db.repositories import MasteryState, Repository
-    from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-    from learnloop.services.followups import evaluate_intervention_followup
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.diagnosis.followups import evaluate_intervention_followup
     from learnloop.vault.loader import load_vault
 
     from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault

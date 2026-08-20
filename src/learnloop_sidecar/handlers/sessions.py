@@ -34,7 +34,7 @@ class SessionCheckpointInput(ParamsModel):
 @method("start_session", SessionStartInput)
 def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    from learnloop.services.forecast_ledger import issue_goal_forecasts, resolve_due_forecasts
+    from learnloop.goals.forecast_ledger import issue_goal_forecasts, resolve_due_forecasts
 
     resolve_due_forecasts(repository)
     issue_goal_forecasts(vault, repository)
@@ -82,7 +82,7 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
         raise SidecarError("not_found", f"Session {params.session_id} was not found.")
     repository.clear_session_checkpoint(params.session_id)
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
-    from learnloop.services.session_learning_diff import session_learning_diff
+    from learnloop.learner.session_learning_diff import session_learning_diff
 
     learning_diff = session_learning_diff(vault, repository, params.session_id)
     cold_checks = _session_cold_checks(repository, params.session_id)

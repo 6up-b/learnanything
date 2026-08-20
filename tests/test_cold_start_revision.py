@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from learnloop.services.grading import deterministic_recognition_grade
-from learnloop.services.mastery import (
+from learnloop.attempts.grading import deterministic_recognition_grade
+from learnloop.learner.mastery import (
     MasteryObservation,
     MasteryState,
     apply_claim_evidence,
@@ -14,8 +14,8 @@ from learnloop.services.mastery import (
     update_mastery_traced,
 )
 from learnloop.config import LearnLoopConfig
-from learnloop.services.predictive_eig import _stratified_cap, TargetItemModel
-from learnloop.services.probe_hypotheses import triage_reason_for_label
+from learnloop.diagnosis.predictive_eig import _stratified_cap, TargetItemModel
+from learnloop.diagnosis.probe_hypotheses import triage_reason_for_label
 from learnloop.vault.models import PracticeItem, Rubric, RubricCriterion
 
 
@@ -229,7 +229,7 @@ class TestStratifiedCap:
 class TestAssessmentSideErrorFiltering:
     def test_scheduler_excludes_assessment_side_errors(self):
         from learnloop.db.repositories import ActiveErrorEvent
-        from learnloop.services.scheduler import _errors_by_learning_object
+        from learnloop.scheduling.scheduler import _errors_by_learning_object
 
         events = [
             ActiveErrorEvent(
@@ -253,8 +253,8 @@ class TestAssessmentSideErrorFiltering:
         assert [event.id for event in grouped["lo_x"]] == ["e2"]
 
     def test_quality_state_pays_for_assessment_side_error(self):
-        from learnloop.services.mastery import MasteryState
-        from learnloop.services.recall_coverage import build_quality_state_update_from_prior
+        from learnloop.learner.mastery import MasteryState
+        from learnloop.learner.recall_coverage import build_quality_state_update_from_prior
 
         state = build_quality_state_update_from_prior(
             None,

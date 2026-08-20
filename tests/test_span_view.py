@@ -13,7 +13,7 @@ from pathlib import Path
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services.span_view import SpanViewError, build_span_view
+from learnloop.reader.span_view import SpanViewError, build_span_view
 
 from tests.test_source_inventory import _persist, _register_revision
 

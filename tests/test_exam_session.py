@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.services.attempts import GradeAttribution, ResolvedGrade
-from learnloop.services.exam_pool import reserve_exam_pool, reserved_item_ids
-from learnloop.services.exam_session import (
+from learnloop.attempts.attempts import GradeAttribution, ResolvedGrade
+from learnloop.goals.exam_pool import reserve_exam_pool, reserved_item_ids
+from learnloop.goals.exam_session import (
     ExamSessionError,
     exam_availability,
     finish_exam,
@@ -161,7 +161,7 @@ def test_finish_lands_exam_attempt_evidence_with_full_mass(tmp_path):
         assert applied["attempt_type"] == "exam_attempt"
 
     # Full evidence mass: exam_attempt carries mass 1.0 in the config.
-    from learnloop.services.evidence import attempt_evidence_mass
+    from learnloop.attempts.evidence import attempt_evidence_mass
 
     assert attempt_evidence_mass("exam_attempt", vault.config.evidence) == 1.0
 
@@ -237,7 +237,7 @@ def test_exam_answers_certify_facet_evidence_on_canonical_vault(tmp_path):
     """
 
     from learnloop.db.repositories import Repository
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.substrate.state_sync import sync_vault_state
     from tests.helpers import create_basic_vault, set_algorithm_version
 
     vault_root = tmp_path / "vault"

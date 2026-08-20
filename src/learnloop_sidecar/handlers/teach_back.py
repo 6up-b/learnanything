@@ -14,9 +14,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from learnloop.codex.client import CodexUnavailable
-from learnloop.services.attempts import AttemptValidationError
-from learnloop.services.teach_back import (
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.attempts.attempts import AttemptValidationError
+from learnloop.tutor.teach_back import (
     TEACH_BACK_PRACTICE_MODE,
     TeachBackError,
     TeachBackState,
@@ -64,7 +64,7 @@ def request_teach_back(ctx: SidecarContext, params: RequestTeachBackInput) -> di
     ``start_teach_back`` flow with the resulting item.
     """
 
-    from learnloop.services.teach_back import ensure_teach_back_item
+    from learnloop.tutor.teach_back import ensure_teach_back_item
 
     vault, repository = ctx.require_vault()
     learning_object_id = params.learning_object_id
@@ -273,7 +273,7 @@ def _finish(
     # (for the queue readiness filter), so a top-level import would be circular.
     from learnloop_sidecar.handlers.practice import _log_attempt_recorded
 
-    from learnloop.services.post_attempt import run_post_attempt_pipeline
+    from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 
     if ctx.grading_provider_override == MANUAL_PROVIDER:
         # Manual grading cannot grade a teach-back transcript (the AI plays

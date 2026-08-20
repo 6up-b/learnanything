@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.mastery import display_mastery
+from learnloop.learner.mastery import display_mastery
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import versioned
 from learnloop_sidecar.registry import method

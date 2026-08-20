@@ -19,20 +19,20 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.causal_factor_deferral import (
+from learnloop.diagnosis.causal_factor_deferral import (
     ESCALATION_RECURRENCE_K,
     FACTOR_DEFERRAL_TTL,
     apply_cold_verification_to_factors,
     sweep_promotion_blocking_factors,
 )
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_probe_coherence import (
     record_delayed_cold_verification,
 )
 from learnloop.vault.loader import load_vault
@@ -92,7 +92,7 @@ def _write_diag_item(paths, item_id: str, prompt: str) -> None:
 
 
 def _vault(tmp_path):
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.substrate.state_sync import sync_vault_state
     from tests.helpers import set_algorithm_version
 
     root = tmp_path / "vault"
@@ -117,7 +117,7 @@ def _failed_diagnostic(vault, repository, *, attempt_id, item_id, clock):
     sweep and any promotion) runs.
     """
 
-    from learnloop.services.followups import evaluate_attempt_intervention_followup
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 
     now_iso = clock.now().isoformat().replace("+00:00", "Z")
     result = apply_attempt(
@@ -201,7 +201,7 @@ def _failed_ordinary(
 ):
     """A failed ORDINARY attempt (G10), through the live post-attempt path."""
 
-    from learnloop.services.followups import evaluate_attempt_intervention_followup
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 
     now_iso = clock.now().isoformat().replace("+00:00", "Z")
     candidate_cause = {"statement": STATEMENT, "target_ref": DIAG_REF}
@@ -630,7 +630,7 @@ def _add_ranked_item(root, item_id: str, *, facets, checkpoints=None) -> None:
 
 
 def test_diagnosis_case_ranks_checkpoint_covering_item_first(tmp_path):
-    from learnloop.services.remediation import (
+    from learnloop.diagnosis.remediation import (
         _case_target_checkpoint_ids,
         start_remediation_treatment,
     )
@@ -707,7 +707,7 @@ def test_diagnosis_case_ranks_checkpoint_covering_item_first(tmp_path):
 
 
 def test_diagnosis_case_without_repair_class_falls_back_to_facets(tmp_path):
-    from learnloop.services.remediation import _case_target_checkpoint_ids
+    from learnloop.diagnosis.remediation import _case_target_checkpoint_ids
 
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
@@ -888,7 +888,7 @@ def test_cold_success_resolves_observation_keyed_factor(tmp_path):
 
 
 def test_projection_sync_does_not_resurrect_deferral_closed_factors(tmp_path):
-    from learnloop.services.canonical_projection import (
+    from learnloop.substrate.canonical_projection import (
         _sync_unresolved_cause_factors,
     )
 
@@ -976,7 +976,7 @@ def _factor_is_untouched(repository, factor, hypothesis_ids):
 
 
 def test_a_primed_attempt_can_never_resolve_a_factor(tmp_path):
-    from learnloop.services.causal_probe_coherence import ColdVerificationPrecondition
+    from learnloop.diagnosis.causal_probe_coherence import ColdVerificationPrecondition
 
     vault, repository = _vault(tmp_path)
     _failed_diagnostic(
@@ -1022,8 +1022,8 @@ def test_an_auto_primed_attempt_can_never_resolve_a_factor(tmp_path):
     submitted as clean after the answer was handed over is repair activity by
     record, and the refusal must key on the RECORDED flag, not the declared one."""
 
-    from learnloop.services.attempts import AUTO_PRIME_REVEAL_THRESHOLD
-    from learnloop.services.causal_probe_coherence import ColdVerificationPrecondition
+    from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD
+    from learnloop.diagnosis.causal_probe_coherence import ColdVerificationPrecondition
 
     vault, repository = _vault(tmp_path)
     _failed_diagnostic(
@@ -1084,7 +1084,7 @@ def test_only_the_cold_seam_writes_factor_resolutions(tmp_path):
         for path in root.rglob("*.py")
         if re.search(r"^\s*apply_cold_verification_to_factors\(", path.read_text(), re.M)
     }
-    assert callers == {"services/causal_probe_coherence.py"}
+    assert callers == {"diagnosis/causal_probe_coherence.py"}
 
 
 def test_a_primed_attempt_is_not_eligible_for_fsrs(tmp_path):
@@ -1093,7 +1093,7 @@ def test_a_primed_attempt_is_not_eligible_for_fsrs(tmp_path):
     ineligible — the review is SKIPPED, not merely rating-capped, so the card's
     scheduling state is untouched by a retry taken with the answer in view."""
 
-    from learnloop.services.causal_activity_policy import classify_attempt_activity
+    from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 
     policy = classify_attempt_activity(
         attempt_type="independent_attempt", primed=True, hints_used=0

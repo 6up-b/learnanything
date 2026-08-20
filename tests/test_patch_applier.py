@@ -7,8 +7,8 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.db.repositories import Repository
-from learnloop.services.patches import PatchApplicationError, apply_accepted_items
-from learnloop.services.proposals import reject_items
+from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
+from learnloop.content.proposals.proposals import reject_items
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object
 

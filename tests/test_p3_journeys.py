@@ -13,14 +13,14 @@ from pathlib import Path
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import annotations as ANN
-from learnloop.services import commitment_arcs as ARC
-from learnloop.services import reader_authoring as AUTH
-from learnloop.services import reader_capture as RC
-from learnloop.services import reader_dialogue as RD
-from learnloop.services import reader_restoration as REST
-from learnloop.services import salience_firewall as SF
-from learnloop.services.salience_firewall import SalienceEvidenceRejected, reject_salience
+from learnloop.reader import annotations as ANN
+from learnloop.curriculum import commitment_arcs as ARC
+from learnloop.reader import reader_authoring as AUTH
+from learnloop.reader import reader_capture as RC
+from learnloop.reader import reader_dialogue as RD
+from learnloop.reader import reader_restoration as REST
+from learnloop.attempts import salience_firewall as SF
+from learnloop.attempts.salience_firewall import SalienceEvidenceRejected, reject_salience
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -118,7 +118,7 @@ def test_journey2_quick_insight_capture(tmp_path):
 def test_journey1_reading_first_session(tmp_path):
     vault, repo = _setup(tmp_path)
     # Open the source: render view works with the model worker OFF.
-    from learnloop.services import source_render_views as RV
+    from learnloop.reader import source_render_views as RV
     view = RV.resolve_or_create_render_view(repo, extraction_id="ext1", revision_id="rev1")
     payload = RV.render_payload(repo, view["id"])
     assert payload["blocks"]
@@ -243,7 +243,7 @@ def test_arc_and_salience_heads_rebuild_deterministically(tmp_path):
 
     # Salience head is a pure fold over the reader event stream (§8.2). Seed a few
     # reader signals so the log is non-trivial, then assert an order-invariant rebuild.
-    from learnloop.services.activities import log_interaction_event
+    from learnloop.substrate.activities import log_interaction_event
     for subject in ("s1", "s2", "s1"):
         log_interaction_event(repo, kind="reader_highlight", subject_type="reader_span",
                               subject_id=subject, clock=_CLOCK)

@@ -16,26 +16,28 @@ properties are pinned:
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import ProbeInstanceSurface, ProbeInstanceSurfaces
+from learnloop.diagnosis.ai_contracts import ProbeInstanceSurface, ProbeInstanceSurfaces
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     administered_surface_exclusions,
     eligible_instruments,
     enter_episode,
 )
-from learnloop.services.probe_families import builtin_family_templates
-from learnloop.services.probe_instance_generation import (
+from learnloop.diagnosis.probe_families import builtin_family_templates
+from learnloop.diagnosis.probe_instance_generation import (
     mint_single_use_probe_surface,
 )
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object, upsert_practice_item
 
@@ -45,7 +47,7 @@ LO_ID = "lo_svd_definition"
 CLOCK = FrozenClock(NOW)
 
 
-class FakeSurfacesClient:
+class FakeSurfacesClient(StructuredClientFake):
     """AI provider double exposing run_probe_instance_surfaces."""
 
     model = "fake-model-1"
@@ -263,7 +265,7 @@ def test_mint_refuses_a_surface_group_the_learner_has_seen(tmp_path):
     _attempted_ids, attempted_surfaces = administered_surface_exclusions(
         vault, repository
     )
-    from learnloop.services.canonical_projection import surface_group_id
+    from learnloop.substrate.canonical_projection import surface_group_id
 
     minted_item = vault.practice_items[minted.practice_item_id]
     assert surface_group_id(minted_item) not in attempted_surfaces

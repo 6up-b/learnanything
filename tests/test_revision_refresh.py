@@ -12,8 +12,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from learnloop.clock import FrozenClock
-from learnloop.services.revision_refresh import refresh_revision
-from learnloop.services.source_set_synthesis import create_study_map
+from learnloop.content.pipeline.revision_refresh import refresh_revision
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_append import SymmetryInventoryClient

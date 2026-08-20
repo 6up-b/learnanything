@@ -10,36 +10,38 @@ independent; a question the learner typed before the answer existed still is.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import (
+from learnloop.attempts.ai_contracts import (
     ELICITING_REVEAL_BUDGET_DEFAULT,
     CandidateCause,
     GradingProposal,
     RepairSuggestion,
-    TutorAnswer,
 )
+from learnloop.tutor.ai_contracts import TutorAnswer
 from learnloop.db.repositories import (
     OBSERVATION_CHANNEL_LEARNER_QUESTION,
     Repository,
 )
-from learnloop.services.causal_attribution import (
+from learnloop.diagnosis.causal_attribution import (
     ELICITING_RESPONSE_REASON,
     append_dialogue_candidate,
     hypothesis_mechanism_projection,
     normalized_prior_weights,
     record_eliciting_response,
 )
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_orchestrator import (
     record_learner_embedded_prediction,
 )
-from learnloop.services.causal_probe_coherence import build_causal_hypothesis_set
-from learnloop.services.error_taxonomy_map import project_mechanism
-from learnloop.services.reveal_ledger import production_admissibility, record_reveal
-from learnloop.services.tutor_qa import ask_question
+from learnloop.diagnosis.causal_probe_coherence import build_causal_hypothesis_set
+from learnloop.diagnosis.error_taxonomy_map import project_mechanism
+from learnloop.attempts.reveal_ledger import production_admissibility, record_reveal
+from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
@@ -305,7 +307,7 @@ def test_hypothesis_set_prior_stays_uniform_without_weights(tmp_path):
 # --- the question join -------------------------------------------------------
 
 
-class _JoinTutorClient:
+class _JoinTutorClient(StructuredClientFake):
     provider_name = "fake_tutor"
     provider_type = "fake"
     model = "fake-model"
@@ -370,7 +372,7 @@ def _ask(tmp_path, monkeypatch, client, attempt_id="att_join"):
     # The join keys on the question being asked INSIDE a repair episode. Pinning
     # the attribution here keeps this test about the join rather than about the
     # episode-binding rules, which `test_reveal_ledger` already covers.
-    import learnloop.services.tutor_qa as tutor_qa
+    import learnloop.tutor.tutor_qa as tutor_qa
 
     monkeypatch.setattr(tutor_qa, "reveal_episode_id", lambda *a, **k: "ep_join")
     result = ask_question(
@@ -447,7 +449,7 @@ def test_question_join_is_silent_when_the_tutor_extracts_nothing(tmp_path, monke
 def test_question_join_never_fails_the_learners_answer(tmp_path, monkeypatch):
     """Best-effort means best-effort: bookkeeping cannot cost an answer."""
 
-    import learnloop.services.causal_orchestrator as orchestrator
+    import learnloop.diagnosis.causal_orchestrator as orchestrator
 
     def _boom(*args, **kwargs):
         raise RuntimeError("ledger exploded")

@@ -7,7 +7,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_concept, upsert_concept_edge, upsert_learning_object, upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml

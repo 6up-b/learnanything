@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from learnloop.services.longform_trace import (
+from learnloop.diagnosis.longform_trace import (
     OUTCOME_CORRECT,
     OUTCOME_INVALID,
     OUTCOME_UNASSESSABLE,

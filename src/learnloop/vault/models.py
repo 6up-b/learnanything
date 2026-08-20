@@ -32,7 +32,8 @@ class SourceRef(VaultModel):
 
 class Provenance(VaultModel):
     # ``probe_remint``: a learner kept an administered single-use diagnostic
-    # probe as an ordinary practice item (services/probe_remint.py). The mint is
+    # probe as an ordinary practice item (``learnloop.diagnosis.probe_remint``).
+    # The mint is
     # a mechanical copy of already-served content, so it is neither ``human``
     # authorship nor a model proposal; the source_refs carry the probe item id
     # and the administering attempt.

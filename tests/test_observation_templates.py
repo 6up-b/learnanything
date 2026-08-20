@@ -4,7 +4,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.observations import (
+from learnloop.attempts.observations import (
     ObservationTemplateError,
     record_observation,
     register_observation_template,

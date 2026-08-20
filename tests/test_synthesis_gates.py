@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.services.synthesis_gates import (
+from learnloop.content.synthesis.synthesis_gates import (
     GateContext,
     GateItem,
     GateProposal,

@@ -14,8 +14,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_store as store
-from learnloop.services import prequential
+from learnloop.scheduling import controller_store as store
+from learnloop.scheduling import prequential
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

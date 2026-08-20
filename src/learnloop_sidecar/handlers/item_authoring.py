@@ -1,6 +1,6 @@
 """Learner-owned practice-item authoring RPCs: author, edit, retire, split.
 
-Thin composition over ``services.item_authoring`` (the Matuschak reader-control
+Thin composition over ``learnloop.content.authoring.item_authoring`` (the Matuschak reader-control
 slice: the learner edits their own collection immediately, no review gate).
 Broad mutations still reload the sidecar snapshot; retirement updates its one
 validated cached entity and derived serving rows directly.
@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.services.item_authoring import (
+from learnloop.content.authoring.item_authoring import (
     ItemAuthoringError,
     author_item,
     edit_item,
@@ -102,7 +102,7 @@ def request_rung_variant_rpc(ctx: SidecarContext, params: RequestRungVariantInpu
     job and is never rolled back — the request itself was real evidence. The
     reload picks up the recorded attempt's state changes immediately."""
 
-    from learnloop.services.rung_variants import RungVariantError, request_rung_variant
+    from learnloop.content.authoring.rung_variants import RungVariantError, request_rung_variant
 
     vault, repository = ctx.require_vault()
     try:
@@ -145,13 +145,13 @@ def get_rung_variant_status(ctx: SidecarContext, params: RungVariantStatusInput)
 def remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeInput) -> dict[str, Any]:
     """Keep an administered diagnostic probe as an ordinary practice item.
 
-    Learner-authority direct mint (see services/probe_remint.py for the
+    Learner-authority direct mint (see ``learnloop.diagnosis.probe_remint`` for the
     governance argument): synchronous, deterministic, no generation job. Stable
     error codes: ``attempt_not_found``, ``item_not_found``,
     ``not_a_diagnostic_probe``, ``already_reminted`` (details carry the existing
     remint's practice item id)."""
 
-    from learnloop.services.probe_remint import ProbeRemintError, remint_probe_as_practice_item
+    from learnloop.diagnosis.probe_remint import ProbeRemintError, remint_probe_as_practice_item
 
     vault, repository = ctx.require_vault()
     try:

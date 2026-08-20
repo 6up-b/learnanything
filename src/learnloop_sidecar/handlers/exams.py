@@ -12,9 +12,9 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import _resolved_codex_grade
-from learnloop.services.exam_pool import reserve_exam_pool
-from learnloop.services.exam_session import (
+from learnloop.attempts.attempts import resolved_codex_grade
+from learnloop.goals.exam_pool import reserve_exam_pool
+from learnloop.goals.exam_session import (
     ExamSessionError,
     exam_availability,
     exam_report,
@@ -23,10 +23,11 @@ from learnloop.services.exam_session import (
     record_exam_answer,
     start_exam,
 )
-from learnloop.services.goal_projection import resolve_goal_scope
-from learnloop.services.grading import (
+from learnloop.goals.goal_projection import resolve_goal_scope
+from learnloop.attempts.grading import (
     GradingValidationError,
     build_grading_context,
+    request_grading_proposal,
     validate_codex_grading_proposal,
 )
 from learnloop_sidecar.context import SidecarContext
@@ -57,7 +58,7 @@ class FinishExamInput(ParamsModel):
 def get_answer_calibration(
     ctx: SidecarContext, _params: EmptyParams
 ) -> dict[str, Any]:
-    from learnloop.services.exam_calibration import calibration_report
+    from learnloop.goals.exam_calibration import calibration_report
 
     vault, repository = ctx.require_vault()
     return versioned(calibration_report(vault, repository))
@@ -180,7 +181,7 @@ def _grade_and_record_exam_answer(
         attempt_id=grading_attempt_id,
         learner_answer_md=answer_md,
     )
-    proposal = client.run_grading_proposal(context)
+    proposal = request_grading_proposal(client, context)
     validated = validate_codex_grading_proposal(
         proposal,
         attempt_id=grading_attempt_id,
@@ -188,7 +189,7 @@ def _grade_and_record_exam_answer(
         vault=vault,
         learner_answer_md=answer_md,
     )
-    resolved = _resolved_codex_grade(validated, agent_run_id=None, clock=None)
+    resolved = resolved_codex_grade(validated, agent_run_id=None, clock=None)
     record_exam_answer(
         vault,
         repository,

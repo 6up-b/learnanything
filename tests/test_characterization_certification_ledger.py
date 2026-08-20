@@ -19,14 +19,14 @@ import inspect
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.canonical_projection import project_canonical_facet_state
-from learnloop.services.evidence import attempt_evidence_mass
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.canonical_projection import project_canonical_facet_state
+from learnloop.attempts.evidence import attempt_evidence_mass
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version

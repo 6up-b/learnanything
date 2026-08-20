@@ -1,0 +1,69 @@
+schema_version: 1
+concepts:
+  concept_complete_square_to_vertex_form:
+    title: Completing the Square to Vertex Form
+    type: procedure
+    aliases:
+      - convert standard form to vertex form
+      - complete the square for a parabola
+    description: To rewrite ax^2+bx+c in vertex form, factor a from the 
+      quadratic and linear terms, add and subtract the appropriate 
+      square-compensation term, then rewrite the trinomial as a binomial square.
+    tags:
+      - parabolas
+      - completing-the-square
+      - standard-form
+      - vertex-form
+    created_at: '2026-05-30T01:11:02Z'
+    updated_at: '2026-05-30T01:11:02Z'
+    id: concept_complete_square_to_vertex_form
+  concept_parabola_focus_directrix:
+    title: Parabola as Focus-Directrix Locus
+    type: concept
+    aliases:
+      - focus-directrix definition of a parabola
+      - parabola locus definition
+    description: A parabola is the set of points equidistant from a fixed point 
+      called the focus and a fixed line called the directrix.
+    tags:
+      - parabolas
+      - conic-sections
+      - focus
+      - directrix
+    created_at: '2026-05-30T01:11:05Z'
+    updated_at: '2026-05-30T01:11:05Z'
+    id: concept_parabola_focus_directrix
+  concept_graph_parabola_standard_form:
+    title: Graphing a Parabola from Standard Form
+    type: procedure
+    aliases:
+      - graph ax^2+bx+c
+      - graphing quadratic standard form
+    description: A standard-form parabola can be sketched by using the sign of a
+      for opening direction, x = -b/(2a) for the vertex x-coordinate, f(x) for 
+      the vertex y-coordinate, intercepts for additional points, and x = -b/(2a)
+      as the axis of symmetry.
+    tags:
+      - parabolas
+      - standard-form
+      - graphing
+      - axis-of-symmetry
+      - intercepts
+    created_at: '2026-05-30T01:11:08Z'
+    updated_at: '2026-05-30T01:11:08Z'
+    id: concept_graph_parabola_standard_form
+  concept_parabola_vertex_form:
+    title: Vertex Form of a Parabola
+    type: concept
+    aliases:
+      - y = a(x-h)^2 + k
+      - parabola vertex form
+    description: The form y = a(x-h)^2 + k displays a parabola's vertex at (h, 
+      k) and its vertical stretch or opening direction through a.
+    tags:
+      - parabolas
+      - vertex-form
+      - graphing
+    created_at: '2026-05-30T01:11:11Z'
+    updated_at: '2026-05-30T01:11:11Z'
+    id: concept_parabola_vertex_form

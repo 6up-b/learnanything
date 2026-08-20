@@ -11,8 +11,8 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.source_set_synthesis import create_study_map
-from learnloop.services.subject_registry import (
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.curriculum.subject_registry import (
     RegistryReviewError,
     build_subject_registry,
     propose_facet_merge,

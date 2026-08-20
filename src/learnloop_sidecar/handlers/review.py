@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.services.learner_review_feed import build_learner_review_feed
+from learnloop.learner.learner_review_feed import build_learner_review_feed
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.registry import method

@@ -11,12 +11,12 @@ import json
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.services.contract_reachability import (
+from learnloop.learner.contract_reachability import (
     ReachabilityVerdict,
     analyze_contract_reachability,
     classify_cell,
 )
-from learnloop.services.doctor import run_doctor
+from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 

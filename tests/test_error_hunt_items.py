@@ -24,7 +24,7 @@ import json
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import (
+from learnloop.attempts.ai_contracts import (
     CriterionEvidence,
     ErrorAttribution,
     ErrorHuntReport,
@@ -32,8 +32,8 @@ from learnloop.codex.schemas import (
     ReportedError,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, complete_codex_graded_attempt
-from learnloop.services.error_hunt import (
+from learnloop.attempts.attempts import AttemptDraft, complete_codex_graded_attempt
+from learnloop.diagnosis.error_hunt import (
     AGREEMENT_FLOOR,
     MIN_PAIRED_FACETS,
     PROOFREADING_SIGNAL_METRIC,
@@ -42,7 +42,7 @@ from learnloop.services.error_hunt import (
     proofreading_signal,
     validate_error_hunt_report,
 )
-from learnloop.services.persona_gate import (
+from learnloop.content.authoring.persona_gate import (
     GateDecision,
     GateTier,
     InstrumentClass,
@@ -51,7 +51,7 @@ from learnloop.services.persona_gate import (
     classify_instrument,
     declares_error_count,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -518,7 +518,7 @@ def test_clean_solution_false_positive_writes_a_candidate_not_a_facet_failure(tm
     }
     assert blocked == {"clean_solution_false_positive"}
 
-    from learnloop.services.canonical_projection import project_canonical_facet_state
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
 
     project_canonical_facet_state(vault, repository, clock=CLOCK)
     for cell in repository.facet_capability_evidence_all():
@@ -670,7 +670,7 @@ def test_the_doctor_catches_a_hand_authored_error_hunt_the_gates_never_saw(tmp_p
     vault cannot source.
     """
 
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     _paths, vault, _repo = _vault(
         tmp_path,
@@ -695,7 +695,7 @@ def test_the_doctor_catches_a_hand_authored_error_hunt_the_gates_never_saw(tmp_p
 def test_the_doctor_is_silent_on_a_well_formed_error_hunt(tmp_path):
     _paths, vault, _repo = _vault(tmp_path)
 
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     issues: list = []
     _check_blueprints_and_criteria(vault, issues)

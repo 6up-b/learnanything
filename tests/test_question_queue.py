@@ -1,4 +1,4 @@
-"""Outstanding-question queue (migration 102, services.question_queue,
+"""Outstanding-question queue (migration 102, ``learnloop.tutor.question_queue``,
 sidecar list_question_queue / resolve_question_event).
 
 The queue is learner-owned: a tutor-`answered` question stays `open` until the
@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.question_queue import (
+from learnloop.tutor.question_queue import (
     QuestionQueueError,
     count_open_questions,
     list_question_queue,

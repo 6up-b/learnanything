@@ -12,12 +12,12 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_actions as A
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import controller_store as store
-from learnloop.services import staged_policy as sp
-from learnloop.services.scheduler import SchedulerSession
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling import controller_actions as A
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import controller_store as store
+from learnloop.scheduling import staged_policy as sp
+from learnloop.scheduling.scheduler import SchedulerSession
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item
@@ -197,7 +197,7 @@ def test_high_shadow_score_cannot_resurrect_infeasible_candidate(wired):
 # --- affect ordering + one-edge discipline ---------------------------------------
 
 def _seed_auto_commitment(repo):
-    from learnloop.services import commitments as C
+    from learnloop.curriculum import commitments as C
 
     commitment = C.create_commitment(
         repo, action="select_exemplar", intent_text="master SVD",

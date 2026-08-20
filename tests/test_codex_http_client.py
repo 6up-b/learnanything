@@ -5,11 +5,13 @@ import logging
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from learnloop.codex.client import GradingContext, HttpCodexClient
-from learnloop.codex.runtime import check_codex_runtime
-from learnloop.codex.schemas import MisconceptionMatch
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.ai.providers.codex_http import HttpCodexClient
+from learnloop.ai.providers.codex import check_codex_runtime
+from learnloop.attempts.grading import request_grading_proposal
+from learnloop.diagnosis.ai_contracts import MisconceptionMatch, MisconceptionMatchContext
+from learnloop.diagnosis.misconceptions import request_misconception_match
 from learnloop.config import CodexConfig
-from learnloop.services.misconceptions import MisconceptionMatchContext
 
 
 def test_http_codex_client_health_and_grading_round_trip(tmp_path, caplog):
@@ -26,12 +28,13 @@ def test_http_codex_client_health_and_grading_round_trip(tmp_path, caplog):
         }
     )
     server.start()
-    caplog.set_level(logging.DEBUG, logger="learnloop.codex.client")
+    caplog.set_level(logging.DEBUG, logger="learnloop.ai.providers.codex")
     try:
         config = CodexConfig(provider="http", checkout_path=str(checkout), revision="abc123", base_url=server.base_url)
 
         report = check_codex_runtime(tmp_path, config)
-        proposal = HttpCodexClient(config).run_grading_proposal(
+        proposal = request_grading_proposal(
+            HttpCodexClient(config),
             GradingContext(
                 attempt_id="attempt_1",
                 practice_item_id="pi_1",
@@ -64,7 +67,8 @@ def test_http_codex_client_misconception_match_round_trip(tmp_path):
     server.start()
     try:
         config = CodexConfig(provider="http", base_url=server.base_url)
-        result = HttpCodexClient(config).run_misconception_match(
+        result = request_misconception_match(
+            HttpCodexClient(config),
             MisconceptionMatchContext(
                 statement="halves the exponent when differentiating",
                 learning_object_id="lo_1",
@@ -91,7 +95,8 @@ def test_http_codex_client_misconception_match_bare_payload(tmp_path):
     server.start()
     try:
         config = CodexConfig(provider="http", base_url=server.base_url)
-        result = HttpCodexClient(config).run_misconception_match(
+        result = request_misconception_match(
+            HttpCodexClient(config),
             MisconceptionMatchContext(statement="x", learning_object_id="lo_1", candidates=[{"id": "m", "statement": "y"}])
         )
     finally:

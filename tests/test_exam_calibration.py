@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.exam_calibration import calibration_report
+from learnloop.goals.exam_calibration import calibration_report
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW_ISO, create_basic_vault, seed_due_item

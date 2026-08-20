@@ -8,11 +8,11 @@ while discrimination interleaves; assessment follows the frozen distribution.
 
 from __future__ import annotations
 
-from learnloop.services import constraint_engine as ce
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import dispersion as D
-from learnloop.services import interleaving as I
-from learnloop.services import staged_policy as sp
+from learnloop.scheduling import constraint_engine as ce
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import dispersion as D
+from learnloop.scheduling import interleaving as I
+from learnloop.scheduling import staged_policy as sp
 
 
 def _snapshot(*, candidates, last_fresh_evidence=None):

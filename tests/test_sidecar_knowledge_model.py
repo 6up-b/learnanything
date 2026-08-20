@@ -9,7 +9,7 @@ import json
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
@@ -28,7 +28,7 @@ def _seed_blueprint_vault(root):
     paths = build_blueprint_vault(root)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.substrate.state_sync import sync_vault_state
 
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     # Demonstrate the two components unassisted; leave the integration facet

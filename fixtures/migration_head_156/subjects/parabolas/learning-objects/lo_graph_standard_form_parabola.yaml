@@ -1,0 +1,44 @@
+schema_version: 1
+id: lo_graph_standard_form_parabola
+title: Sketch a Standard-Form Parabola from Key Features
+subjects:
+  - parabolas
+concept: concept_graph_parabola_standard_form
+knowledge_type: skill
+status: active
+contradicts:
+summary: Sketch a standard-form parabola by determining its opening direction, 
+  vertex, axis of symmetry, and intercepts or other plotted points.
+prerequisites:
+  - find the vertex of a standard-form parabola
+  - solve quadratic equations
+  - evaluate a quadratic function
+confusables:
+  - x-intercepts vs y-intercept
+  - axis of symmetry vs directrix
+difficulty_prior: 0.62
+difficulty_source: llm_estimate
+tags:
+  - parabolas
+  - graphing
+  - standard-form
+  - intercepts
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=289.5-410.3
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=289.5-410.3
+      quote:
+      quote_hash:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=421.0-433.8
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=421.0-433.8
+      quote:
+      quote_hash:
+created_at: '2026-05-30T01:11:14Z'
+updated_at: '2026-05-30T01:11:14Z'

@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
 from learnloop.db.repositories import Repository
-from learnloop.ingest.source_library import register_source_revision
-from learnloop.services.source_refs import (
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.content.sources.source_refs import (
     source_ref_display_dto,
     source_ref_presentation,
 )

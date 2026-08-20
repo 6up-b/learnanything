@@ -1,0 +1,107 @@
+schema_version: 1
+id: pi_convert_complete_square_negative_example
+learning_object_id: lo_convert_standard_to_vertex_form
+subjects:
+  - parabolas
+practice_mode: algebraic_rewrite
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - factoring_leading_coefficient
+  - complete_square_term
+  - coefficient_aware_compensation
+  - vertex_form_expression
+  - algebraic_equivalence
+evidence_weights:
+  algebraic_equivalence: 0.2
+  coefficient_aware_compensation: 0.2
+  complete_square_term: 0.2
+  factoring_leading_coefficient: 0.2
+  vertex_form_expression: 0.2
+criterion_facet_weights: {}
+prompt: Rewrite y = -x^2 - 2x + 1 in vertex form by completing the square.
+expected_answer: y = -(x^2 + 2x) + 1 = -[(x + 1)^2 - 1] + 1 = -(x + 1)^2 + 2. 
+  Vertex form is y = -(x + 1)^2 + 2.
+difficulty: 0.69
+difficulty_source: llm_estimate
+tags:
+  - parabolas
+  - completing-the-square
+  - vertex-form
+hints:
+  - First factor -1 from the x^2 and x terms.
+  - Inside x^2 + 2x, half of 2 is 1 and 1 squared is 1.
+  - Because the parentheses are multiplied by -1, the outside compensation must 
+    reflect that.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.55
+transfer_distance: 0.35
+scaffold_level: 0.05
+surface_family: complete_square_standard_to_vertex
+repair_targets:
+  - factoring_leading_coefficient
+  - complete_square_term
+  - coefficient_aware_compensation
+  - vertex_form_expression
+  - algebraic_equivalence
+  - no_compensation_for_square
+  - outside_coefficient_compensation_error
+  - not_vertex_form
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: factors_negative_a
+      points: 1.25
+      description: 'Factors -1 from the quadratic and linear terms: -(x^2+2x)+1.'
+    - id: completes_square_inside
+      points: 1.0
+      description: Recognizes x^2+2x becomes (x+1)^2 after adding 1 inside the 
+        square process.
+    - id: compensates_correctly
+      points: 1.0
+      description: Correctly accounts for the outside negative coefficient when 
+        compensating for the completed square.
+    - id: writes_vertex_form
+      points: 0.5
+      description: Writes the equivalent vertex form y = -(x+1)^2 + 2.
+    - id: preserves_equivalence
+      points: 0.25
+      description: Final expression expands back to the original quadratic.
+  fatal_errors:
+    - id: no_compensation_for_square
+      description: Adds a term to complete the square but does not compensate, 
+        changing the function.
+      max_grade: 3
+    - id: outside_coefficient_compensation_error
+      description: Compensates as if the outside coefficient were positive one 
+        instead of negative one.
+      max_grade: 4
+    - id: not_vertex_form
+      description: Stops before expressing the result as a(x-h)^2+k.
+      max_grade: 4
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=158.2-225.5
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=158.2-225.5
+      quote:
+      quote_hash:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=262.6-282.2
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=262.6-282.2
+      quote:
+      quote_hash:
+created_at: '2026-05-30T01:11:14Z'
+updated_at: '2026-05-30T01:11:14Z'

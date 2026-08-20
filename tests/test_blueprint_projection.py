@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.config import LearnLoopConfig
-from learnloop.services.blueprint_projection import (
+from learnloop.learner.blueprint_projection import (
     project_blueprint,
     project_lo_readiness,
     project_recipe,

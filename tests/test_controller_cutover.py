@@ -13,20 +13,20 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_actions as A
-from learnloop.services import controller_cutover as cut
-from learnloop.services import controller_ownership as own
-from learnloop.services import controller_store as store
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import staged_policy as sp
-from learnloop.services import task_blueprints as TB
-from learnloop.services.activities import (
+from learnloop.scheduling import controller_actions as A
+from learnloop.scheduling import controller_cutover as cut
+from learnloop.scheduling import controller_ownership as own
+from learnloop.scheduling import controller_store as store
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.scheduling import staged_policy as sp
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.substrate.activities import (
     open_administration,
     reserve_surface,
     resolve_legacy_item,
 )
-from learnloop.services.scheduler import SchedulerSession
+from learnloop.scheduling.scheduler import SchedulerSession
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -216,8 +216,8 @@ def test_evsi_abstain_is_a_veto():
 
 
 def test_constraint_emptied_feasible_set_is_a_veto():
-    import learnloop.services.constraint_engine as ce
-    from learnloop.services import controller_snapshot as cs
+    import learnloop.scheduling.constraint_engine as ce
+    from learnloop.scheduling import controller_snapshot as cs
 
     cand = cs.Candidate(candidate_ref="c1")
     reason = ce.ExclusionReason("hard_exposure_collision", 1, "exact_surface_collision")
@@ -235,8 +235,8 @@ def test_constraint_emptied_feasible_set_is_a_veto():
 
 
 def test_ownership_only_emptying_is_not_a_veto():
-    import learnloop.services.constraint_engine as ce
-    from learnloop.services import controller_snapshot as cs
+    import learnloop.scheduling.constraint_engine as ce
+    from learnloop.scheduling import controller_snapshot as cs
 
     cand = cs.Candidate(candidate_ref="c1")
     reason = ce.ExclusionReason(sp.OWNERSHIP_REFUSAL_KEY, 1, "not_owned_by_staged_controller")

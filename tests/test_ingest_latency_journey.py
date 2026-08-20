@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 
 from learnloop.db.repositories import Repository
-from learnloop.services.ingest_runner import JobSpec
+from learnloop.content.pipeline.runner import JobSpec
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams
 from learnloop_sidecar.handlers.ingest import (
@@ -15,7 +15,7 @@ from learnloop_sidecar.handlers.ingest import (
     get_source_outline,
     start_import_batch,
 )
-from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+from learnloop.content.pipeline.jobs import DurableIngestJobs
 from tests.helpers import create_basic_vault
 
 

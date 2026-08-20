@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MisconceptionRecord, Repository
-from learnloop.services.remediation import misconception_status_history
-from learnloop.services.remediation_intake import classify_intake
+from learnloop.diagnosis.remediation import misconception_status_history
+from learnloop.diagnosis.remediation_intake import classify_intake
 
 from tests.helpers import NOW, create_basic_vault
 

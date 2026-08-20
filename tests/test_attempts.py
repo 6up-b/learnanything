@@ -6,9 +6,9 @@ from datetime import timedelta
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, AttemptValidationError, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, AttemptValidationError, SelfGradeInput, complete_self_graded_attempt
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

@@ -1,4 +1,10 @@
-# Spec: **LearnLoop**
+# Historical MVP Spec: **LearnLoop**
+
+> **Architecture note (2026-08-17):** This document is retained as design
+> archaeology. Its Codex-only provider model, `learnloop.codex` imports,
+> monolithic `cli.py`, and package tree do not describe the current runtime.
+> See [ARCHITECTURE.md](ARCHITECTURE.md) for current package/API guidance and
+> [documentation.md](documentation.md) for current user behavior.
 
 ## 1. Product definition
 

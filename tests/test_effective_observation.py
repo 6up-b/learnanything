@@ -10,13 +10,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.effective_observation import (
+from learnloop.attempts.effective_observation import (
     build_effective_observation,
     effective_observation_from_posterior,
 )
-from learnloop.services.grade_resolution import append_adjudication, resolve_grade
-from learnloop.services.outcome_schemas import COARSE_RESPONSE_SLUG, ensure_builtin_schemas
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.grade_resolution import append_adjudication, resolve_grade
+from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG, ensure_builtin_schemas
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -47,7 +47,7 @@ def test_uniform_posterior_yields_zero_certification_mass():
     break the uniform symmetry and report spurious positive certainty, so a uniform
     interpretation leaked positive certification mass."""
 
-    from learnloop.services import robust_composition as rc
+    from learnloop.diagnosis import robust_composition as rc
 
     uniform_alpha = {
         z: {f"{g}|high": 1.0 for g in ("success", "partial_success", "other")}
@@ -197,11 +197,11 @@ def test_shared_certainty_lcb_agrees_across_mastery_and_certification(tmp_path):
     values diverged whenever any descendant model existed. Now both route through
     the one persisted shared_certainty_lcb / shared helper."""
 
-    from learnloop.services.grade_resolution import (
+    from learnloop.attempts.grade_resolution import (
         PROJECTION_ALGORITHM_VERSION,
         response_certainty_lcb,
     )
-    from learnloop.services.effective_observation import (
+    from learnloop.attempts.effective_observation import (
         SHARED_CERTAINTY_PROJECTION_VERSION,
     )
 
@@ -246,7 +246,7 @@ def test_missing_interpretation_is_zero_mass_never_full_credit(tmp_path):
 
 
 def test_quarantined_interpretation_contributes_zero(tmp_path):
-    from learnloop.services.grade_resolution import quarantine_observation
+    from learnloop.attempts.grade_resolution import quarantine_observation
 
     vault, repo = _env(tmp_path)
     _, res = _interp(repo, vault, attempt_id="att_q", confidence=0.7)

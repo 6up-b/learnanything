@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services import action_loss as AL
-from learnloop.services import evsi as EV
-from learnloop.services.causal_probe_coherence import order_probe_candidates
+from learnloop.scheduling import action_loss as AL
+from learnloop.scheduling import evsi as EV
+from learnloop.diagnosis.causal_probe_coherence import order_probe_candidates
 
 _ROUTES = [
     {"reason": "memory_lapse", "first_intervention": "reveal_reconstruct"},

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import CanonicalIngestContext
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.proposals import accept_items, persist_authoring_proposal, reject_items
-from learnloop.services.source_ingestion import (
+from learnloop.content.proposals.proposals import accept_items, persist_authoring_proposal, reject_items
+from learnloop.content.pipeline.source_ingestion import (
     CaptionCue,
     IngestWindow,
     NormalizedSource,
-    _locator_hash_for_ref,
+    locator_hash_for_ref,
     _proposal_with_locator_validation,
     chunk_normalized_source,
     ingest_canonical_source,
@@ -231,7 +233,7 @@ def test_section_level_source_ref_resolves_to_child_chunks(tmp_path):
     )
 
     assert "#unresolved-locator" not in (validated.source_refs[0].path or "")
-    assert _locator_hash_for_ref(chunks, "question-bank/questions/1") is not None
+    assert locator_hash_for_ref(chunks, "question-bank/questions/1") is not None
     patch_id = persist_authoring_proposal(
         vault_root,
         validated,
@@ -573,8 +575,8 @@ def test_youtube_missing_source_ref_without_timecoded_id_stays_invalid(tmp_path)
 def test_youtube_time_range_hash_covers_spanned_caption_text() -> None:
     first = _youtube_source()
     changed = _youtube_source(second_caption="and this chapter explains attention.")
-    first_hash = _locator_hash_for_ref(chunk_normalized_source(first), "t=11.0-21.7")
-    changed_hash = _locator_hash_for_ref(chunk_normalized_source(changed), "t=11.0-21.7")
+    first_hash = locator_hash_for_ref(chunk_normalized_source(first), "t=11.0-21.7")
+    changed_hash = locator_hash_for_ref(chunk_normalized_source(changed), "t=11.0-21.7")
 
     assert first_hash is not None
     assert changed_hash is not None
@@ -781,7 +783,7 @@ def test_reject_auto_applied_ingest_items_deactivates_created_entities(tmp_path)
     )
 
 
-class _FakeCanonicalClient:
+class _FakeCanonicalClient(StructuredClientFake):
     def __init__(
         self,
         locator: str | None = None,

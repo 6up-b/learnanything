@@ -3,7 +3,7 @@ key, and (in later slices) ingestion preferences.
 
 Persistence rules:
 - Model/provider choices go into the per-vault ``learnloop.toml`` through
-  ``services.settings_store`` (comment-preserving, atomic), then
+  ``learnloop.ops.settings_store`` (comment-preserving, atomic), then
   ``ctx.reload(maintenance=False)`` re-reads config.
 - Secrets go into the machine-global ``settings.env`` — never the committed
   vault config — and are ALSO written straight into ``os.environ`` because
@@ -20,7 +20,7 @@ from typing import Any
 
 from learnloop.ai.runtime import check_ai_runtime
 from learnloop.config import CODEX_PROVIDER_NAMES, global_ai_defaults_path, global_settings_path
-from learnloop.services.settings_store import (
+from learnloop.ops.settings_store import (
     USE_CASE_ROUTES,
     SettingsStoreError,
     apply_config_updates,
@@ -52,6 +52,7 @@ _ROUTING_TASKS = (
     "teach_back",
     "rung_variant",
     "animation",
+    "transcription",
 )
 
 

@@ -19,11 +19,11 @@ import pytest
 
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.db.repositories import Repository
-from learnloop.services.canonical_projection import (
-    _repeat_discount,
+from learnloop.substrate.canonical_projection import (
+    configured_repeat_discount,
     project_canonical_facet_state,
 )
-from learnloop.services.facet_evidence_timeline import (
+from learnloop.learner.facet_evidence_timeline import (
     _observation_events,
     facet_evidence_timeline,
     facet_ready_derivation,

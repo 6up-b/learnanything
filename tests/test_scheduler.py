@@ -7,7 +7,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState, PracticeItemState, Repository
-from learnloop.services.scheduler import (
+from learnloop.scheduling.scheduler import (
     ScheduledItem,
     SchedulerSession,
     _insert_pending_followups,
@@ -15,7 +15,7 @@ from learnloop.services.scheduler import (
     _selection_propensities,
     build_due_queue,
 )
-from learnloop.services.selection_rewards import SchedulerIntent
+from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml

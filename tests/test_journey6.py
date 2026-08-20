@@ -14,15 +14,15 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import card_lineage as CL
-from learnloop.services import commitments as C
-from learnloop.services import depth_transition as DT
-from learnloop.services import progression as P
-from learnloop.services import substrate_cutover as SC
-from learnloop.services import surface_mint as SM
-from learnloop.services.activities import evaluate_held_out_eligibility
-from learnloop.services.fsrs import Rating
+from learnloop.substrate import activities as A
+from learnloop.substrate import card_lineage as CL
+from learnloop.curriculum import commitments as C
+from learnloop.curriculum import depth_transition as DT
+from learnloop.scheduling import progression as P
+from learnloop.substrate.compat import substrate_cutover as SC
+from learnloop.substrate import surface_mint as SM
+from learnloop.substrate.activities import evaluate_held_out_eligibility
+from learnloop.scheduling.fsrs import Rating
 
 from tests.helpers import NOW
 
@@ -40,8 +40,8 @@ def repo(tmp_path):
 
 def _card_version(repo, *, family_id, card_id, contract, version=1):
     return repo.ensure_activity_card_version(
-        card_id=card_id, version=version, card_contract_hash=A._canonical_hash(contract),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_id=card_id, version=version, card_contract_hash=A.canonical_hash(contract),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
 
 

@@ -3,11 +3,13 @@ fenced-lease drain, cache reuse, cancellation, and token caps."""
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import reader_requests as RR
+from learnloop.reader import reader_requests as RR
 from tests.test_source_inventory import _persist, _register_revision
 
 
@@ -147,7 +149,7 @@ def test_cancel_request_never_cancels_the_local_capture(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakePresetClient:
+class _FakePresetClient(StructuredClientFake):
     def __init__(self, content_md: str = "A worked example: diagonalize A.",
                  span_ids: list[str] | None = None) -> None:
         self.calls: list = []
@@ -155,7 +157,7 @@ class _FakePresetClient:
         self._span_ids = span_ids
 
     def run_reader_preset_synthesis(self, context):
-        from learnloop.codex.schemas import ReaderPresetSynthesis
+        from learnloop.reader.ai_contracts import ReaderPresetSynthesis
 
         self.calls.append(context)
         span_ids = self._span_ids

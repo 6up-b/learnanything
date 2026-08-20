@@ -9,9 +9,9 @@ import types
 import pytest
 
 from learnloop.config import PdfIngestConfig
-from learnloop.services import pdf_extraction
-from learnloop.services.pdf_extraction import PdfExtractionError, extract_pdf_markdown
-from learnloop.services.source_ingestion import SourceIngestionError, _resolved_pdf_config
+from learnloop.content.sources import pdf_extraction
+from learnloop.content.sources.pdf_extraction import PdfExtractionError, extract_pdf_markdown
+from learnloop.content.pipeline.source_ingestion import SourceIngestionError, _resolved_pdf_config
 
 from tests.test_source_ingestion_adapters import _make_pdf_bytes
 

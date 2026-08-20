@@ -8,7 +8,7 @@ no-ops, and plain passthrough.
 from __future__ import annotations
 
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit
-from learnloop.services.source_unit_selection import compute_effective_units
+from learnloop.content.synthesis.source_unit_selection import compute_effective_units
 
 
 def _block(span_id, text, *, ordinal, section_path=None):

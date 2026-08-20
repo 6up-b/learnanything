@@ -9,15 +9,15 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from learnloop.config import FsrsFittingConfig
-from learnloop.services.fsrs import FSRS6_DEFAULT_WEIGHTS, Rating, apply_review, forgetting_curve
-from learnloop.services.fsrs_fitting import (
+from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, Rating, apply_review, forgetting_curve
+from learnloop.scheduling.fsrs_fitting import (
     FIT_BOUNDS,
     FIT_INDICES,
     FsrsFittingError,
     fit_fsrs_weights,
     review_log_loss,
 )
-from learnloop.services.review_log import ReviewLog, ReviewObservation
+from learnloop.scheduling.review_log import ReviewLog, ReviewObservation
 
 EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 

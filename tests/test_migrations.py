@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -51,6 +52,57 @@ def test_fresh_db_applies_all_migrations(tmp_path):
         "cold_measurement_opportunity_decisions",
     }:
         assert required in tables
+
+
+def test_real_migration_chain_applies_incrementally_after_initial_schema(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    initial_only = tmp_path / "initial_only"
+    initial_only.mkdir()
+    first = discover_migrations()[0]
+    shutil.copy2(first.path, initial_only / first.path.name)
+    apply_migrations(sqlite_path, migrations_dir=initial_only)
+
+    applied = apply_migrations(sqlite_path)
+
+    assert [migration.version for migration in applied] == [
+        migration.version for migration in discover_migrations()[1:]
+    ]
+    with connect(sqlite_path) as connection:
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_repository_carries_a_fixture_at_the_current_migration_head():
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "migration_head_156"
+        / "state.sqlite"
+    )
+
+    assert max(applied_versions(fixture)) == max(
+        migration.version for migration in discover_migrations()
+    )
+
+
+_FIXTURE_DATABASES = sorted(
+    (Path(__file__).resolve().parents[1] / "fixtures").glob("*/state.sqlite")
+)
+
+
+@pytest.mark.parametrize(
+    "source",
+    _FIXTURE_DATABASES,
+    ids=lambda source: source.parent.name,
+)
+def test_every_fixture_upgrades_with_clean_foreign_keys(tmp_path, source):
+    sqlite_path = tmp_path / "state.sqlite"
+    shutil.copy2(source, sqlite_path)
+
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def test_repair_opportunity_bridge_applies_after_opportunity_substrate(tmp_path):

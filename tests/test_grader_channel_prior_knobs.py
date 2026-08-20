@@ -9,15 +9,15 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import grader_calibration as gc
-from learnloop.services.fitted_params import (
+from learnloop.attempts import grader_calibration as gc
+from learnloop.params.fitted_params import (
     CERTAINTY_LCB_QUANTILE_DEFAULT,
     GRADER_CHANNEL_RELIABILITY_FLOOR_DEFAULT,
     GRADER_CHANNEL_SCOPE,
     resolve_grader_channel_prior,
 )
-from learnloop.services.outcome_schemas import COARSE_RESPONSE_SLUG, ensure_builtin_schemas, resolve_schema_id
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG, ensure_builtin_schemas, resolve_schema_id
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

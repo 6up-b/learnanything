@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.services.doctor import run_doctor
+from learnloop.ops.doctor import run_doctor
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import create_basic_vault, set_algorithm_version, write_facets

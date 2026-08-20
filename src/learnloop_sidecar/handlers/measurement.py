@@ -4,31 +4,31 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.services.causal_health import causal_lane_health
-from learnloop.services.causal_selection_audit import causal_selection_readiness
-from learnloop.services.clarification import clarification_rate
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_health import causal_lane_health
+from learnloop.diagnosis.causal_selection_audit import causal_selection_readiness
+from learnloop.attempts.clarification import clarification_rate
+from learnloop.diagnosis.causal_probe_coherence import (
     candidate_has_current_blind_input_contract,
     transition_probe_candidate,
 )
-from learnloop.services.certification_cold_probe import (
+from learnloop.goals.certification_cold_probe import (
     certification_cold_probe_report,
     schedule_certification_cold_probes,
 )
-from learnloop.services.contract_commissioning import commission_plan
-from learnloop.services.contract_reachability import analyze_contract_reachability
-from learnloop.services.facet_mint_gate import judge_facet_mints
-from learnloop.services.integration_backfill import (
+from learnloop.content.authoring.contract_commissioning import commission_plan
+from learnloop.learner.contract_reachability import analyze_contract_reachability
+from learnloop.content.synthesis.facet_mint_gate import judge_facet_mints
+from learnloop.curriculum.integration_backfill import (
     COORDINATION,
     apply_integration_backfill,
     apply_integration_backfill_and_recalibrate,
     plan_integration_backfill,
 )
-from learnloop.services.inference_precheck import analyze_inference_precheck
-from learnloop.services.missing_vocabulary import missing_vocabulary_report
-from learnloop.services.persona_gate import gate_precision
-from learnloop.services.scoreboard import scoreboard
-from learnloop.services.trace_evidence import trace_evidence_report
+from learnloop.learner.inference_precheck import analyze_inference_precheck
+from learnloop.diagnosis.missing_vocabulary import missing_vocabulary_report
+from learnloop.content.authoring.persona_gate import gate_precision
+from learnloop.diagnosis.scoreboard import scoreboard
+from learnloop.attempts.trace_evidence import trace_evidence_report
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -169,16 +169,16 @@ def _instrument_audit_payload(vault, repository) -> dict[str, Any]:
     the same order of cost as the scoreboard this refresh already pays for.
     """
 
-    from learnloop.services.contrast_pairs import (
+    from learnloop.diagnosis.contrast_pairs import (
         commission_contrast_pairs,
         contrast_pair_order_effect,
     )
-    from learnloop.services.discrimination_profiles import (
+    from learnloop.diagnosis.discrimination_profiles import (
         profile_coverage,
         profile_match_fill_rate,
     )
-    from learnloop.services.error_hunt import error_hunt_outcome_summary, proofreading_signal
-    from learnloop.services.laddered_stems import stem_independence_signal, stem_shapes
+    from learnloop.diagnosis.error_hunt import error_hunt_outcome_summary, proofreading_signal
+    from learnloop.content.authoring.laddered_stems import stem_independence_signal, stem_shapes
 
     metrics = [
         stem_independence_signal(vault, repository),

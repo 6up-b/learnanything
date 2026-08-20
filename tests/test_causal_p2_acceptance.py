@@ -55,11 +55,11 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import failure_triage as FT
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import task_blueprints as TB
-from learnloop.services.attempts import (
+from learnloop.diagnosis import failure_triage as FT
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -68,12 +68,12 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_attribution import (
+from learnloop.diagnosis.causal_attribution import (
     APPROVED_SUPPORT_AUTHORITIES,
     record_unresolved_cause_self_report,
 )
-from learnloop.services.causal_health import ChannelHealth, causal_lane_health
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_health import ChannelHealth, causal_lane_health
+from learnloop.diagnosis.causal_orchestrator import (
     accept_probe_offer,
     auto_classify_pinned_probe,
     causal_repair_status,
@@ -82,7 +82,7 @@ from learnloop.services.causal_orchestrator import (
     pinned_causal_probe,
     record_probe_classification,
 )
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_probe_coherence import (
     audit_manipulation_contract,
     build_causal_hypothesis_set,
     create_probe_candidate,
@@ -91,15 +91,15 @@ from learnloop.services.causal_probe_coherence import (
     record_delayed_cold_verification,
     transition_probe_candidate,
 )
-from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.golden_path_fixture import stub_blueprint
-from learnloop.services.probe_hypotheses import H_OTHER
-from learnloop.services.probe_targeting import CAUSE_SET_DIVERGENT, classify_cause_set
-from learnloop.services.remediation import (
+from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+from learnloop.curriculum.golden_path_fixture import stub_blueprint
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
+from learnloop.diagnosis.probe_targeting import CAUSE_SET_DIVERGENT, classify_cause_set
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_treatment,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -873,7 +873,7 @@ def test_a_probe_answered_after_a_reveal_is_not_independent_evidence(tmp_path):
     contaminated, which is the loop the reveal ledger exists to break.
     """
 
-    from learnloop.services.reveal_ledger import record_reveal
+    from learnloop.attempts.reveal_ledger import record_reveal
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     result, factor_id, first_id, _second, offer = _offered_probe(vault, repository)
@@ -1281,7 +1281,7 @@ def test_projection_bulk_loads_candidate_cause_error_events_once(
 ):
     """Unresolved failures do not issue one error-event read per criterion."""
 
-    from learnloop.services.canonical_projection import project_canonical_facet_state
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     _single_cause_failure(vault, repository)
@@ -1321,9 +1321,9 @@ def test_projection_version_names_the_open_cause_union(tmp_path):
     was wrong), and skipping the first row unconditionally is what made it one.
     """
 
-    from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
-    from learnloop.services.learner_review_feed import build_learner_review_feed
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
+    from learnloop.learner.learner_review_feed import build_learner_review_feed
+    from learnloop.substrate.replay import rebuild_derived_state
 
     # Pinned deliberately so changing what the fold derives is always a conscious
     # bump. Each version supersedes without replacing: the open-cause UNION

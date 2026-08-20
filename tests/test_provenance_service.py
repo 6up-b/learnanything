@@ -4,7 +4,7 @@ import io
 import json
 
 from learnloop.db.repositories import Repository
-from learnloop.services.provenance import get_entity_provenance
+from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop_sidecar.server import serve
 
 from tests.helpers import create_basic_vault

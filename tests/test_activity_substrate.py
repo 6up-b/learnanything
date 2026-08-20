@@ -9,7 +9,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.services.activities import (
+from learnloop.substrate.activities import (
     Administration,
     SurfaceAlreadyReserved,
     append_observation,

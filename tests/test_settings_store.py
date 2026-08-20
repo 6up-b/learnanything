@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.config import load_config
-from learnloop.services.settings_store import (
+from learnloop.ops.settings_store import (
     SettingsStoreError,
     apply_config_updates,
     copy_ai_settings,
@@ -31,7 +31,7 @@ def test_apply_config_updates_preserves_comments_and_unrelated_lines(tmp_path):
     after = path.read_text(encoding="utf-8")
     assert 'active_provider = "openrouter"' in after
     # A known template comment survives, and the untouched neighbouring keys do too.
-    assert "# Any OpenRouter model slug works" in after
+    assert "# AI is optional; an unavailable provider keeps today's manual workflow." in after
     assert 'fallback_provider = ""' in after
     config = load_config(path)
     assert config.ai.active_provider == "openrouter"
@@ -59,6 +59,7 @@ def test_apply_config_updates_creates_missing_tables(tmp_path):
 def test_openrouter_task_profile_values_round_trip(tmp_path):
     path = _config_path(tmp_path)
     base = load_config(path).ai.providers["openrouter"]
+    base.input_modalities = ["audio", "pdf"]
     name = openrouter_profile_name("grading")
     values = openrouter_task_profile_values(base, "openai/gpt-5-mini")
 
@@ -71,6 +72,7 @@ def test_openrouter_task_profile_values_round_trip(tmp_path):
     assert profile.model == "openai/gpt-5-mini"
     assert profile.api_key_env == "OPENROUTER_API_KEY"
     assert profile.response_format == "json_object"
+    assert profile.input_modalities == ["audio", "pdf"]
     # Unset base keys are never dumped into the TOML.
     assert "max_tokens" not in path.read_text(encoding="utf-8").split(f"[ai.providers.{name}]", 1)[1].split("[", 1)[0]
 
@@ -149,8 +151,8 @@ def test_copy_ai_settings_copies_routing_and_materialized_profiles(tmp_path):
     # survive, and the codex tables are untouched.
     text = target_path.read_text(encoding="utf-8")
     assert config.ai.routing.grading == "codex_low"
-    assert "# Any OpenRouter model slug works" in text
-    assert 'checkout_path = ""' in text
+    assert "# AI is optional; an unavailable provider keeps today's manual workflow." in text
+    assert 'checkout_path = ""' not in text
 
 
 def test_copy_ai_settings_default_source_is_semantic_noop(tmp_path):

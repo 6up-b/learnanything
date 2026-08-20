@@ -14,14 +14,14 @@ import pytest
 
 from learnloop.config import MasteryConfig, MasteryIRTConfig, ProbeIRTConfig
 from learnloop.db.repositories import MasteryState
-from learnloop.services.mastery import (
+from learnloop.learner.mastery import (
     MasteryObservation,
     irt_observation,
     item_irt_params,
     sigmoid,
     update_mastery_traced,
 )
-from learnloop.services.probes import (
+from learnloop.diagnosis.probes import (
     Hypothesis,
     HypothesisSet,
     conditional_distribution,

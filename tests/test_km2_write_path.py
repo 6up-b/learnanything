@@ -13,7 +13,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -22,10 +22,10 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_probe_coherence import build_causal_hypothesis_set
-from learnloop.services.probe_hypotheses import H_OTHER
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.diagnosis.causal_probe_coherence import build_causal_hypothesis_set
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 

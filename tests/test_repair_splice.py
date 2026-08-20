@@ -14,9 +14,9 @@ from typing import Any
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import GradingProposal
-from learnloop.services.grading import validate_codex_grading_proposal
-from learnloop.services.repair_splice import (
+from learnloop.attempts.ai_contracts import GradingProposal
+from learnloop.attempts.grading import validate_codex_grading_proposal
+from learnloop.diagnosis.repair_splice import (
     clause_boundaries,
     is_end_append,
     preserved_prefix_from_refs,

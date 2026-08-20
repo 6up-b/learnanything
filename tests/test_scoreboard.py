@@ -28,15 +28,15 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.diagnosis_adjudication import append_diagnosis_adjudication
-from learnloop.services.scoreboard import (
+from learnloop.diagnosis.diagnosis_adjudication import append_diagnosis_adjudication
+from learnloop.diagnosis.scoreboard import (
     AVAILABILITY,
     B5_ORDER,
     HARMFUL_WITHDRAWAL_REASONS,
@@ -51,7 +51,7 @@ from learnloop.services.scoreboard import (
     scoreboard,
     tokens_per_resolved_diagnostic_episode,
 )
-from learnloop.services.surfaced_beliefs import (
+from learnloop.learner.surfaced_beliefs import (
     mark_belief_surfaced,
     record_belief_withdrawal,
 )
@@ -128,7 +128,7 @@ def _attempt(
         resolution_status=resolution_status,
         # A `resolved` attribution is one that NAMES a target — that is the
         # condition the live telemetry derives the status from
-        # (`services/attempts.py`: resolved iff target families / criteria /
+        # (``learnloop.attempts.attempts``: resolved iff target families / criteria /
         # a non-`none` target_ref). Setting the string alone would leave the
         # persisted resolution_counts saying `unresolved`, and the metric reads
         # the persisted counts, not the caller's intent.
@@ -688,7 +688,7 @@ def _canonical_vault(tmp_path):
     an unrelated reason.
     """
 
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.yaml_io import write_yaml
 
     from tests.helpers import set_algorithm_version, write_facets
@@ -733,7 +733,8 @@ def test_cells_cleared_per_question_divides_by_questions_served(tmp_path, monkey
     cells.
     """
 
-    from learnloop.services import contract_reachability, scoreboard as board
+    from learnloop.learner import contract_reachability
+    from learnloop.diagnosis import scoreboard as board
     from tests.test_km2_write_path import _attempt as _km2_attempt
 
     vault, repository, _paths = _canonical_vault(tmp_path)
@@ -806,7 +807,10 @@ def test_certification_metrics_require_an_explicit_replay(tmp_path):
     assert "certified_learning_objects_now" in by_name["certification_regret"]["detail"]
 
 
-def test_certification_replay_reports_no_data_when_nothing_certifies(tmp_path):
+def test_certification_replay_reports_no_data_when_nothing_certifies(
+    tmp_path,
+    monkeypatch,
+):
     """The legacy fixture has no blueprint, so nothing can certify.
 
     The replay runs, finds no certifying prefix, and says `no_data` — not 0
@@ -815,6 +819,14 @@ def test_certification_replay_reports_no_data_when_nothing_certifies(tmp_path):
 
     vault, repository, _paths = _vault(tmp_path)
     _attempt(vault, repository, "att_1", correctness_points=4)
+
+    def unexpected_migration(*_args, **_kwargs):
+        raise AssertionError("historical scratch copies must retain their schema")
+
+    monkeypatch.setattr(
+        "learnloop.db.repositories.apply_migrations",
+        unexpected_migration,
+    )
 
     questions, regret = _certification(vault, repository)
     assert questions.availability == "no_data"
@@ -829,7 +841,7 @@ def test_certification_replay_budget_bounds_the_answer_and_says_so(tmp_path):
     vault, repository, _paths = _vault(tmp_path)
     _attempt(vault, repository, "att_1", correctness_points=4)
 
-    from learnloop.services.scoreboard import certification_prefixes
+    from learnloop.diagnosis.scoreboard import certification_prefixes
 
     prefixes, trace = certification_prefixes(vault, repository, budget=0)
     assert prefixes == []
@@ -838,7 +850,7 @@ def test_certification_replay_budget_bounds_the_answer_and_says_so(tmp_path):
 
 
 def _certification(vault, repository):
-    from learnloop.services.scoreboard import certification_efficiency_metrics
+    from learnloop.diagnosis.scoreboard import certification_efficiency_metrics
 
     return certification_efficiency_metrics(vault, repository, replay=True)
 
@@ -917,7 +929,7 @@ def test_tokens_metric_reports_the_ratio_over_metered_episodes(tmp_path):
         misconception_statement="The learner treats Q and Q transpose as identical.",
         resolution_status="resolved",
     )
-    from learnloop.token_usage import TokenUsage
+    from learnloop.ai.usage import TokenUsage
 
     run_id = repository.insert_agent_run(
         {"purpose": "grading", "provider": "codex", "started_at": NOW_ISO}
@@ -988,7 +1000,7 @@ def test_probe_action_change_rate_counts_resolving_observations(tmp_path, monkey
     (`matched_multiple`: "the instrument did not discriminate") must not count.
     """
 
-    from learnloop.services import scoreboard as board
+    from learnloop.diagnosis import scoreboard as board
 
     _vault_obj, repository, _paths = _vault(tmp_path)
     observations = [
@@ -1046,8 +1058,8 @@ def test_agreement_is_computed_once_a_planted_side_exists(tmp_path, monkeypatch)
     Stage 7 only has to fill `planted_ground_truth`; the comparison already works.
     """
 
-    from learnloop.services import scoreboard as board
-    from learnloop.services.diagnosis_adjudication import (
+    from learnloop.diagnosis import scoreboard as board
+    from learnloop.diagnosis.diagnosis_adjudication import (
         adjudicated_ground_truth,
         anchor_key,
     )
@@ -1099,8 +1111,8 @@ def test_false_certification_rate_is_composed_from_item_4_2(tmp_path):
     must refuse rather than reporting the strongest possible claim by accident.
     """
 
-    from learnloop.services.certification_cold_probe import false_certification_rate
-    from learnloop.services.scoreboard import (
+    from learnloop.goals.certification_cold_probe import false_certification_rate
+    from learnloop.diagnosis.scoreboard import (
         false_certification_rate as composed,
     )
 
@@ -1110,7 +1122,7 @@ def test_false_certification_rate_is_composed_from_item_4_2(tmp_path):
     metric = composed(vault, repository)
 
     assert metric.detail["composed_from"] == (
-        "learnloop.services.certification_cold_probe.false_certification_rate"
+        "learnloop.goals.certification_cold_probe.false_certification_rate"
     )
     assert metric.numerator == upstream.numerator
     assert metric.denominator == upstream.denominator
@@ -1124,7 +1136,7 @@ def test_false_certification_rate_is_composed_from_item_4_2(tmp_path):
 def test_false_certification_seam_composes_a_producer_when_present(tmp_path, monkeypatch):
     """The seam is wiring, not a permanent refusal."""
 
-    from learnloop.services import scoreboard as board
+    from learnloop.diagnosis import scoreboard as board
 
     vault, repository, _paths = _vault(tmp_path)
     monkeypatch.setattr(
@@ -1161,7 +1173,8 @@ def test_adjudication_metrics_are_composed_not_recomputed(tmp_path, monkeypatch)
     is the only way to test "did not reimplement".
     """
 
-    from learnloop.services import diagnosis_adjudication, scoreboard as board
+    from learnloop.diagnosis import diagnosis_adjudication
+    from learnloop.diagnosis import scoreboard as board
 
     vault, repository, _paths = _vault(tmp_path)
     calls: list[dict] = []
@@ -1222,7 +1235,7 @@ def test_adjudication_metrics_are_composed_not_recomputed(tmp_path, monkeypatch)
 def test_adjudication_metrics_track_the_real_store(tmp_path):
     """...and with nothing patched, they equal what the real store reports."""
 
-    from learnloop.services.diagnosis_adjudication import (
+    from learnloop.diagnosis.diagnosis_adjudication import (
         diagnosis_adjudication_scoreboard,
     )
 
@@ -1257,7 +1270,8 @@ def test_adjudication_metrics_track_the_real_store(tmp_path):
 
 
 def test_measurement_rank_is_composed_from_identifiability(tmp_path, monkeypatch):
-    from learnloop.services import identifiability, scoreboard as board
+    from learnloop.learner import identifiability
+    from learnloop.diagnosis import scoreboard as board
 
     vault, repository, _paths = _vault(tmp_path)
     _ = repository
@@ -1286,7 +1300,8 @@ def test_measurement_rank_is_composed_from_identifiability(tmp_path, monkeypatch
 
 
 def test_measurement_rank_is_unavailable_with_no_declared_facet(tmp_path, monkeypatch):
-    from learnloop.services import identifiability, scoreboard as board
+    from learnloop.learner import identifiability
+    from learnloop.diagnosis import scoreboard as board
 
     vault, _repository, _paths = _vault(tmp_path)
     monkeypatch.setattr(
@@ -1313,7 +1328,7 @@ def test_the_board_composes_rather_than_declaring_its_own_producers(tmp_path):
     and the board would drift from the store.
     """
 
-    from learnloop.services import scoreboard as board
+    from learnloop.diagnosis import scoreboard as board
 
     for name in (
         "first_divergence_anchor_accuracy",

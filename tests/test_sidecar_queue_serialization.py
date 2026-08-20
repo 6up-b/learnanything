@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.scheduler import ScheduledItem
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import ScheduledItem
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers.serializers import scheduled_item_dtos
 

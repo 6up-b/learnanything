@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.vault_upgrade import (
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.ops.vault_upgrade import (
     KM_ALGORITHM_VERSION,
     upgrade_to_mvp07,
     validate_mvp07_readiness,

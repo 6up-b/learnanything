@@ -12,7 +12,7 @@ import pathlib
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.capability_mapping import (
+from learnloop.learner.capability_mapping import (
     CriterionOutcome,
     cap_certification_by_group,
     certification_credit,

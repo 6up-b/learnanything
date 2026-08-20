@@ -15,7 +15,7 @@ The separation matters. A prediction is not a credential, a repeated near-clone 
 
 The last model in that list is newer than the rest and is the reason several sections below read differently than they used to. LearnLoop measured its own instrument pool and found that 86% of the contract cells its learning objects declare could not be closed by any authored item, and that 72% of recorded attempts observed the right facet at the wrong capability. That finding — not the grader, not the scheduler — was the binding constraint, so the system now treats "which claims can this vault even test" as a first-class, standing, learner-visible question (sections 8.6, 21, and 23).
 
-New vaults use the `mvp-0.8` knowledge model — a strict superset of `mvp-0.7`'s canonical shared-facet model that adds the authority-propagation projection. The older `mvp-0.6` and `mvp-0.7` models remain readable so historical vaults and attempts can be migrated and replayed safely. Statements below about "`mvp-0.7`" semantics (canonical facets, the projection as sole writer of shared state) apply unchanged under `mvp-0.8`.
+New vaults use the `mvp-0.9` knowledge model. It keeps `mvp-0.8`'s authority-propagation projection and adds cross-channel answer-reveal accounting so exposed attempts cannot be mistaken for clean evidence. The older `mvp-0.6`, `mvp-0.7`, and `mvp-0.8` models remain readable and have explicit immediate-successor upgrades. Statements below about `mvp-0.7` canonical-state semantics and `mvp-0.8` projection semantics apply unchanged under `mvp-0.9`.
 
 ## Quick start
 
@@ -34,7 +34,7 @@ learnloop add-subject linear-algebra "Linear Algebra" --vault ~/LearnLoop/my-vau
 
 **Desktop app**: launch the app, and on the Start screen choose New Vault. The wizard creates the vault and an optional first subject, then hands off to ingest, proposals, and the goal wizard.
 
-Either way you get `learnloop.toml` at `algorithm_version = "mvp-0.8"`, `state.sqlite` with all migrations, the vault-level registries, and `subjects/` and `rubrics/` directories (section 2). A subject is a curriculum view, not a separate learner model — create one per body of material you want to navigate and maintain together ("Linear Algebra", not "Chapter 3").
+Either way you get `learnloop.toml` at `algorithm_version = "mvp-0.9"`, `state.sqlite` with all migrations, the vault-level registries, and `subjects/` and `rubrics/` directories (section 2). A subject is a curriculum view, not a separate learner model — create one per body of material you want to navigate and maintain together ("Linear Algebra", not "Chapter 3").
 
 To open the app on your vault:
 
@@ -163,11 +163,11 @@ The current learner journey is:
 10. Review claims, forecasts, and repair episodes in the Review/Repair surfaces; review source updates, synthesis conflicts, provenance, and registry issues in the maintenance surfaces.
 11. Optionally run a Golden Path certifying run over one task family (section 17).
 
-A fresh `learnloop init` writes `algorithm_version = "mvp-0.8"`. It does not require an immediate upgrade.
+A fresh `learnloop init` writes `algorithm_version = "mvp-0.9"`. It does not require an immediate upgrade.
 
 ### Existing vaults
 
-`learnloop upgrade` now carries a `--to` option that defaults to `mvp-0.8` and supports two ladders: `--to mvp-0.7` moves a legacy `mvp-0.6` vault onto the canonical shared-facet model, and `--to mvp-0.8` moves an `mvp-0.7` vault onto the authority-propagation projection. Activation is vault-wide and atomic. The command refuses to switch models when a facet-bearing item refers to an unregistered facet or a registered facet lacks its semantic contract. There is no mixed-version mode inside one vault.
+`learnloop upgrade` carries a `--to` option that defaults to `mvp-0.9` and supports an immediate-successor ladder: `mvp-0.6 → mvp-0.7` activates canonical shared-facet state, `mvp-0.7 → mvp-0.8` activates the authority-propagation projection, and `mvp-0.8 → mvp-0.9` activates cross-channel reveal accounting. Activation is vault-wide and atomic; jumps are refused. The canonical-model upgrade also refuses when a facet-bearing item refers to an unregistered facet or a registered facet lacks its semantic contract. There is no mixed-version mode inside one vault.
 
 The in-memory configuration fallback is intentionally still `mvp-0.6`. That fallback applies only when an old configuration omits `algorithm_version`; it prevents a legacy vault from silently changing inference models merely because the application was updated.
 
@@ -240,7 +240,7 @@ The subject ID should be a stable kebab-case identifier. Its title is display te
 
 `learnloop init` creates:
 
-- `learnloop.toml` with an explicit `mvp-0.8` algorithm version;
+- `learnloop.toml` with an explicit `mvp-0.9` algorithm version;
 - `state.sqlite` and all current migrations;
 - vault-level concept, relation, goal, error, and facet registries;
 - `subjects/` and `rubrics/` directories; and
@@ -297,7 +297,7 @@ The gear chip (`⚙ [Alt+S]`) at the far right of the tab bar — green/red for 
 
 ### Audio sources
 
-Local audio files (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.opus`, `.aac`) ingest like any other source (Ingest tab, Quick add, or drag-drop). By default the file is transcribed by the OpenAI-compatible `/audio/transcriptions` endpoint configured under `[ingest.audio]` (OpenAI whisper, Groq, or a local faster-whisper server; the key comes from the env var it names). Setting `provider = "openrouter"` under `[ingest.audio]` (or picking openrouter in the Settings tab's transcription row) instead sends the audio as chat `input_audio` parts to the configured `transcription_model` slug — the model must accept audio input, only mp3/wav apply, and the machine-global OpenRouter key is reused, since OpenRouter has no transcriptions endpoint. Either way the transcript keeps per-segment timestamps, so outline units, reader locators, and provenance work exactly as they do for YouTube captions. Audio always leaves the machine, so the import consent card lists it before anything uploads.
+Local audio files (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.opus`, `.aac`) ingest like any other source (Ingest tab, Quick add, or drag-drop). By default the file is transcribed by the OpenAI-compatible `/audio/transcriptions` endpoint configured under `[ingest.audio]` (OpenAI whisper, Groq, or a local faster-whisper server; the key comes from the env var it names). Chat-based transcription instead uses the independently named `[ai.routing] transcription` profile; that profile must declare `input_modalities = ["audio"]`, and chat input supports mp3/wav only. Existing vaults with `provider = "openrouter"` under `[ingest.audio]` are translated in memory to an `openrouter_transcription` profile and route, preserving their model, timeout, language, and OpenRouter key behavior; `doctor` reports the canonical rewrite. Either way the transcript keeps per-segment timestamps, so outline units, reader locators, and provenance work exactly as they do for YouTube captions. Audio always leaves the machine, the import consent card lists it before anything uploads, and the native-ingest route retains precedence when explicitly enabled.
 
 ### Native multimodal ingestion
 
@@ -584,7 +584,10 @@ Three properties are orthogonal and are decided at different moments:
 
 Role, scope, and priority belong to source-set membership, not to the artifact. The same PDF can be the primary textbook of one collection and a supporting reference in another. The source note itself carries only a `suggested_role` hint.
 
-The authority matrix is implemented once, in `services/role_authority.py`. Every consumer — inventory requests, the synthesis span protocol, the append policy, the quality gates, and the coverage report — reads that module rather than restating the policy:
+The authority matrix is implemented once, in
+`learnloop.content.sources.role_authority`. Every consumer — inventory
+requests, the synthesis span protocol, the append policy, the quality gates,
+and the coverage report — reads that module rather than restating the policy:
 
 | Role | May support a semantic claim | May shape assessment | Default inventory profile |
 |---|---|---|---|
@@ -624,7 +627,7 @@ Acquisition and local extraction do not imply permission to send content to an e
 
 ### 7.8 Journey: first sources in a new vault
 
-A vault created by `learnloop init` starts at `algorithm_version = mvp-0.8` and can apply a study map immediately. A vault carried over from before the knowledge model starts at `mvp-0.6` and must run `learnloop upgrade`; activation is vault-wide and atomic, and mixed-version vaults are forbidden. A subject must exist before a collection, because source sets are subject-scoped.
+A vault created by `learnloop init` starts at `algorithm_version = mvp-0.9` and can apply a study map immediately. A vault carried over from before the knowledge model must run each immediate-successor `learnloop upgrade`; activation is vault-wide and atomic, and mixed-version vaults are forbidden. A subject must exist before a collection, because source sets are subject-scoped.
 
 ~~~bash
 learnloop init ~/LearnLoop/math
@@ -1702,6 +1705,9 @@ learnloop rebuild-derived-state --vault ~/LearnLoop/my-vault
 learnloop rebuild-derived-state \
   --learning-object <lo-id> \
   --vault ~/LearnLoop/my-vault
+learnloop rebuild --shadow --json --vault ~/LearnLoop/my-vault
+
+learnloop config effective --vault ~/LearnLoop/my-vault
 
 learnloop ingest-batches list --vault ~/LearnLoop/my-vault
 learnloop ingest-batches show <batch-id> --vault ~/LearnLoop/my-vault
@@ -1771,7 +1777,16 @@ learnloop correct-measurement <source-pi-id> corrected.yaml \
 
 `show <attempt-id> --json` exposes the coverage, reliability, familiarity, criterion, IRT, surprise, and ability-transition traces. `why` exposes scheduler terms and the expected information signal.
 
-A full rebuild replays persisted attempts in order and recomputes mastery, FSRS, canonical facet/capability state, item quality, errors, surprise, and debug payloads. It does not re-run grading.
+A full rebuild replays persisted attempts in order and recomputes the ten
+losslessly reproducible projection families: ability transitions, surprise,
+item parameters, mastery, learning-outcome labels, practice-item quality,
+canonical facet/capability state, and identifiability watermarks. It does not
+re-run grading or overwrite raw reviewed, debug, error, calibration, or source
+health artifacts. `rebuild --shadow` performs the same work against a copied
+database, reports semantic learner-state differences, and leaves the live
+database unchanged. `config effective` prints the normalized schema-v2
+configuration, including defaults and compatibility translations, without
+rewriting the vault.
 
 ### 19.3 Source provenance
 
@@ -1787,7 +1802,7 @@ These are current defaults, not universal truths. They are versioned/configurabl
 
 | Area | Default |
 |---|---|
-| Algorithm for a new vault | `mvp-0.8` |
+| Algorithm for a new vault | `mvp-0.9` |
 | Scheduler baseline weights | forgetting 1.00, goal 0.25, recent error 0.50, probe information 0.25 |
 | Goal queue floor | 0.30 to 0.70 over a 28-day ramp |
 | Short-session threshold | 20 minutes |

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.codex.schemas import AuthoringProposalItem, SourceRef
-from learnloop.services.proposals import evaluate_review_policy
+from learnloop.content.proposals.ai_contracts import AuthoringProposalItem, SourceRef
+from learnloop.content.proposals.proposals import evaluate_review_policy
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault

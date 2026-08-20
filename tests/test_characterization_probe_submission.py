@@ -8,16 +8,16 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     _bayes_update,
     _observation_likelihoods_from_row,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CompiledInstrument,
     instrument_observation_likelihoods,
 )

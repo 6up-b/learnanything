@@ -1,0 +1,5 @@
+.obsidian/cache/
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.trash/
+_scripts/__pycache__/

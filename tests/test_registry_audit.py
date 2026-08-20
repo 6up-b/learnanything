@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
-from learnloop.services import parameter_registry as pr
+from learnloop.params import parameter_registry as pr
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

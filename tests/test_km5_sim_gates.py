@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml

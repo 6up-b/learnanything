@@ -8,7 +8,7 @@ an observation and renders as a visible correction step.
 from __future__ import annotations
 
 from learnloop.clock import FrozenClock
-from learnloop.services.facet_evidence_timeline import (
+from learnloop.learner.facet_evidence_timeline import (
     ObservationEvent,
     facet_evidence_timeline,
     facet_evidence_timelines,
@@ -108,7 +108,7 @@ def test_recompute_from_scratch_equals_incremental_render():
 
 
 def _attempt(vault, repository, item_id, criterion, *, hints_used=0, clock=None):
-    from learnloop.services.attempts import (
+    from learnloop.attempts.attempts import (
         AttemptDraft,
         SelfGradeInput,
         complete_self_graded_attempt,

@@ -11,42 +11,42 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.services import grader_calibration as gc
-from learnloop.services.attempts import (
+from learnloop.attempts import grader_calibration as gc
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.calibration_streams import (
+from learnloop.attempts.calibration_streams import (
     build_bootstrap_frame,
     record_error_intake_sample,
 )
-from learnloop.services.grade_classifier import (
+from learnloop.attempts.grade_classifier import (
     SchemaShape,
     bucket_confidence,
     classify_response,
     exact_word_count,
     length_bucket,
 )
-from learnloop.services.grade_resolution import (
+from learnloop.attempts.grade_resolution import (
     append_adjudication,
     quarantine_observation,
     record_grade_dual_write,
     resolve_grade,
 )
-from learnloop.services.grader_calibration import (
+from learnloop.attempts.grader_calibration import (
     ModelPromotionError,
     ResolvedModel,
     denominator_counts_from_samples,
     heuristic_alphas,
     validate_promotion,
 )
-from learnloop.services.outcome_schemas import (
+from learnloop.attempts.outcome_schemas import (
     COARSE_RESPONSE_SLUG,
     COARSE_RESPONSE_UNANSWERED_SLUG,
     ensure_builtin_schemas,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -333,7 +333,7 @@ def test_signature_error_reachable_when_signature_matched_threaded(env):
     matched resolves to the ``signature_error`` observed class -- previously
     unreachable because resolve_grade never passed the flag."""
 
-    from learnloop.services.outcome_schemas import SIGNATURE_ERROR_SLUG, ensure_builtin_schemas
+    from learnloop.attempts.outcome_schemas import SIGNATURE_ERROR_SLUG, ensure_builtin_schemas
 
     vault, repo = env
     ensure_builtin_schemas(repo, clock=CLOCK)
@@ -361,7 +361,7 @@ def test_insert_calibration_model_is_content_addressed_no_duplicate(env):
     content_hash, and the UNIQUE(content_hash) backstop (migration 070) hard-blocks
     a duplicate immutable model from a check-then-act race."""
 
-    from learnloop.services.outcome_schemas import ensure_builtin_schemas
+    from learnloop.attempts.outcome_schemas import ensure_builtin_schemas
 
     _vault, repo = env
     ensure_builtin_schemas(repo, clock=CLOCK)
@@ -538,9 +538,9 @@ def test_practice_attempt_dual_writes_raw_event_and_interpretation(env):
 
 
 def test_exam_answer_dual_writes_assessment_grade(tmp_path):
-    from learnloop.services.attempts import ResolvedGrade
-    from learnloop.services.exam_pool import reserve_exam_pool
-    from learnloop.services.exam_session import finish_exam, record_exam_answer, start_exam
+    from learnloop.attempts.attempts import ResolvedGrade
+    from learnloop.goals.exam_pool import reserve_exam_pool
+    from learnloop.goals.exam_session import finish_exam, record_exam_answer, start_exam
     from learnloop.vault.writer import upsert_practice_item
     from tests.helpers import NOW_ISO, create_basic_vault, seed_due_item
 
@@ -597,7 +597,7 @@ def test_exam_answer_dual_writes_assessment_grade(tmp_path):
 
 
 def test_probe_dual_write_helper_records_diagnostic_grade(env):
-    from learnloop.services.probe_episodes import _dual_write_probe_grade
+    from learnloop.diagnosis.probe_episodes import _dual_write_probe_grade
 
     vault, repo = env
     # Seed a bare practice_attempts row (as the probe submission path would have).
@@ -637,7 +637,7 @@ def test_dual_write_failure_never_breaks_legacy_path(env, monkeypatch):
 
     vault, repo = env
 
-    import learnloop.services.grade_resolution as gr
+    import learnloop.attempts.grade_resolution as gr
 
     def _poison(*_args, **_kwargs):
         raise RuntimeError("poisoned resolve step")
@@ -679,7 +679,7 @@ def test_dual_write_mint_failure_is_logged_not_silent(env, monkeypatch, caplog):
 
     vault, repo = env
 
-    import learnloop.services.grade_resolution as gr
+    import learnloop.attempts.grade_resolution as gr
 
     def _poison(*_args, **_kwargs):
         raise RuntimeError("mint failed")
@@ -688,7 +688,7 @@ def test_dual_write_mint_failure_is_logged_not_silent(env, monkeypatch, caplog):
 
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="learnloop.services.grade_resolution"):
+    with caplog.at_level(logging.WARNING, logger="learnloop.attempts.grade_resolution"):
         result = complete_self_graded_attempt(
             vault, repo,
             AttemptDraft(
@@ -734,8 +734,8 @@ def test_bootstrap_frame_logs_inclusion_probabilities_and_is_deterministic(env):
     frame2 = build_bootstrap_frame(repo, frame_id="frame_repro")
     # Determinism is per (frame_id, attempt) so a fresh id may differ; the SELECTION
     # RULE is reproducible: rebuilding frame_fixed's decision gives the same set.
-    from learnloop.services.calibration_streams import should_sample, stratum_for
-    from learnloop.services.grade_classifier import bucket_confidence, length_bucket_for_text
+    from learnloop.attempts.calibration_streams import should_sample, stratum_for
+    from learnloop.attempts.grade_classifier import bucket_confidence, length_bucket_for_text
 
     recomputed = set()
     for attempt in repo.list_all_attempts():
@@ -755,7 +755,7 @@ def test_bootstrap_frame_logs_inclusion_probabilities_and_is_deterministic(env):
 
 
 def test_backfill_converts_probe_presentations_idempotently(env):
-    from learnloop.services.activity_backfill import backfill_activity_substrate
+    from learnloop.substrate.compat.activity_backfill import backfill_activity_substrate
 
     vault, repo = env
     with connect(repo.sqlite_path) as connection:

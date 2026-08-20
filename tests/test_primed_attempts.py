@@ -13,9 +13,9 @@ from learnloop.db.repositories import MasteryState, Repository
 from learnloop.ingest.extractors.normalizers import markdown_to_ir
 from learnloop.ingest.hashing import extraction_request_hash
 from learnloop.ingest.ir import IR_SCHEMA_VERSION
-from learnloop.ingest.source_library import register_source_revision
-from learnloop.services.mastery import MasteryObservation, update_mastery
-from learnloop.services.source_review import resolve_source_refs
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.learner.mastery import MasteryObservation, update_mastery
+from learnloop.reader.source_review import resolve_source_refs
 from learnloop.sim.student import Misconception, StudentProfile, SyntheticStudent
 from learnloop.vault.models import Note, PracticeItem, Provenance, SourceRef
 

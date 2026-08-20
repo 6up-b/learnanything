@@ -7,14 +7,14 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services import probe_families
-from learnloop.services.attempts import (
+from learnloop.diagnosis import probe_families
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     enter_episode,

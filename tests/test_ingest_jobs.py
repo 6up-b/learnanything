@@ -12,8 +12,8 @@ import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit
-from learnloop.services.ingest_runner import FetchedBytes, JobSpec, RunnerServices
-from learnloop_sidecar.ingest_jobs import ActiveIngestJobError, DurableIngestJobs, IngestJobManager
+from learnloop.content.pipeline.runner import FetchedBytes, JobSpec, RunnerServices
+from learnloop.content.pipeline.jobs import ActiveIngestJobError, DurableIngestJobs, IngestJobManager
 
 
 class _FakeResult:
@@ -485,7 +485,7 @@ def test_bind_premarks_previously_completed_apply_jobs(tmp_path):
 
 
 def _failed_synthesis_batch(jobs: DurableIngestJobs, *, details: dict) -> str:
-    from learnloop.services.ingest_runner import IngestRunnerError
+    from learnloop.content.pipeline.runner import IngestRunnerError
 
     runner = jobs._require_runner()
     runner.handlers["inventory"] = lambda _ctx: {"inventoried": True}
@@ -577,7 +577,7 @@ def test_plain_retry_clears_candidate_recovery_flags(tmp_path):
     )
     runner.repo.synthesis_run = lambda run_id: {"id": run_id, "candidate_output": {"summary": "s"}}
 
-    from learnloop.services.ingest_runner import IngestRunnerError
+    from learnloop.content.pipeline.runner import IngestRunnerError
 
     def fail_again(_ctx):
         raise IngestRunnerError("still failing", code="synthesis_gate_failed",
@@ -603,7 +603,7 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
     """The sidecar worker (foreground in tests) drains queued demand-paged reader
     requests with the injected client — the loop that previously never ran."""
 
-    from learnloop.services import reader_requests as RR
+    from learnloop.reader import reader_requests as RR
     from tests.test_reader_requests import _FakePresetClient, _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
@@ -625,7 +625,7 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
 
 
 def test_kick_reader_drain_leaves_requests_queued_without_provider(tmp_path):
-    from learnloop.services import reader_requests as RR
+    from learnloop.reader import reader_requests as RR
     from tests.test_reader_requests import _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
@@ -670,7 +670,9 @@ def test_reader_drain_client_routes_via_canonical_ingest(tmp_path, monkeypatch):
 
     assert client is not None
     assert client.provider_type == "openrouter"
-    assert callable(getattr(client, "run_reader_preset_synthesis", None))
+    from learnloop.ai.transport import STRUCTURED_COMPLETION
+
+    assert client.supports(STRUCTURED_COMPLETION)
 
 
 def test_import_batch_is_not_a_build_and_its_ladder_says_so(tmp_path):

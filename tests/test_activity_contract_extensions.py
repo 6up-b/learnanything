@@ -8,9 +8,9 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import activity_patterns as AP
-from learnloop.services import progression_policy as PP
+from learnloop.substrate import activities as A
+from learnloop.substrate import activity_patterns as AP
+from learnloop.scheduling import progression_policy as PP
 
 from tests.helpers import NOW
 

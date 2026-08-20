@@ -1,0 +1,1 @@
+"""Content Proposals domain package."""

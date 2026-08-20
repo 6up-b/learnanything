@@ -17,7 +17,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.sim.metrics import canonical_facet_belief_mae
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW

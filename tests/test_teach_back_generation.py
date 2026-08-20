@@ -8,9 +8,13 @@ from typer.testing import CliRunner
 
 from learnloop.cli import _parse_mode_mix, app
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import AuthoringProposal, PracticeItemPatchPayload, RubricCriterionPayload
+from learnloop.content.proposals.ai_contracts import (
+    AuthoringProposal,
+    PracticeItemPatchPayload,
+    RubricCriterionPayload,
+)
 from learnloop.db.repositories import Repository
-from learnloop.services.proposals import _practice_item_rubric_errors, persist_authoring_proposal
+from learnloop.content.proposals.proposals import _practice_item_rubric_errors, persist_authoring_proposal
 
 from tests.helpers import NOW, create_basic_vault
 from tests.test_cli_generate_practice import _ProposalServer, _complete_probe, _configure_codex

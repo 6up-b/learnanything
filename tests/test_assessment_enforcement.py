@@ -9,8 +9,8 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.services import goal_contracts as gc
-from learnloop.services.activities import (
+from learnloop.goals import goal_contracts as gc
+from learnloop.substrate.activities import (
     Administration,
     ExposureCollisionAtRender,
     RenderRefused,
@@ -247,6 +247,6 @@ def test_detect_contract_drift_and_doctor_surface(env):
     assert gc.resolve_head(repo, goal_id).id == version.id
 
     # doctor surfaces it.
-    from learnloop.services.doctor import run_doctor
+    from learnloop.ops.doctor import run_doctor
     doctor = run_doctor(paths.root)
     assert any(issue.code == "goal:contract_drift" for issue in doctor.issues)

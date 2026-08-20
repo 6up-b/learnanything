@@ -6,8 +6,8 @@ symbol characters; the block text carries $-delimited LaTeX. The canonical
 tier must anchor the former onto the latter and hand back the LaTeX slice.
 """
 
-from learnloop.services.annotations import _locate_quote
-from learnloop.services.math_text import (
+from learnloop.reader.annotations import _locate_quote
+from learnloop.content.sources.math_text import (
     canonical_tokens,
     contains_unicode_math,
     latex_tokens,

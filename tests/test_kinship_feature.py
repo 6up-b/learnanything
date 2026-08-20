@@ -16,10 +16,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import familiarity
-from learnloop.services import kinship_feature as kf
-from learnloop.services import parameter_registry as pr
+from learnloop.substrate import activities as A
+from learnloop.learner import familiarity
+from learnloop.scheduling import kinship_feature as kf
+from learnloop.params import parameter_registry as pr
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -43,8 +43,8 @@ def _seed_surface(repo, suffix, features, memberships=()):
     contract = {"target": "svd", "capability": "retrieval"}
     cv = repo.ensure_activity_card_version(
         card_id=card_id, version=1,
-        card_contract_hash=A._canonical_hash({**contract, "s": suffix}),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_contract_hash=A.canonical_hash({**contract, "s": suffix}),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
     surface_id = repo.ensure_activity_surface(
         card_version_id=cv, surface_hash=f"sh-{suffix}", fingerprint=None,

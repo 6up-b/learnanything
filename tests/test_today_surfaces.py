@@ -17,24 +17,24 @@ from pathlib import Path
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import enter_episode
+from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from learnloop.clock import FrozenClock
-from learnloop.services import decay_pressure as dp_mod
-from learnloop.services import overconfidence as oc_mod
-from learnloop.services import reentry_summary as re_mod
-from learnloop.services.blueprint_projection import (
+from learnloop.scheduling import decay_pressure as dp_mod
+from learnloop.learner import overconfidence as oc_mod
+from learnloop.scheduling import reentry_summary as re_mod
+from learnloop.learner.blueprint_projection import (
     BlueprintProjection,
     ComponentReadiness,
     LoReadiness,
     RecipeProjection,
 )
-from learnloop.services.decay_pressure import decay_pressure
-from learnloop.services.goal_projection import FacetProjection, GoalReport
-from learnloop.services.overconfidence import blueprint_weight_by_facet, overconfidence_facets
-from learnloop.services.reentry_summary import reentry_summary
+from learnloop.scheduling.decay_pressure import decay_pressure
+from learnloop.goals.goal_projection import FacetProjection, GoalReport
+from learnloop.learner.overconfidence import blueprint_weight_by_facet, overconfidence_facets
+from learnloop.scheduling.reentry_summary import reentry_summary
 
 
 # --- lightweight fakes -------------------------------------------------------
@@ -298,7 +298,7 @@ def test_overconfidence_probe_origin_survives_target_selection(tmp_path):
     """Driving the real target-selection flow overwrites target_decision_json but
     must not erase the origin (spec §4.3)."""
 
-    from learnloop.services.probe_episodes import stop_diagnosing_and_teach
+    from learnloop.diagnosis.probe_episodes import stop_diagnosing_and_teach
 
     root = Path("fixtures/linear_algebra")
     vault = load_vault(root)

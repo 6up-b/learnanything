@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.facet_mint_gate import (
+from learnloop.content.synthesis.facet_mint_gate import (
     MINT_GATE,
     MintDisposition,
     MintReason,
@@ -247,7 +247,7 @@ def test_ingest_aliases_a_collapsing_candidate_into_a_registered_facet(tmp_path)
     survivor. Fails if the mint gate is unwired from ``_normalize``.
     """
 
-    from learnloop.services.source_set_synthesis import create_study_map
+    from learnloop.content.synthesis.source_set_synthesis import create_study_map
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
     from learnloop.vault.yaml_io import write_yaml

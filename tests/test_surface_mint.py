@@ -10,9 +10,9 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import familiarity as F
-from learnloop.services import surface_mint as SM
+from learnloop.substrate import activities as A
+from learnloop.learner import familiarity as F
+from learnloop.substrate import surface_mint as SM
 
 from tests.helpers import NOW
 
@@ -33,8 +33,8 @@ def _card_and_surface(repo, *, hash_suffix, purpose="practice", surface_policy="
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
     contract = {"target": "svd", "capability": "retrieval"}
     cv = repo.ensure_activity_card_version(
-        card_id=card_id, version=1, card_contract_hash=A._canonical_hash({**contract, "s": hash_suffix}),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_id=card_id, version=1, card_contract_hash=A.canonical_hash({**contract, "s": hash_suffix}),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
     A.pin_card_authoring(repo, card_version_id=cv, surface_policy=surface_policy, clock=CLOCK)
     surface_id = repo.ensure_activity_surface(

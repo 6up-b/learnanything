@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import enter_episode, episode_hypothesis_set, resolve_instrument
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_episodes import enter_episode, episode_hypothesis_set, resolve_instrument
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_V1,
     record_real_observation_counts,
     shrunk_item_calibration_counts,

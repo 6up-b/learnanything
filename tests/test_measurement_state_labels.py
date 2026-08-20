@@ -19,9 +19,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.capability_grid import capability_grid
-from learnloop.services.goal_projection import goal_report
-from learnloop.services.measurement_state import (
+from learnloop.learner.capability_grid import capability_grid
+from learnloop.goals.goal_projection import goal_report
+from learnloop.learner.measurement_state import (
     CLAIMED,
     INFERRED,
     MEASURED,
@@ -30,7 +30,7 @@ from learnloop.services.measurement_state import (
     classify_measurement_state,
     require_measurement_state,
 )
-from learnloop.services.selection_rewards import predicted_facet_recall
+from learnloop.scheduling.selection_rewards import predicted_facet_recall
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault, seed_due_item
@@ -441,19 +441,19 @@ def test_no_certification_or_write_path_reads_the_label():
         if "measurement_state" in path.read_text(encoding="utf-8")
     }
     assert referencing == {
-        "learnloop/services/measurement_state.py",   # the vocabulary itself
-        "learnloop/services/capability_grid.py",     # read-only grid projection
-        "learnloop/services/goal_projection.py",     # read-only goal report
+        "learnloop/learner/measurement_state.py",   # the vocabulary itself
+        "learnloop/learner/capability_grid.py",     # read-only grid projection
+        "learnloop/goals/goal_projection.py",       # read-only goal report
         "learnloop_sidecar/handlers/goals.py",       # DTO passthrough to the UI
     }
     # Named explicitly: the paths that decide certification and the paths that
     # write belief state must not appear above.
     for certifying in (
-        "learnloop/services/certification.py",
-        "learnloop/services/goal_certification.py",
-        "learnloop/services/attempts.py",
-        "learnloop/services/mastery.py",
-        "learnloop/services/recall_coverage.py",
+        "learnloop/goals/certification.py",
+        "learnloop/goals/goal_certification.py",
+        "learnloop/attempts/attempts.py",
+        "learnloop/learner/mastery.py",
+        "learnloop/learner/recall_coverage.py",
     ):
         assert (source_root / certifying).exists()
         assert certifying not in referencing

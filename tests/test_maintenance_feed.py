@@ -11,13 +11,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from learnloop.clock import FrozenClock
-from learnloop.services.maintenance_feed import (
+from learnloop.ops.maintenance_feed import (
     ESCALATION_SNOOZE_THRESHOLD,
     dismiss_notice,
     generate_maintenance_feed,
     snooze_notice,
 )
-from learnloop.services.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_append import _bootstrap_and_add

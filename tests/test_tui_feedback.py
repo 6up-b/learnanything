@@ -9,12 +9,12 @@ import pytest
 from textual.widgets import Button, Input
 
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.tui.app import LearnLoopApp
 from learnloop.tui.screens.feedback import FeedbackScreen
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import begin_session, create_basic_vault, seed_due_item
+from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
 
 
 def _direct_attempt(tmp_path):
@@ -139,13 +139,7 @@ def test_feedback_submit_uses_codex_grading_when_runtime_ready(tmp_path):
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 class _GradingServer:

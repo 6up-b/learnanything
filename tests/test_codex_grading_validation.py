@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal, RepairSuggestion
-from learnloop.services.grading import GradingValidationError, validate_codex_grading_proposal
+from learnloop.attempts.ai_contracts import (
+    CriterionEvidence,
+    ErrorAttribution,
+    GradingProposal,
+    RepairSuggestion,
+)
+from learnloop.attempts.grading import GradingValidationError, validate_codex_grading_proposal
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric, RubricCriterion
 

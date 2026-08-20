@@ -4,9 +4,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.mastery import logit
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.learner.mastery import logit
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object, upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
@@ -139,11 +139,16 @@ def test_state_sync_uses_strong_learner_claim_for_initial_mastery(tmp_path):
         clock=FrozenClock(NOW),
     )
 
-    sync_vault_state(load_vault(vault_root), repository, clock=FrozenClock(NOW))
+    loaded = load_vault(vault_root)
+    sync_vault_state(loaded, repository, clock=FrozenClock(NOW))
 
     mastery = repository.mastery_state("lo_svd_definition")
     assert mastery.logit_mean == pytest.approx(logit(0.9))
-    assert mastery.logit_variance == pytest.approx(0.25)
+    # Claims remain deliberately broad: the model's longstanding production
+    # floor dominates 1 / prior_pseudo_count here.
+    assert mastery.logit_variance == pytest.approx(
+        loaded.config.mastery.claim_prior_min_variance
+    )
     assert mastery.evidence_count == 0
     assert mastery.last_evidence_at is None
     # Probe redesign: the legacy strong-claim shortened target became the §11
@@ -173,17 +178,25 @@ def test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold(tmp_path
         clock=FrozenClock(NOW),
     )
 
-    sync_vault_state(load_vault(vault_root), repository, clock=FrozenClock(NOW))
+    loaded = load_vault(vault_root)
+    sync_vault_state(loaded, repository, clock=FrozenClock(NOW))
 
     mastery = repository.mastery_state("lo_svd_definition")
     assert mastery.logit_mean == pytest.approx(logit(0.7))
-    assert mastery.logit_variance == pytest.approx(0.25)
+    # The configured production floor (2.0 by default) intentionally prevents
+    # a self-report from becoming an overconfident mastery prior.
+    assert mastery.logit_variance == pytest.approx(
+        loaded.config.mastery.claim_prior_min_variance
+    )
     assert mastery.evidence_count == 0
-    # Episode unchanged by the sub-threshold claim: 0.7 < fast_path_claim_threshold
-    # (0.75) so the full §11 completion policy stands (no fast path).
+    # The claim remains below the §11 fast-path threshold. Initial episodes use
+    # the purpose-specific placement minimum independently of that fast path.
     episode = repository.open_probe_episode("lo_svd_definition")
     assert episode is not None
-    assert episode.minimum_independent_observations == 2
+    assert 0.7 < loaded.config.probe.episode.fast_path_claim_threshold
+    assert episode.minimum_independent_observations == (
+        loaded.config.probe.episode.placement_minimum_observations
+    )
 
 
 def test_state_sync_no_probe_gap_for_item_less_goal_lo(tmp_path):

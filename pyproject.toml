@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "learnloop"
 version = "0.1.0"
-description = "Local adaptive learning vault with deterministic scheduling and Codex-assisted authoring."
+description = "Local adaptive learning vault with deterministic scheduling and routed AI-assisted authoring."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -49,3 +49,254 @@ packages = ["src/learnloop", "src/learnloop_sidecar"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.13",
+]
+
+[tool.importlinter]
+root_packages = ["learnloop", "learnloop_sidecar"]
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+id = "infrastructure-does-not-import-domains"
+name = "Persistence and AI stay below domain policy"
+type = "forbidden"
+source_modules = [
+    "learnloop.config",
+    "learnloop.vault",
+    "learnloop.db",
+    "learnloop.ingest",
+    "learnloop.ai",
+]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    "learnloop.content",
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.ops",
+    "learnloop.params",
+    "learnloop.sim",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "primitives-have-no-internal-dependencies"
+name = "Primitive modules stay dependency free"
+type = "forbidden"
+source_modules = [
+    "learnloop.clock",
+    "learnloop.ids",
+    "learnloop.numeric",
+    "learnloop.attempt_types",
+]
+forbidden_modules = [
+    "learnloop.config",
+    "learnloop.vault",
+    "learnloop.db",
+    "learnloop.ingest",
+    "learnloop.ai",
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    "learnloop.content",
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.ops",
+    "learnloop.params",
+    "learnloop.sim",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "entry-points-are-independent"
+name = "CLI, TUI, and sidecar do not depend on one another"
+type = "forbidden"
+source_modules = ["learnloop.cli"]
+forbidden_modules = ["learnloop.tui", "learnloop_sidecar"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "tui-is-independent"
+name = "TUI does not depend on other adapters"
+type = "forbidden"
+source_modules = ["learnloop.tui"]
+forbidden_modules = ["learnloop.cli", "learnloop_sidecar"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "sidecar-is-independent"
+name = "Sidecar does not depend on other adapters"
+type = "forbidden"
+source_modules = ["learnloop_sidecar"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "frozen-cross-package-cycles"
+name = "Existing deferred cross-package cycles are frozen"
+type = "acyclic_siblings"
+ancestors = ["learnloop"]
+depth = 0
+ignore_imports = [
+    "learnloop.attempts.attempts -> learnloop.diagnosis.causal_activity_policy",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.error_hunt",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.error_taxonomy",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.error_taxonomy_map",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.probe_episodes",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.remediation",
+    "learnloop.attempts.attempts -> learnloop.scheduling.fsrs",
+    "learnloop.attempts.coldness_receipt -> learnloop.diagnosis.remediation",
+    "learnloop.attempts.effective_observation -> learnloop.diagnosis.robust_composition",
+    "learnloop.attempts.grader_calibration -> learnloop.diagnosis.probe_families",
+    "learnloop.attempts.grading -> learnloop.diagnosis.causal_attribution",
+    "learnloop.attempts.grading -> learnloop.diagnosis.discrimination_profiles",
+    "learnloop.attempts.grading -> learnloop.diagnosis.error_hunt",
+    "learnloop.attempts.grading -> learnloop.diagnosis.error_taxonomy_map",
+    "learnloop.attempts.grading -> learnloop.diagnosis.repair_splice",
+    "learnloop.attempts.post_attempt -> learnloop.diagnosis.followups",
+    "learnloop.attempts.regrade -> learnloop.diagnosis.error_taxonomy",
+    "learnloop.attempts.reveal_ledger -> learnloop.diagnosis.remediation",
+    "learnloop.curriculum.confusable_concepts -> learnloop.diagnosis.probe_episodes",
+    "learnloop.curriculum.confusable_concepts -> learnloop.diagnosis.probe_hypotheses",
+    "learnloop.curriculum.golden_path_restoration -> learnloop.diagnosis.diagnostic_pack",
+    "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.diagnostic_pack",
+    "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_episodes",
+    "learnloop.db.repositories -> learnloop.ai.usage",
+    "learnloop.db.repositories -> learnloop.ingest.ir",
+    "learnloop.goals.certification_cold_probe -> learnloop.attempts.coldness_receipt",
+    "learnloop.goals.certification_cold_probe -> learnloop.diagnosis.causal_activity_policy",
+    "learnloop.goals.exam_pool -> learnloop.scheduling.controller_ownership",
+    "learnloop.goals.exam_seeding -> learnloop.attempts.attempts",
+    "learnloop.goals.exam_seeding -> learnloop.attempts.grading",
+    "learnloop.goals.exam_session -> learnloop.attempts.attempts",
+    "learnloop.goals.exam_session -> learnloop.attempts.grade_resolution",
+    "learnloop.goals.exam_session -> learnloop.attempts.post_attempt",
+    "learnloop.goals.exam_session -> learnloop.scheduling.selection_rewards",
+    "learnloop.goals.goal_projection -> learnloop.scheduling.fsrs",
+    "learnloop.goals.goal_projection -> learnloop.scheduling.selection_rewards",
+    "learnloop.learner.assessment_contracts -> learnloop.attempts.grading",
+    "learnloop.learner.capability_grid -> learnloop.goals.certification",
+    "learnloop.learner.capability_grid -> learnloop.goals.goal_certification",
+    "learnloop.learner.capability_grid -> learnloop.goals.goal_projection",
+    "learnloop.learner.capability_grid -> learnloop.scheduling.selection_rewards",
+    "learnloop.learner.contract_reachability -> learnloop.substrate.instrument_serving",
+    "learnloop.learner.facet_diagnostics -> learnloop.diagnosis.probes",
+    "learnloop.learner.facet_diagnostics -> learnloop.goals.goal_certification",
+    "learnloop.learner.facet_evidence_timeline -> learnloop.attempts.effective_observation",
+    "learnloop.learner.facet_evidence_timeline -> learnloop.attempts.evidence",
+    "learnloop.learner.facet_evidence_timeline -> learnloop.diagnosis.causal_activity_policy",
+    "learnloop.learner.facet_evidence_timeline -> learnloop.goals.receipt_contributions",
+    "learnloop.learner.facet_evidence_timeline -> learnloop.substrate.canonical_projection",
+    "learnloop.learner.independence_audit -> learnloop.substrate.canonical_projection",
+    "learnloop.learner.independence_audit -> learnloop.tutor.durable_promotion",
+    "learnloop.learner.learner_review_feed -> learnloop.diagnosis.remediation",
+    "learnloop.learner.mastery -> learnloop.attempts.evidence",
+    "learnloop.learner.overconfidence -> learnloop.goals.goal_projection",
+    "learnloop.learner.recall_calibration -> learnloop.attempts.attempts",
+    "learnloop.learner.recall_calibration -> learnloop.diagnosis.followups",
+    "learnloop.learner.recall_calibration -> learnloop.ops.vault_upgrade",
+    "learnloop.learner.recall_calibration -> learnloop.substrate.state_sync",
+    "learnloop.learner.recall_coverage -> learnloop.attempts.evidence",
+    "learnloop.learner.recall_coverage -> learnloop.diagnosis.error_taxonomy_map",
+    "learnloop.learner.residual_diagnostics -> learnloop.substrate.canonical_projection",
+    "learnloop.ops.doctor -> learnloop.diagnosis.diagnostic_gate",
+    "learnloop.ops.doctor -> learnloop.diagnosis.error_taxonomy_map",
+    "learnloop.ops.doctor -> learnloop.goals.goal_contracts",
+    "learnloop.ops.doctor -> learnloop.substrate.instrument_serving",
+    "learnloop.ops.doctor -> learnloop.substrate.state_sync",
+    "learnloop.ops.maintenance_feed -> learnloop.curriculum.graph_edit_proposals",
+    "learnloop.ops.maintenance_feed -> learnloop.diagnosis.diagnostic_surface_supply",
+    "learnloop.ops.startup -> learnloop.attempts.clarification",
+    "learnloop.ops.startup -> learnloop.attempts.regrade",
+    "learnloop.ops.vault_upgrade -> learnloop.substrate.canonical_projection",
+    "learnloop.ops.vault_upgrade -> learnloop.substrate.p0_projection",
+    "learnloop.params.fitted_params -> learnloop.scheduling.fsrs",
+    "learnloop.params.parameter_registry -> learnloop.substrate.activities",
+    "learnloop.params.sensitivity_certificates -> learnloop.sim.sweep",
+    "learnloop.params.sensitivity_certificates -> learnloop.substrate.activities",
+    "learnloop.reader.reader_authoring -> learnloop.attempts.salience_firewall",
+    "learnloop.reader.reader_authoring -> learnloop.curriculum.commitments",
+    "learnloop.reader.reader_capture -> learnloop.attempts.salience_firewall",
+    "learnloop.reader.reader_capture -> learnloop.curriculum.commitment_arcs",
+    "learnloop.reader.reader_capture -> learnloop.curriculum.commitments",
+    "learnloop.reader.reader_dialogue -> learnloop.attempts.salience_firewall",
+    "learnloop.reader.reader_dialogue -> learnloop.curriculum.commitments",
+    "learnloop.reader.reader_restoration -> learnloop.attempts.salience_firewall",
+    "learnloop.reader.reader_restoration -> learnloop.curriculum.golden_path_restoration",
+    "learnloop.scheduling.evsi -> learnloop.diagnosis.robust_composition",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.calibration_sessions",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.contrast_pairs",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.diagnostic_surface_supply",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.error_taxonomy_map",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_episodes",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.probes",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.remediation",
+    "learnloop.sim.diagnostic_validation -> learnloop.attempts.attempts",
+    "learnloop.sim.diagnostic_validation -> learnloop.attempts.grading",
+    "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_episodes",
+    "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_families",
+    "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_hypotheses",
+    "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_instance_generation",
+    "learnloop.sim.diagnostic_validation -> learnloop.substrate.state_sync",
+    "learnloop.sim.grader_confusion -> learnloop.diagnosis.robust_composition",
+    "learnloop.sim.interval_width_viability -> learnloop.diagnosis.robust_composition",
+    "learnloop.sim.interval_width_viability -> learnloop.scheduling.action_loss",
+    "learnloop.sim.interval_width_viability -> learnloop.scheduling.evsi",
+    "learnloop.sim.kinship_admission -> learnloop.learner.familiarity",
+    "learnloop.sim.metrics -> learnloop.learner.facet_diagnostics",
+    "learnloop.sim.metrics -> learnloop.learner.mastery",
+    "learnloop.sim.runner -> learnloop.attempts.attempts",
+    "learnloop.sim.runner -> learnloop.attempts.grading",
+    "learnloop.sim.runner -> learnloop.diagnosis.followups",
+    "learnloop.sim.runner -> learnloop.goals.goal_projection",
+    "learnloop.sim.runner -> learnloop.learner.facet_diagnostics",
+    "learnloop.sim.runner -> learnloop.learner.mastery",
+    "learnloop.sim.runner -> learnloop.learner.recall_coverage",
+    "learnloop.sim.runner -> learnloop.scheduling.fsrs",
+    "learnloop.sim.runner -> learnloop.scheduling.scheduler",
+    "learnloop.sim.runner -> learnloop.tutor.teach_back",
+    "learnloop.substrate.activities -> learnloop.attempts.salience_firewall",
+    "learnloop.substrate.administration_adapters -> learnloop.scheduling.fsrs",
+    "learnloop.substrate.canonical_projection -> learnloop.attempts.effective_observation",
+    "learnloop.substrate.canonical_projection -> learnloop.attempts.evidence",
+    "learnloop.substrate.canonical_projection -> learnloop.attempts.outcome_schemas",
+    "learnloop.substrate.canonical_projection -> learnloop.diagnosis.causal_activity_policy",
+    "learnloop.substrate.canonical_projection -> learnloop.diagnosis.causal_attribution",
+    "learnloop.substrate.canonical_projection -> learnloop.goals.receipt_contributions",
+    "learnloop.substrate.card_lineage -> learnloop.scheduling.fsrs",
+    "learnloop.substrate.compat.substrate_cutover -> learnloop.scheduling.fsrs",
+    "learnloop.substrate.replay -> learnloop.attempts.attempts",
+    "learnloop.substrate.replay -> learnloop.diagnosis.misconceptions",
+    "learnloop.substrate.state_sync -> learnloop.diagnosis.probe_episodes",
+    "learnloop.substrate.state_sync -> learnloop.diagnosis.probe_instance_generation",
+    "learnloop.substrate.state_sync -> learnloop.goals.goal_projection",
+    "learnloop.substrate.state_sync -> learnloop.scheduling.shadow_components",
+    "learnloop.tutor.durable_promotion -> learnloop.diagnosis.causal_attribution",
+    "learnloop.tutor.durable_promotion -> learnloop.diagnosis.misconceptions",
+    "learnloop.tutor.promotions -> learnloop.reader.reader_progression",
+    "learnloop.tutor.teach_back -> learnloop.attempts.attempts",
+    "learnloop.tutor.teach_back -> learnloop.attempts.grading",
+    "learnloop.tutor.teach_back -> learnloop.goals.goal_intent",
+    "learnloop.tutor.teach_back -> learnloop.goals.goal_projection",
+    "learnloop.tutor.tutor_qa -> learnloop.attempts.reveal_ledger",
+    "learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_attribution",
+    "learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_orchestrator",
+    "learnloop.tutor.tutor_qa -> learnloop.reader.reader_progression",
+    "learnloop.tutor.tutor_qa -> learnloop.reader.span_view",
+]
+unmatched_ignore_imports_alerting = "error"

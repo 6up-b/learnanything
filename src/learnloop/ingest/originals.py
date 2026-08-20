@@ -16,9 +16,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from learnloop.ingest.hashing import asset_hash
-from learnloop.vault.paths import canonical_source_raw_path
 
 PDF_MAGIC = b"%PDF-"
+
+
+def canonical_source_raw_path(root: Path, asset_hash_value: str) -> Path:
+    """Return the config-free managed-original path for one content hash."""
+
+    return root / "canonical-sources" / "raw" / asset_hash_value.replace(":", "-")
 
 
 def store_original_bytes(vault_root: Path, digest: str, raw_bytes: bytes) -> Path:

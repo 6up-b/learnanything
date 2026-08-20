@@ -6,16 +6,16 @@ from __future__ import annotations
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services import familiarity as F
-from learnloop.services import surface_pool as SP
-from learnloop.services.activities import (
+from learnloop.learner import familiarity as F
+from learnloop.substrate import surface_pool as SP
+from learnloop.substrate.activities import (
     ExposureCollisionAtRender,
     append_exposure,
     open_administration,
     reserve_surface,
     resolve_legacy_item,
 )
-from learnloop.services.golden_path_fixture import (
+from learnloop.curriculum.golden_path_fixture import (
     EXEMPLAR_A,
     EXEMPLAR_B,
     HELD_OUT,

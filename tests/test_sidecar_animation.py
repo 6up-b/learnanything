@@ -6,13 +6,15 @@ CI); the LLM is a fake client injected through the runner services factory.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import io
 import json
 from pathlib import Path
 
 import learnloop_sidecar.handlers.animation as animation_handlers
-from learnloop.codex.schemas import ManimAnimation
-from learnloop.services.concept_animation import RenderResult
+from learnloop.content.authoring.ai_contracts import ManimAnimation
+from learnloop.content.authoring.concept_animation import RenderResult
 from learnloop_sidecar.server import serve
 
 from tests.helpers import create_basic_vault
@@ -83,12 +85,12 @@ def test_request_rejects_missing_consent_and_missing_manim(tmp_path, monkeypatch
 
 
 def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):
-    import learnloop.services.concept_animation as animation_service
-    import learnloop.services.ingest_runner as runner_module
+    import learnloop.content.authoring.concept_animation as animation_service
+    import learnloop.content.pipeline.jobs as job_module
 
     monkeypatch.setattr(animation_handlers, "manim_runtime", _fake_manim_available)
 
-    class _FakeClient:
+    class _FakeClient(StructuredClientFake):
         provider_name = "openrouter"
         model = "anthropic/claude-sonnet-4.5"
 
@@ -107,7 +109,7 @@ def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):
 
     # The sidecar's background worker resolves these module globals at call
     # time, so patching them steers the in-process worker thread.
-    monkeypatch.setattr(runner_module, "default_animation_client", lambda ctx: _FakeClient())
+    monkeypatch.setattr(job_module, "default_animation_client", lambda ctx: _FakeClient())
     monkeypatch.setattr(
         animation_service,
         "render_scene",

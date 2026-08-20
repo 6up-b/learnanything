@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from learnloop.codex.schemas import AuthoringProposalItem
-from learnloop.services.proposals import (
+from learnloop.content.proposals.ai_contracts import AuthoringProposalItem
+from learnloop.content.proposals.proposals import (
     DiagnosticTarget,
     diagnostic_review_errors,
     diagnostic_review_warnings,

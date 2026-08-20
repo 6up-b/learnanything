@@ -11,14 +11,14 @@ from dataclasses import dataclass, field
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.intent_planner import (
+from learnloop.scheduling.intent_planner import (
     SessionIntent,
     classify_intent,
     shadow_intent_plan,
 )
-from learnloop.services.probe_audit import shadow_intent_report
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.diagnosis.probe_audit import shadow_intent_report
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 

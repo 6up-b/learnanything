@@ -6,14 +6,14 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
 from learnloop.ids import new_ulid
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     _resolved_slot_map_from_snapshot,
     commit_item_presentation,
     commit_presentation,
@@ -27,7 +27,7 @@ from learnloop.services.probe_episodes import (
     serve_presentation,
     stop_diagnosing_and_teach,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_DEFAULT_ROWS,
     CONTRAST_CONFUSABLE_V1,
     CardValidationError,
@@ -39,9 +39,9 @@ from learnloop.services.probe_families import (
     run_family_admission_gate,
     validate_and_compile_card,
 )
-from learnloop.services.probe_hypotheses import H_OTHER
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -713,7 +713,7 @@ def test_missing_instruments_park_episode_with_one_deduplicated_need(tmp_path):
 
 
 def test_pending_items_episode_keeps_lo_schedulable_with_belief_updates(tmp_path):
-    from learnloop.services.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import build_due_queue
 
     vault_root, loaded, repository = _setup(tmp_path, with_card=False)
     sync_vault_state(loaded, repository, clock=CLOCK)

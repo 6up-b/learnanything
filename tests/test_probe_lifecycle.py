@@ -6,12 +6,12 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_V1,
     ensure_builtin_families,
     record_real_observation_counts,
 )
-from learnloop.services.probe_lifecycle import (
+from learnloop.diagnosis.probe_lifecycle import (
     LifecycleTransitionError,
     apply_family_lifecycle_transition,
     evaluate_family_lifecycle,

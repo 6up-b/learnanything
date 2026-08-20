@@ -31,7 +31,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -40,7 +40,7 @@ from learnloop.services.attempts import (
     complete_self_graded_attempt,
     SelfGradeInput,
 )
-from learnloop.services.causal_attribution import (
+from learnloop.diagnosis.causal_attribution import (
     OPEN_SET_CAUSE_ID,
     REPAIR_MAPPING_BASIS_CRITERION_REF,
     REPAIR_MAPPING_BASIS_OPEN_SET,
@@ -48,19 +48,19 @@ from learnloop.services.causal_attribution import (
     REPAIR_MAPPING_BASIS_UNRESOLVED,
     REPAIR_MAPPING_UNRESOLVED_REASONS,
 )
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_probe_coherence import (
     build_causal_hypothesis_set,
     record_delayed_cold_verification,
 )
-from learnloop.services.probe_hypotheses import H_OTHER
-from learnloop.services.probe_targeting import (
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
+from learnloop.diagnosis.probe_targeting import (
     CAUSE_SET_DIVERGENT,
     CAUSE_SET_INCOMPLETE_MAPPING,
     classify_cause_set,
     probe_priority,
     repair_mapping_backfills,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, add_followup_item, create_basic_vault

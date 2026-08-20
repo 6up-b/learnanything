@@ -11,19 +11,19 @@ from learnloop.db.repositories import (
     PracticeItemState,
     Repository,
 )
-from learnloop.services.confusable_concepts import learner_observed_confusable_concepts
-from learnloop.services.grading import resolved_rubric
-from learnloop.services.mastery import display_mastery, sigmoid
-from learnloop.services.mastery_step_attribution import explain_mastery_step
-from learnloop.services.scheduler import (
-    _FOLLOWUP_REASONS,
+from learnloop.curriculum.confusable_concepts import learner_observed_confusable_concepts
+from learnloop.attempts.grading import resolved_rubric
+from learnloop.learner.mastery import display_mastery, sigmoid
+from learnloop.learner.mastery_step_attribution import explain_mastery_step
+from learnloop.scheduling.scheduler import (
+    FOLLOWUP_REASONS,
     ScheduledItem,
     dominant_scheduler_reason,
     explain_practice_item,
 )
-from learnloop.services.source_refs import source_ref_display_dto
-from learnloop.services.source_review import resolve_source_refs
-from learnloop.services.tutor_qa import hint_equivalents_for_attempt
+from learnloop.content.sources.source_refs import source_ref_display_dto
+from learnloop.reader.source_review import resolve_source_refs
+from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt
 from learnloop.vault.models import ErrorType, LearningObject, LoadedVault, PracticeItem, Rubric
 from learnloop_sidecar.context import mastery_dto
 from learnloop_sidecar.dto import to_camel, versioned
@@ -41,7 +41,7 @@ from learnloop_sidecar.errors import SidecarError
 #: already certified, not a repair retry, and collapsing the two makes the UI
 #: narrate a validity check as an intervention.
 _FOLLOWUP_KIND_BY_REASON: dict[str, str] = {
-    reason: kind for kind, reason in _FOLLOWUP_REASONS.items()
+    reason: kind for kind, reason in FOLLOWUP_REASONS.items()
 }
 
 
@@ -185,7 +185,8 @@ def item_presentation(item: PracticeItem) -> dict[str, Any]:
     vault, wire, service and persistence layers with no renderer at all.
 
     WHY THIS IS A LIST OF TYPED BLOCKS AND NOT THREE MORE DTO FIELDS. The defect
-    ``services/instrument_serving`` exists to contain is a *presentation* gap:
+    ``learnloop.substrate.instrument_serving`` exists to contain is a
+    *presentation* gap:
     ``prompt`` was the only thing any surface carried, so an error hunt served
     its instruction ("repair the worked solution below") with no solution beneath
     it and a laddered-stem part served a question about a setup the learner never
@@ -281,7 +282,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     rubric = _rubric_for_item(vault, item)
     max_points = rubric.max_points if rubric is not None else 4
     assessment_contract_version_id = None
-    from learnloop.services.assessment_contracts import (
+    from learnloop.learner.assessment_contracts import (
         KM_ALGORITHM_VERSION,
         snapshot_for_presentation,
     )
@@ -300,7 +301,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
         # basis, render-time exposure scan). Idempotent per task, and a
         # bookkeeping failure must never block the serve.
         try:
-            from learnloop.services.coldness_receipt import (
+            from learnloop.attempts.coldness_receipt import (
                 record_administration_snapshot,
             )
 
@@ -320,7 +321,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     )
     if active_certification_probe is not None:
         try:
-            from learnloop.services.coldness_receipt import (
+            from learnloop.attempts.coldness_receipt import (
                 record_certification_administration_snapshot,
             )
 
@@ -573,7 +574,7 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {attempt_id} was not found.")
-    from learnloop.services.causal_attribution import causal_episode_for_attempt
+    from learnloop.diagnosis.causal_attribution import causal_episode_for_attempt
 
     return versioned(
         {
@@ -716,8 +717,8 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     gate_attempt_id = repository.followup_source_attempt(attempt_id)
     rating = repository.followup_rating(attempt_id)
     error_events = repository.error_events_for_attempt(attempt_id)
-    from learnloop.services.causal_attribution import claim_checked_feedback
-    from learnloop.services.guided_redo import guided_redo_available
+    from learnloop.diagnosis.causal_attribution import claim_checked_feedback
+    from learnloop.diagnosis.guided_redo import guided_redo_available
 
     causal_feedback = claim_checked_feedback(vault, repository, attempt_id)
     matched_misconception = None

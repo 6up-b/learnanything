@@ -14,8 +14,8 @@ import json
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.services.contract_reachability import analyze_contract_reachability
-from learnloop.services.integration_backfill import (
+from learnloop.learner.contract_reachability import analyze_contract_reachability
+from learnloop.curriculum.integration_backfill import (
     DEEPEST_AUTHORABLE_CAPABILITY,
     IntegrationDisposition,
     IntegrationReason,

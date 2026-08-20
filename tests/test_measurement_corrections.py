@@ -6,12 +6,12 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
-from learnloop.services.measurement_corrections import (
+from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
+from learnloop.attempts.measurement_corrections import (
     MeasurementCorrectionError,
     create_measurement_correction,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW

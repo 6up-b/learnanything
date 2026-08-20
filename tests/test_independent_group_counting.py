@@ -1,6 +1,7 @@
 """One exact independence primitive, everywhere.
 
-`spec_diagnostic_augmentation_v1.md` §8: *"`services/progression.py` already
+`spec_diagnostic_augmentation_v1.md` §8:
+*"`learnloop.scheduling.progression` already
 treats a tight soft-kinship cluster as exactly one independent group. v1 §5.6's
 promotion condition (b) needs precisely this... Call that implementation; do not
 grow 'item fingerprint family' as a parallel notion. Six errors on six
@@ -33,8 +34,8 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.canonical_projection import surface_group_id
-from learnloop.services.misconceptions import _independent_group_count, _promotion_reason
+from learnloop.substrate.canonical_projection import surface_group_id
+from learnloop.diagnosis.misconceptions import _independent_group_count, _promotion_reason
 from learnloop.vault.models import PracticeItem
 
 
@@ -169,7 +170,7 @@ def test_unverifiable_provenance_fails_closed(candidate):
 
 
 def test_probe_completion_keys_on_the_group_not_the_authored_string():
-    from learnloop.services.probe_episodes import _surface_key
+    from learnloop.diagnosis.probe_episodes import _surface_key
 
     vault = _Vault(
         _item("pi_part_state", surface="svd_state", stimulus="stem_svd_1"),
@@ -187,7 +188,7 @@ def test_an_unknown_probe_item_stays_distinct_rather_than_collapsing():
     covered than it is, so distinct-by-default is the safe reading.
     """
 
-    from learnloop.services.probe_episodes import _surface_key
+    from learnloop.diagnosis.probe_episodes import _surface_key
 
     vault = _Vault()
 
@@ -195,7 +196,7 @@ def test_an_unknown_probe_item_stays_distinct_rather_than_collapsing():
 
 
 def test_exam_practiced_surfaces_are_groups():
-    from learnloop.services.exam_pool import _practiced_surface_families
+    from learnloop.goals.exam_pool import _practiced_surface_families
 
     vault = _Vault(
         _item("pi_part_state", surface="svd_state", stimulus="stem_svd_1"),

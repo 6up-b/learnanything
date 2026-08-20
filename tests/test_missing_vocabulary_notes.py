@@ -12,16 +12,17 @@ import sqlite3
 import pytest
 
 from learnloop.clock import FrozenClock
+from learnloop.content.proposals.ai_contracts import AUTHORING_PROMPT_VERSION
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.causal_attribution import materialize_causal_episode
-from learnloop.services.missing_vocabulary import (
+from learnloop.diagnosis.causal_attribution import materialize_causal_episode
+from learnloop.diagnosis.missing_vocabulary import (
     MISSING_VOCABULARY_NOTE_VERSION,
     authoring_facet_abstention_notes,
     missing_vocabulary_report,
@@ -264,10 +265,7 @@ def test_authoring_facet_abstention_notes_read_the_criteria(tmp_path):
     ]
     assert all(note["source"] == "authoring_facet_abstention" for note in notes)
     assert all(note["attempt_id"] is None for note in notes)
-    assert all(
-        note["grading_prompt_version"] == "mvp-0.8-causal-attribution-honesty"
-        for note in notes
-    )
+    assert all(note["grading_prompt_version"] == AUTHORING_PROMPT_VERSION for note in notes)
     assert all(note["decision_policy_version"] == "causal_p2_v1" for note in notes)
     assert all(
         note["repair_policy_version"] == "structural_lexicographic_v2"

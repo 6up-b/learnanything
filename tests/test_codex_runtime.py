@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from learnloop.codex.runtime import CodexAuthRequired, CodexHealthUnavailable, check_codex_runtime
+from learnloop.ai.providers.codex import CodexAuthRequired, CodexHealthUnavailable, check_codex_runtime
 from learnloop.config import CodexConfig
-from learnloop.services.doctor import run_doctor
+from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import init_vault
 
 
@@ -121,15 +121,21 @@ def test_codex_runtime_reports_startup_timeout(tmp_path):
     assert "timed out" in report.message
 
 
-def test_doctor_includes_codex_runtime_without_failing_local_health(tmp_path):
+def test_doctor_only_checks_provider_health_when_explicitly_requested(tmp_path):
     vault = tmp_path / "vault"
     init_vault(vault)
 
     report = run_doctor(vault)
 
     assert report.clean is True
-    assert report.codex_runtime is not None
-    assert report.codex_runtime.status == "codex_missing"
+    assert report.ai_runtime is None
+    assert report.codex_runtime is None
+
+    with_ai = run_doctor(vault, ai=True)
+
+    assert with_ai.ai_runtime is not None
+    assert with_ai.ai_runtime.status == "provider_missing_config"
+    assert with_ai.codex_runtime is with_ai.ai_runtime
 
 
 def _checkout(path: Path, *, revision: str) -> Path:

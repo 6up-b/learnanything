@@ -15,12 +15,12 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, write_facets
@@ -141,11 +141,23 @@ def test_knowledge_map_facet_field_lock_fields(tmp_path):
     assert field[COMP_A]["title"] == "Component A"
 
 
-def test_facet_field_empty_when_no_locks(tmp_path):
-    # The linear_algebra fixture has an empty facet registry -> no facet points.
+def test_facet_field_reflects_fixture_locks(tmp_path):
     ctx = _fixture_ctx(tmp_path / "vault")
     result = _call(ctx, "get_knowledge_map", {})
-    assert result["facetField"]["points"] == []
+    points = result["facetField"]["points"]
+    assert points
+
+    from learnloop.curriculum.curriculum_locks import identity_locks
+
+    vault, repository = ctx.require_vault()
+    expected: dict[str, set[str]] = {}
+    for facet_id, reasons in identity_locks(vault, repository).items():
+        canonical = vault.canonical_facet_id(facet_id)
+        expected.setdefault(canonical, set()).update(reason.source for reason in reasons)
+    for point in points:
+        sources = sorted(expected.get(point["id"], set()))
+        assert point["locked"] is bool(sources)
+        assert point["lockSources"] == sources
 
 
 def test_list_facets_shape_and_sorting(tmp_path):
@@ -263,8 +275,8 @@ def test_preview_knowledge_map_new_edge_changes_geometry(tmp_path):
         {
             "addedEdges": [
                 {
-                    "source": "concept_covariance_matrix",
-                    "target": "concept_symmetric_matrix",
+                    "source": "concept_complex_multiplication",
+                    "target": "concept_linear_independence_and_basis",
                     "relationType": "prerequisite",
                 }
             ],
@@ -282,11 +294,17 @@ def test_preview_knowledge_map_removed_edge_and_determinism(tmp_path):
     params = {
         "addedEdges": [],
         # A real edge id plus an unknown one (the unknown must be ignored).
-        "removedEdgeIds": ["edge_symmetry_to_spectral", "edge_bogus_missing"],
+        "removedEdgeIds": [
+            "edge_prerequisite__concept_vector_space_operations__concept_vector_space_axioms",
+            "edge_bogus_missing",
+        ],
     }
     first = _call(ctx, "preview_knowledge_map", params)
     second = _call(ctx, "preview_knowledge_map", params)
     assert first == second  # deterministic, unknown ids silently ignored
+    base_xy = {p["id"]: (p["x"], p["y"]) for p in first["baseline"]["points"]}
+    prop_xy = {p["id"]: (p["x"], p["y"]) for p in first["points"]}
+    assert prop_xy != base_xy  # the real removal still exercises the preview
 
 
 def test_preview_knowledge_map_unknown_concept_raises(tmp_path):
@@ -299,7 +317,7 @@ def test_preview_knowledge_map_unknown_concept_raises(tmp_path):
             "preview_knowledge_map",
             {
                 "addedEdges": [
-                    {"source": "concept_ghost", "target": "concept_symmetric_matrix", "relationType": "related"}
+                    {"source": "concept_ghost", "target": "concept_vector_space_axioms", "relationType": "related"}
                 ],
                 "removedEdgeIds": [],
             },

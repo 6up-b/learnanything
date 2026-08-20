@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     DEFAULT_CONDITIONAL_PSEUDO_COUNT,
     GRADER_CHANNEL_RELIABILITY,
     ORDINAL_VOCABULARY,

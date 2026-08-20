@@ -2,7 +2,7 @@
 
 Goals are vault-owned YAML (``profile/goals.yaml``); create/update handlers
 write the file and reload the vault. Reports and series are derived reads —
-see ``services/goal_projection`` and ``services/goal_series``.
+see ``learnloop.goals.goal_projection`` and ``learnloop.goals.goal_series``.
 """
 
 from __future__ import annotations
@@ -13,17 +13,17 @@ from typing import Any
 
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
-from learnloop.services.forecast_ledger import active_forecasts
-from learnloop.services.goal_intent import resolve_goal_quest
-from learnloop.services.goal_pace import compute_goal_pace
-from learnloop.services.goal_projection import (
+from learnloop.goals.forecast_ledger import active_forecasts
+from learnloop.goals.goal_intent import resolve_goal_quest
+from learnloop.goals.goal_pace import compute_goal_pace
+from learnloop.goals.goal_projection import (
     GoalReport,
     goal_material_gaps,
     goal_report,
     resolve_goal_scope,
 )
-from learnloop.services.goal_series import goal_report_series
-from learnloop.services.measurement_state import require_measurement_state
+from learnloop.goals.goal_series import goal_report_series
+from learnloop.learner.measurement_state import require_measurement_state
 from learnloop.vault.models import Goal, LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -419,7 +419,7 @@ def goal_feasibility(ctx: SidecarContext, params: GoalFeasibilityInput) -> dict[
 
 @method("get_forecast_track_record", ForecastTrackRecordInput)
 def get_forecast_track_record(ctx: SidecarContext, params: ForecastTrackRecordInput) -> dict[str, Any]:
-    from learnloop.services.forecast_ledger import forecast_track_record
+    from learnloop.goals.forecast_ledger import forecast_track_record
 
     _vault, repository = ctx.require_vault()
     return versioned({"track_record": forecast_track_record(repository, params.goal_id)})
@@ -429,7 +429,7 @@ def get_forecast_track_record(ctx: SidecarContext, params: ForecastTrackRecordIn
 def get_overconfidence_list(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
     """F5 overconfidence list (§4.3): Ready-high / Demonstrated-false facets."""
 
-    from learnloop.services.overconfidence import overconfidence_facets
+    from learnloop.learner.overconfidence import overconfidence_facets
 
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, params.goal_id)
@@ -445,7 +445,7 @@ def get_reentry_summary(ctx: SidecarContext, params: OptionalGoalInput) -> dict[
     active goal the panel simply does not show.
     """
 
-    from learnloop.services.reentry_summary import reentry_summary
+    from learnloop.scheduling.reentry_summary import reentry_summary
 
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, params.goal_id) if params.goal_id else _nearest_active_goal(vault)
@@ -471,7 +471,7 @@ def get_reentry_summary(ctx: SidecarContext, params: OptionalGoalInput) -> dict[
 def get_decay_pressure(ctx: SidecarContext, params: OptionalGoalInput) -> dict[str, Any]:
     """F7 no-goal fallback (§4.5): facets ranked by soonest target crossing."""
 
-    from learnloop.services.decay_pressure import decay_pressure
+    from learnloop.scheduling.decay_pressure import decay_pressure
 
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, params.goal_id) if params.goal_id else None

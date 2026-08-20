@@ -3,26 +3,26 @@ from __future__ import annotations
 import json
 
 from learnloop.clock import FrozenClock
-from learnloop.db.observation_ledger import (
+from learnloop.db.stores.observation_ledger import (
     load_authoritative_observation_ledger,
     load_canonical_observation_ledger,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.canonical_projection import (
+from learnloop.substrate.canonical_projection import (
     p0_effective_evidence_mass,
     project_canonical_facet_state,
 )
-from learnloop.services.effective_observation import (
+from learnloop.attempts.effective_observation import (
     load_effective_observation_references,
 )
-from learnloop.services.facet_evidence_timeline import facet_evidence_timeline
-from learnloop.services.outcome_schemas import COARSE_RESPONSE_SLUG
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.learner.facet_evidence_timeline import facet_evidence_timeline
+from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version

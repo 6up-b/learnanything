@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from learnloop.config import LearnLoopConfig
+from learnloop.ingest.originals import canonical_source_raw_path
 
 
 @dataclass(frozen=True)
@@ -104,13 +105,6 @@ def animation_video_path(root: Path, video_hash: str) -> Path:
     """Content-addressed animation mp4 path; config-free like the raw store."""
 
     return root / "media" / "animations" / f"{_sanitize_hash(video_hash)}.mp4"
-
-
-def canonical_source_raw_path(root: Path, asset_hash: str) -> Path:
-    """Content-addressed originals store path; config-free so byte-store code
-    (which only ever needs the vault root) avoids loading LearnLoopConfig."""
-
-    return root / "canonical-sources" / "raw" / _sanitize_hash(asset_hash)
 
 
 def _sanitize_hash(asset_hash: str) -> str:

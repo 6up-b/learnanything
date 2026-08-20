@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.services.grading import build_grading_context, evidence_coverage, grading_context_hash
+from learnloop.attempts.grading import build_grading_context, evidence_coverage, grading_context_hash
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
@@ -38,7 +38,8 @@ def test_grading_context_is_deterministic_and_hashable(tmp_path):
         "arithmetic_slip",
         "incomplete_answer",
     ]
-    assert "target_criterion_ids" in first.error_taxonomy["targeting_policy"]
+    assert "failed criterion" in first.error_taxonomy["targeting_policy"]
+    assert "Passing criteria" in first.error_taxonomy["targeting_policy"]
     assert grading_context_hash(first) == grading_context_hash(second)
 
 

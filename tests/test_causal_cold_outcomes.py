@@ -12,16 +12,16 @@ from datetime import timedelta
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_orchestrator import (
     record_cold_verification_from_task,
     sweep_expired_cold_retries,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,
     start_remediation_treatment,

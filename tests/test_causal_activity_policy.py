@@ -1,6 +1,7 @@
 """P2 §4: the causal activity policy is ONE authority with a pinned matrix.
 
-Every cell of the table in ``services/causal_activity_policy``'s docstring is
+Every cell of the table in ``learnloop.diagnosis.causal_activity_policy``'s
+docstring is
 asserted here, including the deliberate divergence from spec §7 (a *pure*
 diagnostic feeds neither FSRS nor certification, which §7 only mandates for an
 *instructional* one). Changing a cell means editing this test and bumping
@@ -11,9 +12,10 @@ from __future__ import annotations
 
 import pytest
 
+import learnloop.causal_activity_policy as policy_primitives
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.causal_activity_policy import (
+from learnloop.diagnosis.causal_activity_policy import (
     CAUSAL_ACTIVITY_POLICY_VERSION,
     CONTAMINATION_CLASSES,
     CONTAMINATION_PRECEDENCE,
@@ -38,6 +40,14 @@ POLICY_MATRIX = {
     "repair_activity": (False, False, True, False),
     "verification": (True, True, False, False),
 }
+
+
+def test_service_exports_share_the_dependency_neutral_policy_authority():
+    assert policy_for_class is policy_primitives.policy_for_class
+    assert CONTAMINATION_PRECEDENCE is policy_primitives.CONTAMINATION_PRECEDENCE
+    assert CAUSAL_ACTIVITY_POLICY_VERSION == (
+        policy_primitives.CAUSAL_ACTIVITY_POLICY_VERSION
+    )
 
 
 @pytest.mark.parametrize(
@@ -219,7 +229,7 @@ def test_near_clone_is_a_fingerprint_comparison_not_provenance(tmp_path):
     other = assess_near_clone(
         vault, practice_item_id=second, source_practice_item_id=first
     )
-    from learnloop.services.canonical_projection import surface_group_id
+    from learnloop.substrate.canonical_projection import surface_group_id
 
     expected = surface_group_id(vault.practice_items[second]) == surface_group_id(
         vault.practice_items[first]
@@ -498,8 +508,8 @@ def test_canonical_projection_version_change_is_a_recalibration_boundary(tmp_pat
 
 
 def test_rebuild_records_the_current_projection_version(tmp_path):
-    from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
+    from learnloop.substrate.replay import rebuild_derived_state
 
     root = tmp_path / "vault"
     paths = create_basic_vault(root)

@@ -17,14 +17,14 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.extractors.normalizers import markdown_to_ir
 from learnloop.ingest.ir import render_ir_markdown
-from learnloop.services.ingest_runner import (
+from learnloop.content.pipeline.runner import (
     FetchedBytes,
     IngestRunner,
     JobSpec,
     RunnerServices,
 )
-from learnloop.services.source_ingestion import ingest_canonical_source
-from learnloop.services.source_unit_selection import save_unit_selection
+from learnloop.content.pipeline.source_ingestion import ingest_canonical_source
+from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 
 from tests.helpers import NOW, create_basic_vault
 from tests.test_source_ingestion import _FakeCanonicalClient, _source_file

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 
-from learnloop.services import robust_composition as rc
+from learnloop.diagnosis import robust_composition as rc
 
 
 def _alpha() -> dict[str, dict[str, float]]:

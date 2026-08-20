@@ -6,8 +6,8 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.db.repositories import Repository
-from learnloop.services.concepts import merge_concepts
-from learnloop.services.doctor import run_doctor
+from learnloop.curriculum.concepts import merge_concepts
+from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_markdown_with_frontmatter, read_yaml, write_markdown_with_frontmatter, write_yaml
 

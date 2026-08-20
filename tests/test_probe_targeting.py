@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_targeting import (
+from learnloop.diagnosis.probe_targeting import (
     CAUSE_SET_COMMON_COVER,
     CAUSE_SET_DIVERGENT,
     CAUSE_SET_INCOMPLETE_MAPPING,
@@ -28,7 +28,7 @@ from learnloop.services.probe_targeting import (
     select_discriminating_instrument,
     should_suppress_prerequisite_probe,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 

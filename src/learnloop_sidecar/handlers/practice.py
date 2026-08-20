@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.clock import utc_now_iso
-from learnloop.codex.client import CodexUnavailable
+from learnloop.ai.errors import CodexUnavailable
 from learnloop.config import CODEX_PROVIDER_NAMES
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeErrorAttribution,
@@ -16,9 +16,9 @@ from learnloop.services.attempts import (
     complete_attempt_with_codex_required,
     complete_self_graded_attempt,
 )
-from learnloop.services.post_attempt import run_post_attempt_pipeline
-from learnloop.services.tutor_qa import hint_equivalents_for_submission
-from learnloop.services.probe_episodes import (
+from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
     enter_episode,
     episode_contract,
@@ -29,9 +29,9 @@ from learnloop.services.probe_episodes import (
     stop_diagnosing_and_teach,
     validate_presentation_for_submission,
 )
-from learnloop.services.probes import probe_posterior
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.trace_evidence import (
+from learnloop.diagnosis.probes import probe_posterior
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.attempts.trace_evidence import (
     compose_learner_trace,
     decide_elicitation,
     elicited_explanations_in,
@@ -251,7 +251,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # per-session qualifying-observation cap and the fresh-vault onboarding
     # ceiling. An active, in-budget calibration session lifts both — it is an
     # explicit learner opt-in.
-    from learnloop.services.calibration_sessions import calibration_cap_lifted
+    from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
 
     cap_lifted = params.session_id is not None and calibration_cap_lifted(
         repository, params.session_id
@@ -302,7 +302,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # rate. Log-only until held-out predictive gains justify promotion.
     extra_components = None
     if vault.config.probe.shadow.enabled:
-        from learnloop.services.calibration_sessions import routine_planner_shadow
+        from learnloop.diagnosis.calibration_sessions import routine_planner_shadow
 
         planner = routine_planner_shadow(vault, repository, episode.id)
         if planner is not None:
@@ -876,7 +876,7 @@ def _log_state_update(vault, repository, method_name: str, session_id: str, befo
 def _display_mean(mastery) -> float | None:
     if mastery is None:
         return None
-    from learnloop.services.mastery import display_mastery
+    from learnloop.learner.mastery import display_mastery
 
     return display_mastery(mastery).mastery_mean
 
@@ -884,7 +884,7 @@ def _display_mean(mastery) -> float | None:
 def _display_variance(mastery) -> float | None:
     if mastery is None:
         return None
-    from learnloop.services.mastery import display_mastery
+    from learnloop.learner.mastery import display_mastery
 
     return display_mastery(mastery).mastery_variance
 

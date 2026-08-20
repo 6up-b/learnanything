@@ -9,7 +9,7 @@ import pytest
 from learnloop.config import SchedulerFollowupConfig
 from learnloop.db.repositories import Repository
 from learnloop.numeric import empirical_quantile
-from learnloop.services.signal_quantiles import resolve_followup_thresholds
+from learnloop.diagnosis.signal_quantiles import resolve_followup_thresholds
 
 from tests.helpers import create_basic_vault
 

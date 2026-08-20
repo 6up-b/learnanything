@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.routing import provider_for_task
-from learnloop.services.concept_animation import (
+from learnloop.content.authoring.concept_animation import (
     ConceptAnimationError,
     manim_runtime,
     request_concept_animation as run_request,

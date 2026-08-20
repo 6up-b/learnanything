@@ -6,10 +6,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import task_blueprints as TB
-from learnloop.services.activities import resolve_legacy_item
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

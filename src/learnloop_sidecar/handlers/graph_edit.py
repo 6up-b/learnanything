@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from learnloop.services.graph_edit_proposals import (
+from learnloop.curriculum.graph_edit_proposals import (
     GraphEditError,
     propose_graph_edits,
     queue_restructure_request,

@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.services import salience_firewall as SF
-from learnloop.services.attempts import apply_attempt
+from learnloop.attempts import salience_firewall as SF
+from learnloop.attempts.attempts import apply_attempt
 
 ALL_SALIENCE = list(SF.READING_EVENT_KINDS) + list(SF.SALIENCE_PROJECTIONS)
 
@@ -96,19 +96,18 @@ def test_belief_modules_never_import_the_reading_firewall() -> None:
     may import the reading-signal firewall as an evidence source. The reject guard
     lives at the ingest boundary (attempts), never inside the belief modules."""
 
-    src = Path(__file__).resolve().parents[1] / "src" / "learnloop" / "services"
+    src = Path(__file__).resolve().parents[1] / "src" / "learnloop"
     belief_modules = (
-        "evidence.py",
-        "certification.py",
-        "mastery.py",
-        "canonical_projection.py",
-        "probe_episodes.py",
-        "goal_contracts.py",
+        "attempts/evidence.py",
+        "goals/certification.py",
+        "learner/mastery.py",
+        "substrate/canonical_projection.py",
+        "diagnosis/probe_episodes.py",
+        "goals/goal_contracts.py",
     )
     for module in belief_modules:
         path = src / module
-        if not path.exists():
-            continue
+        assert path.exists(), module
         text = path.read_text(encoding="utf-8")
         assert "salience_firewall" not in text, module
         assert "reader_capture" not in text, module

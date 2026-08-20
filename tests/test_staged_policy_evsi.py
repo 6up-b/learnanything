@@ -9,13 +9,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import action_loss as AL
-from learnloop.services import controller_actions as A
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import controller_store as store
-from learnloop.services import staged_policy as sp
-from learnloop.services.scheduler import SchedulerSession
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling import action_loss as AL
+from learnloop.scheduling import controller_actions as A
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import controller_store as store
+from learnloop.scheduling import staged_policy as sp
+from learnloop.scheduling.scheduler import SchedulerSession
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -92,7 +92,7 @@ def _tied_diagnostic(randomize=True):
 
 
 def _tied_report():
-    from learnloop.services.constraint_engine import FeasibilityReport
+    from learnloop.scheduling.constraint_engine import FeasibilityReport
 
     a = cs.Candidate(candidate_ref="a", active=True, purpose="diagnostic", surface_hash="A")
     b = cs.Candidate(candidate_ref="b", active=True, purpose="diagnostic", surface_hash="B")

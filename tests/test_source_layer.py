@@ -34,7 +34,7 @@ from learnloop.ingest.locators import (
     format_block_span,
     parse_block_span,
 )
-from learnloop.ingest.source_library import register_source_revision
+from learnloop.content.sources.source_library import register_source_revision
 from tests.test_source_ingestion_adapters import _make_pdf_bytes
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
@@ -351,16 +351,14 @@ def test_backfill_locator_schemes_stamps_and_is_idempotent(tmp_path):
         "thm:4.2": ARXIV_LABEL_V1,
         "eq:1.2": ARXIV_LABEL_V1,
     }
-    # Declared schemes are never re-detected/converted on a second pass.
-    again = repo.backfill_locator_schemes(legacy, clock=_CLOCK)
-    assert again == stamped
+    assert repo.backfill_locator_schemes(legacy, clock=_CLOCK) == stamped
     assert repo.locator_scheme("thm:4.2") == ARXIV_LABEL_V1
 
 
 def test_legacy_locators_still_resolve_after_backfill(tmp_path):
-    # The backfill is additive: legacy resolution is untouched (§2.4 permanence).
-    from learnloop.codex.client import SourceChunk
-    from learnloop.services.source_ingestion import _locator_resolves
+    # The backfill is additive: legacy resolution is untouched.
+    from learnloop.content.pipeline.ai_contracts import SourceChunk
+    from learnloop.content.pipeline.source_ingestion import _locator_resolves
 
     chunks = [
         SourceChunk(locator="root/eigenvalues/p1", text="An eigenvector.", chunk_kind="prose", heading_path=["root", "eigenvalues"], ordinal=1),
@@ -371,3 +369,18 @@ def test_legacy_locators_still_resolve_after_backfill(tmp_path):
     repo.backfill_locator_schemes([chunk.locator for chunk in chunks], clock=_CLOCK)
     assert _locator_resolves(chunks, "root/eigenvalues/p1") is True
     assert _locator_resolves(chunks, "t=0.0-8.0") is True
+
+
+def test_contested_exam_profile_crud_remains_until_owner_telemetry(tmp_path):
+    repo = _repo(tmp_path)
+    repo.upsert_exam_profile(
+        id="exam_profile_1",
+        scope_kind="source",
+        scope_id="source_1",
+        profile_hash="hash_1",
+        profile={"family": "proof"},
+        clock=_CLOCK,
+    )
+    stored = repo.get_exam_profile("source", "source_1")
+    assert stored is not None
+    assert stored["profile"] == {"family": "proof"}

@@ -8,14 +8,14 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.calibration_sessions import (
+from learnloop.diagnosis.calibration_sessions import (
     CalibrationSessionError,
     calibration_cap_lifted,
     calibration_session_progress,
     start_calibration_session,
     stop_calibration_session,
 )
-from learnloop.services.probe_families import builtin_family_templates
+from learnloop.diagnosis.probe_families import builtin_family_templates
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault

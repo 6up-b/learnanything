@@ -15,14 +15,16 @@ RPC would undo the property the service is protecting:
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import timedelta
 
 import pytest
 
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.trace_evidence import compose_learner_trace
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.trace_evidence import compose_learner_trace
 from learnloop_sidecar.errors import SidecarError
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.helpers import create_basic_vault, seed_due_item
@@ -489,10 +491,10 @@ def test_an_answer_recorded_without_a_grader_is_awaiting_regrade_not_answered(ct
     """
 
     from learnloop.clock import utc_now_iso as _now
-    from learnloop.services.clarification import (
+    from learnloop.attempts.clarification import (
         answer_clarification,
         pending_clarification,
-        _row_to_clarification,
+        row_to_clarification,
     )
 
     vault, repository = ctx.require_vault()
@@ -506,7 +508,7 @@ def test_an_answer_recorded_without_a_grader_is_awaiting_regrade_not_answered(ct
     assert result["regraded"] is False
     assert result["status"] == "awaiting_regrade"
     row = repository.grading_clarification_for_attempt(attempt_id)
-    assert _row_to_clarification(row).status(now=_now()) == "awaiting_regrade"
+    assert row_to_clarification(row).status(now=_now()) == "awaiting_regrade"
     # Not offered again: re-asking would make the answer they already gave worthless.
     assert pending_clarification(repository, attempt_id) is None
     # And it is on the retry queue, which is what makes it recoverable.
@@ -522,7 +524,7 @@ def test_the_retry_queue_rebuilds_the_exchange_from_the_stored_question(ctx):
     never happened.
     """
 
-    from learnloop.services.clarification import (
+    from learnloop.attempts.clarification import (
         answer_clarification,
         resolve_awaiting_regrades,
     )
@@ -536,7 +538,7 @@ def test_the_retry_queue_rebuilds_the_exchange_from_the_stored_question(ctx):
 
     seen: dict[str, object] = {}
 
-    class _RecordingGrader:
+    class _RecordingGrader(StructuredClientFake):
         """Captures the context the retry hands the grader, then fails.
 
         Failing on purpose: this test is about what the retry RECONSTRUCTS, and a
@@ -564,7 +566,7 @@ def test_the_retry_queue_rebuilds_the_exchange_from_the_stored_question(ctx):
 
 
 def test_the_retry_queue_is_empty_without_a_grader_rather_than_erroring(ctx):
-    from learnloop.services.clarification import resolve_awaiting_regrades
+    from learnloop.attempts.clarification import resolve_awaiting_regrades
 
     vault, repository = ctx.require_vault()
 

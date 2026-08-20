@@ -19,19 +19,19 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_orchestrator import record_cold_verification_from_task
-from learnloop.services.coldness_receipt import (
+from learnloop.diagnosis.causal_orchestrator import record_cold_verification_from_task
+from learnloop.attempts.coldness_receipt import (
     COLDNESS_RECEIPT_VERSION,
     TELEMETRY_COVERAGE_VERSION,
     evaluate_final_coldness,
     record_administration_snapshot,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     record_prescription_delivery,
     start_remediation_episode,
@@ -626,8 +626,8 @@ def test_no_reveal_rows_is_a_scoped_absence_claim_not_a_bare_pass(tmp_path):
 def test_min_cold_delay_mirrors_the_lane_scheduling_constant():
     """One delay, three users (schedule, reveal-deferral, receipt floor)."""
 
-    from learnloop.services.coldness_receipt import MIN_COLD_DELAY
-    from learnloop.services.remediation import COLD_RETRIEVAL_DELAY
+    from learnloop.attempts.coldness_receipt import MIN_COLD_DELAY
+    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 
     assert MIN_COLD_DELAY == COLD_RETRIEVAL_DELAY
 
@@ -988,7 +988,7 @@ def test_prescribe_handler_records_the_delivery(tmp_path):
 def _record_feedback_view(repository, result, *, shown_clock):
     """Mirror a real door: persist the feedback row, then open the screen."""
 
-    from learnloop.services.post_attempt import persist_attempt_feedback_metadata
+    from learnloop.attempts.post_attempt import persist_attempt_feedback_metadata
 
     persist_attempt_feedback_metadata(repository, result, clock=FrozenClock(NOW))
     assert repository.record_feedback_shown(result.attempt_id, clock=shown_clock)
@@ -1281,7 +1281,7 @@ def test_detail_serve_writes_one_snapshot_for_an_active_cold_task(tmp_path):
 
 
 def test_expired_task_gets_a_partial_final_receipt(tmp_path):
-    from learnloop.services.causal_orchestrator import sweep_expired_cold_retries
+    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
 
     _, vault, repository, misconception_id = _setup(tmp_path)
     treatment = _to_treatment(vault, repository, misconception_id)

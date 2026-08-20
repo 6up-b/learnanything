@@ -8,11 +8,11 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.doctor import run_doctor
-from learnloop.services.role_authority import role_authority
-from learnloop.services.source_coverage import build_source_coverage
-from learnloop.services.source_unit_inventory import run_unit_inventory
-from learnloop.services.source_unit_selection import default_exam_use_modes, save_unit_selection
+from learnloop.ops.doctor import run_doctor
+from learnloop.content.sources.role_authority import role_authority
+from learnloop.content.synthesis.source_coverage import build_source_coverage
+from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
+from learnloop.content.synthesis.source_unit_selection import default_exam_use_modes, save_unit_selection
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.writer import upsert_source_set
 

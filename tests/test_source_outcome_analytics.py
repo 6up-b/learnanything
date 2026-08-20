@@ -10,10 +10,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
-from learnloop.services.maintenance_feed import generate_maintenance_feed
-from learnloop.services.source_outcome_analytics import analyze_source_outcomes
-from learnloop.services.source_set_synthesis import create_study_map
-from learnloop.services.span_view import build_span_view
+from learnloop.ops.maintenance_feed import generate_maintenance_feed
+from learnloop.content.sources.source_outcome_analytics import analyze_source_outcomes
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.reader.span_view import build_span_view
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup

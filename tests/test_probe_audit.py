@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 
 import pytest
@@ -9,14 +11,14 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.probe_audit import (
+from learnloop.diagnosis.probe_audit import (
     calibration_evidence_report,
     eig_calibration_report,
     grading_confusion_report,
@@ -26,7 +28,7 @@ from learnloop.services.probe_audit import (
     shadow_policy_report,
     time_calibration_report,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     enter_episode,
@@ -285,7 +287,7 @@ def test_regrade_checks_record_agreement_and_confusion(tmp_path):
     assert scope["confusion"][disagree["original_outcome"]][disagree["regrade_outcome"]] == 1
 
 
-class FakeGradingClient:
+class FakeGradingClient(StructuredClientFake):
     """Regrades every response as a clean full score."""
 
     provider_name = "fake_grader"
@@ -293,7 +295,7 @@ class FakeGradingClient:
     model = "fake-model"
 
     def run_grading_proposal(self, context):
-        from learnloop.codex.schemas import CriterionEvidence, GradingProposal
+        from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
 
         return GradingProposal(
             attempt_id=context.attempt_id,
@@ -307,7 +309,7 @@ class FakeGradingClient:
 
 
 def test_run_probe_regrade_checks_samples_and_skips_checked(tmp_path):
-    from learnloop.services.probe_audit import run_probe_regrade_checks
+    from learnloop.diagnosis.probe_audit import run_probe_regrade_checks
 
     loaded, repository = _setup(tmp_path)
     _drive_two_observations(loaded, repository)

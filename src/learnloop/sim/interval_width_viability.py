@@ -23,9 +23,9 @@ import random
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from learnloop.services import action_loss as AL
-from learnloop.services import evsi as EV
-from learnloop.services import robust_composition as rc
+from learnloop.scheduling import action_loss as AL
+from learnloop.scheduling import evsi as EV
+from learnloop.diagnosis import robust_composition as rc
 
 # The two-hypothesis separating loss table (different effective repairs).
 _LOSS = AL.LossTable(

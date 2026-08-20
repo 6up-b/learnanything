@@ -7,7 +7,7 @@ budget alarm rather than silently widening tolerances.
 
 from __future__ import annotations
 
-from learnloop.services import robust_composition as rc
+from learnloop.diagnosis import robust_composition as rc
 from learnloop.sim.interval_width_viability import run_interval_width_viability
 
 

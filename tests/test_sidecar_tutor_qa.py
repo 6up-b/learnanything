@@ -9,12 +9,19 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import enter_episode
+from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.server import serve
 
-from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault, seed_due_item
+from tests.helpers import (
+    NOW,
+    NOW_ISO,
+    admit_probe_instrument_card,
+    configure_codex_http,
+    create_basic_vault,
+    seed_due_item,
+)
 
 
 def _rpc(messages: list[dict]) -> list[dict]:
@@ -114,16 +121,9 @@ class _TutorServer:
 
 
 def _configure_http_provider(vault_root: Path, checkout: Path, base_url: str) -> None:
-    """Point both the ai.providers.codex profile and legacy [codex] at the mock."""
+    """Point the canonical Codex provider profile at the mock."""
 
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('type = "codex_sdk"', 'type = "http_adapter"', 1)
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 def _tutor_vault(tmp_path, server: _TutorServer):

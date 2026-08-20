@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.provenance import get_entity_provenance
-from learnloop.services.span_view import SpanViewError, build_span_view
+from learnloop.content.sources.provenance import get_entity_provenance
+from learnloop.reader.span_view import SpanViewError, build_span_view
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError

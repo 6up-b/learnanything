@@ -13,8 +13,8 @@ from learnloop.ai.multimodal import (
     strip_markdown_fences,
     supports_input_modality,
 )
-from learnloop.ai.openai_chat import OpenAIChatProviderClient
-from learnloop.ai.openrouter import OpenRouterProviderClient
+from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
+from learnloop.ai.providers.openrouter import OpenRouterProviderClient
 from learnloop.config import AIProviderConfig
 
 from tests.openai_fakes import install_fake_openai
@@ -144,7 +144,7 @@ def test_empty_markdown_raises(monkeypatch):
     monkeypatch.setenv("EXAMPLE_API_KEY", "secret")
     client = OpenAIChatProviderClient("example", _profile())
 
-    from learnloop.codex.client import CodexUnavailable
+    from learnloop.ai.errors import CodexUnavailable
 
     with pytest.raises(CodexUnavailable, match="empty"):
         client.run_media_markdown(

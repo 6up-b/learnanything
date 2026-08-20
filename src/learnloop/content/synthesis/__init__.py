@@ -1,0 +1,1 @@
+"""Content Synthesis domain package."""

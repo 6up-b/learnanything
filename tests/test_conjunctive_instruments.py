@@ -25,17 +25,17 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.config import EvidenceCertificationConfig, TraceEvidenceConfig
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.canonical_projection import (
+from learnloop.substrate.canonical_projection import (
     CANONICAL_PROJECTION_VERSION,
     project_canonical_facet_state,
 )
-from learnloop.services.capability_mapping import compile_criterion_targets
-from learnloop.services.conjunctive_items import (
+from learnloop.learner.capability_mapping import compile_criterion_targets
+from learnloop.content.authoring.conjunctive_items import (
     CONJUNCTIVE_STRENGTH_CEILING,
     UNEXERCISED_SUPPORTING_TARGET,
     cap_embedded_credit,
@@ -43,14 +43,14 @@ from learnloop.services.conjunctive_items import (
     conjunctive_fit,
     partition_supporting_targets,
 )
-from learnloop.services.exam_pool import _item_components
-from learnloop.services.grading import (
+from learnloop.goals.exam_pool import _item_components
+from learnloop.attempts.grading import (
     MAX_EXERCISED_FACETS_PER_ATTEMPT,
     _validated_exercised_facets,
 )
-from learnloop.services.proposals import _criterion_target_errors
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.trace_evidence import (
+from learnloop.content.proposals.proposals import _criterion_target_errors
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.attempts.trace_evidence import (
     decide_elicitation,
     elicitation_reward,
     trace_evidence_report,
@@ -146,14 +146,23 @@ def _write_item(paths, item_id: str, *, criteria: list[dict], facets: list[str],
 def _set_max_embedded_share(paths, share: float) -> None:
     toml_path = paths.root / "learnloop.toml"
     text = toml_path.read_text(encoding="utf-8")
-    updated, count = re.subn(
-        r"max_groups_per_attempt = 3",
-        f"max_groups_per_attempt = 3\nmax_embedded_credit_share = {share}",
-        text,
-        count=1,
-    )
-    assert count == 1
-    toml_path.write_text(updated, encoding="utf-8")
+    header = "[evidence.certification]"
+    if header not in text:
+        text += f"\n{header}\nmax_embedded_credit_share = {share}\n"
+    elif "max_embedded_credit_share" in text:
+        text = re.sub(
+            r"(?m)^max_embedded_credit_share\s*=.*$",
+            f"max_embedded_credit_share = {share}",
+            text,
+            count=1,
+        )
+    else:
+        text = text.replace(
+            f"{header}\n",
+            f"{header}\nmax_embedded_credit_share = {share}\n",
+            1,
+        )
+    toml_path.write_text(text, encoding="utf-8")
 
 
 def _vault(tmp_path, *, criteria=None, max_embedded_share: float | None = None, facets=None):
@@ -1077,7 +1086,7 @@ def _timeline_endpoint(vault, repository, facet: str) -> float:
     itemization is the pre-cap number and would compare the wrong quantity.
     """
 
-    from learnloop.services.facet_evidence_timeline import facet_evidence_timelines
+    from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
 
     series = facet_evidence_timelines(vault, repository, [facet]).get(facet, [])
     return series[-1].demonstrated if series else 0.0

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services import action_loss as AL
-from learnloop.services import evsi as EV
+from learnloop.scheduling import action_loss as AL
+from learnloop.scheduling import evsi as EV
 
 
 def _derived_cell(h, a, minutes):
@@ -109,7 +109,7 @@ def test_no_pze_substitution_uses_composed_pe_given_h():
     # The composed P(E|H) = sum_z P(E|Z) P(Z|H) chain is what EVSI integrates over; a
     # stored P(Z|E) is never substituted. We assert the emission integration reacts to
     # the grader channel asymmetry (P(E|Z)) rather than to a reversed conditional.
-    from learnloop.services.robust_composition import compose_emission_over_hypotheses
+    from learnloop.diagnosis.robust_composition import compose_emission_over_hypotheses
 
     # Instrument rows P(Z|H); a symmetric-vs-asymmetric grader channel P(E|Z).
     instrument = {"h1": {"z1": 0.9, "z2": 0.1}, "h2": {"z1": 0.1, "z2": 0.9}}

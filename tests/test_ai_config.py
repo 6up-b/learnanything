@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from learnloop.ai.client import make_ai_provider_client
-from learnloop.ai.codex_sdk import codex_config_from_ai_profile
+from learnloop.ai.providers.codex import codex_config_from_ai_profile
 from learnloop.config import (
     CODEX_CHECKOUT_ENV,
     AIProviderConfig,
@@ -309,9 +309,9 @@ def test_default_config_contains_recall_error_impacts(tmp_path):
         assert scaffold.families["recall"] < recall.families["recall"]
         assert slip.families["numeric"] < 0.0
 
-        # cross_lo_propagation.error_gates is retired (knowledge-model §8.3): the
-        # default config no longer seeds it.
-        assert config.cross_lo_propagation.error_gates == {}
+        # The retired cross-LO subsystem is accepted as legacy input but has no
+        # effective typed representation.
+        assert "cross_lo_propagation" not in config.model_dump()
 
 
 def test_error_impacts_max_sharpening_maps_to_recall_coverage_runtime_field():
@@ -342,7 +342,7 @@ def test_legacy_codex_config_maps_to_ai_profile():
 
     profile = config.ai.providers["codex"]
 
-    assert profile.type == "http_adapter"
+    assert profile.type == "http"
     assert profile.model == "gpt-5.4-mini"
     assert profile.checkout_path == "codex-checkout"
     assert profile.base_url == "http://127.0.0.1:9999"

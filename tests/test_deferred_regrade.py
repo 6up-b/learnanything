@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 import sqlite3
 import threading
@@ -8,18 +10,18 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import GradingContext
-from learnloop.codex.runtime import CodexRuntimeReport
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.regrade import run_deferred_ai_regrades, run_deferred_regrades
-from learnloop.services.startup import run_startup_maintenance
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.regrade import run_deferred_ai_regrades, run_deferred_regrades
+from learnloop.ops.startup import run_startup_maintenance
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, configure_codex_http, create_basic_vault
 
 
 def test_deferred_regrade_supersedes_self_grade_and_updates_mastery(tmp_path):
@@ -421,7 +423,7 @@ def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_pa
     assert repository.fetch_grading_evidence(attempt.attempt_id)[0].grader_tier == 3
 
 
-class _RegradeClient:
+class _RegradeClient(StructuredClientFake):
     def __init__(self, *, score: int, points: float, error_attributions: list[ErrorAttribution] | None = None):
         self.score = score
         self.points = points
@@ -476,7 +478,7 @@ class _RepairingRegradeClient(_RegradeClient):
         )
 
 
-class _InvalidRegradeClient:
+class _InvalidRegradeClient(StructuredClientFake):
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
         return GradingProposal(
             attempt_id=context.attempt_id,
@@ -503,13 +505,7 @@ def _ready_runtime() -> CodexRuntimeReport:
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 class _HttpRegradeServer:

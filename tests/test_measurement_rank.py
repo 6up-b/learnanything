@@ -15,7 +15,7 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.identifiability import (
+from learnloop.learner.identifiability import (
     ProposalView,
     analyze_identifiability,
     build_registry_view,
@@ -23,7 +23,7 @@ from learnloop.services.identifiability import (
     graph_identifiability_report,
     measurement_rank,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
@@ -285,19 +285,26 @@ def test_rank_does_not_disturb_the_seven_checks(tmp_path):
 
 
 def test_rank_on_the_real_linear_algebra_fixture(tmp_path):
-    """§5.8.2's measured result: the deficit is non-instrumentation, not synonymy.
+    """§5.8.2's measured result keeps both deficit causes explicit.
 
     The spec recorded 14/39 facets; the fixture has gained practice items since,
-    so the assertions are on the *shape* it verified — a large deficit, all of it
-    from facets no item observes, and zero indistinguishable pairs to collapse.
+    including one composite coordinate-operations exercise that observes three
+    facets together. The pool therefore has a large non-instrumentation deficit
+    plus one truthful three-facet collapse candidate; rank analysis merges none.
     """
 
     fixture = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
     vault = load_vault(fixture)                        # read-only; never mutated
-    rank = measurement_rank(build_registry_view(vault, None))
+    view = build_registry_view(vault, None)
+    rank = measurement_rank(view)
     assert rank.facets_declared == 39
     assert rank.independent_dimensions >= 14
-    assert rank.deficit == rank.deficit_from_unobserved > 20
-    assert rank.deficit_from_collapse == 0
-    assert rank.collapsed_groups == ()
+    assert rank.deficit > 20
+    assert rank.deficit == rank.deficit_from_unobserved + rank.deficit_from_collapse
+    assert rank.deficit_from_unobserved > 20
+    assert rank.deficit_from_collapse == 2
+    assert len(rank.collapsed_groups) == 1
+    (collapsed,) = rank.collapsed_groups
+    assert len(collapsed) == 3
+    assert tuple(sorted(view.item_observations["pi_exercise_01kyjb8p3e84wbn812gw8sdhxq"])) == collapsed
     assert rank.rank_ratio is not None and 0.3 < rank.rank_ratio < 0.5

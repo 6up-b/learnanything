@@ -4,14 +4,14 @@ from typing import Any, Literal
 
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
-from learnloop.services.acquisition_preview import build_acquisition_preview
-from learnloop.services.build_plan import build_build_plan
-from learnloop.services.source_outline import (
+from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
+from learnloop.content.pipeline.build_plan import build_build_plan
+from learnloop.content.sources.source_outline import (
     OutlineNotFound,
     build_source_outline,
     resolve_extraction_id,
 )
-from learnloop.services.source_unit_selection import (
+from learnloop.content.synthesis.source_unit_selection import (
     SelectionValidationError,
     compute_effective_units,
     save_unit_selection,
@@ -19,7 +19,7 @@ from learnloop.services.source_unit_selection import (
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, camel_name, versioned
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.ingest_jobs import _APPLYING_JOB_TYPES, ActiveIngestJobError
+from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES, ActiveIngestJobError
 from learnloop_sidecar.registry import method
 
 # How many recent ingests the screen shows; the vault keeps everything.
@@ -346,7 +346,7 @@ def _reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) 
         job["id"]
         for batch in batches
         for job in batch.get("jobs") or []
-        if job.get("job_type") in _APPLYING_JOB_TYPES
+        if job.get("job_type") in APPLYING_JOB_TYPES
         and job.get("status") == "completed"
         and ctx.ingest_jobs.needs_reload(job["id"])
     ]
@@ -519,7 +519,7 @@ def preview_source_deletion(ctx: SidecarContext, params: SourceDeletionInput) ->
     the learner sees the study-map citations and collection memberships that go
     with it rather than discovering them afterwards."""
 
-    from learnloop.services.source_deletion import SourceDeletionError, plan_source_deletion
+    from learnloop.content.sources.source_deletion import SourceDeletionError, plan_source_deletion
 
     vault, repository = ctx.require_vault()
     try:
@@ -537,8 +537,8 @@ def delete_source(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str,
     ``preview_source_deletion`` first; the service re-checks the blockers either
     way so this can never delete out from under a running ingest job."""
 
-    from learnloop.services.source_deletion import SourceDeletionError
-    from learnloop.services.source_deletion import delete_source as run_delete
+    from learnloop.content.sources.source_deletion import SourceDeletionError
+    from learnloop.content.sources.source_deletion import delete_source as run_delete
 
     vault, repository = ctx.require_vault()
     try:
@@ -851,8 +851,8 @@ def upsert_source_set_rpc(ctx: SidecarContext, params: UpsertSourceSetInput) -> 
 def get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[str, Any]:
     """Deterministic coverage + readiness preview for a collection (§9.3)."""
 
-    from learnloop.services.source_coverage import build_source_coverage
-    from learnloop.services.coverage_rollup import coverage_rollup
+    from learnloop.content.synthesis.source_coverage import build_source_coverage
+    from learnloop.content.synthesis.coverage_rollup import coverage_rollup
 
     vault, repository = ctx.require_vault()
     source_set = _source_set_or_error(vault, params.source_set_id)
@@ -864,7 +864,7 @@ def get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[
 def _validated_brief(raw: dict[str, Any] | None) -> dict[str, Any]:
     """Strict brief validation at the RPC boundary (typed error, camel→snake)."""
 
-    from learnloop.services.brief import BriefValidationError, validate_brief
+    from learnloop.content.synthesis.brief import BriefValidationError, validate_brief
 
     try:
         return validate_brief(raw, strict=True)
@@ -888,8 +888,8 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
     The proposal is left for review unless ``apply`` is set (which requires the
     vault at mvp-0.7; a legacy vault refuses acceptance with a typed reason)."""
 
-    from learnloop.services.source_set_synthesis import StudyMapError
-    from learnloop.services.source_set_synthesis import create_study_map as run_create_study_map
+    from learnloop.content.synthesis.source_set_synthesis import StudyMapError
+    from learnloop.content.synthesis.source_set_synthesis import create_study_map as run_create_study_map
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = ctx.require_vault()
@@ -945,8 +945,8 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
     or rebuilding the map. Members added in the app aren't inventoried yet, so the
     batch inventories first and synthesis gates run once."""
 
-    from learnloop.services.source_append import subject_has_applied_study_map
-    from learnloop.services.source_outline import resolve_extraction_id
+    from learnloop.content.synthesis.source_append import subject_has_applied_study_map
+    from learnloop.content.sources.source_outline import resolve_extraction_id
 
     vault, repository = ctx.require_vault()
     overrides = validated_budget_overrides(params.budget_overrides)
@@ -1050,8 +1050,8 @@ class AppendSourceInput(ParamsModel):
 def append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[str, Any]:
     """Update study map: bounded affected-neighborhood append reconciliation (§10)."""
 
-    from learnloop.services.source_append import append_source as run_append
-    from learnloop.services.source_set_synthesis import StudyMapError
+    from learnloop.content.synthesis.source_append import append_source as run_append
+    from learnloop.content.synthesis.source_set_synthesis import StudyMapError
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = ctx.require_vault()
@@ -1090,7 +1090,7 @@ class RefreshRevisionInput(ParamsModel):
 def refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> dict[str, Any]:
     """Adopt a new source revision (§10.4). Pinned membership advances only on confirm."""
 
-    from learnloop.services.revision_refresh import refresh_revision
+    from learnloop.content.pipeline.revision_refresh import refresh_revision
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = ctx.require_vault()
@@ -1123,7 +1123,7 @@ class ExamReadinessInput(ParamsModel):
 def exam_readiness_rpc(ctx: SidecarContext, params: ExamReadinessInput) -> dict[str, Any]:
     """Lightweight deterministic exam-readiness-by-task-family report (§15)."""
 
-    from learnloop.services.exam_readiness import exam_readiness_report
+    from learnloop.goals.exam_readiness import exam_readiness_report
 
     vault, repository = ctx.require_vault()
     report = exam_readiness_report(vault, repository, subject_id=params.subject_id)
@@ -1138,7 +1138,7 @@ class SourceOutcomesInput(ParamsModel):
 def source_outcomes_rpc(ctx: SidecarContext, params: SourceOutcomesInput) -> dict[str, Any]:
     """Provenance-outcome associations (§11) — report-only, additive suggestions."""
 
-    from learnloop.services.source_outcome_analytics import analyze_source_outcomes
+    from learnloop.content.sources.source_outcome_analytics import analyze_source_outcomes
 
     vault, repository = ctx.require_vault()
     report = analyze_source_outcomes(vault, repository, subject_id=params.subject_id)
@@ -1153,10 +1153,10 @@ class MaintenanceFeedInput(ParamsModel):
 def maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> dict[str, Any]:
     """Generate + return the maintenance feed (§11), deterministic from state."""
 
-    from learnloop.services.maintenance_feed import generate_maintenance_feed
+    from learnloop.ops.maintenance_feed import generate_maintenance_feed
 
     vault, repository = ctx.require_vault()
-    from learnloop.services.forecast_ledger import resolve_due_forecasts
+    from learnloop.goals.forecast_ledger import resolve_due_forecasts
 
     resolve_due_forecasts(repository)
     feed = generate_maintenance_feed(vault, repository)
@@ -1175,7 +1175,7 @@ class MaintenanceNoticeActionInput(ParamsModel):
 def maintenance_notice_action_rpc(ctx: SidecarContext, params: MaintenanceNoticeActionInput) -> dict[str, Any]:
     """Dismiss or snooze a notice WITHOUT changing source or curriculum state (§11)."""
 
-    from learnloop.services.maintenance_feed import dismiss_notice, snooze_notice
+    from learnloop.ops.maintenance_feed import dismiss_notice, snooze_notice
 
     _vault, repository = ctx.require_vault()
     if params.action == "dismiss":
@@ -1197,7 +1197,7 @@ def list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -
     revision) so the client can open both bounded spans side by side through the
     M6-UX ``get_span_view``/Open-in-source viewer."""
 
-    from learnloop.services.source_outline import resolve_extraction_id
+    from learnloop.content.sources.source_outline import resolve_extraction_id
 
     _vault, repository = ctx.require_vault()
     conflicts = repository.source_conflicts_by_status(params.status)
@@ -1227,7 +1227,7 @@ class ResolveConflictInput(ParamsModel):
 def resolve_source_conflict_rpc(ctx: SidecarContext, params: ResolveConflictInput) -> dict[str, Any]:
     """Resolve an open conflict (§10.2) — never applies either competing side."""
 
-    from learnloop.services.conflict_resolution import ConflictResolutionError, conflict_with_audit, resolve_conflict
+    from learnloop.content.proposals.conflict_resolution import ConflictResolutionError, conflict_with_audit, resolve_conflict
 
     _vault, repository = ctx.require_vault()
     try:
@@ -1264,7 +1264,7 @@ def plan_quick_add_rpc(ctx: SidecarContext, params: PlanQuickAddInput) -> dict[s
     role, fills a default brief, and estimates tokens. ``quick_add_requires_import``
     (retryable) means the source must be imported first."""
 
-    from learnloop.services.quick_add import QuickAddError, plan_quick_add
+    from learnloop.content.pipeline.quick_add import QuickAddError, plan_quick_add
 
     vault, repository = ctx.require_vault()
     if params.subject_id is not None and params.subject_id not in vault.subjects:
@@ -1294,7 +1294,7 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
     (honouring an edited role/brief), creates the source set, and enqueues the
     priority [inventory(selected) -> bootstrap_synthesis] build batch."""
 
-    from learnloop.services.quick_add import QuickAddError, enqueue_quick_add, plan_quick_add
+    from learnloop.content.pipeline.quick_add import QuickAddError, enqueue_quick_add, plan_quick_add
 
     vault, repository = ctx.require_vault()
     if not params.unlimited_token_budget:

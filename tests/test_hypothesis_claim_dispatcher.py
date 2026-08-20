@@ -9,7 +9,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.hypothesis_claims import (
+from learnloop.learner.hypothesis_claims import (
     HypothesisClaimError,
     present_claims,
     record_response,

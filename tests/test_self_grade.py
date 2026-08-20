@@ -4,8 +4,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.ingest.source_library import register_source_revision
-from learnloop.services.attempts import (
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeErrorAttribution,
