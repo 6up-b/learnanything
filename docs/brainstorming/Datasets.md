@@ -1,0 +1,17 @@
+- [Eedi Mining Misconceptions ](https://www.kaggle.com/competitions/eedi-mining-misconceptions-in-mathematics/leaderboard)
+	- [Neurips 2020 Education Challenge](https://www.eedischool.com/projects/neurips-education-challenge) [Codalab](https://competitions.codalab.org/competitions/25449)
+		- [arXiv](https://arxiv.org/html/2104.04034v1)
+	- [Neurips 2022 Follow up challenge](https://www.eedischool.com/projects/neurips-2022) [Codalab](https://codalab.lisn.upsaclay.fr/competitions/5626)
+		- [arXiv](https://arxiv.org/html/2208.12610v2)
+- [TutorMoments-Preview](https://huggingface.co/datasets/allenai/tutormoments-preview)
+- [ASSISTments 2009/2015](https://sites.google.com/site/assistmentsdata/home/2009-2010-assistment-data)
+- [FoundationalASSIST](https://huggingface.co/datasets/ASSISTments/FoundationalASSIST)
+- [EdNet](https://github.com/riiid/ednet)
+- [Tutor Move Taxonomy](https://arxiv.org/pdf/2603.05778)
+- [Million Tutoring Moves](https://arxiv.org/html/2605.08092v1)
+- [ConceptKT](https://arxiv.org/html/2603.24073v1)
+- [EvalConvoLearn](https://github.com/RenaissancePhilanthropy/EvalConvoLearn)
+- [Question-Anchored-Tutoring-Dialogues-2k](https://huggingface.co/datasets/Eedi/Question-Anchored-Tutoring-Dialogues-2k)
+- [BePKT](https://arxiv.org/html/2112.08273v1)
+
+Per-dataset verdicts for LearnLoop: [[Diagnostic Pipeline Synthesis]]
